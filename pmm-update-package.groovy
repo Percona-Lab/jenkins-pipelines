@@ -1,7 +1,7 @@
-def app         = 'qan-api'
-def specName    = "percona-${app}"
-def repo        = "percona/${app}"
-def rpmArch     = 'x86_64'
+def app         = 'pmm-update'
+def specName    = "${app}"
+def repo        = "Percona-Lab/${app}"
+def rpmArch     = 'noarch'
 
 def product     = 'pmm-server'
 def arch        = 'x86_64'
@@ -36,12 +36,7 @@ node('centos7-64') {
             sh """
                 sed -i -e 's/.\\/run.bash/#.\\/run.bash/' rhel/SPECS/golang.spec
                 rpmbuild --define "_topdir rhel" -bs rhel/SPECS/${specName}.spec
-                rpmbuild --define "_topdir rhel" -bs rhel/SPECS/golang.spec
             """
-        }
-
-        stage("Build Golang") {
-            sh 'mockchain -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/golang-1.7.3-*.src.rpm'
         }
 
         stage("Build RPMs") {
@@ -54,8 +49,8 @@ node('centos7-64') {
                 cp result-repo/results/epel-7-x86_64/*/${specName}-1*.${rpmArch}.rpm .
                 TAR_NAME=`ls *.rpm | sed -e 's/.el.*//'`
                 rpm2cpio *.rpm | cpio -id
-                mv usr/share/percona-$app \$TAR_NAME
-                mv usr/sbin \$TAR_NAME/bin
+                mkdir -p \$TAR_NAME
+                mv usr/bin \$TAR_NAME/bin
                 tar -zcpf \$TAR_NAME.tar.gz \$TAR_NAME
             """
             stash includes: '*.tar.gz', name: 'tars'

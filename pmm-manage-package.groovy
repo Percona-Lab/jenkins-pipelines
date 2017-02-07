@@ -27,7 +27,7 @@ node('centos7-64') {
         stage("Fetch sources") {
             sh """
                 ls rhel/SPECS/${specName}.spec \
-                    rhel/SPECS/golang.spec \
+                   rhel/SPECS/golang.spec \
                     | xargs -n 1 spectool -g -C rhel/SOURCES
             """
         }
