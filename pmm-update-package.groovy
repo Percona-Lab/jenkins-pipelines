@@ -94,11 +94,11 @@ node {
         def path_to_build = "${DESTINATION}/BUILDS/${product}/${product}-${VERSION}/${GIT_BRANCH}/${shortCommit}/${env.BUILD_NUMBER}"
         withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
             sh """
-                ssh -i ~/.ssh/percona-jenkins-slave-access uploader@repo.ci.percona.com \
+                ssh -i ~/.ssh/percona-jenkins-slave-access uploader@repo.ci.percona.com " \
                     /bin/bash -xc ' \
                         ls UPLOAD/${path_to_build}/binary/${os}/${osVersion}/${arch}/*.rpm \
                             | xargs -n 1 signpackage --verbose --password ${SIGN_PASSWORD} --rpm \
-                    '
+                    '"
             """
         }
     }
