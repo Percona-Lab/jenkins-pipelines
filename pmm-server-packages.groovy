@@ -5,6 +5,12 @@ def arch        = 'x86_64'
 def os          = 'redhat'
 def osVersion   = '7'
 
+echo """
+    DESTINATION: ${DESTINATION}
+    GIT_BRANCH:  ${GIT_BRANCH}
+    VERSION:     ${VERSION}
+"""
+
 node('centos7-64') {
     timestamps {
         stage("Fetch spec files") {
