@@ -55,7 +55,7 @@ node('centos7-64') {
                 cp result-repo/results/epel-7-x86_64/*/${specName}-1*.${rpmArch}.rpm .
                 TAR_NAME=`ls *.rpm | sed -e 's/.el.*//'`
                 rpm2cpio *.rpm | cpio -id
-                mkdir -p \$TAR_NAME
+                mv usr/share/${specName} \$TAR_NAME
                 mv usr/bin \$TAR_NAME/bin
                 tar -zcpf \$TAR_NAME.tar.gz \$TAR_NAME
             """
