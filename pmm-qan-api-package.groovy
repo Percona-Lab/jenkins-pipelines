@@ -17,7 +17,7 @@ echo """
 node('centos7-64') {
     timestamps {
         stage("Fetch spec files") {
-            slackSend channel: '@mykola', message: "${app} rpm: build started"
+            slackSend channel: '@mykola', message: "[${DESTINATION}] ${app} rpm: build started ${env.BUILD_URL}"
             git poll: true, branch: GIT_BRANCH, url: "https://github.com/${repo}.git"
             gitCommit = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
             shortCommit = gitCommit.take(6)
