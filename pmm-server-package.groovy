@@ -1,4 +1,7 @@
 def app         = 'pmm-server'
+def specName    = "${app}"
+def repo        = "percona/${app}"
+def rpmArch     = 'noarch'
 
 def product     = 'pmm-server'
 def arch        = 'x86_64'
@@ -15,44 +18,64 @@ node('centos7-64') {
     timestamps {
         stage("Fetch spec files") {
             slackSend channel: '@mykola', message: "[${DESTINATION}] ${app} rpm: build started ${env.BUILD_URL}"
-            deleteDir()
-            git branch: GIT_BRANCH, url: 'https://github.com/Percona-Lab/pmm-server-packaging.git'
+            git poll: true, branch: GIT_BRANCH, url: "https://github.com/${repo}.git"
             gitCommit = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
             shortCommit = gitCommit.take(6)
+            deleteDir()
+            sh """
+                git clone https://github.com/Percona-Lab/pmm-server-packaging.git ./
+                sed -i -e "s/global commit.*/global commit $gitCommit/" rhel/SPECS/${specName}.spec
+                sed -i -e "s/Version:.*/Version: $VERSION/" rhel/SPECS/${specName}.spec
+                head -15 rhel/SPECS/${specName}.spec
+            """
         }
 
         stage("Fetch sources") {
             sh """
-                rm -rf  rhel/SPECS/percona-dashboards.spec \
-                        rhel/SPECS/pmm-server.spec \
-                        rhel/SPECS/pmm-manage.spec \
-                        rhel/SPECS/pmm-update.spec \
-                        rhel/SPECS/percona-qan-api.spec \
-                        rhel/SPECS/percona-qan-app.spec
-                ls rhel/SPECS/*.spec | xargs -n 1 spectool -g -C rhel/SOURCES
+                ls rhel/SPECS/${specName}.spec \
+                   rhel/SPECS/golang.spec \
+                    | xargs -n 1 spectool -g -C rhel/SOURCES
             """
         }
 
         stage("Build SRPMs") {
             sh """
                 sed -i -e 's/.\\/run.bash/#.\\/run.bash/' rhel/SPECS/golang.spec
-                rpmbuild --define "_topdir rhel" -bs rhel/SPECS/*.spec
+                rpmbuild --define "_topdir rhel" -bs rhel/SPECS/${specName}.spec
             """
-        }
-
-        stage("Build Golang") {
-            sh 'mockchain -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/golang-1.7.3-*.src.rpm'
         }
 
         stage("Build RPMs") {
             sh 'mockchain -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
             stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
+        }
+
+        stage("Build Tarball") {
+            sh """
+                cp result-repo/results/epel-7-x86_64/*/${specName}-1*.${rpmArch}.rpm .
+                TAR_NAME=`ls *.rpm | sed -e 's/.el.*//'`
+                rpm2cpio *.rpm | cpio -id
+                mv usr/share/${specName} \$TAR_NAME
+                tar -zcpf \$TAR_NAME.tar.gz \$TAR_NAME
+            """
+            stash includes: '*.tar.gz', name: 'tars'
             slackSend channel: '@mykola', message: "${app} rpm: build finished"
         }
     }
 }
 
 node {
+    stage("Upload to www.percona.com") {
+        deleteDir()
+        unstash 'tars'
+        if ( DESTINATION == 'pmm' ) {
+            sh """
+                scp -i ~/.ssh/id_rsa_downloads \
+                    `find . -name '*.tar.gz'` \
+                    jenkins@10.10.9.216:/data/downloads/TESTING/pmm/
+            """
+        }
+    }
     stage("Upload to repo.ci.percona.com") {
         deleteDir()
         unstash 'rpms'
