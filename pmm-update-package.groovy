@@ -22,8 +22,8 @@ node('centos7-64') {
             gitCommit = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
             shortCommit = gitCommit.take(6)
             deleteDir()
-            git poll: false, url: 'https://github.com/Percona-Lab/pmm-server-packaging.git'
             sh """
+                git clone https://github.com/Percona-Lab/pmm-server-packaging.git ./
                 sed -i -e "s/global commit.*/global commit $gitCommit/" rhel/SPECS/${specName}.spec
                 sed -i -e "s/Version:.*/Version: $VERSION/" rhel/SPECS/${specName}.spec
                 head -15 rhel/SPECS/${specName}.spec
