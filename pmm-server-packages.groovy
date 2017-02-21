@@ -41,7 +41,8 @@ node('centos7-64') {
         }
 
         stage("Build Golang") {
-            sh 'mockchain -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/golang-1.7.3-*.src.rpm'
+            sh 'mockchain -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/golang-1.*.src.rpm'
+            sh 'mockchain -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/go-srpm-macros-*.src.rpm'
         }
 
         stage("Build RPMs") {

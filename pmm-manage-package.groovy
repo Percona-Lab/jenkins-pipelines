@@ -42,12 +42,14 @@ node('centos7-64') {
             sh """
                 sed -i -e 's/.\\/run.bash/#.\\/run.bash/' rhel/SPECS/golang.spec
                 rpmbuild --define "_topdir rhel" -bs rhel/SPECS/${specName}.spec
+                rpmbuild --define "_topdir rhel" -bs rhel/SPECS/go-srpm-macros.spec
                 rpmbuild --define "_topdir rhel" -bs rhel/SPECS/golang.spec
             """
         }
 
         stage("Build Golang") {
-            sh 'mockchain -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/golang-1.7.3-*.src.rpm'
+            sh 'mockchain -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/golang-1.*.src.rpm'
+            sh 'mockchain -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/go-srpm-macros-*.src.rpm'
         }
 
         stage("Build RPMs") {
