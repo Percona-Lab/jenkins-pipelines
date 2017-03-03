@@ -46,7 +46,7 @@ node('centos7-64') {
         }
 
         stage("Build RPMs") {
-            sh 'mockchain -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
+            sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
             stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
         }
 

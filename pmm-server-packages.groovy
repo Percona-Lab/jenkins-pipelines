@@ -41,12 +41,12 @@ node('centos7-64') {
         }
 
         stage("Build Golang") {
-            sh 'mockchain -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/golang-1.*.src.rpm'
-            sh 'mockchain -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/go-srpm-macros-*.src.rpm'
+            sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/golang-1.*.src.rpm'
+            sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/go-srpm-macros-*.src.rpm'
         }
 
         stage("Build RPMs") {
-            sh 'mockchain -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
+            sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
             stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
             slackSend channel: '@mykola', message: "${app} rpm: build finished"
         }
