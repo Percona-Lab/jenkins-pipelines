@@ -24,6 +24,7 @@ node('centos7-64') {
             deleteDir()
             sh """
                 git clone https://github.com/Percona-Lab/pmm-server-packaging.git ./
+                git show --stat
                 sed -i -e "s/global commit.*/global commit $gitCommit/" rhel/SPECS/${specName}.spec
                 sed -i -e "s/Version:.*/Version: $VERSION/" rhel/SPECS/${specName}.spec
                 head -15 rhel/SPECS/${specName}.spec
@@ -46,7 +47,13 @@ node('centos7-64') {
         }
 
         stage("Build RPMs") {
-            sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
+            try {
+                sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
+            } catch (err) {
+                echo "Caught: ${err}"
+                archiveArtifacts "result-repo/results/epel-7-x86_64/${specName}-*/*.log"
+                sh 'false'
+            }
             stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
         }
 
