@@ -15,6 +15,10 @@ pipeline {
             name : 'VERSION')
     }
 
+    triggers {
+        upstream upstreamProjects: 'pmm-dashboards-package,pmm-manage-package,pmm-qan-api-package,pmm-qan-app-package,pmm-server-package,pmm-server-packages,pmm-update-package', threshold: hudson.model.Result.SUCCESS
+    }
+
     stages {
         stage ('Prepare') {
             steps {
@@ -27,13 +31,13 @@ pipeline {
                 archiveArtifacts 'FULL_TAG'
             }
         }
-        
+
         stage ('Build container') {
             steps {
                 sh 'docker build --no-cache -t \$(cat FULL_TAG) .'
             }
         }
-        
+
         stage ('Push container') {
             steps {
                 sh '''
@@ -43,6 +47,7 @@ pipeline {
             }
         }
     }
+
     post {
         success {
             slackSend channel: '@mykola', color: '#00FF00', message: "[Docker] ${TAG}: build finished"
