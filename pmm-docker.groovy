@@ -22,7 +22,7 @@ pipeline {
     stages {
         stage ('Prepare') {
             steps {
-                slackSend channel: '@mykola', color: '#FFFF00', message: "[Docker] ${TAG}: build started ${env.BUILD_URL}"
+                slackSend channel: '@mykola', color: '#FFFF00', message: "[Docker]: build started - ${env.BUILD_URL}"
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-server.git'
                 sh """
                     export FULL_TAG="${TAG}:${VERSION}-dev\$(date -u '+%Y%m%d%H%M')"
@@ -50,10 +50,13 @@ pipeline {
 
     post {
         success {
-            slackSend channel: '@mykola', color: '#00FF00', message: "[Docker] ${TAG}: build finished"
+            script {
+                def FULL_TAG = sh(returnStdout: true, script: "cat FULL_TAG").trim()
+                slackSend channel: '@mykola', color: '#00FF00', message: "[Docker]: build finished - ${FULL_TAG}"
+            }
         }
         failure {
-            slackSend channel: '@mykola', color: '#FF0000', message: "[Docker] ${TAG}: build failed"
+            slackSend channel: '@mykola', color: '#FF0000', message: "[Docker]: build failed - ${TAG}"
         }
     }
 }
