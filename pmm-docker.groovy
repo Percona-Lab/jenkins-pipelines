@@ -19,7 +19,10 @@ pipeline {
             description: '',
             name: 'VERSION')
     }
-
+    options {
+        skipDefaultCheckout()
+        disableConcurrentBuilds()
+    }
     triggers {
         upstream upstreamProjects: 'pmm-dashboards-package,pmm-manage-package,pmm-qan-api-package,pmm-qan-app-package,pmm-server-package,pmm-server-packages,pmm-update-package', threshold: hudson.model.Result.SUCCESS
     }

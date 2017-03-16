@@ -22,12 +22,16 @@ pipeline {
             description: '',
             name: 'VERSION')
     }
+    options {
+        skipDefaultCheckout()
+        disableConcurrentBuilds()
+    }
     triggers {
         pollSCM '* * * * *'
     }
 
     stages {
-        stage("Fetch spec files") {
+        stage('Fetch spec files') {
             steps {
                 slackSend channel: '@mykola', color: '#FFFF00', message: "[${app}]: build started - ${env.BUILD_URL}"
                 git poll: true, branch: GIT_BRANCH, url: "https://github.com/${repo}.git"
@@ -50,7 +54,7 @@ pipeline {
             }
         }
 
-        stage("Fetch sources") {
+        stage('Fetch sources') {
             steps {
                 sh """
                     ls rhel/SPECS/${specName}.spec \
@@ -60,7 +64,7 @@ pipeline {
             }
         }
 
-        stage("Build SRPMs") {
+        stage('Build SRPMs') {
             steps {
                 sh """
                     sed -i -e 's/.\\/run.bash/#.\\/run.bash/' rhel/SPECS/golang.spec
@@ -71,21 +75,21 @@ pipeline {
             }
         }
 
-        stage("Build Golang") {
+        stage('Build Golang') {
             steps {
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/golang-1.*.src.rpm'
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/go-srpm-macros-*.src.rpm'
             }
         }
 
-        stage("Build RPMs") {
+        stage('Build RPMs') {
             steps {
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
                 stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
             }
         }
 
-        stage("Upload to repo.ci.percona.com") {
+        stage('Upload to repo.ci.percona.com') {
             agent {
                 label 'master'
             }
@@ -131,7 +135,7 @@ pipeline {
             }
         }
 
-        stage("Push to RPM repository") {
+        stage('Push to RPM repository') {
             agent any
             steps {
                 unstash 'gitCommit'
