@@ -29,7 +29,7 @@ pipeline {
     stages {
         stage("Fetch spec files") {
             steps {
-                slackSend channel: '@mykola', color: '#FFFF00', message: "[${DESTINATION}] ${app} rpm: build started ${env.BUILD_URL}"
+                slackSend channel: '@mykola', color: '#FFFF00', message: "[${app}]: build started - ${env.BUILD_URL}"
                 git poll: true, branch: GIT_BRANCH, url: "https://github.com/${repo}.git"
                 sh '''
                     git rev-parse HEAD         > gitCommit
@@ -137,10 +137,10 @@ pipeline {
 
     post {
         success {
-            slackSend channel: '@mykola', color: '#00FF00', message: "[${DESTINATION}] ${app} rpm: build finished"
+            slackSend channel: '@mykola', color: '#00FF00', message: "[${app}]: build finished"
         }
         failure {
-            slackSend channel: '@mykola', color: '#FF0000', message: "[${DESTINATION}] ${app} rpm: build failed"
+            slackSend channel: '@mykola', color: '#FF0000', message: "[${app}]: build failed"
             archiveArtifacts "result-repo/results/epel-7-x86_64/${specName}-*/*.log"
         }
     }

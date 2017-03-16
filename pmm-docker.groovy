@@ -1,18 +1,23 @@
 pipeline {
-    agent { label 'docker' }
+    environment {
+        app = 'Docker'
+    }
+    agent {
+        label 'docker'
+    }
     parameters {
-        string (
+        string(
             defaultValue: 'centos7',
             description: '',
-            name : 'GIT_BRANCH')
-        string (
+            name: 'GIT_BRANCH')
+        string(
             defaultValue: 'perconalab/pmm-server',
             description: '',
-            name : 'TAG')
-        string (
+            name: 'TAG')
+        string(
             defaultValue: '1.1.2',
             description: '',
-            name : 'VERSION')
+            name: 'VERSION')
     }
 
     triggers {
@@ -20,29 +25,29 @@ pipeline {
     }
 
     stages {
-        stage ('Prepare') {
+        stage('Prepare') {
             steps {
-                slackSend channel: '@mykola', color: '#FFFF00', message: "[Docker]: build started - ${env.BUILD_URL}"
+                slackSend channel: '@mykola', color: '#FFFF00', message: "[${app}]: build started - ${env.BUILD_URL}"
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-server.git'
                 sh """
-                    export FULL_TAG="${TAG}:${VERSION}-dev\$(date -u '+%Y%m%d%H%M')"
-                    echo \$FULL_TAG > FULL_TAG
+                    export IMAGE="${TAG}:${VERSION}-dev\$(date -u '+%Y%m%d%H%M')"
+                    echo \$IMAGE> IMAGE
                 """
-                archiveArtifacts 'FULL_TAG'
+                archiveArtifacts 'IMAGE'
             }
         }
 
-        stage ('Build container') {
+        stage('Build Image') {
             steps {
-                sh 'docker build --no-cache -t \$(cat FULL_TAG) .'
+                sh 'docker build --no-cache -t \$(cat IMAGE) .'
             }
         }
 
-        stage ('Push container') {
+        stage('Upload') {
             steps {
                 sh '''
-                    docker push \$(cat FULL_TAG)
-                    docker rmi  \$(cat FULL_TAG)
+                    docker push \$(cat IMAGE)
+                    docker rmi  \$(cat IMAGE)
                 '''
             }
         }
@@ -51,13 +56,13 @@ pipeline {
     post {
         success {
             script {
-                def FULL_TAG = sh(returnStdout: true, script: "cat FULL_TAG").trim()
-                slackSend channel: '@mykola', color: '#00FF00', message: "[Docker]: build finished - ${FULL_TAG}"
-                slackSend channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[Docker]: build finished - ${FULL_TAG}"
+                def IMAGE = sh(returnStdout: true, script: "cat IMAGE").trim()
+                slackSend channel: '@mykola', color: '#00FF00', message: "[${app}]: build finished - ${IMAGE}"
+                slackSend channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${app}]: build finished - ${IMAGE}"
             }
         }
         failure {
-            slackSend channel: '@mykola', color: '#FF0000', message: "[Docker]: build failed - ${TAG}"
+            slackSend channel: '@mykola', color: '#FF0000', message: "[${app}]: build failed"
         }
     }
 }
