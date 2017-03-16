@@ -53,6 +53,7 @@ pipeline {
             script {
                 def FULL_TAG = sh(returnStdout: true, script: "cat FULL_TAG").trim()
                 slackSend channel: '@mykola', color: '#00FF00', message: "[Docker]: build finished - ${FULL_TAG}"
+                slackSend channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[Docker]: build finished - ${FULL_TAG}"
             }
         }
         failure {
