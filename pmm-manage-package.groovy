@@ -81,11 +81,18 @@ pipeline {
         stage("Build RPMs") {
             steps {
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
+                stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
             }
         }
 
         stage("Upload to repo.ci.percona.com") {
+            agent {
+                label 'master'
+            }
             steps {
+                deleteDir()
+                unstash 'rpms'
+                unstash 'gitCommit'
                 sh """
                     export path_to_build="${DESTINATION}/BUILDS/pmm-server/pmm-server-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${env.BUILD_NUMBER}"
 
@@ -105,7 +112,11 @@ pipeline {
         }
 
         stage('Sign RPMs') {
+            agent {
+                label 'master'
+            }
             steps {
+                unstash 'gitCommit'
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
                     sh """
                         export path_to_build="${DESTINATION}/BUILDS/pmm-server/pmm-server-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${env.BUILD_NUMBER}"
@@ -121,7 +132,9 @@ pipeline {
         }
 
         stage("Push to RPM repository") {
+            agent any
             steps {
+                unstash 'gitCommit'
                 script {
                     def path_to_build = sh(returnStdout: true, script: "echo ${DESTINATION}/BUILDS/pmm-server/pmm-server-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${env.BUILD_NUMBER}").trim()
                     build job: 'push-to-rpm-repository', parameters: [string(name: 'PATH_TO_BUILD', value: "${path_to_build}"), string(name: 'DESTINATION', value: "${DESTINATION}")]
