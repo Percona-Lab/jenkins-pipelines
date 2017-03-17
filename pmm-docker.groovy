@@ -14,10 +14,6 @@ pipeline {
             defaultValue: 'perconalab/pmm-server',
             description: '',
             name: 'TAG')
-        string(
-            defaultValue: '1.1.2',
-            description: '',
-            name: 'VERSION')
     }
     options {
         skipDefaultCheckout()
@@ -33,7 +29,7 @@ pipeline {
                 slackSend channel: '@mykola', color: '#FFFF00', message: "[${app}]: build started - ${env.BUILD_URL}"
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-server.git'
                 sh """
-                    export IMAGE="${TAG}:${VERSION}-dev\$(date -u '+%Y%m%d%H%M')"
+                    export IMAGE="${TAG}:\$(date -u '+%Y%m%d%H%M')"
                     echo \$IMAGE> IMAGE
                 """
                 archiveArtifacts 'IMAGE'
