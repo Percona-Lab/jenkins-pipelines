@@ -1,6 +1,6 @@
 pipeline {
     environment {
-        app = 'OVF'
+        specName = 'OVF'
     }
     agent {
         label 'virtualbox'
@@ -15,7 +15,6 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-
     triggers {
         upstream upstreamProjects: 'pmm-dashboards-package,pmm-manage-package,pmm-qan-api-package,pmm-qan-app-package,pmm-server-package,pmm-server-packages,pmm-update-package', threshold: hudson.model.Result.SUCCESS
     }
@@ -23,7 +22,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                slackSend channel: '@mykola', color: '#FFFF00', message: "[${app}]: build started - ${env.BUILD_URL}"
+                slackSend channel: '@mykola', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
                 git poll: true, branch: GIT_BRANCH, url: "https://github.com/Percona-Lab/percona-images.git"
                 sh """
                     make clean
@@ -60,12 +59,12 @@ pipeline {
         success {
             script {
                 def IMAGE = sh(returnStdout: true, script: "cat IMAGE").trim()
-                slackSend channel: '@mykola', color: '#00FF00', message: "[${app}]: build finished - ${IMAGE}"
-                slackSend channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${app}]: build finished - ${IMAGE}"
+                slackSend channel: '@mykola', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
+                slackSend channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
             }
         }
         failure {
-            slackSend channel: '@mykola', color: '#FF0000', message: "[${app}]: build failed"
+            slackSend channel: '@mykola', color: '#FF0000', message: "[${specName}]: build failed"
         }
     }
 }
