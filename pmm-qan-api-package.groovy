@@ -11,6 +11,10 @@ pipeline {
             defaultValue: 'master',
             description: '',
             name: 'GIT_BRANCH')
+        string(
+            defaultValue: 'golang1.7',
+            description: '',
+            name: 'PACKING_BRANCH')
         choice(
             choices: 'laboratory\npmm',
             description: '',
@@ -39,10 +43,10 @@ pipeline {
                 '''
                 stash includes: 'gitCommit,shortCommit', name: 'gitCommit'
                 deleteDir()
-                sh '''
-                    git clone https://github.com/Percona-Lab/pmm-server-packaging.git ./
+                sh """
+                    git clone --branch ${PACKING_BRANCH} https://github.com/Percona-Lab/pmm-server-packaging.git ./
                     git show --stat
-                '''
+                """
                 unstash 'gitCommit'
                 sh """
                     sed -i -e "s/global commit.*/global commit \$(cat gitCommit)/" rhel/SPECS/${specName}.spec
