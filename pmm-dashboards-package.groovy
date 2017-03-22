@@ -1,123 +1,149 @@
-def app         = 'dashboards'
-def specName    = "percona-${app}"
-def repo        = "percona/grafana-${app}"
-def rpmArch     = 'noarch'
+pipeline {
+    environment {
+        specName = 'percona-dashboards'
+        repo     = 'percona/grafana-dashboards'
+    }
+    agent {
+        label 'centos7-64'
+    }
+    parameters {
+        string(
+            defaultValue: 'master',
+            description: '',
+            name: 'GIT_BRANCH')
+        choice(
+            choices: 'laboratory\npmm',
+            description: '',
+            name: 'DESTINATION')
+        string(
+            defaultValue: '1.1.2',
+            description: '',
+            name: 'VERSION')
+    }
+    options {
+        skipDefaultCheckout()
+        disableConcurrentBuilds()
+    }
+    triggers {
+        pollSCM '* * * * *'
+    }
 
-def product     = 'pmm-server'
-def arch        = 'x86_64'
-def os          = 'redhat'
-def osVersion   = '7'
-
-echo """
-    DESTINATION: ${DESTINATION}
-    GIT_BRANCH:  ${GIT_BRANCH}
-    VERSION:     ${VERSION}
-"""
-
-node('centos7-64') {
-    timestamps {
-        stage("Fetch spec files") {
-            slackSend channel: '@mykola', message: "[${DESTINATION}] ${app} rpm: build started ${env.BUILD_URL}"
-            git poll: true, branch: GIT_BRANCH, url: "https://github.com/${repo}.git"
-            gitCommit = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
-            shortCommit = gitCommit.take(6)
-            deleteDir()
-            sh """
-                git clone https://github.com/Percona-Lab/pmm-server-packaging.git ./
-                git show --stat
-                sed -i -e "s/global commit.*/global commit $gitCommit/" rhel/SPECS/${specName}.spec
-                sed -i -e "s/Version:.*/Version: $VERSION/" rhel/SPECS/${specName}.spec
-                head -15 rhel/SPECS/${specName}.spec
-            """
-        }
-
-        stage("Fetch sources") {
-            sh """
-                ls rhel/SPECS/${specName}.spec \
-                   rhel/SPECS/golang.spec \
-                    | xargs -n 1 spectool -g -C rhel/SOURCES
-            """
-        }
-
-        stage("Build SRPMs") {
-            sh """
-                sed -i -e 's/.\\/run.bash/#.\\/run.bash/' rhel/SPECS/golang.spec
-                rpmbuild --define "_topdir rhel" -bs rhel/SPECS/${specName}.spec
-            """
-        }
-
-        stage("Build RPMs") {
-            try {
-                sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
-            } catch (err) {
-                echo "Caught: ${err}"
-                archiveArtifacts "result-repo/results/epel-7-x86_64/${specName}-*/*.log"
-                sh 'false'
+    stages {
+        stage('Fetch spec files') {
+            steps {
+                slackSend channel: '@mykola', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
+                git poll: true, branch: GIT_BRANCH, url: "https://github.com/${repo}.git"
+                sh '''
+                    git rev-parse HEAD         > gitCommit
+                    git rev-parse --short HEAD > shortCommit
+                '''
+                stash includes: 'gitCommit,shortCommit', name: 'gitCommit'
+                deleteDir()
+                sh '''
+                    git clone https://github.com/Percona-Lab/pmm-server-packaging.git ./
+                    git show --stat
+                '''
+                unstash 'gitCommit'
+                sh """
+                    sed -i -e "s/global commit.*/global commit \$(cat gitCommit)/" rhel/SPECS/${specName}.spec
+                    sed -i -e "s/Version:.*/Version: $VERSION/" rhel/SPECS/${specName}.spec
+                    head -15 rhel/SPECS/${specName}.spec
+                """
             }
-            stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
         }
 
-        stage("Build Tarball") {
-            sh """
-                cp result-repo/results/epel-7-x86_64/*/${specName}-1*.${rpmArch}.rpm .
-                TAR_NAME=`ls *.rpm | sed -e 's/.el.*//'`
-                rpm2cpio *.rpm | cpio -id
-                mv usr/share/${specName} \$TAR_NAME
-                tar -zcpf \$TAR_NAME.tar.gz \$TAR_NAME
-            """
-            stash includes: '*.tar.gz', name: 'tars'
-            slackSend channel: '@mykola', message: "${app} rpm: build finished"
+        stage('Fetch sources') {
+            steps {
+                sh """
+                    ls rhel/SPECS/${specName}.spec \
+                       rhel/SPECS/golang.spec \
+                        | xargs -n 1 spectool -g -C rhel/SOURCES
+                """
+            }
+        }
+
+        stage('Build SRPMs') {
+            steps {
+                sh """
+                    sed -i -e 's/.\\/run.bash/#.\\/run.bash/' rhel/SPECS/golang.spec
+                    rpmbuild --define "_topdir rhel" -bs rhel/SPECS/${specName}.spec
+                """
+            }
+        }
+
+        stage('Build RPMs') {
+            steps {
+                sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
+                stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
+            }
+        }
+
+        stage('Upload to repo.ci.percona.com') {
+            agent {
+                label 'master'
+            }
+            steps {
+                deleteDir()
+                unstash 'rpms'
+                unstash 'gitCommit'
+                sh """
+                    export path_to_build="${DESTINATION}/BUILDS/pmm-server/pmm-server-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${env.BUILD_NUMBER}"
+
+                    ssh -i ~/.ssh/percona-jenkins-slave-access uploader@repo.ci.percona.com \
+                    mkdir -p UPLOAD/\${path_to_build}/source/redhat \
+                             UPLOAD/\${path_to_build}/binary/redhat/7/x86_64
+
+                    scp -i ~/.ssh/percona-jenkins-slave-access \
+                        `find result-repo -name '*.src.rpm'` \
+                        uploader@repo.ci.percona.com:UPLOAD/\${path_to_build}/source/redhat/
+
+                    scp -i ~/.ssh/percona-jenkins-slave-access \
+                        `find result-repo -name '*.noarch.rpm' -o -name '*.x86_64.rpm'` \
+                        uploader@repo.ci.percona.com:UPLOAD/\${path_to_build}/binary/redhat/7/x86_64/
+                """
+            }
+        }
+
+        stage('Sign RPMs') {
+            agent {
+                label 'master'
+            }
+            steps {
+                unstash 'gitCommit'
+                withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
+                    sh """
+                        export path_to_build="${DESTINATION}/BUILDS/pmm-server/pmm-server-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${env.BUILD_NUMBER}"
+
+                        ssh -i ~/.ssh/percona-jenkins-slave-access uploader@repo.ci.percona.com " \
+                            /bin/bash -xc ' \
+                                ls UPLOAD/\${path_to_build}/binary/redhat/7/x86_64/*.rpm \
+                                    | xargs -n 1 signpackage --verbose --password ${SIGN_PASSWORD} --rpm \
+                            '"
+                    """
+                }
+            }
+        }
+
+        stage('Push to RPM repository') {
+            agent any
+            steps {
+                unstash 'gitCommit'
+                script {
+                    def path_to_build = sh(returnStdout: true, script: "echo ${DESTINATION}/BUILDS/pmm-server/pmm-server-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${env.BUILD_NUMBER}").trim()
+                    build job: 'push-to-rpm-repository', parameters: [string(name: 'PATH_TO_BUILD', value: "${path_to_build}"), string(name: 'DESTINATION', value: "${DESTINATION}")]
+                    build job: 'sync-repos-to-production', parameters: [booleanParam(name: 'REVERSE', value: false)]
+                }
+            }
         }
     }
-}
 
-node {
-    stage("Upload to www.percona.com") {
-        deleteDir()
-        unstash 'tars'
-        if ( DESTINATION == 'pmm' ) {
-            sh """
-                scp -i ~/.ssh/id_rsa_downloads \
-                    `find . -name '*.tar.gz'` \
-                    jenkins@10.10.9.216:/data/downloads/TESTING/pmm/
-            """
+    post {
+        success {
+            slackSend channel: '@mykola', color: '#00FF00', message: "[${specName}]: build finished"
+        }
+        failure {
+            slackSend channel: '@mykola', color: '#FF0000', message: "[${specName}]: build failed"
+            archiveArtifacts "result-repo/results/epel-7-x86_64/${specName}-*/*.log"
         }
     }
-    stage("Upload to repo.ci.percona.com") {
-        deleteDir()
-        unstash 'rpms'
-        def path_to_build = "${DESTINATION}/BUILDS/${product}/${product}-${VERSION}/${GIT_BRANCH}/${shortCommit}/${env.BUILD_NUMBER}"
-        sh """
-            ssh -i ~/.ssh/percona-jenkins-slave-access uploader@repo.ci.percona.com \
-                mkdir -p UPLOAD/${path_to_build}/source/${os} \
-                         UPLOAD/${path_to_build}/binary/${os}/${osVersion}/${arch}
-
-            scp -i ~/.ssh/percona-jenkins-slave-access \
-                `find result-repo -name '*.src.rpm'` \
-                uploader@repo.ci.percona.com:UPLOAD/${path_to_build}/source/${os}/
-
-            scp -i ~/.ssh/percona-jenkins-slave-access \
-                `find result-repo -name '*.noarch.rpm' -o -name '*.x86_64.rpm'` \
-                uploader@repo.ci.percona.com:UPLOAD/${path_to_build}/binary/${os}/${osVersion}/${arch}/
-        """
-    }
-
-    stage('Sign RPMs') {
-        def path_to_build = "${DESTINATION}/BUILDS/${product}/${product}-${VERSION}/${GIT_BRANCH}/${shortCommit}/${env.BUILD_NUMBER}"
-        withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
-            sh """
-                ssh -i ~/.ssh/percona-jenkins-slave-access uploader@repo.ci.percona.com " \
-                    /bin/bash -xc ' \
-                        ls UPLOAD/${path_to_build}/binary/${os}/${osVersion}/${arch}/*.rpm \
-                            | xargs -n 1 signpackage --verbose --password ${SIGN_PASSWORD} --rpm \
-                    '"
-            """
-        }
-    }
-}
-
-stage('Push to RPM repository') {
-    def path_to_build = "${DESTINATION}/BUILDS/${product}/${product}-${VERSION}/${GIT_BRANCH}/${shortCommit}/${env.BUILD_NUMBER}"
-    build job: 'push-to-rpm-repository', parameters: [string(name: 'PATH_TO_BUILD', value: "${path_to_build}"), string(name: 'DESTINATION', value: "${DESTINATION}")]
-    build job: 'sync-repos-to-production', parameters: [booleanParam(name: 'REVERSE', value: false)]
 }
