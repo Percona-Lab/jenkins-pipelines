@@ -44,10 +44,11 @@ pipeline {
 
         stage('Upload') {
             steps {
-                sh '''
+                sh """
+                    docker tag  \$(cat IMAGE) ${TAG}:dev-latest
                     docker push \$(cat IMAGE)
                     docker rmi  \$(cat IMAGE)
-                '''
+                """
             }
         }
     }
