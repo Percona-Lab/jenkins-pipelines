@@ -7,7 +7,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'centos7',
+            defaultValue: 'master',
             description: '',
             name: 'GIT_BRANCH')
         string(
