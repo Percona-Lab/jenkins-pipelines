@@ -4,7 +4,7 @@ pipeline {
         repo     = 'percona/grafana-dashboards'
     }
     agent {
-        label 'centos7-64'
+        label 'rpm-mock'
     }
     parameters {
         string(

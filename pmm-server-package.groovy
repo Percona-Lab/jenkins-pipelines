@@ -4,7 +4,7 @@ pipeline {
         repo     = 'percona/pmm-server'
     }
     agent {
-        label 'centos7-64'
+        label 'rpm-mock'
     }
     parameters {
         string(

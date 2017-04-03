@@ -4,7 +4,7 @@ pipeline {
         repo     = 'percona/qan-api'
     }
     agent {
-        label 'centos7-64'
+        label 'rpm-mock'
     }
     parameters {
         string(
