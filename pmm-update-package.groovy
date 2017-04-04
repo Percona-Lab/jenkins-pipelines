@@ -145,5 +145,8 @@ pipeline {
             slackSend channel: '@mykola', color: '#FF0000', message: "[${specName}]: build failed"
             archiveArtifacts "result-repo/results/epel-7-x86_64/${specName}-*/*.log"
         }
+        always {
+            deleteDir()
+        }
     }
 }

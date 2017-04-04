@@ -66,5 +66,8 @@ pipeline {
         failure {
             slackSend channel: '@mykola', color: '#FF0000', message: "[${specName}]: build failed"
         }
+        always {
+            deleteDir()
+        }
     }
 }
