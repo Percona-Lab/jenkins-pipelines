@@ -62,7 +62,6 @@ pipeline {
                 """
 
                 slackSend channel: '#pmm-jenkins', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
-                deleteDir()
 
                 sh """
                     export VM_NAME="${specName}-\$(date -u '+%Y%m%d%H%M')"
@@ -192,6 +191,10 @@ pipeline {
 
                         docker logs \$(cat VM_NAME)-server
 
+                        pushd /srv/percona-qa
+                            sudo git pull
+                        popd
+
                         tar -zxpf pmm-client-\$(cat CLIENT_VERSION).tar.gz
                         pushd pmm-client-\$(cat CLIENT_VERSION)
                             sudo ./install
@@ -210,7 +213,12 @@ pipeline {
                     export IP=\$(cat IP)
                     ssh -o StrictHostKeyChecking=no -i /mnt/images/id_rsa_vagrant vagrant@\$IP "
                         export PATH=\$PATH:/usr/sbin
-                        /srv/percona-qa/pmm-tests/pmm-framework.sh --addclient=ps,2  --addclient=ms,2 --addclient=md,2 --addclient=mo,2 --addclient=pxc,3
+                        bash /srv/percona-qa/pmm-tests/pmm-framework.sh \
+                            --addclient=ps,2  \
+                            --addclient=ms,2 \
+                            --addclient=md,2 \
+                            --addclient=mo,2 \
+                            --addclient=pxc,3
                     "
                 """
             }
@@ -227,7 +235,6 @@ pipeline {
                     VBoxManage unregistervm --delete $VM_NAME
                 fi
             '''
-            deleteDir()
         }
         success {
             script {
