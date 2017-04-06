@@ -19,7 +19,7 @@ pipeline {
             description: '',
             name: 'OVF_VERSION')
         string(
-            defaultValue: '1.1.2',
+            defaultValue: '1.1.3',
             description: '',
             name: 'VERSION')
     }
