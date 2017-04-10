@@ -1,3 +1,23 @@
+void checkRPM(String RPM_NAME) {
+    node('master') {
+        script {
+            EXISTS = sh(
+                    script: """
+                        ssh -i ~/.ssh/percona-jenkins-slave-access uploader@repo.ci.percona.com \
+                            ls "/srv/repo-copy/${DESTINATION}/7/RPMS/x86_64/${RPM_NAME}" \
+                            | wc -l || :
+                    """,
+                returnStdout: true
+            ).trim()
+            echo "EXISTS: ${EXISTS}\nFORCE_REBULD: ${FORCE_REBULD}"
+            if (FORCE_REBULD == "false" && EXISTS != "0") {
+                echo "WARNING: RPM package is already exists, skip building."
+                currentBuild.result = 'UNSTABLE'
+            }
+        }
+    }
+}
+
 pipeline {
     environment {
         specName = 'pmm-server'
@@ -19,6 +39,10 @@ pipeline {
             defaultValue: '1.1.3',
             description: '',
             name: 'VERSION')
+        booleanParam(
+            defaultValue: false,
+            description: '',
+            name: 'FORCE_REBULD')
     }
     options {
         skipDefaultCheckout()
@@ -31,7 +55,6 @@ pipeline {
     stages {
         stage('Fetch spec files') {
             steps {
-                slackSend channel: '#pmm-jenkins', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
                 git poll: true, branch: GIT_BRANCH, url: "https://github.com/${repo}.git"
                 sh '''
                     git rev-parse HEAD         > gitCommit
@@ -68,20 +91,35 @@ pipeline {
                     sed -i -e 's/.\\/run.bash/#.\\/run.bash/' rhel/SPECS/golang.spec
                     rpmbuild --define "_topdir rhel" -bs rhel/SPECS/${specName}.spec
                 """
+                script {
+                    RPM_NAME = sh(
+                        script: '''
+                            ls rhel/SRPMS/${specName}-*.src.rpm \
+                                | sed -r " \
+                                    s|^rhel/SRPMS/||; \
+                                    s|[0-9]{10}|*|; \
+                                    s|[.]el7[.]centos[.]src[.]rpm\$|.*|; \
+                                "
+                        ''',
+                        returnStdout: true
+                    ).trim()
+                    checkRPM(RPM_NAME)
+                }
             }
         }
 
         stage('Build RPMs') {
+            when { expression { return currentBuild.result != 'UNSTABLE' } }
             steps {
+                slackSend channel: '#pmm-jenkins', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
                 stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
             }
         }
 
         stage('Upload to repo.ci.percona.com') {
-            agent {
-                label 'master'
-            }
+            when { expression { return currentBuild.result != 'UNSTABLE' } }
+            agent { label 'master' }
             steps {
                 deleteDir()
                 unstash 'rpms'
@@ -105,9 +143,8 @@ pipeline {
         }
 
         stage('Sign RPMs') {
-            agent {
-                label 'master'
-            }
+            when { expression { return currentBuild.result != 'UNSTABLE' } }
+            agent { label 'master' }
             steps {
                 unstash 'gitCommit'
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
@@ -125,6 +162,7 @@ pipeline {
         }
 
         stage('Push to RPM repository') {
+            when { expression { return currentBuild.result != 'UNSTABLE' } }
             agent any
             steps {
                 unstash 'gitCommit'
