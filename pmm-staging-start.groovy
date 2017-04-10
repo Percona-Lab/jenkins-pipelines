@@ -99,7 +99,7 @@ pipeline {
                     export VM_NAME=\$(cat VM_NAME)
                     export OWNER=\$(cat OWNER)
 
-                    VBoxManage import --vsys 0 --vmname \$VM_NAME \$(ls /mnt/images/Docker-Server-*.ovf | sort  | tail -1)
+                    VBoxManage import --vsys 0 --memory 2048 --vmname \$VM_NAME \$(ls /mnt/images/Docker-Server-*.ovf | sort  | tail -1)
                     VBoxManage modifyvm \$VM_NAME --nic1 bridged --bridgeadapter1 bond0
                     VBoxManage modifyvm \$VM_NAME --uart1 0x3F8 4 --uartmode1 file /tmp/\$VM_NAME-console.log
                     VBoxManage modifyvm \$VM_NAME --groups "/\$OWNER,/${specName}"
