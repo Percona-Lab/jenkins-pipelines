@@ -49,7 +49,6 @@ void runMTR(String CMAKE_BUILD_TYPE) {
                     --mysqld=--default-tmp-storage-engine=MyISAM \
                     --suite=rocksdb \
                     --testcase-timeout=1200 \
-                    --skip-test=rocksdb.add_index_inplace_sstfilewriter \
                     | tee mtr.log \
                     || :
             fi
@@ -105,7 +104,7 @@ pipeline {
         repo     = 'facebook/mysql-5.6'
     }
     agent {
-        label 'centos7-64'
+        label 'vps-centos7-64'
     }
     parameters {
         string(
