@@ -235,17 +235,17 @@ pipeline {
             }
         }
 
-        stage('Test: Percona Server') {
+        stage('Test: PS') {
             steps {
                 runTAP("ps", "2")
             }
         }
-        stage('Test: Percona XtraDB Cluster') {
+        stage('Test: PXC') {
             steps {
                 runTAP("pxc", "3")
             }
         }
-        stage('Test: MongoDB') {
+        stage('Test: PSMDB') {
             steps {
                 runTAP("mo", "3")
             }
