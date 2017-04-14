@@ -32,31 +32,37 @@ pipeline {
                     export IMAGE="${TAG}:\$(date -u '+%Y%m%d%H%M')"
                     echo \$IMAGE> IMAGE
                 """
-                archiveArtifacts 'IMAGE'
             }
         }
 
         stage('Build Image') {
             steps {
                 sh 'docker build --no-cache -t \$(cat IMAGE) .'
+                stash includes: 'IMAGE', name: 'IMAGE'
+                archiveArtifacts 'IMAGE'
             }
         }
 
         stage('Upload') {
             steps {
                 sh """
-                    docker push \$(cat IMAGE)
                     docker tag  \$(cat IMAGE) ${TAG}:dev-latest
+                    docker push \$(cat IMAGE)
                     docker push ${TAG}:dev-latest
                     docker rmi  \$(cat IMAGE)
+                    docker rmi  ${TAG}:dev-latest
                 """
             }
         }
     }
 
     post {
+        always {
+            deleteDir()
+        }
         success {
             script {
+                unstash 'IMAGE'
                 def IMAGE = sh(returnStdout: true, script: "cat IMAGE").trim()
                 slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
                 slackSend channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
@@ -64,9 +70,6 @@ pipeline {
         }
         failure {
             slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${specName}]: build failed"
-        }
-        always {
-            deleteDir()
         }
     }
 }

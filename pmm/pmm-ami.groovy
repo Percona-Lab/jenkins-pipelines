@@ -39,24 +39,26 @@ pipeline {
                     """
                 }
                 sh 'tail build.log | grep us-east-1 | cut -d " " -f 2 > IMAGE'
+                stash includes: 'IMAGE', name: 'IMAGE'
                 archiveArtifacts 'IMAGE'
             }
         }
     }
 
     post {
+        always {
+            deleteDir()
+        }
         success {
             script {
+                unstash 'IMAGE'
                 def IMAGE = sh(returnStdout: true, script: "cat IMAGE").trim()
                 slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
-                slackSend channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
+                slackSend channel: '@ramesh.sivaraman', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
             }
         }
         failure {
             slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${specName}]: build failed"
-        }
-        always {
-            deleteDir()
         }
     }
 }
