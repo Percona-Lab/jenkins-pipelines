@@ -1,8 +1,8 @@
 def userInput = ''
 def VMList = ''
 
-node('virtualbox') {
-    stage('Ask input') {
+stage('Ask input') {
+    node('virtualbox') {
         VMList = sh returnStdout: true, script: '''
             set +o xtrace
 
@@ -26,14 +26,18 @@ node('virtualbox') {
 
 $VMList
         """
+    }
 
+    timeout(time:10, unit:'MINUTES') {
         userInput = input message: 'What VM do you want to stop?', parameters: [string(defaultValue: '', description: '', name: 'Name or IP')]
         if ( !VMList.toLowerCase().contains(userInput.toLowerCase())) {
             echo  'Unknown VM'
             error 'Unknown VM'
         }
     }
+}
 
+node('virtualbox') {
     stage('Stop VM') {
         sh """
             set -o errexit
