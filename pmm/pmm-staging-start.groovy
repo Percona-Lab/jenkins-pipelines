@@ -226,16 +226,6 @@ pipeline {
     }
 
     post {
-        always {
-            sh '''
-                export IP=\$(cat IP)
-                export VM_NAME=\$(cat VM_NAME)
-                if [ -n "$VM_NAME" ] && [ "X\$IP" = "X." -o -z "\$IP" ]; then
-                    VBoxManage controlvm $VM_NAME poweroff
-                    VBoxManage unregistervm --delete $VM_NAME
-                fi
-            '''
-        }
         success {
             script {
                 def IMAGE = sh(returnStdout: true, script: "cat IP").trim()
