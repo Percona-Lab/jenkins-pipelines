@@ -9,8 +9,8 @@ void checkRPM(String RPM_NAME) {
                     """,
                 returnStdout: true
             ).trim()
-            echo "EXISTS: ${EXISTS}\nFORCE_REBULD: ${FORCE_REBULD}"
-            if (FORCE_REBULD == "false" && EXISTS != "0") {
+            echo "EXISTS: ${EXISTS}"
+            if (EXISTS != "0") {
                 echo "WARNING: RPM package is already exists, skip building."
                 currentBuild.result = 'UNSTABLE'
             }
@@ -39,10 +39,6 @@ pipeline {
             defaultValue: '1.1.3',
             description: '',
             name: 'VERSION')
-        booleanParam(
-            defaultValue: false,
-            description: '',
-            name: 'FORCE_REBULD')
     }
     options {
         skipDefaultCheckout()
@@ -178,12 +174,15 @@ pipeline {
     post {
         success {
             slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${specName}]: build finished"
+            deleteDir()
+        }
+        unstable {
+            slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${specName}]: build skipped"
+            deleteDir()
         }
         failure {
             slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${specName}]: build failed"
             archiveArtifacts "result-repo/results/epel-7-x86_64/${specName}-*/*.log"
-        }
-        always {
             deleteDir()
         }
     }
