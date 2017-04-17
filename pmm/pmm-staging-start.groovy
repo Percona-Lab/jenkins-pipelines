@@ -178,6 +178,7 @@ pipeline {
                             --volumes-from \$(cat VM_NAME)-data \
                             --name \$(cat VM_NAME)-server \
                             --restart always \
+                            -e METRICS_RESOLUTION=5s \
                             ${DOCKER_VERSION}
 
                         # it is needed to wait 20 second, it is better to download files instead of sleep command
