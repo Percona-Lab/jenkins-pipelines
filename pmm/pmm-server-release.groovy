@@ -151,12 +151,11 @@ pipeline {
             script {
                 def IMAGE = sh(returnStdout: true, script: "cat copy.list").trim()
                 slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
+                deleteDir()
             }
         }
         failure {
             slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${specName}]: build failed"
-        }
-        always {
             deleteDir()
         }
     }
