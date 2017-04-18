@@ -111,12 +111,12 @@ pipeline {
             defaultValue: 'fb-mysql-5.6.35',
             description: '',
             name: 'GIT_BRANCH')
-        booleanParam(
-            defaultValue: false,
+        string(
+            defaultValue: 'false',
             description: '',
             name: 'FORCE_REBULD')
-        booleanParam(
-            defaultValue: false,
+        string(
+            defaultValue: 'false',
             description: '',
             name: 'FORCE_RETEST')
     }
