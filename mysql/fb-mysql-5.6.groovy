@@ -38,7 +38,7 @@ void runMTR(String CMAKE_BUILD_TYPE) {
                 )
                 perl mysql-test-run.pl \
                     --async-client \
-                    --parallel=16 \
+                    --parallel=\$(grep -cw ^processor /proc/cpuinfo) \
                     --fast \
                     --max-test-fail=1000 \
                     --retry=0 \
