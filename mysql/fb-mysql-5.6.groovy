@@ -104,7 +104,7 @@ pipeline {
         repo     = 'facebook/mysql-5.6'
     }
     agent {
-        label 'vps-centos7-64'
+        label 'centos7-64'
     }
     parameters {
         string(
