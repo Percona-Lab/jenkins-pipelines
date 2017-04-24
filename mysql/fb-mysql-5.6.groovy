@@ -1,8 +1,13 @@
 void build(String CMAKE_BUILD_TYPE) {
-    popArtifactDir(CMAKE_BUILD_TYPE)
+    popArtifactFile("${GIT_BRANCH}-${CMAKE_BUILD_TYPE}.tar.gz")
     sh """
-        if [ -f '${CMAKE_BUILD_TYPE}/sql/mysqld' -a '${FORCE_REBULD}' = 'false' ]; then
+        TARBALL=\$(pwd -P)/${GIT_BRANCH}-${CMAKE_BUILD_TYPE}.tar.gz
+        if [ -f "\${TARBALL}" -a '${FORCE_REBUILD}' = 'false' ]; then
             echo Skip building
+            mkdir -p ${CMAKE_BUILD_TYPE}/destdir/usr/local
+            tar \
+                -C ${CMAKE_BUILD_TYPE}/destdir/usr/local \
+                -xzf \${TARBALL}
         else
             mkdir ${CMAKE_BUILD_TYPE} || :
             pushd ${CMAKE_BUILD_TYPE}
@@ -14,20 +19,41 @@ void build(String CMAKE_BUILD_TYPE) {
                     -DMYSQL_MAINTAINER_MODE=0 \
                     -DENABLED_LOCAL_INFILE=1 \
                     -DENABLE_DTRACE=0 \
-                    -DCMAKE_CXX_FLAGS='-march=native'
+                    -DCMAKE_CXX_FLAGS='-march=native' \
+                    -DCMAKE_INSTALL_PREFIX="/usr/local/${GIT_BRANCH}" \
+                    -DMYSQL_DATADIR="/usr/local/${GIT_BRANCH}/data"
                 make -j8
+
+                export DESTDIR=destdir
+                make install
+
+                mkdir -p destdir/usr/local/${GIT_BRANCH}/rqg/rqg/common/
+                cp -r \
+                    ../rqg/rqg/common/mariadb-patches \
+                    destdir/usr/local/${GIT_BRANCH}/rqg/rqg/common/mariadb-patches
+
+                tar \
+                    -C destdir/usr/local \
+                    --owner=0 \
+                    --group=0 \
+                    -czf \${TARBALL} \
+                    ${GIT_BRANCH}
             popd
         fi
     """
-    pushArtifactDir(CMAKE_BUILD_TYPE)
+    archiveArtifacts "${GIT_BRANCH}-${CMAKE_BUILD_TYPE}.tar.gz"
+    pushArtifactFile("${GIT_BRANCH}-${CMAKE_BUILD_TYPE}.tar.gz")
 }
 
 void runMTR(String CMAKE_BUILD_TYPE) {
+    popArtifactFile("mtr-${CMAKE_BUILD_TYPE}.log")
+    popArtifactFile("junit-${CMAKE_BUILD_TYPE}.xml")
     sh """
-        pushd ${CMAKE_BUILD_TYPE}/mysql-test
-            if [ -f 'mtr.log' -a '${FORCE_RETEST}' = 'false' ]; then
-                echo Skip mtr
-            else
+        ROOT_DIR=\$(pwd -P)
+        if [ -f 'junit-${CMAKE_BUILD_TYPE}.xml' -a '${FORCE_RETEST}' = 'false' ]; then
+            echo Skip mtr
+        else
+            pushd ${CMAKE_BUILD_TYPE}/destdir/usr/local/${GIT_BRANCH}/mysql-test
                 export LD_PRELOAD=\$(
                     ls /usr/local/lib/libeatmydata.so \
                         /usr/lib64/libeatmydata.so \
@@ -49,51 +75,34 @@ void runMTR(String CMAKE_BUILD_TYPE) {
                     --mysqld=--default-tmp-storage-engine=MyISAM \
                     --suite=rocksdb \
                     --testcase-timeout=1200 \
-                    | tee mtr.log \
+                    --junit-output=\${ROOT_DIR}/junit-${CMAKE_BUILD_TYPE}.xml \
+                    | tee \${ROOT_DIR}/mtr-${CMAKE_BUILD_TYPE}.log \
                     || :
-            fi
-        popd
-        cp ${CMAKE_BUILD_TYPE}/mysql-test/mtr.log \
-            mtr-${CMAKE_BUILD_TYPE}.log
-        perl -ane '
-            if (m{\\[ (fail|pass|skipped|disabled) \\]}) {
-                \$i++;
-                s/(.*?)(?:w\\d+)? \\[ (pass|fail) \\]/\$2 \$i - \$1/;
-                s/(.*?)(?:w\\d+)? \\[ (skipped|disabled) \\]/ok \$i \\# \$2: \$1/;
-                s/skipped/SKIP/;
-                s/disabled/SKIP/;
-                s/pass/ok/;
-                s/fail/not ok/;
-                print;
-            }
-            END { print "1..\$i\\n" }
-        ' mtr-${CMAKE_BUILD_TYPE}.log | tee ${CMAKE_BUILD_TYPE}.tap
+            popd
+        fi
     """
-
-    stash includes: "${CMAKE_BUILD_TYPE}.tap,mtr-${CMAKE_BUILD_TYPE}.log", name: "${CMAKE_BUILD_TYPE}"
-    pushArtifactDir(CMAKE_BUILD_TYPE)
+    stash includes:  "junit-${CMAKE_BUILD_TYPE}.xml,mtr-${CMAKE_BUILD_TYPE}.log", name: "${CMAKE_BUILD_TYPE}"
     archiveArtifacts "mtr-${CMAKE_BUILD_TYPE}.log"
+    pushArtifactFile("mtr-${CMAKE_BUILD_TYPE}.log")
+    archiveArtifacts "junit-${CMAKE_BUILD_TYPE}.xml"
+    pushArtifactFile("junit-${CMAKE_BUILD_TYPE}.xml")
 }
 
-void pushArtifactDir(String DIR_NAME) {
+void pushArtifactFile(String FILE_NAME) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git rev-parse --short HEAD)/${DIR_NAME}
-            aws s3 sync ${DIR_NAME}/sql/        \$S3_PATH/sql/        --exclude "*CMakeFiles/*" || :
-            aws s3 sync ${DIR_NAME}/extra/      \$S3_PATH/extra/      --exclude "*CMakeFiles/*" || :
-            aws s3 sync ${DIR_NAME}/client/     \$S3_PATH/client/     --exclude "*CMakeFiles/*" || :
-            aws s3 sync ${DIR_NAME}/storage/    \$S3_PATH/storage/    --exclude "*CMakeFiles/*" || :
-            aws s3 sync ${DIR_NAME}/mysql-test/ \$S3_PATH/mysql-test/ --exclude "*CMakeFiles/*" --exclude "*var/*" || :
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git rev-parse --short HEAD)
+            aws s3 ls \$S3_PATH/${FILE_NAME} || :
+            aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
         """
     }
 }
 
-void popArtifactDir(String DIR_NAME) {
+void popArtifactFile(String FILE_NAME) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git rev-parse --short HEAD)/${DIR_NAME}
-            aws s3 sync \$S3_PATH/ ${DIR_NAME}/ --exclude "*CMakeFiles/*" --exclude "*var/*" || :
-            chmod -R 755 ${DIR_NAME}
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git rev-parse --short HEAD)
+            aws s3 cp --quiet \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
         """
     }
 }
@@ -114,7 +123,7 @@ pipeline {
         string(
             defaultValue: 'false',
             description: '',
-            name: 'FORCE_REBULD')
+            name: 'FORCE_REBUILD')
         string(
             defaultValue: 'false',
             description: '',
@@ -186,22 +195,23 @@ pipeline {
     }
 
     post {
+        always {
+            deleteDir()
+        }
         success {
             script {
                 unstash 'Debug'
+                unstash 'RelWithDebInfo'
                 COMPLETED = sh (
                     script: 'grep Completed: mtr-Debug.log | cut -d : -f 2',
                     returnStdout: true
                 ).trim()
-                step([$class: "TapPublisher", testResults: '*.tap'])
                 slackSend channel: '#fb-myrocks-build', color: '#00FF00', message: "[${specName}]: build finished\n${COMPLETED}"
+                step([$class: 'JUnitResultArchiver', testResults: 'junit-*.xml', healthScaleFactor: 1.0])
             }
         }
         failure {
             slackSend channel: '#fb-myrocks-build', color: '#FF0000', message: "[${specName}]: build failed"
-        }
-        always {
-            deleteDir()
         }
     }
 }
