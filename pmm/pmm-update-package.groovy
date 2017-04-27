@@ -24,7 +24,7 @@ pipeline {
         repo     = 'Percona-Lab/pmm-update'
     }
     agent {
-        label 'rpm-mock'
+        label 'centos7-64'
     }
     parameters {
         string(
