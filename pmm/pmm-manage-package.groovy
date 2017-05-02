@@ -36,7 +36,7 @@ pipeline {
             description: '',
             name: 'DESTINATION')
         string(
-            defaultValue: '1.1.3',
+            defaultValue: '1.1.4',
             description: '',
             name: 'VERSION')
     }
