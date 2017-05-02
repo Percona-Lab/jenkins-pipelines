@@ -1,7 +1,4 @@
 pipeline {
-    environment {
-        specName = 'pmm-staging'
-    }
     agent {
         label 'virtualbox'
     }
@@ -38,6 +35,14 @@ pipeline {
             defaultValue: '3.4.2-1.2',
             description: 'Percona Server for MongoDB',
             name: 'MO_VERSION')
+        string(
+            defaultValue: '--addclient=ps,2 --addclient=ms,2 --addclient=md,2 --addclient=mo,2 --addclient=pxc,3',
+            description: 'List PMM Clients',
+            name: 'CLIENTS')
+        string(
+            defaultValue: 'false',
+            description: 'Enable Slack notification',
+            name: 'NOTIFY')
     }
     options {
         skipDefaultCheckout()
@@ -59,12 +64,17 @@ pipeline {
                     MS_VERSION:     ${MS_VERSION}
                     MD_VERSION:     ${MD_VERSION}
                     MO_VERSION:     ${MO_VERSION}
+                    CLIENTS:        ${CLIENTS}
                 """
 
-                slackSend channel: '#pmm-jenkins', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
+                script {
+                    if ("${NOTIFY}" == "true") {
+                        slackSend channel: '#pmm-jenkins', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${env.BUILD_URL}"
+                    }
+                }
 
                 sh """
-                    export VM_NAME="${specName}-\$(date -u '+%Y%m%d%H%M')"
+                    export VM_NAME="${JOB_NAME}-\$(date -u '+%Y%m%d%H%M')"
                     echo \$VM_NAME > VM_NAME
 
                     export OWNER=\$(
@@ -102,7 +112,7 @@ pipeline {
                     VBoxManage import --vsys 0 --memory 8192 --vmname \$VM_NAME \$(ls /mnt/images/Docker-Server-*.ovf | sort  | tail -1)
                     VBoxManage modifyvm \$VM_NAME --nic1 bridged --bridgeadapter1 bond0
                     VBoxManage modifyvm \$VM_NAME --uart1 0x3F8 4 --uartmode1 file /tmp/\$VM_NAME-console.log
-                    VBoxManage modifyvm \$VM_NAME --groups "/\$OWNER,/${specName}"
+                    VBoxManage modifyvm \$VM_NAME --groups "/\$OWNER,/${JOB_NAME}"
                     VBoxManage startvm --type headless \$VM_NAME
 
                     for I in $(seq 1 6); do
@@ -214,12 +224,18 @@ pipeline {
                     export IP=\$(cat IP)
                     ssh -o StrictHostKeyChecking=no -i /mnt/images/id_rsa_vagrant vagrant@\$IP "
                         export PATH=\$PATH:/usr/sbin
-                        bash /srv/percona-qa/pmm-tests/pmm-framework.sh \
-                            --addclient=ps,2  \
-                            --addclient=ms,2 \
-                            --addclient=md,2 \
-                            --addclient=mo,2 \
-                            --addclient=pxc,3
+                        bash /srv/percona-qa/pmm-tests/pmm-framework.sh ${CLIENTS}
+
+                        # run sysbench
+                        git clone https://github.com/delgod/pmm-demo.git
+                        pushd pmm-demo
+                            if [ -S /tmp/PS_NODE_1.sock ]; then
+                                sudo ./install ps56 /tmp/PS_NODE_1.sock
+                            fi
+                            if [ -S /tmp/MD_NODE_1.sock ]; then
+                                sudo ./install md /tmp/MD_NODE_1.sock
+                            fi
+                        popd
                     "
                 """
             }
@@ -231,8 +247,10 @@ pipeline {
             script {
                 def IMAGE = sh(returnStdout: true, script: "cat IP").trim()
                 def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
-                slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
-                slackSend channel: "@${OWNER}", color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
+                if ("${NOTIFY}" == "true") {
+                    slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
+                    slackSend channel: "@${OWNER}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
+                }
             }
         }
         failure {
@@ -243,7 +261,11 @@ pipeline {
                     VBoxManage unregistervm --delete $VM_NAME
                 fi
             '''
-            slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${specName}]: build failed"
+            script {
+                if ("${NOTIFY}" == "true") {
+                    slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${specName}]: build failed"
+                }
+            }
         }
     }
 }
