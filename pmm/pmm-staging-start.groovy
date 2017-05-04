@@ -163,7 +163,8 @@ pipeline {
                     '
                 '''
                 script {
-                    env.IP = sh(returnStdout: true, script: "cat IP").trim()
+                    env.IP      = sh(returnStdout: true, script: "cat IP").trim()
+                    env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
                 }
                 archiveArtifacts 'IP'
             }
