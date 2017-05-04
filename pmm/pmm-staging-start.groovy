@@ -40,7 +40,7 @@ pipeline {
             description: 'List PMM Clients',
             name: 'CLIENTS')
         string(
-            defaultValue: 'false',
+            defaultValue: 'true',
             description: 'Enable Slack notification',
             name: 'NOTIFY')
     }
@@ -162,6 +162,9 @@ pipeline {
                         sudo systemctl restart network docker
                     '
                 '''
+                script {
+                    env.IP = sh(returnStdout: true, script: "cat IP").trim()
+                }
                 archiveArtifacts 'IP'
             }
         }
