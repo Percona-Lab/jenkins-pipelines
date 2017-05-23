@@ -82,10 +82,14 @@ void runMTR(String CMAKE_BUILD_TYPE) {
         fi
     """
     stash includes:  "junit-${CMAKE_BUILD_TYPE}.xml,mtr-${CMAKE_BUILD_TYPE}.log", name: "${CMAKE_BUILD_TYPE}"
+
     archiveArtifacts "mtr-${CMAKE_BUILD_TYPE}.log"
     pushArtifactFile("mtr-${CMAKE_BUILD_TYPE}.log")
+
     archiveArtifacts "junit-${CMAKE_BUILD_TYPE}.xml"
     pushArtifactFile("junit-${CMAKE_BUILD_TYPE}.xml")
+
+    archiveArtifacts "${CMAKE_BUILD_TYPE}/destdir/usr/local/${GIT_BRANCH}/mysql-test/var/*/log/*.log"
 }
 
 void pushArtifactFile(String FILE_NAME) {
