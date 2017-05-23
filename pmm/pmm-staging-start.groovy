@@ -231,7 +231,7 @@ pipeline {
                         bash /srv/percona-qa/pmm-tests/pmm-framework.sh ${CLIENTS}
 
                         # run sysbench
-                        git clone https://github.com/delgod/pmm-demo.git
+                        git clone https://github.com/percona/pmm-demo.git
                         pushd pmm-demo
                             if [ -S /tmp/PS_NODE_1.sock ]; then
                                 sudo ./install ps56 /tmp/PS_NODE_1.sock
