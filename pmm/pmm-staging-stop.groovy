@@ -56,6 +56,7 @@ pipeline {
                     set -o errexit
                     VM_NAME=\$(echo '${VMList}' | grep '${VM}' | awk '{print\$1}')
                     VBoxManage controlvm "\$VM_NAME" poweroff
+                    sleep 10
                     VBoxManage unregistervm --delete "\$VM_NAME"
                 """
             }
