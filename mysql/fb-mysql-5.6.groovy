@@ -89,7 +89,8 @@ void runMTR(String CMAKE_BUILD_TYPE) {
     archiveArtifacts "junit-${CMAKE_BUILD_TYPE}.xml"
     pushArtifactFile("junit-${CMAKE_BUILD_TYPE}.xml")
 
-    archiveArtifacts "${CMAKE_BUILD_TYPE}/destdir/usr/local/${GIT_BRANCH}/mysql-test/var/*/log/*.log"
+    archiveArtifacts "${CMAKE_BUILD_TYPE}/destdir/usr/local/${GIT_BRANCH}/mysql-test/var/**/*.err"
+    archiveArtifacts "${CMAKE_BUILD_TYPE}/destdir/usr/local/${GIT_BRANCH}/mysql-test/var/**/*.log"
 }
 
 void pushArtifactFile(String FILE_NAME) {
