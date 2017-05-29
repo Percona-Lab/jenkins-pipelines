@@ -262,6 +262,7 @@ pipeline {
                 export VM_NAME=\$(cat VM_NAME)
                 if [ -n "$VM_NAME" ]; then
                     VBoxManage controlvm $VM_NAME poweroff
+                    sleep 10
                     VBoxManage unregistervm --delete $VM_NAME
                 fi
             '''
