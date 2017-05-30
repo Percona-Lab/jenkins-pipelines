@@ -48,9 +48,6 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-    triggers {
-        upstream upstreamProjects: 'pmm-docker'
-    }
 
     stages {
         stage('Prepare') {
@@ -268,7 +265,7 @@ pipeline {
             '''
             script {
                 if ("${NOTIFY}" == "true") {
-                    slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${specName}]: build failed"
+                    slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
                 }
             }
         }

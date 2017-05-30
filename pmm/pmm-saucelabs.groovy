@@ -33,6 +33,13 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
     }
+    options {
+        skipDefaultCheckout()
+        disableConcurrentBuilds()
+    }
+    triggers {
+        upstream upstreamProjects: 'pmm-docker', threshold: hudson.model.Result.SUCCESS
+    }
 
     stages {
         stage('Preparation') {

@@ -28,9 +28,6 @@ void runTAP(String TYPE, String COUNT) {
 }
 
 pipeline {
-    environment {
-        specName = 'pmm-testsuite'
-    }
     agent {
         label 'virtualbox'
     }
@@ -90,11 +87,10 @@ pipeline {
                     MO_VERSION:     ${MO_VERSION}
                 """
 
-                slackSend channel: '#pmm-jenkins', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
-                deleteDir()
+                slackSend channel: '#pmm-jenkins', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${env.BUILD_URL}"
 
                 sh """
-                    export VM_NAME="${specName}-\$(date -u '+%Y%m%d%H%M')"
+                    export VM_NAME="${JOB_NAME}-\$(date -u '+%Y%m%d%H%M')"
                     echo \$VM_NAME > VM_NAME
 
                     export OWNER=\$(
@@ -128,10 +124,10 @@ pipeline {
                     export VM_NAME=\$(cat VM_NAME)
                     export OWNER=\$(cat OWNER)
 
-                    VBoxManage import --vsys 0 --vmname \$VM_NAME \$(ls /mnt/images/Docker-Server-*.ovf | sort  | tail -1)
+                    VBoxManage import --vsys 0 --memory 8192 --vmname \$VM_NAME \$(ls /mnt/images/Docker-Server-*.ovf | sort  | tail -1)
                     VBoxManage modifyvm \$VM_NAME --nic1 bridged --bridgeadapter1 bond0
                     VBoxManage modifyvm \$VM_NAME --uart1 0x3F8 4 --uartmode1 file /tmp/\$VM_NAME-console.log
-                    VBoxManage modifyvm \$VM_NAME --groups "/\$OWNER,/${specName}"
+                    VBoxManage modifyvm \$VM_NAME --groups "/\$OWNER,/${JOB_NAME}"
                     VBoxManage startvm --type headless \$VM_NAME
 
                     for I in $(seq 1 6); do
@@ -260,10 +256,10 @@ pipeline {
     post {
         always {
             sh '''
-                export IP=\$(cat IP)
                 export VM_NAME=\$(cat VM_NAME)
                 if [ -n "$VM_NAME" ]; then
                     VBoxManage controlvm $VM_NAME poweroff
+                    sleep 10
                     VBoxManage unregistervm --delete $VM_NAME
                 fi
             '''
@@ -284,11 +280,11 @@ pipeline {
                     script: 'grep "^not ok" *.tap | wc -l',
                     returnStdout: true
                 ).trim()
-                slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${specName}]: build finished\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}"
+                slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${JOB_NAME}]: build finished\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}"
             }
         }
         failure {
-            slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${specName}]: build failed"
+            slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
         }
     }
 }
