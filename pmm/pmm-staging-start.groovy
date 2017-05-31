@@ -36,7 +36,7 @@ pipeline {
             description: 'Percona Server for MongoDB',
             name: 'MO_VERSION')
         string(
-            defaultValue: '--addclient=ps,2 --addclient=ms,2 --addclient=md,2 --addclient=mo,2 --addclient=pxc,3',
+            defaultValue: '--addclient=ps,1 --addclient=mo,1',
             description: 'List PMM Clients',
             name: 'CLIENTS')
         string(
