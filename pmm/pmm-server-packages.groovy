@@ -50,6 +50,7 @@ pipeline {
                             rhel/SPECS/pmm-manage.spec \
                             rhel/SPECS/pmm-update.spec \
                             rhel/SPECS/percona-qan-api.spec \
+                            rhel/SPECS/percona-qan-app2.spec \
                             rhel/SPECS/percona-qan-app.spec
                     ls rhel/SPECS/*.spec | xargs -n 1 spectool -g -C rhel/SOURCES
                 """
