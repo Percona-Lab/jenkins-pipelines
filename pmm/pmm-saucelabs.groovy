@@ -42,7 +42,7 @@ pipeline {
     }
 
     stages {
-        stage('Preparation') {
+        stage('Prepare') {
             steps {
                 slackSend channel: '#pmm-jenkins', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${env.BUILD_URL}"
 
@@ -64,6 +64,11 @@ pipeline {
         stage('Sanity check') {
             steps {
                 sh "curl --silent --insecure '${PMM_URL}/prometheus/targets' | grep localhost:9090"
+            }
+        }
+        stage('Sleep') {
+            steps {
+                sleep 120
             }
         }
         stage('Run Test') {
