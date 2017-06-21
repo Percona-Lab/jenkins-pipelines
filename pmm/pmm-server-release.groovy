@@ -138,8 +138,10 @@ pipeline {
             steps {
                 sh """
                     ssh -i ~/.ssh/id_rsa_downloads jenkins@10.10.9.216 "
-                        cd /data/downloads/TESTING/pmm
-                        wget https://s3.amazonaws.com/percona-vm/${OVF_VERSION}
+                        pushd /data/downloads/TESTING/pmm
+                            rm -rf PMM-Server-${VERSION}.ova || :
+                            wget -O PMM-Server-${VERSION}.ova https://s3.amazonaws.com/percona-vm/${OVF_VERSION}
+                        popd
                     "
                 """
             }
