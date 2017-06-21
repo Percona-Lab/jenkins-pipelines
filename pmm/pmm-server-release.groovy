@@ -141,6 +141,7 @@ pipeline {
                         pushd /data/downloads/TESTING/pmm
                             rm -rf PMM-Server-${VERSION}.ova || :
                             wget -O PMM-Server-${VERSION}.ova https://s3.amazonaws.com/percona-vm/${OVF_VERSION}
+                            md5sum PMM-Server-${VERSION}.ova > PMM-Server-${VERSION}.md5sum
                         popd
                     "
                 """
