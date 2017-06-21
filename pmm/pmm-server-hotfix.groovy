@@ -12,7 +12,7 @@ pipeline {
             description: '',
             name: 'DOCKER_VERSION')
         string(
-            defaultValue: '1.1.5',
+            defaultValue: '1.1.6',
             description: '',
             name: 'VERSION')
     }
