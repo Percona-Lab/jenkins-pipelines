@@ -133,18 +133,16 @@ pipeline {
         }
         stage('Publish OVF') {
             agent {
-                label 'master'
+                label 'awscli'
             }
             steps {
-                sh """
-                    ssh -i ~/.ssh/id_rsa_downloads jenkins@10.10.9.216 "
-                        pushd /data/downloads/TESTING/pmm
-                            rm -rf PMM-Server-${VERSION}.ova || :
-                            wget -O PMM-Server-${VERSION}.ova https://s3.amazonaws.com/percona-vm/${OVF_VERSION}
-                            md5sum PMM-Server-${VERSION}.ova > PMM-Server-${VERSION}.md5sum
-                        popd
-                    "
-                """
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        aws s3 cp s3://percona-vm/${OVF_VERSION} PMM-Server-${VERSION}.ova
+                        md5sum PMM-Server-${VERSION}.ova > PMM-Server-${VERSION}.md5sum
+                        scp -i ~/.ssh/id_rsa_downloads PMM-Server-${VERSION}.* jenkins@10.10.9.216:/data/downloads/TESTING/pmm/
+                    """
+                }
             }
         }
         stage('Copy AMI') {
