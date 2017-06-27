@@ -8,7 +8,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'master',
-            description: '',
+            description: 'Tag/Branch for percona-images repository',
             name: 'GIT_BRANCH')
     }
     options {

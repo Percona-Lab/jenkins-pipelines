@@ -9,11 +9,11 @@ pipeline {
     parameters {
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
-            description: '',
+            description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
             defaultValue: '1.1.6',
-            description: '',
+            description: 'PMM Server version',
             name: 'VERSION')
     }
     stages {

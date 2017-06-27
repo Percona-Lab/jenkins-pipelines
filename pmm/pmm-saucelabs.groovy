@@ -26,7 +26,7 @@ pipeline {
             name: 'GIT_BRANCH')
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
-            description: 'PMM Server docker version',
+            description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
             defaultValue: 'latest',

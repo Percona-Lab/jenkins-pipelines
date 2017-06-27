@@ -5,43 +5,43 @@ pipeline {
     parameters {
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
-            description: '',
+            description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
             defaultValue: 'latest',
-            description: '',
+            description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
             defaultValue: '',
-            description: 'personal public ssh key, ssh user - vagrant',
+            description: 'public ssh key for "vagrant" user, please set if you need ssh access',
             name: 'SSH_KEY')
         string(
             defaultValue: '5.7.17-rel11-27.20.2',
-            description: 'Percona XtraDB Cluster',
+            description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
         string(
             defaultValue: '5.7.17-11',
-            description: 'Percona Server for MySQL',
+            description: 'Percona Server for MySQL version',
             name: 'PS_VERSION')
         string(
             defaultValue: '5.7.17',
-            description: 'MySQL Community Server',
+            description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         string(
             defaultValue: '10.1.22',
-            description: 'MariaDB Server',
+            description: 'MariaDB Server version',
             name: 'MD_VERSION')
         string(
             defaultValue: '3.4.2-1.2',
-            description: 'Percona Server for MongoDB',
+            description: 'Percona Server for MongoDB version',
             name: 'MO_VERSION')
         string(
             defaultValue: '--addclient=ps,1 --addclient=mo,1',
-            description: 'List PMM Clients',
+            description: 'Configure PMM Clients. ps - Percona Server for MySQL, pxc - Percona XtraDB Cluster, ms - MySQL Community Server, md - MariaDB Server, MO - Percona Server for MongoDB',
             name: 'CLIENTS')
         string(
             defaultValue: 'true',
-            description: 'Enable Slack notification',
+            description: 'Enable Slack notification (option for high level pipelines)',
             name: 'NOTIFY')
     }
     options {

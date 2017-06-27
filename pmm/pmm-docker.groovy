@@ -8,11 +8,11 @@ pipeline {
     parameters {
         string(
             defaultValue: 'master',
-            description: '',
+            description: 'Tag/Branch for pmm-server repository',
             name: 'GIT_BRANCH')
         string(
             defaultValue: 'perconalab/pmm-server',
-            description: '',
+            description: 'Docker Hub repository',
             name: 'TAG')
     }
     options {

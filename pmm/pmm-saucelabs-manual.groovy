@@ -9,7 +9,7 @@ pipeline {
             name: 'GIT_BRANCH')
         string(
             defaultValue: 'http://user:pass@IP',
-            description: '',
+            description: 'PMM Server Web Interface URL',
             name: 'PMM_URL')
     }
 

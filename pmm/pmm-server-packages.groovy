@@ -9,15 +9,15 @@ pipeline {
     parameters {
         string(
             defaultValue: 'master',
-            description: '',
+            description: 'Tag/Branch for Percona-Lab/pmm-server-packaging repository checkout',
             name: 'GIT_BRANCH')
         choice(
             choices: 'laboratory\npmm',
-            description: '',
+            description: 'publish result package to internal or external repository',
             name: 'DESTINATION')
         string(
             defaultValue: '1.1.6',
-            description: '',
+            description: 'version of result package',
             name: 'VERSION')
     }
     options {
