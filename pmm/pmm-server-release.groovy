@@ -87,8 +87,8 @@ pipeline {
                             ["pmm-server"]="percona/pmm-server"
                             ["percona-qan-api"]="percona/qan-api"
                             ["percona-qan-app"]="percona/qan-app"
-                            ["pmm-update"]="Percona-Lab/pmm-update"
-                            ["pmm-manage"]="Percona-Lab/pmm-manage"
+                            ["pmm-update"]="percona/pmm-update"
+                            ["pmm-manage"]="percona/pmm-manage"
                         )
 
                         for package in "${!repo[@]}"; do

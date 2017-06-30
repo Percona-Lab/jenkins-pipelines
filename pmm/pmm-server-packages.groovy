@@ -1,7 +1,7 @@
 pipeline {
     environment {
         specName = '3rd-party'
-        repo     = 'Percona-Lab/pmm-server-packaging'
+        repo     = 'percona/pmm-server-packaging'
     }
     agent {
         label 'centos7-64'
@@ -9,7 +9,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'master',
-            description: 'Tag/Branch for Percona-Lab/pmm-server-packaging repository checkout',
+            description: 'Tag/Branch for percona/pmm-server-packaging repository checkout',
             name: 'GIT_BRANCH')
         choice(
             choices: 'laboratory\npmm',

@@ -59,7 +59,7 @@ pipeline {
                 stash includes: 'gitCommit,shortCommit', name: 'gitCommit'
                 deleteDir()
                 sh '''
-                    git clone https://github.com/Percona-Lab/pmm-server-packaging.git ./
+                    git clone https://github.com/percona/pmm-server-packaging.git ./
                     git show --stat
                 '''
                 unstash 'gitCommit'

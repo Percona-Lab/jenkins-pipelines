@@ -21,7 +21,7 @@ void checkRPM(String RPM_NAME) {
 pipeline {
     environment {
         specName = 'pmm-manage'
-        repo     = 'Percona-Lab/pmm-manage'
+        repo     = 'percona/pmm-manage'
     }
     agent {
         label 'centos7-64'
@@ -29,7 +29,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'master',
-            description: 'Tag/Branch for Percona-Lab/pmm-manage repository checkout',
+            description: 'Tag/Branch for percona/pmm-manage repository checkout',
             name: 'GIT_BRANCH')
         choice(
             choices: 'laboratory\npmm',
@@ -59,7 +59,7 @@ pipeline {
                 stash includes: 'gitCommit,shortCommit', name: 'gitCommit'
                 deleteDir()
                 sh '''
-                    git clone https://github.com/Percona-Lab/pmm-server-packaging.git ./
+                    git clone https://github.com/percona/pmm-server-packaging.git ./
                     git show --stat
                 '''
                 unstash 'gitCommit'
