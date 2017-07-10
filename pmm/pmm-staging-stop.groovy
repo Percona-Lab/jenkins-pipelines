@@ -20,7 +20,7 @@ pipeline {
 
                         for VM_NAME in $(VBoxManage list runningvms | cut -d '"' -f 2); do
                             IP=$(
-                                grep eth0: /tmp/$VM_NAME-console.log \
+                                grep -a eth0: /tmp/$VM_NAME-console.log \
                                     | cut -d "|" -f 4 \
                                     | sed -e "s/ //g"
                             )
