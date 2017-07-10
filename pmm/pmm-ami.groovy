@@ -22,7 +22,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                slackSend channel: '#pmm-jenkins', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
                 git poll: true, branch: GIT_BRANCH, url: "https://github.com/Percona-Lab/percona-images.git"
                 sh """
                     make clean
@@ -53,12 +53,12 @@ pipeline {
             script {
                 unstash 'IMAGE'
                 def IMAGE = sh(returnStdout: true, script: "cat IMAGE").trim()
-                slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
+                slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
                 slackSend channel: '@ramesh.sivaraman', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
             }
         }
         failure {
-            slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${specName}]: build failed"
+            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
         }
     }
 }

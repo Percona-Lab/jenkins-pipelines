@@ -107,7 +107,7 @@ pipeline {
         stage('Build RPMs') {
             when { expression { return currentBuild.result != 'UNSTABLE' } }
             steps {
-                slackSend channel: '#pmm-jenkins', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
                 stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
             }
@@ -173,15 +173,15 @@ pipeline {
 
     post {
         success {
-            slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${specName}]: build finished"
+            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished"
             deleteDir()
         }
         unstable {
-            slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${specName}]: build skipped"
+            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build skipped"
             deleteDir()
         }
         failure {
-            slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${specName}]: build failed"
+            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
             archiveArtifacts "result-repo/results/epel-7-x86_64/${specName}-*/*.log"
             deleteDir()
         }

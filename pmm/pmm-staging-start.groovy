@@ -66,7 +66,7 @@ pipeline {
 
                 script {
                     if ("${NOTIFY}" == "true") {
-                        slackSend channel: '#pmm-jenkins', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${env.BUILD_URL}"
+                        slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${env.BUILD_URL}"
                     }
                 }
 
@@ -249,7 +249,7 @@ pipeline {
                 def IMAGE = sh(returnStdout: true, script: "cat IP").trim()
                 def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
                 if ("${NOTIFY}" == "true") {
-                    slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
                     slackSend channel: "@${OWNER}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
                 }
             }
@@ -265,7 +265,7 @@ pipeline {
             '''
             script {
                 if ("${NOTIFY}" == "true") {
-                    slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
                 }
             }
         }

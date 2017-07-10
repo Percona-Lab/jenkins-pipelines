@@ -44,7 +44,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                slackSend channel: '#pmm-jenkins', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${env.BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${env.BUILD_URL}"
 
                 // clean up workspace and fetch pmm-qa repository
                 cleanWs deleteDirs: true, notFailBuild: true
@@ -91,7 +91,7 @@ pipeline {
     }
     post {
         success {
-            slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
+            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
 
             // proccess test result
             saucePublisher()
@@ -99,7 +99,7 @@ pipeline {
             step([$class: 'JUnitResultArchiver', testResults: '**/testresults/*xmloutput.xml', healthScaleFactor: 1.0])
         }
         failure {
-            slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
         }
     }
 }

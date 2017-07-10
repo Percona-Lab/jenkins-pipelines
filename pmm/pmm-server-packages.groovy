@@ -31,7 +31,7 @@ pipeline {
     stages {
         stage('Fetch spec files') {
             steps {
-                slackSend channel: '#pmm-jenkins', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
                 deleteDir()
                 git poll: true, branch: GIT_BRANCH, url: "https://github.com/${repo}.git"
                 sh '''
@@ -141,10 +141,10 @@ pipeline {
 
     post {
         success {
-            slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${specName}]: build finished"
+            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished"
         }
         failure {
-            slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${specName}]: build failed"
+            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
             archiveArtifacts "result-repo/results/epel-7-x86_64/${specName}-*/*.log"
         }
         always {

@@ -87,7 +87,7 @@ pipeline {
                     MO_VERSION:     ${MO_VERSION}
                 """
 
-                slackSend channel: '#pmm-jenkins', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${env.BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${env.BUILD_URL}"
 
                 sh """
                     export VM_NAME="${JOB_NAME}-\$(date -u '+%Y%m%d%H%M')"
@@ -280,11 +280,11 @@ pipeline {
                     script: 'grep "^not ok" *.tap | wc -l',
                     returnStdout: true
                 ).trim()
-                slackSend channel: '#pmm-jenkins', color: '#00FF00', message: "[${JOB_NAME}]: build finished\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}"
+                slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}"
             }
         }
         failure {
-            slackSend channel: '#pmm-jenkins', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
         }
     }
 }
