@@ -53,6 +53,7 @@ void runMTR(String CMAKE_BUILD_TYPE) {
         if [ -f 'junit-${CMAKE_BUILD_TYPE}.xml' -a '${FORCE_RETEST}' = 'false' ]; then
             echo Skip mtr
         else
+            export LD_LIBRARY_PATH=\$(pwd -P)/zstd-1.1.3/lib
             pushd ${CMAKE_BUILD_TYPE}/destdir/usr/local/${GIT_BRANCH}/mysql-test
                 export LD_PRELOAD=\$(
                     ls /usr/local/lib/libeatmydata.so \
