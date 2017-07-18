@@ -106,6 +106,10 @@ pipeline {
                     export VM_NAME=\$(cat VM_NAME)
                     export OWNER=\$(cat OWNER)
 
+                    export BUILD_ID=dear-jenkins-please-dont-kill-virtualbox
+                    export JENKINS_NODE_COOKIE=dear-jenkins-please-dont-kill-virtualbox
+                    export JENKINS_SERVER_COOKIE=dear-jenkins-please-dont-kill-virtualbox
+
                     VBoxManage import --vsys 0 --memory 8192 --vmname \$VM_NAME \$(ls /mnt/images/Docker-Server-*.ovf | sort  | tail -1)
                     VBoxManage modifyvm \$VM_NAME --audio none
                     VBoxManage modifyvm \$VM_NAME --nic1 bridged --bridgeadapter1 bond0
