@@ -107,6 +107,7 @@ pipeline {
                     export OWNER=\$(cat OWNER)
 
                     VBoxManage import --vsys 0 --memory 8192 --vmname \$VM_NAME \$(ls /mnt/images/Docker-Server-*.ovf | sort  | tail -1)
+                    VBoxManage modifyvm \$VM_NAME --audio none
                     VBoxManage modifyvm \$VM_NAME --nic1 bridged --bridgeadapter1 bond0
                     VBoxManage modifyvm \$VM_NAME --uart1 0x3F8 4 --uartmode1 file /tmp/\$VM_NAME-console.log
                     VBoxManage modifyvm \$VM_NAME --groups "/\$OWNER,/${JOB_NAME}"
