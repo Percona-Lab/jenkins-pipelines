@@ -110,11 +110,13 @@ pipeline {
                     export JENKINS_NODE_COOKIE=dear-jenkins-please-dont-kill-virtualbox
                     export JENKINS_SERVER_COOKIE=dear-jenkins-please-dont-kill-virtualbox
 
-                    VBoxManage import --vsys 0 --memory 8192 --vmname \$VM_NAME \$(ls /mnt/images/Docker-Server-*.ovf | sort  | tail -1)
-                    VBoxManage modifyvm \$VM_NAME --audio none
-                    VBoxManage modifyvm \$VM_NAME --nic1 bridged --bridgeadapter1 bond0
-                    VBoxManage modifyvm \$VM_NAME --uart1 0x3F8 4 --uartmode1 file /tmp/\$VM_NAME-console.log
-                    VBoxManage modifyvm \$VM_NAME --groups "/\$OWNER,/${JOB_NAME}"
+                    VBoxManage import --vsys 0 --vmname \$VM_NAME \$(ls /mnt/images/Docker-Server-*.ovf | sort  | tail -1)
+                    VBoxManage modifyvm \$VM_NAME \
+                        --memory 8192 \
+                        --audio none \
+                        --nic1 bridged --bridgeadapter1 bond0 \
+                        --uart1 0x3F8 4 --uartmode1 file /tmp/\$VM_NAME-console.log \
+                        --groups "/\$OWNER,/${JOB_NAME}"
                     VBoxManage startvm --type headless \$VM_NAME
 
                     for I in $(seq 1 6); do
