@@ -243,6 +243,9 @@ pipeline {
                             if [ -S /tmp/MD_NODE_1.sock ]; then
                                 sudo ./install md /tmp/MD_NODE_1.sock
                             fi
+                            if [ -S /tmp/PXC_NODE_1.sock ]; then
+                                sudo ./install pxc56-1 /tmp/PXC_NODE_1.sock
+                            fi
                         popd
                     "
                 """
