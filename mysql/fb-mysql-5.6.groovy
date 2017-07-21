@@ -138,6 +138,7 @@ pipeline {
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
+        buildDiscarder(logRotator(artifactNumToKeepStr: '5'))
     }
     triggers {
         pollSCM '*/10 * * * *'
