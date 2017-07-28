@@ -152,7 +152,7 @@ pipeline {
                         IP_NETMASK=$(ip address show dev $INTERFACE | grep "inet " | awk "{print\\\$2}")
                         IP=$(echo $IP_NETMASK | cut -d '/' -f 1)
                         NETMASK=$(echo $IP_NETMASK | cut -d '/' -f 2)
-                        DNS=$(grep nameserver /etc/resolv.conf | awk "{print\\\$2}" | head -1)
+                        DNS=8.8.4.4
                         echo "
                             DEVICE=$INTERFACE
                             BOOTPROTO=static
