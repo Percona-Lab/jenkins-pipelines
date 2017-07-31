@@ -51,7 +51,17 @@ pipeline {
     stages {
         stage('Fetch spec files') {
             steps {
-                git poll: true, branch: GIT_BRANCH, url: "https://github.com/${repo}.git"
+                script {
+                    try {
+                        git poll: true, branch: GIT_BRANCH, url: "https://github.com/${repo}.git"
+                    } catch (error) {
+                        deleteDir()
+                        sh """
+                            git clone https://github.com/${repo}.git ./
+                            git checkout ${GIT_BRANCH}
+                        """
+                    }
+                }
                 sh '''
                     git rev-parse HEAD         > gitCommit
                     git rev-parse --short HEAD > shortCommit
