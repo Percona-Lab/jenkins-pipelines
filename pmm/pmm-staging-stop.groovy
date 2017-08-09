@@ -38,9 +38,10 @@ pipeline {
                             please copy VM name below and press 'Input requested' button
                         """
                         echo "${VMList}"
-                        timeout(time:10, unit:'MINUTES') {
-                            VM = input message: 'What VM do you want to stop?', parameters: [string(defaultValue: '', description: '', name: 'Name or IP')]
-                        }
+                        echo "input is temporary disabled due to https://jenkins.io/security/advisory/2017-08-07/"
+                        // timeout(time:10, unit:'MINUTES') {
+                        //     VM = input message: 'What VM do you want to stop?', parameters: [string(defaultValue: '', description: '', name: 'Name or IP')]
+                        // }
                     }
                     if ( !VMList.toLowerCase().contains(VM.toLowerCase())) {
                         echo 'Unknown VM'
