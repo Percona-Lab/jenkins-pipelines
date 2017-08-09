@@ -91,15 +91,15 @@ pipeline {
                 sh """
                     export path_to_build="${DESTINATION}/BUILDS/pmm-server/pmm-server-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${env.BUILD_NUMBER}"
 
-                    ssh -i ~/.ssh/percona-jenkins-slave-access uploader@repo.ci.percona.com \
+                    ssh -i ~/.ssh/id_rsa uploader@repo.ci.percona.com \
                     mkdir -p UPLOAD/\${path_to_build}/source/redhat \
                              UPLOAD/\${path_to_build}/binary/redhat/7/x86_64
 
-                    scp -i ~/.ssh/percona-jenkins-slave-access \
+                    scp -i ~/.ssh/id_rsa \
                         `find result-repo -name '*.src.rpm'` \
                         uploader@repo.ci.percona.com:UPLOAD/\${path_to_build}/source/redhat/
 
-                    scp -i ~/.ssh/percona-jenkins-slave-access \
+                    scp -i ~/.ssh/id_rsa \
                         `find result-repo -name '*.noarch.rpm' -o -name '*.x86_64.rpm'` \
                         uploader@repo.ci.percona.com:UPLOAD/\${path_to_build}/binary/redhat/7/x86_64/
                 """
@@ -116,7 +116,7 @@ pipeline {
                     sh """
                         export path_to_build="${DESTINATION}/BUILDS/pmm-server/pmm-server-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${env.BUILD_NUMBER}"
 
-                        ssh -i ~/.ssh/percona-jenkins-slave-access uploader@repo.ci.percona.com " \
+                        ssh -i ~/.ssh/id_rsa uploader@repo.ci.percona.com " \
                             /bin/bash -xc ' \
                                 ls UPLOAD/\${path_to_build}/binary/redhat/7/x86_64/*.rpm \
                                     | xargs -n 1 signpackage --verbose --password ${SIGN_PASSWORD} --rpm \

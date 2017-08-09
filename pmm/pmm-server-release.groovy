@@ -38,7 +38,7 @@ pipeline {
             steps {
                 unstash 'rpms'
                 sh '''
-                    ssh -i ~/.ssh/percona-jenkins-slave-access uploader@repo.ci.percona.com \
+                    ssh -i ~/.ssh/id_rsa uploader@repo.ci.percona.com \
                         ls /srv/repo-copy/laboratory/7/RPMS/x86_64 \
                         > repo.list
                     cat rpms.list \
@@ -54,7 +54,7 @@ pipeline {
             steps {
                 unstash 'copy'
                 sh '''
-                    cat copy.list | ssh -i ~/.ssh/percona-jenkins-slave-access uploader@repo.ci.percona.com \
+                    cat copy.list | ssh -i ~/.ssh/id_rsa uploader@repo.ci.percona.com \
                         "cat - | xargs -I{} cp -v /srv/repo-copy/laboratory/7/RPMS/x86_64/{} /srv/repo-copy/pmm/7/RPMS/x86_64/{}"
                 '''
             }
@@ -62,7 +62,7 @@ pipeline {
         stage('Createrepo') {
             steps {
                 sh '''
-                    ssh -i ~/.ssh/percona-jenkins-slave-access uploader@repo.ci.percona.com \
+                    ssh -i ~/.ssh/id_rsa uploader@repo.ci.percona.com \
                         createrepo --update /srv/repo-copy/pmm/7/RPMS/x86_64/
                 '''
             }
