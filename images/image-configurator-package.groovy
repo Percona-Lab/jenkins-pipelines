@@ -66,7 +66,7 @@ pipeline {
                     git rev-parse HEAD         > gitCommit
                     git rev-parse --short HEAD > shortCommit
                 '''
-                stash includes: 'packaging', name: 'packaging'
+                stash includes: 'packaging/*', name: 'packaging'
                 stash includes: 'gitCommit,shortCommit', name: 'gitCommit'
                 deleteDir()
                 sh '''
