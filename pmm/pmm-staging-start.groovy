@@ -8,7 +8,7 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
-            defaultValue: 'latest',
+            defaultValue: 'dev-latest',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
@@ -89,9 +89,6 @@ pipeline {
                                 | tail -1
                         )
                         echo \$CLIENT_VERSION > CLIENT_VERSION
-                    elif [ "X$CLIENT_VERSION" = "Xdev-latest" -o -z "$CLIENT_VERSION" ]; then
-                        echo CLIENT_VERSION=dev-latest IS NOT SUPPORTED YET
-                        exit 1
                     else
                         echo $CLIENT_VERSION > CLIENT_VERSION
                     fi
@@ -201,7 +198,6 @@ pipeline {
 
                         # it is needed to wait 20 second, it is better to download files instead of sleep command
                         wget --progress=dot:giga \
-                            "https://www.percona.com/downloads/pmm-client/pmm-client-\$(cat CLIENT_VERSION)/binary/tarball/pmm-client-\$(cat CLIENT_VERSION).tar.gz" \
                             "https://www.percona.com/downloads/Percona-Server-LATEST/Percona-Server-${PS_VERSION}/binary/tarball/Percona-Server-${PS_VERSION}-Linux.x86_64.ssl101.tar.gz" \
                             "http://nyc2.mirrors.digitalocean.com/mariadb//mariadb-${MD_VERSION}/bintar-linux-x86_64/mariadb-${MD_VERSION}-linux-x86_64.tar.gz" \
                             "https://dev.mysql.com/get/Downloads/MySQL-5.7/mysql-${MS_VERSION}-linux-glibc2.5-x86_64.tar.gz" \
@@ -214,10 +210,16 @@ pipeline {
                             sudo git pull
                         popd
 
-                        tar -zxpf pmm-client-\$(cat CLIENT_VERSION).tar.gz
-                        pushd pmm-client-\$(cat CLIENT_VERSION)
-                            sudo ./install
-                        popd
+                        CLIENT_VERSION=\$(cat CLIENT_VERSION)
+                        if [ "X\$CLIENT_VERSION" = "Xdev-latest" ]; then
+                            sudo yum -y install pmm-client --enablerepo=percona-experimental-* --enablerepo=percona-testing-*
+                        else
+                            wget --progress=dot:giga "https://www.percona.com/downloads/pmm-client/pmm-client-\$(cat CLIENT_VERSION)/binary/tarball/pmm-client-\$(cat CLIENT_VERSION).tar.gz"
+                            tar -zxpf pmm-client-\$CLIENT_VERSION.tar.gz
+                            pushd pmm-client-\$CLIENT_VERSION
+                                sudo ./install
+                            popd
+                        fi
 
                         export PATH=\$PATH:/usr/sbin
                         sudo pmm-admin config --client-name pmm-client-hostname --server \$IP
