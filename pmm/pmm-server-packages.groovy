@@ -45,13 +45,12 @@ pipeline {
         stage('Fetch sources') {
             steps {
                 sh """
-                    rm -rf  rhel/SPECS/percona-dashboards.spec \
-                            rhel/SPECS/pmm-server.spec \
-                            rhel/SPECS/pmm-manage.spec \
-                            rhel/SPECS/pmm-update.spec \
-                            rhel/SPECS/percona-qan-api.spec \
-                            rhel/SPECS/percona-qan-app2.spec \
-                            rhel/SPECS/percona-qan-app.spec
+                    rm -rf  rhel/SPECS/percona-dashboards*.spec \
+                            rhel/SPECS/pmm-server*.spec \
+                            rhel/SPECS/pmm-manage*.spec \
+                            rhel/SPECS/pmm-update*.spec \
+                            rhel/SPECS/percona-qan-api*.spec \
+                            rhel/SPECS/percona-qan-app*.spec
                     ls rhel/SPECS/*.spec | xargs -n 1 spectool -g -C rhel/SOURCES
                 """
             }
