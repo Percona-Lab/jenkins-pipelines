@@ -118,7 +118,7 @@ pipeline {
             when { expression { return currentBuild.result != 'UNSTABLE' } }
             steps {
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
-                sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
+                sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo -a http://download.fedoraproject.org/pub/epel/testing/7/x86_64/ rhel/SRPMS/*.src.rpm'
                 stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
             }
         }

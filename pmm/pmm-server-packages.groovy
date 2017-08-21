@@ -74,7 +74,7 @@ pipeline {
 
         stage('Build RPMs') {
             steps {
-                sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo -a http://mirror.centos.org/centos/7/sclo/x86_64/rh/ rhel/SRPMS/*.src.rpm'
+                sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo -a http://mirror.centos.org/centos/7/sclo/x86_64/rh/ -a http://download.fedoraproject.org/pub/epel/testing/7/x86_64/ rhel/SRPMS/*.src.rpm'
                 stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
             }
         }
