@@ -31,9 +31,17 @@ pipeline {
     stages {
         stage('Fetch spec files') {
             steps {
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
-                deleteDir()
-                git poll: true, branch: GIT_BRANCH, url: "https://github.com/${repo}.git"
+                script {
+                    try {
+                        git poll: true, branch: GIT_BRANCH, url: "https://github.com/${repo}.git"
+                    } catch (error) {
+                        deleteDir()
+                        sh """
+                            git clone https://github.com/${repo}.git ./
+                            git checkout ${GIT_BRANCH}
+                        """
+                    }
+                }
                 sh '''
                     git rev-parse HEAD         > gitCommit
                     git rev-parse --short HEAD > shortCommit
@@ -66,13 +74,16 @@ pipeline {
         }
 
         stage('Build Golang') {
+            when { expression { return currentBuild.result != 'UNSTABLE' } }
             steps {
+                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/golang-1.*.src.rpm'
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/go-srpm-macros-*.src.rpm'
             }
         }
 
         stage('Build RPMs') {
+            when { expression { return currentBuild.result != 'UNSTABLE' } }
             steps {
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo -a http://mirror.centos.org/centos/7/sclo/x86_64/rh/ -a http://download.fedoraproject.org/pub/epel/testing/7/x86_64/ rhel/SRPMS/*.src.rpm'
                 stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
@@ -80,9 +91,8 @@ pipeline {
         }
 
         stage('Upload to repo.ci.percona.com') {
-            agent {
-                label 'master'
-            }
+            when { expression { return currentBuild.result != 'UNSTABLE' } }
+            agent { label 'master' }
             steps {
                 deleteDir()
                 unstash 'rpms'
@@ -106,9 +116,8 @@ pipeline {
         }
 
         stage('Sign RPMs') {
-            agent {
-                label 'master'
-            }
+            when { expression { return currentBuild.result != 'UNSTABLE' } }
+            agent { label 'master' }
             steps {
                 unstash 'gitCommit'
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
@@ -126,6 +135,7 @@ pipeline {
         }
 
         stage('Push to RPM repository') {
+            when { expression { return currentBuild.result != 'UNSTABLE' } }
             agent any
             steps {
                 unstash 'gitCommit'
@@ -141,12 +151,15 @@ pipeline {
     post {
         success {
             slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished"
+            deleteDir()
+        }
+        unstable {
+            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build skipped"
+            deleteDir()
         }
         failure {
             slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
-            archiveArtifacts "result-repo/results/epel-7-x86_64/${specName}-*/*.log"
-        }
-        always {
+            archiveArtifacts "result-repo/results/epel-7-x86_64/*/*.log"
             deleteDir()
         }
     }
