@@ -64,6 +64,10 @@ pipeline {
             defaultValue: '3.4.2-1.2',
             description: 'Percona Server for MongoDB version',
             name: 'MO_VERSION')
+        string(
+            defaultValue: 'master',
+            description: 'Tag/Branch for percona-qa repository checkout',
+            name: 'GIT_BRANCH')
     }
     options {
         skipDefaultCheckout()
@@ -221,6 +225,7 @@ pipeline {
 
                         pushd /srv/percona-qa
                             sudo git pull
+                            sudo git checkout ${GIT_BRANCH}
                         popd
 
                         CLIENT_VERSION=\$(cat CLIENT_VERSION)
