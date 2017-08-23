@@ -228,6 +228,9 @@ pipeline {
                             sudo yum -y install pmm-client --enablerepo=percona-experimental-* --enablerepo=percona-testing-*
                         else
                             wget --progress=dot:giga "https://www.percona.com/downloads/pmm-client/pmm-client-\$(cat CLIENT_VERSION)/binary/tarball/pmm-client-\$(cat CLIENT_VERSION).tar.gz"
+                            if [ ! -f "pmm-client-\$CLIENT_VERSION.tar.gz" ]; then
+                                wget --progress=dot:giga "https://www.percona.com/downloads/TESTING/pmm/pmm-client-\$(cat CLIENT_VERSION).tar.gz"
+                            fi
                             tar -zxpf pmm-client-\$CLIENT_VERSION.tar.gz
                             pushd pmm-client-\$CLIENT_VERSION
                                 sudo ./install
