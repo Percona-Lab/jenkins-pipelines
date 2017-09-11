@@ -19,7 +19,7 @@ pipeline {
             description: 'OVA image filename',
             name: 'OVF_VERSION')
         string(
-            defaultValue: '1.2.3',
+            defaultValue: '1.3.0',
             description: 'PMM Server version',
             name: 'VERSION')
     }
