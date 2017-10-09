@@ -37,7 +37,10 @@ pipeline {
 
         stage('Build Image') {
             steps {
-                sh 'docker build --no-cache -t \$(cat IMAGE) .'
+                sh """
+                    docker pull centos:latest
+                    docker build --no-cache -t \$(cat IMAGE) .
+                """
                 stash includes: 'IMAGE', name: 'IMAGE'
                 archiveArtifacts 'IMAGE'
             }
