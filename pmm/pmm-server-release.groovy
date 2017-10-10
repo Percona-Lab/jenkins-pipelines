@@ -138,9 +138,9 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        aws s3 cp s3://percona-vm/${OVF_VERSION} PMM-Server-${VERSION}.ova
-                        md5sum PMM-Server-${VERSION}.ova > PMM-Server-${VERSION}.md5sum
-                        scp -i ~/.ssh/id_rsa_downloads PMM-Server-${VERSION}.* jenkins@10.10.9.216:/data/downloads/TESTING/pmm/
+                        aws s3 cp s3://percona-vm/${OVF_VERSION} pmm-server-${VERSION}.ova
+                        md5sum pmm-server-${VERSION}.ova > pmm-server-${VERSION}.md5sum
+                        scp -i ~/.ssh/id_rsa_downloads pmm-server-${VERSION}.* jenkins@10.10.9.216:/data/downloads/TESTING/pmm/
                     """
                 }
             }
