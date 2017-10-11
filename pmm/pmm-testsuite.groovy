@@ -230,7 +230,7 @@ pipeline {
 
                         CLIENT_VERSION=\$(cat CLIENT_VERSION)
                         if [ "X\$CLIENT_VERSION" = "Xdev-latest" ]; then
-                            sudo yum -y install pmm-client --enablerepo=percona-experimental-* --enablerepo=percona-testing-*
+                            sudo yum -y install pmm-client --enablerepo=percona-testing-*
                         else
                             wget --progress=dot:giga "https://www.percona.com/downloads/pmm-client/pmm-client-\$(cat CLIENT_VERSION)/binary/tarball/pmm-client-\$(cat CLIENT_VERSION).tar.gz"
                             if [ ! -f "pmm-client-\$CLIENT_VERSION.tar.gz" ]; then
