@@ -100,7 +100,7 @@ pipeline {
                                 rm -fr $package
                                 mkdir $package
                                 pushd $package >/dev/null
-                                    git clone git@github.com:${repo["$package"]} ./
+                                    git clone https://github.com/${repo["$package"]} ./
                                     git checkout $SHA
                                     FULL_SHA=$(git rev-parse HEAD)
                                     
