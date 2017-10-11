@@ -57,7 +57,7 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         string(
-            defaultValue: '10.1.22',
+            defaultValue: '10.1.28',
             description: 'MariaDB Server version',
             name: 'MD_VERSION')
         string(
@@ -216,7 +216,7 @@ pipeline {
                         # it is needed to wait 20 second, it is better to download files instead of sleep command
                         wget --progress=dot:giga \
                             "https://www.percona.com/downloads/Percona-Server-LATEST/Percona-Server-${PS_VERSION}/binary/tarball/Percona-Server-${PS_VERSION}-Linux.x86_64.ssl101.tar.gz" \
-                            "http://nyc2.mirrors.digitalocean.com/mariadb//mariadb-${MD_VERSION}/bintar-linux-x86_64/mariadb-${MD_VERSION}-linux-x86_64.tar.gz" \
+                            "http://ftp.nluug.nl/db/mariadb/mariadb-${MD_VERSION}/bintar-linux-x86_64/mariadb-${MD_VERSION}-linux-x86_64.tar.gz"
                             "https://dev.mysql.com/get/Downloads/MySQL-5.7/mysql-${MS_VERSION}-linux-glibc2.5-x86_64.tar.gz" \
                             "https://www.percona.com/downloads/Percona-XtraDB-Cluster-LATEST/Percona-XtraDB-Cluster-\$(echo "$PXC_VERSION" | sed -r 's/-rel[0-9]{1,2}-/-/; s/[.][0-9]\$//')/binary/tarball/Percona-XtraDB-Cluster-${PXC_VERSION}.Linux.x86_64.ssl101.tar.gz" \
                             "https://www.percona.com/downloads/percona-server-mongodb-LATEST/percona-server-mongodb-${MO_VERSION}/binary/tarball/percona-server-mongodb-${MO_VERSION}-centos7-x86_64.tar.gz"
