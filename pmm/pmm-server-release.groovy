@@ -122,13 +122,16 @@ pipeline {
                 label 'docker'
             }
             steps {
+                deleteDir()
                 sh """
                     docker pull ${DOCKER_VERSION}
                     docker tag ${DOCKER_VERSION} percona/pmm-server:${VERSION}
                     docker tag ${DOCKER_VERSION} percona/pmm-server:latest
                     docker push percona/pmm-server:${VERSION}
                     docker push percona/pmm-server:latest
+                    docker save percona/pmm-server:${VERSION} | xz > pmm-server-${VERSION}.docker
                 """
+                stash includes: '*.docker', name: 'docker'
             }
         }
         stage('Publish OVF') {
@@ -136,6 +139,8 @@ pipeline {
                 label 'awscli'
             }
             steps {
+                deleteDir()
+                unstash 'docker'
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         aws s3 cp s3://percona-vm/${OVF_VERSION} pmm-server-${VERSION}.ova
