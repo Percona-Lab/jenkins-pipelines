@@ -28,8 +28,8 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'master',
-            description: 'Tag/Branch for percona/pmm-manage repository checkout',
+            defaultValue: 'PMM-1.4',
+            description: 'Tag/Branch for percona/pmm-managed repository checkout',
             name: 'GIT_BRANCH')
         choice(
             choices: 'laboratory\npmm',
