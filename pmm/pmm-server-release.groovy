@@ -152,6 +152,7 @@ pipeline {
                         scp -i ~/.ssh/id_rsa_downloads pmm-server-${VERSION}.ova pmm-server-${VERSION}.md5sum jenkins@10.10.9.216:/data/downloads/pmm/${VERSION}/ova/
                     """
                 }
+                build job: 'refresh-downloads-area', parameters: [string(name: 'DESTINATION', value: 'RELEASE')]
             }
         }
         stage('Copy AMI') {
