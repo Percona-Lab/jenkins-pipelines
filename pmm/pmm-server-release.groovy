@@ -143,7 +143,7 @@ pipeline {
                 unstash 'docker'
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        ssh -i ~/.ssh/id_rsa_downloads jenkins@10.10.9.216 "mkdir /data/downloads/pmm/${VERSION}/{ova,docker}"
+                        ssh -i ~/.ssh/id_rsa_downloads jenkins@10.10.9.216 "mkdir /data/downloads/pmm/${VERSION}/{ova,docker}" || true
                         md5sum pmm-server-${VERSION}.docker > pmm-server-${VERSION}.md5sum
                         scp -i ~/.ssh/id_rsa_downloads pmm-server-${VERSION}.docker pmm-server-${VERSION}.md5sum jenkins@10.10.9.216:/data/downloads/pmm/${VERSION}/docker/
 
