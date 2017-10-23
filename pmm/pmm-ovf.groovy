@@ -49,7 +49,18 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        aws s3 cp */*.ova s3://percona-vm/ --acl public-read
+                        FILE=\$(ls */*.ova)
+                        NAME=\$(basename \${FILE})
+                        aws s3 cp \
+                            --acl public-read \
+                            \${FILE} \
+                            s3://percona-vm/\${NAME}
+
+                        touch PMM-Server-dev-latest.ova
+                        aws s3 cp \
+                            --website-redirect /\${NAME} \
+                            PMM-Server-dev-latest.ova \
+                            s3://percona-vm/PMM-Server-dev-latest.ova
                     """
                 }
             }
