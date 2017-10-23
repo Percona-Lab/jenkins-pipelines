@@ -56,7 +56,7 @@ pipeline {
                             \${FILE} \
                             s3://percona-vm/\${NAME}
 
-                        touch PMM-Server-dev-latest.ova
+                        echo /\${NAME} > PMM-Server-dev-latest.ova
                         aws s3 cp \
                             --website-redirect /\${NAME} \
                             PMM-Server-dev-latest.ova \
