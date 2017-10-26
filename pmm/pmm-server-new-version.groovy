@@ -9,6 +9,7 @@ pipeline {
             name: 'NEW_VERSION')
     }
     options {
+        skipStagesAfterUnstable()
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
