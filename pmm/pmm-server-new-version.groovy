@@ -8,6 +8,10 @@ pipeline {
             description: 'version of result package',
             name: 'NEW_VERSION')
     }
+    options {
+        skipDefaultCheckout()
+        disableConcurrentBuilds()
+    }
     stages {
         stage('Set default value') {
             steps {
