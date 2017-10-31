@@ -12,7 +12,7 @@ pipeline {
             description: 'Tag/Branch for percona/pmm-server-packaging repository checkout',
             name: 'GIT_BRANCH')
         choice(
-            choices: 'laboratory\npmm',
+            choices: 'laboratory\npmm-experimental',
             description: 'publish result package to internal or external repository',
             name: 'DESTINATION')
         string(
