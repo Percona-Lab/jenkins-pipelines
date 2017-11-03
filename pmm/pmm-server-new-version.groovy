@@ -22,7 +22,7 @@ pipeline {
                         echo "#!/bin/sh
 exec /usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh
                         chmod 755 github-ssh.sh
-                        export GIT_SSH=./github-ssh.sh
+                        export GIT_SSH=$(pwd -P)/github-ssh.sh
                         git clone git@github.com:Percona-Lab/jenkins-pipelines
 
                         pushd jenkins-pipelines
@@ -32,7 +32,7 @@ exec /usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > gi
                                     -e "s/defaultValue: '[0-9]\\.[0-9]\\.[0-9]'/defaultValue: '${NEW_VERSION}'/" \
                                     ./pmm/${JOB}.groovy
                             done
-                            git commit -a -m "up PMM to ${NEW_VERSION}"
+                            git commit -a -m "up PMM to ${NEW_VERSION}" --author "Jenkins <jenkins@percona.com>"
                             git push
                         popd
                     '''
