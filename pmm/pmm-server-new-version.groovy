@@ -32,7 +32,9 @@ exec /usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > gi
                                     -e "s/defaultValue: '[0-9]\\.[0-9]\\.[0-9]'/defaultValue: '${NEW_VERSION}'/" \
                                     ./pmm/${JOB}.groovy
                             done
+                            git pull
                             git commit -a -m "up PMM to ${NEW_VERSION}" --author "Jenkins <jenkins@percona.com>"
+                            git config --global push.default matching
                             git push
                         popd
                     '''
