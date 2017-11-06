@@ -12,7 +12,7 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
-            defaultValue: '1.4.1',
+            defaultValue: '1.5.0',
             description: 'PMM Server version',
             name: 'VERSION')
     }
