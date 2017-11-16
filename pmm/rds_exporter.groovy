@@ -1,7 +1,27 @@
+void checkRPM(String RPM_NAME) {
+    node('master') {
+        script {
+            EXISTS = sh(
+                    script: """
+                        ssh -i ~/.ssh/id_rsa uploader@repo.ci.percona.com \
+                            ls "/srv/repo-copy/${DESTINATION}/7/RPMS/x86_64/${RPM_NAME}" \
+                            | wc -l || :
+                    """,
+                returnStdout: true
+            ).trim()
+            echo "EXISTS: ${EXISTS}"
+            if (EXISTS != "0") {
+                echo "WARNING: RPM package is already exists, skip building."
+                currentBuild.result = 'UNSTABLE'
+            }
+        }
+    }
+}
+
 pipeline {
     environment {
-        specName = '3rd-party'
-        repo     = 'percona/pmm-server-packaging'
+        specName = 'rds_exporter'
+        repo     = 'percona/rds_exporter'
     }
     agent {
         label 'centos7-64'
@@ -9,7 +29,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'master',
-            description: 'Tag/Branch for percona/pmm-server-packaging repository checkout',
+            description: 'Tag/Branch for percona/rds_exporter repository checkout',
             name: 'GIT_BRANCH')
         choice(
             choices: 'laboratory\npmm-experimental',
@@ -47,20 +67,26 @@ pipeline {
                     git rev-parse --short HEAD > shortCommit
                 '''
                 stash includes: 'gitCommit,shortCommit', name: 'gitCommit'
+                deleteDir()
+                sh '''
+                    git clone https://github.com/percona/pmm-server-packaging.git ./
+                    git show --stat
+                '''
+                unstash 'gitCommit'
+                sh """
+                    sed -i -e "s/global commit.*/global commit \$(cat gitCommit)/" rhel/SPECS/${specName}.spec
+                    sed -i -e "s/Version:.*/Version: $VERSION/" rhel/SPECS/${specName}.spec
+                    head -15 rhel/SPECS/${specName}.spec
+                """
             }
         }
 
         stage('Fetch sources') {
             steps {
                 sh """
-                    rm -rf  rhel/SPECS/percona-dashboards*.spec \
-                            rhel/SPECS/rds_exporter*.spec \
-                            rhel/SPECS/pmm-server*.spec \
-                            rhel/SPECS/pmm-manage*.spec \
-                            rhel/SPECS/pmm-update*.spec \
-                            rhel/SPECS/percona-qan-api*.spec \
-                            rhel/SPECS/percona-qan-app*.spec
-                    ls rhel/SPECS/*.spec | xargs -n 1 spectool -g -C rhel/SOURCES
+                    ls rhel/SPECS/${specName}.spec \
+                       rhel/SPECS/golang.spec \
+                        | xargs -n 1 spectool -g -C rhel/SOURCES
                 """
             }
         }
@@ -69,8 +95,24 @@ pipeline {
             steps {
                 sh """
                     sed -i -e 's/.\\/run.bash/#.\\/run.bash/' rhel/SPECS/golang.spec
-                    rpmbuild --define "_topdir rhel" -bs rhel/SPECS/*.spec
+                    rpmbuild --define "_topdir rhel" -bs rhel/SPECS/${specName}.spec
+                    rpmbuild --define "_topdir rhel" -bs rhel/SPECS/go-srpm-macros.spec
+                    rpmbuild --define "_topdir rhel" -bs rhel/SPECS/golang.spec
                 """
+                script {
+                    RPM_NAME = sh(
+                        script: '''
+                            ls rhel/SRPMS/${specName}-*.src.rpm \
+                                | sed -r " \
+                                    s|^rhel/SRPMS/||; \
+                                    s|[0-9]{10}|*|; \
+                                    s|[.]el7[.]centos[.]src[.]rpm\$|.*|; \
+                                "
+                        ''',
+                        returnStdout: true
+                    ).trim()
+                    checkRPM(RPM_NAME)
+                }
             }
         }
 
@@ -86,7 +128,7 @@ pipeline {
         stage('Build RPMs') {
             when { expression { return currentBuild.result != 'UNSTABLE' } }
             steps {
-                sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo -a http://mirror.centos.org/centos/7/sclo/x86_64/rh/ -a http://mirror.centos.org/centos/7/cr/x86_64/ rhel/SRPMS/*.src.rpm'
+                sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
                 stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
             }
         }
@@ -160,7 +202,7 @@ pipeline {
         }
         failure {
             slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
-            archiveArtifacts "result-repo/results/epel-7-x86_64/*/*.log"
+            archiveArtifacts "result-repo/results/epel-7-x86_64/${specName}-*/*.log"
             deleteDir()
         }
     }
