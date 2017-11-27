@@ -26,7 +26,7 @@ exec /usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > gi
                         git clone git@github.com:Percona-Lab/jenkins-pipelines
 
                         pushd jenkins-pipelines
-                            for JOB in pmm-dashboards-package pmm-manage-package pmm-managed-package pmm-qan-api-package pmm-qan-app-package pmm-server-hotfix pmm-server-package pmm-server-packages pmm-server-release pmm-update-package; do
+                            for JOB in pmm-dashboards-package pmm-manage-package pmm-managed-package pmm-qan-api-package pmm-qan-app-package pmm-server-hotfix pmm-server-package pmm-server-packages pmm-server-release pmm-update-package rds_exporter-package; do
                                 sed \
                                     -i'' \
                                     -e "s/defaultValue: '[0-9]\\.[0-9]\\.[0-9]'/defaultValue: '${NEW_VERSION}'/" \
@@ -44,7 +44,7 @@ exec /usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > gi
         stage('Run jobs') {
             steps {
                 script {
-                    ['pmm-dashboards-package', 'pmm-manage-package', 'pmm-managed-package', 'pmm-qan-api-package', 'pmm-qan-app-package', 'pmm-server-package', 'pmm-update-package', 'rds_exporter'].each { JOB2RUN ->
+                    ['pmm-dashboards-package', 'pmm-manage-package', 'pmm-managed-package', 'pmm-qan-api-package', 'pmm-qan-app-package', 'pmm-server-package', 'pmm-update-package', 'rds_exporter-package'].each { JOB2RUN ->
                         build job: JOB2RUN, parameters: [string(name: 'GIT_BRANCH', value: 'master'), string(name: 'DESTINATION', value: 'laboratory'), string(name: 'VERSION', value: NEW_VERSION)], propagate: false, wait: false
                     }
                 }
