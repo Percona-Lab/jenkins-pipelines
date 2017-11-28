@@ -4,7 +4,7 @@ pipeline {
         repo     = 'percona/pmm-server-packaging'
     }
     agent {
-        label 'centos7-64'
+        label 'min-centos-7-x64'
     }
     parameters {
         string(
@@ -21,8 +21,10 @@ pipeline {
             name: 'VERSION')
     }
     options {
-        skipDefaultCheckout()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
         disableConcurrentBuilds()
+        skipDefaultCheckout()
+        skipStagesAfterUnstable()
     }
     triggers {
         pollSCM '* * * * *'
@@ -31,6 +33,22 @@ pipeline {
     stages {
         stage('Fetch spec files') {
             steps {
+                // echo input
+                sh '''
+                    echo "
+                        VERSION:     ${VERSION}
+                        GIT_BRANCH:  ${GIT_BRANCH}
+                        DESTINATION: ${DESTINATION}
+                    "
+                '''
+
+                // install build tools
+                sh '''
+                    sudo yum -y install rpm-build mock git rpmdevtools
+                    sudo usermod -aG mock `id -u -n`
+                '''
+
+                // get commit ID
                 script {
                     try {
                         git poll: true, branch: GIT_BRANCH, url: "https://github.com/${repo}.git"
@@ -75,7 +93,6 @@ pipeline {
         }
 
         stage('Build Golang') {
-            when { expression { return currentBuild.result != 'UNSTABLE' } }
             steps {
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/golang-1.*.src.rpm'
@@ -84,7 +101,6 @@ pipeline {
         }
 
         stage('Build RPMs') {
-            when { expression { return currentBuild.result != 'UNSTABLE' } }
             steps {
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo -a http://mirror.centos.org/centos/7/sclo/x86_64/rh/ -a http://mirror.centos.org/centos/7/cr/x86_64/ rhel/SRPMS/*.src.rpm'
                 stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
@@ -92,7 +108,6 @@ pipeline {
         }
 
         stage('Upload to repo.ci.percona.com') {
-            when { expression { return currentBuild.result != 'UNSTABLE' } }
             agent { label 'master' }
             steps {
                 deleteDir()
@@ -117,7 +132,6 @@ pipeline {
         }
 
         stage('Sign RPMs') {
-            when { expression { return currentBuild.result != 'UNSTABLE' } }
             agent { label 'master' }
             steps {
                 unstash 'gitCommit'
@@ -136,7 +150,6 @@ pipeline {
         }
 
         stage('Push to RPM repository') {
-            when { expression { return currentBuild.result != 'UNSTABLE' } }
             agent any
             steps {
                 unstash 'gitCommit'

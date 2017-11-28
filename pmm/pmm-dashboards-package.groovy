@@ -24,7 +24,7 @@ pipeline {
         repo     = 'percona/grafana-dashboards'
     }
     agent {
-        label 'centos7-64'
+        label 'min-centos-7-x64'
     }
     parameters {
         string(
@@ -41,8 +41,10 @@ pipeline {
             name: 'VERSION')
     }
     options {
-        skipDefaultCheckout()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
         disableConcurrentBuilds()
+        skipDefaultCheckout()
+        skipStagesAfterUnstable()
     }
     triggers {
         pollSCM '* * * * *'
@@ -51,6 +53,22 @@ pipeline {
     stages {
         stage('Fetch spec files') {
             steps {
+                // echo input
+                sh '''
+                    echo "
+                        VERSION:     ${VERSION}
+                        GIT_BRANCH:  ${GIT_BRANCH}
+                        DESTINATION: ${DESTINATION}
+                    "
+                '''
+
+                // install build tools
+                sh '''
+                    sudo yum -y install rpm-build mock git rpmdevtools
+                    sudo usermod -aG mock `id -u -n`
+                '''
+
+                // get commit ID
                 script {
                     try {
                         git poll: true, branch: GIT_BRANCH, url: "https://github.com/${repo}.git"
@@ -67,16 +85,17 @@ pipeline {
                     git rev-parse --short HEAD > shortCommit
                 '''
                 stash includes: 'gitCommit,shortCommit', name: 'gitCommit'
+
+                // prepare spec file
                 deleteDir()
                 sh '''
                     git clone https://github.com/percona/pmm-server-packaging.git ./
-                    git show --stat
+                    git rev-parse HEAD
                 '''
                 unstash 'gitCommit'
                 sh """
                     sed -i -e "s/global commit.*/global commit \$(cat gitCommit)/" rhel/SPECS/${specName}.spec
                     sed -i -e "s/Version:.*/Version: $VERSION/" rhel/SPECS/${specName}.spec
-                    head -15 rhel/SPECS/${specName}.spec
                 """
             }
         }
@@ -115,7 +134,6 @@ pipeline {
         }
 
         stage('Build RPMs') {
-            when { expression { return currentBuild.result != 'UNSTABLE' } }
             steps {
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
@@ -124,7 +142,6 @@ pipeline {
         }
 
         stage('Upload to repo.ci.percona.com') {
-            when { expression { return currentBuild.result != 'UNSTABLE' } }
             agent { label 'master' }
             steps {
                 deleteDir()
@@ -149,7 +166,6 @@ pipeline {
         }
 
         stage('Sign RPMs') {
-            when { expression { return currentBuild.result != 'UNSTABLE' } }
             agent { label 'master' }
             steps {
                 unstash 'gitCommit'
@@ -168,7 +184,6 @@ pipeline {
         }
 
         stage('Push to RPM repository') {
-            when { expression { return currentBuild.result != 'UNSTABLE' } }
             agent any
             steps {
                 unstash 'gitCommit'
