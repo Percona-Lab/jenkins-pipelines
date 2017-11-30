@@ -16,7 +16,7 @@ pipeline {
             description: 'publish result package to internal or external repository',
             name: 'DESTINATION')
         string(
-            defaultValue: '1.5.1',
+            defaultValue: '1.5.2',
             description: 'version of result package',
             name: 'VERSION')
     }
