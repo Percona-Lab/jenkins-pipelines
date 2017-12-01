@@ -93,29 +93,31 @@ pipeline {
 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${env.BUILD_URL}"
 
-                sh """
-                    export VM_NAME="${JOB_NAME}-\$(date -u '+%Y%m%d%H%M')"
-                    echo \$VM_NAME > VM_NAME
+                withCredentials([usernamePassword(credentialsId: 'Jenkins API (mykola)', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh """
+                        export VM_NAME="${JOB_NAME}-\$(date -u '+%Y%m%d%H%M')"
+                        echo \$VM_NAME > VM_NAME
 
-                    export OWNER=\$(
-                        curl -s $BUILD_URL/api/json \
-                            | python -c "import sys, json; print json.load(sys.stdin)['actions'][1]['causes'][0]['userId']"
-                    )
-                    echo \$OWNER > OWNER
-
-                    if [ "X$CLIENT_VERSION" = "Xlatest" ]; then
-                        CLIENT_VERSION=\$(
-                            curl https://www.percona.com/downloads/pmm-client/ \
-                                | egrep -o 'pmm-client-[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}' \
-                                | sed -e 's/pmm-client-//' \
-                                | sort -u -V \
-                                | tail -1
+                        export OWNER=\$(
+                            curl -s -u $USER:$PASS $BUILD_URL/api/json \
+                                | python -c "import sys, json; print json.load(sys.stdin)['actions'][1]['causes'][0]['userId']"
                         )
-                        echo \$CLIENT_VERSION > CLIENT_VERSION
-                    else
-                        echo $CLIENT_VERSION > CLIENT_VERSION
-                    fi
-                """
+                        echo \$OWNER > OWNER
+
+                        if [ "X$CLIENT_VERSION" = "Xlatest" ]; then
+                            CLIENT_VERSION=\$(
+                                curl https://www.percona.com/downloads/pmm-client/ \
+                                    | egrep -o 'pmm-client-[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}' \
+                                    | sed -e 's/pmm-client-//' \
+                                    | sort -u -V \
+                                    | tail -1
+                            )
+                            echo \$CLIENT_VERSION > CLIENT_VERSION
+                        else
+                            echo $CLIENT_VERSION > CLIENT_VERSION
+                        fi
+                    """
+                }
             }
         }
 
