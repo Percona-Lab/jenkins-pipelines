@@ -12,9 +12,13 @@ pipeline {
             description: 'PMM Server Web Interface URL',
             name: 'PMM_URL')
     }
+    options {
+        skipDefaultCheckout()
+        disableConcurrentBuilds()
+    }
 
     stages {
-        stage('Preparation') {
+        stage('Prepare') {
             steps {
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${env.BUILD_URL}"
 
@@ -33,13 +37,25 @@ pipeline {
                 sh "curl --silent --insecure '${PMM_URL}/prometheus/targets' | grep localhost:9090"
             }
         }
-        stage('Run Test') {
+        stage('Run Grafana Test') {
             steps {
                 sauce('SauceLabsKey') {
                     sauceconnect(options: '', sauceConnectPath: '') {
                         sh """
                             export PATH=$PATH:/usr/local/node/bin:\$(pwd -P)/node_modules/protractor/bin
-                            protractor config_saucelabs_debug.js --baseUrl=${PMM_URL} || :
+                            protractor config_grafana_saucelabs.js --baseUrl=${PMM_URL} || :
+                        """
+                    }
+                }
+            }
+        }
+        stage('Run QAN Test') {
+            steps {
+                sauce('SauceLabsKey') {
+                    sauceconnect(options: '', sauceConnectPath: '') {
+                        sh """
+                            export PATH=$PATH:/usr/local/node/bin:\$(pwd -P)/node_modules/protractor/bin
+                            protractor config_qan_saucelabs.js --baseUrl=${PMM_URL} || :
                         """
                     }
                 }
@@ -52,8 +68,9 @@ pipeline {
 
             // proccess test result
             saucePublisher()
-            junit '**/testresults/*xmloutput.xml'
-            step([$class: 'JUnitResultArchiver', testResults: '**/testresults/*xmloutput.xml', healthScaleFactor: 1.0])
+            junit '**/testresults/*xmloutput*.xml'
+            step([$class: 'JUnitResultArchiver', testResults: '**/testresults/*xmloutput*.xml', healthScaleFactor: 1.0])
+            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'screenshots', reportFiles: 'pmm-qan-report.html, pmm-test-grafana-report.html', reportName: 'HTML Report', reportTitles: ''])
         }
         failure {
             slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
