@@ -246,15 +246,15 @@ pipeline {
                         pushd pmm-demo
                             if [ -S /tmp/PS_NODE_1.sock ]; then
                                 sudo ./install ps56 /tmp/PS_NODE_1.sock
-                                printf "[client]\nsocket=/tmp/PS_NODE_1.sock\n" > /root/.my.cnf
+                                printf '[client]\nsocket=/tmp/PS_NODE_1.sock\n' > /root/.my.cnf
                             fi
                             if [ -S /tmp/MD_NODE_1.sock ]; then
                                 sudo ./install md /tmp/MD_NODE_1.sock
-                                printf "[client]\nsocket=/tmp/MD_NODE_1.sock\n" > /root/.my.cnf
+                                printf '[client]\nsocket=/tmp/MD_NODE_1.sock\n' > /root/.my.cnf
                             fi
                             if [ -S /tmp/PXC_NODE_1.sock ]; then
                                 sudo ./install pxc56-1 /tmp/PXC_NODE_1.sock
-                                printf "[client]\nsocket=/tmp/PXC_NODE_1.sock\n" > /root/.my.cnf
+                                printf '[client]\nsocket=/tmp/PXC_NODE_1.sock\n' > /root/.my.cnf
                             fi
                         popd
                     "
