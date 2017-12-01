@@ -178,10 +178,13 @@ pipeline {
                             IPADDR=$IP
                             PREFIX=$NETMASK
                             GATEWAY=$GATEWAY
-                            DNS1=$DNS
+                            DNS1=8.8.4.4
+                            DNS2=8.8.8.8
+                            PEERDNS=yes
                             ONBOOT=yes
                             TYPE=Ethernet
                         " | sudo tee /etc/sysconfig/network-scripts/ifcfg-$INTERFACE
+                        sudo systemctl stop NetworkManager
                         sudo systemctl restart network docker
                     '
                 '''
