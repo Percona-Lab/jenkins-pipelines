@@ -236,6 +236,7 @@ pipeline {
         stage('Run Clients') {
             steps {
                 sh """
+                    [ -z "${CLIENTS}" ] && exit 0 || :
                     export IP=\$(cat IP)
                     ssh -o StrictHostKeyChecking=no -i /mnt/images/id_rsa_vagrant vagrant@\$IP "
                         export PATH=\$PATH:/usr/sbin
