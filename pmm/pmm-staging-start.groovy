@@ -233,6 +233,8 @@ pipeline {
                     export IP=\$(cat IP)
                     ssh -o StrictHostKeyChecking=no -i /mnt/images/id_rsa_vagrant vagrant@\$IP "
                         export PATH=\$PATH:/usr/sbin
+                        sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
+
                         bash /srv/percona-qa/pmm-tests/pmm-framework.sh \
                             --pxc-version ${PXC_VERSION} \
                             --ps-version  ${PS_VERSION} \
