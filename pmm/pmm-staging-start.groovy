@@ -16,23 +16,23 @@ pipeline {
             description: 'public ssh key for "vagrant" user, please set if you need ssh access',
             name: 'SSH_KEY')
         string(
-            defaultValue: '5.7.17-rel11-27.20.2',
+            defaultValue: '5.7',
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
         string(
-            defaultValue: '5.7.17-11',
+            defaultValue: '5.7',
             description: 'Percona Server for MySQL version',
             name: 'PS_VERSION')
         string(
-            defaultValue: '5.7.17',
+            defaultValue: '8.0',
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         string(
-            defaultValue: '10.1.28',
+            defaultValue: '10.2',
             description: 'MariaDB Server version',
             name: 'MD_VERSION')
         string(
-            defaultValue: '3.4.2-1.2',
+            defaultValue: '3.4',
             description: 'Percona Server for MongoDB version',
             name: 'MO_VERSION')
         string(
@@ -201,14 +201,7 @@ pipeline {
                             -e METRICS_RESOLUTION=5s \
                             ${DOCKER_VERSION}
 
-                        # it is needed to wait 20 second, it is better to download files instead of sleep command
-                        wget --progress=dot:giga \
-                            "https://www.percona.com/downloads/Percona-Server-LATEST/Percona-Server-${PS_VERSION}/binary/tarball/Percona-Server-${PS_VERSION}-Linux.x86_64.ssl101.tar.gz" \
-                            "http://ftp.nluug.nl/db/mariadb/mariadb-${MD_VERSION}/bintar-linux-x86_64/mariadb-${MD_VERSION}-linux-x86_64.tar.gz" \
-                            "https://dev.mysql.com/get/Downloads/MySQL-5.7/mysql-${MS_VERSION}-linux-glibc2.5-x86_64.tar.gz" \
-                            "https://www.percona.com/downloads/Percona-XtraDB-Cluster-LATEST/Percona-XtraDB-Cluster-\$(echo "$PXC_VERSION" | sed -r 's/-rel[0-9]{1,2}-/-/; s/[.][0-9]\$//')/binary/tarball/Percona-XtraDB-Cluster-${PXC_VERSION}.Linux.x86_64.ssl101.tar.gz" \
-                            "https://www.percona.com/downloads/percona-server-mongodb-LATEST/percona-server-mongodb-${MO_VERSION}/binary/tarball/percona-server-mongodb-${MO_VERSION}-centos7-x86_64.tar.gz"
-
+                        sleep 10
                         docker logs \$(cat VM_NAME)-server
 
                         pushd /srv/percona-qa
@@ -240,7 +233,14 @@ pipeline {
                     export IP=\$(cat IP)
                     ssh -o StrictHostKeyChecking=no -i /mnt/images/id_rsa_vagrant vagrant@\$IP "
                         export PATH=\$PATH:/usr/sbin
-                        bash /srv/percona-qa/pmm-tests/pmm-framework.sh ${CLIENTS}
+                        bash /srv/percona-qa/pmm-tests/pmm-framework.sh \
+                            --pxc-version ${PXC_VERSION} \
+                            --ps-version  ${PS_VERSION} \
+                            --ms-version  ${MS_VERSION} \
+                            --md-version  ${MD_VERSION} \
+                            --mo-version  ${MO_VERSION} \
+                            --download \
+                            ${CLIENTS}
 
                         # run sysbench
                         git clone https://github.com/percona/pmm-demo.git
