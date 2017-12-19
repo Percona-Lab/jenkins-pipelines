@@ -70,7 +70,7 @@ pipeline {
                     }
                 }
 
-                withCredentials([usernamePassword(credentialsId: 'Jenkins API (mykola)', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                withCredentials([usernamePassword(credentialsId: 'Jenkins API', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
                         export VM_NAME="${JOB_NAME}-\$(date -u '+%Y%m%d%H%M')"
                         echo \$VM_NAME > VM_NAME
