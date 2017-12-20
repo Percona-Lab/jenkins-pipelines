@@ -8,7 +8,7 @@ def call() {
 
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com " \
                         /bin/bash -xc ' \
-                            ls \${path_to_build}/binary/rhel7/x86_64/*.rpm \
+                            ls \${path_to_build}/binary/redhat/7/x86_64/*.rpm \
                                 | xargs -n 1 signpackage --verbose --password ${SIGN_PASSWORD} --rpm \
                         '"
                 """
