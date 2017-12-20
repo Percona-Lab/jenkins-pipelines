@@ -43,6 +43,7 @@ pipeline {
                 sh '''
                     sudo yum -y install rpm-build mock git rpmdevtools
                     sudo usermod -aG mock `id -u -n`
+                    sudo sed -i "1 i\\config_opts['plugin_conf']['tmpfs_enable'] = True" /etc/mock/epel-7-x86_64.cfg
                 '''
 
                 // get commit ID
@@ -81,7 +82,6 @@ pipeline {
             steps {
                 sh """
                     ls rhel/SPECS/${specName}.spec \
-                       rhel/SPECS/golang.spec \
                         | xargs -n 1 spectool -g -C rhel/SOURCES
                 """
             }
@@ -90,19 +90,18 @@ pipeline {
         stage('Build SRPMs') {
             steps {
                 sh """
-                    sed -i -e 's/.\\/run.bash/#.\\/run.bash/' rhel/SPECS/golang.spec
                     rpmbuild --define "_topdir rhel" -bs rhel/SPECS/${specName}.spec
                 """
                 script {
                     RPM_NAME = sh(
-                        script: '''
+                        script: """
                             ls rhel/SRPMS/${specName}-*.src.rpm \
                                 | sed -r " \
                                     s|^rhel/SRPMS/||; \
                                     s|[0-9]{10}|*|; \
                                     s|[.]el7[.]centos[.]src[.]rpm\$|.*|; \
                                 "
-                        ''',
+                        """,
                         returnStdout: true
                     ).trim()
                     checkRPM(DESTINATION, RPM_NAME)
@@ -119,21 +118,18 @@ pipeline {
         }
 
         stage('Push to internal repository') {
-            agent { label 'master' }
             steps {
                 uploadRPM()
             }
         }
 
         stage('Sign RPMs') {
-            agent { label 'master' }
             steps {
                 signRPM()
             }
         }
 
         stage('Push to public repository') {
-            agent any
             steps {
                 sync2Prod(DESTINATION)
             }

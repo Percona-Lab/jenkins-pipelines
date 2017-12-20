@@ -7,10 +7,9 @@ def call() {
                     export path_to_build="UPLOAD/pmm/${JOB_NAME}/\$(cat shortCommit)-${BUILD_NUMBER}"
 
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com " \
-                        /bin/bash -xc ' \
-                            ls \${path_to_build}/binary/redhat/7/x86_64/*.rpm \
-                                | xargs -n 1 signpackage --verbose --password ${SIGN_PASSWORD} --rpm \
-                        '"
+                        ls \${path_to_build}/binary/redhat/7/x86_64/*.rpm \
+                            | xargs -n 1 signpackage --verbose --password ${SIGN_PASSWORD} --rpm
+                    "
                 """
             }
         }
