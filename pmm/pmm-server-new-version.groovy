@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'docker'
+        label 'master'
     }
     parameters {
         string(
@@ -17,15 +17,16 @@ pipeline {
         stage('Set default value') {
             steps {
                 deleteDir()
-                withCredentials([sshUserPrivateKey(credentialsId: 'a4f74dde-80c7-462f-9bd6-d96b5c1b1409', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
-                        echo "#!/bin/sh
-exec /usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh
+                        echo "/usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh
                         chmod 755 github-ssh.sh
                         export GIT_SSH=$(pwd -P)/github-ssh.sh
                         git clone git@github.com:Percona-Lab/jenkins-pipelines
 
                         pushd jenkins-pipelines
+                            git config --global user.email "dev-services@percona.com"
+                            git config --global user.name "PMM Jenkins"
                             for JOB in pmm-dashboards-package pmm-manage-package pmm-managed-package pmm-qan-api-package pmm-qan-app-package pmm-server-hotfix pmm-server-package pmm-server-packages pmm-server-release pmm-update-package rds_exporter-package; do
                                 sed \
                                     -i'' \
@@ -33,7 +34,7 @@ exec /usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > gi
                                     ./pmm/${JOB}.groovy
                             done
                             git pull
-                            git commit -a -m "up PMM to ${NEW_VERSION}" --author "Jenkins <jenkins@percona.com>"
+                            git commit -a -m "up PMM to ${NEW_VERSION}"
                             git config --global push.default matching
                             git push
                         popd
