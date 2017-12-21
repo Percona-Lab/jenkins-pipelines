@@ -3,7 +3,7 @@ pipeline {
         specName = 'Docker'
     }
     agent {
-        label 'docker'
+        label 'min-centos-7-x64'
     }
     parameters {
         string(
@@ -26,7 +26,14 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
+                sh '''
+                    sudo yum -y install git
+                    curl -fsSL get.docker.com -o get-docker.sh
+                    sh get-docker.sh
+                    sudo usermod -aG docker `id -u -n`
+                    sudo service docker start
+                '''
+                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-server.git'
                 sh """
                     export IMAGE="${TAG}:\$(date -u '+%Y%m%d%H%M')"
@@ -37,10 +44,12 @@ pipeline {
 
         stage('Build Image') {
             steps {
-                sh """
-                    docker pull centos:latest
-                    docker build --no-cache -t \$(cat IMAGE) .
-                """
+                sh '''
+                    sg docker -c "
+                        docker pull centos:latest
+                        docker build --no-cache -t \$(cat IMAGE) .
+                    "
+                '''
                 stash includes: 'IMAGE', name: 'IMAGE'
                 archiveArtifacts 'IMAGE'
             }
@@ -49,11 +58,13 @@ pipeline {
         stage('Upload') {
             steps {
                 sh """
-                    docker tag  \$(cat IMAGE) ${TAG}:dev-latest
-                    docker push \$(cat IMAGE)
-                    docker push ${TAG}:dev-latest
-                    docker rmi  \$(cat IMAGE)
-                    docker rmi  ${TAG}:dev-latest
+                    sg docker -c "
+                        docker tag  \$(cat IMAGE) ${TAG}:dev-latest
+                        docker push \$(cat IMAGE)
+                        docker push ${TAG}:dev-latest
+                        docker rmi  \$(cat IMAGE)
+                        docker rmi  ${TAG}:dev-latest
+                    "
                 """
             }
         }
