@@ -1,11 +1,11 @@
-def call(String specName, String repo) {
+def call(String specName, String repo, String branch = 'master') {
 pipeline {
     agent {
         label 'min-centos-7-x64'
     }
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: branch,
             description: 'Tag/Branch for repository checkout',
             name: 'GIT_BRANCH')
         choice(

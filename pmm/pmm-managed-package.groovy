@@ -3,4 +3,4 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-buildGoPipeline('pmm-managed', 'percona/pmm-managed')
+buildGoPipeline('pmm-managed', 'percona/pmm-managed', 'PMM-1.5')
