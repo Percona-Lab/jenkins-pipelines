@@ -1,3 +1,8 @@
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+]) _
+
 pipeline {
     environment {
         specName = '3rd-party'
@@ -72,6 +77,7 @@ pipeline {
             steps {
                 sh """
                     rm -rf  rhel/SPECS/percona-dashboards*.spec \
+                            rhel/SPECS/clickhouse.spec \
                             rhel/SPECS/rds_exporter*.spec \
                             rhel/SPECS/pmm-server*.spec \
                             rhel/SPECS/pmm-manage*.spec \
@@ -94,7 +100,7 @@ pipeline {
 
         stage('Build Golang') {
             steps {
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/golang-1.*.src.rpm'
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/go-srpm-macros-*.src.rpm'
             }
@@ -107,57 +113,21 @@ pipeline {
             }
         }
 
-        stage('Upload to repo.ci.percona.com') {
-            agent { label 'master' }
+        stage('Push to internal repository') {
             steps {
-                deleteDir()
-                unstash 'rpms'
-                unstash 'gitCommit'
-                sh """
-                    export path_to_build="${DESTINATION}/BUILDS/pmm-server/pmm-server-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${env.BUILD_NUMBER}"
-
-                    ssh -i ~/.ssh/id_rsa uploader@repo.ci.percona.com \
-                    mkdir -p UPLOAD/\${path_to_build}/source/redhat \
-                             UPLOAD/\${path_to_build}/binary/redhat/7/x86_64
-
-                    scp -i ~/.ssh/id_rsa \
-                        `find result-repo -name '*.src.rpm'` \
-                        uploader@repo.ci.percona.com:UPLOAD/\${path_to_build}/source/redhat/
-
-                    scp -i ~/.ssh/id_rsa \
-                        `find result-repo -name '*.noarch.rpm' -o -name '*.x86_64.rpm'` \
-                        uploader@repo.ci.percona.com:UPLOAD/\${path_to_build}/binary/redhat/7/x86_64/
-                """
+                uploadRPM()
             }
         }
 
         stage('Sign RPMs') {
-            agent { label 'master' }
             steps {
-                unstash 'gitCommit'
-                withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
-                    sh """
-                        export path_to_build="${DESTINATION}/BUILDS/pmm-server/pmm-server-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${env.BUILD_NUMBER}"
-
-                        ssh -i ~/.ssh/id_rsa uploader@repo.ci.percona.com " \
-                            /bin/bash -xc ' \
-                                ls UPLOAD/\${path_to_build}/binary/redhat/7/x86_64/*.rpm \
-                                    | xargs -n 1 signpackage --verbose --password ${SIGN_PASSWORD} --rpm \
-                            '"
-                    """
-                }
+                signRPM()
             }
         }
 
-        stage('Push to RPM repository') {
-            agent any
+        stage('Push to public repository') {
             steps {
-                unstash 'gitCommit'
-                script {
-                    def path_to_build = sh(returnStdout: true, script: "echo ${DESTINATION}/BUILDS/pmm-server/pmm-server-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${env.BUILD_NUMBER}").trim()
-                    build job: 'push-to-rpm-repository', parameters: [string(name: 'PATH_TO_BUILD', value: "${path_to_build}"), string(name: 'DESTINATION', value: "${DESTINATION}")]
-                    build job: 'sync-repos-to-production', parameters: [booleanParam(name: 'REVERSE', value: false)]
-                }
+                sync2Prod(DESTINATION)
             }
         }
     }
