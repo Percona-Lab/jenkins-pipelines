@@ -22,7 +22,7 @@ pipeline {
                 label 'docker'
             }
             steps {
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
                 sh "docker run ${DOCKER_VERSION} /usr/bin/rpm -qa | tee rpms.list"
             }
         }

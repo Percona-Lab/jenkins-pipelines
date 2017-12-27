@@ -152,7 +152,7 @@ pipeline {
     stages {
         stage('Fetch sources') {
             steps {
-                slackSend channel: '#fb-myrocks-build', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
+                slackSend channel: '#fb-myrocks-build', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
 
                 deleteDir()
                 git poll: true, branch: GIT_BRANCH, url: "https://github.com/${repo}.git"

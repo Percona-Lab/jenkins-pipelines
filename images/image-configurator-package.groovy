@@ -141,7 +141,7 @@ pipeline {
 
         stage('Build Golang') {
             steps {
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${env.BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/golang-1.*.src.rpm'
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/go-srpm-macros-*.src.rpm'
             }
@@ -161,7 +161,7 @@ pipeline {
                 unstash 'rpms'
                 unstash 'gitCommit'
                 sh """
-                    export path_to_build="${DESTINATION}/BUILDS/image-configurator/image-configurator-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${env.BUILD_NUMBER}"
+                    export path_to_build="${DESTINATION}/BUILDS/image-configurator/image-configurator-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}"
 
                     ssh -i ~/.ssh/id_rsa uploader@repo.ci.percona.com \
                     mkdir -p UPLOAD/\${path_to_build}/source/redhat \
@@ -184,7 +184,7 @@ pipeline {
                 unstash 'gitCommit'
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
                     sh """
-                        export path_to_build="${DESTINATION}/BUILDS/image-configurator/image-configurator-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${env.BUILD_NUMBER}"
+                        export path_to_build="${DESTINATION}/BUILDS/image-configurator/image-configurator-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}"
 
                         ssh -i ~/.ssh/id_rsa uploader@repo.ci.percona.com " \
                             /bin/bash -xc ' \
@@ -201,7 +201,7 @@ pipeline {
             steps {
                 unstash 'gitCommit'
                 script {
-                    def path_to_build = sh(returnStdout: true, script: "echo ${DESTINATION}/BUILDS/image-configurator/image-configurator-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${env.BUILD_NUMBER}").trim()
+                    def path_to_build = sh(returnStdout: true, script: "echo ${DESTINATION}/BUILDS/image-configurator/image-configurator-${VERSION}/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}").trim()
                     build job: 'push-to-rpm-repository', parameters: [string(name: 'PATH_TO_BUILD', value: "${path_to_build}"), string(name: 'DESTINATION', value: "${DESTINATION}")]
                     build job: 'sync-repos-to-production', parameters: [booleanParam(name: 'REVERSE', value: false)]
                 }
