@@ -247,6 +247,38 @@ Resources:
       SecurityGroups:
         - !GetAtt NFSSecurityGroup.GroupId
 
+  JSlaveRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Principal:
+            Service: ec2.amazonaws.com
+      Path: /
+      Policies:
+      - PolicyName: !Join [ '-', [ !Ref JShortName, 'slave' ]]
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Resource: '*'
+            Action:
+            - ec2:DescribeSpotInstanceRequests
+            - ec2:CreateTags
+            - ec2:DeleteTags
+            - ec2:DescribeInstances
+
+  JSlaveProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref JSlaveRole
+      InstanceProfileName: !Join [ '-', [ !Ref JShortName, 'slave' ]]
+
   JMasterRole:
     Type: AWS::IAM::Role
     Properties:
@@ -415,7 +447,10 @@ Resources:
                   yum -y update
                   yum -y install java-1.8.0-openjdk jenkins nginx nfs-utils yum-cron-daily
                   yum -y remove java-1.7.0-openjdk
+
                   sed -i 's/apply_updates = no/apply_updates = yes/' /etc/yum/yum-cron.conf
+                  chkconfig yum-cron on
+                  service yum-cron start
 
                   wget https://dl.eff.org/certbot-auto -O /opt/certbot-auto
                   chmod 755 /opt/certbot-auto
@@ -430,6 +465,7 @@ Resources:
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   echo "127.0.0.1 $(hostname) $(hostname -A)" | tee -a /etc/hosts
                   echo JENKINS_HOME=/mnt/$JENKINS_HOST | tee -a /etc/sysconfig/jenkins
+                  chkconfig jenkins on
                   service jenkins start
               }
 
@@ -503,6 +539,7 @@ Resources:
               		  }
               		}
               	EOF
+                  chkconfig nginx on
                   service nginx start
               }
 
