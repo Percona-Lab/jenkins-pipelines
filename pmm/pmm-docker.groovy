@@ -57,6 +57,11 @@ pipeline {
 
         stage('Upload') {
             steps {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh """
+                        docker login -u "${USER}" -p "${PASS}"
+                    """
+                }
                 sh """
                     sg docker -c "
                         docker tag  \$(cat IMAGE) ${TAG}:dev-latest
