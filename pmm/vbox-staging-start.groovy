@@ -52,50 +52,36 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-
-                echo """
-                    DOCKER_VERSION: ${DOCKER_VERSION}
-                    CLIENT_VERSION: ${CLIENT_VERSION}
-                    PXC_VERSION:    ${PXC_VERSION}
-                    PS_VERSION:     ${PS_VERSION}
-                    MS_VERSION:     ${MS_VERSION}
-                    MD_VERSION:     ${MD_VERSION}
-                    MO_VERSION:     ${MO_VERSION}
-                    CLIENTS:        ${CLIENTS}
-                """
-
-                script {
-                    if ("${NOTIFY}" == "true") {
-                        slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${env.BUILD_URL}"
-                    }
-                }
-
+                deleteDir()
                 withCredentials([usernamePassword(credentialsId: 'Jenkins API', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
-                        export VM_NAME="${JOB_NAME}-\$(date -u '+%Y%m%d%H%M')"
-                        echo \$VM_NAME > VM_NAME
-
-                        export OWNER=\$(
-                            curl -s -u $USER:$PASS $BUILD_URL/api/json \
-                                | python -c "import sys, json; print json.load(sys.stdin)['actions'][1]['causes'][0]['userId']"
-                        )
-                        echo \$OWNER > OWNER
-
-                        if [ "X$CLIENT_VERSION" = "Xlatest" ]; then
-                            CLIENT_VERSION=\$(
-                                curl https://www.percona.com/downloads/pmm-client/ \
-                                    | egrep -o 'pmm-client-[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}' \
-                                    | sed -e 's/pmm-client-//' \
-                                    | sort -u -V \
-                                    | tail -1
-                            )
-                            echo \$CLIENT_VERSION > CLIENT_VERSION
-                        else
-                            echo $CLIENT_VERSION > CLIENT_VERSION
-                        fi
+                        curl -s -u ${USER}:${PASS} ${BUILD_URL}api/json \
+                            | python -c "import sys, json; print json.load(sys.stdin)['actions'][1]['causes'][0]['userId']" \
+                            | sed -e 's/@percona.com//' \
+                            > OWNER
+                        echo "pmm-\$(cat OWNER | cut -d . -f 1)-\$(date -u '+%Y%m%d%H%M')" \
+                            > VM_NAME
                     """
                 }
-                archiveArtifacts 'VM_NAME'
+                stash includes: 'OWNER,VM_NAME', name: 'VM_NAME'
+                script {
+                    def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
+                    echo """
+                        DOCKER_VERSION: ${DOCKER_VERSION}
+                        CLIENT_VERSION: ${CLIENT_VERSION}
+                        PXC_VERSION:    ${PXC_VERSION}
+                        PS_VERSION:     ${PS_VERSION}
+                        MS_VERSION:     ${MS_VERSION}
+                        MD_VERSION:     ${MD_VERSION}
+                        MO_VERSION:     ${MO_VERSION}
+                        CLIENTS:        ${CLIENTS}
+                        OWNER:          ${OWNER}
+                    """
+                    if ("${NOTIFY}" == "true") {
+                        slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        slackSend channel: "@${OWNER}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                    }
+                }
             }
         }
 
@@ -126,6 +112,7 @@ pipeline {
                         sleep 10
                     done
                     echo \$IP > IP
+                    echo \$IP > PUBLIC_IP
 
                     if [ "X\$IP" = "X." ]; then
                         echo Error during DHCP configure. exiting
@@ -134,11 +121,19 @@ pipeline {
                 '''
 
                 // push ssh key
-                sh """
-                    if [ -n "$SSH_KEY" ]; then
-                        echo '$SSH_KEY' | ssh -o StrictHostKeyChecking=no -i /mnt/images/id_rsa_vagrant vagrant@\$(cat IP) 'cat - >> .ssh/authorized_keys'
-                    fi
-                """
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        export IP=\$(cat IP)
+                        ssh -o StrictHostKeyChecking=no -i /mnt/images/id_rsa_vagrant vagrant@\$IP '
+                            sudo adduser -m -U -G vagrant,docker ec2-user
+                            sudo install -d -o ec2-user -g ec2-user /home/ec2-user/.ssh
+                        '
+                        ssh-keygen -y -f $KEY_PATH | ssh -o StrictHostKeyChecking=no -i /mnt/images/id_rsa_vagrant vagrant@\$(cat IP) 'cat - | sudo -u ec2-user tee -a /home/ec2-user/.ssh/authorized_keys'
+                        if [ -n "$SSH_KEY" ]; then
+                            echo '$SSH_KEY' | ssh -o StrictHostKeyChecking=no -i /mnt/images/id_rsa_vagrant vagrant@\$(cat IP) 'cat - | sudo -u ec2-user tee -a /home/ec2-user/.ssh/authorized_keys'
+                        fi
+                    """
+                }
 
                 // Reconfigure DHCP
                 sh '''
@@ -166,114 +161,124 @@ pipeline {
                         " | sudo tee /etc/sysconfig/network-scripts/ifcfg-$INTERFACE
                         sudo systemctl stop NetworkManager
                         sudo systemctl restart network docker
+
+                        sudo yum -y install svn
+                        sudo rm -rf /srv/percona-qa || :
+                        sudo mkdir -p /srv/percona-qa || :
+                        pushd /srv/percona-qa
+                            sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/pmm-tests
+                            sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
+                            sudo chmod 755 get_download_link.sh
+                        popd
                     '
                 '''
                 script {
                     env.IP      = sh(returnStdout: true, script: "cat IP").trim()
                     env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
                 }
-                archiveArtifacts 'IP'
+                archiveArtifacts 'PUBLIC_IP'
             }
         }
 
         stage('Run Docker') {
             steps {
-                sh """
-                    export IP=\$(cat IP)
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        export IP=\$(cat IP)
+                        export VM_NAME=\$(cat VM_NAME)
 
-                    ssh -o StrictHostKeyChecking=no -i /mnt/images/id_rsa_vagrant vagrant@\$IP "
-                        set -o xtrace
-
-                        docker create \
-                            -v /opt/prometheus/data \
-                            -v /opt/consul-data \
-                            -v /var/lib/mysql \
-                            -v /var/lib/grafana \
-                            --name \$(cat VM_NAME)-data \
-                            ${DOCKER_VERSION} /bin/true
-
-                        docker run -d \
-                            -p 80:80 \
-                            -p 443:443 \
-                            --volumes-from \$(cat VM_NAME)-data \
-                            --name \$(cat VM_NAME)-server \
-                            --restart always \
-                            -e METRICS_RESOLUTION=5s \
-                            ${DOCKER_VERSION}
-
-                        sleep 10
-                        docker logs \$(cat VM_NAME)-server
-
-                        pushd /srv/percona-qa
-                            sudo git pull
-                        popd
-
-                        CLIENT_VERSION=\$(cat CLIENT_VERSION)
-                        if [ "X\$CLIENT_VERSION" = "Xdev-latest" ]; then
-                            sudo yum -y install pmm-client --enablerepo=percona-testing-*
-                        else
-                            wget --progress=dot:giga "https://www.percona.com/downloads/pmm-client/pmm-client-\$(cat CLIENT_VERSION)/binary/tarball/pmm-client-\$(cat CLIENT_VERSION).tar.gz"
-                            tar -zxpf pmm-client-\$(cat CLIENT_VERSION).tar.gz
-                            pushd pmm-client-\$(cat CLIENT_VERSION)
-                                sudo ./install
-                            popd
+                        export CLIENT_VERSION=${CLIENT_VERSION}
+                        if [ "X\$CLIENT_VERSION" = "Xlatest" ]; then
+                            CLIENT_VERSION=\$(
+                                curl -s https://www.percona.com/downloads/pmm/ \
+                                    | egrep -o 'pmm/[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}' \
+                                    | sed -e 's/pmm\\///' \
+                                    | sort -u -V \
+                                    | tail -1
+                            )
                         fi
 
-                        export PATH=\$PATH:/usr/sbin
-                        sudo pmm-admin config --client-name pmm-client-hostname --server \$IP
-                    "
-                """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
+                            set -o errexit
+                            set -o xtrace
+
+                            docker create \
+                                -v /opt/prometheus/data \
+                                -v /opt/consul-data \
+                                -v /var/lib/mysql \
+                                -v /var/lib/grafana \
+                                --name \${VM_NAME}-data \
+                                ${DOCKER_VERSION} /bin/true
+
+                            docker run -d \
+                                -p 80:80 \
+                                -p 443:443 \
+                                --volumes-from \${VM_NAME}-data \
+                                --name \${VM_NAME}-server \
+                                --restart always \
+                                -e METRICS_RESOLUTION=5s \
+                                ${DOCKER_VERSION}
+
+                            if [ "X\$CLIENT_VERSION" = "Xdev-latest" ]; then
+                                sudo yum -y install pmm-client --enablerepo=percona-testing-*
+                            else
+                                wget --progress=dot:giga "https://www.percona.com/downloads/pmm-client/pmm-client-\${CLIENT_VERSION}/binary/tarball/pmm-client-\${CLIENT_VERSION}.tar.gz"
+                                tar -zxpf pmm-client-\${CLIENT_VERSION}.tar.gz
+                                pushd pmm-client-\${CLIENT_VERSION}
+                                    sudo ./install
+                                popd
+                            fi
+
+                            sleep 10
+                            docker logs \${VM_NAME}-server
+
+                            export PATH=\$PATH:/usr/sbin
+                            sudo pmm-admin config --client-name pmm-client-hostname --server \$IP
+                        "
+                    """
+                }
             }
         }
 
         stage('Run Clients') {
             steps {
-                sh """
-                    [ -z "${CLIENTS}" ] && exit 0 || :
-                    export IP=\$(cat IP)
-                    ssh -o StrictHostKeyChecking=no -i /mnt/images/id_rsa_vagrant vagrant@\$IP "
-                        export PATH=\$PATH:/usr/sbin
-                        sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        [ -z "${CLIENTS}" ] && exit 0 || :
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
+                            set -o errexit
+                            set -o xtrace
 
-                        bash /srv/percona-qa/pmm-tests/pmm-framework.sh \
-                            --pxc-version ${PXC_VERSION} \
-                            --ps-version  ${PS_VERSION} \
-                            --ms-version  ${MS_VERSION} \
-                            --md-version  ${MD_VERSION} \
-                            --mo-version  ${MO_VERSION} \
-                            --download \
-                            ${CLIENTS}
+                            export PATH=\$PATH:/usr/sbin
+                            test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
 
-                        # run sysbench
-                        git clone https://github.com/percona/pmm-demo.git
-                        pushd pmm-demo
-                            if [ -S /tmp/PS_NODE_1.sock ]; then
-                                sudo ./install ps56 /tmp/PS_NODE_1.sock
-                                printf '[client]\nsocket=/tmp/PS_NODE_1.sock\n' | sudo tee /root/.my.cnf
-                            fi
-                            if [ -S /tmp/MD_NODE_1.sock ]; then
-                                sudo ./install md /tmp/MD_NODE_1.sock
-                                printf '[client]\nsocket=/tmp/MD_NODE_1.sock\n' | sudo tee /root/.my.cnf
-                            fi
-                            if [ -S /tmp/PXC_NODE_1.sock ]; then
-                                sudo ./install pxc56-1 /tmp/PXC_NODE_1.sock
-                                printf '[client]\nsocket=/tmp/PXC_NODE_1.sock\n' | sudo tee /root/.my.cnf
-                            fi
-                        popd
-                    "
-                """
+                            bash /srv/percona-qa/pmm-tests/pmm-framework.sh \
+                                --pxc-version ${PXC_VERSION} \
+                                --ps-version  ${PS_VERSION} \
+                                --ms-version  ${MS_VERSION} \
+                                --md-version  ${MD_VERSION} \
+                                --mo-version  ${MO_VERSION} \
+                                --download \
+                                ${CLIENTS} \
+                                --sysbench-data-load \
+                                --sysbench-oltp-run
+                        "
+                    """
+                }
             }
         }
+
     }
 
     post {
         success {
             script {
-                def IMAGE = sh(returnStdout: true, script: "cat IP").trim()
-                def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
                 if ("${NOTIFY}" == "true") {
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
-                    slackSend channel: "@${OWNER}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
+                    def PUBLIC_IP = sh(returnStdout: true, script: "cat PUBLIC_IP").trim()
+                    def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
+
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
+                    slackSend channel: "@${OWNER}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
                 }
             }
         }
@@ -288,7 +293,10 @@ pipeline {
             '''
             script {
                 if ("${NOTIFY}" == "true") {
+                    def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
+
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                    slackSend channel: "@${OWNER}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
                 }
             }
         }
