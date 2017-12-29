@@ -463,8 +463,10 @@ Resources:
 
               start_jenkins() {
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
-                  echo "127.0.0.1 $(hostname) $(hostname -A)" | tee -a /etc/hosts
-                  echo JENKINS_HOME=/mnt/$JENKINS_HOST | tee -a /etc/sysconfig/jenkins
+                  printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
+                      | tee -a /etc/hosts
+                  echo JENKINS_HOME=/mnt/$JENKINS_HOST \
+                      | tee -a /etc/sysconfig/jenkins
                   chkconfig jenkins on
                   service jenkins start
               }
