@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'virtualbox'
+        label 'nodejs'
     }
     parameters {
         string(
@@ -20,11 +20,9 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-
-                // clean up workspace and fetch pmm-qa repository
-                cleanWs deleteDirs: true, notFailBuild: true
+                deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/pmm-qa.git'
+                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
 
                 sh '''
                     export PATH=$PATH:/usr/local/node/bin

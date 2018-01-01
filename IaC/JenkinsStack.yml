@@ -448,6 +448,9 @@ Resources:
                   yum -y install java-1.8.0-openjdk jenkins nginx git nfs-utils yum-cron-daily
                   yum -y remove java-1.7.0-openjdk
 
+                  curl --silent --location https://rpm.nodesource.com/setup_7.x | bash -
+                  yum -y install nodejs --enablerepo=epel
+
                   sed -i 's/apply_updates = no/apply_updates = yes/' /etc/yum/yum-cron.conf
                   chkconfig yum-cron on
                   service yum-cron start
