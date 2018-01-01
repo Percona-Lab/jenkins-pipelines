@@ -107,7 +107,6 @@ pipeline {
             // proccess test result
             saucePublisher()
             junit '**/testresults/*xmloutput*.xml'
-            step([$class: 'JUnitResultArchiver', testResults: '**/testresults/*xmloutput*.xml', healthScaleFactor: 1.0])
             publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'screenshots', reportFiles: 'pmm-qan-report.html, pmm-test-grafana-report.html', reportName: 'HTML Report', reportTitles: ''])
         }
         failure {
