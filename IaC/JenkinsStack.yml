@@ -435,18 +435,16 @@ Resources:
 
               install_software() {
                   until yum makecache; do
-                      sleep 5
+                      sleep 1
                       echo try again
                   done
 
+                  curl --silent --location https://rpm.nodesource.com/setup_7.x | bash -
                   wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat/jenkins.repo
                   rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key
-                  yum -y update
-                  yum -y install java-1.8.0-openjdk jenkins nginx git nfs-utils yum-cron-daily
+                  yum -y update --security
+                  yum -y install java-1.8.0-openjdk jenkins nginx git nfs-utils yum-cron-daily nodejs
                   yum -y remove java-1.7.0-openjdk
-
-                  curl --silent --location https://rpm.nodesource.com/setup_7.x | bash -
-                  yum -y install nodejs --enablerepo=epel
 
                   sed -i 's/apply_updates = no/apply_updates = yes/' /etc/yum/yum-cron.conf
                   chkconfig yum-cron on
@@ -473,21 +471,25 @@ Resources:
 
               create_fake_ssl_cert() {
                   mkdir /etc/nginx/ssl
-                  echo "
-                      [ req ]
-                      distinguished_name = req_distinguished_name
-                      prompt             = no
-                      [ req_distinguished_name ]
-                      O                  = Main Org.
-                  " | tee /etc/nginx/ssl/certificate.conf
-                  openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                                    -keyout /etc/nginx/ssl/certificate.key \
-                                    -out    /etc/nginx/ssl/certificate.crt \
-                                    -config /etc/nginx/ssl/certificate.conf
-                  if [ ! -f /mnt/$JENKINS_HOST/dhparam.pem ]; then
-                      openssl dhparam -out /mnt/$JENKINS_HOST/dhparam.pem 2048
+                  if [ ! -f /mnt/$JENKINS_HOST/ssl/certificate.key -o ! -f /mnt/$JENKINS_HOST/ssl/certificate.crt ]; then
+                      echo "
+                          [ req ]
+                          distinguished_name = req_distinguished_name
+                          prompt             = no
+                          [ req_distinguished_name ]
+                          O                  = Main Org.
+                      " | tee /mnt/$JENKINS_HOST/ssl/certificate.conf
+                      openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                                    -keyout /mnt/$JENKINS_HOST/ssl/certificate.key \
+                                    -out    /mnt/$JENKINS_HOST/ssl/certificate.crt \
+                                    -config /mnt/$JENKINS_HOST/ssl/certificate.conf
                   fi
-                  cp /mnt/$JENKINS_HOST/dhparam.pem /etc/nginx/ssl/dhparam.pem
+                  cp /mnt/$JENKINS_HOST/ssl/certificate.key /etc/nginx/ssl/certificate.key
+                  cp /mnt/$JENKINS_HOST/ssl/certificate.crt /etc/nginx/ssl/certificate.crt
+                  if [ ! -f /mnt/$JENKINS_HOST/ssl/dhparam.pem ]; then
+                      openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam.pem 2048
+                  fi
+                  cp /mnt/$JENKINS_HOST/ssl/dhparam.pem /etc/nginx/ssl/dhparam.pem
                   curl https://letsencrypt.org/certs/isrgrootx1.pem                          > /etc/nginx/ssl/ca-certs.pem
                   curl https://letsencrypt.org/certs/lets-encrypt-x1-cross-signed.pem       >> /etc/nginx/ssl/ca-certs.pem
                   curl https://letsencrypt.org/certs/letsencryptauthorityx1.pem             >> /etc/nginx/ssl/ca-certs.pem
@@ -546,7 +548,7 @@ Resources:
                   service nginx start
               }
 
-              setup_letsancrypt() {
+              setup_letsencrypt() {
                   /opt/certbot-auto --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
@@ -564,7 +566,7 @@ Resources:
                   start_jenkins
                   create_fake_ssl_cert
                   setup_nginx
-                  setup_letsancrypt
+                  setup_letsencrypt
               }
 
               main
