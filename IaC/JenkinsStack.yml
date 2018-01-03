@@ -1,4 +1,4 @@
-# aws cloudformation --region us-east-2 create-stack --template-body file://JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-pmm --parameters ParameterKey=JHostName,ParameterValue=pmm.cd.percona.com ParameterKey=JShortName,ParameterValue=jenkins-pmm
+# aws cloudformation --region us-east-2 create-stack --template-body file://JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-pmm --tags Key=iit-billing-tag,Value=jenkins --parameters ParameterKey=JHostName,ParameterValue=pmm.cd.percona.com ParameterKey=JShortName,ParameterValue=jenkins-pmm
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
@@ -12,32 +12,24 @@ Parameters:
     AllowedPattern: '^[a-z][a-z0-9\.\-]*$'
     ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
 
-  ZoneId:
-    Default: Z1H0AFAU7N8IMC
-    Description: Hosted Zone ID
-    Type: String
-    MinLength: 1
-    MaxLength: 64
-    AllowedPattern: '^[A-Z0-9]+$'
-    ConstraintDescription: must contain only uppercase letters, numbers.
-
   JShortName:
     Default: jenkins-pmm
-    Description: Fully Qualified Domain Name
+    Description: Short host name
     Type: String
     MinLength: 1
     MaxLength: 64
     AllowedPattern: '^[a-z][a-z0-9\.\-]*$'
     ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
 
+  ZoneId:
+    Default: Z1H0AFAU7N8IMC
+    Description: Hosted Zone ID
+    Type: AWS::Route53::HostedZone::Id
+
   KeyName:
     Default: mykola
     Description: Key pair name
-    Type: String
-    MinLength: 1
-    MaxLength: 64
-    AllowedPattern: '^[a-zA-Z0-9]+$'
-    ConstraintDescription: must contain only letters, numbers.
+    Type: AWS::EC2::KeyPair::KeyName
 
 Mappings:
   RegionMap:
