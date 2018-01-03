@@ -150,15 +150,12 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: SSH
-      GroupDescription: SSH traffic in, all traffic out.
+      GroupDescription: SSH traffic in
       VpcId: !Ref JVPC
       SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-      - IpProtocol: -1
         CidrIp: 0.0.0.0/0
       Tags:
       - Key: iit-billing-tag
@@ -168,7 +165,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: HTTP
-      GroupDescription: HTTP and HTTPS traffic in, all traffic out.
+      GroupDescription: HTTP and HTTPS traffic in
       VpcId: !Ref JVPC
       SecurityGroupIngress:
       - IpProtocol: tcp
@@ -179,24 +176,31 @@ Resources:
         FromPort: 443
         ToPort: 443
         CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-      - IpProtocol: -1
-        CidrIp: 0.0.0.0/0
       Tags:
       - Key: iit-billing-tag
         Value: jenkins
 
-  NFSSecurityGroup:
+  NFSClientSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: NFS
+      GroupName: NFSClient
+      GroupDescription: NFS trafic from this SecurityGroup is allowed on NFSServer SecurityGroup
+      VpcId: !Ref JVPC
+      Tags:
+      - Key: iit-billing-tag
+        Value: jenkins
+
+  NFSServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: NFSServer
       GroupDescription: NFS traffic in, all traffic out.
       VpcId: !Ref JVPC
       SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: 2049
         ToPort: 2049
-        SourceSecurityGroupId: !GetAtt JVPC.DefaultSecurityGroup
+        SourceSecurityGroupId: !GetAtt NFSClientSecurityGroup.GroupId
       SecurityGroupEgress:
       - IpProtocol: -1
         CidrIp: 0.0.0.0/0
@@ -221,7 +225,7 @@ Resources:
       FileSystemId: !Ref JEFS
       SubnetId: !Ref JSubnetA
       SecurityGroups:
-        - !GetAtt NFSSecurityGroup.GroupId
+        - !GetAtt NFSServerSecurityGroup.GroupId
 
   JEFSMountB:
     Type: AWS::EFS::MountTarget
@@ -229,7 +233,7 @@ Resources:
       FileSystemId: !Ref JEFS
       SubnetId: !Ref JSubnetB
       SecurityGroups:
-        - !GetAtt NFSSecurityGroup.GroupId
+        - !GetAtt NFSServerSecurityGroup.GroupId
 
   JEFSMountC:
     Type: AWS::EFS::MountTarget
@@ -237,7 +241,7 @@ Resources:
       FileSystemId: !Ref JEFS
       SubnetId: !Ref JSubnetC
       SecurityGroups:
-        - !GetAtt NFSSecurityGroup.GroupId
+        - !GetAtt NFSServerSecurityGroup.GroupId
 
   JSlaveRole:
     Type: AWS::IAM::Role
@@ -370,6 +374,7 @@ Resources:
           SecurityGroups:
           - GroupId: !GetAtt JVPC.DefaultSecurityGroup
           - GroupId: !GetAtt HTTPSecurityGroup.GroupId
+          - GroupId: !GetAtt NFSClientSecurityGroup.GroupId
           SubnetId: !Join [', ', [!Ref JSubnetA, !Ref JSubnetB, !Ref JSubnetC]]
           UserData:
             Fn::Base64: !Sub |
