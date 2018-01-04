@@ -118,8 +118,8 @@ pipeline {
                                 },
                                 "SecurityGroupIds": [
                                     "sg-50221b38",
-                                    "sg-ad251cc5",
-                                    "sg-b82019d0"
+                                    "sg-008e9768",
+                                    "sg-848099ec"
                                 ],
                                 "SubnetId": "subnet-9b2c29e0"
                             },
