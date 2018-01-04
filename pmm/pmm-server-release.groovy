@@ -122,7 +122,6 @@ pipeline {
                 label 'docker'
             }
             steps {
-                deleteDir()
                 sh """
                     docker pull ${DOCKER_VERSION}
                     docker tag ${DOCKER_VERSION} percona/pmm-server:${VERSION}
@@ -131,6 +130,7 @@ pipeline {
                     docker push percona/pmm-server:latest
                     docker save percona/pmm-server:${VERSION} | xz > pmm-server-${VERSION}.docker
                 """
+                deleteDir()
                 stash includes: '*.docker', name: 'docker'
             }
         }
@@ -139,7 +139,6 @@ pipeline {
                 label 'awscli'
             }
             steps {
-                deleteDir()
                 unstash 'docker'
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
@@ -152,6 +151,7 @@ pipeline {
                         scp -i ~/.ssh/id_rsa_downloads pmm-server-${VERSION}.ova pmm-server-${VERSION}.md5sum jenkins@10.10.9.216:/data/downloads/pmm/${VERSION}/ova/
                     """
                 }
+                deleteDir()
                 build job: 'refresh-downloads-area', parameters: [string(name: 'DESTINATION', value: 'RELEASE')]
             }
         }
@@ -259,16 +259,18 @@ pipeline {
     }
     
     post {
+        always {
+            deleteDir()
+        }
         success {
+            unstash 'copy'
             script {
                 def IMAGE = sh(returnStdout: true, script: "cat copy.list").trim()
                 slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
-                deleteDir()
             }
         }
         failure {
             slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
-            deleteDir()
         }
     }
 }

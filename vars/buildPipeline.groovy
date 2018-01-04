@@ -66,12 +66,10 @@ pipeline {
 
                 // prepare spec file
                 deleteDir()
-                sh '''
-                    git clone https://github.com/percona/pmm-server-packaging.git ./
-                    git rev-parse HEAD
-                '''
+                git poll: true, url: 'https://github.com/percona/pmm-server-packaging.git'
                 unstash 'gitCommit'
                 sh """
+                    git rev-parse HEAD
                     sed -i -e "s/global commit.*/global commit \$(cat gitCommit)/" rhel/SPECS/${specName}.spec
                     sed -i -e "s/Version:.*/Version: ${VERSION}/" rhel/SPECS/${specName}.spec
                 """
@@ -111,7 +109,6 @@ pipeline {
 
         stage('Build RPMs') {
             steps {
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/*.src.rpm'
                 stash includes: 'result-repo/results/epel-7-x86_64/*/*.rpm', name: 'rpms'
             }
@@ -137,17 +134,19 @@ pipeline {
     }
 
     post {
-        success {
-            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished"
-            deleteDir()
-        }
-        unstable {
-            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build skipped"
-            deleteDir()
-        }
-        failure {
-            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
-            archiveArtifacts "result-repo/results/epel-7-x86_64/${specName}-*/*.log"
+        always {
+            script {
+                if (currentBuild.result == 'FAILURE') {
+                    archiveArtifacts "result-repo/results/epel-7-x86_64/${specName}-*/*.log"
+                }
+                if (currentBuild.result == 'SUCCESS') {
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished"
+                } else if (currentBuild.result == 'UNSTABLE') {
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build skipped"
+                } else {
+                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build ${currentBuild.result}"
+                }
+            }
             deleteDir()
         }
     }

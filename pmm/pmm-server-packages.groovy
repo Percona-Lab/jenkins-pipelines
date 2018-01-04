@@ -100,7 +100,6 @@ pipeline {
 
         stage('Build Golang') {
             steps {
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/golang-1.*.src.rpm'
                 sh 'mockchain -m --define="dist .el7" -c -r epel-7-x86_64 -l result-repo rhel/SRPMS/go-srpm-macros-*.src.rpm'
             }
@@ -133,17 +132,19 @@ pipeline {
     }
 
     post {
-        success {
-            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished"
-            deleteDir()
-        }
-        unstable {
-            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build skipped"
-            deleteDir()
-        }
-        failure {
-            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
-            archiveArtifacts "result-repo/results/epel-7-x86_64/*/*.log"
+        always {
+            script {
+                if (currentBuild.result == 'FAILURE') {
+                    archiveArtifacts "result-repo/results/epel-7-x86_64/*/*.log"
+                }
+                if (currentBuild.result == 'SUCCESS') {
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished"
+                } else if (currentBuild.result == 'UNSTABLE') {
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build skipped"
+                } else {
+                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build ${currentBuild.result}"
+                }
+            }
             deleteDir()
         }
     }

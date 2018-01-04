@@ -20,5 +20,6 @@ def call() {
                     ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/7/x86_64/
             """
         }
+        deleteDir()
     }
 }
