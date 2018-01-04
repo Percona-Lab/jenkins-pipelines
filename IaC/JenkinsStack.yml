@@ -1,4 +1,4 @@
-# aws cloudformation --region us-east-2 create-stack --template-body file://JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-pmm --tags Key=iit-billing-tag,Value=jenkins --parameters ParameterKey=JHostName,ParameterValue=pmm.cd.percona.com ParameterKey=JShortName,ParameterValue=jenkins-pmm
+# aws cloudformation --region us-east-2 create-stack --template-body file://IaC/JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-pmm --tags Key=iit-billing-tag,Value=jenkins --parameters ParameterKey=JHostName,ParameterValue=pmm.cd.percona.com ParameterKey=JShortName,ParameterValue=jenkins-pmm
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
@@ -506,7 +506,7 @@ Resources:
                   wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat/jenkins.repo
                   rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key
                   yum -y update --security
-                  yum -y install java-1.8.0-openjdk jenkins nginx git nfs-utils yum-cron-daily nodejs
+                  yum -y install java-1.8.0-openjdk jenkins nginx git nfs-utils yum-cron-daily nodejs aws-cli
                   yum -y remove java-1.7.0-openjdk
 
                   sed -i 's/apply_updates = no/apply_updates = yes/' /etc/yum/yum-cron.conf
@@ -530,6 +530,9 @@ Resources:
                       | tee -a /etc/sysconfig/jenkins
                   chkconfig jenkins on
                   service jenkins start
+
+                  echo "/usr/bin/aws s3 sync --sse-kms-key-id alias/jenkins-backup --sse aws:kms --exclude '*/caches/*' --exclude '*/config-history/nodes/*' --exclude '*/secretFiles/*' --delete /mnt/ s3://backup.cd.percona.com/" > /etc/cron.daily/jenkins-backup
+                  chmod 755 /etc/cron.daily/jenkins-backup
               }
 
               create_fake_ssl_cert() {
@@ -615,7 +618,7 @@ Resources:
                   /opt/certbot-auto --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
-                  printf '#!/bin/bash\n\nexec /opt/certbot renew\n' > /etc/cron.daily/certbot
+                  echo '/opt/certbot-auto renew' > /etc/cron.daily/certbot
                   chmod 755 /etc/cron.daily/certbot
                   service nginx stop
                   sleep 2

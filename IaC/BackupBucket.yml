@@ -1,0 +1,130 @@
+# aws cloudformation --region eu-west-1 create-stack --template-body file://IaC/BackupBucket.yml --capabilities CAPABILITY_NAMED_IAM --stack-name backup-bucket --tags Key=iit-billing-tag,Value=jenkins --parameters ParameterKey=BucketName,ParameterValue=backup.cd.percona.com ParameterKey=KeyAlias,ParameterValue=jenkins-backup
+---
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+
+  KeyAlias:
+    Default: jenkins-backup
+    Type: String
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: '^[a-z][a-z0-9\-]*$'
+    ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, and dashes (-).
+
+  BucketName:
+    Default: backup.cd.percona.com
+    Type: String
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: '^[a-z][a-z0-9\.\-]*$'
+    ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
+
+Resources:
+
+  BackupKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Key for jenkins backups
+      Tags:
+      - Key: iit-billing-tag
+        Value: jenkins
+      KeyPolicy:
+        Version: 2012-10-17
+        Statement:
+          - Sid: Allow access for Key Administrators
+            Effect: Allow
+            Principal:
+              AWS: AIDAJMRUKZF56ZMDIRP74 # mykola
+            Action: kms:*
+            Resource: '*'
+          - Sid: Allow use of the key
+            Effect: Allow
+            Principal:
+              AWS: AROAI3MNTLWWML6M3B4ZQ # jenkins-pmm-master
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: '*'
+
+  BackupKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Join [ '', [ 'alias/', !Ref KeyAlias ]]
+      TargetKeyId: !Ref BackupKey
+
+  BackupBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      AccessControl: Private
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+      - Key: iit-billing-tag
+        Value: jenkins
+
+  BackupBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BackupBucket
+      PolicyDocument:
+        Statement:
+
+          - Sid: Allow only encrypted PutObject
+            Effect: Deny
+            Principal: '*'
+            Action:
+            - s3:PutObject
+            Resource: !Join [ '', [ 'arn:aws:s3:::', !Ref BackupBucket, '/*' ]]
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption: aws:kms
+
+          - Sid: Allow only BackupKey
+            Effect: Deny
+            Principal: '*'
+            Action:
+            - s3:PutObject
+            Resource: !Join [ '', [ 'arn:aws:s3:::', !Ref BackupBucket, '/*' ]]
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption-aws-kms-key-id: !GetAtt BackupKey.Arn
+
+          - Sid: Allow mykola access
+            Effect: Allow
+            Principal:
+              AWS: AIDAJMRUKZF56ZMDIRP74 # mykola
+            Action: s3:*
+            Resource:
+            - !Join [ '', [ 'arn:aws:s3:::', !Ref BackupBucket ]]
+            - !Join [ '', [ 'arn:aws:s3:::', !Ref BackupBucket, '/*' ]]
+
+          - Sid: Allow jenkins server access
+            Effect: Allow
+            Principal:
+              AWS: AROAI3MNTLWWML6M3B4ZQ # jenkins-pmm-master
+            Action:
+            - s3:ListBucket
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+            Resource:
+            - !Join [ '', [ 'arn:aws:s3:::', !Ref BackupBucket ]]
+            - !Join [ '', [ 'arn:aws:s3:::', !Ref BackupBucket, '/*' ]]
+
+          - Sid: Deny everyone else access
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+            - !Join [ '', [ 'arn:aws:s3:::', !Ref BackupBucket ]]
+            - !Join [ '', [ 'arn:aws:s3:::', !Ref BackupBucket, '/*' ]]
+            Condition:
+              StringNotLike:
+                aws:userId:
+                - AIDAJMRUKZF56ZMDIRP74   # mykola
+                - AROAI3MNTLWWML6M3B4ZQ:* # jenkins-pmm-master
+
