@@ -2,7 +2,7 @@ def VMList = ''
 
 pipeline {
     agent {
-        label 'virtualbox'
+        label 'awscli'
     }
     parameters {
         string(
