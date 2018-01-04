@@ -26,11 +26,11 @@ pipeline {
                         pushd jenkins-pipelines
                             git config --global user.email "dev-services@percona.com"
                             git config --global user.name "PMM Jenkins"
-                            for JOB in pmm-dashboards-package pmm-manage-package pmm-managed-package pmm-qan-api-package pmm-qan-app-package pmm-server-hotfix pmm-server-package pmm-server-packages pmm-server-release pmm-update-package rds_exporter-package; do
+                            for JOB in pmm/pmm-server-hotfix pmm/pmm-server-release pmm/pmm-server-packages vars/buildPipeline vars/buildGoPipeline; do
                                 sed \
                                     -i'' \
                                     -e "s/defaultValue: '[0-9]\\.[0-9]\\.[0-9]'/defaultValue: '${NEW_VERSION}'/" \
-                                    ./pmm/${JOB}.groovy
+                                    ./${JOB}.groovy
                             done
                             git pull
                             git commit -a -m "up PMM to ${NEW_VERSION}"
