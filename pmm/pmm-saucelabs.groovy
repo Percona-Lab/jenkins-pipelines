@@ -107,9 +107,11 @@ pipeline {
                     saucePublisher()
                     junit '**/testresults/*xmloutput*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'screenshots', reportFiles: 'pmm-qan-report.html, pmm-test-grafana-report.html', reportName: 'HTML Report', reportTitles: ''])
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
+                } else {
+                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
                 }
             }
-            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build ${currentBuild.result}"
             deleteDir()
         }
     }
