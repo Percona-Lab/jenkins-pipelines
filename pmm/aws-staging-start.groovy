@@ -140,18 +140,11 @@ pipeline {
                             sleep 1
                             aws ec2 describe-instances \
                                 --filters "Name=spot-instance-request-id,Values=\${REQUEST_ID}" \
-                                --query 'Reservations[].Instances[].PrivateIpAddress' \
+                                --query 'Reservations[].Instances[].PublicIpAddress' \
                                 --output text \
                                 --region us-east-2 \
                                 | tee IP
                         done
-
-                        aws ec2 describe-instances \
-                            --filters "Name=spot-instance-request-id,Values=\${REQUEST_ID}" \
-                            --query 'Reservations[].Instances[].PublicIpAddress' \
-                            --output text \
-                            --region us-east-2 \
-                            | tee PUBLIC_IP
 
                         aws ec2 describe-instances \
                             --filters "Name=spot-instance-request-id,Values=\${REQUEST_ID}" \
@@ -210,7 +203,7 @@ pipeline {
                     env.IP      = sh(returnStdout: true, script: "cat IP").trim()
                     env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
                 }
-                archiveArtifacts 'PUBLIC_IP'
+                archiveArtifacts 'IP'
             }
         }
 
@@ -308,7 +301,7 @@ pipeline {
         success {
             script {
                 if ("${NOTIFY}" == "true") {
-                    def PUBLIC_IP = sh(returnStdout: true, script: "cat PUBLIC_IP").trim()
+                    def PUBLIC_IP = sh(returnStdout: true, script: "cat IP").trim()
                     def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
 
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
