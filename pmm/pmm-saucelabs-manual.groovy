@@ -63,7 +63,7 @@ pipeline {
     post {
         always {
             script {
-                if (currentBuild.result == 'SUCCESS') {
+                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     saucePublisher()
                     junit '**/testresults/*xmloutput*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'screenshots', reportFiles: 'pmm-qan-report.html, pmm-test-grafana-report.html', reportName: 'HTML Report', reportTitles: ''])

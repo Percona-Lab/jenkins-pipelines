@@ -137,7 +137,7 @@ pipeline {
                 if (currentBuild.result == 'FAILURE') {
                     archiveArtifacts "result-repo/results/epel-7-x86_64/*/*.log"
                 }
-                if (currentBuild.result == 'SUCCESS') {
+                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished"
                 } else if (currentBuild.result == 'UNSTABLE') {
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build skipped"
