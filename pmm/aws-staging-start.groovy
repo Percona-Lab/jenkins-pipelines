@@ -117,11 +117,11 @@ pipeline {
                                     "Name": "jenkins-pmm-slave"
                                 },
                                 "SecurityGroupIds": [
-                                    "sg-50221b38",
-                                    "sg-008e9768",
-                                    "sg-848099ec"
+                                    "sg-511cfc3a",
+                                    "sg-3f1afa54",
+                                    "sg-291dfd42"
                                 ],
-                                "SubnetId": "subnet-9b2c29e0"
+                                "SubnetId": "subnet-bf7762c4"
                             },
                             "SpotPrice": "0.025",
                             "Type": "persistent"
