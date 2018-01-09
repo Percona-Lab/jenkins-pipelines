@@ -260,7 +260,7 @@ pipeline {
                             docker logs \${VM_NAME}-server
 
                             export PATH=\$PATH:/usr/sbin
-                            sudo pmm-admin config --client-name pmm-client-hostname --server \$IP
+                            sudo pmm-admin config --client-name pmm-client-hostname --server \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1)
                         "
                     """
                 }
