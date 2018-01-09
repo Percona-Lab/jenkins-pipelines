@@ -1,4 +1,4 @@
-# aws cloudformation --region us-east-2 create-stack --template-body file://IaC/StagingReminder.yml --capabilities CAPABILITY_NAMED_IAM --stack-name staging-reminder --tags Key=iit-billing-tag,Value=pmm-staging --parameters ParameterKey=LambdaName,ParameterValue=email_running_instances
+# aws cloudformation --region us-east-2 create-stack --template-body file://IaC/StagingStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name pmm-staging --tags Key=iit-billing-tag,Value=pmm-staging --parameters ParameterKey=LambdaName,ParameterValue=email_running_instances ParameterKey=JShortName,ParameterValue=pmm-staging
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
@@ -12,7 +12,158 @@ Parameters:
     AllowedPattern: '^[a-z][a-z0-9\_]*$'
     ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, and underscore (_).
 
+  JShortName:
+    Default: pmm-staging
+    Description: Short name for resources
+    Type: String
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: '^[a-z][a-z0-9\.\-]*$'
+    ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
+
 Resources:
+
+  JVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.178.0.0/22
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+      - Key: Name
+        Value: !Ref JShortName
+      - Key: iit-billing-tag
+        Value: pmm-staging
+
+  JInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Ref JShortName
+      - Key: iit-billing-tag
+        Value: pmm-staging
+
+  JVPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref JVPC
+      InternetGatewayId: !Ref JInternetGateway
+
+  JSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref JVPC
+      CidrBlock: 10.178.0.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: ''
+      Tags:
+      - Key: Name
+        Value: !Join [ '-', [ !Ref JShortName, 'A' ]]
+      - Key: iit-billing-tag
+        Value: pmm-staging
+
+  JSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref JVPC
+      CidrBlock: 10.178.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: ''
+      Tags:
+      - Key: Name
+        Value: !Join [ '-', [ !Ref JShortName, 'B' ]]
+      - Key: iit-billing-tag
+        Value: pmm-staging
+
+  JSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref JVPC
+      CidrBlock: 10.178.2.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 2
+        - Fn::GetAZs: ''
+      Tags:
+      - Key: Name
+        Value: !Join [ '-', [ !Ref JShortName, 'C' ]]
+      - Key: iit-billing-tag
+        Value: pmm-staging
+
+  JRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref JVPC
+      Tags:
+      - Key: Name
+        Value: !Ref JShortName
+      - Key: iit-billing-tag
+        Value: pmm-staging
+
+  JInternetRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref JInternetGateway
+      RouteTableId: !Ref JRouteTable
+
+  SubnetARouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref JRouteTable
+      SubnetId: !Ref JSubnetA
+
+  SubnetBRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref JRouteTable
+      SubnetId: !Ref JSubnetB
+
+  SubnetCRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref JRouteTable
+      SubnetId: !Ref JSubnetC
+
+  SSHSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: SSH
+      GroupDescription: SSH traffic in
+      VpcId: !Ref JVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: iit-billing-tag
+        Value: pmm-staging
+
+  HTTPSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: HTTP
+      GroupDescription: HTTP and HTTPS traffic in
+      VpcId: !Ref JVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: iit-billing-tag
+        Value: pmm-staging
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -181,3 +332,4 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt ScheduledRule.Arn
+
