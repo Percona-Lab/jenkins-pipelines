@@ -1,4 +1,4 @@
-# aws cloudformation --region us-east-2 create-stack --template-body file://IaC/StagingStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name pmm-staging --tags Key=iit-billing-tag,Value=pmm-staging --parameters ParameterKey=LambdaName,ParameterValue=email_running_instances ParameterKey=JShortName,ParameterValue=pmm-staging
+# aws cloudformation --region us-east-2 create-stack --template-body file://IaC/StagingStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name pmm-staging --tags Key=iit-billing-tag,Value=pmm-staging --parameters ParameterKey=LambdaName,ParameterValue=email_running_instances ParameterKey=SShortName,ParameterValue=pmm-staging
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
@@ -12,7 +12,7 @@ Parameters:
     AllowedPattern: '^[a-z][a-z0-9\_]*$'
     ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, and underscore (_).
 
-  JShortName:
+  SShortName:
     Default: pmm-staging
     Description: Short name for resources
     Type: String
@@ -23,7 +23,7 @@ Parameters:
 
 Resources:
 
-  JVPC:
+  SVPC: # separate virtual network for Staging instances
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 10.178.0.0/22
@@ -32,29 +32,29 @@ Resources:
       InstanceTenancy: default
       Tags:
       - Key: Name
-        Value: !Ref JShortName
+        Value: !Ref SShortName
       - Key: iit-billing-tag
         Value: pmm-staging
 
-  JInternetGateway:
+  SInternetGateway: # Internet Gateway for Staging VPC
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
       - Key: Name
-        Value: !Ref JShortName
+        Value: !Ref SShortName
       - Key: iit-billing-tag
         Value: pmm-staging
 
-  JVPCGatewayAttachment:
+  SVPCGatewayAttachment: # Attach Gateway to VPC
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      VpcId: !Ref JVPC
-      InternetGatewayId: !Ref JInternetGateway
+      VpcId: !Ref SVPC
+      InternetGatewayId: !Ref SInternetGateway
 
-  JSubnetA:
+  SSubnetA: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref JVPC
+      VpcId: !Ref SVPC
       CidrBlock: 10.178.0.0/24
       MapPublicIpOnLaunch: true
       AvailabilityZone: !Select
@@ -62,14 +62,14 @@ Resources:
         - Fn::GetAZs: ''
       Tags:
       - Key: Name
-        Value: !Join [ '-', [ !Ref JShortName, 'A' ]]
+        Value: !Join [ '-', [ !Ref SShortName, 'A' ]]
       - Key: iit-billing-tag
         Value: pmm-staging
 
-  JSubnetB:
+  SSubnetB: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref JVPC
+      VpcId: !Ref SVPC
       CidrBlock: 10.178.1.0/24
       MapPublicIpOnLaunch: true
       AvailabilityZone: !Select
@@ -77,14 +77,14 @@ Resources:
         - Fn::GetAZs: ''
       Tags:
       - Key: Name
-        Value: !Join [ '-', [ !Ref JShortName, 'B' ]]
+        Value: !Join [ '-', [ !Ref SShortName, 'B' ]]
       - Key: iit-billing-tag
         Value: pmm-staging
 
-  JSubnetC:
+  SSubnetC: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref JVPC
+      VpcId: !Ref SVPC
       CidrBlock: 10.178.2.0/24
       MapPublicIpOnLaunch: true
       AvailabilityZone: !Select
@@ -92,51 +92,51 @@ Resources:
         - Fn::GetAZs: ''
       Tags:
       - Key: Name
-        Value: !Join [ '-', [ !Ref JShortName, 'C' ]]
+        Value: !Join [ '-', [ !Ref SShortName, 'C' ]]
       - Key: iit-billing-tag
         Value: pmm-staging
 
-  JRouteTable:
+  SRouteTable: # create route table for VPC
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref JVPC
+      VpcId: !Ref SVPC
       Tags:
       - Key: Name
-        Value: !Ref JShortName
+        Value: !Ref SShortName
       - Key: iit-billing-tag
         Value: pmm-staging
 
-  JInternetRoute:
+  SInternetRoute: # add default route
     Type: AWS::EC2::Route
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref JInternetGateway
-      RouteTableId: !Ref JRouteTable
+      GatewayId: !Ref SInternetGateway
+      RouteTableId: !Ref SRouteTable
 
-  SubnetARouteTable:
+  SSubnetARouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref JRouteTable
-      SubnetId: !Ref JSubnetA
+      RouteTableId: !Ref SRouteTable
+      SubnetId: !Ref SSubnetA
 
-  SubnetBRouteTable:
+  SSubnetBRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref JRouteTable
-      SubnetId: !Ref JSubnetB
+      RouteTableId: !Ref SRouteTable
+      SubnetId: !Ref SSubnetB
 
-  SubnetCRouteTable:
+  SSubnetCRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref JRouteTable
-      SubnetId: !Ref JSubnetC
+      RouteTableId: !Ref SRouteTable
+      SubnetId: !Ref SSubnetC
 
-  SSHSecurityGroup:
+  SSSHSecurityGroup: # allow ssh access to staging instances
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: SSH
       GroupDescription: SSH traffic in
-      VpcId: !Ref JVPC
+      VpcId: !Ref SVPC
       SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: 22
@@ -146,12 +146,12 @@ Resources:
       - Key: iit-billing-tag
         Value: pmm-staging
 
-  HTTPSecurityGroup:
+  SHTTPSecurityGroup: # allow http and https access
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: HTTP
       GroupDescription: HTTP and HTTPS traffic in
-      VpcId: !Ref JVPC
+      VpcId: !Ref SVPC
       SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: 80
@@ -165,7 +165,7 @@ Resources:
       - Key: iit-billing-tag
         Value: pmm-staging
 
-  LambdaExecutionRole:
+  LambdaExecutionRole: # create Role for lambda function
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Ref LambdaName
@@ -196,7 +196,7 @@ Resources:
             - logs:CreateLogGroup
             - logs:PutLogEvents
 
-  LambdaFunction:
+  LambdaFunction: # create lambda function which email staging owner at night
     Type: AWS::Lambda::Function
     Properties:
       Description: email owner about running stagging instances
@@ -314,7 +314,7 @@ Resources:
 
                 return 'successful finish'
 
-  ScheduledRule:
+  ScheduledRule: # cron rule
     Type: AWS::Events::Rule
     Properties:
       Name: !Ref LambdaName
@@ -325,7 +325,7 @@ Resources:
         - Arn: !GetAtt LambdaFunction.Arn
           Id: !Ref LambdaName
 
-  PermissionForEventsToInvokeLambda:
+  PermissionForEventsToInvokeLambda: # create permitions to run function from ScheduledRule
     Type: AWS::Lambda::Permission
     Properties:
       FunctionName: !Ref LambdaFunction

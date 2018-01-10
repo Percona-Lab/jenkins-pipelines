@@ -21,7 +21,7 @@ Parameters:
 
 Resources:
 
-  BackupKey:
+  BackupKey: # encryption key for jenkins backups
     Type: AWS::KMS::Key
     Properties:
       Description: Key for jenkins backups
@@ -49,13 +49,13 @@ Resources:
               - kms:DescribeKey
             Resource: '*'
 
-  BackupKeyAlias:
+  BackupKeyAlias: # human readable alias for encryption key
     Type: AWS::KMS::Alias
     Properties:
       AliasName: !Join [ '', [ 'alias/', !Ref KeyAlias ]]
       TargetKeyId: !Ref BackupKey
 
-  BackupBucket:
+  BackupBucket: # S3 bucket for store encrypted backups
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Ref BucketName
@@ -66,7 +66,7 @@ Resources:
       - Key: iit-billing-tag
         Value: jenkins
 
-  BackupBucketPolicy:
+  BackupBucketPolicy: # limit access to mykola.marzhan and jenkins master accounts
     Type: AWS::S3::BucketPolicy
     Properties:
       Bucket: !Ref BackupBucket

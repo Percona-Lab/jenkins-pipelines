@@ -38,7 +38,7 @@ Mappings:
 
 Resources:
 
-  JVPC:
+  JVPC: # separate virtual network for jenkins instances
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 10.177.0.0/22
@@ -51,7 +51,7 @@ Resources:
       - Key: iit-billing-tag
         Value: jenkins
 
-  JInternetGateway:
+  JInternetGateway: # Internet Gateway for jenkins VPC
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
@@ -60,13 +60,13 @@ Resources:
       - Key: iit-billing-tag
         Value: jenkins
 
-  JVPCGatewayAttachment:
+  JVPCGatewayAttachment: # Attach Gateway to VPC
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       VpcId: !Ref JVPC
       InternetGatewayId: !Ref JInternetGateway
 
-  JSubnetA:
+  JSubnetA: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref JVPC
@@ -81,7 +81,7 @@ Resources:
       - Key: iit-billing-tag
         Value: jenkins
 
-  JSubnetB:
+  JSubnetB: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref JVPC
@@ -96,7 +96,7 @@ Resources:
       - Key: iit-billing-tag
         Value: jenkins
 
-  JSubnetC:
+  JSubnetC: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref JVPC
@@ -111,7 +111,7 @@ Resources:
       - Key: iit-billing-tag
         Value: jenkins
 
-  JRouteTable:
+  JRouteTable: # create route table for VPC
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref JVPC
@@ -121,32 +121,32 @@ Resources:
       - Key: iit-billing-tag
         Value: jenkins
 
-  JInternetRoute:
+  JInternetRoute: # add default route
     Type: AWS::EC2::Route
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref JInternetGateway
       RouteTableId: !Ref JRouteTable
 
-  SubnetARouteTable:
+  SubnetARouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref JRouteTable
       SubnetId: !Ref JSubnetA
 
-  SubnetBRouteTable:
+  SubnetBRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref JRouteTable
       SubnetId: !Ref JSubnetB
 
-  SubnetCRouteTable:
+  SubnetCRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref JRouteTable
       SubnetId: !Ref JSubnetC
 
-  SSHSecurityGroup:
+  SSHSecurityGroup: # allow ssh access to staging instances
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: SSH
@@ -161,7 +161,7 @@ Resources:
       - Key: iit-billing-tag
         Value: jenkins
 
-  HTTPSecurityGroup:
+  HTTPSecurityGroup: # allow http and https access
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: HTTP
@@ -180,7 +180,7 @@ Resources:
       - Key: iit-billing-tag
         Value: jenkins
 
-  NFSClientSecurityGroup:
+  NFSClientSecurityGroup: # group for EFS clients
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: NFSClient
@@ -190,7 +190,7 @@ Resources:
       - Key: iit-billing-tag
         Value: jenkins
 
-  NFSServerSecurityGroup:
+  NFSServerSecurityGroup: # allow EFS access for NFSClientSecurityGroup
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: NFSServer
@@ -208,7 +208,7 @@ Resources:
       - Key: iit-billing-tag
         Value: jenkins
 
-  JEFS:
+  JEFS: # create NFS server
     Type: AWS::EFS::FileSystem
     Properties:
       Encrypted: false
@@ -219,7 +219,7 @@ Resources:
       - Key: iit-billing-tag
         Value: jenkins
 
-  JEFSMountA:
+  JEFSMountA: # create NFS endpoint in jenkins subnet
     Type: AWS::EFS::MountTarget
     Properties:
       FileSystemId: !Ref JEFS
@@ -227,7 +227,7 @@ Resources:
       SecurityGroups:
         - !GetAtt NFSServerSecurityGroup.GroupId
 
-  JEFSMountB:
+  JEFSMountB: # create NFS endpoint in jenkins subnet
     Type: AWS::EFS::MountTarget
     Properties:
       FileSystemId: !Ref JEFS
@@ -235,7 +235,7 @@ Resources:
       SecurityGroups:
         - !GetAtt NFSServerSecurityGroup.GroupId
 
-  JEFSMountC:
+  JEFSMountC: # create NFS endpoint in jenkins subnet
     Type: AWS::EFS::MountTarget
     Properties:
       FileSystemId: !Ref JEFS
@@ -243,7 +243,7 @@ Resources:
       SecurityGroups:
         - !GetAtt NFSServerSecurityGroup.GroupId
 
-  JSlaveRole:
+  JSlaveRole: # create Role for jenkins slaves (needed for assign tags)
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Join [ '-', [ !Ref JShortName, 'slave' ]]
@@ -268,7 +268,7 @@ Resources:
             - ec2:DeleteTags
             - ec2:DescribeInstances
 
-  JSlaveProfile:
+  JSlaveProfile: # create Profile for jenkins slaves (needed for assign tags)
     Type: AWS::IAM::InstanceProfile
     Properties:
       Path: /
@@ -276,7 +276,7 @@ Resources:
         - !Ref JSlaveRole
       InstanceProfileName: !Join [ '-', [ !Ref JShortName, 'slave' ]]
 
-  JSlaveUser:
+  JSlaveUser: # create standalone user for jenkins jobs (needed for job-level actions)
     Type: AWS::IAM::User
     Properties:
       UserName: !Join [ '-', [ !Ref JShortName, 'slave' ]]
@@ -337,7 +337,7 @@ Resources:
             - ec2:DescribeSubnets
             - ec2:DescribeInstanceStatus
 
-  JMasterRole:
+  JMasterRole: # create Role for jenkins master (needed for run slaves)
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Join [ '-', [ !Ref JShortName, 'master' ]]
@@ -376,7 +376,7 @@ Resources:
             - ec2:DescribeSecurityGroups
             - ec2:DescribeSubnets
 
-  JMasterProfile:
+  JMasterProfile: # create Profile for jenkins master (needed for run slaves)
     Type: AWS::IAM::InstanceProfile
     Properties:
       Path: /
@@ -384,9 +384,10 @@ Resources:
         - !Ref JMasterRole
       InstanceProfileName: !Ref JShortName
 
-  SpotFleetRole:
+  SpotFleetRole: # create Role for run jenkins master as spot instance
     Type: AWS::IAM::Role
     Properties:
+      RoleName: !Join [ '-', [ !Ref JShortName, 'SpotFleet' ]]
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetRole
       AssumeRolePolicyDocument:
@@ -397,13 +398,13 @@ Resources:
             Service: spotfleet.amazonaws.com
           Action: sts:AssumeRole
 
-  MasterIP:
+  MasterIP: # create public IP for jenkins master
     Type: AWS::EC2::EIP
     DependsOn: JVPC
     Properties:
       Domain: vpc
 
-  JDNSRecord:
+  JDNSRecord: # create DNS record for jenkins master
     Type: AWS::Route53::RecordSet
     Properties:
       HostedZoneId: !Ref ZoneId
@@ -413,7 +414,7 @@ Resources:
       ResourceRecords:
       - !Ref MasterIP
 
-  JMasterInstance:
+  JMasterInstance: # create jenkins master as spot instance
     Type: AWS::EC2::SpotFleet
     Properties:
       SpotFleetRequestConfigData:
