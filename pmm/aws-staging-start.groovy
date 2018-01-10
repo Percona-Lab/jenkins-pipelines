@@ -90,6 +90,32 @@ pipeline {
                     sh '''
                         export VM_NAME=\$(cat VM_NAME)
                         export OWNER=\$(cat OWNER)
+                        export SUBNET=\$(
+                            aws ec2 describe-subnets \
+                                --region us-east-2 \
+                                --output text \
+                                --filters "Name=tag:aws:cloudformation:stack-name,Values=pmm-staging" \
+                                --query 'Subnets[].SubnetId' \
+                                | tr '\t' '\n' \
+                                | sort --random-sort \
+                                | head -1
+                        )
+                        export SG1=\$(
+                            aws ec2 describe-security-groups \
+                                --region us-east-2 \
+                                --output text \
+                                --filters "Name=tag:aws:cloudformation:stack-name,Values=pmm-staging" \
+                                          "Name=group-name,Values=HTTP" \
+                                --query 'SecurityGroups[].GroupId'
+                        )
+                        export SG2=\$(
+                            aws ec2 describe-security-groups \
+                                --region us-east-2 \
+                                --output text \
+                                --filters "Name=tag:aws:cloudformation:stack-name,Values=pmm-staging" \
+                                          "Name=group-name,Values=SSH" \
+                                --query 'SecurityGroups[].GroupId'
+                        )
 
                         echo '{
                             "DryRun": false,
@@ -117,15 +143,18 @@ pipeline {
                                     "Name": "jenkins-pmm-slave"
                                 },
                                 "SecurityGroupIds": [
-                                    "sg-511cfc3a",
-                                    "sg-3f1afa54",
-                                    "sg-291dfd42"
+                                    "security-group-id-1",
+                                    "security-group-id-2"
                                 ],
-                                "SubnetId": "subnet-bf7762c4"
+                                "SubnetId": "subnet-id"
                             },
                             "SpotPrice": "0.025",
                             "Type": "persistent"
-                        }' > config.json
+                        }' \
+                            | sed -e "s/subnet-id/\${SUBNET}/" \
+                            | sed -e "s/security-group-id-1/\${SG1}/" \
+                            | sed -e "s/security-group-id-2/\${SG2}/" \
+                            > config.json
 
                         REQUEST_ID=\$(
                             aws ec2 request-spot-instances \
