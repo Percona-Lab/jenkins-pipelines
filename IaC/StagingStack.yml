@@ -34,7 +34,7 @@ Resources:
       - Key: Name
         Value: !Ref SShortName
       - Key: iit-billing-tag
-        Value: pmm-staging
+        Value: !Ref SShortName
 
   SInternetGateway: # Internet Gateway for Staging VPC
     Type: AWS::EC2::InternetGateway
@@ -43,7 +43,7 @@ Resources:
       - Key: Name
         Value: !Ref SShortName
       - Key: iit-billing-tag
-        Value: pmm-staging
+        Value: !Ref SShortName
 
   SVPCGatewayAttachment: # Attach Gateway to VPC
     Type: AWS::EC2::VPCGatewayAttachment
@@ -64,7 +64,7 @@ Resources:
       - Key: Name
         Value: !Join [ '-', [ !Ref SShortName, 'A' ]]
       - Key: iit-billing-tag
-        Value: pmm-staging
+        Value: !Ref SShortName
 
   SSubnetB: # create subnet in AZ
     Type: AWS::EC2::Subnet
@@ -79,7 +79,7 @@ Resources:
       - Key: Name
         Value: !Join [ '-', [ !Ref SShortName, 'B' ]]
       - Key: iit-billing-tag
-        Value: pmm-staging
+        Value: !Ref SShortName
 
   SSubnetC: # create subnet in AZ
     Type: AWS::EC2::Subnet
@@ -94,7 +94,7 @@ Resources:
       - Key: Name
         Value: !Join [ '-', [ !Ref SShortName, 'C' ]]
       - Key: iit-billing-tag
-        Value: pmm-staging
+        Value: !Ref SShortName
 
   SRouteTable: # create route table for VPC
     Type: AWS::EC2::RouteTable
@@ -104,7 +104,7 @@ Resources:
       - Key: Name
         Value: !Ref SShortName
       - Key: iit-billing-tag
-        Value: pmm-staging
+        Value: !Ref SShortName
 
   SInternetRoute: # add default route
     Type: AWS::EC2::Route
@@ -144,7 +144,7 @@ Resources:
         CidrIp: 0.0.0.0/0
       Tags:
       - Key: iit-billing-tag
-        Value: pmm-staging
+        Value: !Ref SShortName
 
   SHTTPSecurityGroup: # allow http and https access
     Type: AWS::EC2::SecurityGroup
@@ -163,7 +163,7 @@ Resources:
         CidrIp: 0.0.0.0/0
       Tags:
       - Key: iit-billing-tag
-        Value: pmm-staging
+        Value: !Ref SShortName
 
   LambdaExecutionRole: # create Role for lambda function
     Type: AWS::IAM::Role
@@ -208,7 +208,7 @@ Resources:
       Timeout: 10
       Tags:
       - Key: iit-billing-tag
-        Value: pmm-staging
+        Value: !Ref SShortName
       Code:
         ZipFile: |
             from __future__ import print_function

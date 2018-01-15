@@ -35,6 +35,8 @@ Mappings:
   RegionMap:
     us-east-2:
       x64: ami-15e9c770
+    us-west-2:
+      x64: ami-32cf7b4a
 
 Resources:
 
@@ -49,7 +51,7 @@ Resources:
       - Key: Name
         Value: !Ref JShortName
       - Key: iit-billing-tag
-        Value: jenkins
+        Value: !Ref JShortName
 
   JInternetGateway: # Internet Gateway for jenkins VPC
     Type: AWS::EC2::InternetGateway
@@ -58,7 +60,7 @@ Resources:
       - Key: Name
         Value: !Ref JShortName
       - Key: iit-billing-tag
-        Value: jenkins
+        Value: !Ref JShortName
 
   JVPCGatewayAttachment: # Attach Gateway to VPC
     Type: AWS::EC2::VPCGatewayAttachment
@@ -79,7 +81,7 @@ Resources:
       - Key: Name
         Value: !Join [ '-', [ !Ref JShortName, 'A' ]]
       - Key: iit-billing-tag
-        Value: jenkins
+        Value: !Ref JShortName
 
   JSubnetB: # create subnet in AZ
     Type: AWS::EC2::Subnet
@@ -94,7 +96,7 @@ Resources:
       - Key: Name
         Value: !Join [ '-', [ !Ref JShortName, 'B' ]]
       - Key: iit-billing-tag
-        Value: jenkins
+        Value: !Ref JShortName
 
   JSubnetC: # create subnet in AZ
     Type: AWS::EC2::Subnet
@@ -109,7 +111,7 @@ Resources:
       - Key: Name
         Value: !Join [ '-', [ !Ref JShortName, 'C' ]]
       - Key: iit-billing-tag
-        Value: jenkins
+        Value: !Ref JShortName
 
   JRouteTable: # create route table for VPC
     Type: AWS::EC2::RouteTable
@@ -119,7 +121,7 @@ Resources:
       - Key: Name
         Value: !Ref JShortName
       - Key: iit-billing-tag
-        Value: jenkins
+        Value: !Ref JShortName
 
   JInternetRoute: # add default route
     Type: AWS::EC2::Route
@@ -159,7 +161,7 @@ Resources:
         CidrIp: 0.0.0.0/0
       Tags:
       - Key: iit-billing-tag
-        Value: jenkins
+        Value: !Ref JShortName
 
   HTTPSecurityGroup: # allow http and https access
     Type: AWS::EC2::SecurityGroup
@@ -178,7 +180,7 @@ Resources:
         CidrIp: 0.0.0.0/0
       Tags:
       - Key: iit-billing-tag
-        Value: jenkins
+        Value: !Ref JShortName
 
   NFSClientSecurityGroup: # group for EFS clients
     Type: AWS::EC2::SecurityGroup
@@ -188,7 +190,7 @@ Resources:
       VpcId: !Ref JVPC
       Tags:
       - Key: iit-billing-tag
-        Value: jenkins
+        Value: !Ref JShortName
 
   NFSServerSecurityGroup: # allow EFS access for NFSClientSecurityGroup
     Type: AWS::EC2::SecurityGroup
@@ -206,7 +208,7 @@ Resources:
         CidrIp: 0.0.0.0/0
       Tags:
       - Key: iit-billing-tag
-        Value: jenkins
+        Value: !Ref JShortName
 
   JEFS: # create NFS server
     Type: AWS::EFS::FileSystem
@@ -217,7 +219,7 @@ Resources:
       - Key: Name
         Value: !Ref JShortName
       - Key: iit-billing-tag
-        Value: jenkins
+        Value: !Ref JShortName
 
   JEFSMountA: # create NFS endpoint in jenkins subnet
     Type: AWS::EFS::MountTarget
@@ -482,7 +484,7 @@ Resources:
                       --resources $INSTANCE_ID $SPOT_REQUEST $VOLUMES \
                       --region $INSTANCE_REGION \
                       --tags Key=Name,Value=$JENKINS_SHORT \
-                             Key=iit-billing-tag,Value=jenkins
+                             Key=iit-billing-tag,Value=$JENKINS_SHORT
 
               }
 
