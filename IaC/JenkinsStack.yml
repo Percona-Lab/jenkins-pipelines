@@ -446,7 +446,7 @@ Resources:
 
               JENKINS_HOST=${JHostName}
               JENKINS_SHORT=${JShortName}
-              JENKINS_EIP=${MasterIP}
+              JENKINS_EIP=${MasterIP.AllocationId}
               JENKINS_EFS=${JEFS}
               INSTANCE_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e 's/[a-z]$//')
 
@@ -459,7 +459,8 @@ Resources:
                   aws ec2 associate-address \
                       --region $INSTANCE_REGION \
                       --instance-id $INSTANCE_ID \
-                      --public-ip $JENKINS_EIP
+                      --allocation-id $JENKINS_EIP \
+                      --allow-reassociation
 
                   SPOT_REQUEST=$(
                       aws ec2 describe-instances \
@@ -478,19 +479,7 @@ Resources:
                   )
 
                   aws ec2 create-tags  \
-                      --resources $INSTANCE_ID \
-                      --region $INSTANCE_REGION \
-                      --tags Key=Name,Value=$JENKINS_SHORT \
-                             Key=iit-billing-tag,Value=jenkins
-
-                  aws ec2 create-tags  \
-                      --resources $SPOT_REQUEST \
-                      --region $INSTANCE_REGION \
-                      --tags Key=Name,Value=$JENKINS_SHORT \
-                             Key=iit-billing-tag,Value=jenkins
-
-                  aws ec2 create-tags  \
-                      --resources $VOLUMES \
+                      --resources $INSTANCE_ID $SPOT_REQUEST $VOLUMES \
                       --region $INSTANCE_REGION \
                       --tags Key=Name,Value=$JENKINS_SHORT \
                              Key=iit-billing-tag,Value=jenkins
@@ -537,7 +526,8 @@ Resources:
               }
 
               create_fake_ssl_cert() {
-                  mkdir /etc/nginx/ssl
+                  mkdir -p /etc/nginx/ssl
+                  mkdir -p /mnt/$JENKINS_HOST/ssl
                   if [ ! -f /mnt/$JENKINS_HOST/ssl/certificate.key -o ! -f /mnt/$JENKINS_HOST/ssl/certificate.crt ]; then
                       echo "
                           [ req ]
