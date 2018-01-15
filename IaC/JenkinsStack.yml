@@ -523,7 +523,7 @@ Resources:
                   chkconfig jenkins on
                   service jenkins start
 
-                  echo "/usr/bin/aws s3 sync --sse-kms-key-id alias/jenkins-backup --sse aws:kms --exclude '*/caches/*' --exclude '*/config-history/nodes/*' --exclude '*/secretFiles/*' --delete /mnt/ s3://backup.cd.percona.com/" > /etc/cron.daily/jenkins-backup
+                  echo "/usr/bin/aws s3 sync --sse-kms-key-id alias/jenkins-pmm-backup --sse aws:kms --exclude '*/caches/*' --exclude '*/config-history/nodes/*' --exclude '*/secretFiles/*' --delete /mnt/ s3://backup.cd.percona.com/" > /etc/cron.daily/jenkins-backup
                   chmod 755 /etc/cron.daily/jenkins-backup
               }
 

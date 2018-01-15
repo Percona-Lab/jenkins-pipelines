@@ -1,10 +1,10 @@
-# aws cloudformation --region eu-west-1 create-stack --template-body file://IaC/BackupBucket.yml --capabilities CAPABILITY_NAMED_IAM --stack-name backup-bucket --tags Key=iit-billing-tag,Value=jenkins --parameters ParameterKey=BucketName,ParameterValue=backup.cd.percona.com ParameterKey=KeyAlias,ParameterValue=jenkins-backup
+# aws cloudformation --region eu-west-1 create-stack --template-body file://IaC/BackupBucket.yml --capabilities CAPABILITY_NAMED_IAM --stack-name backup-bucket --tags Key=iit-billing-tag,Value=jenkins-pmm-backup --parameters ParameterKey=BucketName,ParameterValue=backup.cd.percona.com ParameterKey=KeyAlias,ParameterValue=jenkins-pmm-backup
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
 
   KeyAlias:
-    Default: jenkins-backup
+    Default: jenkins-pmm-backup
     Type: String
     MinLength: 1
     MaxLength: 64
@@ -27,7 +27,7 @@ Resources:
       Description: Key for jenkins backups
       Tags:
       - Key: iit-billing-tag
-        Value: jenkins
+        Value: !Ref KeyAlias
       KeyPolicy:
         Version: 2012-10-17
         Statement:
@@ -64,7 +64,7 @@ Resources:
         Status: Enabled
       Tags:
       - Key: iit-billing-tag
-        Value: jenkins
+        Value: !Ref KeyAlias
 
   BackupBucketPolicy: # limit access to mykola.marzhan and jenkins master accounts
     Type: AWS::S3::BucketPolicy
@@ -111,6 +111,7 @@ Resources:
             - s3:GetObject
             - s3:PutObject
             - s3:DeleteObject
+            - s3:AbortMultipartUpload
             Resource:
             - !Join [ '', [ 'arn:aws:s3:::', !Ref BackupBucket ]]
             - !Join [ '', [ 'arn:aws:s3:::', !Ref BackupBucket, '/*' ]]
