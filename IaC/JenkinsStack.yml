@@ -301,6 +301,16 @@ Resources:
             - arn:aws:s3:::percona-jenkins-artifactory/*
           - Effect: Allow
             Action:
+            - s3:PutObject
+            - s3:PutObjectAcl
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            Resource:
+            - arn:aws:s3:::docs-test.cd.percona.com
+            - arn:aws:s3:::docs-test.cd.percona.com/*
+          - Effect: Allow
+            Action:
             - iam:PassRole
             Resource:
             - !GetAtt JSlaveRole.Arn
