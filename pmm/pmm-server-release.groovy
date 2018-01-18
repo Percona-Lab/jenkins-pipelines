@@ -1,3 +1,8 @@
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+]) _
+
 pipeline {
     environment {
         specName = 'pmm-release'
@@ -26,26 +31,29 @@ pipeline {
     stages {
         stage('Get Docker RPMs') {
             agent {
-                label 'docker'
+                label 'min-centos-7-x64'
             }
             steps {
+                installDocker()
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
-                sh "docker run ${DOCKER_VERSION} /usr/bin/rpm -qa > rpms.list"
+                sh "sg docker -c 'docker run ${DOCKER_VERSION} /usr/bin/rpm -qa' > rpms.list"
                 stash includes: 'rpms.list', name: 'rpms'
             }
         }
         stage('Get repo RPMs') {
             steps {
                 unstash 'rpms'
-                sh '''
-                    ssh -i ~/.ssh/id_rsa uploader@repo.ci.percona.com \
-                        ls /srv/repo-copy/laboratory/7/RPMS/x86_64 \
-                        > repo.list
-                    cat rpms.list \
-                        | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
-                        | xargs -n 1 -I {} grep "^{}.rpm" repo.list \
-                        | tee copy.list
-                '''
+                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                            ls /srv/repo-copy/laboratory/7/RPMS/x86_64 \
+                            > repo.list
+                        cat rpms.list \
+                            | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
+                            | xargs -n 1 -I {} grep "^{}.rpm" repo.list \
+                            | tee copy.list
+                    '''
+                }
                 stash includes: 'copy.list', name: 'copy'
                 archiveArtifacts 'copy.list'
             }
@@ -53,23 +61,35 @@ pipeline {
         stage('Copy RPMs to PMM repo') {
             steps {
                 unstash 'copy'
-                sh '''
-                    cat copy.list | ssh -i ~/.ssh/id_rsa uploader@repo.ci.percona.com \
-                        "cat - | xargs -I{} cp -v /srv/repo-copy/laboratory/7/RPMS/x86_64/{} /srv/repo-copy/pmm/7/RPMS/x86_64/{}"
-                '''
+                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh '''
+                        cat copy.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                            "cat - | xargs -I{} cp -v /srv/repo-copy/laboratory/7/RPMS/x86_64/{} /srv/repo-copy/pmm/7/RPMS/x86_64/{}"
+                    '''
+                }
             }
         }
         stage('Createrepo') {
             steps {
-                sh '''
-                    ssh -i ~/.ssh/id_rsa uploader@repo.ci.percona.com \
-                        createrepo --update /srv/repo-copy/pmm/7/RPMS/x86_64/
-                '''
+                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                            createrepo --update /srv/repo-copy/pmm/7/RPMS/x86_64/
+                    '''
+                }
             }
         }
         stage('Publish RPMs') {
             steps {
-                build job: 'sync-repos-to-production', parameters: [booleanParam(name: 'REVERSE', value: false)]
+                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
+                            rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
+                                /srv/repo-copy/pmm/ \
+                                10.10.9.209:/www/repo.percona.com/htdocs/pmm/
+                        "
+                    """
+                }
             }
         }
         stage('Set Tags') {
@@ -103,7 +123,7 @@ pipeline {
                                     git clone https://github.com/${repo["$package"]} ./
                                     git checkout $SHA
                                     FULL_SHA=$(git rev-parse HEAD)
-                                    
+
                                     set +o xtrace
                                         curl -X POST \
                                             -H "Authorization: token $(cat ../GITHUB_API_TOKEN)" \
@@ -119,40 +139,53 @@ pipeline {
         }
         stage('Set Docker Tag') {
             agent {
-                label 'docker'
+                label 'min-centos-7-x64'
             }
             steps {
+                installDocker()
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh """
+                        sg docker -c "
+                            docker login -u "${USER}" -p "${PASS}"
+                        "
+                    """
+                }
                 sh """
-                    docker pull ${DOCKER_VERSION}
-                    docker tag ${DOCKER_VERSION} percona/pmm-server:${VERSION}
-                    docker tag ${DOCKER_VERSION} percona/pmm-server:latest
-                    docker push percona/pmm-server:${VERSION}
-                    docker push percona/pmm-server:latest
-                    docker save percona/pmm-server:${VERSION} | xz > pmm-server-${VERSION}.docker
+                    sg docker -c "
+                        docker pull ${DOCKER_VERSION}
+                        docker tag ${DOCKER_VERSION} percona/pmm-server:${VERSION}
+                        docker tag ${DOCKER_VERSION} percona/pmm-server:latest
+                        docker push percona/pmm-server:${VERSION}
+                        docker push percona/pmm-server:latest
+                        docker save percona/pmm-server:${VERSION} | xz > pmm-server-${VERSION}.docker
+                    "
                 """
-                deleteDir()
                 stash includes: '*.docker', name: 'docker'
+                deleteDir()
             }
         }
         stage('Publish OVF') {
             agent {
-                label 'awscli'
+                label 'virtualbox'
             }
             steps {
                 unstash 'docker'
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        ssh -i ~/.ssh/id_rsa_downloads jenkins@10.10.9.216 "mkdir -p /data/downloads/pmm/${VERSION}/{ova,docker}" || true
-                        md5sum pmm-server-${VERSION}.docker > pmm-server-${VERSION}.md5sum
-                        scp -i ~/.ssh/id_rsa_downloads pmm-server-${VERSION}.docker pmm-server-${VERSION}.md5sum jenkins@10.10.9.216:/data/downloads/pmm/${VERSION}/docker/
-
                         aws s3 cp s3://percona-vm/${OVF_VERSION} pmm-server-${VERSION}.ova
-                        md5sum pmm-server-${VERSION}.ova > pmm-server-${VERSION}.md5sum
-                        scp -i ~/.ssh/id_rsa_downloads pmm-server-${VERSION}.ova pmm-server-${VERSION}.md5sum jenkins@10.10.9.216:/data/downloads/pmm/${VERSION}/ova/
                     """
                 }
+                sh """
+                    ssh -i ~/.ssh/id_rsa_downloads jenkins@10.10.9.216 "mkdir -p /data/downloads/pmm/${VERSION}/{ova,docker}" || true
+                    md5sum pmm-server-${VERSION}.docker > pmm-server-${VERSION}.md5sum
+                    scp -i ~/.ssh/id_rsa_downloads pmm-server-${VERSION}.docker pmm-server-${VERSION}.md5sum jenkins@10.10.9.216:/data/downloads/pmm/${VERSION}/docker/
+
+                    md5sum pmm-server-${VERSION}.ova > pmm-server-${VERSION}.md5sum
+                    scp -i ~/.ssh/id_rsa_downloads pmm-server-${VERSION}.ova pmm-server-${VERSION}.md5sum jenkins@10.10.9.216:/data/downloads/pmm/${VERSION}/ova/
+
+                    curl https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory
+                """
                 deleteDir()
-                build job: 'refresh-downloads-area', parameters: [string(name: 'DESTINATION', value: 'RELEASE')]
             }
         }
         stage('Copy AMI') {
@@ -257,7 +290,7 @@ pipeline {
             }
         }
     }
-    
+
     post {
         always {
             deleteDir()

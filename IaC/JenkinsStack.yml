@@ -318,6 +318,8 @@ Resources:
           - Effect: Allow
             Resource: '*'
             Action:
+            - ec2:DescribeRegions
+            - ec2:CopyImage
             - ec2:DescribeSpotInstanceRequests
             - ec2:CreateTags
             - ec2:DeleteTags
