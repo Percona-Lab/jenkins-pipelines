@@ -26,17 +26,19 @@ Parameters:
     Description: Hosted Zone ID
     Type: AWS::Route53::HostedZone::Id
 
-  KeyName:
+  MasterKeyName:
     Default: mykola
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
 Mappings:
-  RegionMap:
+  AmazonLinux1:
+    us-east-1:
+      x64: ami-97785bed
     us-east-2:
-      x64: ami-15e9c770
+      x64: ami-f63b1193
     us-west-2:
-      x64: ami-32cf7b4a
+      x64: ami-f2d3638a
 
 Resources:
 
@@ -265,10 +267,10 @@ Resources:
           - Effect: Allow
             Resource: '*'
             Action:
-            - ec2:DescribeSpotInstanceRequests
             - ec2:CreateTags
             - ec2:DeleteTags
             - ec2:DescribeInstances
+            - ec2:DescribeSpotInstanceRequests
 
   JSlaveProfile: # create Profile for jenkins slaves (needed for assign tags)
     Type: AWS::IAM::InstanceProfile
@@ -371,15 +373,18 @@ Resources:
           - Effect: Allow
             Resource: '*'
             Action:
-            - ec2:AssociateAddress
+            - ec2:DescribeSpotFleetRequests
+            - ec2:DescribeSpotFleetInstances
+            - ec2:ModifySpotFleetRequest
             - ec2:DescribeSpotInstanceRequests
-            - ec2:CancelSpotInstanceRequests
-            - ec2:GetConsoleOutput
             - ec2:RequestSpotInstances
+            - ec2:CancelSpotInstanceRequests
             - ec2:RunInstances
             - ec2:StartInstances
             - ec2:StopInstances
             - ec2:TerminateInstances
+            - ec2:AssociateAddress
+            - ec2:GetConsoleOutput
             - ec2:CreateTags
             - ec2:DeleteTags
             - ec2:DescribeInstances
@@ -444,9 +449,9 @@ Resources:
         - EbsOptimized: false
           IamInstanceProfile:
             Arn: !GetAtt JMasterProfile.Arn
-          ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', x64]
+          ImageId: !FindInMap [AmazonLinux1, !Ref 'AWS::Region', x64]
           InstanceType: t2.small
-          KeyName: !Ref KeyName
+          KeyName: !Ref MasterKeyName
           Monitoring:
             Enabled: false
           SecurityGroups:
