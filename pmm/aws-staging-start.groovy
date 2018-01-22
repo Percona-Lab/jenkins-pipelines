@@ -339,13 +339,15 @@ pipeline {
             }
         }
         failure {
-            sh '''
-                export REQUEST_ID=\$(cat REQUEST_ID)
-                if [ -n "$REQUEST_ID" ]; then
-                    aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids \$REQUEST_ID
-                    aws ec2 --region us-east-2 terminate-instances --instance-ids \$(cat ID)
-                fi
-            '''
+            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                sh '''
+                    export REQUEST_ID=\$(cat REQUEST_ID)
+                    if [ -n "$REQUEST_ID" ]; then
+                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids \$REQUEST_ID
+                        aws ec2 --region us-east-2 terminate-instances --instance-ids \$(cat ID)
+                    fi
+                '''
+            }
             script {
                 if ("${NOTIFY}" == "true") {
                     def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
