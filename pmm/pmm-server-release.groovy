@@ -183,7 +183,7 @@ pipeline {
                     md5sum pmm-server-${VERSION}.ova > pmm-server-${VERSION}.md5sum
                     scp -i ~/.ssh/id_rsa_downloads pmm-server-${VERSION}.ova pmm-server-${VERSION}.md5sum jenkins@10.10.9.216:/data/downloads/pmm/${VERSION}/ova/
 
-                    curl https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory
+                    curl https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory | head
                 """
                 deleteDir()
             }
