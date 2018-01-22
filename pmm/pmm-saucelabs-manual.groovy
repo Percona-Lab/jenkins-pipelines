@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'nodejs'
+        label 'micro-amazon'
     }
     parameters {
         string(
@@ -25,6 +25,9 @@ pipeline {
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
 
                 sh '''
+                    curl --silent --location https://rpm.nodesource.com/setup_7.x | sudo bash -
+                    sudo yum -y install nodejs
+
                     export PATH=$PATH:/usr/local/node/bin
                     npm install protractor protractor-jasmine2-screenshot-reporter jasmine-reporters
                 '''
