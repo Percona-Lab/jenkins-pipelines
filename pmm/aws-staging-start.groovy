@@ -333,7 +333,7 @@ pipeline {
                     def PUBLIC_IP = sh(returnStdout: true, script: "cat IP").trim()
                     def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
 
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER}, link: https://${PUBLIC_IP}"
                     slackSend channel: "@${OWNER}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
                 }
             }
@@ -352,7 +352,7 @@ pipeline {
                 if ("${NOTIFY}" == "true") {
                     def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
 
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER}"
                     slackSend channel: "@${OWNER}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
                 }
             }
