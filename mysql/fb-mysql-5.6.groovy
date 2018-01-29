@@ -166,7 +166,7 @@ pipeline {
         stage('Prepare deps') {
             steps {
                 sh '''
-                    sudo -E yum -y install awscli wget cmake gcc-c++ boost-devel openssl-devel ncurses-devel readline-devel bison binutils MySQL-python perl-DBD-MySQL perl-XML-Simple
+                    sudo -E yum -y install awscli wget cmake gcc-c++ boost-devel openssl-devel ncurses-devel readline-devel numactl-devel bison binutils MySQL-python perl-DBD-MySQL perl-XML-Simple
 
                     ZSTD_VERSION=1.3.3
                     wget https://github.com/facebook/zstd/archive/v$ZSTD_VERSION.tar.gz
