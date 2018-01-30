@@ -160,7 +160,11 @@ pipeline {
                         docker save percona/pmm-server:${VERSION} | xz > pmm-server-${VERSION}.docker
                     "
                 """
-                stash includes: '*.docker', name: 'docker'
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        aws s3 cp --only-show-errors pmm-server-${VERSION}.docker s3://percona-vm/pmm-server-${VERSION}.docker
+                    """
+                }
                 deleteDir()
             }
         }
@@ -169,10 +173,10 @@ pipeline {
                 label 'virtualbox'
             }
             steps {
-                unstash 'docker'
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        aws s3 cp s3://percona-vm/${OVF_VERSION} pmm-server-${VERSION}.ova
+                        aws s3 cp --only-show-errors s3://percona-vm/${OVF_VERSION} pmm-server-${VERSION}.ova
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}.docker pmm-server-${VERSION}.docker
                     """
                 }
                 sh """
@@ -183,15 +187,16 @@ pipeline {
                     md5sum pmm-server-${VERSION}.ova > pmm-server-${VERSION}.md5sum
                     scp -i ~/.ssh/id_rsa_downloads pmm-server-${VERSION}.ova pmm-server-${VERSION}.md5sum jenkins@10.10.9.216:/data/downloads/pmm/${VERSION}/ova/
 
-                    curl https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory | head
+                    until curl https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory > /tmp/crawler; do
+                        tail /tmp/crawler
+                        sleep 10
+                    done
+                    tail /tmp/crawler
                 """
                 deleteDir()
             }
         }
         stage('Copy AMI') {
-            agent {
-                label 'awscli'
-            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
@@ -246,9 +251,6 @@ pipeline {
             }
         }
         stage('Publish AMI') {
-            agent {
-                label 'awscli'
-            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
