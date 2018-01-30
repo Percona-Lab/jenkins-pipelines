@@ -52,12 +52,14 @@ pipeline {
                         FILE=\$(ls */*.ova)
                         NAME=\$(basename \${FILE})
                         aws s3 cp \
+                            --only-show-errors \
                             --acl public-read \
                             \${FILE} \
                             s3://percona-vm/\${NAME}
 
                         echo /\${NAME} > PMM-Server-dev-latest.ova
                         aws s3 cp \
+                            --only-show-errors \
                             --website-redirect /\${NAME} \
                             PMM-Server-dev-latest.ova \
                             s3://percona-vm/PMM-Server-dev-latest.ova
