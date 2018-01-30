@@ -13,7 +13,7 @@ pipeline {
             name: 'CLIENT_VERSION')
         string(
             defaultValue: '',
-            description: 'public ssh key for "vagrant" user, please set if you need ssh access',
+            description: 'public ssh key for "ec2-user" user, please set if you need ssh access',
             name: 'SSH_KEY')
         string(
             defaultValue: '5.7',
