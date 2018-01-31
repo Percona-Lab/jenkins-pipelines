@@ -47,7 +47,7 @@ pipeline {
                 sh '''
                     sg docker -c "
                         docker pull centos:latest
-                        docker build --no-cache -t \$(cat IMAGE) .
+                        docker build --squash --no-cache -t \$(cat IMAGE) .
                     "
                 '''
                 stash includes: 'IMAGE', name: 'IMAGE'
