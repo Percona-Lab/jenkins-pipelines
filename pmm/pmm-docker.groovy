@@ -1,3 +1,8 @@
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+]) _
+
 pipeline {
     environment {
         specName = 'Docker'
@@ -26,13 +31,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                sh '''
-                    sudo yum -y install git
-                    curl -fsSL get.docker.com -o get-docker.sh
-                    sh get-docker.sh
-                    sudo usermod -aG docker `id -u -n`
-                    sudo service docker start
-                '''
+                installDocker()
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-server.git'
                 sh """
