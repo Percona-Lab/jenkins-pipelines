@@ -5,7 +5,7 @@ def call() {
         curl -fsSL get.docker.com -o get-docker.sh
         sh get-docker.sh
         sudo usermod -aG docker `id -u -n`
-        sudo mkdir /etc/docker
+        sudo mkdir -p /etc/docker
         echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json
         sudo service docker status || sudo service docker start
     '''
