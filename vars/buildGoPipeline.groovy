@@ -44,6 +44,7 @@ pipeline {
                     sudo yum -y install rpm-build mock git rpmdevtools
                     sudo usermod -aG mock `id -u -n`
                     sudo sed -i "1 i\\config_opts['plugin_conf']['tmpfs_enable'] = True" /etc/mock/epel-7-x86_64.cfg
+                    sudo sed -i "s^/etc/pki/mock/RPM-GPG-KEY-^/usr/share/distribution-gpg-keys/centos/RPM-GPG-KEY-^" /etc/mock/epel-7-x86_64.cfg
                 '''
 
                 // get commit ID
