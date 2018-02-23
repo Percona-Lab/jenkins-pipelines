@@ -41,11 +41,12 @@ pipeline {
 
                 // install build tools
                 sh '''
+                    if [ -f /etc/mock/epel-7-x86_64.cfg ]; then
+                        sudo rm -rf /etc/mock/epel-7-x86_64.cfg
+                        sudo yum -y reinstall '/etc/mock/epel-7-x86_64.cfg'
+                    fi
                     sudo yum -y install rpm-build mock git rpmdevtools
                     sudo usermod -aG mock `id -u -n`
-
-                    sudo rm -rf /etc/mock/epel-7-x86_64.cfg
-                    sudo yum -y reinstall mock-core-configs || :
                     sudo sed -i "1 i\\config_opts['plugin_conf']['tmpfs_enable'] = True" /etc/mock/epel-7-x86_64.cfg
                 '''
 
