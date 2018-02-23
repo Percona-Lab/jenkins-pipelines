@@ -45,7 +45,7 @@ pipeline {
                     sudo usermod -aG mock `id -u -n`
 
                     sudo rm -rf /etc/mock/epel-7-x86_64.cfg
-                    sudo yum -y reinstall mock-core-configs
+                    sudo yum -y reinstall mock-core-configs || :
                     sudo sed -i "1 i\\config_opts['plugin_conf']['tmpfs_enable'] = True" /etc/mock/epel-7-x86_64.cfg
                 '''
 
