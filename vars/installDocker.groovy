@@ -8,5 +8,6 @@ def call() {
         sudo mkdir -p /etc/docker
         echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json
         sudo service docker status || sudo service docker start
+        sudo docker system prune --all --force
     '''
 }
