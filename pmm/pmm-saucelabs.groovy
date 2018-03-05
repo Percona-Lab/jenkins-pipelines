@@ -97,14 +97,10 @@ pipeline {
                 }
             }
         }
-        stage('Stop staging') {
-            steps {
-                destroyStaging(VM_NAME)
-            }
-        }
     }
     post {
         always {
+            destroyStaging(VM_NAME)
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     saucePublisher()
