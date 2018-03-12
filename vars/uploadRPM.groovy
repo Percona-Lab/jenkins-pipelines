@@ -9,15 +9,26 @@ def call() {
 
                 ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                     mkdir -p \${path_to_build}/source/redhat \
+                             \${path_to_build}/binary/redhat/6/x86_64 \
                              \${path_to_build}/binary/redhat/7/x86_64
 
-                scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                    `find result-repo -name '*.src.rpm'` \
-                    ${USER}@repo.ci.percona.com:\${path_to_build}/source/redhat/
+                if [ `find result-repo results -name '*.src.rpm' | wc -l` -gt 0 ]; then
+                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                        `find result-repo results -name '*.src.rpm'` \
+                        ${USER}@repo.ci.percona.com:\${path_to_build}/source/redhat/
+                fi
 
-                scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                    `find result-repo -name '*.noarch.rpm' -o -name '*.x86_64.rpm'` \
-                    ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/7/x86_64/
+                if [ `find result-repo results -name '*.el6.noarch.rpm' -o -name '*.el6.x86_64.rpm' | wc -l` -gt 0 ]; then
+                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                        `find result-repo results -name '*.el6.noarch.rpm' -o -name '*.el6.x86_64.rpm'` \
+                        ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/6/x86_64/
+                fi
+
+                if [ `find result-repo results -name '*.el7.noarch.rpm' -o -name '*.el7.x86_64.rpm' | wc -l` -gt 0 ]; then
+                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                        `find result-repo results -name '*.el7.noarch.rpm' -o -name '*.el7.x86_64.rpm'` \
+                        ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/7/x86_64/
+                fi
             """
         }
         deleteDir()
