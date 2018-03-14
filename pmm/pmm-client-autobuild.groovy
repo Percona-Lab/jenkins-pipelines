@@ -24,21 +24,14 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                sh 'sudo rm -rf tmp results'
                 installDocker()
-                sh '''
-                    sudo yum -y install centos-release-scl-rh
-                    sudo yum -y install rh-git29
-                    sudo yum -y remove git
-                    sudo ln -fs /opt/rh/rh-git29/root/usr/bin/git /usr/bin/git
-                    sudo ln -fs /opt/rh/httpd24/root/usr/lib64/libcurl-httpd24.so.4 /usr/lib64/libcurl-httpd24.so.4
-                    sudo ln -fs /opt/rh/httpd24/root/usr/lib64/libnghttp2-httpd24.so.14 /usr/lib64/libnghttp2-httpd24.so.14
-                '''
-                
+                installCentosGit()
+
                 git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
                 sh '''
-                    git submodule init
-                    git submodule update --remote
+                    git reset --hard
+                    git clean -xdf
+                    git submodule update --remote --init --recommend-shallow --jobs 10
 
                     git rev-parse HEAD         > gitCommit
                     git rev-parse --short HEAD > shortCommit
@@ -133,7 +126,6 @@ pipeline {
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build ${currentBuild.result}"
                 }
             }
-            deleteDir()
         }
     }
 }
