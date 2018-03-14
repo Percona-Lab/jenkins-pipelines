@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'min-centos-7-x64'
+        label 'large-amazon'
     }
     parameters {
         string(
@@ -25,13 +25,19 @@ pipeline {
         stage('Prepare') {
             steps {
                 installDocker()
-                installCentosGit()
 
                 git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
                 sh '''
                     git reset --hard
-                    git clean -xdf
-                    git submodule update --remote --init --recommend-shallow --jobs 10
+                    sudo git clean -xdf
+                    git submodule update --init --jobs 10 \
+                        sources/pmm-client/src/github.com/percona/pmm-client \
+                        sources/mongodb_exporter/src/github.com/percona/mongodb_exporter \
+                        sources/mysqld_exporter/src/github.com/percona/mysqld_exporter \
+                        sources/proxysql_exporter/src/github.com/percona/proxysql_exporter \
+                        sources/qan-agent/src/github.com/percona/qan-agent \
+                        sources/node_exporter/src/github.com/prometheus/node_exporter \
+                        sources/percona-toolkit/src/github.com/percona/percona-toolkit
 
                     git rev-parse HEAD         > gitCommit
                     git rev-parse --short HEAD > shortCommit
@@ -78,7 +84,6 @@ pipeline {
             steps {
                 sh 'sg docker -c "./build/bin/build-client-rpm centos:6"'
                 sh 'sg docker -c "./build/bin/build-client-rpm centos:7"'
-                sh 'sudo chown -R $(id -u):$(id -g) results'
                 stash includes: 'results/rpm/pmm-client-*.rpm', name: 'rpms'
                 uploadRPM()
             }
@@ -100,7 +105,6 @@ pipeline {
                 sh 'sg docker -c "./build/bin/build-client-deb ubuntu:bionic"'
                 sh 'sg docker -c "./build/bin/build-client-deb ubuntu:trusty"'
                 sh 'sg docker -c "./build/bin/build-client-deb ubuntu:xenial"'
-                sh 'sudo chown -R $(id -u):$(id -g) results'
                 stash includes: 'results/deb/*.deb', name: 'debs'
                 uploadDEB()
             }
@@ -121,9 +125,9 @@ pipeline {
         always {
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished"
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
                 } else {
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build ${currentBuild.result}"
+                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
                 }
             }
         }
