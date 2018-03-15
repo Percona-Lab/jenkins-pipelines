@@ -21,6 +21,9 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
+    triggers {
+        upstream upstreamProjects: 'pmm-submodules-rewind', threshold: hudson.model.Result.SUCCESS
+    }
     stages {
         stage('Prepare') {
             steps {
