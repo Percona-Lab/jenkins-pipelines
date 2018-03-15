@@ -12,21 +12,21 @@ def call() {
                              \${path_to_build}/binary/redhat/6/x86_64 \
                              \${path_to_build}/binary/redhat/7/x86_64
 
-                if [ `find result-repo results -name '*.src.rpm' | wc -l` -gt 0 ]; then
+                if [ `find . -name '*.src.rpm' | wc -l` -gt 0 ]; then
                     scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                        `find result-repo results -name '*.src.rpm'` \
+                        `find . -name '*.src.rpm'` \
                         ${USER}@repo.ci.percona.com:\${path_to_build}/source/redhat/
                 fi
 
-                if [ `find result-repo results -name '*.el6.noarch.rpm' -o -name '*.el6.x86_64.rpm' | wc -l` -gt 0 ]; then
+                if [ `find . -name '*.el6.noarch.rpm' -o -name '*.el6.x86_64.rpm' | wc -l` -gt 0 ]; then
                     scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                        `find result-repo results -name '*.el6.noarch.rpm' -o -name '*.el6.x86_64.rpm'` \
+                        `find . -name '*.el6.noarch.rpm' -o -name '*.el6.x86_64.rpm'` \
                         ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/6/x86_64/
                 fi
 
-                if [ `find result-repo results -name '*.el7.noarch.rpm' -o -name '*.el7.x86_64.rpm' | wc -l` -gt 0 ]; then
+                if [ `find . -name '*.el7.noarch.rpm' -o -name '*.el7.x86_64.rpm' | wc -l` -gt 0 ]; then
                     scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                        `find result-repo results -name '*.el7.noarch.rpm' -o -name '*.el7.x86_64.rpm'` \
+                        `find . -name '*.el7.noarch.rpm' -o -name '*.el7.x86_64.rpm'` \
                         ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/7/x86_64/
                 fi
             """
