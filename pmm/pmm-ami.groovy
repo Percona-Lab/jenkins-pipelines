@@ -16,7 +16,7 @@ pipeline {
         disableConcurrentBuilds()
     }
     triggers {
-        upstream upstreamProjects: 'pmm-dashboards-package,pmm-manage-package,pmm-managed-package,pmm-qan-api-package,pmm-qan-app-package,pmm-server-package,pmm-server-packages,pmm-update-package', threshold: hudson.model.Result.SUCCESS
+        upstream upstreamProjects: 'pmm-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
 
     stages {

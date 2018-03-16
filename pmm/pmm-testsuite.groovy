@@ -77,7 +77,7 @@ pipeline {
         disableConcurrentBuilds()
     }
     triggers {
-        upstream upstreamProjects: 'pmm-docker', threshold: hudson.model.Result.SUCCESS
+        upstream upstreamProjects: 'pmm-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
 
     stages {

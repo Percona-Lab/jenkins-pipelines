@@ -20,6 +20,9 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
+    triggers {
+        upstream upstreamProjects: 'pmm-submodules-rewind', threshold: hudson.model.Result.SUCCESS
+    }
     stages {
         stage('Prepare') {
             steps {
@@ -91,8 +94,15 @@ pipeline {
                         export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
 
                         ./build/bin/build-server-docker
+
+                        docker tag  ${DOCKER_TAG} perconalab/pmm-server:dev-latest
+                        docker push ${DOCKER_TAG}
+                        docker push perconalab/pmm-server:dev-latest
+                        docker rmi  ${DOCKER_TAG}
+                        docker rmi  perconalab/pmm-server:dev-latest
                     "
                 '''
+                archiveArtifacts 'results/docker/TAG'
             }
         }
         stage('Sign packages') {
