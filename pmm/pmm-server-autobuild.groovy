@@ -102,6 +102,7 @@ pipeline {
                         docker rmi  perconalab/pmm-server:dev-latest
                     "
                 '''
+                stash includes: 'results/docker/TAG', name: 'IMAGE'
                 archiveArtifacts 'results/docker/TAG'
             }
         }
@@ -120,7 +121,9 @@ pipeline {
         always {
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
+                    unstash 'IMAGE'
+                    def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
                 } else {
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
                 }
