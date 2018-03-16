@@ -95,10 +95,10 @@ pipeline {
 
                         ./build/bin/build-server-docker
 
-                        docker tag  ${DOCKER_TAG} perconalab/pmm-server:dev-latest
-                        docker push ${DOCKER_TAG}
+                        docker tag  \${DOCKER_TAG} perconalab/pmm-server:dev-latest
+                        docker push \${DOCKER_TAG}
                         docker push perconalab/pmm-server:dev-latest
-                        docker rmi  ${DOCKER_TAG}
+                        docker rmi  \${DOCKER_TAG}
                         docker rmi  perconalab/pmm-server:dev-latest
                     "
                 '''
