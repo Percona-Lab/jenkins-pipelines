@@ -32,16 +32,7 @@ pipeline {
                 sh '''
                     git reset --hard
                     sudo git clean -xdf
-                    git submodule update --init --jobs 10 \
-                        sources/pmm-update \
-                        sources/pmm-server \
-                        sources/grafana-dashboards \
-                        sources/pmm-server-packaging \
-                        sources/qan-api/src/github.com/percona/qan-api \
-                        sources/qan-app/src/github.com/percona/qan-app \
-                        sources/pmm-manage/src/github.com/percona/pmm-manage \
-                        sources/pmm-managed/src/github.com/percona/pmm-managed \
-                        sources/rds_exporter/src/github.com/percona/rds_exporter
+                    git submodule update --init --jobs 10
 
                     git rev-parse HEAD         > gitCommit
                     git rev-parse --short HEAD > shortCommit
