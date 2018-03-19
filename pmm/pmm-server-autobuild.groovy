@@ -77,6 +77,8 @@ pipeline {
                 sh '''
                     sg docker -c "
                         ./build/bin/build-client-rpm centos:7
+
+                        mkdir -p tmp/pmm-server/RPMS/
                         cp results/rpm/pmm-client-*.rpm tmp/pmm-server/RPMS/
                     "
                 '''
