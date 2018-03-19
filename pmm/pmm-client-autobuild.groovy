@@ -51,7 +51,7 @@ pipeline {
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
-        stage('Build source tarball') {
+        stage('Build client source') {
             steps {
                 sh '''
                     sg docker -c "
@@ -63,7 +63,7 @@ pipeline {
                 uploadTarball('source')
             }
         }
-        stage('Build binary tarball') {
+        stage('Build client binary') {
             steps {
                 sh '''
                     sg docker -c "
@@ -75,31 +75,34 @@ pipeline {
                 uploadTarball('binary')
             }
         }
-
-        stage('Build source rpm') {
+        stage('Build client source rpm') {
             steps {
                 sh 'sg docker -c "./build/bin/build-client-srpm centos:6"'
                 stash includes: 'results/srpm/pmm-client-*.src.rpm', name: 'rpms'
                 uploadRPM()
             }
         }
-        stage('Build binary rpms') {
+        stage('Build client binary rpm') {
             steps {
-                sh 'sg docker -c "./build/bin/build-client-rpm centos:6"'
-                sh 'sg docker -c "./build/bin/build-client-rpm centos:7"'
+                sh '''
+                    sg docker -c "
+                        ./build/bin/build-client-rpm centos:6
+                        ./build/bin/build-client-rpm centos:7
+                    "
+                '''
                 stash includes: 'results/rpm/pmm-client-*.rpm', name: 'rpms'
                 uploadRPM()
             }
         }
 
-        stage('Build source deb') {
+        stage('Build client source deb') {
             steps {
                 sh 'sg docker -c "./build/bin/build-client-sdeb debian:wheezy"'
                 stash includes: 'results/source_deb/*', name: 'debs'
                 uploadDEB()
             }
         }
-        stage('Build binary debs') {
+        stage('Build client binary debs') {
             steps {
                 sh 'sg docker -c "./build/bin/build-client-deb debian:jessie"'
                 sh 'sg docker -c "./build/bin/build-client-deb debian:stretch"'
