@@ -299,6 +299,8 @@ Resources:
             Resource:
             - arn:aws:s3:::percona-vm
             - arn:aws:s3:::percona-vm/*
+            - arn:aws:s3:::pmm-build-cache
+            - arn:aws:s3:::pmm-build-cache/*
             - arn:aws:s3:::percona-jenkins-artifactory
             - arn:aws:s3:::percona-jenkins-artifactory/*
           - Effect: Allow
