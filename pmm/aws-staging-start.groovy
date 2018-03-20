@@ -36,7 +36,7 @@ pipeline {
             description: 'Percona Server for MongoDB version',
             name: 'MO_VERSION')
         string(
-            defaultValue: '--addclient=ps,1 --addclient=mo,1',
+            defaultValue: '--addclient=ps,1',
             description: 'Configure PMM Clients. ps - Percona Server for MySQL, pxc - Percona XtraDB Cluster, ms - MySQL Community Server, md - MariaDB Server, MO - Percona Server for MongoDB',
             name: 'CLIENTS')
         string(
