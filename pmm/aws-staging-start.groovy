@@ -15,6 +15,10 @@ pipeline {
             defaultValue: '',
             description: 'public ssh key for "ec2-user" user, please set if you need ssh access',
             name: 'SSH_KEY')
+        choice(
+            choices: '7\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
+            description: 'Stop the instance after, days',
+            name: 'DAYS')
         string(
             defaultValue: '5.7',
             description: 'Percona XtraDB Cluster version',
@@ -195,6 +199,7 @@ pipeline {
                             --resources \$REQUEST_ID \$(cat ID) \$VOLUMES \
                             --tags Key=Name,Value=\$VM_NAME \
                                    Key=iit-billing-tag,Value=pmm-staging \
+                                   Key=stop-after-days,Value=${DAYS} \
                                    Key=owner,Value=\$OWNER
                     '''
                 }
