@@ -240,6 +240,13 @@ Resources:
                     else:
                         owner = 'unknown'
 
+                    # get instance allowed days
+                    allowedDaysFilter = filter(lambda x: 'stop-after-days' == x['Key'], instance.tags)
+                    if len(allowedDaysFilter) >= 1 and allowedDaysFilter[0]['Value'] > 0:
+                        allowedDays = allowedDaysFilter[0]['Value'] + ' days'
+                    else:
+                        allowedDays = 'unlimited'
+
                     # get instance Name
                     nameFilter = filter(lambda x: 'Name' == x['Key'], instance.tags)
                     if len(nameFilter) >= 1:
@@ -266,10 +273,10 @@ Resources:
                     # prepare table for email
                     if uptime.total_seconds() > 5*60*60:
                         strUptime = re.match('^[^:]+:[^:]+', str(uptime)).group(0)
-                        emails[owner].append('<tr><td>' + name + '</td><td>' + owner + '</td><td>' + strUptime + '</td><td>' + costStr + '</td></tr>')
+                        emails[owner].append('<tr><td>' + name + '</td><td>' + owner + '</td><td>' + strUptime + '</td><td>' + allowedDays + '</td><td>' + costStr + '</td></tr>')
                         for email in fullReportEmail:
                             if owner != email:
-                                emails[email].append('<tr><td>' + name + '</td><td>' + owner + '</td><td>' + strUptime + '</td><td>' + costStr + '</td></tr>')
+                                emails[email].append('<tr><td>' + name + '</td><td>' + owner + '</td><td>' + strUptime + '</td><td>' + allowedDays + '</td><td>' + costStr + '</td></tr>')
                     else:
                         print('Skip: ' + name)
 
@@ -283,7 +290,7 @@ Resources:
                         <body>
                           <h4>just a friendly reminder - please don't forget to shutdown the following instances:</h4>
                           <table>
-                            <tr><th>Name</th><th>Owner</th><th>Uptime</th><th>Total Cost</th></tr>
+                            <tr><th>Name</th><th>Owner</th><th>Uptime</th><th>Allowed Uptime</th><th>Total Cost</th></tr>
                             %s
                           </table>
                           <p></p>
