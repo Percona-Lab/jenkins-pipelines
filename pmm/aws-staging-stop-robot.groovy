@@ -19,7 +19,7 @@ pipeline {
                         is_shutdown_needed() {
                             local instance_id=$1
                             local days=$2
-                            local days_ago=$(date --date=-${days}days +%Y-%m-%d 2>/dev/null || date -v-${days}d +%Y-%m-%d)
+                            local days_ago=$(date --date=-${days}days +%Y-%m-%dT%H:%M 2>/dev/null || date -v-${days}d +%Y-%m-%dT%H:%M)
 
                             aws ec2 describe-instances \
                                 --region us-east-2 \
