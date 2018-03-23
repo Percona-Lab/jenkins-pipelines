@@ -173,7 +173,7 @@ pipeline {
                 unstash 'instances'
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        grep -v None requests_to_terminate | aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids
+                        grep -v None requests_to_terminate | xargs aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids || :
                         cat instances_to_terminate | xargs aws ec2 --region us-east-2 terminate-instances --instance-ids
                     '''
                 }
