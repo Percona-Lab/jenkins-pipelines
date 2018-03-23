@@ -45,7 +45,8 @@ pipeline {
 
                         is_shutdown_needed() {
                             local instance_id=$1
-                            local days=$2
+                            local request_id=$2
+                            local days=$3
                             local days_ago=$(date --date=-${days}days +%Y-%m-%dT%H:%M 2>/dev/null || date -v-${days}d +%Y-%m-%dT%H:%M)
 
                             if [[ $days = 0 ]]; then
@@ -58,6 +59,12 @@ pipeline {
                                 --output text \
                                 --instance-ids $instance_id \
                                 --query "Reservations[].Instances[?LaunchTime<='${days_ago}'][].InstanceId"
+
+                            aws ec2 describe-spot-instance-requests \
+                                --region us-east-2 \
+                                --output text \
+                                --spot-instance-request-ids ${request_id} \
+                                --query "SpotInstanceRequests[?CreateTime<='${days_ago}'].InstanceId"
                         }
 
                         get_sir_state() {
@@ -97,6 +104,7 @@ pipeline {
 
                         main() {
                             echo -n > instances
+                            echo -n > requests_to_terminate
                             echo -n > instances_to_terminate
 
                             aws ec2 describe-instances \
@@ -126,8 +134,9 @@ pipeline {
                                     echo ${instance} >> instances_to_terminate
                                 fi
                                 if [[ $days != None ]]; then
-                                    if [[ -n $(is_shutdown_needed "${instance}" "${days}") ]]; then
+                                    if [[ -n $(is_shutdown_needed "${instance}" "${request}" "${days}") ]]; then
                                         echo TERMINATE days: $name
+                                        echo ${request}  >> requests_to_terminate
                                         echo ${instance} >> instances_to_terminate
                                     else
                                         echo KEEP days: $name
@@ -135,15 +144,19 @@ pipeline {
                                 fi
                             done < init_instances
                             sort instances
-                            cat instances_to_terminate
+                            cat requests_to_terminate instances_to_terminate
                             wc -l instances_to_terminate
                         }
 
                         main
                     '''
                 }
-                stash includes: 'instances_to_terminate', name: 'instances_to_terminate'
-
+                stash includes: 'requests_to_terminate,instances_to_terminate', name: 'instances'
+            }
+        }
+        stage('Check list') {
+            steps {
+                unstash 'instances'
                 script {
                     def instances_count = sh(returnStdout: true, script: '''
                         wc -l instances_to_terminate
@@ -157,9 +170,10 @@ pipeline {
         }
         stage('Terminate instances') {
             steps {
-                unstash 'instances_to_terminate'
+                unstash 'instances'
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
+                        grep -v None requests_to_terminate | aws ec2 cancel-spot-instance-requests --spot-instance-request-ids
                         cat instances_to_terminate | xargs aws ec2 --region us-east-2 terminate-instances --instance-ids
                     '''
                 }
