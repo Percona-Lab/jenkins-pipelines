@@ -16,10 +16,42 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
+                        copy_tags() {
+                            local request=$1
+
+                            instance_id=$(
+                                aws ec2 describe-spot-instance-requests \
+                                    --region us-east-2 \
+                                    --output json \
+                                    --spot-instance-request-ids ${request} \
+                                    --query 'SpotInstanceRequests[].InstanceId'
+                            )
+                            tags=$(
+                                aws ec2 describe-spot-instance-requests \
+                                    --region us-east-2 \
+                                    --output json \
+                                    --spot-instance-request-ids ${request} \
+                                    --query 'SpotInstanceRequests[].Tags[]'
+                            )
+                            aws ec2 create-tags \
+                                --region us-east-2 \
+                                --output json \
+                                --cli-input-json "{
+                                    \"DryRun\": false,
+                                    \"Resources\": $instance_id,
+                                    \"Tags\": $tags
+                                }"
+                        }
+
                         is_shutdown_needed() {
                             local instance_id=$1
                             local days=$2
                             local days_ago=$(date --date=-${days}days +%Y-%m-%dT%H:%M 2>/dev/null || date -v-${days}d +%Y-%m-%dT%H:%M)
+
+                            if [[ $days = 0 ]]; then
+                                # unlimited uptime
+                                return
+                            fi
 
                             aws ec2 describe-instances \
                                 --region us-east-2 \
@@ -34,28 +66,61 @@ pipeline {
                             aws ec2 describe-spot-instance-requests \
                                 --region us-east-2 \
                                 --output text \
-                                --query 'SpotInstanceRequests[].State' \
-                                --spot-instance-request-ids $sir
+                                --spot-instance-request-ids $sir \
+                                --query 'SpotInstanceRequests[].State'
+                        }
+                        get_sir_name() {
+                            local sir=$1
+
+                            aws ec2 describe-spot-instance-requests \
+                                --region us-east-2 \
+                                --output text \
+                                --spot-instance-request-ids $sir \
+                                --query 'SpotInstanceRequests[0].Tags[?Key==`Name`].Value'
+                        }
+                        get_sir_days() {
+                            local sir=$1
+
+                            local days=$(
+                                aws ec2 describe-spot-instance-requests \
+                                    --region us-east-2 \
+                                    --output text \
+                                    --spot-instance-request-ids $sir \
+                                    --query 'SpotInstanceRequests[0].Tags[?Key==`stop-after-days`].Value'
+                            )
+                            if [[ -z $days ]]; then
+                                echo None
+                            else
+                                echo $days
+                            fi
                         }
 
                         main() {
+                            echo -n > instances
                             echo -n > instances_to_terminate
 
                             aws ec2 describe-instances \
                                 --region us-east-2 \
                                 --output text \
                                 --query 'Reservations[].Instances[].{
-                                    AName:[Tags[?Key==`Name`].Value][0][0],
-                                    InstanceId:InstanceId,
-                                    RequestId:SpotInstanceRequestId,
-                                    ZDays: [Tags[?Key==`stop-after-days`].Value][0][0]
+                                    A_Name:[Tags[?Key==`Name`].Value][0][0],
+                                    B_InstanceId:InstanceId,
+                                    C_RequestId:SpotInstanceRequestId,
+                                    D_Days: [Tags[?Key==`stop-after-days`].Value][0][0]
                                 }' \
                                 --filter Name=instance-state-name,Values=running \
                                 | sort -n \
-                                | tee instances
+                                > init_instances
 
                             while read -r name instance request days; do
                                 state=$(get_sir_state "$request")
+                                if [[ $name = None ]] && [[ $request != None ]]; then
+                                    copy_tags "${request}"
+                                    name=$(get_sir_name "${request}")
+                                    days=$(get_sir_days "${request}")
+                                fi
+
+                                printf "%-40s\t%s\t%s\t%s\t%s\n" $name $instance $request $days $state >> instances
                                 if [[ $state = cancelled ]]; then
                                     echo TERMINATE cancelled: $name
                                     echo ${instance} >> instances_to_terminate
@@ -68,7 +133,8 @@ pipeline {
                                         echo KEEP days: $name
                                     fi
                                 fi
-                            done < instances
+                            done < init_instances
+                            cat instances
                             cat instances_to_terminate
                             wc -l instances_to_terminate
                         }
