@@ -37,9 +37,9 @@ pipeline {
                                 --region us-east-2 \
                                 --output json \
                                 --cli-input-json "{
-                                    \"DryRun\": false,
-                                    \"Resources\": $instance_id,
-                                    \"Tags\": $tags
+                                    \\"DryRun\\": false,
+                                    \\"Resources\\": $instance_id,
+                                    \\"Tags\\": $tags
                                 }"
                         }
 
