@@ -9,7 +9,7 @@ pipeline {
             name: 'DOCKER_VERSION')
         string(
             defaultValue: 'dev-latest',
-            description: 'PMM Client version',
+            description: 'PMM Client version ("dev-latest" for master branch, "latest" or "X.X.X" for released version, "http://..." for feature build)',
             name: 'CLIENT_VERSION')
         string(
             defaultValue: '',
