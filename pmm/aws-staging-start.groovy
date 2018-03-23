@@ -249,7 +249,7 @@ pipeline {
                         export VM_NAME=\$(cat VM_NAME)
 
                         export CLIENT_VERSION=${CLIENT_VERSION}
-                        if [ "X\$CLIENT_VERSION" = "Xlatest" ]; then
+                        if [[ \$CLIENT_VERSION = latest ]]; then
                             CLIENT_VERSION=\$(
                                 curl -s https://www.percona.com/downloads/pmm/ \
                                     | egrep -o 'pmm/[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}' \
@@ -280,12 +280,16 @@ pipeline {
                                 -e METRICS_RESOLUTION=5s \
                                 ${DOCKER_VERSION}
 
-                            if [ "X\$CLIENT_VERSION" = "Xdev-latest" ]; then
+                            if [[ \$CLIENT_VERSION = dev-latest ]]; then
                                 sudo yum -y install pmm-client --enablerepo=percona-testing-*
                             else
-                                wget --progress=dot:giga "https://www.percona.com/downloads/pmm-client/pmm-client-\${CLIENT_VERSION}/binary/tarball/pmm-client-\${CLIENT_VERSION}.tar.gz"
-                                tar -zxpf pmm-client-\${CLIENT_VERSION}.tar.gz
-                                pushd pmm-client-\${CLIENT_VERSION}
+                                if [[ \$CLIENT_VERSION == http* ]]; then
+                                    wget -O pmm-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
+                                else
+                                    wget -O pmm-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm-client/pmm-client-\${CLIENT_VERSION}/binary/tarball/pmm-client-\${CLIENT_VERSION}.tar.gz"
+                                fi
+                                tar -zxpf pmm-client.tar.gz
+                                pushd pmm-client-*
                                     sudo ./install
                                 popd
                             fi
