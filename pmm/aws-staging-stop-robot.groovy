@@ -134,7 +134,7 @@ pipeline {
                                     fi
                                 fi
                             done < init_instances
-                            cat instances
+                            sort instances
                             cat instances_to_terminate
                             wc -l instances_to_terminate
                         }
