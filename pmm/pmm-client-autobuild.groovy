@@ -122,8 +122,21 @@ pipeline {
             }
         }
         stage('Push to public repository') {
+            agent {
+                label 'master'
+            }
             steps {
+                // sync packages
                 sync2Prod(DESTINATION)
+
+                // upload tarball
+                deleteDir()
+                unstash 'binary.tarball'
+                withCredentials([sshUserPrivateKey(credentialsId: 'downloads-area', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh '''
+                        scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no results/tarball/*.tar.* ${USER}@10.10.9.216:/data/downloads/TESTING/pmm/
+                    '''
+                }
             }
         }
     }
