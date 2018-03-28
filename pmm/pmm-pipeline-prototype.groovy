@@ -1,24 +1,25 @@
 void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
-    stagingJob = build job: 'pmm-staging-start', parameters: [
+    stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
-        string(name: 'NOTIFY', value: 'false')
+        string(name: 'NOTIFY', value: 'false'),
+        string(name: 'DAYS', value: '1')
     ]
-    env.VM_IP   = stagingJob.buildVariables.IP
+    env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
     env.PMM_URL = "http://${VM_IP}"
 }
 
 void destroyStaging(IP) {
-    build job: 'pmm-staging-stop', parameters: [
+    build job: 'aws-staging-stop', parameters: [
         string(name: 'VM', value: IP),
     ]
 }
 
 pipeline {
     agent {
-        label 'virtualbox'
+        label 'micro-amazon'
     }
     parameters {
         string(
@@ -27,22 +28,25 @@ pipeline {
             name: 'GIT_BRANCH')
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
-            description: 'PMM Server docker version',
+            description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
-            defaultValue: 'latest',
+            defaultValue: 'dev-latest',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
     }
-
+    options {
+        skipDefaultCheckout()
+        disableConcurrentBuilds()
+    }
     stages {
-        stage('Preparation') {
+        stage('Prepare') {
             steps {
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-
                 // clean up workspace and fetch pmm-qa repository
-                cleanWs deleteDirs: true, notFailBuild: true
+                deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/pmm-qa.git'
+
+                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
 
                 // run any preparation steps on pmm-qa repo
                 sh 'ls -la'
@@ -58,6 +62,11 @@ pipeline {
                 sh "curl --silent --insecure '${PMM_URL}/prometheus/targets' | grep localhost:9090"
             }
         }
+        stage('Sleep') {
+            steps {
+                sleep 60
+            }
+        }
         stage('Run Test') {
             steps {
                 // run some command on jenkins node
@@ -69,44 +78,51 @@ pipeline {
                 """
 
                 // run some command inside VM
-                sh """
-                    ssh -o StrictHostKeyChecking=no -i /mnt/images/id_rsa_vagrant vagrant@${VM_IP} "
-                        set -o xtrace
-
-                        echo bash inside VM
-                        sudo pmm-admin list
-                    "
-                """
-
-                // run some command inside Docker
-                sh """
-                    ssh -o StrictHostKeyChecking=no -i /mnt/images/id_rsa_vagrant vagrant@${VM_IP} "
-                        docker exec -i ${VM_NAME}-server sh -c '
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} "
                             set -o xtrace
 
-                            echo bash inside docker
-                            supervisorctl restart consul
-                        '
-                    "
-                """
-            }
-        }
-        stage('Stop staging') {
-            steps {
-                destroyStaging(VM_IP)
+                            echo bash inside VM
+                            sudo pmm-admin list
+                        "
+                    """
+                }
+
+
+                // run some command inside Docker
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} "
+                            docker exec -i ${VM_NAME}-server sh -c '
+                                set -o xtrace
+
+                                echo bash inside docker
+                                supervisorctl restart consul
+                            '
+                        "
+                    """
+                }
             }
         }
     }
     post {
-        success {
-            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
+        always {
+            // stop staging
+            destroyStaging(VM_NAME)
 
-            // proccess test result
-            archiveArtifacts '*.tap'
-            step([$class: "TapPublisher", testResults: '*.tap'])
-        }
-        failure {
-            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+            script {
+                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
+
+                    // proccess test result
+                    archiveArtifacts '*.tap'
+                    step([$class: "TapPublisher", testResults: '*.tap'])
+                } else {
+                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
+                }
+            }
+            deleteDir()
         }
     }
 }
