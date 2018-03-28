@@ -3,7 +3,8 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: ''),
-        string(name: 'NOTIFY', value: 'false')
+        string(name: 'NOTIFY', value: 'false'),
+        string(name: 'DAYS', value: '1')
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME

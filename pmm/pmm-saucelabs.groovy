@@ -3,7 +3,8 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
-        string(name: 'NOTIFY', value: 'false')
+        string(name: 'NOTIFY', value: 'false'),
+        string(name: 'DAYS', value: '1')
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
@@ -45,8 +46,10 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                // clean up workspace and fetch pmm-qa repository
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/pmm-qa.git'
+
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
 
                 sh '''
@@ -100,6 +103,7 @@ pipeline {
     }
     post {
         always {
+            // stop staging
             destroyStaging(VM_NAME)
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
