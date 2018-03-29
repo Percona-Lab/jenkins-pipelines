@@ -46,7 +46,7 @@ pipeline {
                   chmod +x docker_builder.sh
                   sudo rm -rf docker_build
                   mkdir docker_build
-                  sudo bash -x docker_builder.sh --builddir=$(pwd)/docker_build --build_docker=0 --save_docker=0 --docker_name=${DOCKER_NAME} --version=${PACKAGE} --clean_docker=0 --test_docker=0 --install_docker=1
+                  sudo bash -x docker_builder.sh --builddir=$(pwd)/docker_build --repo=${GIT_REPO} --build_docker=0 --save_docker=0 --docker_name=${DOCKER_NAME} --version=${PACKAGE} --clean_docker=0 --test_docker=0 --install_docker=1
                 '''
             }
         }
@@ -54,7 +54,7 @@ pipeline {
         stage('Build Image') {
             steps {
                 sh '''
-                  sudo bash -x docker_builder.sh --builddir=$(pwd)/docker_build --build_docker=1 --save_docker=0 --docker_name=${DOCKER_NAME} --version=${PACKAGE} --clean_docker=1 --test_docker=0 --install_docker=0 --auto=1
+                  sudo bash -x docker_builder.sh --builddir=$(pwd)/docker_build --repo=${GIT_REPO} --build_docker=1 --save_docker=0 --docker_name=${DOCKER_NAME} --version=${PACKAGE} --clean_docker=1 --test_docker=0 --install_docker=0 --auto=1
                 '''
             }
         }
@@ -62,7 +62,7 @@ pipeline {
         stage('Save Image') {
             steps {
                 sh '''
-                  sudo bash -x docker_builder.sh --builddir=$(pwd)/docker_build --build_docker=0 --save_docker=1 --docker_name=${DOCKER_NAME} --version=${PACKAGE} --clean_docker=0 --test_docker=0 --install_docker=0 --auto=1
+                  sudo bash -x docker_builder.sh --builddir=$(pwd)/docker_build --repo=${GIT_REPO} --build_docker=0 --save_docker=1 --docker_name=${DOCKER_NAME} --version=${PACKAGE} --clean_docker=0 --test_docker=0 --install_docker=0 --auto=1
                   TAR=$(ls $(pwd)/docker_build | grep tar)
                   sudo cp $(pwd)/docker_build/${TAR} ./ 
                 '''
@@ -74,7 +74,7 @@ pipeline {
             steps {
                 sh '''
                   TAR=$(ls $(pwd)/docker_build | grep tar)
-                  sudo bash -x docker_builder.sh --builddir=$(pwd)/docker_build --build_docker=0 --save_docker=0 --docker_name=${DOCKER_NAME} --version=${PACKAGE} --clean_docker=1 --test_docker=1 --install_docker=0 --auto=1 --load_docker=$(pwd)/docker_build/${TAR}
+                  sudo bash -x docker_builder.sh --builddir=$(pwd)/docker_build --repo=${GIT_REPO} --build_docker=0 --save_docker=0 --docker_name=${DOCKER_NAME} --version=${PACKAGE} --clean_docker=1 --test_docker=1 --install_docker=0 --auto=1 --load_docker=$(pwd)/docker_build/${TAR}; \
                   sudo rm -rf $(pwd)/docker_build
                 '''
             }
