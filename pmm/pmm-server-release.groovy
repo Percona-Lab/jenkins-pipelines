@@ -186,12 +186,6 @@ pipeline {
 
                     md5sum pmm-server-${VERSION}.ova > pmm-server-${VERSION}.md5sum
                     scp -i ~/.ssh/id_rsa_downloads pmm-server-${VERSION}.ova pmm-server-${VERSION}.md5sum jenkins@10.10.9.216:/data/downloads/pmm/${VERSION}/ova/
-
-                    until curl https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory > /tmp/crawler; do
-                        tail /tmp/crawler
-                        sleep 10
-                    done
-                    tail /tmp/crawler
                 """
                 deleteDir()
             }
@@ -289,6 +283,20 @@ pipeline {
                         done
                     """
                 }
+            }
+        }
+        stage('Refresh website') {
+            agent {
+                label 'virtualbox'
+            }
+            steps {
+                sh """
+                    until curl https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory > /tmp/crawler; do
+                        tail /tmp/crawler
+                        sleep 10
+                    done
+                    tail /tmp/crawler
+                """
             }
         }
     }
