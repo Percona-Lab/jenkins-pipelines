@@ -11,7 +11,7 @@ def call(String TarballType) {
                     mkdir -p \${path_to_build}/${TarballType}/tarball
 
                 scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                    `find result-repo results -name '*.tar.*'` \
+                    `find . -name '*.tar.*'` \
                     ${USER}@repo.ci.percona.com:\${path_to_build}/${TarballType}/tarball/
 
             """
