@@ -42,12 +42,12 @@ pipeline {
                         sources/node_exporter/src/github.com/prometheus/node_exporter \
                         sources/percona-toolkit/src/github.com/percona/percona-toolkit
 
-                    git rev-parse HEAD         > gitCommit
                     git rev-parse --short HEAD > shortCommit
-                    echo "UPLOAD/pmm/${JOB_NAME}/\$(cat shortCommit)-${BUILD_NUMBER}" > uploadPath
+                    echo "UPLOAD/pmm/${JOB_NAME}/pmm/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
                 '''
                 archiveArtifacts 'uploadPath'
-                stash includes: 'gitCommit,shortCommit', name: 'gitCommit'
+                stash includes: 'uploadPath', name: 'uploadPath'
+                archiveArtifacts 'shortCommit'
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }

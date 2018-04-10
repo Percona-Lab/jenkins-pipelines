@@ -1,7 +1,7 @@
 def call(String DESTINATION) {
     node('master') {
-        unstash 'gitCommit'
-        def path_to_build = sh(returnStdout: true, script: "echo UPLOAD/pmm/${JOB_NAME}/\$(cat shortCommit)-${BUILD_NUMBER}").trim()
+        unstash 'uploadPath'
+        def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
 
         withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
             withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {

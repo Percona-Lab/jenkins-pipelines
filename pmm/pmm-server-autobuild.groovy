@@ -34,10 +34,12 @@ pipeline {
                     sudo git clean -xdf
                     git submodule update --init --jobs 10
 
-                    git rev-parse HEAD         > gitCommit
                     git rev-parse --short HEAD > shortCommit
+                    echo "UPLOAD/pmm/${JOB_NAME}/pmm/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
                 '''
-                stash includes: 'gitCommit,shortCommit', name: 'gitCommit'
+                archiveArtifacts 'uploadPath'
+                stash includes: 'uploadPath', name: 'uploadPath'
+                archiveArtifacts 'shortCommit'
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }

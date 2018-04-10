@@ -2,10 +2,10 @@ def call() {
     node('master') {
         deleteDir()
         unstash 'rpms'
-        unstash 'gitCommit'
+        unstash 'uploadPath'
         withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
             sh """
-                export path_to_build="UPLOAD/pmm/${JOB_NAME}/\$(cat shortCommit)-${BUILD_NUMBER}"
+                export path_to_build=`cat uploadPath`
 
                 ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                     mkdir -p \${path_to_build}/source/redhat \

@@ -2,10 +2,10 @@ def call() {
     node('master') {
         deleteDir()
         unstash 'debs'
-        unstash 'gitCommit'
+        unstash 'uploadPath'
         withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
             sh """
-                export path_to_build="UPLOAD/pmm/${JOB_NAME}/\$(cat shortCommit)-${BUILD_NUMBER}"
+                export path_to_build=`cat uploadPath`
 
                 dsc=`find . -name '*.dsc'`
                 if [ -f "\${dsc}" ]; then
