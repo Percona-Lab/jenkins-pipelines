@@ -5,23 +5,20 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     environment {
-        DESTINATION = 'laboratory'
+        DESTINATION = 'pmm-hotfix-laboratory'
     }
     agent {
         label 'large-amazon'
     }
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: 'hotfix-1.X.x',
             description: 'Tag/Branch for percona-images repository',
             name: 'GIT_BRANCH')
     }
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
-    }
-    triggers {
-        upstream upstreamProjects: 'pmm-submodules-rewind', threshold: hudson.model.Result.SUCCESS
     }
     stages {
         stage('Prepare') {
@@ -133,11 +130,11 @@ pipeline {
 
                         ./build/bin/build-server-docker
 
-                        docker tag  \\${DOCKER_TAG} perconalab/pmm-server:dev-latest
+                        docker tag  \\${DOCKER_TAG} perconalab/pmm-server:hotfix-latest
                         docker push \\${DOCKER_TAG}
-                        docker push perconalab/pmm-server:dev-latest
+                        docker push perconalab/pmm-server:hotfix-latest
                         docker rmi  \\${DOCKER_TAG}
-                        docker rmi  perconalab/pmm-server:dev-latest
+                        docker rmi  perconalab/pmm-server:hotfix-latest
                     "
                 '''
                 stash includes: 'results/docker/TAG', name: 'IMAGE'

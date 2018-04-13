@@ -11,6 +11,10 @@ pipeline {
         label 'master'
     }
     parameters {
+        choice(
+            choices: 'laboratory\npmm-hotfix-laboratory',
+            description: 'publish pmm-server packages from regular(laboratory) or hotfix(pmm-hotfix-laboratory) repository',
+            name: 'UPDATER_REPO')
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
@@ -46,7 +50,7 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            ls /srv/repo-copy/laboratory/7/RPMS/x86_64 \
+                            ls /srv/repo-copy/${UPDATER_REPO}/7/RPMS/x86_64 \
                             > repo.list
                         cat rpms.list \
                             | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
@@ -64,7 +68,7 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         cat copy.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            "cat - | xargs -I{} cp -v /srv/repo-copy/laboratory/7/RPMS/x86_64/{} /srv/repo-copy/pmm/7/RPMS/x86_64/{}"
+                            "cat - | xargs -I{} cp -v /srv/repo-copy/${UPDATER_REPO}/7/RPMS/x86_64/{} /srv/repo-copy/pmm/7/RPMS/x86_64/{}"
                     '''
                 }
             }

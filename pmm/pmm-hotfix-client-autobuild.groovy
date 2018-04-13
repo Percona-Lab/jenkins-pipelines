@@ -9,20 +9,17 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: 'hotfix-1.X.x',
             description: 'Tag/Branch for percona-images repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: 'testing\nlaboratory',
+            choices: 'experimental\ntesting\nlaboratory',
             description: 'publish result package to internal or external repository',
             name: 'DESTINATION')
     }
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
-    }
-    triggers {
-        upstream upstreamProjects: 'pmm-submodules-rewind', threshold: hudson.model.Result.SUCCESS
     }
     stages {
         stage('Prepare') {
