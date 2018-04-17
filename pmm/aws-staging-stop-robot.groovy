@@ -70,30 +70,21 @@ pipeline {
                         get_sir_state() {
                             local sir=$1
 
-                            aws ec2 describe-spot-instance-requests \
-                                --region us-east-2 \
-                                --output text \
-                                --spot-instance-request-ids $sir \
-                                --query 'SpotInstanceRequests[].State'
+                            grep "^$sir\\s" spot_details \
+                                | cut -f 2
                         }
                         get_sir_name() {
                             local sir=$1
 
-                            aws ec2 describe-spot-instance-requests \
-                                --region us-east-2 \
-                                --output text \
-                                --spot-instance-request-ids $sir \
-                                --query 'SpotInstanceRequests[0].Tags[?Key==`Name`].Value'
+                            grep "^$sir\\s" spot_details \
+                                | cut -f 3
                         }
                         get_sir_days() {
                             local sir=$1
 
                             local days=$(
-                                aws ec2 describe-spot-instance-requests \
-                                    --region us-east-2 \
-                                    --output text \
-                                    --spot-instance-request-ids $sir \
-                                    --query 'SpotInstanceRequests[0].Tags[?Key==`stop-after-days`].Value'
+                                grep "^$sir\\s" spot_details \
+                                    | cut -f 4
                             )
                             if [[ -z $days ]]; then
                                 echo None
@@ -119,6 +110,18 @@ pipeline {
                                 --filter Name=instance-state-name,Values=running \
                                 | sort -n \
                                 > init_instances
+
+                            aws ec2 describe-spot-instance-requests \
+                                --region us-east-2 \
+                                --output text \
+                                --spot-instance-request-ids $(cat init_instances | cut -f 3 | xargs echo) \
+                                --query 'SpotInstanceRequests[].[
+                                            SpotInstanceRequestId,
+                                            State,
+                                            [Tags[?Key==`Name`].Value][0][0],
+                                            [Tags[?Key==`stop-after-days`].Value][0][0]]
+                                ' \
+                                > spot_details
 
                             while read -r name instance request days; do
                                 state=$(get_sir_state "$request")
