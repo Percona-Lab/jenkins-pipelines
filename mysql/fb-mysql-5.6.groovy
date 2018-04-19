@@ -11,7 +11,6 @@ void build(String CMAKE_BUILD_TYPE) {
         else
             mkdir ${CMAKE_BUILD_TYPE} || :
             pushd ${CMAKE_BUILD_TYPE}
-                export WITH_ZSTD=\$(pwd -P)/../zstd-1.1.3/lib
                 cmake .. \
                     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
                     -DWITH_SSL=system \
@@ -21,7 +20,8 @@ void build(String CMAKE_BUILD_TYPE) {
                     -DENABLE_DTRACE=0 \
                     -DCMAKE_CXX_FLAGS='-march=native' \
                     -DCMAKE_INSTALL_PREFIX="/usr/local/${GIT_BRANCH}" \
-                    -DMYSQL_DATADIR="/usr/local/${GIT_BRANCH}/data"
+                    -DMYSQL_DATADIR="/usr/local/${GIT_BRANCH}/data" \
+                    -DWITH_ZSTD=\$(pwd -P)/../zstd-${ZSTD_VERSION}
                 make -j8
 
                 export DESTDIR=destdir
@@ -53,7 +53,7 @@ void runMTR(String CMAKE_BUILD_TYPE) {
         if [ -f 'junit-${CMAKE_BUILD_TYPE}.xml' -a '${FORCE_RETEST}' = 'false' ]; then
             echo Skip mtr
         else
-            export LD_LIBRARY_PATH=\$(pwd -P)/zstd-1.1.3/lib
+            export LD_LIBRARY_PATH=\$(pwd -P)/zstd-${ZSTD_VERSION}/lib
             pushd ${CMAKE_BUILD_TYPE}/destdir/usr/local/${GIT_BRANCH}/mysql-test
                 export LD_PRELOAD=\$(
                     ls /usr/local/lib/libeatmydata.so \
@@ -139,6 +139,10 @@ pipeline {
             defaultValue: 'false',
             description: '',
             name: 'FORCE_RETEST')
+        string(
+            defaultValue: '1.3.4',
+            description: '',
+            name: 'ZSTD_VERSION')
     }
     options {
         skipDefaultCheckout()
@@ -168,14 +172,14 @@ pipeline {
                 sh '''
                     sudo -E yum -y install awscli wget cmake gcc-c++ boost-devel openssl-devel ncurses-devel readline-devel numactl-devel bison binutils MySQL-python perl-DBD-MySQL perl-XML-Simple
 
-                    ZSTD_VERSION=1.3.3
-                    wget https://github.com/facebook/zstd/archive/v$ZSTD_VERSION.tar.gz
-                    tar zxpf v$ZSTD_VERSION.tar.gz
-                    pushd zstd-$ZSTD_VERSION
+                    wget https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz
+                    tar zxpf v${ZSTD_VERSION}.tar.gz
+                    pushd zstd-${ZSTD_VERSION}
                         cmake build/cmake -DACTIVATE_POSITION_INDEPENDENT_CODE_FLAG=on
                         make
-                        cp lib/zstd.h ../include/
-                        cp lib/libzstd.a lib/libzstd_pic.a
+                        mkdir include
+                        cp lib/*.h lib/dictBuilder/*.h  ./include/
+                        cp lib/*.h lib/dictBuilder/*.h ../include/
                     popd
                 '''
             }
