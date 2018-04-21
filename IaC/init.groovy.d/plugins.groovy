@@ -1,16 +1,9 @@
-#!/bin/bash
-
-JENKINS_HOME=/mnt/ps.cd.percona.com
-plugins="ec2 ssh-slaves google-login matrix-auth jobConfigHistory compress-buildlog"
-
-mkdir -p ${JENKINS_HOME}/init.groovy.d
-cat > ${JENKINS_HOME}/init.groovy.d/loadPlugins.groovy <<_EOF_
 import jenkins.model.*
 import java.util.logging.Logger
 def logger = Logger.getLogger("")
 def installed = false
 def initialized = false
-def pluginParameter="${plugins}"
+def pluginParameter="ec2 ssh-slaves google-login matrix-auth jobConfigHistory compress-buildlog"
 def plugins = pluginParameter.split()
 logger.info("" + plugins)
 def instance = Jenkins.getInstance()
@@ -41,4 +34,3 @@ if (installed) {
   instance.save()
   instance.restart()
 }
-_EOF_
