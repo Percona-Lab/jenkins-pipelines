@@ -111,7 +111,7 @@ Resources:
       RouteTableId: !Ref JRouteTable
       SubnetId: !Ref JSubnetA
 
-  SSHSecurityGroup: # allow ssh access to staging instances
+  SSHSecurityGroup: # allow ssh access (assign when needed)
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: SSH
@@ -126,7 +126,7 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  HTTPSecurityGroup: # allow http and https access
+  HTTPSecurityGroup: # allow http and https access to jenkins master
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: HTTP
@@ -178,81 +178,6 @@ Resources:
         - !Ref JSlaveRole
       InstanceProfileName: !Join [ '-', [ !Ref JShortName, 'slave' ]]
 
-  JSlaveUser: # create standalone user for jenkins jobs (needed for job-level actions)
-    Type: AWS::IAM::User
-    Properties:
-      UserName: !Join [ '-', [ !Ref JShortName, 'slave' ]]
-      Path: /
-      Policies:
-      - PolicyName: !Join [ '-', [ !Ref JShortName, 'slave' ]]
-        PolicyDocument:
-          Version: 2012-10-17
-          Statement:
-          - Effect: Allow
-            Action:
-            - s3:PutObject
-            - s3:PutObjectAcl
-            - s3:GetObject
-            - s3:ListBucket
-            Resource:
-            - arn:aws:s3:::percona-vm
-            - arn:aws:s3:::percona-vm/*
-            - arn:aws:s3:::pmm-build-cache
-            - arn:aws:s3:::pmm-build-cache/*
-            - arn:aws:s3:::percona-jenkins-artifactory
-            - arn:aws:s3:::percona-jenkins-artifactory/*
-          - Effect: Allow
-            Action:
-            - s3:PutObject
-            - s3:PutObjectAcl
-            - s3:GetObject
-            - s3:ListBucket
-            - s3:DeleteObject
-            Resource:
-            - arn:aws:s3:::docs-test.cd.percona.com
-            - arn:aws:s3:::docs-test.cd.percona.com/*
-          - Effect: Allow
-            Action:
-            - iam:PassRole
-            Resource:
-            - !GetAtt JSlaveRole.Arn
-            - !GetAtt JSlaveProfile.Arn
-          - Effect: Allow
-            Resource: '*'
-            Action:
-            - ec2:DescribeRegions
-            - ec2:CopyImage
-            - ec2:DescribeSpotInstanceRequests
-            - ec2:CreateTags
-            - ec2:DeleteTags
-            - ec2:DescribeInstances
-            - ec2:RequestSpotInstances
-            - ec2:DescribeSpotInstanceRequests
-            - ec2:CancelSpotInstanceRequests
-            - ec2:CreateKeyPair
-            - ec2:DeleteKeyPair
-            - ec2:CreateImage
-            - ec2:RegisterImage
-            - ec2:DeregisterImage
-            - ec2:DescribeImages
-            - ec2:ModifyImageAttribute
-            - ec2:CreateSnapshot
-            - ec2:DeleteSnapshot
-            - ec2:DescribeSnapshots
-            - ec2:CreateTags
-            - ec2:RunInstances
-            - ec2:StopInstances
-            - ec2:TerminateInstances
-            - ec2:DescribeInstances
-            - ec2:CreateVolume
-            - ec2:DeleteVolume
-            - ec2:AttachVolume
-            - ec2:DetachVolume
-            - ec2:DescribeVolumes
-            - ec2:DescribeSecurityGroups
-            - ec2:DescribeSubnets
-            - ec2:DescribeInstanceStatus
-
   JMasterRole: # create Role for jenkins master (needed for run slaves)
     Type: AWS::IAM::Role
     Properties:
@@ -266,7 +191,41 @@ Resources:
             Service: ec2.amazonaws.com
       Path: /
       Policies:
-      - PolicyName: !Ref JShortName
+      - PolicyName: StartInstances
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Resource: '*'
+            Action:
+            - ec2:DescribeSpotInstanceRequests
+            - ec2:CancelSpotInstanceRequests
+            - ec2:GetConsoleOutput
+            - ec2:RequestSpotInstances
+            - ec2:RunInstances
+            - ec2:StartInstances
+            - ec2:StopInstances
+            - ec2:TerminateInstances
+            - ec2:CreateTags
+            - ec2:DeleteTags
+            - ec2:DescribeInstances
+            - ec2:DescribeKeyPairs
+            - ec2:DescribeRegions
+            - ec2:DescribeImages
+            - ec2:DescribeAvailabilityZones
+            - ec2:DescribeSecurityGroups
+            - ec2:DescribeSubnets
+      - PolicyName: PassRole
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Resource:
+            - !GetAtt JSlaveRole.Arn
+            - !GetAtt JSlaveProfile.Arn
+            Action:
+            - iam:PassRole
+      - PolicyName: UserDataNeeds
         PolicyDocument:
           Version: 2012-10-17
           Statement:
