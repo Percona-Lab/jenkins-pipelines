@@ -18,6 +18,7 @@ pipeline {
                     sh '''
                         copy_tags() {
                             local request=$1
+                            sleep 1
 
                             instance_id=$(
                                 aws ec2 describe-spot-instance-requests \
@@ -109,7 +110,7 @@ pipeline {
                                 }' \
                                 --filter Name=instance-state-name,Values=running \
                                 | sort -n \
-                                > init_instances
+                                | tee init_instances
 
                             aws ec2 describe-spot-instance-requests \
                                 --region us-east-2 \
@@ -121,7 +122,7 @@ pipeline {
                                             [Tags[?Key==`Name`].Value][0][0],
                                             [Tags[?Key==`stop-after-days`].Value][0][0]]
                                 ' \
-                                > spot_details
+                                | tee spot_details
 
                             while read -r name instance request days; do
                                 state=$(get_sir_state "$request")
