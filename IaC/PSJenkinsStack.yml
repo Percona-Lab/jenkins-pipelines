@@ -537,8 +537,8 @@ Resources:
                   start_jenkins
                   create_fake_ssl_cert
                   setup_nginx
-                  setup_letsencrypt
                   setup_dhparam
+                  setup_letsencrypt
               }
 
               main
