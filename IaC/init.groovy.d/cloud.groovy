@@ -45,9 +45,11 @@ initMap = [:]
 initMap['docker'] = '''
     set -o xtrace
 
-    DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
-    sudo mkfs.ext2 ${DEVICE}
-    sudo mount ${DEVICE} /mnt
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+        sudo mkfs.ext2 ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
     until sudo yum makecache; do
         sleep 1
         echo try again
@@ -69,9 +71,11 @@ initMap['docker'] = '''
 '''
 initMap['micro-amazon'] = '''
     set -o xtrace
-    DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
-    sudo mkfs.ext2 ${DEVICE}
-    sudo mount ${DEVICE} /mnt
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+        sudo mkfs.ext2 ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
     until sudo yum makecache; do
         sleep 1
         echo try again
@@ -82,9 +86,11 @@ initMap['micro-amazon'] = '''
 '''
 initMap['min-artful-x64'] = '''
     set -o xtrace
-    DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
-    sudo mkfs.ext2 ${DEVICE}
-    sudo mount ${DEVICE} /mnt
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+        sudo mkfs.ext2 ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
     until sudo apt-get update; do
         sleep 1
         echo try again
@@ -96,9 +102,11 @@ initMap['min-centos-6-x64'] = initMap['micro-amazon']
 initMap['min-centos-7-x64'] = initMap['micro-amazon']
 initMap['min-jessie-x64'] = '''
     set -o xtrace
-    DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
-    sudo mkfs.ext2 ${DEVICE}
-    sudo mount ${DEVICE} /mnt
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+        sudo mkfs.ext2 ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
     until sudo apt-get update; do
         sleep 1
         echo try again
