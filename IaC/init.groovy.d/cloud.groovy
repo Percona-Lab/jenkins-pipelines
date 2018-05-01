@@ -15,6 +15,10 @@ import jenkins.model.Jenkins
 def logger = Logger.getLogger("")
 logger.info("Cloud init started")
 
+// get Jenkins instance
+Jenkins jenkins = Jenkins.getInstance()
+
+
 imageMap = [:]
 imageMap['docker'] = 'ami-25615740'
 imageMap['micro-amazon'] = 'ami-25615740'
@@ -39,56 +43,62 @@ userMap['min-xenial-x64'] = 'ubuntu'
 
 initMap = [:]
 initMap['docker'] = '''
+    set -o xtrace
+
+    DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+    sudo mkfs.ext2 ${DEVICE}
+    sudo mount ${DEVICE} /mnt
     until sudo yum makecache; do
         sleep 1
         echo try again
     done
     sudo yum -y install java-1.8.0-openjdk git aws-cli docker
     sudo yum -y remove java-1.7.0-openjdk
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
+    sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
+    sudo sysctl -w fs.aio-max-nr=1048576 || true
+    sudo sysctl -w fs.file-max=6815744 || true
+    sudo sed -i.bak -e 's/nofile=1024:4096/nofile=900000:900000/; s/DAEMON_MAXFILES=.*/DAEMON_MAXFILES=990000/' /etc/sysconfig/docker
+    echo 'DOCKER_STORAGE_OPTIONS="--data-root=/mnt/docker"' | sudo tee -a /etc/sysconfig/docker-storage
+    sudo install -o root -g root -d /mnt/docker
     sudo usermod -aG docker $(id -u -n)
     sudo mkdir -p /etc/docker
     echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json
     sudo service docker status || sudo service docker start
 '''
 initMap['micro-amazon'] = '''
+    set -o xtrace
+    DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+    sudo mkfs.ext2 ${DEVICE}
+    sudo mount ${DEVICE} /mnt
     until sudo yum makecache; do
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git aws-cli
-    sudo yum -y remove java-1.7.0-openjdk
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt
+    sudo yum -y install java-1.8.0-openjdk git aws-cli || :
+    sudo yum -y remove java-1.7.0-openjdk || :
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 initMap['min-artful-x64'] = '''
+    set -o xtrace
+    DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+    sudo mkfs.ext2 ${DEVICE}
+    sudo mount ${DEVICE} /mnt
     until sudo apt-get update; do
         sleep 1
         echo try again
     done
     sudo apt-get -y install openjdk-8-jre-headless git
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-centos-6-x64'] = '''
-    sudo mkfs.ext2 /dev/xvdb
-    sudo mount /dev/xvdb /mnt
-    until sudo yum makecache; do
-        sleep 1
-        echo try again
-    done
-    sudo yum -y install java-1.8.0-openjdk git
-    sudo yum -y remove java-1.7.0-openjdk
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt
-'''
-initMap['min-centos-7-x64'] = '''
-    until sudo yum makecache; do
-        sleep 1
-        echo try again
-    done
-    sudo yum -y install java-1.8.0-openjdk git
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt
-'''
+initMap['min-centos-6-x64'] = initMap['micro-amazon']
+initMap['min-centos-7-x64'] = initMap['micro-amazon']
 initMap['min-jessie-x64'] = '''
+    set -o xtrace
+    DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+    sudo mkfs.ext2 ${DEVICE}
+    sudo mount ${DEVICE} /mnt
     until sudo apt-get update; do
         sleep 1
         echo try again
@@ -99,7 +109,7 @@ initMap['min-jessie-x64'] = '''
     sudo ln -s /usr/local/jre1.8.0_152 /usr/local/java
     sudo ln -s /usr/local/jre1.8.0_152/bin/java /usr/bin/java
     rm -fv jre-8u152-linux-x64.tar.gz
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 initMap['min-stretch-x64'] = initMap['min-artful-x64']
 initMap['min-trusty-x64'] = initMap['min-jessie-x64']
@@ -107,11 +117,11 @@ initMap['min-xenial-x64'] = initMap['min-artful-x64']
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
-typeMap['min-centos-7-x64'] = 'm4.large'
+typeMap['min-centos-7-x64'] = 'm5.large'
 typeMap['docker'] = typeMap['min-centos-7-x64']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-centos-6-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-jessie-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-centos-6-x64'] = 'm4.large'
+typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
 typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-trusty-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
@@ -128,15 +138,15 @@ execMap['min-trusty-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
 
 devMap = [:]
-devMap['micro-amazon'] = '/dev/xvda=:80:true:gp2'
+devMap['micro-amazon'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker'] = devMap['micro-amazon']
-devMap['min-centos-7-x64'] = '/dev/sda1=:80:true:gp2'
-devMap['min-artful-x64'] = devMap['min-centos-7-x64']
-devMap['min-centos-6-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdb=:80:true:gp2'
-devMap['min-jessie-x64'] = '/dev/xvda=:80:true:gp2'
-devMap['min-stretch-x64'] = 'xvda=:80:true:gp2'
-devMap['min-trusty-x64'] = devMap['min-centos-7-x64']
-devMap['min-xenial-x64'] = devMap['min-centos-7-x64']
+devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-centos-6-x64'] = devMap['min-artful-x64']
+devMap['min-centos-7-x64'] = devMap['min-artful-x64']
+devMap['min-jessie-x64'] = devMap['micro-amazon']
+devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
+devMap['min-trusty-x64'] = devMap['min-artful-x64']
+devMap['min-xenial-x64'] = devMap['min-artful-x64']
 
 labelMap = [:]
 labelMap['docker'] = ''
@@ -156,9 +166,9 @@ SlaveTemplate getTemplate(String OSType) {
         '',                                         // String zone
         new SpotConfiguration('0.03'),              // SpotConfiguration spotConfig
         'default',                                  // String securityGroups
-        '/mnt',                                     // String remoteFS
+        '/mnt/jenkins',                             // String remoteFS
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type
-        false,                                      // boolean ebsOptimized
+        ( typeMap[OSType] == 'm5.large' ),          // boolean ebsOptimized
         OSType + ' ' + labelMap[OSType],            // String labelString
         Node.Mode.NORMAL,                           // Node.Mode mode
         OSType,                                     // String description
@@ -190,16 +200,19 @@ SlaveTemplate getTemplate(String OSType) {
     )
 }
 
+String privateKey = ''
+jenkins.clouds.each {
+    if (it['cloudName'] == 'AWS-Dev') {
+        privateKey = it['privateKey']
+    }
+}
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
 AmazonEC2Cloud amazonEC2Cloud = new AmazonEC2Cloud(
     'AWS-Dev',                              // String cloudName
     true,                                   // boolean useInstanceProfileForCredentials
     '',                                     // String credentialsId
     'us-east-2',                            // String region
-    '''
------BEGIN RSA PRIVATE KEY-----
------END RSA PRIVATE KEY-----
-''',                                        // String privateKey
+    privateKey,                             // String privateKey
     '100',                                  // String instanceCapStr
     [
         getTemplate('docker'),
@@ -213,9 +226,6 @@ AmazonEC2Cloud amazonEC2Cloud = new AmazonEC2Cloud(
         getTemplate('min-xenial-x64'),
     ]                                       // List<? extends SlaveTemplate> templates
 )
-
-// get Jenkins instance
-Jenkins jenkins = Jenkins.getInstance()
 
 // add cloud configuration to Jenkins
 jenkins.clouds.replace(amazonEC2Cloud)
