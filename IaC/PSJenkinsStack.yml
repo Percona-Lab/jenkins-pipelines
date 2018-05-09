@@ -300,7 +300,7 @@ Resources:
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true
-        SpotPrice: 0.05
+        SpotPrice: 0.07
         TargetCapacity: 1
         TerminateInstancesWithExpiration: false
         Type: maintain
@@ -309,7 +309,7 @@ Resources:
           IamInstanceProfile:
             Arn: !GetAtt JMasterProfile.Arn
           ImageId: !FindInMap [AmazonLinux1, !Ref 'AWS::Region', x64]
-          InstanceType: t2.small
+          InstanceType: m5.large
           KeyName: !Ref MasterKeyName
           Monitoring:
             Enabled: false
@@ -413,6 +413,8 @@ Resources:
               }
 
               start_jenkins() {
+                  ethtool -K eth0 sg off
+
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
                   wget -O /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy \
@@ -547,7 +549,7 @@ Resources:
           IamInstanceProfile:
             Arn: !GetAtt JMasterProfile.Arn
           ImageId: !FindInMap [AmazonLinux1, !Ref 'AWS::Region', x64]
-          InstanceType: m4.large
+          InstanceType: m5.xlarge
           KeyName: !Ref MasterKeyName
           Monitoring:
             Enabled: false
@@ -651,6 +653,8 @@ Resources:
               }
 
               start_jenkins() {
+                  ethtool -K eth0 sg off
+
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
                   wget -O /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy \
@@ -785,7 +789,7 @@ Resources:
           IamInstanceProfile:
             Arn: !GetAtt JMasterProfile.Arn
           ImageId: !FindInMap [AmazonLinux1, !Ref 'AWS::Region', x64]
-          InstanceType: c5.large
+          InstanceType: c5.xlarge
           KeyName: !Ref MasterKeyName
           Monitoring:
             Enabled: false
@@ -889,6 +893,8 @@ Resources:
               }
 
               start_jenkins() {
+                  ethtool -K eth0 sg off
+
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
                   wget -O /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy \

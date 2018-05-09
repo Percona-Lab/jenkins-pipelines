@@ -20,7 +20,7 @@ Jenkins jenkins = Jenkins.getInstance()
 
 
 imageMap = [:]
-imageMap['docker'] = 'ami-25615740'
+imageMap['docker'] = 'ami-976152f2'
 imageMap['micro-amazon'] = 'ami-25615740'
 imageMap['min-artful-x64'] = 'ami-db2919be'
 imageMap['min-centos-6-x64'] = 'ami-ff48629a'
@@ -47,9 +47,10 @@ initMap['docker'] = '''
 
     if ! mountpoint -q /mnt; then
         DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
-        sudo mkfs.ext2 ${DEVICE}
-        sudo mount ${DEVICE} /mnt
+        sudo mkfs.ext4 ${DEVICE}
+        sudo mount -o noatime ${DEVICE} /mnt
     fi
+    sudo ethtool -K eth0 sg off
     until sudo yum makecache; do
         sleep 1
         echo try again
@@ -126,7 +127,7 @@ initMap['min-xenial-x64'] = initMap['min-artful-x64']
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
 typeMap['min-centos-7-x64'] = 'm5.large'
-typeMap['docker'] = typeMap['min-centos-7-x64']
+typeMap['docker'] = 'c5.2xlarge'
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x64'] = 'm4.large'
 typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
@@ -172,7 +173,7 @@ SlaveTemplate getTemplate(String OSType) {
     return new SlaveTemplate(
         imageMap[OSType],                           // String ami
         '',                                         // String zone
-        new SpotConfiguration('0.03'),              // SpotConfiguration spotConfig
+        new SpotConfiguration('0.43'),              // SpotConfiguration spotConfig
         'default',                                  // String securityGroups
         '/mnt/jenkins',                             // String remoteFS
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type
