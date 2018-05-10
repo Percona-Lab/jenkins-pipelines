@@ -39,11 +39,11 @@ Parameters:
 Mappings:
   AmazonLinux1:
     us-east-1:
-      x64: ami-97785bed
+      x64: ami-467ca739
     us-east-2:
-      x64: ami-f63b1193
+      x64: ami-976152f2
     us-west-2:
-      x64: ami-f2d3638a
+      x64: ami-6b8cef13
 
 Resources:
 
@@ -406,9 +406,12 @@ Resources:
                   while true; do
                       [ "x$(volume_state)" = "xin-use" ] && break || sleep 1
                   done
+                  while true; do
+                      [ -e /dev/xvdj ] && break || sleep 1
+                  done
 
                   mkfs.xfs -L DATA /dev/xvdj || :
-                  echo "/dev/xvdj /mnt xfs defaults,atime,nofail 0 0" | tee -a /etc/fstab
+                  echo "/dev/xvdj /mnt xfs defaults,noatime,nofail 0 0" | tee -a /etc/fstab
                   mount /mnt
               }
 
