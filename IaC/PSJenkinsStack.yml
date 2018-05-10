@@ -417,6 +417,16 @@ Resources:
 
               start_jenkins() {
                   ethtool -K eth0 sg off
+                  cat <<-EOF | tee /etc/security/limits.d/jenkins.conf
+              		jenkins    soft    core      unlimited
+              		jenkins    hard    core      unlimited
+              		jenkins    soft    fsize     unlimited
+              		jenkins    hard    fsize     unlimited
+              		jenkins    soft    nofile    4096
+              		jenkins    hard    nofile    8192
+              		jenkins    soft    nproc     30654
+              		jenkins    hard    nproc     30654
+              	EOF
 
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
@@ -426,6 +436,7 @@ Resources:
                       https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
+                  sed -i 's^"-Djava.awt.headless=true"^"-Djava.awt.headless=true -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc-%t.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2"^' /etc/sysconfig/jenkins
                   echo JENKINS_HOME=/mnt/$JENKINS_HOST \
                       | tee -a /etc/sysconfig/jenkins
                   chkconfig jenkins on
@@ -657,6 +668,16 @@ Resources:
 
               start_jenkins() {
                   ethtool -K eth0 sg off
+                  cat <<-EOF | tee /etc/security/limits.d/jenkins.conf
+              		jenkins    soft    core      unlimited
+              		jenkins    hard    core      unlimited
+              		jenkins    soft    fsize     unlimited
+              		jenkins    hard    fsize     unlimited
+              		jenkins    soft    nofile    4096
+              		jenkins    hard    nofile    8192
+              		jenkins    soft    nproc     30654
+              		jenkins    hard    nproc     30654
+              	EOF
 
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
@@ -666,6 +687,7 @@ Resources:
                       https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
+                  sed -i 's^"-Djava.awt.headless=true"^"-Djava.awt.headless=true -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc-%t.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2"^' /etc/sysconfig/jenkins
                   echo JENKINS_HOME=/mnt/$JENKINS_HOST \
                       | tee -a /etc/sysconfig/jenkins
                   chkconfig jenkins on
@@ -897,6 +919,16 @@ Resources:
 
               start_jenkins() {
                   ethtool -K eth0 sg off
+                  cat <<-EOF | tee /etc/security/limits.d/jenkins.conf
+              		jenkins    soft    core      unlimited
+              		jenkins    hard    core      unlimited
+              		jenkins    soft    fsize     unlimited
+              		jenkins    hard    fsize     unlimited
+              		jenkins    soft    nofile    4096
+              		jenkins    hard    nofile    8192
+              		jenkins    soft    nproc     30654
+              		jenkins    hard    nproc     30654
+              	EOF
 
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
@@ -906,6 +938,7 @@ Resources:
                       https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
+                  sed -i 's^"-Djava.awt.headless=true"^"-Djava.awt.headless=true -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc-%t.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2"^' /etc/sysconfig/jenkins
                   echo JENKINS_HOME=/mnt/$JENKINS_HOST \
                       | tee -a /etc/sysconfig/jenkins
                   chkconfig jenkins on
