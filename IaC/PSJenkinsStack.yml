@@ -430,8 +430,10 @@ Resources:
 
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
-                  wget -O /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy \
-                      https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/cloud.groovy
+                  if [ ! -f /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy ]; then
+                      wget -O /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy \
+                          https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/cloud.groovy
+                  fi
                   wget -O /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy \
                       https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
@@ -681,8 +683,10 @@ Resources:
 
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
-                  wget -O /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy \
-                      https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/cloud.groovy
+                  if [ ! -f /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy ]; then
+                      wget -O /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy \
+                          https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/cloud.groovy
+                  fi
                   wget -O /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy \
                       https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
@@ -932,8 +936,10 @@ Resources:
 
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
-                  wget -O /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy \
-                      https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/cloud.groovy
+                  if [ ! -f /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy ]; then
+                      wget -O /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy \
+                          https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/cloud.groovy
+                  fi
                   wget -O /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy \
                       https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
