@@ -194,9 +194,9 @@ SlaveTemplate getTemplate(String OSType) {
             new EC2Tag('Name', OSType),
             new EC2Tag('iit-billing-tag', 'jenkins-ps-slave')
         ],                                          // List<EC2Tag> tags
-        '15',                                       // String idleTerminationMinutes
+        '3',                                        // String idleTerminationMinutes
         false,                                      // boolean usePrivateDnsName
-        '100',                                       // String instanceCapStr
+        '100',                                      // String instanceCapStr
         'arn:aws:iam::119175775298:instance-profile/jenkins-ps-slave', // String iamInstanceProfile
         true,                                       // boolean deleteRootOnTermination
         false,                                      // boolean useEphemeralDevices
@@ -204,7 +204,7 @@ SlaveTemplate getTemplate(String OSType) {
         '',                                         // String launchTimeoutStr
         true,                                       // boolean associatePublicIp
         devMap[OSType],                             // String customDeviceMapping
-        false,                                      // boolean connectBySSHProcess
+        true,                                       // boolean connectBySSHProcess
         false                                       // boolean connectUsingPublicIp
     )
 }
