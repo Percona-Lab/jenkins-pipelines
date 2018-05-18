@@ -21,11 +21,6 @@ Parameters:
     AllowedPattern: '^[a-z][a-z0-9\.\-]*$'
     ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
 
-  JAZ:
-    Default: us-east-2b
-    Description: Availability Zone for Jenkins data Volume and Instance
-    Type: AWS::EC2::AvailabilityZone::Name
-
   ZoneId:
     Default: Z1H0AFAU7N8IMC
     Description: Hosted Zone ID
@@ -81,10 +76,42 @@ Resources:
       VpcId: !Ref JVPC
       CidrBlock: 10.177.0.0/24
       MapPublicIpOnLaunch: true
-      AvailabilityZone: !Ref JAZ
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: ''
       Tags:
       - Key: Name
         Value: !Join [ '-', [ !Ref JShortName, 'A' ]]
+      - Key: iit-billing-tag
+        Value: !Ref JShortName
+
+  JSubnetB: # create subnet in AZ
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref JVPC
+      CidrBlock: 10.177.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: ''
+      Tags:
+      - Key: Name
+        Value: !Join [ '-', [ !Ref JShortName, 'B' ]]
+      - Key: iit-billing-tag
+        Value: !Ref JShortName
+
+  JSubnetC: # create subnet in AZ
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref JVPC
+      CidrBlock: 10.177.2.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 2
+        - Fn::GetAZs: ''
+      Tags:
+      - Key: Name
+        Value: !Join [ '-', [ !Ref JShortName, 'C' ]]
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
@@ -110,6 +137,18 @@ Resources:
     Properties:
       RouteTableId: !Ref JRouteTable
       SubnetId: !Ref JSubnetA
+
+  SubnetBRouteTable: # add subnet route
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref JRouteTable
+      SubnetId: !Ref JSubnetB
+
+  SubnetCRouteTable: # add subnet route
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref JRouteTable
+      SubnetId: !Ref JSubnetC
 
   SSHSecurityGroup: # allow ssh access (assign when needed)
     Type: AWS::EC2::SecurityGroup
@@ -282,7 +321,9 @@ Resources:
     DeletionPolicy: Snapshot
     Properties:
       AutoEnableIO: false
-      AvailabilityZone: !Ref JAZ
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: ''
       Encrypted: false
       Size: 100
       Tags:
@@ -316,7 +357,7 @@ Resources:
           SecurityGroups:
           - GroupId: !GetAtt JVPC.DefaultSecurityGroup
           - GroupId: !GetAtt HTTPSecurityGroup.GroupId
-          SubnetId: !Ref JSubnetA
+          SubnetId: !Ref JSubnetB
           UserData:
             Fn::Base64: !Sub |
               #!/bin/bash
@@ -572,7 +613,7 @@ Resources:
           SecurityGroups:
           - GroupId: !GetAtt JVPC.DefaultSecurityGroup
           - GroupId: !GetAtt HTTPSecurityGroup.GroupId
-          SubnetId: !Ref JSubnetA
+          SubnetId: !Ref JSubnetB
           UserData:
             Fn::Base64: !Sub |
               #!/bin/bash
@@ -828,7 +869,7 @@ Resources:
           SecurityGroups:
           - GroupId: !GetAtt JVPC.DefaultSecurityGroup
           - GroupId: !GetAtt HTTPSecurityGroup.GroupId
-          SubnetId: !Ref JSubnetA
+          SubnetId: !Ref JSubnetB
           UserData:
             Fn::Base64: !Sub |
               #!/bin/bash
