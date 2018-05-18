@@ -662,9 +662,12 @@ Resources:
                   while true; do
                       [ "x$(volume_state)" = "xin-use" ] && break || sleep 1
                   done
+                  while true; do
+                      [ -e /dev/xvdj ] && break || sleep 1
+                  done
 
                   mkfs.xfs -L DATA /dev/xvdj || :
-                  echo "/dev/xvdj /mnt xfs defaults,atime,nofail 0 0" | tee -a /etc/fstab
+                  echo "/dev/xvdj /mnt xfs defaults,noatime,nofail 0 0" | tee -a /etc/fstab
                   mount /mnt
               }
 
@@ -915,9 +918,12 @@ Resources:
                   while true; do
                       [ "x$(volume_state)" = "xin-use" ] && break || sleep 1
                   done
+                  while true; do
+                      [ -e /dev/xvdj ] && break || sleep 1
+                  done
 
                   mkfs.xfs -L DATA /dev/xvdj || :
-                  echo "/dev/xvdj /mnt xfs defaults,atime,nofail 0 0" | tee -a /etc/fstab
+                  echo "/dev/xvdj /mnt xfs defaults,noatime,nofail 0 0" | tee -a /etc/fstab
                   mount /mnt
               }
 
