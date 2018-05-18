@@ -300,7 +300,7 @@ Resources:
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true
-        SpotPrice: 0.07
+        SpotPrice: 0.10
         TargetCapacity: 1
         TerminateInstancesWithExpiration: false
         Type: maintain
@@ -309,7 +309,7 @@ Resources:
           IamInstanceProfile:
             Arn: !GetAtt JMasterProfile.Arn
           ImageId: !FindInMap [AmazonLinux1, !Ref 'AWS::Region', x64]
-          InstanceType: m5.large
+          InstanceType: c5.large
           KeyName: !Ref MasterKeyName
           Monitoring:
             Enabled: false
@@ -565,7 +565,7 @@ Resources:
           IamInstanceProfile:
             Arn: !GetAtt JMasterProfile.Arn
           ImageId: !FindInMap [AmazonLinux1, !Ref 'AWS::Region', x64]
-          InstanceType: m5.xlarge
+          InstanceType: m5.large
           KeyName: !Ref MasterKeyName
           Monitoring:
             Enabled: false
@@ -818,7 +818,7 @@ Resources:
           IamInstanceProfile:
             Arn: !GetAtt JMasterProfile.Arn
           ImageId: !FindInMap [AmazonLinux1, !Ref 'AWS::Region', x64]
-          InstanceType: c5.xlarge
+          InstanceType: t2.large
           KeyName: !Ref MasterKeyName
           Monitoring:
             Enabled: false
