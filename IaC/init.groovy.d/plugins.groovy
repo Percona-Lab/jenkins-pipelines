@@ -3,7 +3,7 @@ import java.util.logging.Logger
 def logger = Logger.getLogger("")
 def installed = false
 def initialized = false
-def pluginParameter="ec2 ssh-slaves google-login matrix-auth jobConfigHistory compress-buildlog"
+def pluginParameter="%LIST%"
 def plugins = pluginParameter.split()
 logger.info("" + plugins)
 def instance = Jenkins.getInstance()
