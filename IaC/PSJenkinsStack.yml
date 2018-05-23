@@ -388,12 +388,6 @@ Resources:
         - !GetAtt JVPC.DefaultSecurityGroup
         - !GetAtt HTTPSecurityGroup.GroupId
         TagSpecifications:
-        - ResourceType: spot-instances-request
-          Tags:
-          - Key: Name
-            Value: !Ref JShortName
-          - Key: iit-billing-tag
-            Value: !Ref JShortName
         - ResourceType: instance
           Tags:
           - Key: Name
@@ -526,14 +520,10 @@ Resources:
 
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
-                  if [ ! -f /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy ]; then
-                      wget -O /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy \
-                          https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/cloud.groovy
-                  fi
-                  if [ ! -f /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy ]; then
+                  if [ ! -f /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy ]; then
                       wget -O /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy \
                           https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
-                      sed -i 's/%LIST%/ec2 compress-buildlog copyartifact google-login jobConfigHistory matrix-auth matrix-reloaded pipeline-model-definition pipeline-stage-view ssh-slaves warnings/' /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy
+                      sed -i 's/%LIST%/compress-buildlog copyartifact ec2-fleet google-login jobConfigHistory matrix-auth matrix-reloaded pipeline-model-definition pipeline-stage-view ssh-slaves warnings/' /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy
                   fi
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
@@ -661,20 +651,114 @@ Resources:
               main
               exit 0
 
-  JSlaveTemplate:
+  JMicroTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: PSSlaveTemplate
+      LaunchTemplateName: PSMicroTemplate
       LaunchTemplateData:
         SecurityGroupIds:
         - !GetAtt JVPC.DefaultSecurityGroup
         TagSpecifications:
-        - ResourceType: spot-instances-request
+        - ResourceType: instance
           Tags:
           - Key: Name
-            Value: ps-docker
+            Value: ps-micro
           - Key: iit-billing-tag
             Value: !Ref JShortName
+        - ResourceType: volume
+          Tags:
+          - Key: Name
+            Value: ps-micro
+          - Key: iit-billing-tag
+            Value: !Ref JShortName
+        BlockDeviceMappings:
+        - DeviceName: /dev/xvdd
+          Ebs:
+            VolumeSize: 80
+        IamInstanceProfile:
+            Arn: !GetAtt JSlaveProfile.Arn
+        EbsOptimized: false
+        KeyName: !Ref SlaveKeyName
+        ImageId: !FindInMap [AmazonLinux2, !Ref 'AWS::Region', x64]
+        Monitoring:
+          Enabled: false
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+
+            set -o xtrace
+
+            if ! mountpoint -q /mnt; then
+                DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+                sudo mkfs.ext4 $DEVICE
+                sudo mount -o noatime $DEVICE /mnt
+            fi
+            sudo ethtool -K eth0 sg off
+            until sudo yum makecache; do
+                sleep 1
+                echo try again
+            done
+            sudo yum -y install java-1.8.0-openjdk git aws-cli docker
+            sudo yum -y remove java-1.7.0-openjdk
+            sudo install -o ec2-user -g ec2-user -d /mnt/jenkins
+
+  JMicroInstance: # create jenkins worker as spot instance
+    Type: AWS::EC2::SpotFleet
+    Properties:
+      SpotFleetRequestConfigData:
+        AllocationStrategy: lowestPrice
+        ExcessCapacityTerminationPolicy: default
+        IamFleetRole: !GetAtt SpotFleetRole.Arn
+        ReplaceUnhealthyInstances: true
+        SpotPrice: 0.01
+        TargetCapacity: 0
+        TerminateInstancesWithExpiration: false
+        Type: maintain
+        LaunchTemplateConfigs:
+        - LaunchTemplateSpecification:
+            LaunchTemplateId: !Ref JMicroTemplate
+            Version: !GetAtt JMicroTemplate.LatestVersionNumber
+          Overrides:
+          - InstanceType: t2.micro
+            AvailabilityZone:
+              Fn::Select: [ 0, !GetAZs '' ]
+            SubnetId: !Ref JSubnetA
+            WeightedCapacity: 1
+          - InstanceType: t2.small
+            AvailabilityZone:
+              Fn::Select: [ 0, !GetAZs '' ]
+            SubnetId: !Ref JSubnetA
+            WeightedCapacity: 1
+
+          - InstanceType: t2.micro
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+            SubnetId: !Ref JSubnetB
+            WeightedCapacity: 1
+          - InstanceType: t2.small
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+            SubnetId: !Ref JSubnetB
+            WeightedCapacity: 1
+
+          - InstanceType: t2.micro
+            AvailabilityZone:
+              Fn::Select: [ 2, !GetAZs '' ]
+            SubnetId: !Ref JSubnetC
+          - InstanceType: t2.small
+            AvailabilityZone:
+              Fn::Select: [ 2, !GetAZs '' ]
+            SubnetId: !Ref JSubnetC
+            WeightedCapacity: 1
+
+  JDockerTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: PSDockerTemplate
+      LaunchTemplateData:
+        SecurityGroupIds:
+        - !GetAtt JVPC.DefaultSecurityGroup
+        TagSpecifications:
         - ResourceType: instance
           Tags:
           - Key: Name
@@ -732,7 +816,7 @@ Resources:
             sudo systemctl status docker || sudo systemctl start docker
             echo sudo service docker status || sudo service docker start
 
-  JSlaveInstance: # create jenkins master as spot instance
+  JDockerInstance: # create jenkins worker as spot instance
     Type: AWS::EC2::SpotFleet
     Properties:
       SpotFleetRequestConfigData:
@@ -746,8 +830,8 @@ Resources:
         Type: maintain
         LaunchTemplateConfigs:
         - LaunchTemplateSpecification:
-            LaunchTemplateId: !Ref JSlaveTemplate
-            Version: !GetAtt JSlaveTemplate.LatestVersionNumber
+            LaunchTemplateId: !Ref JDockerTemplate
+            Version: !GetAtt JDockerTemplate.LatestVersionNumber
           Overrides:
           - InstanceType: m4.xlarge
             AvailabilityZone:
@@ -812,6 +896,110 @@ Resources:
               Fn::Select: [ 2, !GetAZs '' ]
             SubnetId: !Ref JSubnetC
 
+  JLargeInstance: # create jenkins worker as spot instance
+    Type: AWS::EC2::SpotFleet
+    Properties:
+      SpotFleetRequestConfigData:
+        AllocationStrategy: lowestPrice
+        ExcessCapacityTerminationPolicy: default
+        IamFleetRole: !GetAtt SpotFleetRole.Arn
+        ReplaceUnhealthyInstances: true
+        SpotPrice: 0.20
+        TargetCapacity: 0
+        TerminateInstancesWithExpiration: false
+        Type: maintain
+        LaunchTemplateConfigs:
+        - LaunchTemplateSpecification:
+            LaunchTemplateId: !Ref JDockerTemplate
+            Version: !GetAtt JDockerTemplate.LatestVersionNumber
+          Overrides:
+          - InstanceType: m4.2xlarge
+            AvailabilityZone:
+              Fn::Select: [ 0, !GetAZs '' ]
+            SubnetId: !Ref JSubnetA
+          - InstanceType: m4.4xlarge
+            AvailabilityZone:
+              Fn::Select: [ 0, !GetAZs '' ]
+            SubnetId: !Ref JSubnetA
+          - InstanceType: m5.2xlarge
+            AvailabilityZone:
+              Fn::Select: [ 0, !GetAZs '' ]
+            SubnetId: !Ref JSubnetA
+          - InstanceType: m5.4xlarge
+            AvailabilityZone:
+              Fn::Select: [ 0, !GetAZs '' ]
+            SubnetId: !Ref JSubnetA
+          - InstanceType: c4.4xlarge
+            AvailabilityZone:
+              Fn::Select: [ 0, !GetAZs '' ]
+            SubnetId: !Ref JSubnetA
+          - InstanceType: c5.4xlarge
+            AvailabilityZone:
+              Fn::Select: [ 0, !GetAZs '' ]
+            SubnetId: !Ref JSubnetA
+          - InstanceType: c5d.4xlarge
+            AvailabilityZone:
+              Fn::Select: [ 0, !GetAZs '' ]
+            SubnetId: !Ref JSubnetA
+
+          - InstanceType: m4.2xlarge
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+            SubnetId: !Ref JSubnetB
+          - InstanceType: m4.4xlarge
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+            SubnetId: !Ref JSubnetB
+          - InstanceType: m5.2xlarge
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+            SubnetId: !Ref JSubnetB
+          - InstanceType: m5.4xlarge
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+            SubnetId: !Ref JSubnetB
+          - InstanceType: c4.4xlarge
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+            SubnetId: !Ref JSubnetB
+          - InstanceType: c5.4xlarge
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+            SubnetId: !Ref JSubnetB
+          - InstanceType: c5d.4xlarge
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+            SubnetId: !Ref JSubnetB
+
+          - InstanceType: m4.2xlarge
+            AvailabilityZone:
+              Fn::Select: [ 2, !GetAZs '' ]
+            SubnetId: !Ref JSubnetC
+          - InstanceType: m4.4xlarge
+            AvailabilityZone:
+              Fn::Select: [ 2, !GetAZs '' ]
+            SubnetId: !Ref JSubnetC
+          - InstanceType: m5.2xlarge
+            AvailabilityZone:
+              Fn::Select: [ 2, !GetAZs '' ]
+            SubnetId: !Ref JSubnetC
+          - InstanceType: m5.4xlarge
+            AvailabilityZone:
+              Fn::Select: [ 2, !GetAZs '' ]
+            SubnetId: !Ref JSubnetC
+          - InstanceType: c4.4xlarge
+            AvailabilityZone:
+              Fn::Select: [ 2, !GetAZs '' ]
+            SubnetId: !Ref JSubnetC
+          - InstanceType: c5.4xlarge
+            AvailabilityZone:
+              Fn::Select: [ 2, !GetAZs '' ]
+            SubnetId: !Ref JSubnetC
+          - InstanceType: c5d.4xlarge
+            AvailabilityZone:
+              Fn::Select: [ 2, !GetAZs '' ]
+            SubnetId: !Ref JSubnetC
+
 Outputs:
   JIP:
     Description: Jenkins IP
@@ -819,6 +1007,12 @@ Outputs:
   JMasterInstance:
     Description: Master Spot Fleet
     Value: !Ref JMasterInstance
-  JSlaveInstance:
-    Description: Slave Spot Fleet
-    Value: !Ref JSlaveInstance
+  JMicroInstance:
+    Description: Micro Spot Fleet
+    Value: !Ref JMicroInstance
+  JDockerInstance:
+    Description: Docker Spot Fleet
+    Value: !Ref JDockerInstance
+  JLargeInstance:
+    Description: Large Spot Fleet
+    Value: !Ref JLargeInstance
