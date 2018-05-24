@@ -686,7 +686,37 @@ Resources:
           Fn::Base64: !Sub |
             #!/bin/bash
 
+            JENKINS_SHORT=${JShortName}
+            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+            INSTANCE_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e 's/[a-z]$//')
+
             set -o xtrace
+
+            setup_aws() {
+                SPOT_REQUEST=$(
+                    aws ec2 describe-instances \
+                        --region $INSTANCE_REGION \
+                        --instance-ids $INSTANCE_ID \
+                        --query 'Reservations[].Instances[].SpotInstanceRequestId' \
+                        --output text
+                )
+
+                VOLUMES=$(
+                    aws ec2 describe-instances \
+                        --region $INSTANCE_REGION \
+                        --instance-ids $INSTANCE_ID \
+                        --query 'Reservations[].Instances[].BlockDeviceMappings[].Ebs.VolumeId' \
+                        --output text
+                )
+
+                aws ec2 create-tags  \
+                    --resources $INSTANCE_ID $SPOT_REQUEST $VOLUMES \
+                    --region $INSTANCE_REGION \
+                    --tags Key=Name,Value=ps-micro \
+                           Key=iit-billing-tag,Value=$JENKINS_SHORT
+            }
+
+            setup_aws
 
             if ! mountpoint -q /mnt; then
                 DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
@@ -786,7 +816,37 @@ Resources:
           Fn::Base64: !Sub |
             #!/bin/bash
 
+            JENKINS_SHORT=${JShortName}
+            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+            INSTANCE_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e 's/[a-z]$//')
+
             set -o xtrace
+
+            setup_aws() {
+                SPOT_REQUEST=$(
+                    aws ec2 describe-instances \
+                        --region $INSTANCE_REGION \
+                        --instance-ids $INSTANCE_ID \
+                        --query 'Reservations[].Instances[].SpotInstanceRequestId' \
+                        --output text
+                )
+
+                VOLUMES=$(
+                    aws ec2 describe-instances \
+                        --region $INSTANCE_REGION \
+                        --instance-ids $INSTANCE_ID \
+                        --query 'Reservations[].Instances[].BlockDeviceMappings[].Ebs.VolumeId' \
+                        --output text
+                )
+
+                aws ec2 create-tags  \
+                    --resources $INSTANCE_ID $SPOT_REQUEST $VOLUMES \
+                    --region $INSTANCE_REGION \
+                    --tags Key=Name,Value=ps-docker \
+                           Key=iit-billing-tag,Value=$JENKINS_SHORT
+            }
+
+            setup_aws
 
             if ! mountpoint -q /mnt; then
                 DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
