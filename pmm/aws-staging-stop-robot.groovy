@@ -32,7 +32,8 @@ pipeline {
                                     --region us-east-2 \
                                     --output json \
                                     --spot-instance-request-ids ${request} \
-                                    --query 'SpotInstanceRequests[].Tags[]'
+                                    --query 'SpotInstanceRequests[].Tags[]' \
+                                    | sed -e 's/aws:/aws_/'
                             )
                             aws ec2 create-tags \
                                 --region us-east-2 \
