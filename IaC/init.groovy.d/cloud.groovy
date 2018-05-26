@@ -1,10 +1,6 @@
 import com.amazonaws.services.ec2.model.InstanceType
-import com.cloudbees.jenkins.plugins.awscredentials.AWSCredentialsImpl
-import com.cloudbees.plugins.credentials.*
-import com.cloudbees.plugins.credentials.domains.Domain
 import hudson.model.*
 import hudson.plugins.ec2.AmazonEC2Cloud
-import hudson.plugins.ec2.AMITypeData
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
@@ -18,10 +14,23 @@ logger.info("Cloud init started")
 // get Jenkins instance
 Jenkins jenkins = Jenkins.getInstance()
 
+netMap = [:]
+netMap['us-east-2a'] = 'subnet-dd0475b5'
+netMap['us-east-2b'] = 'subnet-c0e44aba'
+netMap['us-east-2c'] = 'subnet-b7f3e1fa'
 
 imageMap = [:]
-imageMap['docker'] = 'ami-976152f2'
-imageMap['micro-amazon'] = 'ami-25615740'
+imageMap['us-east-2a.docker'] = 'ami-79201c1c'
+imageMap['us-east-2a.docker-32gb'] = 'ami-53201c36'
+imageMap['us-east-2a.micro-amazon'] = 'ami-2a0f324f'
+imageMap['us-east-2b.docker'] = imageMap['us-east-2a.docker']
+imageMap['us-east-2b.docker-32gb'] = imageMap['us-east-2a.docker-32gb']
+imageMap['us-east-2b.micro-amazon'] = imageMap['us-east-2a.micro-amazon']
+imageMap['us-east-2c.docker'] = imageMap['us-east-2a.docker']
+imageMap['us-east-2c.docker-32gb'] = imageMap['us-east-2a.docker-32gb']
+imageMap['us-east-2c.micro-amazon'] = imageMap['us-east-2a.micro-amazon']
+
+/*
 imageMap['min-artful-x64'] = 'ami-db2919be'
 imageMap['min-centos-6-x64'] = 'ami-ff48629a'
 imageMap['min-centos-7-x64'] = 'ami-994575fc'
@@ -29,10 +38,17 @@ imageMap['min-jessie-x64'] = 'ami-c5ba9fa0'
 imageMap['min-stretch-x64'] = 'ami-79c0f01c'
 imageMap['min-trusty-x64'] = 'ami-2ddeee48'
 imageMap['min-xenial-x64'] = 'ami-e82a1a8d'
+*/
+
+priceMap = [:]
+priceMap['docker'] = '0.10'
+priceMap['docker-32gb'] = '0.20'
+priceMap['micro-amazon'] = '0.01'
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
-userMap['micro-amazon'] = 'ec2-user'
+userMap['docker-32gb'] = userMap['docker']
+userMap['micro-amazon'] = userMap['docker']
 userMap['min-artful-x64'] = 'ubuntu'
 userMap['min-centos-6-x64'] = 'centos'
 userMap['min-centos-7-x64'] = 'centos'
@@ -64,12 +80,16 @@ initMap['docker'] = '''
     sudo sysctl -w fs.file-max=6815744 || true
     sudo sed -i.bak -e 's/nofile=1024:4096/nofile=900000:900000/; s/DAEMON_MAXFILES=.*/DAEMON_MAXFILES=990000/' /etc/sysconfig/docker
     echo 'DOCKER_STORAGE_OPTIONS="--data-root=/mnt/docker"' | sudo tee -a /etc/sysconfig/docker-storage
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
+    sudo systemctl daemon-reload
     sudo install -o root -g root -d /mnt/docker
     sudo usermod -aG docker $(id -u -n)
     sudo mkdir -p /etc/docker
     echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json
-    sudo service docker status || sudo service docker start
+    sudo systemctl status docker || sudo systemctl start docker
+    echo sudo service docker status || sudo service docker start
 '''
+initMap['docker-32gb'] = initMap['docker']
 initMap['micro-amazon'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -124,12 +144,18 @@ initMap['min-stretch-x64'] = initMap['min-artful-x64']
 initMap['min-trusty-x64'] = initMap['min-jessie-x64']
 initMap['min-xenial-x64'] = initMap['min-artful-x64']
 
+capMap = [:]
+capMap['c4.xlarge'] = '60'
+capMap['m4.xlarge'] = '60'
+capMap['m4.2xlarge'] = '20'
+
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
-typeMap['min-centos-7-x64'] = 'm5.large'
-typeMap['docker'] = 'c5.2xlarge'
+typeMap['docker'] = 'c4.xlarge'
+typeMap['docker-32gb'] = 'm4.2xlarge'
+typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-centos-6-x64'] = 'm4.large'
+typeMap['min-centos-6-x64'] = 'm4.xlarge'
 typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
 typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-trusty-x64'] = typeMap['min-centos-7-x64']
@@ -137,7 +163,8 @@ typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
 
 execMap = [:]
 execMap['docker'] = '1'
-execMap['micro-amazon'] = '4'
+execMap['docker-32gb'] = execMap['docker']
+execMap['micro-amazon'] = '30'
 execMap['min-artful-x64'] = '1'
 execMap['min-centos-6-x64'] = '1'
 execMap['min-centos-7-x64'] = '1'
@@ -147,8 +174,9 @@ execMap['min-trusty-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
 
 devMap = [:]
-devMap['micro-amazon'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
-devMap['docker'] = devMap['micro-amazon']
+devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker-32gb'] = devMap['docker']
+devMap['micro-amazon'] = devMap['docker']
 devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-centos-6-x64'] = devMap['min-artful-x64']
 devMap['min-centos-7-x64'] = devMap['min-artful-x64']
@@ -159,6 +187,7 @@ devMap['min-xenial-x64'] = devMap['min-artful-x64']
 
 labelMap = [:]
 labelMap['docker'] = ''
+labelMap['docker-32gb'] = ''
 labelMap['micro-amazon'] = 'master'
 labelMap['min-artful-x64'] = ''
 labelMap['min-centos-6-x64'] = ''
@@ -169,15 +198,15 @@ labelMap['min-trusty-x64'] = ''
 labelMap['min-xenial-x64'] = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
-SlaveTemplate getTemplate(String OSType) {
+SlaveTemplate getTemplate(String OSType, String AZ) {
     return new SlaveTemplate(
-        imageMap[OSType],                           // String ami
+        imageMap[AZ + '.' + OSType],                // String ami
         '',                                         // String zone
-        new SpotConfiguration('0.43'),              // SpotConfiguration spotConfig
+        new SpotConfiguration(priceMap[OSType]),    // SpotConfiguration spotConfig
         'default',                                  // String securityGroups
         '/mnt/jenkins',                             // String remoteFS
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type
-        ( typeMap[OSType] == 'm5.large' ),          // boolean ebsOptimized
+        ( typeMap[OSType].startsWith("c") || typeMap[OSType].startsWith("m") ), // boolean ebsOptimized
         OSType + ' ' + labelMap[OSType],            // String labelString
         Node.Mode.NORMAL,                           // Node.Mode mode
         OSType,                                     // String description
@@ -187,16 +216,16 @@ SlaveTemplate getTemplate(String OSType) {
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
         new UnixData('', '', '22'),                 // AMITypeData amiType
-        '',                                         // String jvmopts
+        '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
-        'subnet-f2db0688',                          // String subnetId
+        netMap[AZ],                                 // String subnetId
         [
-            new EC2Tag('Name', OSType),
+            new EC2Tag('Name', 'jenkins-ps-' + OSType),
             new EC2Tag('iit-billing-tag', 'jenkins-ps-slave')
         ],                                          // List<EC2Tag> tags
         '3',                                        // String idleTerminationMinutes
         false,                                      // boolean usePrivateDnsName
-        '100',                                      // String instanceCapStr
+        capMap[typeMap[OSType]],                    // String instanceCapStr
         'arn:aws:iam::119175775298:instance-profile/jenkins-ps-slave', // String iamInstanceProfile
         true,                                       // boolean deleteRootOnTermination
         false,                                      // boolean useEphemeralDevices
@@ -211,33 +240,36 @@ SlaveTemplate getTemplate(String OSType) {
 
 String privateKey = ''
 jenkins.clouds.each {
-    if (it['cloudName'] == 'AWS-Dev') {
+    if (it.hasProperty('cloudName') && it['cloudName'] == 'AWS-Dev b') {
         privateKey = it['privateKey']
     }
 }
-// https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
-AmazonEC2Cloud amazonEC2Cloud = new AmazonEC2Cloud(
-    'AWS-Dev',                              // String cloudName
-    true,                                   // boolean useInstanceProfileForCredentials
-    '',                                     // String credentialsId
-    'us-east-2',                            // String region
-    privateKey,                             // String privateKey
-    '100',                                  // String instanceCapStr
-    [
-        getTemplate('docker'),
-        getTemplate('micro-amazon'),
-        getTemplate('min-artful-x64'),
-        getTemplate('min-centos-6-x64'),
-        getTemplate('min-centos-7-x64'),
-        getTemplate('min-jessie-x64'),
-        getTemplate('min-stretch-x64'),
-        getTemplate('min-trusty-x64'),
-        getTemplate('min-xenial-x64'),
-    ]                                       // List<? extends SlaveTemplate> templates
-)
 
-// add cloud configuration to Jenkins
-jenkins.clouds.replace(amazonEC2Cloud)
+String region = 'us-east-2'
+('b'..'b').each {
+    // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
+    AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
+        "AWS-Dev ${it}",                        // String cloudName
+        true,                                   // boolean useInstanceProfileForCredentials
+        '',                                     // String credentialsId
+        region,                                 // String region
+        privateKey,                             // String privateKey
+        '240',                                   // String instanceCapStr
+        [
+            getTemplate('docker',       "${region}${it}"),
+            getTemplate('docker-32gb',  "${region}${it}"),
+            getTemplate('micro-amazon', "${region}${it}"),
+        ]                                       // List<? extends SlaveTemplate> templates
+    )
+
+    // add cloud configuration to Jenkins
+    jenkins.clouds.each {
+        if (it.hasProperty('cloudName') && it['cloudName'] == ec2Cloud['cloudName']) {
+            jenkins.clouds.remove(it)
+        }
+    }
+    jenkins.clouds.add(ec2Cloud)
+}
 
 // save current Jenkins state to disk
 jenkins.save()
