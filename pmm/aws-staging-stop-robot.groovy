@@ -18,7 +18,7 @@ pipeline {
                     sh '''
                         copy_tags() {
                             local request=$1
-                            sleep 1
+                            sleep 5
 
                             instance_id=$(
                                 aws ec2 describe-spot-instance-requests \
