@@ -41,7 +41,6 @@ void build(String CMAKE_BUILD_TYPE) {
             popd
         fi
     """
-    archiveArtifacts "${GIT_BRANCH}-${CMAKE_BUILD_TYPE}.tar.gz"
     pushArtifactFile("${GIT_BRANCH}-${CMAKE_BUILD_TYPE}.tar.gz")
 }
 
@@ -147,7 +146,7 @@ pipeline {
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
-        buildDiscarder(logRotator(artifactNumToKeepStr: '5'))
+        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
     }
     triggers {
         pollSCM '*/10 * * * *'
