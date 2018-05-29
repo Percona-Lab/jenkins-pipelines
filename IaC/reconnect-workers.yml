@@ -1,0 +1,25 @@
+- job:
+    name: reconnect-workers
+    project-type: pipeline
+    description: |
+        reconnect offline workers
+        Do not edit this job through the web!
+    disabled: false
+    concurrent: false
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 10
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 10
+    triggers:
+    - timed: H/5 * * * *
+    dsl: |
+        import hudson.model.*
+        Hudson.instance.slaves.each{
+            if (it.computer.offline) {
+                println(it.computer.name.padRight(30) + "\t" + it.computer.describeInstance().getInstanceId())
+                it.computer.connect(false)
+            }
+        }
+        return
