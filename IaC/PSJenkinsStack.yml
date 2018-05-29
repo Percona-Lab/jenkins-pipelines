@@ -502,7 +502,8 @@ Resources:
               }
 
               start_jenkins() {
-                  ethtool -K eth0 sg off
+                  sysctl net.ipv4.tcp_fin_timeout=15
+                  sysctl net.ipv4.tcp_tw_reuse=1
                   cat <<-EOF | tee /etc/security/limits.d/jenkins.conf
               		jenkins    soft    core      unlimited
               		jenkins    hard    core      unlimited
