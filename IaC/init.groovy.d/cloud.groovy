@@ -23,17 +23,21 @@ imageMap = [:]
 imageMap['us-east-2a.docker'] = 'ami-79201c1c'
 imageMap['us-east-2a.docker-32gb'] = 'ami-53201c36'
 imageMap['us-east-2a.micro-amazon'] = 'ami-2a0f324f'
+imageMap['us-east-2a.min-centos-7-x64'] = 'ami-77724e12'
+
 imageMap['us-east-2b.docker'] = imageMap['us-east-2a.docker']
 imageMap['us-east-2b.docker-32gb'] = imageMap['us-east-2a.docker-32gb']
 imageMap['us-east-2b.micro-amazon'] = imageMap['us-east-2a.micro-amazon']
+imageMap['us-east-2b.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
+
 imageMap['us-east-2c.docker'] = imageMap['us-east-2a.docker']
 imageMap['us-east-2c.docker-32gb'] = imageMap['us-east-2a.docker-32gb']
 imageMap['us-east-2c.micro-amazon'] = imageMap['us-east-2a.micro-amazon']
+imageMap['us-east-2c.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
 
 /*
 imageMap['min-artful-x64'] = 'ami-db2919be'
 imageMap['min-centos-6-x64'] = 'ami-ff48629a'
-imageMap['min-centos-7-x64'] = 'ami-994575fc'
 imageMap['min-jessie-x64'] = 'ami-c5ba9fa0'
 imageMap['min-stretch-x64'] = 'ami-79c0f01c'
 imageMap['min-trusty-x64'] = 'ami-2ddeee48'
@@ -41,9 +45,10 @@ imageMap['min-xenial-x64'] = 'ami-e82a1a8d'
 */
 
 priceMap = [:]
-priceMap['docker'] = '0.10'
-priceMap['docker-32gb'] = '0.20'
-priceMap['micro-amazon'] = '0.01'
+priceMap['t2.small'] = '0.01'
+priceMap['c4.xlarge'] = '0.10'
+priceMap['m4.xlarge'] = '0.10'
+priceMap['m4.2xlarge'] = '0.20'
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
@@ -202,7 +207,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
     return new SlaveTemplate(
         imageMap[AZ + '.' + OSType],                // String ami
         '',                                         // String zone
-        new SpotConfiguration(priceMap[OSType]),    // SpotConfiguration spotConfig
+        new SpotConfiguration(priceMap[typeMap[OSType]]), // SpotConfiguration spotConfig
         'default',                                  // String securityGroups
         '/mnt/jenkins',                             // String remoteFS
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type
@@ -256,9 +261,10 @@ String region = 'us-east-2'
         privateKey,                             // String privateKey
         '240',                                   // String instanceCapStr
         [
-            getTemplate('docker',       "${region}${it}"),
-            getTemplate('docker-32gb',  "${region}${it}"),
-            getTemplate('micro-amazon', "${region}${it}"),
+            getTemplate('docker',           "${region}${it}"),
+            getTemplate('docker-32gb',      "${region}${it}"),
+            getTemplate('micro-amazon',     "${region}${it}"),
+            getTemplate('min-centos-7-x64', "${region}${it}"),
         ]                                       // List<? extends SlaveTemplate> templates
     )
 
