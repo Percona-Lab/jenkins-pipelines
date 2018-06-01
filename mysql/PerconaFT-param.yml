@@ -18,6 +18,7 @@
           url: ${GIT_REPO}
           branches:
             - ${BRANCH}
+          wipe-workspace: false
     parameters:
     - string:
         name: GIT_REPO
@@ -56,6 +57,10 @@
           - docker-32gb
     builders:
       - shell: |
+          git reset --hard
+          git clean -xdf
+          sudo rm -rf Testing
+
           docker run --rm \
               --cap-add SYS_PTRACE \
               --mount type=bind,source=$(pwd -P),destination=/tmp/sources \
