@@ -456,7 +456,7 @@ Resources:
             Arn: !GetAtt JMasterProfile.Arn
         EbsOptimized: true
         KeyName: !Ref MasterKeyName
-        ImageId: !FindInMap [AmazonLinux1, !Ref 'AWS::Region', x64]
+        ImageId: !FindInMap [AmazonLinux2, !Ref 'AWS::Region', x64]
         Monitoring:
           Enabled: false
         UserData:
@@ -496,7 +496,7 @@ Resources:
                           --output text
                   )
 
-                  aws ec2 create-tags  \
+                  aws ec2 create-tags \
                       --resources $INSTANCE_ID $SPOT_REQUEST $VOLUMES \
                       --region $INSTANCE_REGION \
                       --tags Key=Name,Value=$JENKINS_SHORT \
@@ -512,8 +512,8 @@ Resources:
                   wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat/jenkins.repo
                   rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key
                   yum -y update --security
-                  yum -y install java-1.8.0-openjdk jenkins nginx git yum-cron-daily aws-cli xfsprogs
-                  yum -y remove java-1.7.0-openjdk
+                  amazon-linux-extras install -y nginx1.12
+                  yum -y install java-1.8.0-openjdk jenkins git yum-cron aws-cli xfsprogs
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -522,6 +522,7 @@ Resources:
 
                   wget https://dl.eff.org/certbot-auto -O /opt/certbot-auto
                   chmod 755 /opt/certbot-auto
+                  touch /etc/redhat-release
               }
 
               volume_state() {
@@ -574,6 +575,7 @@ Resources:
 
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
+                  chown -R jenkins:jenkins /mnt/$JENKINS_HOST
                   if [ ! -f /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy ]; then
                       wget -O /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy \
                           https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
