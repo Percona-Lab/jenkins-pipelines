@@ -562,6 +562,8 @@ Resources:
               start_jenkins() {
                   sysctl net.ipv4.tcp_fin_timeout=15
                   sysctl net.ipv4.tcp_tw_reuse=1
+                  sysctl net.ipv6.conf.all.disable_ipv6=1
+                  sysctl net.ipv6.conf.default.disable_ipv6=1
                   cat <<-EOF | tee /etc/security/limits.d/jenkins.conf
               		jenkins    soft    core      unlimited
               		jenkins    hard    core      unlimited

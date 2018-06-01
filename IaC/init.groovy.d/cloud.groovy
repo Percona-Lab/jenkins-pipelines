@@ -80,6 +80,10 @@ initMap['docker'] = '''
     sudo yum -y remove java-1.7.0-openjdk
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
+    sudo sysctl net.ipv4.tcp_fin_timeout=15
+    sudo sysctl net.ipv4.tcp_tw_reuse=1
+    sudo sysctl net.ipv6.conf.all.disable_ipv6=1
+    sudo sysctl net.ipv6.conf.default.disable_ipv6=1
     sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
     sudo sysctl -w fs.aio-max-nr=1048576 || true
     sudo sysctl -w fs.file-max=6815744 || true
