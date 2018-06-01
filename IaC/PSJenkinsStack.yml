@@ -31,6 +31,15 @@ Parameters:
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
+  CacheBucketName:
+    Default: ps-build-cache
+    Description: Fully Qualified Domain Name
+    Type: String
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: '^[a-z][a-z0-9\.\-]*$'
+    ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
+
 Mappings:
   AmazonLinux1:
     us-east-2:
@@ -149,6 +158,44 @@ Resources:
       RouteTableId: !Ref JRouteTable
       SubnetId: !Ref JSubnetC
 
+  CacheBucket: # S3 bucket for store build cache
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref CacheBucketName
+      AccessControl: Private
+      VersioningConfiguration:
+        Status: Suspended
+      Tags:
+      - Key: iit-billing-tag
+        Value: !Ref JShortName
+
+  S3Endpoint: # route S3 traffic over private network
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+            - s3:ListBucket
+            - s3:GetObject
+            - s3:GetObjectAcl
+            - s3:PutObject
+            - s3:PutObjectAcl
+            - s3:DeleteObject
+            - s3:AbortMultipartUpload
+            Resource:
+            - '*'
+      RouteTableIds:
+        - !Ref JRouteTable
+      ServiceName: !Join
+        - ''
+        - - com.amazonaws.
+          - !Ref 'AWS::Region'
+          - .s3
+      VpcId: !Ref JVPC
+
   SSHSecurityGroup: # allow ssh access (assign when needed)
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -207,6 +254,18 @@ Resources:
             - ec2:DeleteTags
             - ec2:DescribeInstances
             - ec2:DescribeSpotInstanceRequests
+          - Effect: Allow
+            Action:
+            - s3:ListBucket
+            - s3:GetObject
+            - s3:GetObjectAcl
+            - s3:PutObject
+            - s3:PutObjectAcl
+            - s3:DeleteObject
+            - s3:AbortMultipartUpload
+            Resource:
+            - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucket ]]
+            - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucket, '/*' ]]
 
   JSlaveProfile: # create Profile for jenkins slaves (needed for assign tags)
     Type: AWS::IAM::InstanceProfile
