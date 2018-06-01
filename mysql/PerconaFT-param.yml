@@ -1,0 +1,106 @@
+- job:
+    name: PerconaFT-param
+    project-type: matrix
+    description: |
+        PerconaFT param build.
+        Do not edit this job through the web!
+    concurrent: true
+    auth-token: perconaftparam
+    node: micro-amazon
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 10
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 10
+    scm:
+      - git:
+          url: ${GIT_REPO}
+          branches:
+            - ${BRANCH}
+    parameters:
+    - string:
+        name: GIT_REPO
+        default: https://github.com/percona/PerconaFT
+        description: URL to PerconaFT repository
+    - string:
+        name: BRANCH
+        default: master
+        description: Tag/Branch for PerconaFT repository
+    - string:
+        name: CMAKE_OPTS
+        default:
+        description: Extra options for cmake
+    - string:
+        name: CTEST_OPTS
+        default: "-E (helgrind|stress|drd|test_insert_unique).*"
+        description: |
+            Additional arguments to pass to ctest.
+            "-D ExperimentalMemCheck" will run MOST of the tests with valgrind.
+    axes:
+      - axis:
+         type: user-defined
+         name: CMAKE_BUILD_TYPE
+         values:
+          - RelWithDebInfo
+          - Debug
+      - axis:
+         type: user-defined
+         name: DOCKER_OS
+         values:
+          - ubuntu:xenial
+      - axis:
+         type: slave
+         name: NODE
+         values:
+          - docker-32gb
+    builders:
+      - shell: |
+          docker run --rm \
+              --cap-add SYS_PTRACE \
+              --mount type=bind,source=$(pwd -P),destination=/tmp/sources \
+              perconalab/ps-build:${DOCKER_OS//[:\/]/-} \
+              bash -c "
+              set -o errexit
+              set -o xtrace
+
+              CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'
+              CMAKE_OPTS='${CMAKE_OPTS}'
+              CTEST_OPTS='${CTEST_OPTS}'
+              EATMYDATA=\$(find /lib* /usr/lib* /usr/local/lib* -type f -name '*eatmyda*.so*' | head -n1)
+
+              # CentOS 6
+              if [[ -f /opt/rh/devtoolset-4/enable ]]; then
+                  source /opt/rh/devtoolset-4/enable
+                  CMAKE_OPTS+=' -DVALGRIND_INCLUDE_DIR=/opt/rh/devtoolset-4/root/usr/lib64'
+              fi
+
+              mkdir /tmp/results
+              pushd /tmp/results
+                  cmake /tmp/sources \
+                      -DCMAKE_BUILD_TYPE=\${CMAKE_BUILD_TYPE:-RelWithDebInfo} \
+                      \${CMAKE_OPTS}
+                  make -j\${MAKE_J} -k
+
+                  LD_PRELOAD=\$(find /lib* /usr/lib* /usr/local/lib* -type f -name '*eatmyda*.so*' | head -n1) ctest \
+                      -j\${MAKE_J} \
+                      --no-compress-output \
+                      -T Test \
+                      \${CTEST_OPTS} || true
+              popd
+
+              mv /tmp/results/Testing /tmp/sources/Testing
+              chown $(id -u):$(id -g) /tmp/sources/Testing
+          "
+    publishers:
+    - warnings:
+        console-log-parsers:
+        - GNU C Compiler 4 (gcc)
+        run-always: true
+        shouldDetectModules: false
+    - archive:
+        artifacts: 'Testing/**/Test.xml'
+    - xunit:
+        types:
+        - ctest:
+            pattern: 'Testing/**/Test.xml'
