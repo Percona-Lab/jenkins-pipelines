@@ -415,32 +415,30 @@ Resources:
           - InstanceType: m4.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-            SubnetId: !Ref JSubnetB
           - InstanceType: c4.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-            SubnetId: !Ref JSubnetB
           - InstanceType: m5.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-            SubnetId: !Ref JSubnetB
           - InstanceType: c5.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-            SubnetId: !Ref JSubnetB
           - InstanceType: c5d.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-            SubnetId: !Ref JSubnetB
 
   JMasterTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateName: PSMasterTemplate
       LaunchTemplateData:
-        SecurityGroupIds:
-        - !GetAtt JVPC.DefaultSecurityGroup
-        - !GetAtt HTTPSecurityGroup.GroupId
+        NetworkInterfaces:
+        - DeviceIndex: 0
+          SubnetId: !Ref JSubnetB
+          Groups:
+          - !GetAtt JVPC.DefaultSecurityGroup
+          - !GetAtt HTTPSecurityGroup.GroupId
         TagSpecifications:
         - ResourceType: instance
           Tags:
