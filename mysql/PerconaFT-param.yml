@@ -57,9 +57,9 @@
           - docker-32gb
     builders:
       - shell: |
+          sudo rm -rf Testing
           git reset --hard
           git clean -xdf
-          sudo rm -rf Testing
 
           docker run --rm \
               --cap-add SYS_PTRACE \
