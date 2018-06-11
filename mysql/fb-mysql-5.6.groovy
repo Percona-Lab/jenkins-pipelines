@@ -148,6 +148,7 @@ pipeline {
         disableConcurrentBuilds()
         skipStagesAfterUnstable()
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
+        timeout(time: 24, unit: 'HOURS')
     }
     triggers {
         pollSCM '*/10 * * * *'
