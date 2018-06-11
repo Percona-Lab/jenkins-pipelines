@@ -156,7 +156,7 @@ initMap['min-xenial-x64'] = initMap['min-artful-x64']
 capMap = [:]
 capMap['c4.xlarge'] = '60'
 capMap['m4.xlarge'] = '60'
-capMap['m4.2xlarge'] = '20'
+capMap['m4.2xlarge'] = '10'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
