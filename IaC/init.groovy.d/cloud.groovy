@@ -266,7 +266,7 @@ String region = 'us-east-2'
         '240',                                   // String instanceCapStr
         [
             getTemplate('docker',           "${region}${it}"),
-            getTemplate('docker-32gb',      "${region}${it}"),
+            getTemplate('docker-32gb',      "${region}c"),
             getTemplate('micro-amazon',     "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
         ]                                       // List<? extends SlaveTemplate> templates
