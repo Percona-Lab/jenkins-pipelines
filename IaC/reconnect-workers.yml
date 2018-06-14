@@ -16,7 +16,7 @@
     - timed: H/5 * * * *
     dsl: |
         import hudson.model.*
-        Hudson.instance.slaves.each{
+        Jenkins.instance.slaves.each{
             if (it.computer.offline) {
                 println(it.computer.name.padRight(30))
                 it.computer.connect(false)
