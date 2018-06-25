@@ -97,8 +97,8 @@
                       \${CTEST_OPTS} || true
               popd
 
-              mv /tmp/results/Testing /tmp/sources/Testing
-              chown $(id -u):$(id -g) /tmp/sources/Testing
+              sudo mv /tmp/results/Testing /tmp/sources/Testing
+              sudo chown $(id -u):$(id -g) /tmp/sources/Testing
           "
     publishers:
     - warnings:
