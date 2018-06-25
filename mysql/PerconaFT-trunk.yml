@@ -78,9 +78,9 @@
               EATMYDATA=\$(find /lib* /usr/lib* /usr/local/lib* -type f -name '*eatmyda*.so*' | head -n1)
 
               # CentOS 6
-              if [[ -f /opt/rh/devtoolset-4/enable ]]; then
-                  source /opt/rh/devtoolset-4/enable
-                  CMAKE_OPTS+=' -DVALGRIND_INCLUDE_DIR=/opt/rh/devtoolset-4/root/usr/lib64'
+              if [[ -f /opt/rh/devtoolset-2/enable ]]; then
+                  source /opt/rh/devtoolset-2/enable
+                  CMAKE_OPTS+=' -DVALGRIND_INCLUDE_DIR=/opt/rh/devtoolset-2/root/usr/lib64'
               fi
 
               mkdir /tmp/results
