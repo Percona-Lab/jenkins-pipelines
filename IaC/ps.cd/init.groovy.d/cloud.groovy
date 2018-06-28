@@ -24,16 +24,19 @@ imageMap['us-east-2a.docker'] = 'ami-79201c1c'
 imageMap['us-east-2a.docker-32gb'] = 'ami-53201c36'
 imageMap['us-east-2a.micro-amazon'] = 'ami-2a0f324f'
 imageMap['us-east-2a.min-centos-7-x64'] = 'ami-77724e12'
+imageMap['us-east-2a.fips-centos-7-x64'] = 'ami-00c92775320bbdc4d'
 
 imageMap['us-east-2b.docker'] = imageMap['us-east-2a.docker']
 imageMap['us-east-2b.docker-32gb'] = imageMap['us-east-2a.docker-32gb']
 imageMap['us-east-2b.micro-amazon'] = imageMap['us-east-2a.micro-amazon']
 imageMap['us-east-2b.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
+imageMap['us-east-2b.fips-centos-7-x64'] = imageMap['us-east-2a.fips-centos-7-x64']
 
 imageMap['us-east-2c.docker'] = imageMap['us-east-2a.docker']
 imageMap['us-east-2c.docker-32gb'] = imageMap['us-east-2a.docker-32gb']
 imageMap['us-east-2c.micro-amazon'] = imageMap['us-east-2a.micro-amazon']
 imageMap['us-east-2c.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
+imageMap['us-east-2c.fips-centos-7-x64'] = imageMap['us-east-2a.fips-centos-7-x64']
 
 /*
 imageMap['min-artful-x64'] = 'ami-db2919be'
@@ -57,6 +60,7 @@ userMap['micro-amazon'] = userMap['docker']
 userMap['min-artful-x64'] = 'ubuntu'
 userMap['min-centos-6-x64'] = 'centos'
 userMap['min-centos-7-x64'] = 'centos'
+userMap['fips-centos-7-x64'] = 'centos'
 userMap['min-jessie-x64'] = 'admin'
 userMap['min-stretch-x64'] = 'admin'
 userMap['min-trusty-x64'] = 'ubuntu'
@@ -131,6 +135,7 @@ initMap['min-artful-x64'] = '''
 '''
 initMap['min-centos-6-x64'] = initMap['micro-amazon']
 initMap['min-centos-7-x64'] = initMap['micro-amazon']
+initMap['fips-centos-7-x64'] = initMap['micro-amazon']
 initMap['min-jessie-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -164,6 +169,7 @@ typeMap['micro-amazon'] = 't2.small'
 typeMap['docker'] = 'c4.xlarge'
 typeMap['docker-32gb'] = 'm4.2xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
+typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x64'] = 'm4.xlarge'
 typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
@@ -178,6 +184,7 @@ execMap['micro-amazon'] = '30'
 execMap['min-artful-x64'] = '1'
 execMap['min-centos-6-x64'] = '1'
 execMap['min-centos-7-x64'] = '1'
+execMap['fips-centos-7-x64'] = '1'
 execMap['min-jessie-x64'] = '1'
 execMap['min-stretch-x64'] = '1'
 execMap['min-trusty-x64'] = '1'
@@ -190,6 +197,7 @@ devMap['micro-amazon'] = devMap['docker']
 devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-centos-6-x64'] = devMap['min-artful-x64']
 devMap['min-centos-7-x64'] = devMap['min-artful-x64']
+devMap['fips-centos-7-x64'] = devMap['min-artful-x64']
 devMap['min-jessie-x64'] = devMap['micro-amazon']
 devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-trusty-x64'] = devMap['min-artful-x64']
@@ -202,6 +210,7 @@ labelMap['micro-amazon'] = 'master'
 labelMap['min-artful-x64'] = ''
 labelMap['min-centos-6-x64'] = ''
 labelMap['min-centos-7-x64'] = ''
+labelMap['fips-centos-7-x64'] = ''
 labelMap['min-jessie-x64'] = ''
 labelMap['min-stretch-x64'] = ''
 labelMap['min-trusty-x64'] = ''
@@ -270,6 +279,7 @@ String region = 'us-east-2'
             getTemplate('docker-32gb',      "${region}c"),
             getTemplate('micro-amazon',     "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
+            getTemplate('fips-centos-7-x64', "${region}${it}"),
         ]                                       // List<? extends SlaveTemplate> templates
     )
 
