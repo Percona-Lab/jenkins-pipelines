@@ -1,0 +1,35 @@
+{
+    "builders": [{
+            "type": "amazon-ebs",
+            "ami_name": "CentOS 7 FIPS [{{isotime \"2006-01-02 1504\"}}]",
+            "instance_type": "t2.micro",
+            "region": "us-east-2",
+            "security_group_id": "sg-f014159b",
+            "source_ami": "ami-9c0638f9",
+            "ssh_pty": "true",
+            "ena_support": "true",
+            "ssh_username": "centos",
+            "subnet_id": "subnet-dd0475b5",
+            "run_tags": {
+                "iit-billing-tag": "jenkins-ps"
+            },
+            "run_volume_tags": {
+                "iit-billing-tag": "jenkins-ps"
+            }
+        }
+    ],
+    "provisioners": [{
+            "type": "shell",
+            "inline": [
+                "sudo yum -y update",
+                "sudo yum -y install epel-release",
+                "sudo yum -y install java-1.8.0-openjdk git dracut-fips dracut-fips-aesni python36 python34-pip",
+                "sudo dracut -v -f",
+                "sudo sed -i.bak -e 's/auto console/auto fips=1 console/' /etc/default/grub",
+                "sudo grub2-mkconfig -o /boot/grub2/grub.cfg",
+                "sudo pip3 install awscli==1.15.19",
+                "sudo rm -rf /var/log/cloud-init*.log"
+            ]
+        }
+    ]
+}
