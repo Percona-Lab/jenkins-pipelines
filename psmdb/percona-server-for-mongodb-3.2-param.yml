@@ -1,0 +1,242 @@
+- job:
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - shell: |-
+        result=$(hostname | grep -c "min-xenial-x64" || true)
+        if [ ${result} -eq 1 ]; then
+        # running on openstack instance so we need to setup the instance first
+        echo "----------------"
+        echo "HOST INFO:"
+        echo "HOSTNAME: $(hostname)"
+        echo "OPENSTACK_PUBLIC_IP: ${OPENSTACK_PUBLIC_IP}"
+        echo "USER: $(id)"
+        echo "DISK SPACE"
+        df -h
+        echo "LIMITS"
+        ulimit -a
+        echo "NETWORK"
+        ip addr show
+        echo "----------------"
+        #
+        if [ $(grep -c $(hostname) /etc/hosts) -eq 0 ]; then
+        sudo sed -i "s/127.0.0.1 localhost/127.0.0.1 localhost $(hostname)/" /etc/hosts
+        fi
+        #
+        sudo rm -rf /data
+        sudo mkdir /data
+        sudo chmod a+rwx /data
+        #
+        if [ ! -f /usr/local/go/bin/go ]; then
+        rm -f go1.8.3.linux-amd64.tar.gz
+        wget http://jenkins.percona.com/downloads/golang/go1.8.3.linux-amd64.tar.gz
+        sudo tar -C /usr/local -xzf go1.8.3.linux-amd64.tar.gz
+        fi
+        export PATH=$PATH:/usr/local/go/bin
+        #
+        sudo apt-get update
+        sudo apt-get -y install build-essential python-pip g++-5 gcc-5 libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev python-ptyprocess scons libsasl2-dev scons libsasl2-dev pkg-config libpcap0.8-dev libssl-dev cmake valgrind
+        sudo pip install pymongo subprocess32 PyYAML
+
+        sudo percona-server-mongodb/support-files/ldap-sasl/deploy_ldap_and_sasl.sh
+        # https://docs.mongodb.com/manual/tutorial/configure-ldap-sasl-openldap/#test-the-saslauthd-configuration
+        sudo chmod 755 /var/run/saslauthd
+        sudo percona-server-mongodb/support-files/ldap-sasl/check_saslauthd.sh
+        sudo apt-get clean all
+        fi
+    - raw:
+        xml: |
+          <hudson.plugins.templateproject.ProxyBuilder plugin="template-project@1.5.2">
+          <projectName>percona-server-for-mongodb-3.2-template</projectName>
+          </hudson.plugins.templateproject.ProxyBuilder>
+    concurrent: true
+    description: null
+    disabled: false
+    name: !!python/unicode 'percona-server-for-mongodb-3.2-param'
+    node: psmdb
+    parameters:
+    - string:
+        default: ''
+        description: Build description which will be visible in build history on the
+          right side.
+        name: DESCRIPTION
+        trim: false
+    - string:
+        default: https://github.com/percona/percona-server-mongodb.git
+        description: ''
+        name: PSM_REPO
+        trim: false
+    - string:
+        default: v3.2
+        description: ''
+        name: PSM_BRANCH
+        trim: false
+    - string:
+        default: '4'
+        description: <h3>Number of parallel jobs for running tests, auto=number of
+          cores or specify exact number like 8,4,2,1</h3>
+        name: JOBS
+        trim: false
+    - string:
+        default: resmoke_psmdb_3.2_medium
+        description: |-
+          <h3>AVAILABLE OPTIONS:<br>
+          core_all_engines<br>
+          core_default<br>
+          resmoke_psmdb_3.2_big<br>
+          resmoke_psmdb_3.2_medium<br>
+          This is test suite from psmdb-misc-scripts/suite_sets and needs to be without .txt extension</h3>
+        name: SUITE
+        trim: false
+    - text:
+        default: ''
+        description: |-
+          <h3>With this you can specify a custom suite content which will be generated and passed to resmoke script.<br>
+          EXAMPLE CONTENT:<br>
+          aggregation|mmapv1|wiredTiger|PerconaFT|inMemory|rocksdb<br>
+          core|mmapv1|wiredTiger|PerconaFT|inMemory|rocksdb<br>
+          sharding --excludeWithAnyTags=requires_persistence,requires_journaling|inMemory</h3>
+        name: CUSTOM_SUITE
+        trim: false
+    - bool:
+        default: false
+        description: If this is enabled the binaries will be built with ASAN instrumentation
+          and then tests run.
+        name: ASAN_RUN
+    - bool:
+        default: false
+        description: <h3>Don't build the binaries from github but copy the latest
+          binaries from the release job and run tests on them</h3>
+        name: RELEASE_TEST
+    - bool:
+        default: true
+        description: This enables killer.sh to monitor and kill stalled tests
+        name: ENABLE_KILLER
+    project-type: freestyle
+    properties:
+    - raw:
+        xml: |
+          <hudson.plugins.buildblocker.BuildBlockerProperty plugin="build-blocker-plugin@1.7.3">
+          <useBuildBlocker>false</useBuildBlocker>
+          <blockLevel>GLOBAL</blockLevel>
+          <scanQueueFor>DISABLED</scanQueueFor>
+          <blockingJobs />
+          </hudson.plugins.buildblocker.BuildBlockerProperty>
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: -1
+        days-to-keep: -1
+        num-to-keep: 30
+    - raw:
+        xml: |
+          <hudson.plugins.disk__usage.DiskUsageProperty plugin="disk-usage@0.28" />
+    publishers:
+    - raw:
+        xml: |
+          <hudson.plugins.warnings.WarningsPublisher plugin="warnings@4.68">
+          <healthy />
+          <unHealthy />
+          <thresholdLimit>low</thresholdLimit>
+          <pluginName>[WARNINGS] </pluginName>
+          <defaultEncoding />
+          <canRunOnFailed>false</canRunOnFailed>
+          <usePreviousBuildAsReference>false</usePreviousBuildAsReference>
+          <useStableBuildAsReference>false</useStableBuildAsReference>
+          <useDeltaValues>false</useDeltaValues>
+          <thresholds plugin="analysis-core@1.95">
+          <unstableTotalAll />
+          <unstableTotalHigh />
+          <unstableTotalNormal />
+          <unstableTotalLow />
+          <unstableNewAll />
+          <unstableNewHigh />
+          <unstableNewNormal />
+          <unstableNewLow />
+          <failedTotalAll />
+          <failedTotalHigh />
+          <failedTotalNormal />
+          <failedTotalLow />
+          <failedNewAll />
+          <failedNewHigh />
+          <failedNewNormal />
+          <failedNewLow />
+          </thresholds>
+          <shouldDetectModules>false</shouldDetectModules>
+          <dontComputeNew>true</dontComputeNew>
+          <doNotResolveRelativePaths>true</doNotResolveRelativePaths>
+          <includePattern />
+          <excludePattern />
+          <messagesPattern />
+          <categoriesPattern />
+          <parserConfigurations />
+          <consoleParsers>
+          <hudson.plugins.warnings.ConsoleParser>
+          <parserName>GNU Make + GNU C Compiler (gcc)</parserName>
+          </hudson.plugins.warnings.ConsoleParser>
+          </consoleParsers>
+          </hudson.plugins.warnings.WarningsPublisher>
+    - raw:
+        xml: |
+          <hudson.tasks.ArtifactArchiver>
+          <artifacts>percona-server-mongodb/resmoke_summary*.log, percona-server-mongodb/killer.log, percona-server-mongodb/resmoke_logs.tar.gz</artifacts>
+          <allowEmptyArchive>false</allowEmptyArchive>
+          <onlyIfSuccessful>false</onlyIfSuccessful>
+          <fingerprint>false</fingerprint>
+          <defaultExcludes>true</defaultExcludes>
+          <caseSensitive>true</caseSensitive>
+          </hudson.tasks.ArtifactArchiver>
+    - raw:
+        xml: |
+          <hudson.tasks.junit.JUnitResultArchiver plugin="junit@1.24">
+          <testResults>percona-server-mongodb/junit.xml</testResults>
+          <keepLongStdio>false</keepLongStdio>
+          <healthScaleFactor>1.0</healthScaleFactor>
+          <allowEmptyResults>false</allowEmptyResults>
+          </hudson.tasks.junit.JUnitResultArchiver>
+    - raw:
+        xml: |
+          <jenkins.plugins.slack.SlackNotifier plugin="slack@2.3">
+          <baseUrl />
+          <teamDomain />
+          <authToken />
+          <authTokenCredentialId />
+          <botUser>false</botUser>
+          <room>psmdb-standup</room>
+          <startNotification>false</startNotification>
+          <notifySuccess>false</notifySuccess>
+          <notifyAborted>false</notifyAborted>
+          <notifyNotBuilt>false</notifyNotBuilt>
+          <notifyUnstable>true</notifyUnstable>
+          <notifyRegression>false</notifyRegression>
+          <notifyFailure>true</notifyFailure>
+          <notifyBackToNormal>false</notifyBackToNormal>
+          <notifyRepeatedFailure>false</notifyRepeatedFailure>
+          <includeTestSummary>true</includeTestSummary>
+          <includeFailedTests>false</includeFailedTests>
+          <commitInfoChoice>AUTHORS_AND_TITLES</commitInfoChoice>
+          <includeCustomMessage>false</includeCustomMessage>
+          <customMessage />
+          </jenkins.plugins.slack.SlackNotifier>
+    - workspace-cleanup:
+        clean-if:
+        - success: true
+        - unstable: true
+        - failure: true
+        - not-built: true
+        - aborted: true
+        clean-parent: false
+        dirmatch: false
+        exclude: []
+        fail-build: true
+        include: []
+    scm:
+    - git:
+        basedir: percona-server-mongodb
+        branches:
+        - ${PSM_BRANCH}
+        url: ${PSM_REPO}
+        wipe-workspace: true
+    triggers: []
+    wrappers:
+    - timestamps
+    - inject: {}

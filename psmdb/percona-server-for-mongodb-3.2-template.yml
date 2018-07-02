@@ -1,0 +1,422 @@
+- job:
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - shell: echo "###DESCRIPTION###${DESCRIPTION}###"
+    - raw:
+        xml: |
+          <hudson.plugins.descriptionsetter.DescriptionSetterBuilder plugin="description-setter@1.10">
+          <regexp>^###DESCRIPTION###(.*)###$</regexp>
+          </hudson.plugins.descriptionsetter.DescriptionSetterBuilder>
+    - shell: |-
+        # clean workspace
+        if [ ${RELEASE_TEST} = true ]; then
+        rm -rf ${WORKSPACE}/*
+        fi
+
+        #cleanup
+        killall -9 mongos || true
+        killall -9 mongod || true
+        pkill -f killer.sh || true
+    - shell: |-
+        if [ ${RELEASE_TEST} != true ]; then
+        # prepare source
+        #
+        #git clone ${PSM_REPO}
+        cd percona-server-mongodb
+        #git checkout ${PSM_BRANCH}
+        REVISION=$(git rev-parse --short HEAD)
+        REVISION_LONG=$(git rev-parse HEAD)
+        # Need to fetch tags from upstream to be able to describe the commit with version
+        #if [ ${BUILD_TYPE} = "param" ]; then
+        git remote add upstream https://github.com/mongodb/mongo.git
+        git fetch upstream --tags
+        #fi
+        PSM_VERSION=$(git describe --tags | sed 's/^psmdb-//' | sed 's/^r//' | awk -F '-' '{print $1}')
+        PSM_RELEASE=$(git describe --tags | sed 's/^psmdb-//' | sed 's/^r//' |awk -F '-' '{print $2}')
+        # create a proper version.json
+        echo "{" > version.json
+        echo "    \"version\": \"${PSM_VERSION}-${PSM_RELEASE}\"," >> version.json
+        echo "    \"githash\": \"${REVISION_LONG}\"" >> version.json
+        echo "}" >> version.json
+        #
+        if [ ${MAIN_VERSION_LINE} = "v3.2" ]; then
+        rm -fr debian rpm
+        cp -a percona-packaging/manpages .
+        cp -a percona-packaging/docs/* .
+        fi
+        #
+        # submodules
+        git submodule init
+        git submodule update
+        #
+        rm -rf mongo-tools
+        git clone https://github.com/mongodb/mongo-tools.git
+        pushd mongo-tools
+        if [ ${MAIN_VERSION_LINE} = "v3.2" ]; then
+        git checkout v3.2
+        else
+        git checkout v3.4
+        fi
+        #MONGO_TOOLS_TAG=$(git describe --tags | awk -F '-' '{print $1}')
+        MONGO_TOOLS_TAG=$(git describe --tags)
+        git checkout $MONGO_TOOLS_TAG
+        echo "export PSMDB_TOOLS_COMMIT_HASH=\"$(git rev-parse HEAD)\"" > set_tools_revision.sh
+        echo "export PSMDB_TOOLS_REVISION=\"${PSM_VERSION}-${PSM_RELEASE}\"" >> set_tools_revision.sh
+        chmod +x set_tools_revision.sh
+        popd
+        #
+        cd ${WORKSPACE}
+        fi
+        rm -rf psmdb-misc-scripts
+        git clone https://github.com/Percona-QA/psmdb-misc-scripts.git --depth 1
+    - shell: |-
+        if [ ${RELEASE_TEST} != true ]; then
+        # build binaries
+        if [ -f /opt/percona-devtoolset/enable ]; then
+        source /opt/percona-devtoolset/enable
+        fi
+        #
+        export PATH=/usr/local/go/bin:$PATH
+        #
+        if [ -f /etc/debian_version ]; then
+        export CC=gcc-4.8
+        export CXX=g++-4.8
+        else
+        export CC=$(which gcc)
+        export CXX=$(which g++)
+        fi
+        #
+        if [ ${ASAN_RUN} = true ]; then
+        ASAN_OPTIONS="--allocator=system --sanitize=address"
+        fi
+        #
+        if [ ! -z "${CUSTOM_SUITE}" ]; then
+        UNITTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^unittests" || true)
+        DBTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^dbtest" || true)
+        INTEGRATIONTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^integration_tests" || true)
+        else
+        UNITTESTS=$(cat psmdb-misc-scripts/suite_sets/${SUITE}.txt | grep -c "^unittests" || true)
+        DBTESTS=$(cat psmdb-misc-scripts/suite_sets/${SUITE}.txt | grep -c "^dbtest" || true)
+        INTEGRATIONTESTS=$(cat psmdb-misc-scripts/suite_sets/${SUITE}.txt | grep -c "^integration_tests" || true)
+        fi
+        if [ ${UNITTESTS} -gt 0 ]; then
+        OPT_TARGETS=" unittests"
+        else
+        OPT_TARGETS=""
+        fi
+        if [ ${DBTESTS} -gt 0 ]; then
+        OPT_TARGETS="${OPT_TARGETS} dbtest"
+        else
+        OPT_TARGETS="${OPT_TARGETS}"
+        fi
+        if [ ${INTEGRATIONTESTS} -gt 0 ]; then
+        OPT_TARGETS="${OPT_TARGETS} integration_tests"
+        else
+        OPT_TARGETS="${OPT_TARGETS}"
+        fi
+        PSM_TARGETS="mongod mongos mongo mongobridge${OPT_TARGETS}"
+        TARBALL_SUFFIX=""
+        if [ -f /etc/debian_version ]; then
+        export OS_RELEASE="$(lsb_release -sc)"
+        fi
+        #
+        if [ -f /etc/redhat-release ]; then
+        export OS_RELEASE="centos$(lsb_release -sr | awk -F'.' '{print $1}')"
+        RHEL=$(rpm --eval %rhel)
+        fi
+        #
+        ARCH=$(uname -m 2>/dev/null||true)
+        PSMDIR=percona-server-mongodb
+        PSMDIR_ABS=${WORKSPACE}/percona-server-mongodb
+        TOOLSDIR=${PSMDIR}/mongo-tools
+        TOOLSDIR_ABS=${WORKSPACE}/${TOOLSDIR}
+        TOOLS_TAGS="ssl sasl"
+
+        # NJOBS=$(grep -c processor /proc/cpuinfo)
+        NJOBS=4
+
+        # link PSM dir to /tmp to avoid "argument list too long error"
+        rm -fr /tmp/${PSMDIR}
+        ln -fs ${PSMDIR_ABS} /tmp/${PSMDIR}
+        cd /tmp
+        #
+        export CFLAGS="${CFLAGS:-} -fno-omit-frame-pointer"
+        export CXXFLAGS="${CFLAGS}"
+        export INSTALLDIR=${WORKSPACE}/install
+        # BLD-800
+        export PORTABLE=1
+        export USE_SSE=1
+        #
+        rm -rf ${INSTALLDIR}
+        mkdir -p ${INSTALLDIR}/include
+        mkdir -p ${INSTALLDIR}/bin
+        mkdir -p ${INSTALLDIR}/lib
+        #
+        # TokuBackup
+        if [ ${MAIN_VERSION_LINE} = "v3.2" ]; then
+        pushd $PSMDIR/src/third_party/Percona-TokuBackup/backup
+        cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/ -DBUILD_STATIC_LIBRARY=ON
+        make -j$NJOBS
+        make install DESTDIR=${INSTALLDIR}
+        popd
+        fi
+        # PerconaFT
+        if [ ${MAIN_VERSION_LINE} = "v3.2" ]; then
+        pushd $PSMDIR/src/third_party/PerconaFT
+        cmake . -DCMAKE_BUILD_TYPE=Release -DUSE_VALGRIND=OFF -DTOKU_DEBUG_PARANOID=OFF -DBUILD_TESTING=OFF -DCMAKE_INSTALL_PREFIX=/ -DJEMALLOC_SOURCE_DIR=${PSMDIR_ABS}/src/third_party/jemalloc
+        make -j$NJOBS VERBOSE=1
+        make install DESTDIR=${INSTALLDIR}
+        popd
+        fi
+        #
+        # RocksDB
+        pushd ${PSMDIR}/src/third_party/rocksdb
+        # static liblz4.a
+        rm -rf lz4-r127 || true
+        wget https://codeload.github.com/Cyan4973/lz4/tar.gz/r127
+        mv r127 lz4-r127.tar.gz
+        tar xvzf lz4-r127.tar.gz
+        pushd lz4-r127/lib
+        make CFLAGS=' -O3 -I. -std=c99 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Wstrict-prototypes -pedantic -fPIC' all
+        popd
+        cp lz4-r127/lib/liblz4.a .
+        cp ./lz4-r127/lib/lz4.h ${INSTALLDIR}/include
+        cp ./lz4-r127/lib/lz4frame.h ${INSTALLDIR}/include
+        cp ./lz4-r127/lib/lz4hc.h ${INSTALLDIR}/include
+        cp ./lz4-r127/lib/liblz4.a ${INSTALLDIR}/lib
+        # static librocksdb.a
+        make -j$NJOBS EXTRA_CFLAGS='-DHAVE_SSE42' EXTRA_CXXFLAGS='-DHAVE_SSE42' static_lib
+        #make -j$NJOBS EXTRA_CFLAGS='-fPIC' EXTRA_CXXFLAGS='-fPIC' static_lib
+        make install-static INSTALL_PATH=${INSTALLDIR}
+        popd
+        #
+        # Finally build Percona Server for MongoDB with SCons
+        cd ${PSMDIR_ABS}
+        if [ ${MAIN_VERSION_LINE} = "v3.2" ]; then
+        scons CC=${CC} CXX=${CXX} --release --ssl --opt=on -j$NJOBS --use-sasl-client --tokubackup --wiredtiger --audit --rocksdb --PerconaFT --inmemory --hotbackup ${ASAN_OPTIONS} CPPPATH=${INSTALLDIR}/include LIBPATH=${INSTALLDIR}/lib ${PSM_TARGETS}
+        else
+        scons CC=${CC} CXX=${CXX} --release --ssl --opt=on -j$NJOBS --use-sasl-client --wiredtiger --audit --rocksdb --inmemory --hotbackup ${ASAN_OPTIONS} CPPPATH=${INSTALLDIR}/include LIBPATH=${INSTALLDIR}/lib ${PSM_TARGETS}
+        fi
+        #
+        # scons install doesn't work - it installs the binaries not linked with fractal tree
+        #scons --prefix=$PWD/$PSMDIR install
+        #
+        #mkdir -p ${PSMDIR}/bin
+        #for target in ${PSM_TARGETS[@]}; do
+        #  cp -f $target ${PSMDIR}/bin
+        #  strip --strip-debug ${PSMDIR}/bin/${target}
+        #done
+        #
+        cd ${WORKSPACE}
+        #
+        # Build mongo tools
+        cd ${TOOLSDIR}
+        rm -rf vendor/pkg
+        [[ ${PATH} == *"/usr/local/go/bin"* && -x /usr/local/go/bin/go ]] || export PATH=/usr/local/go/bin:${PATH}
+        . ./set_gopath.sh
+        . ./set_tools_revision.sh
+        mkdir -p bin
+        for i in bsondump mongostat mongofiles mongoexport mongoimport mongorestore mongodump mongotop mongooplog; do
+        echo "Building ${i}..."
+        go build -a -o "bin/$i" -ldflags "-X github.com/mongodb/mongo-tools/common/options.Gitspec=${PSMDB_TOOLS_COMMIT_HASH} -X github.com/mongodb/mongo-tools/common/options.VersionStr=${PSMDB_TOOLS_REVISION}" -tags "${TOOLS_TAGS}" "$i/main/$i.go"
+        done
+        # move mongo tools to PSM root dir for running tests
+        mv bin/* ${PSMDIR_ABS}
+        # end build tools
+        fi
+    - raw:
+        xml: |
+          <org.jenkinsci.plugins.conditionalbuildstep.ConditionalBuilder plugin="conditional-buildstep@1.3.6">
+          <runner class="org.jenkins_ci.plugins.run_condition.BuildStepRunner$DontRun" plugin="run-condition@1.0" />
+          <runCondition class="org.jenkins_ci.plugins.run_condition.contributed.ShellCondition" plugin="run-condition@1.0">
+          <command>if [ ${RELEASE_TEST} = true ]; then
+          exit 0
+          else
+          exit 1
+          fi</command>
+          </runCondition>
+          <conditionalbuilders>
+          <hudson.plugins.copyartifact.CopyArtifact plugin="copyartifact@1.39.1">
+          <project>percona-server-mongodb-3.2-new-SOURCE</project>
+          <filter>*.properties, source_tarball/*.tar.gz</filter>
+          <target />
+          <excludes />
+          <selector class="hudson.plugins.copyartifact.StatusBuildSelector" />
+          <flatten>true</flatten>
+          <doNotFingerprintArtifacts>false</doNotFingerprintArtifacts>
+          </hudson.plugins.copyartifact.CopyArtifact>
+          <hudson.plugins.copyartifact.CopyArtifact plugin="copyartifact@1.39.1">
+          <project>percona-server-mongodb-3.2-TARBALL-new-release/label_exp=min-xenial-x64</project>
+          <filter>tarball/*.tar.gz</filter>
+          <target />
+          <excludes />
+          <selector class="hudson.plugins.copyartifact.StatusBuildSelector" />
+          <flatten>true</flatten>
+          <doNotFingerprintArtifacts>false</doNotFingerprintArtifacts>
+          </hudson.plugins.copyartifact.CopyArtifact>
+          </conditionalbuilders>
+          </org.jenkinsci.plugins.conditionalbuildstep.ConditionalBuilder>
+    - shell: |-
+        # run tests
+        cd ${WORKSPACE}
+        PSMDIR="percona-server-mongodb"
+        PSMDIR_ABS=${WORKSPACE}/${PSMDIR}
+        DISTRIBUTION="xenial"
+
+        if [ ${RELEASE_TEST} = true ]; then
+        rm -rf install
+        rm -rf percona-server-mongodb
+        #rm -f *.tar.gz
+        #wget http://jenkins.percona.com/job/percona-server-mongodb-3.2-SOURCE/lastSuccessfulBuild/artifact/percona-server-mongodb-3.properties
+        PSM_VERSION=$(grep '^VERSION=' percona-server-mongodb-32.properties|cut -d'=' -f2)
+        PSM_RELEASE=$(grep '^RELEASE=' percona-server-mongodb-32.properties|cut -d'=' -f2)
+        #wget http://jenkins.percona.com/job/percona-server-mongodb-3.2-SOURCE/lastSuccessfulBuild/artifact/percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz
+        #wget http://jenkins.percona.com/job/percona-server-mongodb-3.2-TARBALL-release/label_exp=ubuntu-xenial-64bit/lastSuccessfulBuild/artifact/percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}-${DISTRIBUTION}-x86_64.tar.gz
+        if [ ! -f "percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz" ]; then
+        echo "Tarball percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz doesn't exists!"
+        exit 1
+        fi
+        if [ ! -f "percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}-${DISTRIBUTION}-x86_64.tar.gz" ]; then
+        echo "Tarball percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}-${DISTRIBUTION}-x86_64.tar.gz doesn't exists!"
+        exit 1
+        fi
+        tar xf percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz
+        tar xf percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}-${DISTRIBUTION}-x86_64.tar.gz
+        mv percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}/bin/* percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}
+        mv percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE} ${PSMDIR}
+        fi
+
+        if [ "$JOBS" != "auto" ]; then
+        sed -i "s/^RESMOKE_JOBS=.*$/RESMOKE_JOBS=${JOBS}/" psmdb-misc-scripts/run_resmoke_psmdb_3.2.sh
+        fi
+        if [ ! -z "${CUSTOM_SUITE}" ]; then
+        echo "${CUSTOM_SUITE}" > psmdb-misc-scripts/suite_sets/custom.txt
+        TEST_SUITE_FILE="custom.txt"
+        else
+        TEST_SUITE_FILE="${SUITE}.txt"
+        fi
+
+        cd ${PSMDIR_ABS}
+        find build/opt -type f -name '*.a' -delete || true
+        find build/opt -type f -name '*.o' -delete || true
+        touch killer.log
+        if [ ${ENABLE_KILLER} = true ]; then
+        ../psmdb-misc-scripts/killer.sh &
+        fi
+
+        ../psmdb-misc-scripts/run_resmoke_psmdb_3.2.sh 1 ${TEST_SUITE_FILE}
+        ../psmdb-misc-scripts/resmoke2junit.py
+
+        tar czf resmoke_logs.tar.gz  *.log *.json *.xml
+
+        #cleanup
+        killall -9 mongos || true
+        killall -9 mongod || true
+        pkill -f killer.sh || true
+    concurrent: false
+    description: null
+    disabled: true
+    name: !!python/unicode 'percona-server-for-mongodb-3.2-template'
+    project-type: freestyle
+    properties:
+    - raw:
+        xml: |
+          <hudson.plugins.buildblocker.BuildBlockerProperty plugin="build-blocker-plugin@1.7.3">
+          <useBuildBlocker>false</useBuildBlocker>
+          <blockLevel>GLOBAL</blockLevel>
+          <scanQueueFor>DISABLED</scanQueueFor>
+          <blockingJobs />
+          </hudson.plugins.buildblocker.BuildBlockerProperty>
+    - raw:
+        xml: |
+          <hudson.plugins.disk__usage.DiskUsageProperty plugin="disk-usage@0.28" />
+    publishers:
+    - raw:
+        xml: |
+          <hudson.plugins.warnings.WarningsPublisher plugin="warnings@4.66">
+          <healthy />
+          <unHealthy />
+          <thresholdLimit>low</thresholdLimit>
+          <pluginName>[WARNINGS] </pluginName>
+          <defaultEncoding />
+          <canRunOnFailed>false</canRunOnFailed>
+          <usePreviousBuildAsReference>false</usePreviousBuildAsReference>
+          <useStableBuildAsReference>false</useStableBuildAsReference>
+          <useDeltaValues>false</useDeltaValues>
+          <thresholds plugin="analysis-core@1.95">
+          <unstableTotalAll />
+          <unstableTotalHigh />
+          <unstableTotalNormal />
+          <unstableTotalLow />
+          <unstableNewAll />
+          <unstableNewHigh />
+          <unstableNewNormal />
+          <unstableNewLow />
+          <failedTotalAll />
+          <failedTotalHigh />
+          <failedTotalNormal />
+          <failedTotalLow />
+          <failedNewAll />
+          <failedNewHigh />
+          <failedNewNormal />
+          <failedNewLow />
+          </thresholds>
+          <shouldDetectModules>false</shouldDetectModules>
+          <dontComputeNew>true</dontComputeNew>
+          <doNotResolveRelativePaths>true</doNotResolveRelativePaths>
+          <includePattern />
+          <excludePattern />
+          <messagesPattern />
+          <categoriesPattern />
+          <parserConfigurations />
+          <consoleParsers>
+          <hudson.plugins.warnings.ConsoleParser>
+          <parserName>GNU Make + GNU C Compiler (gcc)</parserName>
+          </hudson.plugins.warnings.ConsoleParser>
+          </consoleParsers>
+          </hudson.plugins.warnings.WarningsPublisher>
+    - raw:
+        xml: |
+          <hudson.tasks.ArtifactArchiver>
+          <artifacts>percona-server-mongodb/resmoke_summary*.log, percona-server-mongodb/killer.log, percona-server-mongodb/resmoke_logs.tar.gz</artifacts>
+          <allowEmptyArchive>false</allowEmptyArchive>
+          <onlyIfSuccessful>false</onlyIfSuccessful>
+          <fingerprint>false</fingerprint>
+          <defaultExcludes>true</defaultExcludes>
+          <caseSensitive>true</caseSensitive>
+          </hudson.tasks.ArtifactArchiver>
+    - raw:
+        xml: |
+          <hudson.tasks.junit.JUnitResultArchiver plugin="junit@1.24">
+          <testResults>percona-server-mongodb/junit.xml</testResults>
+          <keepLongStdio>false</keepLongStdio>
+          <healthScaleFactor>1.0</healthScaleFactor>
+          <allowEmptyResults>false</allowEmptyResults>
+          </hudson.tasks.junit.JUnitResultArchiver>
+    - raw:
+        xml: |
+          <jenkins.plugins.slack.SlackNotifier plugin="slack@2.3">
+          <baseUrl />
+          <teamDomain />
+          <authToken />
+          <authTokenCredentialId />
+          <botUser>false</botUser>
+          <room>psmdb-standup</room>
+          <startNotification>false</startNotification>
+          <notifySuccess>false</notifySuccess>
+          <notifyAborted>false</notifyAborted>
+          <notifyNotBuilt>false</notifyNotBuilt>
+          <notifyUnstable>true</notifyUnstable>
+          <notifyRegression>false</notifyRegression>
+          <notifyFailure>true</notifyFailure>
+          <notifyBackToNormal>false</notifyBackToNormal>
+          <notifyRepeatedFailure>false</notifyRepeatedFailure>
+          <includeTestSummary>true</includeTestSummary>
+          <includeFailedTests>false</includeFailedTests>
+          <commitInfoChoice>AUTHORS_AND_TITLES</commitInfoChoice>
+          <includeCustomMessage>false</includeCustomMessage>
+          <customMessage />
+          </jenkins.plugins.slack.SlackNotifier>
+    triggers: []
+    wrappers: []
