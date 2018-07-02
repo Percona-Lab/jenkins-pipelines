@@ -27,7 +27,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: mykola
+    Default: abychko-rsa-key
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
@@ -401,6 +401,7 @@ Resources:
           Groups:
           - !GetAtt JVPC.DefaultSecurityGroup
           - !GetAtt HTTPSecurityGroup.GroupId
+          - !GetAtt SSHSecurityGroup.GroupId
         TagSpecifications:
         - ResourceType: instance
           Tags:
