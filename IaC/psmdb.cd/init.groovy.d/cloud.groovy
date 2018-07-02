@@ -28,6 +28,7 @@ imageMap['min-jessie-x64'] = 'ami-fde96b9d'
 imageMap['min-stretch-x64'] = 'ami-b6e499ce'
 imageMap['min-trusty-x64'] = 'ami-08fbb070'
 imageMap['min-xenial-x64'] = 'ami-ba602bc2'
+imageMap['psmdb'] = imageMap['min-xenial-x64']
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
@@ -47,6 +48,7 @@ userMap['min-jessie-x64'] = 'admin'
 userMap['min-stretch-x64'] = 'admin'
 userMap['min-trusty-x64'] = 'ubuntu'
 userMap['min-xenial-x64'] = 'ubuntu'
+userMap['psmdb'] = userMap['min-xenial-x64']
 
 initMap = [:]
 initMap['docker'] = '''
@@ -141,6 +143,7 @@ initMap['min-jessie-x64'] = '''
 initMap['min-stretch-x64'] = initMap['min-artful-x64']
 initMap['min-trusty-x64'] = initMap['min-jessie-x64']
 initMap['min-xenial-x64'] = initMap['min-artful-x64']
+initMap['psmdb'] = initMap['min-xenial-x64']
 
 capMap = [:]
 capMap['c4.xlarge'] = '60'
@@ -159,6 +162,7 @@ typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
 typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-trusty-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
+typeMap['psmdb'] = typeMap['docker-32gb']
 
 execMap = [:]
 execMap['docker'] = '1'
@@ -172,6 +176,7 @@ execMap['min-jessie-x64'] = '1'
 execMap['min-stretch-x64'] = '1'
 execMap['min-trusty-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
+execMap['psmdb'] = '1'
 
 devMap = [:]
 devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -185,6 +190,7 @@ devMap['min-jessie-x64'] = devMap['micro-amazon']
 devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-trusty-x64'] = devMap['min-artful-x64']
 devMap['min-xenial-x64'] = devMap['min-artful-x64']
+devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 
 labelMap = [:]
 labelMap['docker'] = ''
@@ -198,6 +204,7 @@ labelMap['min-jessie-x64'] = ''
 labelMap['min-stretch-x64'] = ''
 labelMap['min-trusty-x64'] = ''
 labelMap['min-xenial-x64'] = ''
+labelMap['psmdb'] = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -258,14 +265,7 @@ String region = 'us-west-2'
         privateKey,                             // String privateKey
         '240',                                   // String instanceCapStr
         [
-            getTemplate('micro-amazon', "${region}${it}"),
-            getTemplate('min-artful-x64', "${region}${it}"),
-            getTemplate('min-jessie-x64', "${region}${it}"),
-            getTemplate('min-stretch-x64', "${region}${it}"),
-            getTemplate('min-trusty-x64', "${region}${it}"),
-            getTemplate('min-xenial-x64', "${region}${it}"),
-            getTemplate('min-centos-6-x64', "${region}${it}"),
-            getTemplate('min-centos-7-x64', "${region}${it}"),
+            getTemplate('psmdb', "${region}${it}"),
         ]                                       // List<? extends SlaveTemplate> templates
     )
 
