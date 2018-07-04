@@ -2,6 +2,12 @@
     block-downstream: false
     block-upstream: false
     builders:
+    - shell: |-
+        sudo apt-get update
+        sudo apt-get -y install build-essential python-pip g++-5 gcc-5 libgflags-dev libsnappy-dev gcc-4.8
+        sudo apt-get -y install zlib1g-dev libbz2-dev python-ptyprocess scons libsasl2-dev scons g++-4.8
+        sudo apt-get -y install pkg-config libpcap0.8-dev libssl-dev cmake valgrind libsasl2-dev
+        sudo pip install pymongo subprocess32 PyYAML
     - raw:
         xml: |
           <hudson.plugins.templateproject.ProxyBuilder plugin="template-project@1.5.2">
@@ -143,4 +149,13 @@
         ignore-post-commit-hooks: false
     wrappers:
     - timestamps
-    - inject: {}
+    - inject:
+        properties-content: |
+            BUILD_TYPE=trunk
+            MAIN_VERSION_LINE=v3.2
+            PSM_REPO=https://github.com/percona/percona-server-mongodb.git
+            PSM_BRANCH=v3.2
+            JOBS=4
+            SUITE=resmoke_psmdb_3.2_big
+            RELEASE_TEST=false
+            ENABLE_KILLER=true
