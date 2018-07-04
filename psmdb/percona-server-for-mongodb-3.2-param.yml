@@ -3,13 +3,10 @@
     block-upstream: false
     builders:
     - shell: |-
-        result=$(hostname | grep -c "min-xenial-x64" || true)
-        if [ ${result} -eq 1 ]; then
-        # running on openstack instance so we need to setup the instance first
+        # we need to setup the instance first
         echo "----------------"
         echo "HOST INFO:"
         echo "HOSTNAME: $(hostname)"
-        echo "OPENSTACK_PUBLIC_IP: ${OPENSTACK_PUBLIC_IP}"
         echo "USER: $(id)"
         echo "DISK SPACE"
         df -h
@@ -35,7 +32,9 @@
         export PATH=$PATH:/usr/local/go/bin
         #
         sudo apt-get update
-        sudo apt-get -y install build-essential python-pip g++-5 gcc-5 libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev python-ptyprocess scons libsasl2-dev scons libsasl2-dev pkg-config libpcap0.8-dev libssl-dev cmake valgrind
+        sudo apt-get -y install build-essential python-pip g++-5 gcc-5 libgflags-dev libsnappy-dev gcc-4.8
+        sudo apt-get -y install zlib1g-dev libbz2-dev python-ptyprocess scons libsasl2-dev scons g++-4.8
+        sudo apt-get -y install pkg-config libpcap0.8-dev libssl-dev cmake valgrind libsasl2-dev
         sudo pip install pymongo subprocess32 PyYAML
 
         sudo percona-server-mongodb/support-files/ldap-sasl/deploy_ldap_and_sasl.sh
@@ -43,7 +42,6 @@
         sudo chmod 755 /var/run/saslauthd
         sudo percona-server-mongodb/support-files/ldap-sasl/check_saslauthd.sh
         sudo apt-get clean all
-        fi
     - raw:
         xml: |
           <hudson.plugins.templateproject.ProxyBuilder plugin="template-project@1.5.2">
@@ -239,4 +237,7 @@
     triggers: []
     wrappers:
     - timestamps
-    - inject: {}
+    - inject:
+        properties-content: |
+            BUILD_TYPE=param
+            MAIN_VERSION_LINE=v3.2

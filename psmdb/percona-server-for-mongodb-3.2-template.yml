@@ -9,8 +9,9 @@
           <regexp>^###DESCRIPTION###(.*)###$</regexp>
           </hudson.plugins.descriptionsetter.DescriptionSetterBuilder>
     - shell: |-
+        #!/bin/bash
         # clean workspace
-        if [ ${RELEASE_TEST} = true ]; then
+        if [ "${RELEASE_TEST}" = "true" ]; then
         rm -rf ${WORKSPACE}/*
         fi
 
@@ -19,7 +20,7 @@
         killall -9 mongod || true
         pkill -f killer.sh || true
     - shell: |-
-        if [ ${RELEASE_TEST} != true ]; then
+        if [ "${RELEASE_TEST}" != "true" ]; then
         # prepare source
         #
         #git clone ${PSM_REPO}
@@ -28,7 +29,7 @@
         REVISION=$(git rev-parse --short HEAD)
         REVISION_LONG=$(git rev-parse HEAD)
         # Need to fetch tags from upstream to be able to describe the commit with version
-        #if [ ${BUILD_TYPE} = "param" ]; then
+        #if [ "${BUILD_TYPE}" = "param" ]; then
         git remote add upstream https://github.com/mongodb/mongo.git
         git fetch upstream --tags
         #fi
@@ -40,7 +41,7 @@
         echo "    \"githash\": \"${REVISION_LONG}\"" >> version.json
         echo "}" >> version.json
         #
-        if [ ${MAIN_VERSION_LINE} = "v3.2" ]; then
+        if [ "${MAIN_VERSION_LINE}" = "v3.2" ]; then
         rm -fr debian rpm
         cp -a percona-packaging/manpages .
         cp -a percona-packaging/docs/* .
@@ -53,10 +54,10 @@
         rm -rf mongo-tools
         git clone https://github.com/mongodb/mongo-tools.git
         pushd mongo-tools
-        if [ ${MAIN_VERSION_LINE} = "v3.2" ]; then
-        git checkout v3.2
+        if [ "${MAIN_VERSION_LINE}" = "v3.2" ]; then
+          git checkout v3.2
         else
-        git checkout v3.4
+          git checkout v3.4
         fi
         #MONGO_TOOLS_TAG=$(git describe --tags | awk -F '-' '{print $1}')
         MONGO_TOOLS_TAG=$(git describe --tags)
@@ -71,7 +72,7 @@
         rm -rf psmdb-misc-scripts
         git clone https://github.com/Percona-QA/psmdb-misc-scripts.git --depth 1
     - shell: |-
-        if [ ${RELEASE_TEST} != true ]; then
+        if [ "${RELEASE_TEST}" != "true" ]; then
         # build binaries
         if [ -f /opt/percona-devtoolset/enable ]; then
         source /opt/percona-devtoolset/enable
@@ -100,17 +101,17 @@
         DBTESTS=$(cat psmdb-misc-scripts/suite_sets/${SUITE}.txt | grep -c "^dbtest" || true)
         INTEGRATIONTESTS=$(cat psmdb-misc-scripts/suite_sets/${SUITE}.txt | grep -c "^integration_tests" || true)
         fi
-        if [ ${UNITTESTS} -gt 0 ]; then
+        if [ "${UNITTESTS}" -gt 0 ]; then
         OPT_TARGETS=" unittests"
         else
         OPT_TARGETS=""
         fi
-        if [ ${DBTESTS} -gt 0 ]; then
+        if [ "${DBTESTS}" -gt 0 ]; then
         OPT_TARGETS="${OPT_TARGETS} dbtest"
         else
         OPT_TARGETS="${OPT_TARGETS}"
         fi
-        if [ ${INTEGRATIONTESTS} -gt 0 ]; then
+        if [ "${INTEGRATIONTESTS}" -gt 0 ]; then
         OPT_TARGETS="${OPT_TARGETS} integration_tests"
         else
         OPT_TARGETS="${OPT_TARGETS}"
@@ -154,7 +155,7 @@
         mkdir -p ${INSTALLDIR}/lib
         #
         # TokuBackup
-        if [ ${MAIN_VERSION_LINE} = "v3.2" ]; then
+        if [ "${MAIN_VERSION_LINE}" = "v3.2" ]; then
         pushd $PSMDIR/src/third_party/Percona-TokuBackup/backup
         cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/ -DBUILD_STATIC_LIBRARY=ON
         make -j$NJOBS
@@ -162,7 +163,7 @@
         popd
         fi
         # PerconaFT
-        if [ ${MAIN_VERSION_LINE} = "v3.2" ]; then
+        if [ "${MAIN_VERSION_LINE}" = "v3.2" ]; then
         pushd $PSMDIR/src/third_party/PerconaFT
         cmake . -DCMAKE_BUILD_TYPE=Release -DUSE_VALGRIND=OFF -DTOKU_DEBUG_PARANOID=OFF -DBUILD_TESTING=OFF -DCMAKE_INSTALL_PREFIX=/ -DJEMALLOC_SOURCE_DIR=${PSMDIR_ABS}/src/third_party/jemalloc
         make -j$NJOBS VERBOSE=1
@@ -193,7 +194,7 @@
         #
         # Finally build Percona Server for MongoDB with SCons
         cd ${PSMDIR_ABS}
-        if [ ${MAIN_VERSION_LINE} = "v3.2" ]; then
+        if [ "${MAIN_VERSION_LINE}" = "v3.2" ]; then
         scons CC=${CC} CXX=${CXX} --release --ssl --opt=on -j$NJOBS --use-sasl-client --tokubackup --wiredtiger --audit --rocksdb --PerconaFT --inmemory --hotbackup ${ASAN_OPTIONS} CPPPATH=${INSTALLDIR}/include LIBPATH=${INSTALLDIR}/lib ${PSM_TARGETS}
         else
         scons CC=${CC} CXX=${CXX} --release --ssl --opt=on -j$NJOBS --use-sasl-client --wiredtiger --audit --rocksdb --inmemory --hotbackup ${ASAN_OPTIONS} CPPPATH=${INSTALLDIR}/include LIBPATH=${INSTALLDIR}/lib ${PSM_TARGETS}
@@ -264,7 +265,7 @@
         PSMDIR_ABS=${WORKSPACE}/${PSMDIR}
         DISTRIBUTION="xenial"
 
-        if [ ${RELEASE_TEST} = true ]; then
+        if [ "${RELEASE_TEST}" = "true" ]; then
         rm -rf install
         rm -rf percona-server-mongodb
         #rm -f *.tar.gz
@@ -301,7 +302,7 @@
         find build/opt -type f -name '*.a' -delete || true
         find build/opt -type f -name '*.o' -delete || true
         touch killer.log
-        if [ ${ENABLE_KILLER} = true ]; then
+        if [ "${ENABLE_KILLER}" = "true" ]; then
         ../psmdb-misc-scripts/killer.sh &
         fi
 
