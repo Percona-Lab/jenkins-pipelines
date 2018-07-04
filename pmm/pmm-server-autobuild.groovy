@@ -109,6 +109,7 @@ pipeline {
                             build-server-rpm orchestrator
                             build-server-rpm rds_exporter
                             build-server-rpm prometheus
+                            build-server-rpm prometheus1
                             build-server-rpm grafana
                         "
                     '''
