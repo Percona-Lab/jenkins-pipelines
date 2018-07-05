@@ -220,4 +220,5 @@
     triggers: []
     wrappers:
     - timestamps
-    - inject: {}
+    - inject:
+        properties-content: WORKFLOW_TYPE=param

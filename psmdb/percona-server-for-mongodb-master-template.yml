@@ -16,8 +16,7 @@
         if [ ${result} -eq 0 ]; then
         result=$(hostname | grep -c "bigram.*xenial" || true)
         fi
-        if [ ${result} -eq 1 ]; then
-        # running on openstack instance so we need to setup the instance first
+        # we need to setup the instance first
         echo "----------------"
         echo "HOST INFO:"
         echo "HOSTNAME: $(hostname)"
@@ -44,9 +43,9 @@
         sudo chmod a+rwx /data
         #
         if [ ! -f /usr/local/go/bin/go ]; then
-        rm -f go1.9.2.linux-amd64.tar.gz
-        wget https://redirector.gvt1.com/edgedl/go/go1.9.2.linux-amd64.tar.gz
-        sudo tar -C /usr/local -xzf go1.9.2.linux-amd64.tar.gz
+          rm -f go1.9.2.linux-amd64.tar.gz
+          wget https://redirector.gvt1.com/edgedl/go/go1.9.2.linux-amd64.tar.gz
+          sudo tar -C /usr/local -xzf go1.9.2.linux-amd64.tar.gz
         fi
         export PATH=$PATH:/usr/local/go/bin
         #
@@ -59,11 +58,9 @@
         # https://docs.mongodb.com/manual/tutorial/configure-ldap-sasl-openldap/#test-the-saslauthd-configuration
         sudo chmod 755 /var/run/saslauthd
         sudo percona-server-mongodb/support-files/ldap-sasl/check_saslauthd.sh
-        sudo apt-get clean all
-        fi
     - shell: |-
         # clean workspace
-        if [ ${RELEASE_TEST} = true ]; then
+        if [ "${RELEASE_TEST}" = "true" ]; then
         rm -rf ${WORKSPACE}/*
         fi
 
@@ -72,7 +69,7 @@
         killall -9 mongod || true
         pkill -f killer.sh || true
     - shell: |-
-        if [ ${RELEASE_TEST} != true ]; then
+        if [ "${RELEASE_TEST}" != true ]; then
         # prepare source
         #
         #git clone ${PSM_REPO}
@@ -81,7 +78,7 @@
         REVISION=$(git rev-parse --short HEAD)
         REVISION_LONG=$(git rev-parse HEAD)
         # Need to fetch tags from upstream to be able to describe the commit with version
-        #if [ ${WORKFLOW_TYPE} = "param" ]; then
+        #if [ "${WORKFLOW_TYPE}" = "param" ]; then
         git remote add upstream https://github.com/mongodb/mongo.git
         git fetch upstream --tags
         #fi
@@ -119,7 +116,7 @@
         popd
         fi
     - shell: |-
-        if [ ${RELEASE_TEST} != true ]; then
+        if [ "${RELEASE_TEST}" != "true" ]; then
         # build binaries
         if [ -f /opt/percona-devtoolset/enable ]; then
         source /opt/percona-devtoolset/enable
@@ -135,30 +132,30 @@
         export CXX=$(which g++)
         fi
         #
-        if [ ${ASAN_RUN} = true ]; then
-        ASAN_OPTIONS="--allocator=system --sanitize=address"
+        if [ "${ASAN_RUN}" = true ]; then
+          ASAN_OPTIONS="--allocator=system --sanitize=address"
         fi
         #
-        if [ ! -z "${CUSTOM_SUITE}" ]; then
-        UNITTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^unittests" || true)
-        DBTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^dbtest" || true)
-        INTEGRATIONTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^integration_tests" || true)
+        if [ -n "${CUSTOM_SUITE}" ]; then
+          UNITTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^unittests" || true)
+          DBTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^dbtest" || true)
+          INTEGRATIONTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^integration_tests" || true)
         else
-        UNITTESTS=$(grep -c "^unittests" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
-        DBTESTS=$(grep -c "^dbtest" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
-        INTEGRATIONTESTS=$(grep -c "^integration_tests" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
+          UNITTESTS=$(grep -c "^unittests" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
+          DBTESTS=$(grep -c "^dbtest" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
+          INTEGRATIONTESTS=$(grep -c "^integration_tests" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
         fi
-        if [ ${UNITTESTS} -gt 0 ]; then
+        if [ "${UNITTESTS}" -gt 0 ]; then
         OPT_TARGETS=" unittests"
         else
         OPT_TARGETS=""
         fi
-        if [ ${DBTESTS} -gt 0 ]; then
+        if [ "${DBTESTS}" -gt 0 ]; then
         OPT_TARGETS="${OPT_TARGETS} dbtest"
         else
         OPT_TARGETS="${OPT_TARGETS}"
         fi
-        if [ ${INTEGRATIONTESTS} -gt 0 ]; then
+        if [ "${INTEGRATIONTESTS}" -gt 0 ]; then
         OPT_TARGETS="${OPT_TARGETS} integration_tests"
         else
         OPT_TARGETS="${OPT_TARGETS}"
@@ -200,7 +197,7 @@
         #
         # Finally build Percona Server for MongoDB with SCons
         cd ${PSMDIR_ABS}
-        if [ ${BUILD_TYPE} = "debug" ]; then
+        if [ "${BUILD_TYPE}" = "debug" ]; then
         buildscripts/scons.py CC=${CC} CXX=${CXX} --ssl --disable-warnings-as-errors --dbg=on -j$NJOBS --use-sasl-client --wiredtiger --audit --inmemory --hotbackup ${ASAN_OPTIONS} CPPPATH=${INSTALLDIR}/include LIBPATH=${INSTALLDIR}/lib ${PSM_TARGETS}
         else
         buildscripts/scons.py CC=${CC} CXX=${CXX} --release --ssl --opt=on -j$NJOBS --use-sasl-client --wiredtiger --audit --inmemory --hotbackup ${ASAN_OPTIONS} CPPPATH=${INSTALLDIR}/include LIBPATH=${INSTALLDIR}/lib ${PSM_TARGETS}
@@ -240,42 +237,42 @@
         PSMDIR_ABS=${WORKSPACE}/${PSMDIR}
         DISTRIBUTION="xenial"
 
-        if [ ${RELEASE_TEST} = true ]; then
-        wget http://jenkins.percona.com/job/percona-server-mongodb-3.4-SOURCE/lastSuccessfulBuild/artifact/percona-server-mongodb-34.properties
-        PSM_VERSION=$(grep '^VERSION=' percona-server-mongodb-34.properties|cut -d'=' -f2)
-        PSM_RELEASE=$(grep '^RELEASE=' percona-server-mongodb-34.properties|cut -d'=' -f2)
-        wget http://jenkins.percona.com/job/percona-server-mongodb-3.4-SOURCE/lastSuccessfulBuild/artifact/percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz
-        wget http://jenkins.percona.com/job/percona-server-mongodb-3.4-TARBALL-release/label_exp=ubuntu-xenial-64bit/lastSuccessfulBuild/artifact/percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}-${DISTRIBUTION}-x86_64.tar.gz
-        if [ ! -f "percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz" ]; then
-        echo "Tarball percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz doesn't exists!"
-        exit 1
-        fi
-        if [ ! -f "percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}-${DISTRIBUTION}-x86_64.tar.gz" ]; then
-        echo "Tarball percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}-${DISTRIBUTION}-x86_64.tar.gz doesn't exists!"
-        exit 1
-        fi
-        tar xf percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz
-        tar xf percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}-${DISTRIBUTION}-x86_64.tar.gz
-        mv percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}/bin/* percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}
-        mv percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE} ${PSMDIR}
+        if [ "${RELEASE_TEST}" = "true" ]; then
+          wget http://jenkins.percona.com/job/percona-server-mongodb-3.4-SOURCE/lastSuccessfulBuild/artifact/percona-server-mongodb-34.properties
+          PSM_VERSION=$(grep '^VERSION=' percona-server-mongodb-34.properties|cut -d'=' -f2)
+          PSM_RELEASE=$(grep '^RELEASE=' percona-server-mongodb-34.properties|cut -d'=' -f2)
+          wget http://jenkins.percona.com/job/percona-server-mongodb-3.4-SOURCE/lastSuccessfulBuild/artifact/percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz
+          wget http://jenkins.percona.com/job/percona-server-mongodb-3.4-TARBALL-release/label_exp=ubuntu-xenial-64bit/lastSuccessfulBuild/artifact/percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}-${DISTRIBUTION}-x86_64.tar.gz
+          if [ ! -f "percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz" ]; then
+            echo "Tarball percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz doesn't exists!"
+            exit 1
+          fi
+          if [ ! -f "percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}-${DISTRIBUTION}-x86_64.tar.gz" ]; then
+            echo "Tarball percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}-${DISTRIBUTION}-x86_64.tar.gz doesn't exists!"
+            exit 1
+          fi
+          tar xf percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz
+          tar xf percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}-${DISTRIBUTION}-x86_64.tar.gz
+          mv percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}/bin/* percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}
+          mv percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE} ${PSMDIR}
         fi
 
         if [ "$JOBS" != "auto" ]; then
-        sed -i "s/^RESMOKE_JOBS=.*$/RESMOKE_JOBS=${JOBS}/" psmdb-misc-scripts/run_resmoke_psmdb_3.2.sh
+          sed -i "s/^RESMOKE_JOBS=.*$/RESMOKE_JOBS=${JOBS}/" psmdb-misc-scripts/run_resmoke_psmdb_3.2.sh
         fi
-        if [ ! -z "${CUSTOM_SUITE}" ]; then
-        echo "${CUSTOM_SUITE}" > psmdb-misc-scripts/suite_sets/custom.txt
-        TEST_SUITE_FILE="custom.txt"
+        if [ -n "${CUSTOM_SUITE}" ]; then
+          echo "${CUSTOM_SUITE}" > psmdb-misc-scripts/suite_sets/custom.txt
+          TEST_SUITE_FILE="custom.txt"
         else
-        TEST_SUITE_FILE="${SUITE}.txt"
+          TEST_SUITE_FILE="${SUITE}.txt"
         fi
 
         cd ${PSMDIR_ABS}
         find build/opt -type f -name '*.a' -delete || true
         find build/opt -type f -name '*.o' -delete || true
         touch killer.log
-        if [ ${ENABLE_KILLER} = true ]; then
-        ../psmdb-misc-scripts/killer.sh &
+        if [ "${ENABLE_KILLER}" = "true" ]; then
+          ../psmdb-misc-scripts/killer.sh &
         fi
 
         for trial in `seq 1 ${NUM_TRIALS}`;
