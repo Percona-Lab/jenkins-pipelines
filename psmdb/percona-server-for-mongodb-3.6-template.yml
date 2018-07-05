@@ -10,18 +10,16 @@
           </hudson.plugins.descriptionsetter.DescriptionSetterBuilder>
     - shell: |-
         result=$(hostname | grep -c "min.*xenial" || true)
-        if [ ${result} -eq 0 ]; then
+        if [ "${result}" -eq 0 ]; then
         result=$(hostname | grep -c "mongodb.*xenial" || true)
         fi
-        if [ ${result} -eq 0 ]; then
+        if [ "${result}" -eq 0 ]; then
         result=$(hostname | grep -c "bigram.*xenial" || true)
         fi
-        if [ ${result} -eq 1 ]; then
-        # running on openstack instance so we need to setup the instance first
+        # we need to setup the instance first
         echo "----------------"
         echo "HOST INFO:"
         echo "HOSTNAME: $(hostname)"
-        echo "OPENSTACK_PUBLIC_IP: ${OPENSTACK_PUBLIC_IP}"
         echo "USER: $(id)"
         echo "DISK SPACE"
         df -h
@@ -34,9 +32,9 @@
         echo "----------------"
         #
         if [ $(grep -c $(hostname) /etc/hosts) -eq 0 ]; then
-        sudo sed -i "s/localhost/$(hostname) localhost/" /etc/hosts
-        echo "### HOSTS FILE AFTER ADDING HOSTNAME ###"
-        cat /etc/hosts
+            sudo sed -i "s/localhost/$(hostname) localhost/" /etc/hosts
+            echo "### HOSTS FILE AFTER ADDING HOSTNAME ###"
+            cat /etc/hosts
         fi
         #
         sudo rm -rf /data
@@ -44,12 +42,12 @@
         sudo chmod a+rwx /data
         #
         if [ ! -f /usr/local/go/bin/go ]; then
-        #rm -f go1.8.3.linux-amd64.tar.gz
-        #wget http://jenkins.percona.com/downloads/golang/go1.8.3.linux-amd64.tar.gz
-        #sudo tar -C /usr/local -xzf go1.8.3.linux-amd64.tar.gz
-        rm -f go1.9.2.linux-amd64.tar.gz
-        wget https://redirector.gvt1.com/edgedl/go/go1.9.2.linux-amd64.tar.gz
-        sudo tar -C /usr/local -xzf go1.9.2.linux-amd64.tar.gz
+            #rm -f go1.8.3.linux-amd64.tar.gz
+            #wget http://jenkins.percona.com/downloads/golang/go1.8.3.linux-amd64.tar.gz
+            #sudo tar -C /usr/local -xzf go1.8.3.linux-amd64.tar.gz
+            rm -f go1.9.2.linux-amd64.tar.gz
+            wget https://redirector.gvt1.com/edgedl/go/go1.9.2.linux-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go1.9.2.linux-amd64.tar.gz
         fi
         export PATH=$PATH:/usr/local/go/bin
         #
@@ -62,11 +60,10 @@
         sudo chmod 755 /var/run/saslauthd
         sudo percona-server-mongodb/support-files/ldap-sasl/check_saslauthd.sh
         sudo apt-get clean all
-        fi
     - shell: |-
         # clean workspace
-        if [ ${RELEASE_TEST} = true ]; then
-        rm -rf ${WORKSPACE}/*
+        if [ "${RELEASE_TEST}" = "true" ]; then
+            rm -rf ${WORKSPACE}/*
         fi
 
         #cleanup
@@ -74,7 +71,7 @@
         killall -9 mongod || true
         pkill -f killer.sh || true
     - shell: |-
-        if [ ${RELEASE_TEST} != true ]; then
+        if [ "${RELEASE_TEST}" != "true" ]; then
         # prepare source
         #
         #git clone ${PSM_REPO}
@@ -83,7 +80,7 @@
         REVISION=$(git rev-parse --short HEAD)
         REVISION_LONG=$(git rev-parse HEAD)
         # Need to fetch tags from upstream to be able to describe the commit with version
-        #if [ ${WORKFLOW_TYPE} = "param" ]; then
+        #if [ "${WORKFLOW_TYPE}" = "param" ]; then
         git remote add upstream https://github.com/mongodb/mongo.git
         git fetch upstream --tags
         #fi
@@ -105,7 +102,7 @@
         rm -rf mongo-tools
         git clone https://github.com/mongodb/mongo-tools.git
         pushd mongo-tools
-        if [ ${MAIN_VERSION_LINE} = "v3.4" ]; then
+        if [ "${MAIN_VERSION_LINE}" = "v3.4" ]; then
         git checkout v3.4
         else
         git checkout v3.6
@@ -128,7 +125,7 @@
         popd
         fi
     - shell: |-
-        if [ ${RELEASE_TEST} != true ]; then
+        if [ "${RELEASE_TEST}" != true ]; then
         # build binaries
         if [ -f /opt/percona-devtoolset/enable ]; then
         source /opt/percona-devtoolset/enable
@@ -144,7 +141,7 @@
         export CXX=$(which g++)
         fi
         #
-        if [ ${ASAN_RUN} = true ]; then
+        if [ "${ASAN_RUN}" = "true" ]; then
         ASAN_OPTIONS="--allocator=system --sanitize=address"
         fi
         #
@@ -157,17 +154,17 @@
         DBTESTS=$(grep -c "^dbtest" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
         INTEGRATIONTESTS=$(grep -c "^integration_tests" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
         fi
-        if [ ${UNITTESTS} -gt 0 ]; then
+        if [ "${UNITTESTS}" -gt 0 ]; then
         OPT_TARGETS=" unittests"
         else
         OPT_TARGETS=""
         fi
-        if [ ${DBTESTS} -gt 0 ]; then
+        if [ "${DBTESTS}" -gt 0 ]; then
         OPT_TARGETS="${OPT_TARGETS} dbtest"
         else
         OPT_TARGETS="${OPT_TARGETS}"
         fi
-        if [ ${INTEGRATIONTESTS} -gt 0 ]; then
+        if [ "${INTEGRATIONTESTS}" -gt 0 ]; then
         OPT_TARGETS="${OPT_TARGETS} integration_tests"
         else
         OPT_TARGETS="${OPT_TARGETS}"
@@ -207,7 +204,7 @@
         #
         # static librocksdb.a
         pushd ${PSMDIR}/src/third_party/rocksdb
-        if [ ${BUILD_TYPE} = "debug" ]; then
+        if [ "${BUILD_TYPE}" = "debug" ]; then
         make -j4 EXTRA_CFLAGS='-fPIC -DLZ4 -I../lz4-r131 -DSNAPPY -I../snappy-1.1.3 -DHAVE_SSE42' EXTRA_CXXFLAGS='-fPIC -DLZ4 -I../lz4-r131 -DSNAPPY -I../snappy-1.1.3 -DHAVE_SSE42' DISABLE_JEMALLOC=1 dbg
         else
         make -j4 EXTRA_CFLAGS='-fPIC -DLZ4 -I../lz4-r131 -DSNAPPY -I../snappy-1.1.3 -DHAVE_SSE42' EXTRA_CXXFLAGS='-fPIC -DLZ4 -I../lz4-r131 -DSNAPPY -I../snappy-1.1.3 -DHAVE_SSE42' DISABLE_JEMALLOC=1 static_lib
@@ -220,7 +217,7 @@
         #
         # Finally build Percona Server for MongoDB with SCons
         cd ${PSMDIR_ABS}
-        if [ ${BUILD_TYPE} = "debug" ]; then
+        if [ "${BUILD_TYPE}" = "debug" ]; then
         buildscripts/scons.py CC=${CC} CXX=${CXX} --ssl --disable-warnings-as-errors --dbg=on -j$NJOBS --use-sasl-client --wiredtiger --audit --rocksdb --inmemory --hotbackup ${ASAN_OPTIONS} CPPPATH=${INSTALLDIR}/include LIBPATH=${INSTALLDIR}/lib ${PSM_TARGETS}
         else
         buildscripts/scons.py CC=${CC} CXX=${CXX} --release --ssl --opt=on -j$NJOBS --use-sasl-client --wiredtiger --audit --rocksdb --inmemory --hotbackup ${ASAN_OPTIONS} CPPPATH=${INSTALLDIR}/include LIBPATH=${INSTALLDIR}/lib ${PSM_TARGETS}
@@ -282,7 +279,7 @@
         PSMDIR_ABS=${WORKSPACE}/${PSMDIR}
         DISTRIBUTION="xenial"
 
-        if [ ${RELEASE_TEST} = true ]; then
+        if [ "${RELEASE_TEST}" = true ]; then
         #wget http://jenkins.percona.com/job/percona-server-mongodb-3.6-SOURCE/lastSuccessfulBuild/artifact/percona-server-mongodb-36.properties
         PSM_VERSION=$(grep '^VERSION=' percona-server-mongodb-36.properties|cut -d'=' -f2)
         PSM_RELEASE=$(grep '^RELEASE=' percona-server-mongodb-36.properties|cut -d'=' -f2)
@@ -317,7 +314,7 @@
         find build/opt -type f -name '*.a' -delete || true
         find build/opt -type f -name '*.o' -delete || true
         touch killer.log
-        if [ ${ENABLE_KILLER} = true ]; then
+        if [ "${ENABLE_KILLER}" = true ]; then
         ../psmdb-misc-scripts/killer.sh &
         fi
 
