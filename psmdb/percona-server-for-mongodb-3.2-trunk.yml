@@ -8,6 +8,11 @@
         sudo apt-get -y install zlib1g-dev libbz2-dev python-ptyprocess scons libsasl2-dev scons g++-4.8
         sudo apt-get -y install pkg-config libpcap0.8-dev libssl-dev cmake valgrind libsasl2-dev
         sudo pip install pymongo subprocess32 PyYAML
+        if [ ! -f /usr/local/go/bin/go ]; then
+          rm -f go1.8.3.linux-amd64.tar.gz
+          wget http://jenkins.percona.com/downloads/golang/go1.8.3.linux-amd64.tar.gz
+          sudo tar -C /usr/local -xzf go1.8.3.linux-amd64.tar.gz
+        fi
     - raw:
         xml: |
           <hudson.plugins.templateproject.ProxyBuilder plugin="template-project@1.5.2">

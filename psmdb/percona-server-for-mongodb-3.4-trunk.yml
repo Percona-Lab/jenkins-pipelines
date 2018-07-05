@@ -143,4 +143,16 @@
         ignore-post-commit-hooks: false
     wrappers:
     - timestamps
-    - inject: {}
+    - inject:
+        properties-content: |
+            WORKFLOW_TYPE=trunk
+            BUILD_TYPE=release
+            MAIN_VERSION_LINE=v3.4
+            PSM_REPO=https://github.com/percona/percona-server-mongodb.git
+            PSM_BRANCH=v3.4
+            JOBS=4
+            SUITE=resmoke_psmdb_3.4_big
+            RELEASE_TEST=false
+            NUM_TRIALS=1
+            MISC_SCRIPTS_REPO=https://github.com/Percona-QA/psmdb-misc-scripts.git
+            ENABLE_KILLER=true

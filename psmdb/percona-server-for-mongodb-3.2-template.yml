@@ -12,13 +12,25 @@
         #!/bin/bash
         # clean workspace
         if [ "${RELEASE_TEST}" = "true" ]; then
-        rm -rf ${WORKSPACE}/*
+          rm -rf ${WORKSPACE}/*
         fi
 
         #cleanup
         killall -9 mongos || true
         killall -9 mongod || true
         pkill -f killer.sh || true
+    - shell: |-
+        sudo apt-get update
+        sudo apt-get -y install build-essential python-pip g++-5 gcc-5 libgflags-dev libsnappy-dev gcc-4.8
+        sudo apt-get -y install zlib1g-dev libbz2-dev python-ptyprocess scons libsasl2-dev scons g++-4.8
+        sudo apt-get -y install pkg-config libpcap0.8-dev libssl-dev cmake valgrind libsasl2-dev
+        sudo pip install pymongo subprocess32 PyYAML
+        # GoLang
+        if [ ! -f /usr/local/go/bin/go ]; then
+          rm -f go1.8.3.linux-amd64.tar.gz
+          wget http://jenkins.percona.com/downloads/golang/go1.8.3.linux-amd64.tar.gz
+          sudo tar -C /usr/local -xzf go1.8.3.linux-amd64.tar.gz
+        fi
     - shell: |-
         if [ "${RELEASE_TEST}" != "true" ]; then
         # prepare source
@@ -88,7 +100,7 @@
         export CXX=$(which g++)
         fi
         #
-        if [ ${ASAN_RUN} = true ]; then
+        if [ "${ASAN_RUN}" = "true" ]; then
         ASAN_OPTIONS="--allocator=system --sanitize=address"
         fi
         #

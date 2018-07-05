@@ -11,17 +11,15 @@
     - shell: |-
         result=$(hostname | grep -c "min.*xenial" || true)
         if [ ${result} -eq 0 ]; then
-        result=$(hostname | grep -c "mongodb.*xenial" || true)
+            result=$(hostname | grep -c "mongodb.*xenial" || true)
         fi
         if [ ${result} -eq 0 ]; then
-        result=$(hostname | grep -c "bigram.*xenial" || true)
+            result=$(hostname | grep -c "bigram.*xenial" || true)
         fi
-        if [ ${result} -eq 1 ]; then
-        # running on openstack instance so we need to setup the instance first
+        # we need to setup the instance first
         echo "----------------"
         echo "HOST INFO:"
         echo "HOSTNAME: $(hostname)"
-        echo "OPENSTACK_PUBLIC_IP: ${OPENSTACK_PUBLIC_IP}"
         echo "USER: $(id)"
         echo "DISK SPACE"
         df -h
@@ -44,17 +42,16 @@
         sudo chmod a+rwx /data
         #
         if [ ! -f /usr/local/go/bin/go ]; then
-        #rm -f go1.8.3.linux-amd64.tar.gz
-        #wget http://jenkins.percona.com/downloads/golang/go1.8.3.linux-amd64.tar.gz
-        #sudo tar -C /usr/local -xzf go1.8.3.linux-amd64.tar.gz
-        rm -f go1.9.2.linux-amd64.tar.gz
-        wget https://redirector.gvt1.com/edgedl/go/go1.9.2.linux-amd64.tar.gz
-        sudo tar -C /usr/local -xzf go1.9.2.linux-amd64.tar.gz
+            rm -f go1.9.2.linux-amd64.tar.gz
+            wget https://redirector.gvt1.com/edgedl/go/go1.9.2.linux-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go1.9.2.linux-amd64.tar.gz
         fi
         export PATH=$PATH:/usr/local/go/bin
         #
         sudo apt-get update
-        sudo apt-get -y install curl build-essential python-pip g++-5 gcc-5 libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev python-ptyprocess scons libsasl2-dev scons libsasl2-dev pkg-config libpcap0.8-dev libssl-dev cmake
+        sudo apt-get -y install build-essential python-pip g++-5 gcc-5 libgflags-dev libsnappy-dev gcc-4.8
+        sudo apt-get -y install zlib1g-dev libbz2-dev python-ptyprocess scons libsasl2-dev scons g++-4.8
+        sudo apt-get -y install pkg-config libpcap0.8-dev libssl-dev cmake valgrind libsasl2-dev
         sudo pip install pymongo subprocess32 PyYAML typing requests
 
         sudo percona-server-mongodb/support-files/ldap-sasl/deploy_ldap_and_sasl.sh
@@ -62,11 +59,10 @@
         sudo chmod 755 /var/run/saslauthd
         sudo percona-server-mongodb/support-files/ldap-sasl/check_saslauthd.sh
         sudo apt-get clean all
-        fi
     - shell: |-
         # clean workspace
         if [ ${RELEASE_TEST} = true ]; then
-        rm -rf ${WORKSPACE}/*
+            rm -rf ${WORKSPACE}/*
         fi
 
         #cleanup
@@ -112,9 +108,9 @@
         git clone https://github.com/mongodb/mongo-tools.git
         pushd mongo-tools
         if [ ${MAIN_VERSION_LINE} = "v3.2" ]; then
-        git checkout v3.2
+            git checkout v3.2
         else
-        git checkout v3.4
+            git checkout v3.4
         fi
         #MONGO_TOOLS_TAG=$(git describe --tags | awk -F '-' '{print $1}')
         MONGO_TOOLS_TAG=$(git describe --tags)
