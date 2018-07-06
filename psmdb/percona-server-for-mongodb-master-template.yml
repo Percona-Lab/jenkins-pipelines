@@ -38,9 +38,10 @@
         cat /etc/hosts
         fi
         #
-        sudo rm -rf /data
-        sudo mkdir /data
-        sudo chmod a+rwx /data
+        sudo rm -rf /mnt/data /data
+        sudo mkdir /mnt/data
+        sudo chmod 777 /mnt/data
+        sudo ln -s /mnt/data /data
         #
         if [ ! -f /usr/local/go/bin/go ]; then
           rm -f go1.9.2.linux-amd64.tar.gz
