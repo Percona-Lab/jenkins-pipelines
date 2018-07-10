@@ -1,0 +1,158 @@
+- job:
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - raw:
+        xml: |
+          <hudson.plugins.templateproject.ProxyBuilder plugin="template-project@1.5.2">
+          <projectName>percona-server-for-mongodb-master-template</projectName>
+          </hudson.plugins.templateproject.ProxyBuilder>
+    concurrent: true
+    description: This job is currently running <b>resmoke_psmdb_master_big</b> test
+      suite on the <b>master</b> branch.
+    disabled: false
+    name: !!python/unicode 'percona-server-for-mongodb-master'
+    node: psmdb || mongodb-xenial-x64
+    project-type: freestyle
+    properties:
+    - raw:
+        xml: |
+          <hudson.plugins.buildblocker.BuildBlockerProperty plugin="build-blocker-plugin@1.7.3">
+          <useBuildBlocker>false</useBuildBlocker>
+          <blockLevel>GLOBAL</blockLevel>
+          <scanQueueFor>DISABLED</scanQueueFor>
+          <blockingJobs />
+          </hudson.plugins.buildblocker.BuildBlockerProperty>
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: -1
+        days-to-keep: -1
+        num-to-keep: 30
+    - raw:
+        xml: |
+          <hudson.plugins.disk__usage.DiskUsageProperty plugin="disk-usage@0.28" />
+    publishers:
+    - raw:
+        xml: |
+          <hudson.plugins.warnings.WarningsPublisher plugin="warnings@4.68">
+          <healthy />
+          <unHealthy />
+          <thresholdLimit>low</thresholdLimit>
+          <pluginName>[WARNINGS] </pluginName>
+          <defaultEncoding />
+          <canRunOnFailed>false</canRunOnFailed>
+          <usePreviousBuildAsReference>false</usePreviousBuildAsReference>
+          <useStableBuildAsReference>false</useStableBuildAsReference>
+          <useDeltaValues>false</useDeltaValues>
+          <thresholds plugin="analysis-core@1.95">
+          <unstableTotalAll />
+          <unstableTotalHigh />
+          <unstableTotalNormal />
+          <unstableTotalLow />
+          <unstableNewAll />
+          <unstableNewHigh />
+          <unstableNewNormal />
+          <unstableNewLow />
+          <failedTotalAll />
+          <failedTotalHigh />
+          <failedTotalNormal />
+          <failedTotalLow />
+          <failedNewAll />
+          <failedNewHigh />
+          <failedNewNormal />
+          <failedNewLow />
+          </thresholds>
+          <shouldDetectModules>false</shouldDetectModules>
+          <dontComputeNew>true</dontComputeNew>
+          <doNotResolveRelativePaths>true</doNotResolveRelativePaths>
+          <includePattern />
+          <excludePattern />
+          <messagesPattern />
+          <categoriesPattern />
+          <parserConfigurations />
+          <consoleParsers>
+          <hudson.plugins.warnings.ConsoleParser>
+          <parserName>GNU Make + GNU C Compiler (gcc)</parserName>
+          </hudson.plugins.warnings.ConsoleParser>
+          </consoleParsers>
+          </hudson.plugins.warnings.WarningsPublisher>
+    - raw:
+        xml: |
+          <hudson.tasks.ArtifactArchiver>
+          <artifacts>percona-server-mongodb/resmoke_summary*.log, percona-server-mongodb/killer.log, percona-server-mongodb/resmoke_logs.tar.gz</artifacts>
+          <allowEmptyArchive>false</allowEmptyArchive>
+          <onlyIfSuccessful>false</onlyIfSuccessful>
+          <fingerprint>false</fingerprint>
+          <defaultExcludes>true</defaultExcludes>
+          <caseSensitive>true</caseSensitive>
+          </hudson.tasks.ArtifactArchiver>
+    - raw:
+        xml: |
+          <hudson.tasks.junit.JUnitResultArchiver plugin="junit@1.24">
+          <testResults>percona-server-mongodb/junit.xml</testResults>
+          <keepLongStdio>false</keepLongStdio>
+          <healthScaleFactor>1.0</healthScaleFactor>
+          <allowEmptyResults>false</allowEmptyResults>
+          </hudson.tasks.junit.JUnitResultArchiver>
+    - raw:
+        xml: |
+          <jenkins.plugins.slack.SlackNotifier plugin="slack@2.3">
+          <baseUrl />
+          <teamDomain />
+          <authToken />
+          <authTokenCredentialId />
+          <botUser>false</botUser>
+          <room>psmdb-standup</room>
+          <startNotification>false</startNotification>
+          <notifySuccess>false</notifySuccess>
+          <notifyAborted>false</notifyAborted>
+          <notifyNotBuilt>false</notifyNotBuilt>
+          <notifyUnstable>true</notifyUnstable>
+          <notifyRegression>false</notifyRegression>
+          <notifyFailure>true</notifyFailure>
+          <notifyBackToNormal>false</notifyBackToNormal>
+          <notifyRepeatedFailure>false</notifyRepeatedFailure>
+          <includeTestSummary>true</includeTestSummary>
+          <includeFailedTests>false</includeFailedTests>
+          <commitInfoChoice>AUTHORS_AND_TITLES</commitInfoChoice>
+          <includeCustomMessage>false</includeCustomMessage>
+          <customMessage />
+          </jenkins.plugins.slack.SlackNotifier>
+    - workspace-cleanup:
+        clean-if:
+        - success: true
+        - unstable: true
+        - failure: true
+        - not-built: true
+        - aborted: true
+        clean-parent: false
+        dirmatch: false
+        exclude: []
+        fail-build: true
+        include: []
+    scm:
+    - git:
+        basedir: percona-server-mongodb
+        branches:
+        - '*/master'
+        url: https://github.com/percona/percona-server-mongodb.git
+        wipe-workspace: true
+    triggers:
+    - pollscm:
+        cron: H 12 * * 5
+        ignore-post-commit-hooks: false
+    wrappers:
+    - timestamps
+    - inject:
+        properties-content: |
+            WORKFLOW_TYPE=trunk
+            BUILD_TYPE=release
+            PSM_REPO=https://github.com/percona/percona-server-mongodb.git
+            PSM_BRANCH=master
+            JOBS=4
+            SUITE=resmoke_psmdb_master_big
+            RELEASE_TEST=false
+            NUM_TRIALS=1
+            MISC_SCRIPTS_REPO=https://github.com/Percona-QA/psmdb-misc-scripts.git
+            MISC_SCRIPTS_TAG=master
+            ENABLE_KILLER=true
