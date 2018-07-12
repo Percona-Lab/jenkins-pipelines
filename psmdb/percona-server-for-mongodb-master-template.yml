@@ -217,16 +217,15 @@
         #
         # Build mongo tools
         cd ${TOOLSDIR}
-        #rm -rf vendor/pkg
+        rm -rf vendor/pkg
         [[ ${PATH} == *"/usr/local/go/bin"* && -x /usr/local/go/bin/go ]] || export PATH=/usr/local/go/bin:${PATH}
-        #. ./set_gopath.sh
+        . ./set_gopath.sh
         . ./set_tools_revision.sh
-        ./build.sh
-        #mkdir -p bin
-        #for i in bsondump mongostat mongofiles mongoexport mongoimport mongorestore mongodump mongotop mongoreplay; do
-        #  echo "Building ${i}..."
-        #  go build -a -o "bin/$i" -ldflags "-X github.com/mongodb/mongo-tools/common/options.Gitspec=${PSMDB_TOOLS_COMMIT_HASH} -X github.com/mongodb/mongo-tools/common/options.VersionStr=${PSMDB_TOOLS_REVISION}" -tags "${TOOLS_TAGS}" "$i/main/$i.go"
-        #done
+        mkdir -p bin
+        for i in bsondump mongostat mongofiles mongoexport mongoimport mongorestore mongodump mongotop mongoreplay; do
+          echo "Building ${i}..."
+          go build -a -o "bin/$i" -ldflags "-X github.com/mongodb/mongo-tools/common/options.Gitspec=${PSMDB_TOOLS_COMMIT_HASH} -X github.com/mongodb/mongo-tools/common/options.VersionStr=${PSMDB_TOOLS_REVISION}" -tags "${TOOLS_TAGS}" "$i/main/$i.go"
+        done
         # move mongo tools to PSM root dir for running tests
         mv bin/* ${PSMDIR_ABS}
         # end build tools
