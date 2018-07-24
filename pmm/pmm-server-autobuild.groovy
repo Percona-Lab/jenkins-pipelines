@@ -167,6 +167,7 @@ pipeline {
                 } else {
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
                 }
+                deleteDir()
             }
         }
     }
