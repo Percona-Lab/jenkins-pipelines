@@ -401,7 +401,6 @@ Resources:
           Groups:
           - !GetAtt JVPC.DefaultSecurityGroup
           - !GetAtt HTTPSecurityGroup.GroupId
-          - !GetAtt SSHSecurityGroup.GroupId
         TagSpecifications:
         - ResourceType: instance
           Tags:
