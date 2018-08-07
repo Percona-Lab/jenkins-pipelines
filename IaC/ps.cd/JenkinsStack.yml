@@ -1,4 +1,4 @@
-# aws cloudformation --region us-east-2 create-stack --template-body file://IaC/PSJenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-ps --tags Key=iit-billing-tag,Value=jenkins-ps --parameters ParameterKey=JHostName,ParameterValue=ps.cd.percona.com ParameterKey=JShortName,ParameterValue=jenkins-ps
+# aws cloudformation --region us-east-2 create-stack --template-body file://IaC/ps.cd/JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-ps --tags Key=iit-billing-tag,Value=jenkins-ps --parameters ParameterKey=JHostName,ParameterValue=ps.cd.percona.com ParameterKey=JShortName,ParameterValue=jenkins-ps
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:

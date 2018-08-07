@@ -52,6 +52,7 @@ priceMap['t2.small'] = '0.01'
 priceMap['c4.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
+priceMap['m5d.2xlarge'] = '0.20'
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
@@ -121,6 +122,9 @@ initMap['micro-amazon'] = '''
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
+initMap['min-centos-6-x64'] = initMap['micro-amazon']
+initMap['min-centos-7-x64'] = initMap['micro-amazon']
+initMap['fips-centos-7-x64'] = initMap['micro-amazon']
 initMap['min-artful-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -135,9 +139,9 @@ initMap['min-artful-x64'] = '''
     sudo apt-get -y install openjdk-8-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-centos-6-x64'] = initMap['micro-amazon']
-initMap['min-centos-7-x64'] = initMap['micro-amazon']
-initMap['fips-centos-7-x64'] = initMap['micro-amazon']
+initMap['min-stretch-x64'] = initMap['min-artful-x64']
+initMap['min-xenial-x64'] = initMap['min-artful-x64']
+initMap['psmdb'] = initMap['min-xenial-x64']
 initMap['min-jessie-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -157,10 +161,7 @@ initMap['min-jessie-x64'] = '''
     rm -fv jre-8u152-linux-x64.tar.gz
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-stretch-x64'] = initMap['min-artful-x64']
 initMap['min-trusty-x64'] = initMap['min-jessie-x64']
-initMap['min-xenial-x64'] = initMap['min-artful-x64']
-initMap['psmdb'] = initMap['min-xenial-x64']
 
 capMap = [:]
 capMap['c4.xlarge'] = '60'
@@ -283,7 +284,7 @@ String region = 'us-east-2'
         '240',                                   // String instanceCapStr
         [
             getTemplate('docker',           "${region}${it}"),
-            getTemplate('docker-32gb',      "${region}c"),
+            getTemplate('docker-32gb',      "${region}a"),
             getTemplate('micro-amazon',     "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
             getTemplate('fips-centos-7-x64', "${region}${it}"),
