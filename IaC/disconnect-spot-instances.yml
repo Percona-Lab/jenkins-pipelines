@@ -1,0 +1,44 @@
+- job:
+    name: disconnect-spot-instances
+    project-type: pipeline
+    description: |
+        Force immediate deletion of Spot Instances on Termination Notice
+        immediate deletion is needed for right work of 'retry' option in pipelines
+        Do not edit this job through the web!
+    disabled: false
+    concurrent: true
+    parameters:
+    - string:
+        default: ''
+        description: 'SQSTrigger passes json structure with instance-id here'
+        name: sqs_body
+        trim: false
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 10
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 10
+    triggers:
+    - raw:
+        xml: |
+          <io.relution.jenkins.awssqs.SQSTrigger plugin="aws-sqs">
+          <spec />
+          <queueUuid>410b6beb-431e-4018-8b63-2cc83503505f</queueUuid>
+          </io.relution.jenkins.awssqs.SQSTrigger>
+    dsl: |
+        import hudson.model.*
+        if ( !sqs_body.isEmpty() ) {
+            def sqs = readJSON text: "${sqs_body}"
+            if (sqs.detail != null && !sqs.detail["instance-id"].isEmpty() ) {
+                def instance = sqs.detail["instance-id"]
+                print "checking: ${instance}"
+                Jenkins.instance.slaves.each{
+                    if ( it.computer.getInstanceId().toString() == instance ) {
+                        print "terminate: ${instance}"
+                        it.computer.doDoDelete()
+                    }
+                }
+            }
+        }
+        return

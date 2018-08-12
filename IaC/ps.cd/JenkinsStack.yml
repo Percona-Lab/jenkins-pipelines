@@ -196,6 +196,25 @@ Resources:
           - .s3
       VpcId: !Ref JVPC
 
+  TerminationQueue: # queue for termination notifications
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Join [ '-', [ !Ref JShortName, 'termination' ]]
+
+  TerminationRule1: # notify about instance interruption from aws side
+    Type: AWS::Events::Rule
+    Properties:
+      Description: EC2 Spot Instance Interruption Warning
+      EventPattern:
+        source:
+          - aws.ec2
+        detail-type:
+          - EC2 Spot Instance Interruption Warning
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt TerminationQueue.Arn
+          Id: !GetAtt TerminationQueue.QueueName
+
   SSHSecurityGroup: # allow ssh access (assign when needed)
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -340,6 +359,18 @@ Resources:
             - ec2:AssociateAddress
             - ec2:CreateTags
             - ec2:DescribeInstances
+      - PolicyName: ReadTerminationSQS
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Resource:
+            - !GetAtt TerminationQueue.Arn
+            Action:
+            - sqs:GetQueueUrl
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:DeleteMessageBatch
 
   JMasterProfile: # create Profile for jenkins master (needed for run slaves)
     Type: AWS::IAM::InstanceProfile
@@ -354,7 +385,7 @@ Resources:
     Properties:
       RoleName: !Join [ '-', [ !Ref JShortName, 'SpotFleet' ]]
       ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetRole
+      - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole
       AssumeRolePolicyDocument:
         Version: 2008-10-17
         Statement:
