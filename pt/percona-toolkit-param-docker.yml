@@ -1,0 +1,169 @@
+- job:
+    axes:
+    - axis:
+        name: PRODUCT_VER
+        type: user-defined
+        values:
+        - ps-5.5
+        - ps-5.6
+        - ps-5.7
+        - mysql-5.5
+        - mysql-5.6
+        - mysql-5.7
+        - mysql-8.0
+    - axis:
+        name: DIST
+        type: user-defined
+        values:
+        - ubuntu-14.04
+        - ubuntu-16.04
+        - ubuntu-18.04
+    - axis:
+        name: label_exp
+        type: label-expression
+        values:
+        - docker
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - shell: |2-
+
+        set +e
+        echo "----------------"
+        echo "HOST INFO:"
+        echo "HOSTNAME: $(hostname)"
+        echo "USER: $(id)"
+        echo "DISK SPACE"
+        df -h
+        echo "LIMITS"
+        ulimit -a
+        echo "----------------"
+
+        # prepare mysql binaries
+        rm -rf mysql
+        mkdir mysql
+        pushd mysql
+        MYSQL_DIR=$(pwd)
+        OPT=""
+        if [ ${DIST} = "ubuntu-18.04" ]; then
+          OPT="--distribution ubuntu-bionic"
+        elif [ ${DIST} = "debian-9" ]; then
+          OPT="--distribution debian-stretch"
+        fi
+        wget https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh && chmod +x get_download_link.sh
+        ./get_download_link.sh --product ${PRODUCT_VER%-*} --version ${PRODUCT_VER#*-} --download ${OPT}
+        TARBALL=$(ls *.tar.?z)
+        tar xf ${TARBALL} --strip=1
+        rm -f ${TARBALL}
+        popd
+
+        DOCKER_CONTAINER_NAME="pt-${DIST}-${PRODUCT_VER}-param"
+
+        #if [ ${PRODUCT_VER%-*} = "mdb" ]; then
+        #SET_VARIABLE="-e FORK=mariadb"
+        #elif [ ${PRODUCT_VER%-*} = "pxc" ]; then
+        #SET_VARIABLE="-e FORK=pxc"
+        #else
+        #SET_VARIABLE=""
+        #fi
+
+        # first do some cleanup if the same container is already running
+        docker stop ${DOCKER_CONTAINER_NAME} || true
+        docker rm ${DOCKER_CONTAINER_NAME} || true
+
+        if [ ${RUN_ON_TMPFS} = true ]; then
+        RAMLOCATION="/dev/shm/${DOCKER_CONTAINER_NAME}"
+        rm -rf ${RAMLOCATION}
+        mkdir ${RAMLOCATION}
+        chmod a+w ${RAMLOCATION}
+        TMPFS_OPTS="-v ${RAMLOCATION}:/tmp"
+        else
+        TMPFS_OPTS=""
+        fi
+
+        # then run the tests
+        if [ ${RUN_ON_TMPFS} = true ]; then
+        docker run --name="${DOCKER_CONTAINER_NAME}" ${SET_VARIABLE} ${TMPFS_OPTS} --rm -v ${MYSQL_DIR}:/mysql --entrypoint "find" perconalab/toolkit-tests:toolkit-test-${DIST} /tmp/ -mindepth 1 -delete
+        fi
+        docker run --name="${DOCKER_CONTAINER_NAME}" ${SET_VARIABLE} ${TMPFS_OPTS} --rm -v ${MYSQL_DIR}:/mysql perconalab/toolkit-tests:toolkit-test-${DIST} "${GIT_REPO}" "${GIT_BRANCH}" "${TEST_FILE}" 2>&1 | tee mysql-results.txt
+        if [ ${RUN_ON_TMPFS} = true ]; then
+        docker run --name="${DOCKER_CONTAINER_NAME}" ${SET_VARIABLE} ${TMPFS_OPTS} --rm -v ${MYSQL_DIR}:/mysql --entrypoint "find" perconalab/toolkit-tests:toolkit-test-${DIST} /tmp/ -mindepth 1 -delete
+        fi
+        # If there's a test summary report don't fail the build, but if the final test report is not printed it means something very wrong happened
+        SUMMARY=$(grep -cE "^Test Summary Report$|^Result: PASS$|^Result: FAIL$" mysql-results.txt)
+
+        if [ ${SUMMARY} -gt 0 ]; then
+        EXIT_STATUS=0
+        else
+        EXIT_STATUS=1
+        fi
+
+        wget -q https://raw.githubusercontent.com/percona/percona-toolkit/3.0/sandbox/prove2junit.pl -O ./prove2junit.pl && chmod +x prove2junit.pl
+        ./prove2junit.pl mysql-results.txt > junit-mysql.xml
+
+        docker stop ${DOCKER_CONTAINER_NAME}
+        docker rm ${DOCKER_CONTAINER_NAME}
+
+        rm -rf ${RAMLOCATION}
+
+        exit ${EXIT_STATUS}
+    concurrent: false
+    description: |
+        This job runs PT tests under docker environment.
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: 'percona-toolkit-param-docker'
+    node: master
+    parameters:
+    - string:
+        default: https://github.com/percona/percona-toolkit.git
+        description: ''
+        name: GIT_REPO
+        trim: false
+    - string:
+        default: '3.0'
+        description: ''
+        name: GIT_BRANCH
+        trim: false
+    - string:
+        default: t/*
+        description: |-
+          select test files if you don't want to run tests for all tools
+          example
+          t/pt-kill/*
+        name: TEST_FILE
+        trim: false
+    - bool:
+        default: true
+        description: If checked the run will be done on /dev/shm which uses tmpfs
+        name: RUN_ON_TMPFS
+    - matrix-combinations:
+        name: matrix_param
+        description: "Select matrix combinations"
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: -1
+        days-to-keep: 30
+        num-to-keep: 30
+    publishers:
+    #- archive:
+    #    artifacts: 'mysql-results.txt, junit*.xml'
+    #    allow-empty: 'false'
+    #    fingerprint: false
+    #    default-excludes: true
+    #    only-if-success: false
+    - junit:
+        results: junit*.xml
+        keep-long-stdio: false
+        health-scale-factor: 1.0
+        allow-empty-results: false
+    triggers: []
+    wrappers:
+    - timeout:
+        abort: true
+        timeout: 360
+        type: absolute
+    - timestamps
