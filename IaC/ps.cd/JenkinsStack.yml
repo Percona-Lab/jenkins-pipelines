@@ -201,6 +201,26 @@ Resources:
     Properties:
       QueueName: !Join [ '-', [ !Ref JShortName, 'termination' ]]
 
+  TerminationQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref TerminationQueue
+      PolicyDocument:
+        Id: sqspolicy
+        Statement:
+          - Sid: First
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action:
+              - sqs:SendMessage
+            Resource:
+            - !GetAtt TerminationQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt TerminationRule1.Arn
+
   TerminationRule1: # notify about instance interruption from aws side
     Type: AWS::Events::Rule
     Properties:
