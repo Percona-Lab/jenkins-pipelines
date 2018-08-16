@@ -96,7 +96,7 @@ start_jenkins() {
 
     wget -O /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy \
       https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
-    sed -i 's/%LIST%/analysis-core build-blocker-plugin compress-buildlog conditional-buildstep copyartifact description-setter disk-usage ec2 envinject git google-login jobConfigHistory junit matrix-auth matrix-reloaded pipeline-model-definition pipeline-stage-view run-condition script-security slack ssh-slaves template-project timestamper warnings ws-cleanup/' /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy
+    sed -i 's/%LIST%/ec2 compress-buildlog google-login jobConfigHistory matrix-reloaded ssh-slaves template-project warnings ws-cleanup/' /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy
 
     printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
         | tee -a /etc/hosts
