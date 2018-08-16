@@ -45,6 +45,7 @@ userMap['docker'] = 'ec2-user'
 userMap['docker-32gb'] = userMap['docker']
 userMap['micro-amazon'] = userMap['docker']
 userMap['min-artful-x64'] = 'ubuntu'
+userMap['min-bionic-x64'] = 'ubuntu'
 userMap['min-centos-6-x32'] = 'root'
 userMap['min-centos-6-x64'] = 'centos'
 userMap['min-centos-7-x64'] = 'centos'
@@ -129,6 +130,7 @@ initMap['min-artful-x64'] = '''
     sudo apt-get -y install openjdk-8-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
+initMap['min-bionic-x64'] = initMap['min-artful-x64']
 initMap['min-stretch-x64'] = initMap['min-artful-x64']
 initMap['min-xenial-x64'] = initMap['min-artful-x64']
 initMap['psmdb'] = initMap['min-xenial-x64']
@@ -165,6 +167,7 @@ typeMap['docker-32gb'] = 'm4.2xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32'] = 'm1.medium'
 typeMap['min-centos-6-x64'] = 'm4.xlarge'
 typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
@@ -178,6 +181,7 @@ execMap['docker'] = '1'
 execMap['docker-32gb'] = execMap['docker']
 execMap['micro-amazon'] = '30'
 execMap['min-artful-x64'] = '1'
+execMap['min-bionic-x64'] = '1'
 execMap['min-centos-6-x32'] = '1'
 execMap['min-centos-6-x64'] = '1'
 execMap['min-centos-7-x64'] = '1'
@@ -193,6 +197,7 @@ devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
 devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-bionic-x64'] = devMap['min-artful-x64']
 devMap['min-centos-6-x64'] = devMap['min-artful-x64']
 devMap['min-centos-7-x64'] = devMap['min-artful-x64']
 devMap['fips-centos-7-x64'] = devMap['min-artful-x64']
@@ -208,6 +213,7 @@ labelMap['docker'] = ''
 labelMap['docker-32gb'] = ''
 labelMap['micro-amazon'] = 'master'
 labelMap['min-artful-x64'] = ''
+labelMap['min-bionic-x64'] = ''
 labelMap['min-centos-6-x32'] = ''
 labelMap['min-centos-6-x64'] = ''
 labelMap['min-centos-7-x64'] = ''
@@ -285,7 +291,7 @@ String region = 'us-west-2'
             getTemplate('min-trusty-x64', "${region}${it}"),
             getTemplate('min-xenial-x64', "${region}${it}"),
             getTemplate('min-artful-x64', "${region}${it}"),
-            // getTemplate('min-bionic-x64', "${region}${it}"),
+            getTemplate('min-bionic-x64', "${region}${it}"),
         ]                                       // List<? extends SlaveTemplate> templates
     )
 
