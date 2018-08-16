@@ -20,9 +20,6 @@ netMap['us-west-2b'] = 'subnet-011f09cf273aeef73'
 netMap['us-west-2c'] = 'subnet-00b0d1d8bd8af5c07'
 
 imageMap = [:]
-
-
-
 imageMap['micro-amazon'] = 'ami-0ad99772'
 imageMap['min-artful-x64'] = 'ami-96dd93ee'
 imageMap['min-centos-6-x32'] = 'ami-cb1382fb'
@@ -37,6 +34,7 @@ imageMap['psmdb'] = imageMap['min-xenial-x64']
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
+priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
@@ -47,6 +45,7 @@ userMap['docker'] = 'ec2-user'
 userMap['docker-32gb'] = userMap['docker']
 userMap['micro-amazon'] = userMap['docker']
 userMap['min-artful-x64'] = 'ubuntu'
+userMap['min-centos-6-x32'] = 'root'
 userMap['min-centos-6-x64'] = 'centos'
 userMap['min-centos-7-x64'] = 'centos'
 userMap['fips-centos-7-x64'] = 'centos'
@@ -61,7 +60,7 @@ initMap['docker'] = '''
     set -o xtrace
 
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
         sudo mkfs.ext4 ${DEVICE}
         sudo mount -o noatime ${DEVICE} /mnt
     fi
@@ -98,7 +97,7 @@ initMap['docker-32gb'] = initMap['docker']
 initMap['micro-amazon'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
         sudo mkfs.ext2 ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
@@ -109,14 +108,17 @@ initMap['micro-amazon'] = '''
     sudo yum -y install java-1.8.0-openjdk git aws-cli || :
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+
+    echo 'Defaults !requiretty' | sudo tee /etc/sudoers.d/requiretty
 '''
+initMap['min-centos-6-x32'] = initMap['micro-amazon']
 initMap['min-centos-6-x64'] = initMap['micro-amazon']
 initMap['min-centos-7-x64'] = initMap['micro-amazon']
 initMap['fips-centos-7-x64'] = initMap['micro-amazon']
 initMap['min-artful-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
         sudo mkfs.ext2 ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
@@ -133,7 +135,7 @@ initMap['psmdb'] = initMap['min-xenial-x64']
 initMap['min-jessie-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
         sudo mkfs.ext2 ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
@@ -163,6 +165,7 @@ typeMap['docker-32gb'] = 'm4.2xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-centos-6-x32'] = 'm1.medium'
 typeMap['min-centos-6-x64'] = 'm4.xlarge'
 typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
 typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
@@ -175,6 +178,7 @@ execMap['docker'] = '1'
 execMap['docker-32gb'] = execMap['docker']
 execMap['micro-amazon'] = '30'
 execMap['min-artful-x64'] = '1'
+execMap['min-centos-6-x32'] = '1'
 execMap['min-centos-6-x64'] = '1'
 execMap['min-centos-7-x64'] = '1'
 execMap['fips-centos-7-x64'] = '1'
@@ -196,6 +200,7 @@ devMap['min-jessie-x64'] = devMap['micro-amazon']
 devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-trusty-x64'] = devMap['min-artful-x64']
 devMap['min-xenial-x64'] = devMap['min-artful-x64']
+devMap['min-centos-6-x32'] = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 
 labelMap = [:]
@@ -203,6 +208,7 @@ labelMap['docker'] = ''
 labelMap['docker-32gb'] = ''
 labelMap['micro-amazon'] = 'master'
 labelMap['min-artful-x64'] = ''
+labelMap['min-centos-6-x32'] = ''
 labelMap['min-centos-6-x64'] = ''
 labelMap['min-centos-7-x64'] = ''
 labelMap['fips-centos-7-x64'] = ''
@@ -221,7 +227,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         'default',                                  // String securityGroups
         '/mnt/jenkins',                             // String remoteFS
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type
-        ( typeMap[OSType].startsWith("c") || typeMap[OSType].startsWith("m") ), // boolean ebsOptimized
+        ( typeMap[OSType].startsWith("c4") || typeMap[OSType].startsWith("m4") || typeMap[OSType].startsWith("c5") || typeMap[OSType].startsWith("m5") ), // boolean ebsOptimized
         OSType + ' ' + labelMap[OSType],            // String labelString
         Node.Mode.NORMAL,                           // Node.Mode mode
         OSType,                                     // String description
@@ -255,7 +261,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
 
 String privateKey = ''
 jenkins.clouds.each {
-    if (it.hasProperty('cloudName') && it['cloudName'] == 'AWS-Dev b') {
+    if (it.hasProperty('cloudName') && it['cloudName'] == 'AWS-Dev a') {
         privateKey = it['privateKey']
     }
 }
@@ -271,6 +277,7 @@ String region = 'us-west-2'
         privateKey,                             // String privateKey
         '240',                                   // String instanceCapStr
         [
+            getTemplate('min-centos-6-x32', "${region}${it}"),
             getTemplate('min-centos-6-x64', "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
             getTemplate('min-jessie-x64', "${region}${it}"),
