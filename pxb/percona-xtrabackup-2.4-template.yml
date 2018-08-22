@@ -1,0 +1,280 @@
+- job:
+    axes:
+    - axis:
+        name: BUILD_TYPE
+        type: user-defined
+        values:
+        - release
+        - debug
+    - axis:
+        name: Host
+        type: label-expression
+        values:
+        - ubuntu-maverick-32bit
+        - ubuntu-natty-32bit
+        - ubuntu-maverick-64bit
+        - ubuntu-natty-64bit
+        - ubuntu-utopic-32bit
+        - ubuntu-utopic-64bit
+        - ubuntu-trusty-32bit
+        - ubuntu-trusty-64bit
+        - asan
+        - debian-jessie-32bit
+        - debian-jessie-64bit
+    - axis:
+        name: xtrabackuptarget
+        type: user-defined
+        values:
+        - innodb55
+        - innodb56
+        - innodb57
+        - xtradb55
+        - xtradb57
+        - galera56
+        - galera57
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - shell: |-
+        if [ -f /usr/bin/yum ]; then
+        #
+            sudo -E yum -y erase percona-release || true
+            sudo find /etc/yum.repos.d/ -iname 'percona*' -delete
+        #
+            until sudo -E yum -y install epel-release; do
+                sudo yum clean all
+                sleep 1
+                echo "waiting"
+            done
+            until sudo -E yum -y update; do
+                sudo yum clean all
+                sleep 1
+                echo "waiting"
+            done
+        #
+            PKGLIST="wget libcurl-devel cmake make gcc gcc-c++ libev-devel openssl-devel"
+            PKGLIST="${PKGLIST} libaio-devel perl-DBD-MySQL vim-common ncurses-devel readline-devel"
+            PKGLIST="${PKGLIST} zlib-devel python-sphinx python-docutils libgcrypt-devel bison perl-Digest-MD5"
+            PKGLIST="${PKGLIST} socat numactl-libs numactl"
+            until sudo -E yum -y install ${PKGLIST}; do
+                echo "waiting"
+                sleep 1
+            done
+        fi
+        #
+        if [ -f /usr/bin/apt-get ]; then
+
+            sudo rm -f /etc/apt/sources.list.d/percona-dev.list
+            #
+            until sudo -E apt-get update; do
+                sleep 1
+                echo "waiting"
+            done
+            #
+            until sudo -E apt-get -y install lsb-release; do
+                sleep 1
+                echo "waiting"
+            done
+            #
+            sudo -E apt-get -y purge eatmydata || true
+            #
+            DIST=$(lsb_release -sc)
+            #
+            echo "deb http://jenkins.percona.com/apt-repo/ ${DIST} main" | sudo tee /etc/apt/sources.list.d/percona-dev.list
+            wget -q -O - http://jenkins.percona.com/apt-repo/8507EFA5.pub | sudo apt-key add -
+            wget -q -O - http://jenkins.percona.com/apt-repo/CD2EFD2A.pub | sudo apt-key add -
+            #
+            until sudo -E apt-get update; do
+                sleep 1
+                echo "waiting"
+            done
+            #
+            PKGLIST="bison cmake devscripts debconf debhelper automake bison ca-certificates libcurl4-openssl-dev"
+            PKGLIST="${PKGLIST} cmake debhelper libaio-dev libncurses-dev libssl-dev libtool libz-dev"
+            PKGLIST="${PKGLIST} libgcrypt-dev libev-dev lsb-release python-sphinx python-docutils"
+            PKGLIST="${PKGLIST} build-essential rsync libdbd-mysql-perl libnuma1 socat librtmp-dev"
+            until sudo -E apt-get -y install ${PKGLIST}; do
+                sleep 1
+                echo "waiting"
+            done
+            #
+            sudo -E apt-get -y install libreadline6 || true
+            if [ -e /lib/x86_64-linux-gnu/libreadline.so.7 -a ! -e /lib/x86_64-linux-gnu/libreadline.so.6 ]; then
+                sudo ln -s /lib/x86_64-linux-gnu/libreadline.so.7 /lib/x86_64-linux-gnu/libreadline.so.6
+            fi
+
+        fi
+    - shell: |-
+        #!/bin/bash
+
+        echo BRANCH = ${BRANCH}
+        echo "Building in: " `pwd`
+
+        CMAKE_EXTRA_OPTIONS=${CMAKE_EXTRA_OPTIONS:-}
+
+        if [ -d ${WORKSPACE}/xtrabackup ]
+        then
+            # Old (patch-based) directory layout
+            cd ${WORKSPACE}/xtrabackup
+
+            if test "x${BUILD_TYPE}" = "xdebug"
+            then
+                export DEBUG=1
+            fi
+
+            echo '$DEBUG=' $DEBUG
+
+            AUTO_DOWNLOAD=yes ./utils/build.sh ${xtrabackuptarget}
+
+            rm -rf server-tarball
+        else
+            # New (single binary) directory layout
+
+            cd ${WORKSPACE}
+
+            if [[ "$Host" == *"asan" ]]
+            then
+                CMAKE_EXTRA_OPTIONS="$CMAKE_EXTRA_OPTIONS -DWITH_ASAN=ON"
+            fi
+
+            if test "x${BUILD_TYPE}" = "xdebug"
+            then
+                cmake -DWITH_DEBUG=ON -DDOWNLOAD_BOOST=1 -DWITH_BOOST=mysql-boost $CMAKE_EXTRA_OPTIONS .
+            else
+                cmake -DBUILD_CONFIG=xtrabackup_release -DDOWNLOAD_BOOST=1 -DWITH_BOOST=mysql-boost -DWITH_MAN_PAGES=OFF $CMAKE_EXTRA_OPTIONS .
+            fi
+
+            make -k -j$(grep -c ^processor /proc/cpuinfo)
+        fi
+    - shell: |-
+        #!/bin/bash -x
+
+        if [ -d ${WORKSPACE}/xtrabackup ]
+        then
+            # Old (patch-based) directory layout
+
+            cd ${WORKSPACE}/xtrabackup/test
+        else
+            # New (single binary) directory layout
+
+            cd ${WORKSPACE}/storage/innobase/xtrabackup/test
+        fi
+
+        SSL_VER=$(ls -la {/,/usr/}{lib64,lib,lib/x86_64-linux-gnu}/libssl.so.1.* | sed 's/.*[.]so//; s/[^0-9]//g' | head -1)
+        if [[ ${xtrabackuptarget} == "galera56" ]]
+        then
+            mkdir -p ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}
+            wget --progress=dot:giga \
+                -O ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}/Percona-XtraDB-Cluster-$(uname -m).tar.gz \
+                https://www.percona.com/downloads/Percona-XtraDB-Cluster-56/Percona-XtraDB-Cluster-5.6.40-26.25/binary/tarball/Percona-XtraDB-Cluster-5.6.40-rel84.0-26.25.1.Linux.$(uname -m).ssl${SSL_VER}.tar.gz
+        elif [[ ${xtrabackuptarget} == "galera57" ]]
+        then
+            mkdir -p ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}
+            wget --progress=dot:giga \
+                -O ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}/Percona-XtraDB-Cluster-$(uname -m).tar.gz \
+                https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.22-29.26/binary/tarball/Percona-XtraDB-Cluster-5.7.22-rel22-29.26.1.Linux.$(uname -m).ssl${SSL_VER}.tar.gz
+        else
+            ./bootstrap.sh ${xtrabackuptarget}
+        fi
+    - shell: |-
+        #!/bin/bash -x
+
+        if test -f /usr/local/lib/libeatmydata.so
+        then
+            export LD_PRELOAD=/usr/local/lib/libeatmydata.so
+        elif test -f /usr/lib/libeatmydata.so
+        then
+            export LD_PRELOAD=/usr/lib/libeatmydata.so
+        fi
+
+        if [ -d ${WORKSPACE}/xtrabackup ]
+        then
+            # Old (patch-based) directory layout
+
+            XB_TEST_ROOT_DIR=${WORKSPACE}/xtrabackup
+        else
+            # New (single binary) directory layout
+
+            XB_TEST_ROOT_DIR=${WORKSPACE}/storage/innobase/xtrabackup
+        fi
+
+        cd ${XB_TEST_ROOT_DIR}/test
+
+        if [ `arch` = "x86_64" ]
+        then
+            ARCH=x86_64
+            BITS=64
+        else
+            ARCH=i686
+            BITS=32
+        fi
+
+        if [[ ${xtrabackuptarget} == "galera"* ]]
+        then
+            rm -rf server
+            mkdir server
+            tar xfz ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}/Percona-XtraDB-Cluster*$ARCH.tar.gz -C server
+            mv server/*/* server/
+        fi
+
+        if [[ "$Host" == *"asan" ]]
+        then
+            # Also use LeakSanitizer
+            export ASAN_OPTIONS="detect_leaks=1"
+            # disable LD_PRELOAD for ASAN biilds
+            export LD_PRELOAD=
+        fi
+
+        # Limit the number of workers to 4
+        export XB_TEST_MAX_WORKERS=2
+        if ! ./run.sh -c ${xtrabackuptarget} ${more_test_arguments} ; then
+            cat results/setup
+        #  status=255
+        fi
+        cp test_results.subunit ${WORKSPACE}
+        (cat test_results.subunit | PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml > ${WORKSPACE}/junit.xml) || true
+        #exit $status
+    concurrent: false
+    description: null
+    disabled: true
+    execution-strategy:
+      sequential: false
+    name: 'percona-xtrabackup-2.4-template'
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: -1
+        days-to-keep: 3
+        num-to-keep: 3
+    - inject:
+        enabled: true
+        keep-build-variables: true
+        keep-system-variables: true
+        load-from-master: false
+        override-build-parameters: false
+    publishers:
+    - warnings:
+        console-log-parsers:
+          - GNU Make + GNU C Compiler (gcc)
+        resolve-relative-paths: true
+    - junit:
+        results: junit.xml
+        keep-long-stdio: false
+    - workspace-cleanup:
+        clean-if:
+        - success: true
+        - unstable: true
+        - failure: true
+        - not-built: true
+        - aborted: true
+        clean-parent: false
+        dirmatch: false
+        exclude: []
+        fail-build: true
+        include: []
+    triggers: []
+    wrappers:
+    - timestamps
+    - ansicolor:
+        colormap: xterm

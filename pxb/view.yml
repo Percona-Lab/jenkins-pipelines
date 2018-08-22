@@ -1,0 +1,21 @@
+- view:
+    name: 'PXB 2.3'
+    description: |
+        Percona XtraBackup 2.3
+        Do not edit these jobs through the web!
+    view-type: list
+    regex: '.*-2[.]3-.*'
+- view:
+    name: 'PXB 2.4'
+    description: |
+        Percona XtraBackup 2.4
+        Do not edit these jobs through the web!
+    view-type: list
+    regex: '.*-2[.]4-.*'
+- view:
+    name: 'PXB 8.0'
+    description: |
+        Percona XtraBackup 8.0
+        Do not edit these jobs through the web!
+    view-type: list
+    regex: '.*-8[.]0-.*'

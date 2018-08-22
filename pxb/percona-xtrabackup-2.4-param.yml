@@ -1,0 +1,111 @@
+- job:
+    name: percona-xtrabackup-2.4-param
+    node: master
+    auth-token: xbparam24
+    axes:
+    - axis:
+        name: BUILD_TYPE
+        type: user-defined
+        values:
+        - release
+        - debug
+    - axis:
+        name: Host
+        type: label-expression
+        values:
+        - min-centos-6-x32
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-trusty-x64
+        - min-xenial-x64
+        - min-bionic-x64
+        - min-artful-x64
+        - min-jessie-x64
+        - min-stretch-x64
+    - axis:
+        name: xtrabackuptarget
+        type: user-defined
+        values:
+        - innodb55
+        - innodb56
+        - innodb57
+        - xtradb55
+        - xtradb56
+        - xtradb57
+        - galera56
+        - galera57
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - builders-from: percona-xtrabackup-2.4-template
+    concurrent: true
+    description: Parameterised build for Percona Xtrabackup 2.4
+    disabled: false
+    execution-strategy:
+      sequential: false
+    parameters:
+    - string:
+        default: git://github.com/percona/percona-xtrabackup.git
+        description: ''
+        name: GIT_REPO
+        trim: false
+    - string:
+        default: '2.4'
+        description: ''
+        name: BRANCH
+        trim: false
+    - string:
+        default: ''
+        description: Additional arguments to pass to cmake
+        name: CMAKE_EXTRA_OPTIONS
+        trim: false
+    - string:
+        default: '-f '
+        description: Additional arguments to pass to run.sh for running the test suite
+        name: more_test_arguments
+        trim: false
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: -1
+        days-to-keep: -1
+        num-to-keep: 25
+    publishers:
+    - warnings:
+        console-log-parsers:
+          - GNU Make + GNU C Compiler (gcc)
+        resolve-relative-paths: true
+    - archive:
+        artifacts: 'test_results.subunit'
+        allow-empty: false
+        fingerprint: false
+        default-excludes: true
+    - junit:
+        results: junit.xml
+        keep-long-stdio: false
+    - workspace-cleanup:
+        clean-if:
+        - success: true
+        - unstable: true
+        - failure: true
+        - not-built: true
+        - aborted: true
+        clean-parent: false
+        dirmatch: false
+        exclude: []
+        fail-build: false
+        include: []
+    retry-count: '5'
+    scm:
+    - git:
+        url: ${GIT_REPO}
+        branches:
+          - ${BRANCH}
+        shallow-clone: true
+        depth: 2
+        clean:
+          after: true
+    triggers: []
+    wrappers:
+    - timestamps
