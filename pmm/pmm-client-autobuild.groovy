@@ -36,6 +36,7 @@ pipeline {
                     git submodule update --init --jobs 10 \
                         sources/pmm-client/src/github.com/percona/pmm-client \
                         sources/mongodb_exporter/src/github.com/percona/mongodb_exporter \
+                        sources/postgres_exporter/src/github.com/percona/postgres_exporter \
                         sources/mysqld_exporter/src/github.com/percona/mysqld_exporter \
                         sources/proxysql_exporter/src/github.com/percona/proxysql_exporter \
                         sources/qan-agent/src/github.com/percona/qan-agent \
