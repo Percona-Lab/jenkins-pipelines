@@ -46,7 +46,7 @@
                 sleep 1
                 echo "waiting"
             done
-            until sudo -E yum -y update; do
+            until sudo -E yum -y makecache; do
                 sudo yum clean all
                 sleep 1
                 echo "waiting"
