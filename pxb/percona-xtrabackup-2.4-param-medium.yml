@@ -99,6 +99,8 @@
         depth: 2
         clean:
           after: true
-    triggers: []
+    triggers:
+    - pollscm:
+        cron: "H/15 * * * *"
     wrappers:
     - timestamps
