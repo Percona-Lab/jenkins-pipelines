@@ -25,7 +25,6 @@
         - xtradb51
         - xtradb55
         - xtradb56
-        - galera55
         - galera56
     block-downstream: false
     block-upstream: false
