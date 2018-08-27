@@ -105,12 +105,19 @@
 
         fi
     - shell: |-
-        #!/bin/bash
+        #!/bin/bash -x
 
         echo BRANCH = ${BRANCH}
         echo "Building in: " `pwd`
 
         CMAKE_EXTRA_OPTS=${CMAKE_EXTRA_OPTS:-}
+
+        if [ `arch` = "x86_64" ]
+        then
+            THREADS=$(grep -c ^processor /proc/cpuinfo)
+        else
+            THREADS=1
+        fi
 
         if [ -d ${WORKSPACE}/xtrabackup ]
         then
@@ -144,7 +151,7 @@
                 cmake -DBUILD_CONFIG=xtrabackup_release -DWITH_MAN_PAGES=OFF $CMAKE_EXTRA_OPTS .
             fi
 
-            make -k -j$(grep -c ^processor /proc/cpuinfo)
+            make -k -j${THREADS}
         fi
     - shell: |-
         #!/bin/bash -x
