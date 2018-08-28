@@ -118,6 +118,11 @@ pipeline {
                 runTAP("mo", "psmdb", "3")
             }
         }
+        stage('Test: PGSQL') {
+            steps {
+                runTAP("pgsql", "postgresql", "3")
+            }
+        }
         stage('Test: MariaDB') {
             steps {
                 runTAP("md", "mariadb", "2")
