@@ -103,24 +103,26 @@ pipeline {
                 sh "curl --silent --insecure '${PMM_URL}/prometheus/targets' | grep localhost:9090"
             }
         }
-        stage('Test: PS') {
-            steps {
-                runTAP("ps", "ps", "2")
+        parallel {
+            stage('Test: PS') {
+                steps {
+                    runTAP("ps", "ps", "2")
+                }
             }
-        }
-        stage('Test: PXC') {
-            steps {
-                runTAP("pxc", "pxc", "3")
+            stage('Test: PXC') {
+                steps {
+                    runTAP("pxc", "pxc", "3")
+                }
             }
-        }
-        stage('Test: PSMDB') {
-            steps {
-                runTAP("mo", "psmdb", "3")
+            stage('Test: PSMDB') {
+                steps {
+                    runTAP("mo", "psmdb", "3")
+                }
             }
-        }
-        stage('Test: MariaDB') {
-            steps {
-                runTAP("md", "mariadb", "2")
+            stage('Test: MariaDB') {
+                steps {
+                    runTAP("md", "mariadb", "2")
+                }
             }
         }
     }
