@@ -18,10 +18,7 @@
         name: xtrabackuptarget
         type: user-defined
         values:
-        - innodb56
-        - innodb57
-        - xtradb56
-        - xtradb57
+        - innodb80
     block-downstream: false
     block-upstream: false
     builders:
