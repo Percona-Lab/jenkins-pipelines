@@ -42,7 +42,7 @@
                 sleep 1
                 echo "waiting"
             done
-            until sudo -E yum -y update; do
+            until sudo -E yum -y makecache; do
                 sudo yum clean all
                 sleep 1
                 echo "waiting"
@@ -101,12 +101,19 @@
 
         fi
     - shell: |-
-        #!/bin/bash
+        #!/bin/bash -x
 
         echo BRANCH = ${BRANCH}
         echo "Building in: " `pwd`
 
         CMAKE_EXTRA_OPTIONS=${CMAKE_EXTRA_OPTIONS:-}
+
+        if [ `arch` = "x86_64" ]
+        then
+            THREADS=$(grep -c ^processor /proc/cpuinfo)
+        else
+            THREADS=1
+        fi
 
         if [ -d ${WORKSPACE}/xtrabackup ]
         then
@@ -140,7 +147,7 @@
                 cmake -DBUILD_CONFIG=xtrabackup_release -DDOWNLOAD_BOOST=1 -DWITH_BOOST=mysql-boost -DWITH_MAN_PAGES=OFF $CMAKE_EXTRA_OPTIONS .
             fi
 
-            make -k -j$(grep -c ^processor /proc/cpuinfo)
+            make -k -j${THREADS}
         fi
     - shell: |-
         #!/bin/bash -x
@@ -200,9 +207,11 @@
         then
             ARCH=x86_64
             BITS=64
+            THREADS=$(grep -c ^processor /proc/cpuinfo)
         else
             ARCH=i686
             BITS=32
+            THREADS=1
         fi
 
         if [[ ${xtrabackuptarget} == "galera"* ]]
@@ -221,8 +230,8 @@
             export LD_PRELOAD=
         fi
 
-        # Limit the number of workers to 4
-        export XB_TEST_MAX_WORKERS=2
+        # Limit the number of workers to cpu amount
+        export XB_TEST_MAX_WORKERS=${THREADS}
         if ! ./run.sh -c ${xtrabackuptarget} ${more_test_arguments} ; then
             cat results/setup
         #  status=255
