@@ -27,11 +27,19 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
-                sh """
-                    git reset --hard
-                    git clean -xdf
-                    git submodule update --remote --init --recommend-shallow --jobs 10
+                withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
+                    sh '''
+                        echo "/usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh
+                        chmod 755 github-ssh.sh
+                        export GIT_SSH=$(pwd -P)/github-ssh.sh
 
+                        git reset --hard
+                        git clean -xdf
+                        git submodule update --remote --init --recommend-shallow --jobs 10
+                    '''
+                }
+
+                sh """
                     if [ "${VERSION}" != "auto" ]; then
                         echo ${VERSION} > VERSION
                     fi
