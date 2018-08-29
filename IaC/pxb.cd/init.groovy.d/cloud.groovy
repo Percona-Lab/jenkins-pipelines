@@ -109,6 +109,24 @@ initMap['micro-amazon'] = '''
     sudo yum -y install java-1.8.0-openjdk git aws-cli || :
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
+initMap['min-centos-6-x64'] = initMap['micro-amazon']
+initMap['min-centos-7-x64'] = initMap['micro-amazon']
+initMap['fips-centos-7-x64'] = initMap['micro-amazon']
+initMap['min-centos-6-x32'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
+        sudo mkfs.ext2 ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+    sudo yum -y install java-1.8.0-openjdk git aws-cli || :
+    sudo yum -y remove java-1.7.0-openjdk || :
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
     echo 'Defaults !requiretty' | sudo tee /etc/sudoers.d/requiretty
     if [ ! -f /mnt/swapfile ]; then
@@ -118,11 +136,10 @@ initMap['micro-amazon'] = '''
         sudo mkswap /mnt/swapfile
         sudo swapon /mnt/swapfile
     fi
+    sudo /bin/sed -i '/shm/s/defaults/defaults,size=2500M/' /etc/fstab
+    sudo umount /dev/shm
+    sudo mount /dev/shm
 '''
-initMap['min-centos-6-x32'] = initMap['micro-amazon']
-initMap['min-centos-6-x64'] = initMap['micro-amazon']
-initMap['min-centos-7-x64'] = initMap['micro-amazon']
-initMap['fips-centos-7-x64'] = initMap['micro-amazon']
 initMap['min-artful-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
