@@ -111,6 +111,13 @@ initMap['micro-amazon'] = '''
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
     echo 'Defaults !requiretty' | sudo tee /etc/sudoers.d/requiretty
+    if [ ! -f /mnt/swapfile ]; then
+        sudo dd if=/dev/zero of=/mnt/swapfile bs=1024 count=524288
+        sudo chown root:root /mnt/swapfile
+        sudo chmod 0600 /mnt/swapfile
+        sudo mkswap /mnt/swapfile
+        sudo swapon /mnt/swapfile
+    fi
 '''
 initMap['min-centos-6-x32'] = initMap['micro-amazon']
 initMap['min-centos-6-x64'] = initMap['micro-amazon']
