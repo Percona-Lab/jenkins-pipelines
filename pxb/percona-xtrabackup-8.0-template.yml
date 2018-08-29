@@ -89,6 +89,9 @@
             PKGLIST="${PKGLIST} cmake debhelper libaio-dev libncurses-dev libssl-dev libtool libz-dev"
             PKGLIST="${PKGLIST} libgcrypt-dev libev-dev lsb-release python-sphinx python-docutils"
             PKGLIST="${PKGLIST} build-essential rsync libdbd-mysql-perl libnuma1 socat librtmp-dev"
+            if [[ "$Host" == *"asan" ]] ; then
+                PKGLIST="${PKGLIST} libasan4"
+            fi
             until sudo -E apt-get -y install ${PKGLIST}; do
                 sleep 1
                 echo "waiting"
