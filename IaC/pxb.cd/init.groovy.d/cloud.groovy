@@ -290,6 +290,7 @@ String region = 'us-west-2'
         privateKey,                             // String privateKey
         '240',                                   // String instanceCapStr
         [
+            getTemplate('micro-amazon', "${region}${it}"),
             getTemplate('min-centos-6-x32', "${region}${it}"),
             getTemplate('min-centos-6-x64', "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
