@@ -32,6 +32,8 @@
     block-upstream: false
     builders:
     - shell: |-
+        #!/bin/bash -x
+
         if [ -f /usr/bin/yum ]; then
         #
             sudo -E yum -y erase percona-release || true
