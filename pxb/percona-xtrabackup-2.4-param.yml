@@ -22,6 +22,7 @@
         - min-artful-x64
         - min-jessie-x64
         - min-stretch-x64
+        - asan
     - axis:
         name: xtrabackuptarget
         type: user-defined

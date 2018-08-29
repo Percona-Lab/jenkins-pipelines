@@ -15,6 +15,7 @@
         - min-centos-6-x32
         - min-centos-7-x64
         - min-artful-x64
+        - asan
     - axis:
         name: xtrabackuptarget
         type: user-defined
