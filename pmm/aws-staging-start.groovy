@@ -136,7 +136,7 @@ pipeline {
                                         "DeviceName": "/dev/xvda",
                                         "Ebs": {
                                             "DeleteOnTermination": true,
-                                            "VolumeSize": 12,
+                                            "VolumeSize": 20,
                                             "VolumeType": "gp2"
                                         }
                                     }
