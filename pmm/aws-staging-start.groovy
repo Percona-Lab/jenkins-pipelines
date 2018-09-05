@@ -32,6 +32,10 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         string(
+            defaultValue: '10.5',
+            description: 'Postgre SQL Server version',
+            name: 'PGSQL_VERSION')
+        string(
             defaultValue: '10.2',
             description: 'MariaDB Server version',
             name: 'MD_VERSION')
@@ -77,6 +81,7 @@ pipeline {
                         MS_VERSION:     ${MS_VERSION}
                         MD_VERSION:     ${MD_VERSION}
                         MO_VERSION:     ${MO_VERSION}
+                        PGSQL_VERSION:  ${PGSQL_VERSION}
                         CLIENTS:        ${CLIENTS}
                         OWNER:          ${OWNER}
                     """
@@ -323,6 +328,7 @@ pipeline {
                                 --ms-version  ${MS_VERSION} \
                                 --md-version  ${MD_VERSION} \
                                 --mo-version  ${MO_VERSION} \
+                                --pgsql-version ${PGSQL_VERSION} \
                                 --download \
                                 ${CLIENTS} \
                                 --sysbench-data-load \
