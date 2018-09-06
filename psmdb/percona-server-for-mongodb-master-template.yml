@@ -51,7 +51,7 @@
         export PATH=$PATH:/usr/local/go/bin
         #
         sudo apt-get update
-        sudo apt-get -y install curl build-essential python-pip g++-5 gcc-5 libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev python-ptyprocess scons libsasl2-dev scons libsasl2-dev pkg-config libpcap0.8-dev libssl-dev cmake
+        sudo apt-get -y install curl build-essential python-pip g++-5 gcc-5 libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev python-ptyprocess scons libsasl2-dev scons libsasl2-dev pkg-config libpcap0.8-dev libssl-dev cmake libcurl4-openssl-dev
         sudo pip install -r percona-server-mongodb/buildscripts/requirements.txt
         #sudo pip install pymongo subprocess32 PyYAML typing requests Cheetah regex
 
