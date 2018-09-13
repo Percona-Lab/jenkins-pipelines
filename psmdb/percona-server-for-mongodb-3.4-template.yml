@@ -17,6 +17,13 @@
             result=$(hostname | grep -c "bigram.*xenial" || true)
         fi
         # we need to setup the instance first
+        # disable THP
+        echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" > disable-thp.sh
+        echo "echo never > /sys/kernel/mm/transparent_hugepage/defrag" >> disable-thp.sh
+        chmod +x disable-thp.sh
+        sudo -n ./disable-thp.sh
+        rm -f disable-thp.sh
+
         echo "----------------"
         echo "HOST INFO:"
         echo "HOSTNAME: $(hostname)"
@@ -29,6 +36,8 @@
         ulimit -a
         echo "NETWORK"
         ip addr show
+        echo "Transparent huge pages status:"
+        cat /sys/kernel/mm/transparent_hugepage/enabled
         echo "----------------"
         #
         if [ $(grep -c $(hostname) /etc/hosts) -eq 0 ]; then

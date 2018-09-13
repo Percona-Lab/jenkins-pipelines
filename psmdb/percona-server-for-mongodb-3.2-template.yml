@@ -25,6 +25,14 @@
         sudo chmod 777 /mnt/data
         sudo ln -s /mnt/data /data
         #
+        echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" > disable-thp.sh
+        echo "echo never > /sys/kernel/mm/transparent_hugepage/defrag" >> disable-thp.sh
+        chmod +x disable-thp.sh
+        sudo -n ./disable-thp.sh
+        rm -f disable-thp.sh
+
+        echo "Transparent huge pages status:"
+        cat /sys/kernel/mm/transparent_hugepage/enabled
     - shell: |-
         sudo apt-get update
         sudo apt-get -y install build-essential python-pip g++-5 gcc-5 libgflags-dev libsnappy-dev gcc-4.8
