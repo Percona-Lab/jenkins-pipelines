@@ -76,6 +76,35 @@ pipeline {
                 uploadTarball('binary')
             }
         }
+        stage('Build client docker') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh """
+                        sg docker -c "
+                            docker login -u "${USER}" -p "${PASS}"
+                        "
+                    """
+                }
+                sh '''
+                    sg docker -c "
+                        set -o xtrace
+
+                        export PUSH_DOCKER=1
+                        export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')
+
+                        ./build/bin/build-client-docker
+
+                        docker tag  \\${DOCKER_CLIENT_TAG} perconalab/pmm-client:dev-latest
+                        docker push \\${DOCKER_CLIENT_TAG}
+                        docker push perconalab/pmm-client:dev-latest
+                        docker rmi  \\${DOCKER_CLIENT_TAG}
+                        docker rmi  perconalab/pmm-client:dev-latest
+                    "
+                '''
+                stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
+                archiveArtifacts 'results/docker/CLIENT_TAG'
+            }
+        }
         stage('Build client source rpm') {
             steps {
                 sh 'sg docker -c "./build/bin/build-client-srpm centos:6"'
