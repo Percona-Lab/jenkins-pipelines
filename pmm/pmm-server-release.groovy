@@ -17,8 +17,12 @@ pipeline {
             name: 'UPDATER_REPO')
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
-            description: 'PMM Server docker container version (image-name:version-tag)',
+            description: 'pmm-server container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
+        string(
+            defaultValue: 'perconalab/pmm-client:dev-latest',
+            description: 'pmm-client docker container version (image-name:version-tag)',
+            name: 'DOCKER_CLIENT_VERSION')
         string(
             defaultValue: '',
             description: 'Amazon Machine Image (AMI) ID',
@@ -162,11 +166,19 @@ pipeline {
                         docker push percona/pmm-server:${VERSION}
                         docker push percona/pmm-server:latest
                         docker save percona/pmm-server:${VERSION} | xz > pmm-server-${VERSION}.docker
+
+                        docker pull ${DOCKER_CLIENT_VERSION}
+                        docker tag ${DOCKER_CLIENT_VERSION} perconalab/pmm-client:${VERSION}
+                        docker tag ${DOCKER_CLIENT_VERSION} perconalab/pmm-client:latest
+                        docker push perconalab/pmm-client:${VERSION}
+                        docker push perconalab/pmm-client:latest
+                        docker save perconalab/pmm-client:${VERSION} | xz > pmm-client-${VERSION}.docker
                     "
                 """
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         aws s3 cp --only-show-errors pmm-server-${VERSION}.docker s3://percona-vm/pmm-server-${VERSION}.docker
+                        aws s3 cp --only-show-errors pmm-client-${VERSION}.docker s3://percona-vm/pmm-client-${VERSION}.docker
                     """
                 }
                 deleteDir()
