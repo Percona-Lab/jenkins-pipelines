@@ -731,7 +731,7 @@ Resources:
                   /opt/certbot-auto --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
-                  echo '/opt/certbot-auto renew' > /etc/cron.daily/certbot
+                  printf '#!/bin/sh\n/opt/certbot-auto renew\nservice nginx restart\n' > /etc/cron.daily/certbot
                   chmod 755 /etc/cron.daily/certbot
                   service nginx stop
                   sleep 2
