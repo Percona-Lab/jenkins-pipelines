@@ -41,6 +41,7 @@ pipeline {
                         sources/proxysql_exporter/src/github.com/percona/proxysql_exporter \
                         sources/qan-agent/src/github.com/percona/qan-agent \
                         sources/node_exporter/src/github.com/prometheus/node_exporter \
+                        sources/pid-watchdog/src/github.com/percona/pid-watchdog \
                         sources/percona-toolkit/src/github.com/percona/percona-toolkit
 
                     git rev-parse --short HEAD > shortCommit
