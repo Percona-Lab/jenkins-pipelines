@@ -1,0 +1,112 @@
+- job:
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - shell: |-
+        # Cleanup hotbackup tests
+        sudo rm -rf $WORKSPACE/internal/hotbackup/testdata/backup
+
+        # Run the golang tests using docker-compose
+        # 'set +e' is needed to we can catch and action the exit code before returning it
+        exitCode=255
+        set +e
+        make TEST_FULL_TARGET=$TEST_FULL_TARGET \
+        AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+        AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+        GOLANG_DOCKERHUB_TAG=$GOLANG_DOCKERHUB_TAG test-full
+        exitCode=$?
+        make test-cluster-clean
+        set -e
+
+        # Send Codecov results on success
+        if [ $exitCode -lt 1 ] && [ -f $WORKSPACE/test-out/cover.out ]; then
+        pushd $WORKSPACE/test-out
+        curl -s https://codecov.io/bash | bash -s - -t ${CODECOV_TOKEN}
+        popd
+        fi
+
+        # Exit with the exit code from the 'test' docker-compose
+        exit $exitCode
+    concurrent: false
+    description: Build for github.com/percona/mongodb-backup
+    disabled: false
+    name: !!python/unicode 'mongo-backup'
+    node: docker
+    parameters:
+    - string:
+        default: master
+        description: Git branch of github.com/percona/mongodb-backup to build. See
+          https://github.com/percona/mongodb-backup/branches for available branches.
+        name: GIT_BRANCH
+        trim: false
+    - choice:
+        choices:
+        - test-race
+        - test
+        description: Test type 'test' or 'test-race' (with race detection)
+        name: TEST_FULL_TARGET
+    - choice:
+        choices:
+        - latest
+        - '3.6'
+        - '3.4'
+        description: |-
+          Dockerhub tag of 'percona/percona-server-mongodb'.
+          See https://hub.docker.com/r/percona/percona-server-mongodb/tags/ for available tags.
+        name: PSMDB_VERSION
+    - choice:
+        choices:
+        - 1.11-stretch
+        description: |-
+          Dockerhub tag of 'golang' to use for testing.
+          See https://hub.docker.com/r/library/golang/tags/ for available tags.
+        name: GOLANG_DOCKERHUB_TAG
+    project-type: freestyle
+    properties:
+    - raw:
+        xml: |
+          <hudson.plugins.buildblocker.BuildBlockerProperty plugin="build-blocker-plugin@1.7.3">
+          <useBuildBlocker>true</useBuildBlocker>
+          <blockLevel>GLOBAL</blockLevel>
+          <scanQueueFor>DISABLED</scanQueueFor>
+          <blockingJobs>.*dcos-mongo-tools.*</blockingJobs>
+          </hudson.plugins.buildblocker.BuildBlockerProperty>
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: -1
+        days-to-keep: -1
+        num-to-keep: 10
+    - raw:
+        xml: |
+          <hudson.plugins.disk__usage.DiskUsageProperty plugin="disk-usage@0.28" />
+    - github:
+        url: https://github.com/percona/mongodb-backup/
+    publishers: []
+    scm:
+    - git:
+        branches:
+        - ${GIT_BRANCH}
+        credentials-id: GitHub SSH Key
+        url: git@github.com:percona/mongodb-backup
+    triggers:
+    - pollscm:
+        cron: H/5 * * * *
+        ignore-post-commit-hooks: false
+    wrappers:
+    - raw:
+        xml: |
+          <org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper plugin="credentials-binding@1.16">
+          <bindings>
+          <com.cloudbees.jenkins.plugins.awscredentials.AmazonWebServicesCredentialsBinding plugin="aws-credentials@1.23">
+          <credentialsId>mongodb-backup-testing</credentialsId>
+          <accessKeyVariable>AWS_ACCESS_KEY_ID</accessKeyVariable>
+          <secretKeyVariable>AWS_SECRET_ACCESS_KEY</secretKeyVariable>
+          </com.cloudbees.jenkins.plugins.awscredentials.AmazonWebServicesCredentialsBinding>
+          <org.jenkinsci.plugins.credentialsbinding.impl.StringBinding>
+          <credentialsId>mongodb-backup-codecov-token</credentialsId>
+          <variable>CODECOV_TOKEN</variable>
+          </org.jenkinsci.plugins.credentialsbinding.impl.StringBinding>
+          </bindings>
+          </org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper>
+    - ansicolor:
+        colormap: xterm
