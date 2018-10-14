@@ -165,6 +165,14 @@ Resources:
       AccessControl: Private
       VersioningConfiguration:
         Status: Suspended
+      LifecycleConfiguration:
+        Rules:
+        - Id: 30 Days Cleanup
+          Status: Enabled
+          ExpirationInDays: 30
+          NoncurrentVersionExpirationInDays: 1
+          AbortIncompleteMultipartUpload:
+            DaysAfterInitiation: 1
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
