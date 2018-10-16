@@ -35,12 +35,12 @@ def call(String DESTINATION) {
 
                             for dist in `ls -1 debian`; do
                                 for deb in `find debian/\${dist} -name '*.deb'`; do
-                                    repopush --password ${SIGN_PASSWORD} --deb \${deb} --verbose --repo ${DESTINATION}
+                                    repopush --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/apt
                                 done
 
                                 # source deb
                                 for dsc in `find ../source -name '*.dsc'`; do
-                                    repopush --password ${SIGN_PASSWORD} --dsc \${dsc} --verbose --repo ${DESTINATION} --distribution \${dist}
+                                    repopush --gpg-pass ${SIGN_PASSWORD} --package \${dsc} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/apt
                                 done
                             done
                         popd
