@@ -39,9 +39,9 @@ def call(String DESTINATION) {
                                 done
 
                                 # source deb
-                                for dsc in `find ../source -name '*.dsc'`; do
-                                    repopush --remove-package --gpg-pass ${SIGN_PASSWORD} --package \${dsc} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/apt
-                                done
+                                #for dsc in `find ../source -name '*.dsc'`; do
+                                #    repopush --remove-package --gpg-pass ${SIGN_PASSWORD} --package \${dsc} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/apt
+                                #done
                             done
                         popd
 
