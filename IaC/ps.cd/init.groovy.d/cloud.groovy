@@ -287,12 +287,12 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         netMap[AZ],                                 // String subnetId
         [
             new EC2Tag('Name', 'jenkins-ps-' + OSType),
-            new EC2Tag('iit-billing-tag', 'jenkins-ps-slave')
+            new EC2Tag('iit-billing-tag', 'jenkins-ps-worker')
         ],                                          // List<EC2Tag> tags
         '3',                                        // String idleTerminationMinutes
         false,                                      // boolean usePrivateDnsName
         capMap[typeMap[OSType]],                    // String instanceCapStr
-        'arn:aws:iam::119175775298:instance-profile/jenkins-ps-slave', // String iamInstanceProfile
+        'arn:aws:iam::119175775298:instance-profile/jenkins-ps-worker', // String iamInstanceProfile
         true,                                       // boolean deleteRootOnTermination
         false,                                      // boolean useEphemeralDevices
         false,                                      // boolean useDedicatedTenancy
