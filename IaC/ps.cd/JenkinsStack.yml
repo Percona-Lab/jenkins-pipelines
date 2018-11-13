@@ -280,7 +280,7 @@ Resources:
   JSlaveRole: # create Role for jenkins slaves (needed for assign tags)
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Join [ '-', [ !Ref JShortName, 'slave' ]]
+      RoleName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -290,7 +290,7 @@ Resources:
             Service: ec2.amazonaws.com
       Path: /
       Policies:
-      - PolicyName: !Join [ '-', [ !Ref JShortName, 'slave' ]]
+      - PolicyName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
         PolicyDocument:
           Version: 2012-10-17
           Statement:
@@ -320,7 +320,7 @@ Resources:
       Path: /
       Roles:
         - !Ref JSlaveRole
-      InstanceProfileName: !Join [ '-', [ !Ref JShortName, 'slave' ]]
+      InstanceProfileName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
 
   JMasterRole: # create Role for jenkins master (needed for run slaves)
     Type: AWS::IAM::Role
