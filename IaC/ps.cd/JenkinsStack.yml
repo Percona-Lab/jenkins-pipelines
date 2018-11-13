@@ -27,7 +27,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: abychko-rsa-key
+    Default: mykola
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
@@ -253,7 +253,7 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 40.143.89.215/32
+        CidrIp: 176.37.55.60/32
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
