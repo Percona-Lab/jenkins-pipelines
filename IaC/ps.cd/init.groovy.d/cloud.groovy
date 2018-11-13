@@ -49,6 +49,7 @@ imageMap['min-xenial-x64'] = 'ami-e82a1a8d'
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
+priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
@@ -59,6 +60,8 @@ userMap['docker'] = 'ec2-user'
 userMap['docker-32gb'] = userMap['docker']
 userMap['micro-amazon'] = userMap['docker']
 userMap['min-artful-x64'] = 'ubuntu'
+userMap['min-bionic-x64'] = 'ubuntu'
+userMap['min-centos-6-x32'] = 'root'
 userMap['min-centos-6-x64'] = 'centos'
 userMap['min-centos-7-x64'] = 'centos'
 userMap['fips-centos-7-x64'] = 'centos'
@@ -73,7 +76,7 @@ initMap['docker'] = '''
     set -o xtrace
 
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
         sudo mkfs.ext4 ${DEVICE}
         sudo mount -o noatime ${DEVICE} /mnt
     fi
@@ -110,7 +113,7 @@ initMap['docker-32gb'] = initMap['docker']
 initMap['micro-amazon'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
         sudo mkfs.ext2 ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
@@ -125,10 +128,37 @@ initMap['micro-amazon'] = '''
 initMap['min-centos-6-x64'] = initMap['micro-amazon']
 initMap['min-centos-7-x64'] = initMap['micro-amazon']
 initMap['fips-centos-7-x64'] = initMap['micro-amazon']
+initMap['min-centos-6-x32'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
+        sudo mkfs.ext2 ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+    sudo yum -y install java-1.8.0-openjdk git aws-cli || :
+    sudo yum -y remove java-1.7.0-openjdk || :
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+
+    echo 'Defaults !requiretty' | sudo tee /etc/sudoers.d/requiretty
+    if [ ! -f /mnt/swapfile ]; then
+        sudo dd if=/dev/zero of=/mnt/swapfile bs=1024 count=524288
+        sudo chown root:root /mnt/swapfile
+        sudo chmod 0600 /mnt/swapfile
+        sudo mkswap /mnt/swapfile
+        sudo swapon /mnt/swapfile
+    fi
+    sudo /bin/sed -i '/shm/s/defaults/defaults,size=2500M/' /etc/fstab
+    sudo umount /dev/shm
+    sudo mount /dev/shm
+'''
 initMap['min-artful-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
         sudo mkfs.ext2 ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
@@ -139,13 +169,14 @@ initMap['min-artful-x64'] = '''
     sudo apt-get -y install openjdk-8-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
+initMap['min-bionic-x64'] = initMap['min-artful-x64']
 initMap['min-stretch-x64'] = initMap['min-artful-x64']
 initMap['min-xenial-x64'] = initMap['min-artful-x64']
 initMap['psmdb'] = initMap['min-xenial-x64']
 initMap['min-jessie-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
         sudo mkfs.ext2 ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
@@ -175,6 +206,8 @@ typeMap['docker-32gb'] = 'm4.2xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-centos-6-x32'] = 'm1.medium'
 typeMap['min-centos-6-x64'] = 'm4.xlarge'
 typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
 typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
@@ -187,6 +220,8 @@ execMap['docker'] = '1'
 execMap['docker-32gb'] = execMap['docker']
 execMap['micro-amazon'] = '30'
 execMap['min-artful-x64'] = '1'
+execMap['min-bionic-x64'] = '1'
+execMap['min-centos-6-x32'] = '1'
 execMap['min-centos-6-x64'] = '1'
 execMap['min-centos-7-x64'] = '1'
 execMap['fips-centos-7-x64'] = '1'
@@ -201,6 +236,7 @@ devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
 devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-bionic-x64'] = devMap['min-artful-x64']
 devMap['min-centos-6-x64'] = devMap['min-artful-x64']
 devMap['min-centos-7-x64'] = devMap['min-artful-x64']
 devMap['fips-centos-7-x64'] = devMap['min-artful-x64']
@@ -208,6 +244,7 @@ devMap['min-jessie-x64'] = devMap['micro-amazon']
 devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-trusty-x64'] = devMap['min-artful-x64']
 devMap['min-xenial-x64'] = devMap['min-artful-x64']
+devMap['min-centos-6-x32'] = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 
 labelMap = [:]
@@ -215,6 +252,8 @@ labelMap['docker'] = ''
 labelMap['docker-32gb'] = ''
 labelMap['micro-amazon'] = 'master'
 labelMap['min-artful-x64'] = ''
+labelMap['min-bionic-x64'] = 'asan'
+labelMap['min-centos-6-x32'] = ''
 labelMap['min-centos-6-x64'] = ''
 labelMap['min-centos-7-x64'] = ''
 labelMap['fips-centos-7-x64'] = ''
@@ -233,7 +272,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         'default',                                  // String securityGroups
         '/mnt/jenkins',                             // String remoteFS
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type
-        ( typeMap[OSType].startsWith("c") || typeMap[OSType].startsWith("m") ), // boolean ebsOptimized
+        ( typeMap[OSType].startsWith("c4") || typeMap[OSType].startsWith("m4") || typeMap[OSType].startsWith("c5") || typeMap[OSType].startsWith("m5") ), // boolean ebsOptimized
         OSType + ' ' + labelMap[OSType],            // String labelString
         Node.Mode.NORMAL,                           // Node.Mode mode
         OSType,                                     // String description
