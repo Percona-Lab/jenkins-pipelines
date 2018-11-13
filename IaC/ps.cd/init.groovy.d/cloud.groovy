@@ -263,7 +263,7 @@ labelMap['min-trusty-x64'] = ''
 labelMap['min-xenial-x64'] = ''
 labelMap['psmdb'] = ''
 
-// https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
+// https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
     return new SlaveTemplate(
         imageMap[AZ + '.' + OSType],                // String ami
@@ -281,7 +281,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
-        new UnixData('', '', '22'),                 // AMITypeData amiType
+        new UnixData('', '', '', '22'),             // AMITypeData amiType
         '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
@@ -313,7 +313,7 @@ jenkins.clouds.each {
 
 String region = 'us-east-2'
 ('b'..'b').each {
-    // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
+    // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
     AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
@@ -327,7 +327,9 @@ String region = 'us-east-2'
             getTemplate('micro-amazon',     "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
             getTemplate('fips-centos-7-x64', "${region}${it}"),
-        ]                                       // List<? extends SlaveTemplate> templates
+        ],                                      // List<? extends SlaveTemplate> templates
+        '',                                     // String roleArn
+        ''                                      // String roleSessionName
     )
 
     // add cloud configuration to Jenkins
