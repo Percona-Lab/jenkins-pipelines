@@ -306,13 +306,13 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
 
 String privateKey = ''
 jenkins.clouds.each {
-    if (it.hasProperty('cloudName') && it['cloudName'] == 'AWS-Dev b') {
+    if (it.hasProperty('cloudName') && it['cloudName'] == 'AWS-Dev a') {
         privateKey = it['privateKey']
     }
 }
 
 String region = 'us-east-2'
-('b'..'b').each {
+('a'..'a').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
     AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
@@ -323,7 +323,7 @@ String region = 'us-east-2'
         '240',                                   // String instanceCapStr
         [
             getTemplate('docker',           "${region}${it}"),
-            getTemplate('docker-32gb',      "${region}a"),
+            getTemplate('docker-32gb',      "${region}${it}"),
             getTemplate('micro-amazon',     "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
             getTemplate('fips-centos-7-x64', "${region}${it}"),
