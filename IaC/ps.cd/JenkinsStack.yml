@@ -374,6 +374,7 @@ Resources:
             - iam:ListRoles
             - iam:PassRole
             - iam:ListInstanceProfiles
+            - iam:ListInstanceProfilesForRole
       - PolicyName: UserDataNeeds
         PolicyDocument:
           Version: 2012-10-17
