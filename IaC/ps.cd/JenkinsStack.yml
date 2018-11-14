@@ -570,11 +570,12 @@ Resources:
                       echo try again
                   done
 
+                  yum-config-manager --add-repo "https://openresty.org/package/rhel/7/x86_64"
+                  rpm --import https://openresty.org/package/pubkey.gpg
                   wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
                   rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key
                   yum -y update --security
-                  amazon-linux-extras install -y nginx1.12
-                  yum -y install java-1.8.0-openjdk jenkins git yum-cron aws-cli xfsprogs
+                  yum -y install java-1.8.0-openjdk jenkins git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -687,65 +688,91 @@ Resources:
               }
 
               setup_nginx() {
-                  sed -i'' -e 's/listen/#listen/' /etc/nginx/nginx.conf
-                  cat <<-EOF | tee /etc/nginx/conf.d/jenkins.conf
-              		upstream jenkins {
-              		  server 127.0.0.1:8080 fail_timeout=0;
-              		}
+                  if [ ! -f /mnt/$JENKINS_HOST/ssl/nginx.conf ]; then
+                      cat <<-EOF | tee /mnt/$JENKINS_HOST/ssl/nginx.conf
+              			upstream jenkins {
+              			  server 127.0.0.1:8080 fail_timeout=0;
+              			}
 
-              		server {
-              		  listen 80;
-              		  server_name $JENKINS_HOST;
+              			server {
+              			  listen 80;
+              			  server_name $JENKINS_HOST;
 
-              		  # letsencrypt certificates validation
-              		  location /.well-known {
-              		    alias /usr/share/nginx/html/.well-known;
-              		  }
+              			  # letsencrypt certificates validation
+              			  location /.well-known {
+              			    alias /usr/share/nginx/html/.well-known;
+              			  }
 
-              		  # or redirect to https
-              		  if (\$uri !~* ^/.well-known) {
-              		    return 301 https://\$host\$request_uri;
-              		  }
-              		}
+              			  # or redirect to https
+              			  if (\$uri !~* ^/.well-known) {
+              			    return 301 https://\$host\$request_uri;
+              			  }
+              			}
 
-              		server {
-              		  listen 443 ssl;
-              		  server_name $JENKINS_HOST;
+              			server {
+              			  listen 443 ssl;
+              			  server_name $JENKINS_HOST;
 
-              		  ssl_certificate /etc/nginx/ssl/certificate.crt;
-              		  ssl_certificate_key /etc/nginx/ssl/certificate.key;
-              		  ssl_trusted_certificate /etc/nginx/ssl/ca-certs.pem;
-              		  ssl_dhparam     /etc/nginx/ssl/dhparam.pem;
+              			  ssl_certificate             /etc/nginx/ssl/certificate.crt;
+              			  ssl_certificate_key         /etc/nginx/ssl/certificate.key;
+              			  ssl_trusted_certificate     /etc/nginx/ssl/ca-certs.pem;
+              			  ssl_dhparam                 /etc/nginx/ssl/dhparam.pem;
 
-              		  location / {
-              		    proxy_set_header        Host \$host:\$server_port;
-              		    proxy_set_header        X-Real-IP \$remote_addr;
-              		    proxy_set_header        X-Forwarded-For \$proxy_add_x_forwarded_for;
-              		    proxy_set_header        X-Forwarded-Proto \$scheme;
-              		    proxy_redirect http:// https://;
-              		    proxy_pass              http://jenkins;
-              		    # Required for new HTTP-based CLI
-              		    proxy_http_version 1.1;
-              		    proxy_request_buffering off;
-              		    proxy_buffering off; # Required for HTTP-based CLI to work over SSL
-              		    # workaround for https://issues.jenkins-ci.org/browse/JENKINS-45651
-              		    add_header 'X-SSH-Endpoint' '$JENKINS_HOST:50022' always;
-              		  }
-              		}
-              	EOF
-                  chkconfig nginx on
-                  service nginx start
+              			  set \$ngo_client_id          "<-- SETUP MANUALLY -->";
+              			  set \$ngo_client_secret      "<-- SETUP MANUALLY -->";
+              			  set \$ngo_token_secret       "<-- SETUP MANUALLY -->";
+              			  set \$ngo_domain             percona.com;
+              			  set \$ngo_secure_cookies     true;
+              			  set \$ngo_http_only_cookies  true;
+              			  resolver                    8.8.8.8 ipv6=off;
+              			  lua_ssl_trusted_certificate /etc/pki/tls/certs/ca-bundle.crt;
+              			  lua_ssl_verify_depth        3;
+              			  access_by_lua_file          /mnt/$JENKINS_HOST/nginx-google-oauth.lua;
+              			  allow                       176.37.55.60; # mykola home IP, needed for jenkins-job-builder
+              			  satisfy                     any;
+
+              			  location / {
+              			    proxy_set_header        Host \$host:\$server_port;
+              			    proxy_set_header        X-Real-IP \$remote_addr;
+              			    proxy_set_header        X-Forwarded-For \$proxy_add_x_forwarded_for;
+              			    proxy_set_header        X-Forwarded-Proto \$scheme;
+              			    proxy_redirect http:// https://;
+              			    proxy_pass              http://jenkins;
+              			    # Required for new HTTP-based CLI
+              			    proxy_http_version 1.1;
+              			    proxy_request_buffering off;
+              			    proxy_buffering off; # Required for HTTP-based CLI to work over SSL
+              			    # workaround for https://issues.jenkins-ci.org/browse/JENKINS-45651
+              			    add_header 'X-SSH-Endpoint' '$JENKINS_HOST:50022' always;
+              			  }
+              			}
+              		EOF
+                  fi
+
+                  ln -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
+                  sed -i'' -e 's/listen/#listen/; s/mime.types/jenkins.conf/' /usr/local/openresty/nginx/conf/nginx.conf
+
+                  wget -O /usr/local/openresty/lualib/resty/http.lua \
+                    https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http.lua
+                  wget -O /usr/local/openresty/lualib/resty/http_headers.lua \
+                    https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http_headers.lua
+                  wget -O /mnt/$JENKINS_HOST/nginx-google-oauth.lua \
+                    https://raw.githubusercontent.com/cloudflare/nginx-google-oauth/master/access.lua
+
+                  chkconfig openresty on
+                  service openresty start
               }
 
               setup_letsencrypt() {
+                  install -d /usr/share/nginx/html
                   /opt/certbot-auto --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
                   printf '#!/bin/sh\n/opt/certbot-auto renew\nservice nginx restart\n' > /etc/cron.daily/certbot
                   chmod 755 /etc/cron.daily/certbot
-                  service nginx stop
+                  service openresty stop
                   sleep 2
-                  service nginx start
+                  service openresty start
               }
 
               setup_dhparam() {
@@ -753,7 +780,7 @@ Resources:
                       openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem 4096
                   fi
                   cp /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem /etc/nginx/ssl/dhparam.pem
-                  service nginx restart
+                  service openresty restart
               }
 
               main() {
