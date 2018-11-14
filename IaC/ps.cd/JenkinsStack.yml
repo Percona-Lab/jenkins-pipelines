@@ -277,7 +277,7 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JSlaveRole: # create Role for jenkins slaves (needed for assign tags)
+  JWorkerRole: # create Role for jenkins workers (needed for assign tags)
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
@@ -314,15 +314,15 @@ Resources:
             - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucket ]]
             - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucket, '/*' ]]
 
-  JSlaveProfile: # create Profile for jenkins slaves (needed for assign tags)
+  JWorkerProfile: # create Profile for jenkins workers (needed for assign tags)
     Type: AWS::IAM::InstanceProfile
     Properties:
       Path: /
       Roles:
-        - !Ref JSlaveRole
+        - !Ref JWorkerRole
       InstanceProfileName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
 
-  JMasterRole: # create Role for jenkins master (needed for run slaves)
+  JMasterRole: # create Role for jenkins master (needed for run workers)
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Join [ '-', [ !Ref JShortName, 'master' ]]
@@ -368,8 +368,8 @@ Resources:
           Statement:
           - Effect: Allow
             Resource:
-            - !GetAtt JSlaveRole.Arn
-            - !GetAtt JSlaveProfile.Arn
+            - !GetAtt JWorkerRole.Arn
+            - !GetAtt JWorkerProfile.Arn
             Action:
             - iam:ListRoles
             - iam:PassRole
@@ -401,7 +401,7 @@ Resources:
             - sqs:DeleteMessage
             - sqs:DeleteMessageBatch
 
-  JMasterProfile: # create Profile for jenkins master (needed for run slaves)
+  JMasterProfile: # create Profile for jenkins master (needed for run workers)
     Type: AWS::IAM::InstanceProfile
     Properties:
       Path: /
