@@ -92,6 +92,9 @@
         #fi
         PSM_VERSION=$(git describe --tags | sed 's/^psmdb-//' | sed 's/^r//' | awk -F '-' '{print $1}')
         PSM_RELEASE=$(git describe --tags | sed 's/^psmdb-//' | sed 's/^r//' |awk -F '-' '{print $2}')
+        # TODO: mongo-tools repo sometimes doesn't have corresponding tag
+        # currently it uses the last tagged version
+        # MONGO_TOOLS_TAG="r${PSM_VERSION}"
         # create a proper version.json
         echo "{" > version.json
         echo "    \"version\": \"${PSM_VERSION}-${PSM_RELEASE}\"," >> version.json
@@ -102,17 +105,17 @@
         git submodule init
         git submodule update
         #
-        #rm -rf mongo-tools
-        #git clone https://github.com/mongodb/mongo-tools.git
-        #pushd mongo-tools
-        ##git checkout v3.6
-        ##MONGO_TOOLS_TAG=$(git describe --tags | awk -F '-' '{print $1}')
-        #MONGO_TOOLS_TAG=$(git describe --tags)
-        ##git checkout $MONGO_TOOLS_TAG
-        echo "export PSMDB_TOOLS_COMMIT_HASH=\"$(git rev-parse HEAD)\"" > src/mongo/gotools/set_tools_revision.sh
-        echo "export PSMDB_TOOLS_REVISION=\"${PSM_VERSION}-${PSM_RELEASE}\"" >> src/mongo/gotools/set_tools_revision.sh
-        chmod +x src/mongo/gotools/set_tools_revision.sh
-        #popd
+        rm -rf mongo-tools
+        git clone https://github.com/mongodb/mongo-tools.git
+        pushd mongo-tools
+        git checkout v4.0
+        #MONGO_TOOLS_TAG=$(git describe --tags | awk -F '-' '{print $1}')
+        MONGO_TOOLS_TAG=$(git describe --tags)
+        git checkout $MONGO_TOOLS_TAG
+        echo "export PSMDB_TOOLS_COMMIT_HASH=\"$(git rev-parse HEAD)\"" > set_tools_revision.sh
+        echo "export PSMDB_TOOLS_REVISION=\"${PSM_VERSION}-${PSM_RELEASE}\"" >> set_tools_revision.sh
+        chmod +x set_tools_revision.sh
+        popd
         #
         cd ${WORKSPACE}
         fi
@@ -182,7 +185,7 @@
         ARCH=$(uname -m 2>/dev/null||true)
         PSMDIR=percona-server-mongodb
         PSMDIR_ABS=${WORKSPACE}/percona-server-mongodb
-        TOOLSDIR=${PSMDIR}/src/mongo/gotools
+        TOOLSDIR=${PSMDIR}/mongo-tools
         TOOLSDIR_ABS=${WORKSPACE}/${TOOLSDIR}
         TOOLS_TAGS="ssl sasl"
 
@@ -211,15 +214,6 @@
           buildscripts/scons.py CC=${CC} CXX=${CXX} --release --ssl --opt=on -j$NJOBS --use-sasl-client --wiredtiger --audit --inmemory --hotbackup ${ASAN_OPTIONS} CPPPATH=${INSTALLDIR}/include LIBPATH=${INSTALLDIR}/lib ${PSM_TARGETS}
         fi
         #
-        # scons install doesn't work - it installs the binaries not linked with fractal tree
-        #scons --prefix=$PWD/$PSMDIR install
-        #
-        #mkdir -p ${PSMDIR}/bin
-        #for target in ${PSM_TARGETS[@]}; do
-        #  cp -f $target ${PSMDIR}/bin
-        #  strip --strip-debug ${PSMDIR}/bin/${target}
-        #done
-        #
         cd ${WORKSPACE}
         #
         # Build mongo tools
@@ -237,6 +231,29 @@
         mv bin/* ${PSMDIR_ABS}
         # end build tools
         fi
+    - conditional-step:
+        condition-kind: shell
+        condition-command: |-
+          if [ "${RELEASE_TEST}" = "true" ]; then
+            exit 0
+          else
+            exit 1
+          fi
+        steps:
+          - copyartifact:
+              project: "percona-server-mongodb-4.0-new-SOURCE"
+              filter: "*.properties, source_tarball/*.tar.gz"
+              exclude: ""
+              target: ${WORKSPACE}
+              flatten: true
+              do-not-fingerprint: false
+          - copyartifact:
+              project: "percona-server-mongodb-4.0-TARBALL-new-release/label_exp=min-xenial-x64"
+              filter: "*/*.tar.gz"
+              exclude: ""
+              target: ${WORKSPACE}
+              flatten: true
+              do-not-fingerprint: false
     - shell: |-
         # run tests
         cd ${WORKSPACE}
@@ -245,11 +262,12 @@
         DISTRIBUTION="xenial"
 
         if [ "${RELEASE_TEST}" = "true" ]; then
-          wget http://jenkins.percona.com/job/percona-server-mongodb-3.4-SOURCE/lastSuccessfulBuild/artifact/percona-server-mongodb-34.properties
-          PSM_VERSION=$(grep '^VERSION=' percona-server-mongodb-34.properties|cut -d'=' -f2)
-          PSM_RELEASE=$(grep '^RELEASE=' percona-server-mongodb-34.properties|cut -d'=' -f2)
-          wget http://jenkins.percona.com/job/percona-server-mongodb-3.4-SOURCE/lastSuccessfulBuild/artifact/percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz
-          wget http://jenkins.percona.com/job/percona-server-mongodb-3.4-TARBALL-release/label_exp=ubuntu-xenial-64bit/lastSuccessfulBuild/artifact/percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}-${DISTRIBUTION}-x86_64.tar.gz
+          #wget http://jenkins.percona.com/job/percona-server-mongodb-4.0-SOURCE/lastSuccessfulBuild/artifact/percona-server-mongodb-40.properties
+          PSM_VERSION=$(grep '^VERSION=' percona-server-mongodb-40.properties|cut -d'=' -f2)
+          PSM_RELEASE=$(grep '^RELEASE=' percona-server-mongodb-40.properties|cut -d'=' -f2)
+          #wget http://jenkins.percona.com/job/percona-server-mongodb-4.0-SOURCE/lastSuccessfulBuild/artifact/percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz
+          #wget http://jenkins.percona.com/job/percona-server-mongodb-4.0-TARBALL-release/label_exp=ubuntu-xenial-64bit/lastSuccessfulBuild/artifact/percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}-${DISTRIBUTION}-x86_64.tar.gz
+
           if [ ! -f "percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz" ]; then
             echo "Tarball percona-server-mongodb-${PSM_VERSION}-${PSM_RELEASE}.tar.gz doesn't exists!"
             exit 1
@@ -298,7 +316,7 @@
     concurrent: false
     description: null
     disabled: true
-    name: !!python/unicode 'percona-server-for-mongodb-master-template'
+    name: !!python/unicode 'percona-server-for-mongodb-4.0-template'
     project-type: freestyle
     properties:
     - disk-usage

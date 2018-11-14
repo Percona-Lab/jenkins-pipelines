@@ -2,11 +2,11 @@
     block-downstream: false
     block-upstream: false
     builders:
-    - builders-from: percona-server-for-mongodb-master-template
+    - builders-from: percona-server-for-mongodb-4.0-template
     concurrent: true
     description: null
     disabled: false
-    name: !!python/unicode 'percona-server-for-mongodb-master-param'
+    name: !!python/unicode 'percona-server-for-mongodb-4.0-param'
     node: psmdb || mongodb-xenial-x64
     parameters:
     - choice:
@@ -27,7 +27,7 @@
         name: PSM_REPO
         trim: false
     - string:
-        default: master
+        default: v4.0
         description: ''
         name: PSM_BRANCH
         trim: false
@@ -38,14 +38,14 @@
         name: JOBS
         trim: false
     - string:
-        default: resmoke_psmdb_master_medium
+        default: resmoke_psmdb_4.0_big
         description: |-
           <h3>AVAILABLE OPTIONS:<br>
           core_all_engines<br>
           core_default<br>
-          resmoke_psmdb_master_big<br>
-          resmoke_psmdb_master_big_nommap<br>
-          resmoke_psmdb_master_medium<br>
+          resmoke_psmdb_4.0_big<br>
+          resmoke_psmdb_4.0_big_nommap<br>
+          resmoke_psmdb_4.0_medium<br>
           This is test suite from psmdb-misc-scripts/suite_sets and needs to be without .txt extension</h3>
         name: SUITE
         trim: false
