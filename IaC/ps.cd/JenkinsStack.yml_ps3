@@ -1,0 +1,764 @@
+# aws cloudformation --region us-west-1 create-stack --template-body file://IaC/ps.cd/JenkinsStack.yml_ps3 --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-ps3 --tags Key=iit-billing-tag,Value=jenkins-ps3
+---
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+
+  JHostName:
+    Default: ps3.cd.percona.com
+    Description: Fully Qualified Domain Name
+    Type: String
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: '^[a-z][a-z0-9\.\-]*$'
+    ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
+
+  JShortName:
+    Default: jenkins-ps3
+    Description: Short host name
+    Type: String
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: '^[a-z][a-z0-9\.\-]*$'
+    ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
+
+  ZoneId:
+    Default: Z1H0AFAU7N8IMC
+    Description: Hosted Zone ID
+    Type: AWS::Route53::HostedZone::Id
+
+  MasterKeyName:
+    Default: mykola
+    Description: Key pair name
+    Type: AWS::EC2::KeyPair::KeyName
+
+  CacheBucketName:
+    Default: ps-build-cache
+    Description: Fully Qualified Domain Name
+    Type: String
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: '^[a-z][a-z0-9\.\-]*$'
+    ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
+
+Mappings:
+  AmazonLinux1:
+    us-east-2:
+      x64: ami-922914f7
+    us-west-1:
+      x64: ami-0bdb828fd58c52235
+  AmazonLinux2:
+    us-east-2:
+      x64: ami-2a0f324f
+    us-west-1:
+      x64: ami-01beb64058d271bc4
+
+Resources:
+
+  JVPC: # separate virtual network for jenkins instances
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.177.0.0/22
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+      - Key: Name
+        Value: !Ref JShortName
+      - Key: iit-billing-tag
+        Value: !Ref JShortName
+
+  JInternetGateway: # Internet Gateway for jenkins VPC
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Ref JShortName
+      - Key: iit-billing-tag
+        Value: !Ref JShortName
+
+  JVPCGatewayAttachment: # Attach Gateway to VPC
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref JVPC
+      InternetGatewayId: !Ref JInternetGateway
+
+  JSubnetB: # create subnet in AZ
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref JVPC
+      CidrBlock: 10.177.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone:
+        Fn::Select: [ 1, !GetAZs '' ]
+      Tags:
+      - Key: Name
+        Value: !Join [ '-', [ !Ref JShortName, 'B' ]]
+      - Key: iit-billing-tag
+        Value: !Ref JShortName
+
+  JSubnetC: # create subnet in AZ
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref JVPC
+      CidrBlock: 10.177.2.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone:
+        Fn::Select: [ 2, !GetAZs '' ]
+      Tags:
+      - Key: Name
+        Value: !Join [ '-', [ !Ref JShortName, 'C' ]]
+      - Key: iit-billing-tag
+        Value: !Ref JShortName
+
+  JRouteTable: # create route table for VPC
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref JVPC
+      Tags:
+      - Key: Name
+        Value: !Ref JShortName
+      - Key: iit-billing-tag
+        Value: !Ref JShortName
+
+  JInternetRoute: # add default route
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref JInternetGateway
+      RouteTableId: !Ref JRouteTable
+
+  SubnetBRouteTable: # add subnet route
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref JRouteTable
+      SubnetId: !Ref JSubnetB
+
+  SubnetCRouteTable: # add subnet route
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref JRouteTable
+      SubnetId: !Ref JSubnetC
+
+  S3Endpoint: # route S3 traffic over private network
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+            - s3:ListBucket
+            - s3:GetObject
+            - s3:GetObjectAcl
+            - s3:PutObject
+            - s3:PutObjectAcl
+            - s3:DeleteObject
+            - s3:AbortMultipartUpload
+            Resource:
+            - '*'
+      RouteTableIds:
+        - !Ref JRouteTable
+      ServiceName: !Join
+        - ''
+        - - com.amazonaws.
+          - !Ref 'AWS::Region'
+          - .s3
+      VpcId: !Ref JVPC
+
+  TerminationQueue: # queue for termination notifications
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Join [ '-', [ !Ref JShortName, 'termination' ]]
+
+  TerminationQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref TerminationQueue
+      PolicyDocument:
+        Id: sqspolicy
+        Statement:
+          - Sid: First
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action:
+              - sqs:SendMessage
+            Resource:
+            - !GetAtt TerminationQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt TerminationRule1.Arn
+
+  TerminationRule1: # notify about instance interruption from aws side
+    Type: AWS::Events::Rule
+    Properties:
+      Description: EC2 Spot Instance Interruption Warning
+      EventPattern:
+        source:
+          - aws.ec2
+        detail-type:
+          - EC2 Spot Instance Interruption Warning
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt TerminationQueue.Arn
+          Id: !GetAtt TerminationQueue.QueueName
+
+  SSHSecurityGroup: # allow ssh access (assign when needed)
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: SSH
+      GroupDescription: SSH traffic in
+      VpcId: !Ref JVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 176.37.55.60/32
+      Tags:
+      - Key: iit-billing-tag
+        Value: !Ref JShortName
+
+  HTTPSecurityGroup: # allow http and https access to jenkins master
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: HTTP
+      GroupDescription: HTTP and HTTPS traffic in
+      VpcId: !Ref JVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: iit-billing-tag
+        Value: !Ref JShortName
+
+  JWorkerRole: # create Role for jenkins workers (needed for assign tags)
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Principal:
+            Service: ec2.amazonaws.com
+      Path: /
+      Policies:
+      - PolicyName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Resource: '*'
+            Action:
+            - ec2:CreateTags
+            - ec2:DeleteTags
+            - ec2:DescribeInstances
+            - ec2:DescribeSpotInstanceRequests
+          - Effect: Allow
+            Action:
+            - s3:ListBucket
+            - s3:GetObject
+            - s3:GetObjectAcl
+            - s3:PutObject
+            - s3:PutObjectAcl
+            - s3:DeleteObject
+            - s3:AbortMultipartUpload
+            Resource:
+            - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucketName ]]
+            - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucketName, '/*' ]]
+
+  JWorkerProfile: # create Profile for jenkins workers (needed for assign tags)
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref JWorkerRole
+      InstanceProfileName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
+
+  JMasterRole: # create Role for jenkins master (needed for run workers)
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join [ '-', [ !Ref JShortName, 'master' ]]
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Principal:
+            Service: ec2.amazonaws.com
+      Path: /
+      Policies:
+      - PolicyName: StartInstances
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Resource: '*'
+            Action:
+            - ec2:ModifySpotFleetRequest
+            - ec2:DescribeSpotFleetRequests
+            - ec2:DescribeSpotFleetInstances
+            - ec2:DescribeSpotInstanceRequests
+            - ec2:CancelSpotInstanceRequests
+            - ec2:GetConsoleOutput
+            - ec2:RequestSpotInstances
+            - ec2:RunInstances
+            - ec2:StartInstances
+            - ec2:StopInstances
+            - ec2:TerminateInstances
+            - ec2:CreateTags
+            - ec2:DeleteTags
+            - ec2:DescribeInstances
+            - ec2:DescribeKeyPairs
+            - ec2:DescribeRegions
+            - ec2:DescribeImages
+            - ec2:DescribeAvailabilityZones
+            - ec2:DescribeSecurityGroups
+            - ec2:DescribeSubnets
+      - PolicyName: PassRole
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Resource:
+            - !GetAtt JWorkerRole.Arn
+            - !GetAtt JWorkerProfile.Arn
+            Action:
+            - iam:ListRoles
+            - iam:PassRole
+            - iam:ListInstanceProfiles
+            - iam:ListInstanceProfilesForRole
+      - PolicyName: UserDataNeeds
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Resource: '*'
+            Action:
+            - ec2:AttachVolume
+            - ec2:DetachVolume
+            - ec2:DescribeVolumes
+            - ec2:AssociateAddress
+            - ec2:CreateTags
+            - ec2:DescribeInstances
+      - PolicyName: ReadTerminationSQS
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Resource:
+            - !GetAtt TerminationQueue.Arn
+            Action:
+            - sqs:GetQueueUrl
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:DeleteMessageBatch
+
+  JMasterProfile: # create Profile for jenkins master (needed for run workers)
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref JMasterRole
+      InstanceProfileName: !Ref JShortName
+
+  SpotFleetRole: # create Role for run jenkins master as spot instance
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join [ '-', [ !Ref JShortName, 'SpotFleet' ]]
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole
+      AssumeRolePolicyDocument:
+        Version: 2008-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: spotfleet.amazonaws.com
+          Action: sts:AssumeRole
+
+  MasterIP: # create public IP for jenkins master
+    Type: AWS::EC2::EIP
+    DependsOn: JVPC
+    Properties:
+      Domain: vpc
+
+  JDNSRecord: # create DNS record for jenkins master
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref ZoneId
+      Name: !Ref JHostName
+      Type: A
+      TTL: 300
+      ResourceRecords:
+      - !Ref MasterIP
+
+  JDataVolume: # create volume for jenkins data directory
+    Type: AWS::EC2::Volume
+    DeletionPolicy: Snapshot
+    Properties:
+      AutoEnableIO: false
+      AvailabilityZone:
+        Fn::Select: [ 1, !GetAZs '' ]
+      Encrypted: false
+      Size: 100
+      Tags:
+      - Key: iit-billing-tag
+        Value: !Ref JShortName
+      - Key: Name
+        Value: !Join [ ' ', [ !Ref JShortName, 'DATA, do not remove' ]]
+      VolumeType: gp2
+
+  JMasterInstance: # create jenkins master as spot instance
+    Type: AWS::EC2::SpotFleet
+    Properties:
+      SpotFleetRequestConfigData:
+        AllocationStrategy: lowestPrice
+        ExcessCapacityTerminationPolicy: default
+        IamFleetRole: !GetAtt SpotFleetRole.Arn
+        ReplaceUnhealthyInstances: true
+        SpotPrice: 0.10
+        TargetCapacity: 1
+        TerminateInstancesWithExpiration: false
+        Type: maintain
+        LaunchTemplateConfigs:
+        - LaunchTemplateSpecification:
+            LaunchTemplateId: !Ref JMasterTemplate
+            Version: !GetAtt JMasterTemplate.LatestVersionNumber
+          Overrides:
+          - InstanceType: m4.large
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+          - InstanceType: c4.large
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+          - InstanceType: m5.large
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+          - InstanceType: c5.large
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+          - InstanceType: c5d.large
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+
+  JMasterTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: PS3MasterTemplate
+      LaunchTemplateData:
+        NetworkInterfaces:
+        - DeviceIndex: 0
+          SubnetId: !Ref JSubnetB
+          Groups:
+          - !GetAtt JVPC.DefaultSecurityGroup
+          - !GetAtt HTTPSecurityGroup.GroupId
+          - !GetAtt SSHSecurityGroup.GroupId
+        TagSpecifications:
+        - ResourceType: instance
+          Tags:
+          - Key: Name
+            Value: !Ref JShortName
+          - Key: iit-billing-tag
+            Value: !Ref JShortName
+        - ResourceType: volume
+          Tags:
+          - Key: Name
+            Value: !Ref JShortName
+          - Key: iit-billing-tag
+            Value: !Ref JShortName
+        IamInstanceProfile:
+            Arn: !GetAtt JMasterProfile.Arn
+        EbsOptimized: true
+        KeyName: !Ref MasterKeyName
+        ImageId: !FindInMap [AmazonLinux2, !Ref 'AWS::Region', x64]
+        Monitoring:
+          Enabled: false
+        UserData:
+            Fn::Base64: !Sub |
+              #!/bin/bash
+
+              JENKINS_HOST=${JHostName}
+              JENKINS_SHORT=${JShortName}
+              JENKINS_EIP=${MasterIP.AllocationId}
+              JENKINS_VOLUME_ID=${JDataVolume}
+              INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+              INSTANCE_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e 's/[a-z]$//')
+
+              set -o xtrace
+              set -o errexit
+
+              setup_aws() {
+                  aws ec2 associate-address \
+                      --region $INSTANCE_REGION \
+                      --instance-id $INSTANCE_ID \
+                      --allocation-id $JENKINS_EIP \
+                      --allow-reassociation
+
+                  SPOT_REQUEST=$(
+                      aws ec2 describe-instances \
+                          --region $INSTANCE_REGION \
+                          --instance-ids $INSTANCE_ID \
+                          --query 'Reservations[].Instances[].SpotInstanceRequestId' \
+                          --output text
+                  )
+
+                  VOLUMES=$(
+                      aws ec2 describe-instances \
+                          --region $INSTANCE_REGION \
+                          --instance-ids $INSTANCE_ID \
+                          --query 'Reservations[].Instances[].BlockDeviceMappings[].Ebs.VolumeId' \
+                          --output text
+                  )
+
+                  aws ec2 create-tags \
+                      --resources $INSTANCE_ID $SPOT_REQUEST $VOLUMES \
+                      --region $INSTANCE_REGION \
+                      --tags Key=Name,Value=$JENKINS_SHORT \
+                             Key=iit-billing-tag,Value=$JENKINS_SHORT
+              }
+
+              install_software() {
+                  until yum makecache; do
+                      sleep 1
+                      echo try again
+                  done
+
+                  yum-config-manager --add-repo "https://openresty.org/package/rhel/7/x86_64"
+                  rpm --import https://openresty.org/package/pubkey.gpg
+                  wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat/jenkins.repo
+                  rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key
+                  yum -y update --security
+                  yum -y install java-1.8.0-openjdk-1.8.0.191.b12 jenkins-2.151 git yum-cron aws-cli xfsprogs openresty
+
+                  sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
+                  sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
+                  chkconfig yum-cron on
+                  service yum-cron start
+
+                  wget https://dl.eff.org/certbot-auto -O /opt/certbot-auto
+                  chmod 755 /opt/certbot-auto
+                  touch /etc/redhat-release
+              }
+
+              volume_state() {
+                  aws ec2 describe-volumes \
+                      --volume-id $JENKINS_VOLUME_ID \
+                      --region $INSTANCE_REGION \
+                      --query 'Volumes[].State' \
+                      --output text
+              }
+
+              mount_data_partition() {
+                  aws ec2 detach-volume \
+                      --region $INSTANCE_REGION \
+                      --volume-id $JENKINS_VOLUME_ID \
+                      || :
+                  while true; do
+                      [ "x$(volume_state)" = "xavailable" ] && break || sleep 1
+                  done
+
+                  aws ec2 attach-volume \
+                      --region $INSTANCE_REGION \
+                      --device /dev/xvdj \
+                      --instance-id $INSTANCE_ID \
+                      --volume-id $JENKINS_VOLUME_ID
+                  while true; do
+                      [ "x$(volume_state)" = "xin-use" ] && break || sleep 1
+                  done
+                  while true; do
+                      [ -e /dev/xvdj ] && break || sleep 1
+                  done
+
+                  mkfs.xfs -L DATA /dev/xvdj || :
+                  echo "/dev/xvdj /mnt xfs defaults,noatime,nofail 0 0" | tee -a /etc/fstab
+                  mount /mnt
+              }
+
+              start_jenkins() {
+                  sysctl net.ipv4.tcp_fin_timeout=15
+                  sysctl net.ipv4.tcp_tw_reuse=1
+                  sysctl net.ipv6.conf.all.disable_ipv6=1
+                  sysctl net.ipv6.conf.default.disable_ipv6=1
+                  cat <<-EOF | tee /etc/security/limits.d/jenkins.conf
+              		jenkins    soft    core      unlimited
+              		jenkins    hard    core      unlimited
+              		jenkins    soft    fsize     unlimited
+              		jenkins    hard    fsize     unlimited
+              		jenkins    soft    nofile    4096
+              		jenkins    hard    nofile    8192
+              		jenkins    soft    nproc     30654
+              		jenkins    hard    nproc     30654
+              	EOF
+
+                  install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
+                  install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
+                  chown -R jenkins:jenkins /mnt/$JENKINS_HOST
+
+                  printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
+                      | tee -a /etc/hosts
+                  sed -i 's^"-Djava.awt.headless=true"^"-Djava.awt.headless=true -Xms2048m -Xmx4096m -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc-%t.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2 -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"^' /etc/sysconfig/jenkins
+                  echo JENKINS_HOME=/mnt/$JENKINS_HOST \
+                      | tee -a /etc/sysconfig/jenkins
+                  chkconfig jenkins on
+                  service jenkins start
+
+                  #echo "/usr/bin/aws s3 sync --sse-kms-key-id alias/jenkins-pmm-backup --sse aws:kms --exclude '*/caches/*' --exclude '*/config-history/nodes/*' --exclude '*/secretFiles/*' --delete /mnt/ s3://backup.cd.percona.com/" > /etc/cron.daily/jenkins-backup
+                  #chmod 755 /etc/cron.daily/jenkins-backup
+
+                  printf "* * * * * root bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"service jenkins stop; umount /mnt\" || :'\n* * * * * root sleep 30; bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"service jenkins stop; umount /mnt\" || :'\n" > /etc/cron.d/terminate-check
+              }
+
+              create_fake_ssl_cert() {
+                  mkdir -p /etc/nginx/ssl
+                  mkdir -p /mnt/$JENKINS_HOST/ssl
+                  if [ ! -f /mnt/$JENKINS_HOST/ssl/certificate.key -o ! -f /mnt/$JENKINS_HOST/ssl/certificate.crt ]; then
+                      echo "
+                          [ req ]
+                          distinguished_name = req_distinguished_name
+                          prompt             = no
+                          [ req_distinguished_name ]
+                          O                  = Main Org.
+                      " | tee /mnt/$JENKINS_HOST/ssl/certificate.conf
+                      openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                                    -keyout /mnt/$JENKINS_HOST/ssl/certificate.key \
+                                    -out    /mnt/$JENKINS_HOST/ssl/certificate.crt \
+                                    -config /mnt/$JENKINS_HOST/ssl/certificate.conf
+                  fi
+                  cp /mnt/$JENKINS_HOST/ssl/certificate.key /etc/nginx/ssl/certificate.key
+                  cp /mnt/$JENKINS_HOST/ssl/certificate.crt /etc/nginx/ssl/certificate.crt
+                  if [ ! -f /mnt/$JENKINS_HOST/ssl/dhparam-1024.pem ]; then
+                      openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam-1024.pem 1024
+                  fi
+                  cp /mnt/$JENKINS_HOST/ssl/dhparam-1024.pem /etc/nginx/ssl/dhparam.pem
+                  curl https://letsencrypt.org/certs/isrgrootx1.pem                          > /etc/nginx/ssl/ca-certs.pem
+                  curl https://letsencrypt.org/certs/lets-encrypt-x1-cross-signed.pem       >> /etc/nginx/ssl/ca-certs.pem
+                  curl https://letsencrypt.org/certs/letsencryptauthorityx1.pem             >> /etc/nginx/ssl/ca-certs.pem
+                  curl https://www.identrust.com/certificates/trustid/root-download-x3.html >> /etc/nginx/ssl/ca-certs.pem
+              }
+
+              setup_nginx() {
+                  if [ ! -f /mnt/$JENKINS_HOST/ssl/nginx.conf ]; then
+                      cat <<-EOF | tee /mnt/$JENKINS_HOST/ssl/nginx.conf
+              			upstream jenkins {
+              			  server 127.0.0.1:8080 fail_timeout=0;
+              			}
+
+              			server {
+              			  listen 80;
+              			  server_name $JENKINS_HOST;
+
+              			  # letsencrypt certificates validation
+              			  location /.well-known {
+              			    alias /usr/share/nginx/html/.well-known;
+              			  }
+
+              			  # or redirect to https
+              			  if (\$uri !~* ^/.well-known) {
+              			    return 301 https://\$host\$request_uri;
+              			  }
+              			}
+
+              			server {
+              			  listen 443 ssl;
+              			  server_name $JENKINS_HOST;
+
+              			  ssl_certificate             /etc/nginx/ssl/certificate.crt;
+              			  ssl_certificate_key         /etc/nginx/ssl/certificate.key;
+              			  ssl_trusted_certificate     /etc/nginx/ssl/ca-certs.pem;
+              			  ssl_dhparam                 /etc/nginx/ssl/dhparam.pem;
+
+              			  set \$ngo_client_id          "<-- SETUP MANUALLY -->";
+              			  set \$ngo_client_secret      "<-- SETUP MANUALLY -->";
+              			  set \$ngo_token_secret       "<-- SETUP MANUALLY -->";
+              			  set \$ngo_domain             percona.com;
+              			  set \$ngo_secure_cookies     true;
+              			  set \$ngo_http_only_cookies  true;
+              			  resolver                    8.8.8.8 ipv6=off;
+              			  lua_ssl_trusted_certificate /etc/pki/tls/certs/ca-bundle.crt;
+              			  lua_ssl_verify_depth        3;
+              			  access_by_lua_file          /mnt/$JENKINS_HOST/nginx-google-oauth.lua;
+              			  allow                       176.37.55.60; # mykola home IP, needed for jenkins-job-builder
+              			  satisfy                     any;
+
+              			  location / {
+              			    proxy_set_header        Host \$host:\$server_port;
+              			    proxy_set_header        X-Real-IP \$remote_addr;
+              			    proxy_set_header        X-Forwarded-For \$proxy_add_x_forwarded_for;
+              			    proxy_set_header        X-Forwarded-Proto \$scheme;
+              			    proxy_redirect http:// https://;
+              			    proxy_pass              http://jenkins;
+              			    # Required for new HTTP-based CLI
+              			    proxy_http_version 1.1;
+              			    proxy_request_buffering off;
+              			    proxy_buffering off; # Required for HTTP-based CLI to work over SSL
+              			    # workaround for https://issues.jenkins-ci.org/browse/JENKINS-45651
+              			    add_header 'X-SSH-Endpoint' '$JENKINS_HOST:50022' always;
+              			  }
+              			}
+              		EOF
+                  fi
+
+                  ln -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
+                  sed -i'' -e 's/listen/#listen/; s/mime.types/jenkins.conf/' /usr/local/openresty/nginx/conf/nginx.conf
+
+                  wget -O /usr/local/openresty/lualib/resty/http.lua \
+                    https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http.lua
+                  wget -O /usr/local/openresty/lualib/resty/http_headers.lua \
+                    https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http_headers.lua
+                  wget -O /mnt/$JENKINS_HOST/nginx-google-oauth.lua \
+                    https://raw.githubusercontent.com/cloudflare/nginx-google-oauth/master/access.lua
+
+                  chkconfig openresty on
+                  service openresty start
+              }
+
+              setup_letsencrypt() {
+                  install -d /usr/share/nginx/html
+                  /opt/certbot-auto --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
+                  ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
+                  ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
+                  printf '#!/bin/sh\n/opt/certbot-auto renew\nservice nginx restart\n' > /etc/cron.daily/certbot
+                  chmod 755 /etc/cron.daily/certbot
+                  service openresty stop
+                  sleep 2
+                  service openresty start
+              }
+
+              setup_dhparam() {
+                  if [ ! -f /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem ]; then
+                      openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem 4096
+                  fi
+                  cp /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem /etc/nginx/ssl/dhparam.pem
+                  service openresty restart
+              }
+
+              main() {
+                  setup_aws
+                  install_software
+                  mount_data_partition
+                  start_jenkins
+                  create_fake_ssl_cert
+                  setup_nginx
+                  setup_dhparam
+                  setup_letsencrypt
+              }
+
+              main
+              exit 0
+
+Outputs:
+  JIP:
+    Description: Jenkins IP
+    Value: !Ref MasterIP
+  JMasterInstance:
+    Description: Master Spot Fleet
+    Value: !Ref JMasterInstance

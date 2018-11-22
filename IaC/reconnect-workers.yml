@@ -13,7 +13,7 @@
         artifact-days-to-keep: -1
         artifact-num-to-keep: 10
     triggers:
-    - timed: H/5 * * * *
+    - timed: '* * * * *'
     dsl: |
         import hudson.model.*
         Jenkins.instance.slaves.each{
