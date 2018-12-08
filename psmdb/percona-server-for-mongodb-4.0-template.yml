@@ -151,10 +151,12 @@
           UNITTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^unittests" || true)
           DBTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^dbtest" || true)
           INTEGRATIONTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^integration_tests" || true)
+          BENCHMARKTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^benchmarks" || true)
         else
           UNITTESTS=$(grep -c "^unittests" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
           DBTESTS=$(grep -c "^dbtest" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
           INTEGRATIONTESTS=$(grep -c "^integration_tests" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
+          BENCHMARKTESTS=$(grep -c "^benchmarks" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
         fi
         if [ "${UNITTESTS}" -gt 0 ]; then
           OPT_TARGETS=" unittests"
@@ -168,6 +170,11 @@
         fi
         if [ "${INTEGRATIONTESTS}" -gt 0 ]; then
           OPT_TARGETS="${OPT_TARGETS} integration_tests"
+        else
+          OPT_TARGETS="${OPT_TARGETS}"
+        fi
+        if [ "${BENCHMARKTESTS}" -gt 0 ]; then
+          OPT_TARGETS="${OPT_TARGETS} benchmarks"
         else
           OPT_TARGETS="${OPT_TARGETS}"
         fi
@@ -325,7 +332,7 @@
         console-log-parsers:
           - GNU Make + GNU C Compiler (gcc)
     - archive:
-        artifacts: 'percona-server-mongodb/resmoke_summary*.log, percona-server-mongodb/killer.log, percona-server-mongodb/resmoke_logs.tar.gz'
+        artifacts: 'percona-server-mongodb/resmoke_summary*.log, percona-server-mongodb/killer.log, percona-server-mongodb/resmoke_logs.tar.gz, percona-server-mongodb/perf.json, percona-server-mongodb/perf_sharding.json'
         allow-empty: false
         fingerprint: false
         default-excludes: true
