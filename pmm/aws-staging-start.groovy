@@ -40,7 +40,7 @@ pipeline {
             description: 'MariaDB Server version',
             name: 'MD_VERSION')
         string(
-            defaultValue: '3.4',
+            defaultValue: '3.6',
             description: 'Percona Server for MongoDB version',
             name: 'MO_VERSION')
         string(
