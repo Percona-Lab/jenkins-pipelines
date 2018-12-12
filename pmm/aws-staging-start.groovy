@@ -222,10 +222,6 @@ pipeline {
                             set -o errexit
                             set -o xtrace
 
-                            echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3q+CcD0UcPx3g87WB59d+Mn5OAS1LbjUXlckNn+B0iexF8tsM40i0oeoJ/KJqiGqC8+7Shz8rODcKSCpSCQwvUAdBlUXeZZ1roinHAx9CtzxJSSiRhFGlCT55aKFW6E+CEIoz6gvOpCbCx/x/sXo6QcA18Lv0JkAtB5gJu45Sog2BWcja2Qjty5+Ltl7POipQtNRKTmFGYcv6Gx3yJM2cBNGnRM64AjOL3IrgP08XKY7LKN+Z2zWUjpf72pPRBuHqudf8xzWIdfS7HKFnuWtqK8zlAvPrZ18JXxlcUqD5Nqo8ajd5SQvT4tHt9cf1kzz5zbxZlPCnrlQJthxycI6B KD" >> .ssh/authorized_keys
-                            echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDHwTZyQ0H5JtFByPwOUV9oX45dAr5FsDOOlFmbNc1FVE3lvwVn1ZoMzvooIGfcix6/9RxF59GPmjnN/B52mMjiJ2M5fKNBsRjHizZhe4C7I4EuU8YCOvMLGROSr5c9vevCYjmjN9isUtP+e3F9XeZ1f4IWX7YU8qOpKwbYheNiXcySv8sXIHa8gDU85obgNbDl1oeNa1XpWIpJiP4Tl+9OH/ge/0Z7z3XYe2HvmsOPU8MykQH2jg3g/pxA9yudCYjvYZsxhyoSuvE1jcs0hb1smkCQrarXG8iFjRME0PxWe0J114PS0ddCfG5NtHuARqVVo32CLjqDynh6y6etLjdt MM" >> .ssh/authorized_keys
-
-
                             sudo yum -y update --security
                             sudo yum -y install http://www.percona.com/downloads/percona-release/redhat/0.1-4/percona-release-0.1-4.noarch.rpm
                             sudo yum -y install svn docker sysbench mysql
