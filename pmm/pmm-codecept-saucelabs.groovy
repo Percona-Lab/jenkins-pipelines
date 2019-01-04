@@ -50,17 +50,17 @@ pipeline {
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
 
                 sh '''
-                    curl --silent --location https://rpm.nodesource.com/setup_7.x | sudo bash -
+                    curl --silent --location https://rpm.nodesource.com/setup_8.x | sudo bash -
                     sudo yum -y install nodejs
 
                     export PATH=$PATH:/usr/local/node/bin
-                    npm install -g codeceptjs webdriverio
+                    npm install
                 '''
             }
         }
         stage('Start staging') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1')
+                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=mo,2 --with-replica  --addclient=pgsql,1')
             }
         }
         stage('Sanity check') {
@@ -70,7 +70,7 @@ pipeline {
         }
         stage('Sleep') {
             steps {
-                sleep 300
+                sleep 120
             }
         }
         stage('Run Grafana Test') {
@@ -78,8 +78,9 @@ pipeline {
                 sauce('SauceLabsKey') {
                     sauceconnect(options: '', sauceConnectPath: '') {
                         sh """
-                            export PATH=$PATH:/usr/local/node/bin:\$(pwd -P)/node_modules/protractor/bin
-                            codeceptjs run --steps --verbose tests/verifyRemoteInstances_test.js -o '{ "helpers": {"WebDriverIO": {"url": "${PMM_URL}", user": ${SAUCE_USERNAME}, "key": ${SAUCE_ACCESS_KEY}, "host": "ondemand.saucelabs.com"}}}'
+                            sed -i 's/{SAUCE_USER_KEY}/${SAUCE_ACCESS_KEY}/g' codecept.json
+                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -o '{ "helpers": {"WebDriverIO": {"url": "${PMM_URL}"}}}' --grep '(?=.*)^(?!.*@visual-test)'
+                            ./node_modules/.bin/codeceptjs run --steps -o '{ "helpers": {"WebDriverIO": {"url": "${PMM_URL}"}}}' --grep @visual-test
                         """
                     }
                 }
@@ -90,16 +91,22 @@ pipeline {
         always {
             // stop staging
             destroyStaging(VM_NAME)
+            sh '''
+                ls -la
+            '''
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     saucePublisher()
-                    junit '**/testresults/*xmloutput*.xml'
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'screenshots', reportFiles: 'pmm-qan-report.html, pmm-test-grafana-report.html', reportName: 'HTML Report', reportTitles: ''])
+                    junit 'tests/output/parallel_chunk*/chrome_report.xml'
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'parallel_chunk1__browser_chrome__1/result.html, parallel_chunk2__browser_chrome__2/result.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
                 } else {
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
                 }
             }
+            sh '''
+                sudo rm -r node_modules/
+            '''
             deleteDir()
         }
     }
