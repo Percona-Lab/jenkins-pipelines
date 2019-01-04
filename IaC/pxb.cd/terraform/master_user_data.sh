@@ -28,7 +28,7 @@ install_software() {
 
     yum -y update --security
     amazon-linux-extras install -y nginx1.12
-    yum -y install java-1.8.0-openjdk jenkins git yum-cron aws-cli xfsprogs
+    yum -y install java-1.8.0-openjdk jenkins-2.140 git yum-cron aws-cli xfsprogs
 
     sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
     sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -93,10 +93,6 @@ start_jenkins() {
     install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
     install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
     chown -R jenkins:jenkins /mnt/$JENKINS_HOST
-
-    wget -O /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy \
-      https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
-    sed -i 's/%LIST%/ec2 compress-buildlog google-login jobConfigHistory matrix-reloaded ssh-slaves template-project warnings ws-cleanup/' /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy
 
     printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
         | tee -a /etc/hosts

@@ -103,7 +103,7 @@
         console-log-parsers:
           - GNU Make + GNU C Compiler (gcc)
     - archive:
-        artifacts: 'percona-server-mongodb/resmoke_summary*.log, percona-server-mongodb/killer.log, percona-server-mongodb/resmoke_logs.tar.gz'
+        artifacts: 'percona-server-mongodb/resmoke_summary*.log, percona-server-mongodb/killer.log, percona-server-mongodb/resmoke_logs.tar.gz, percona-server-mongodb/perf.json, percona-server-mongodb/perf_sharding.json'
         allow-empty: false
         fingerprint: false
         default-excludes: true
