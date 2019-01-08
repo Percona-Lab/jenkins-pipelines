@@ -223,7 +223,7 @@ pipeline {
                             set -o xtrace
 
                             sudo yum -y update --security
-                            sudo yum -y install http://www.percona.com/downloads/percona-release/redhat/0.1-4/percona-release-0.1-4.noarch.rpm
+                            sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-3.noarch.rpm
                             sudo yum -y install svn docker sysbench mysql
                             sudo yum -y install bats --enablerepo=epel
                             sudo usermod -aG docker ec2-user
