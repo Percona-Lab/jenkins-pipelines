@@ -224,6 +224,7 @@ pipeline {
 
                             sudo yum -y update --security
                             sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-3.noarch.rpm
+                            sudo percona-release enable tools release
                             sudo yum -y install svn docker sysbench mysql
                             sudo yum -y install bats --enablerepo=epel
                             sudo usermod -aG docker ec2-user
