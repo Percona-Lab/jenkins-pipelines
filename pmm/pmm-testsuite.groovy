@@ -103,7 +103,7 @@ pipeline {
                 sh "curl --silent --insecure '${PMM_URL}/prometheus/targets' | grep localhost:9090"
             }
         }
-        stage('Test: PS') {
+        stage('Test: PS57') {
             steps {
                 runTAP("ps", "ps", "2")
             }
@@ -118,7 +118,7 @@ pipeline {
                 runTAP("mo", "psmdb", "3")
             }
         }
-        stage('Test: PGSQL') {
+        stage('Test: PGSQL10') {
             steps {
                 runTAP("pgsql", "postgresql", "3")
             }
