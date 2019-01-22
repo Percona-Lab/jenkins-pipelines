@@ -44,7 +44,7 @@ pipeline {
             steps {
                 // clean up workspace and fetch pmm-qa repository
                 deleteDir()
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/pmm-qa.git'
+                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
 
