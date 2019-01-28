@@ -105,7 +105,7 @@ pipeline {
         }
         stage('Test: PS57') {
             steps {
-                runTAP("ps", "ps", "2")
+                runTAP("ps", "ps", "2", "5.7")
             }
         }
         stage('Test: PS80') {
