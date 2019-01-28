@@ -17,7 +17,7 @@ void destroyStaging(IP) {
     ]
 }
 
-void runTAP(String TYPE, String PRODUCT, String COUNT) {
+void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
@@ -32,7 +32,7 @@ void runTAP(String TYPE, String PRODUCT, String COUNT) {
                 export table_c="100"
                 export tap="1"
 
-                wget --progress=dot:giga \$(bash /srv/percona-qa/get_download_link.sh --product=${PRODUCT} --distribution=centos)
+                wget --progress=dot:giga \$(bash /srv/percona-qa/get_download_link.sh --product=${PRODUCT} --distribution=centos --version=${VERSION})
                 bash /srv/percona-qa/pmm-tests/pmm-testsuite.sh \
                     | tee /tmp/result.output
 
@@ -106,6 +106,21 @@ pipeline {
         stage('Test: PS57') {
             steps {
                 runTAP("ps", "ps", "2")
+            }
+        }
+        stage('Test: PS80') {
+            steps {
+                runTAP("ps", "ps", "2", "8.0")
+            }
+        }
+        stage('Test: MS57') {
+            steps {
+                runTAP("mysql", "mysql", "2", "5.7")
+            }
+        }
+        stage('Test: MS80') {
+            steps {
+                runTAP("mysql", "mysql", "2", "8.0")
             }
         }
         stage('Test: PXC') {
