@@ -39,7 +39,7 @@
             sudo -E yum -y erase percona-release || true
             sudo find /etc/yum.repos.d/ -iname 'percona*' -delete
         #
-            until sudo -E yum -y install epel-release; do
+            until sudo -E yum -y install epel-release centos-release-scl; do
                 sudo yum clean all
                 sleep 1
                 echo "waiting"
@@ -48,6 +48,14 @@
                 sudo yum clean all
                 sleep 1
                 echo "waiting"
+            done
+        #
+            PKGLIST+=" devtoolset-7-gcc-c++ devtoolset-7-binutils"
+            PKGLIST+=" devtoolset-7-libasan-devel devtoolset-7-libubsan-devel"
+            PKGLIST+=" devtoolset-7-valgrind devtoolset-7-valgrind-devel"
+            until sudo -E yum -y install ${PKGLIST}; do
+                echo "waiting"
+                sleep 1
             done
         #
             PKGLIST="wget libcurl-devel cmake make gcc gcc-c++ libev-devel openssl-devel"
@@ -107,7 +115,10 @@
         fi
     - shell: |-
         #!/bin/bash -x
-
+        # CentOS 6 and 7
+        if [[ -f /opt/rh/devtoolset-7/enable ]]; then
+            source /opt/rh/devtoolset-7/enable
+        fi
         echo BRANCH = ${BRANCH}
         echo "Building in: " `pwd`
 
@@ -158,7 +169,10 @@
         fi
     - shell: |-
         #!/bin/bash -x
-
+        # CentOS 6 and 7
+        if [[ -f /opt/rh/devtoolset-7/enable ]]; then
+            source /opt/rh/devtoolset-7/enable
+        fi
         if [ -d ${WORKSPACE}/xtrabackup ]
         then
             # Old (patch-based) directory layout
@@ -188,7 +202,10 @@
         fi
     - shell: |-
         #!/bin/bash -x
-
+        # CentOS 6 and 7
+        if [[ -f /opt/rh/devtoolset-7/enable ]]; then
+            source /opt/rh/devtoolset-7/enable
+        fi
         if test -f /usr/local/lib/libeatmydata.so
         then
             export LD_PRELOAD=/usr/local/lib/libeatmydata.so
