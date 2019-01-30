@@ -28,6 +28,7 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
                 export PATH=\$PATH:/usr/sbin
                 export instance_t="${TYPE}"
                 export instance_c="${COUNT}"
+                export version="${VERSION}"
                 export stress="1"
                 export table_c="100"
                 export tap="1"
@@ -115,32 +116,32 @@ pipeline {
         }
         stage('Test: MS57') {
             steps {
-                runTAP("mysql", "mysql", "2", "5.7")
+                runTAP("ms", "mysql", "2", "5.7")
             }
         }
         stage('Test: MS80') {
             steps {
-                runTAP("mysql", "mysql", "2", "8.0")
+                runTAP("ms", "mysql", "2", "8.0")
             }
         }
         stage('Test: PXC') {
             steps {
-                runTAP("pxc", "pxc", "3")
+                runTAP("pxc", "pxc", "3", "5.7")
             }
         }
         stage('Test: PSMDB') {
             steps {
-                runTAP("mo", "psmdb", "3")
+                runTAP("mo", "psmdb", "3", "4.0")
             }
         }
         stage('Test: PGSQL10') {
             steps {
-                runTAP("pgsql", "postgresql", "3")
+                runTAP("pgsql", "postgresql", "3", "10.6")
             }
         }
         stage('Test: MariaDB') {
             steps {
-                runTAP("md", "mariadb", "2")
+                runTAP("md", "mariadb", "2", "10.3")
             }
         }
     }
