@@ -15,28 +15,27 @@ logger.info("Cloud init started")
 Jenkins jenkins = Jenkins.getInstance()
 
 netMap = [:]
-netMap['us-east-2a'] = 'subnet-dd0475b5'
-netMap['us-east-2b'] = 'subnet-c0e44aba'
-netMap['us-east-2c'] = 'subnet-b7f3e1fa'
+netMap['us-west-1b'] = 'subnet-0c434e30858bb9d01'
+netMap['us-west-1c'] = 'subnet-091374757eba91da8'
 
 imageMap = [:]
-imageMap['us-east-2a.docker'] = 'ami-79201c1c'
-imageMap['us-east-2a.docker-32gb'] = 'ami-53201c36'
-imageMap['us-east-2a.micro-amazon'] = 'ami-2a0f324f'
-imageMap['us-east-2a.min-centos-7-x64'] = 'ami-77724e12'
-imageMap['us-east-2a.fips-centos-7-x64'] = 'ami-00c92775320bbdc4d'
+imageMap['us-west-1a.docker'] = 'ami-01beb64058d271bc4'
+imageMap['us-west-1a.docker-32gb'] = 'ami-01beb64058d271bc4'
+imageMap['us-west-1a.micro-amazon'] = 'ami-01beb64058d271bc4'
+imageMap['us-west-1a.min-centos-7-x64'] = 'ami-4826c22b'
+imageMap['us-west-1a.fips-centos-7-x64'] = 'ami-4826c22b'
 
-imageMap['us-east-2b.docker'] = imageMap['us-east-2a.docker']
-imageMap['us-east-2b.docker-32gb'] = imageMap['us-east-2a.docker-32gb']
-imageMap['us-east-2b.micro-amazon'] = imageMap['us-east-2a.micro-amazon']
-imageMap['us-east-2b.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
-imageMap['us-east-2b.fips-centos-7-x64'] = imageMap['us-east-2a.fips-centos-7-x64']
+imageMap['us-west-1b.docker'] = imageMap['us-west-1a.docker']
+imageMap['us-west-1b.docker-32gb'] = imageMap['us-west-1a.docker-32gb']
+imageMap['us-west-1b.micro-amazon'] = imageMap['us-west-1a.micro-amazon']
+imageMap['us-west-1b.min-centos-7-x64'] = imageMap['us-west-1a.min-centos-7-x64']
+imageMap['us-west-1b.fips-centos-7-x64'] = imageMap['us-west-1a.fips-centos-7-x64']
 
-imageMap['us-east-2c.docker'] = imageMap['us-east-2a.docker']
-imageMap['us-east-2c.docker-32gb'] = imageMap['us-east-2a.docker-32gb']
-imageMap['us-east-2c.micro-amazon'] = imageMap['us-east-2a.micro-amazon']
-imageMap['us-east-2c.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
-imageMap['us-east-2c.fips-centos-7-x64'] = imageMap['us-east-2a.fips-centos-7-x64']
+imageMap['us-west-1c.docker'] = imageMap['us-west-1a.docker']
+imageMap['us-west-1c.docker-32gb'] = imageMap['us-west-1a.docker-32gb']
+imageMap['us-west-1c.micro-amazon'] = imageMap['us-west-1a.micro-amazon']
+imageMap['us-west-1c.min-centos-7-x64'] = imageMap['us-west-1a.min-centos-7-x64']
+imageMap['us-west-1c.fips-centos-7-x64'] = imageMap['us-west-1a.fips-centos-7-x64']
 
 /*
 imageMap['min-artful-x64'] = 'ami-db2919be'
@@ -197,7 +196,7 @@ initMap['min-trusty-x64'] = initMap['min-jessie-x64']
 capMap = [:]
 capMap['c4.xlarge'] = '60'
 capMap['m4.xlarge'] = '60'
-capMap['m4.2xlarge'] = '10'
+capMap['m4.2xlarge'] = '20'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
@@ -292,7 +291,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '3',                                        // String idleTerminationMinutes
         false,                                      // boolean usePrivateDnsName
         capMap[typeMap[OSType]],                    // String instanceCapStr
-        'arn:aws:iam::119175775298:instance-profile/jenkins-ps-worker', // String iamInstanceProfile
+        'arn:aws:iam::119175775298:instance-profile/jenkins-ps-worker-ps', // String iamInstanceProfile
         true,                                       // boolean deleteRootOnTermination
         false,                                      // boolean useEphemeralDevices
         false,                                      // boolean useDedicatedTenancy
@@ -306,13 +305,13 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
 
 String privateKey = ''
 jenkins.clouds.each {
-    if (it.hasProperty('cloudName') && it['cloudName'] == 'AWS-Dev a') {
+    if (it.hasProperty('cloudName') && it['cloudName'] == 'AWS-Dev c') {
         privateKey = it['privateKey']
     }
 }
 
-String region = 'us-east-2'
-('a'..'a').each {
+String region = 'us-west-1'
+('c'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
     AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
@@ -327,9 +326,9 @@ String region = 'us-east-2'
             getTemplate('micro-amazon',     "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
             getTemplate('fips-centos-7-x64', "${region}${it}"),
-        ],                                      // List<? extends SlaveTemplate> templates
-        '',                                     // String roleArn
-        ''                                      // String roleSessionName
+        ],                                       // List<? extends SlaveTemplate> templates
+        '',
+        ''
     )
 
     // add cloud configuration to Jenkins

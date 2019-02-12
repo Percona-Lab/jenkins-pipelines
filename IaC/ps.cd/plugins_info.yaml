@@ -1,34 +1,34 @@
 - {longName: 'JavaScript GUI Lib: ACE Editor bundle plugin', shortName: ace-editor,
   version: '1.1'}
-- {longName: Branch API Plugin, shortName: branch-api, version: 2.0.20}
+- {longName: bouncycastle API Plugin, shortName: bouncycastle-api, version: '2.17'}
 - {longName: Static Analysis Utilities, shortName: analysis-core, version: '1.95'}
-- {longName: Command Agent Launcher Plugin, shortName: command-launcher, version: '1.2'}
-- {longName: Jenkins GIT server Plugin, shortName: git-server, version: '1.7'}
+- {longName: Branch API Plugin, shortName: branch-api, version: 2.0.20}
 - {longName: Ant Plugin, shortName: ant, version: '1.8'}
-- {longName: Javadoc Plugin, shortName: javadoc, version: '1.4'}
-- {longName: OWASP Markup Formatter Plugin, shortName: antisamy-markup-formatter,
-  version: '1.5'}
-- {longName: Docker Commons Plugin, shortName: docker-commons, version: '1.13'}
 - {longName: Amazon Web Services SDK, shortName: aws-java-sdk, version: 1.11.403}
 - {longName: Jenkins Git plugin, shortName: git, version: 3.9.1}
+- {longName: OWASP Markup Formatter Plugin, shortName: antisamy-markup-formatter,
+  version: '1.5'}
+- {longName: Jenkins GIT server Plugin, shortName: git-server, version: '1.7'}
 - {longName: Jenkins Apache HttpComponents Client 4.x API Plugin, shortName: apache-httpcomponents-client-4-api,
   version: 4.5.5-3.0}
-- {longName: bouncycastle API Plugin, shortName: bouncycastle-api, version: '2.17'}
+- {longName: AWS SQS Build Trigger Plugin, shortName: aws-sqs, version: 2.0.1}
+- {longName: Javadoc Plugin, shortName: javadoc, version: '1.4'}
 - {longName: Authentication Tokens API Plugin, shortName: authentication-tokens, version: '1.3'}
 - {longName: CloudBees Amazon Web Services Credentials Plugin, shortName: aws-credentials,
   version: '1.23'}
 - {longName: Folders Plugin, shortName: cloudbees-folder, version: 6.5.1}
+- {longName: Command Agent Launcher Plugin, shortName: command-launcher, version: '1.2'}
 - {longName: Conditional BuildStep, shortName: conditional-buildstep, version: 1.3.6}
 - {longName: Durable Task Plugin, shortName: durable-task, version: '1.25'}
-- {longName: Jenkins Git client plugin, shortName: git-client, version: 2.7.3}
 - {longName: Copy Artifact Plugin, shortName: copyartifact, version: '1.41'}
 - {longName: Docker Pipeline, shortName: docker-workflow, version: '1.17'}
 - {longName: Credentials Binding Plugin, shortName: credentials-binding, version: '1.16'}
-- {longName: Amazon EC2 plugin, shortName: ec2, version: '1.39'}
+- {longName: Amazon EC2 plugin, shortName: ec2, version: '1.41'}
 - {longName: External Monitor Job Type Plugin, shortName: external-monitor-job, version: '1.7'}
 - {longName: Credentials Plugin, shortName: credentials, version: 2.1.18}
 - {longName: Display URL API, shortName: display-url-api, version: 2.2.0}
-- {longName: Node Iterator API Plugin, shortName: node-iterator-api, version: 1.5.0}
+- {longName: Jenkins Git client plugin, shortName: git-client, version: 2.7.3}
+- {longName: Docker Commons Plugin, shortName: docker-commons, version: '1.13'}
 - {longName: JDK Tool Plugin, shortName: jdk-tool, version: '1.1'}
 - {longName: Google Login Plugin, shortName: google-login, version: '1.4'}
 - {longName: 'JavaScript GUI Lib: Handlebars bundle plugin', shortName: handlebars,
@@ -45,44 +45,46 @@
 - {longName: Matrix Reloaded Plugin, shortName: matrix-reloaded, version: 1.1.3}
 - {longName: Maven Integration plugin, shortName: maven-plugin, version: 3.1.2}
 - {longName: 'JavaScript GUI Lib: Moment.js bundle plugin', shortName: momentjs, version: 1.1.1}
+- {longName: Node Iterator API Plugin, shortName: node-iterator-api, version: 1.5.0}
 - {longName: PAM Authentication plugin, shortName: pam-auth, version: '1.3'}
 - {longName: Jenkins Parameterized Trigger plugin, shortName: parameterized-trigger,
   version: 2.35.2}
-- {longName: 'Pipeline: Job', shortName: workflow-job, version: '2.24'}
 - {longName: Pipeline Graph Analysis Plugin, shortName: pipeline-graph-analysis, version: '1.7'}
-- {longName: 'Pipeline: Multibranch', shortName: workflow-multibranch, version: '2.20'}
 - {longName: 'Pipeline: Input Step', shortName: pipeline-input-step, version: '2.8'}
-- {longName: 'Pipeline: SCM Step', shortName: workflow-scm-step, version: '2.6'}
 - {longName: 'Pipeline: Model API', shortName: pipeline-model-api, version: 1.3.1}
-- {longName: 'Pipeline: Basic Steps', shortName: workflow-basic-steps, version: '2.10'}
+- {longName: 'Pipeline: Groovy', shortName: workflow-cps, version: '2.54'}
 - {longName: 'Pipeline: Declarative Agent API', shortName: pipeline-model-declarative-agent,
   version: 1.1.1}
-- {longName: 'Pipeline: Shared Groovy Libraries', shortName: workflow-cps-global-lib,
-  version: '2.10'}
 - {longName: 'Pipeline: Declarative', shortName: pipeline-model-definition, version: 1.3.1}
-- {longName: 'Pipeline: Groovy', shortName: workflow-cps, version: '2.54'}
-- {longName: 'Pipeline: Declarative Extension Points API', shortName: pipeline-model-extensions,
-  version: 1.3.1}
-- {longName: 'Pipeline: Step API', shortName: workflow-step-api, version: '2.16'}
-- {longName: 'Pipeline: REST API Plugin', shortName: pipeline-rest-api, version: '2.10'}
-- {longName: 'Pipeline: Stage Step', shortName: pipeline-stage-step, version: '2.3'}
 - {longName: 'Pipeline: Nodes and Processes', shortName: workflow-durable-task-step,
   version: '2.20'}
+- {longName: 'Pipeline: Declarative Extension Points API', shortName: pipeline-model-extensions,
+  version: 1.3.1}
+- {longName: 'Pipeline: Multibranch', shortName: workflow-multibranch, version: '2.20'}
+- {longName: 'Pipeline: REST API Plugin', shortName: pipeline-rest-api, version: '2.10'}
+- {longName: 'Pipeline: Stage Step', shortName: pipeline-stage-step, version: '2.3'}
+- {longName: 'Pipeline: Job', shortName: workflow-job, version: '2.24'}
 - {longName: 'Pipeline: Stage Tags Metadata', shortName: pipeline-stage-tags-metadata,
   version: 1.3.1}
-- {longName: 'Pipeline: Supporting APIs', shortName: workflow-support, version: '2.20'}
+- {longName: 'Pipeline: SCM Step', shortName: workflow-scm-step, version: '2.6'}
 - {longName: 'Pipeline: Stage View Plugin', shortName: pipeline-stage-view, version: '2.10'}
-- {longName: AWS SQS Build Trigger Plugin, shortName: aws-sqs, version: 2.0.1}
+- {longName: 'Pipeline: Step API', shortName: workflow-step-api, version: '2.16'}
 - {longName: Plain Credentials Plugin, shortName: plain-credentials, version: '1.4'}
+- {longName: 'Pipeline: Supporting APIs', shortName: workflow-support, version: '2.20'}
 - {longName: Resource Disposer Plugin, shortName: resource-disposer, version: '0.12'}
 - {longName: Run Condition Plugin, shortName: run-condition, version: '1.0'}
 - {longName: SCM API Plugin, shortName: scm-api, version: 2.2.7}
 - {longName: Script Security Plugin, shortName: script-security, version: '1.44'}
 - {longName: Slack Notification Plugin, shortName: slack, version: '2.3'}
 - {longName: SSH Credentials Plugin, shortName: ssh-credentials, version: '1.14'}
-- {longName: Jenkins SSH Slaves plugin, shortName: ssh-slaves, version: '1.26'}
+- {longName: Jenkins SSH Slaves plugin, shortName: ssh-slaves, version: 1.29.1}
 - {longName: Structs Plugin, shortName: structs, version: '1.14'}
 - {longName: Token Macro Plugin, shortName: token-macro, version: '2.5'}
 - {longName: Warnings Plug-in, shortName: warnings, version: '4.68'}
 - {longName: Windows Slaves Plugin, shortName: windows-slaves, version: 1.3.1}
 - {longName: 'Pipeline: API', shortName: workflow-api, version: '2.29'}
+- {longName: Trilead API Plugin, shortName: trilead-api, version: 1.0.1}
+- {longName: 'Pipeline: Basic Steps', shortName: workflow-basic-steps, version: '2.10'}
+- {longName: 'Pipeline: Shared Groovy Libraries', shortName: workflow-cps-global-lib,
+  version: '2.10'}
+- {longName: Pipeline Utility Steps, shortName: pipeline-utility-steps, version: 1.5.1}
