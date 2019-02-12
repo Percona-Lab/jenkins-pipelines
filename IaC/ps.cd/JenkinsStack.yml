@@ -27,7 +27,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: mykola
+    Default: slava
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
@@ -44,12 +44,13 @@ Mappings:
   AmazonLinux1:
     us-east-2:
       x64: ami-922914f7
+    us-west-1:
+      x64: ami-0bdb828fd58c52235
   AmazonLinux2:
     us-east-2:
       x64: ami-2a0f324f
-  Docker:
-    us-east-2:
-      x64: ami-c3073ba6
+    us-west-1:
+      x64: ami-01beb64058d271bc4
 
 Resources:
 
@@ -80,20 +81,6 @@ Resources:
     Properties:
       VpcId: !Ref JVPC
       InternetGatewayId: !Ref JInternetGateway
-
-  JSubnetA: # create subnet in AZ
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref JVPC
-      CidrBlock: 10.177.0.0/24
-      MapPublicIpOnLaunch: true
-      AvailabilityZone:
-        Fn::Select: [ 0, !GetAZs '' ]
-      Tags:
-      - Key: Name
-        Value: !Join [ '-', [ !Ref JShortName, 'A' ]]
-      - Key: iit-billing-tag
-        Value: !Ref JShortName
 
   JSubnetB: # create subnet in AZ
     Type: AWS::EC2::Subnet
@@ -140,12 +127,6 @@ Resources:
       GatewayId: !Ref JInternetGateway
       RouteTableId: !Ref JRouteTable
 
-  SubnetARouteTable: # add subnet route
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref JRouteTable
-      SubnetId: !Ref JSubnetA
-
   SubnetBRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -161,7 +142,7 @@ Resources:
   CacheBucket: # S3 bucket for store build cache
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Ref CacheBucketName
+      BucketName: ps-cache
       AccessControl: Private
       VersioningConfiguration:
         Status: Suspended
@@ -253,7 +234,7 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 176.37.55.60/32
+        CidrIp: 178.214.201.190/32
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
@@ -280,7 +261,7 @@ Resources:
   JWorkerRole: # create Role for jenkins workers (needed for assign tags)
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
+      RoleName: !Join [ '-', [ !Ref JShortName, 'worker-ps' ]]
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -313,6 +294,8 @@ Resources:
             Resource:
             - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucket ]]
             - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucket, '/*' ]]
+            - !Join [ '', [ 'arn:aws:s3:::ps-build-cache' ]]
+            - !Join [ '', [ 'arn:aws:s3:::ps-build-cache/*']]
 
   JWorkerProfile: # create Profile for jenkins workers (needed for assign tags)
     Type: AWS::IAM::InstanceProfile
@@ -320,12 +303,12 @@ Resources:
       Path: /
       Roles:
         - !Ref JWorkerRole
-      InstanceProfileName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
+      InstanceProfileName: !Join [ '-', [ !Ref JShortName, 'worker-ps' ]]
 
   JMasterRole: # create Role for jenkins master (needed for run workers)
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Join [ '-', [ !Ref JShortName, 'master' ]]
+      RoleName: !Join [ '-', [ !Ref JShortName, 'master-ps' ]]
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -407,12 +390,12 @@ Resources:
       Path: /
       Roles:
         - !Ref JMasterRole
-      InstanceProfileName: !Ref JShortName
+      InstanceProfileName: !Join [ '-', [ !Ref JShortName, 'ps' ]]
 
   SpotFleetRole: # create Role for run jenkins master as spot instance
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Join [ '-', [ !Ref JShortName, 'SpotFleet' ]]
+      RoleName: !Join [ '-', [ !Ref JShortName, 'SpotFleetRole' ]]
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole
       AssumeRolePolicyDocument:
@@ -491,7 +474,7 @@ Resources:
   JMasterTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: PSMasterTemplate
+      LaunchTemplateName: MasterTemplatePS
       LaunchTemplateData:
         NetworkInterfaces:
         - DeviceIndex: 0
@@ -725,6 +708,8 @@ Resources:
               			  lua_ssl_verify_depth        3;
               			  access_by_lua_file          /mnt/$JENKINS_HOST/nginx-google-oauth.lua;
               			  allow                       176.37.55.60; # mykola home IP, needed for jenkins-job-builder
+                      allow                       178.214.201.190; # mykola co-working IP, needed for jenkins-job-builder
+                      allow                       146.149.86.84;   # slava home IP, needed for jenkins-job-builder
               			  satisfy                     any;
 
               			  location / {
