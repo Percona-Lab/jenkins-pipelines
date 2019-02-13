@@ -1,0 +1,540 @@
+# aws cloudformation --profile ... --region us-east-1 create-stack --stack-name rds-pmm --template-body file://./RDS-Stack.yml --capabilities CAPABILITY_NAMED_IAM --parameters ParameterKey=DBPassword,ParameterValue=... ParameterKey=DBUser,ParameterValue=...
+---
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+
+  DB57Name:
+    Default: rds-mysql57
+    Description: The database name
+    Type: String
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: '[a-zA-Z][\-a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+
+  DB56Name:
+    Default: rds-mysql56
+    Description: The database name
+    Type: String
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: '[a-zA-Z][\-a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+
+  DBA1Name:
+    Default: rds-aurora1
+    Description: The database name
+    Type: String
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: '[a-zA-Z][\-a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+
+  DBUser:
+    NoEcho: true
+    Description: The database admin account password
+    Type: String
+    MinLength: 8
+    MaxLength: 16
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]+'
+    ConstraintDescription: must contain only alphanumeric characters.
+
+  DBPassword:
+    NoEcho: true
+    Description: The database admin account password
+    Type: String
+    MinLength: 8
+    MaxLength: 32
+    AllowedPattern: '[a-zA-Z0-9]+'
+    ConstraintDescription: must contain only alphanumeric characters.
+
+  PMMUserName:
+    Default: pmm-rds-user
+    Description: The database name
+    Type: String
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: '[a-zA-Z][\-a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      x64: ami-035be7bafff33b6b6
+    eu-west-1:
+      x64: ami-5f76b626
+
+Resources:
+
+  PMMUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Ref PMMUserName
+      Path: /
+      Policies:
+      - PolicyName: pmm-rds-monitoring
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - rds:DescribeDBInstances
+            - cloudwatch:GetMetricStatistics
+            - cloudwatch:ListMetrics
+            Resource:
+            - '*'
+          - Effect: Allow
+            Action:
+            - logs:DescribeLogStreams
+            - logs:FilterLogEvents
+            - logs:GetLogEvents
+            Resource:
+            - 'arn:aws:logs:*:*:log-group:RDSOSMetrics:*'
+
+  PMMUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref PMMUser
+
+  RDSVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.77.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+
+  RDSInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+
+  RDSVPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref RDSVPC
+      InternetGatewayId: !Ref RDSInternetGateway
+
+  RDSSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref RDSVPC
+      CidrBlock: 10.77.0.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: ''
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+
+  RDSSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref RDSVPC
+      CidrBlock: 10.77.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: ''
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+
+  RDSSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref RDSVPC
+      CidrBlock: 10.77.2.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 2
+        - Fn::GetAZs: ''
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+
+  RDSDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets available for the RDS DB Instance
+      SubnetIds:
+        - !Ref RDSSubnetA
+        - !Ref RDSSubnetB
+        - !Ref RDSSubnetC
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+
+  RDSRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref RDSVPC
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+
+  RDSInternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: RDSInternetGateway
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref RDSInternetGateway
+      RouteTableId: !Ref RDSRouteTable
+
+  SubnetARouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RDSRouteTable
+      SubnetId: !Ref RDSSubnetA
+
+  SubnetBRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RDSRouteTable
+      SubnetId: !Ref RDSSubnetB
+
+  SubnetCRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RDSRouteTable
+      SubnetId: !Ref RDSSubnetC
+
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: SSH
+      GroupDescription: SSH traffic in, all traffic out.
+      VpcId: !Ref RDSVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+      - IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: MySQL
+      GroupDescription: MySQL traffic in, all traffic out.
+      VpcId: !Ref RDSVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306
+        SourceSecurityGroupId: !GetAtt EC2SecurityGroup.GroupId
+      SecurityGroupEgress:
+      - IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+
+  MonitoringRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole
+      AssumeRolePolicyDocument:
+        Version: 2008-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: monitoring.rds.amazonaws.com
+          Action: sts:AssumeRole
+
+  MySQL57ParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Family: MySQL5.7
+      Description: Has PMM specific options
+      Parameters:
+        performance_schema: 1
+        max_connections: 512
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+
+  MySQL57:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 60
+      AllowMajorVersionUpgrade: true
+      AutoMinorVersionUpgrade: true
+  # AvailabilityZone: String
+      BackupRetentionPeriod: 0
+  # CharacterSetName: String
+      CopyTagsToSnapshot: true
+  # DBClusterIdentifier: String
+      DBInstanceClass: db.t2.micro
+      DBInstanceIdentifier: !Ref DB57Name
+  # DBName: !Ref DB57Name
+      DBParameterGroupName: !Ref MySQL57ParameterGroup
+  # DBSecurityGroups:
+  #  - String
+  # DBSnapshotIdentifier: String
+      DBSubnetGroupName: !Ref RDSDBSubnetGroup
+  # Domain: String
+  # DomainIAMRoleName: String
+      Engine: MySQL
+      EngineVersion: 5.7
+  # Iops: Number
+  # KmsKeyId: String
+  # LicenseModel: String
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+      MonitoringInterval: 60
+      MonitoringRoleArn: !GetAtt MonitoringRole.Arn
+      MultiAZ: false
+  # OptionGroupName: String
+      Port: 3306
+  # PreferredBackupWindow: String
+  # PreferredMaintenanceWindow: String
+      PubliclyAccessible: true
+  # SourceDBInstanceIdentifier: String
+      StorageEncrypted: false
+      StorageType: standard
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+  # Timezone: String
+      VPCSecurityGroups:
+      - !GetAtt RDSSecurityGroup.GroupId
+    DeletionPolicy: Delete
+
+  MySQL56ParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Family: MySQL5.6
+      Description: Has PMM specific options
+      Parameters:
+        performance_schema: 1
+        max_connections: 512
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+
+  MySQL56:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 60
+      AllowMajorVersionUpgrade: true
+      AutoMinorVersionUpgrade: true
+  # AvailabilityZone: String
+      BackupRetentionPeriod: 0
+  # CharacterSetName: String
+      CopyTagsToSnapshot: true
+  # DBClusterIdentifier: String
+      DBInstanceClass: db.t2.micro
+      DBInstanceIdentifier: !Ref DB56Name
+  # DBName: !Ref DB56Name
+      DBParameterGroupName: !Ref MySQL56ParameterGroup
+  # DBSecurityGroups:
+  #  - String
+  # DBSnapshotIdentifier: String
+      DBSubnetGroupName: !Ref RDSDBSubnetGroup
+  # Domain: String
+  # DomainIAMRoleName: String
+      Engine: MySQL
+      EngineVersion: 5.6
+  # Iops: Number
+  # KmsKeyId: String
+  # LicenseModel: String
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+      MonitoringInterval: 60
+      MonitoringRoleArn: !GetAtt MonitoringRole.Arn
+      MultiAZ: false
+  # OptionGroupName: String
+      Port: 3306
+  # PreferredBackupWindow: String
+  # PreferredMaintenanceWindow: String
+      PubliclyAccessible: true
+  # SourceDBInstanceIdentifier: String
+      StorageEncrypted: false
+      StorageType: standard
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+  # Timezone: String
+      VPCSecurityGroups:
+      - !GetAtt RDSSecurityGroup.GroupId
+    DeletionPolicy: Delete
+
+  AuroraParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Family: Aurora5.6
+      Description: Has PMM specific options
+      Parameters:
+        performance_schema: 1
+        max_connections: 512
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+
+  DBACluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+  # AvailabilityZones:
+  #   - String
+      BackupRetentionPeriod: 1
+  # DatabaseName: !Ref DBA1Name
+  # DBClusterParameterGroupName: String
+      DBSubnetGroupName: !Ref RDSDBSubnetGroup
+      Engine: aurora
+  # EngineVersion: String
+  # KmsKeyId: String
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+      Port: 3306
+  # PreferredBackupWindow: String
+  # PreferredMaintenanceWindow: String
+  # ReplicationSourceIdentifier: String
+  # SnapshotIdentifier: String
+      StorageEncrypted: false
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+      VpcSecurityGroupIds:
+      - !GetAtt RDSSecurityGroup.GroupId
+
+  Aurora1:
+    Type: AWS::RDS::DBInstance
+    Properties:
+  ## AllocatedStorage: 60
+      AllowMajorVersionUpgrade: true
+      AutoMinorVersionUpgrade: true
+  # AvailabilityZone: String
+  ## BackupRetentionPeriod: 0
+  ## CharacterSetName: String
+      CopyTagsToSnapshot: true
+      DBClusterIdentifier: !Ref DBACluster
+      DBInstanceClass: db.t2.medium
+      DBInstanceIdentifier: !Ref DBA1Name
+  ## DBName: !Ref DB56Name
+      DBParameterGroupName: !Ref AuroraParameterGroup
+  ## DBSecurityGroups:
+  ##  - String
+  # DBSnapshotIdentifier: String
+      DBSubnetGroupName: !Ref RDSDBSubnetGroup
+  # Domain: String
+  # DomainIAMRoleName: String
+      Engine: aurora
+  # EngineVersion: 5.6
+  # Iops: Number
+  # KmsKeyId: String
+  # LicenseModel: String
+  ## MasterUsername: !Ref DBUser
+  ## MasterUserPassword: !Ref DBPassword
+      MonitoringInterval: 60
+      MonitoringRoleArn: !GetAtt MonitoringRole.Arn
+  ## MultiAZ: false
+  ## OptionGroupName: String
+  ## Port: 3306
+  ## PreferredBackupWindow: String
+  ## PreferredMaintenanceWindow: String
+      PubliclyAccessible: true
+  ## SourceDBInstanceIdentifier: String
+      StorageEncrypted: false
+  ## StorageType: standard
+      Tags:
+      - Key: iit-billing-tag
+        Value: rds-pmm
+  # Timezone: String
+  ## VPCSecurityGroups:
+  ## - !GetAtt RDSSecurityGroup.GroupId
+    DeletionPolicy: Delete
+
+  SpotFleetRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetRole
+      AssumeRolePolicyDocument:
+        Version: 2008-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: spotfleet.amazonaws.com
+          Action: sts:AssumeRole
+
+  LoaderSpotInstance:
+    Type: AWS::EC2::SpotFleet
+    Properties:
+      SpotFleetRequestConfigData:
+        SpotPrice: 0.05
+        TargetCapacity: 1
+        IamFleetRole: !GetAtt SpotFleetRole.Arn
+# AllocationStrategy: String
+# ExcessCapacityTerminationPolicy: String
+# ReplaceUnhealthyInstances: Boolean
+# TerminateInstancesWithExpiration: Boolean
+# ValidFrom: String
+# ValidUntil: String
+        Type: maintain
+        LaunchSpecifications:
+        - WeightedCapacity: 5
+          ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', x64]
+          InstanceType: m4.large
+          KeyName: slava
+          SecurityGroups:
+          - GroupId: !GetAtt EC2SecurityGroup.GroupId
+          SubnetId: !Join ['', [!Ref RDSSubnetA, ', ', !Ref RDSSubnetB, ', ', !Ref RDSSubnetC]]
+          Monitoring:
+            Enabled: false
+          UserData:
+            Fn::Base64: !Sub |
+              #!/bin/bash
+
+              set -o xtrace
+
+              sleep 120
+              yum -y makecache
+              yum -y install git bind-utils
+              yum -y install https://repo.percona.com/release/7/RPMS/x86_64/sysbench-1.0.10-1.el7.x86_64.rpm \
+                             https://repo.percona.com/release/7/RPMS/x86_64/Percona-Server-client-57-5.7.19-17.1.el7.x86_64.rpm \
+                             https://repo.percona.com/release/7/RPMS/x86_64/Percona-Server-shared-57-5.7.19-17.1.el7.x86_64.rpm \
+                             https://repo.percona.com/release/7/RPMS/x86_64/Percona-Server-shared-compat-57-5.7.19-17.1.el7.x86_64.rpm
+              git clone https://github.com/percona/pmm-demo /opt/pmm-demo
+              cd /opt/pmm-demo
+
+              env MYSQL_USER="${DBUser}" MYSQL_PASSWORD="${DBPassword}" ./install rds-dev ${MySQL56.Endpoint.Address}
+              env MYSQL_USER="${DBUser}" MYSQL_PASSWORD="${DBPassword}" ./install rds-dev ${MySQL57.Endpoint.Address}
+              env MYSQL_USER="${DBUser}" MYSQL_PASSWORD="${DBPassword}" ./install rds-dev ${Aurora1.Endpoint.Address}
+
+              
+Outputs:
+  PMMAccessKey:
+    Description: PMM AccessKey
+    Value: !Ref PMMUserAccessKey
+  PMMSecretAccessKey:
+    Description: PMM SecretAccessKey
+    Value: !GetAtt PMMUserAccessKey.SecretAccessKey
+  ConnectionString57:
+    Description: CLI connection string
+    Value: !Join ['', ['mysql -h ', !GetAtt MySQL57.Endpoint.Address, ' -P ',
+        !GetAtt MySQL57.Endpoint.Port, ' -u ', !Ref DBUser, ' -p', !Ref DBPassword]]
+  ConnectionString56:
+    Description: CLI connection string
+    Value: !Join ['', ['mysql -h ', !GetAtt MySQL56.Endpoint.Address, ' -P ',
+        !GetAtt MySQL56.Endpoint.Port, ' -u ', !Ref DBUser, ' -p', !Ref DBPassword]]
+  ConnectionStringA1:
+    Description: CLI connection string
+    Value: !Join ['', ['mysql -h ', !GetAtt Aurora1.Endpoint.Address, ' -P ',
+        !GetAtt Aurora1.Endpoint.Port, ' -u ', !Ref DBUser, ' -p', !Ref DBPassword]]
