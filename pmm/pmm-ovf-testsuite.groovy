@@ -1,5 +1,5 @@
 void runStaging(String OVA_VERSION, CLIENT_VERSION, CLIENTS) {
-    stagingJob = build job: 'pk-test-2', parameters: [
+    stagingJob = build job: 'vbox-staging-start', parameters: [
         string(name: 'OVA_VERSION', value: OVA_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
