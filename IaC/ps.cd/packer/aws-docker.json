@@ -3,13 +3,13 @@
             "type": "amazon-ebs",
             "ami_name": "Docker [{{isotime \"2006-01-02 1504\"}}]",
             "instance_type": "t2.micro",
-            "region": "us-east-2",
-            "security_group_id": "sg-f014159b",
-            "source_ami": "ami-2a0f324f",
+            "region": "us-west-1",
+            "security_group_id": "sg-0793795def23a8a2a",
+            "source_ami": "ami-0799ad445b5727125",
             "ssh_pty": "true",
             "ena_support": "true",
             "ssh_username": "ec2-user",
-            "subnet_id": "subnet-dd0475b5",
+            "subnet_id": "subnet-0c434e30858bb9d01",
             "run_tags": {
                 "iit-billing-tag": "jenkins-ps"
             },
