@@ -93,8 +93,9 @@ initMap['micro-amazon'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
         DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
-        sudo mkfs.ext2 ${DEVICE}
-        sudo mount ${DEVICE} /mnt
+        sudo yum install -y xfsprogs
+        sudo mkfs.xfs ${DEVICE}
+        sudo mount -o noatime ${DEVICE} /mnt
     fi
     until sudo yum makecache; do
         sleep 1
@@ -108,8 +109,9 @@ initMap['min-artful-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
         DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
-        sudo mkfs.ext2 ${DEVICE}
-        sudo mount ${DEVICE} /mnt
+        sudo apt-get -y install xfsprogs
+        sudo mkfs.xfs ${DEVICE}
+        sudo mount -o noatime ${DEVICE} /mnt
     fi
     until sudo apt-get update; do
         sleep 1
@@ -125,8 +127,9 @@ initMap['min-jessie-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
         DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
-        sudo mkfs.ext2 ${DEVICE}
-        sudo mount ${DEVICE} /mnt
+        sudo apt-get -y install xfsprogs
+        sudo mkfs.xfs ${DEVICE}
+        sudo mount -o noatime ${DEVICE} /mnt
     fi
     until sudo apt-get update; do
         sleep 1
