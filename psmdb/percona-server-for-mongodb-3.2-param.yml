@@ -59,7 +59,7 @@
         name: PSM_BRANCH
         trim: false
     - string:
-        default: '4'
+        default: 'auto'
         description: <h3>Number of parallel jobs for running tests, auto=number of
           cores or specify exact number like 8,4,2,1</h3>
         name: JOBS
