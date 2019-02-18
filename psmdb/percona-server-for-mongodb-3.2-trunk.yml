@@ -160,7 +160,7 @@
             MAIN_VERSION_LINE=v3.2
             PSM_REPO=https://github.com/percona/percona-server-mongodb.git
             PSM_BRANCH=v3.2
-            JOBS=4
+            JOBS=auto
             SUITE=resmoke_psmdb_3.2_big
             RELEASE_TEST=false
             ENABLE_KILLER=true

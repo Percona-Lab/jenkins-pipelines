@@ -64,7 +64,7 @@
             BUILD_TYPE=release
             PSM_REPO=https://github.com/percona/percona-server-mongodb.git
             PSM_BRANCH=v4.0
-            JOBS=4
+            JOBS=auto
             SUITE=resmoke_psmdb_4.0_big
             RELEASE_TEST=false
             NUM_TRIALS=1
