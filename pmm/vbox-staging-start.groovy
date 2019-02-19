@@ -188,7 +188,6 @@ pipeline {
                         sudo service mysqld status
                         sudo pmm-admin add mysql ms1 --host localhost
                         sudo yum -y install wget svn cyrus-sasl-devel
-                        ls -lh /usr/lib64/libsasl*
                         sudo mv /usr/lib64/libsasl2.so /usr/lib64/libsasl2.so.2
                         sudo mkdir -p /srv/percona-qa || :
                         pushd /srv/percona-qa

@@ -92,7 +92,6 @@ pipeline {
                                 echo $PATH
                                 node --version
                                 touch TEST.log
-                                ls -la
                                 sed -i 's/{SAUCE_USER_KEY}/${SAUCE_ACCESS_KEY}/g' codecept.json
                                 sed -i "s~{PMM_URL_HERE}~${env.PMM_URL}~" codecept.json
                                 cat codecept.json
