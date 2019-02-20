@@ -3,7 +3,7 @@
 set -o errexit
 #set -o xtrace
 
-export AWS_DEFAULT_REGION=us-west-1
+export AWS_DEFAULT_REGION=eu-west-1
 #export AWS_DEFAULT_REGION=us-east-2
 
 declare -A prod_code=(
@@ -22,7 +22,8 @@ declare -A prod_code=(
 
 get_latest_ami() {
     local os=$1
-    aws ec2 describe-images \
+
+   aws ec2 describe-images \
         --filters "${prod_code[$os]}" \
         --query 'Images[*].[CreationDate,ImageId,Name]' \
         --output text \
@@ -35,8 +36,8 @@ get_latest_ami() {
 main() {
     for os in $(echo "${!prod_code[@]}" | tr " " "\n" | sort -n); do
         if [ -n "${prod_code[$os]}" ]; then
-            echo -n "imageMap['$os'] = '";
-            get_latest_ami "$os"
+            ami_id=$(get_latest_ami "$os")
+            echo "imageMap['$os'] = '$ami_id'";
         fi
     done
 }
