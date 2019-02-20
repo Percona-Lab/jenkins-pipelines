@@ -27,7 +27,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: mykola
+    Default: slava
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
@@ -47,10 +47,10 @@ Mappings:
     us-west-1:
       x64: ami-0bdb828fd58c52235
   AmazonLinux2:
-    us-east-2:
-      x64: ami-2a0f324f
-    us-west-1:
-      x64: ami-01beb64058d271bc4
+    eu-west-1:
+      x64: ami-0fad7378adf284ce0
+    eu-central-1:
+      x64: ami-0eaec5838478eb0ba
 
 Resources:
 
