@@ -188,8 +188,7 @@
         TOOLSDIR_ABS=${WORKSPACE}/${TOOLSDIR}
         TOOLS_TAGS="ssl sasl"
 
-        # NJOBS=$(grep -c processor /proc/cpuinfo)
-        NJOBS=4
+        NJOBS=$(grep -c processor /proc/cpuinfo)
 
         # link PSM dir to /tmp to avoid "argument list too long error"
         rm -fr /tmp/${PSMDIR}
