@@ -32,7 +32,7 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         string(
-            defaultValue: '10.6',
+            defaultValue: '10.7',
             description: 'Postgre SQL Server version',
             name: 'PGSQL_VERSION')
         string(
