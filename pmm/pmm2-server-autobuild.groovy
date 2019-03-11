@@ -31,7 +31,7 @@ pipeline {
                 git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
                 sh '''
                     git reset --hard
-                    sudo git clean -xdf
+                    git clean -xdf
                     git submodule update --init --jobs 10
 
                     git rev-parse --short HEAD > shortCommit
