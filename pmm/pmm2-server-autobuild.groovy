@@ -70,7 +70,7 @@ pipeline {
         stage('Build client source rpm') {
             steps {
                 sh 'sg docker -c "./build/bin/build-client-srpm centos:6"'
-                stash includes: 'results/srpm/pmm2-client-*.src.rpm', name: 'rpms'
+                stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
                 uploadRPM()
             }
         }
@@ -81,31 +81,11 @@ pipeline {
                         ./build/bin/build-client-rpm centos:7
 
                         mkdir -p tmp/pmm-server/RPMS/
-                        cp results/rpm/pmm2-client-*.rpm tmp/pmm-server/RPMS/
+                        cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
                     "
                 '''
                 stash includes: 'tmp/pmm-server/RPMS/*.rpm', name: 'rpms'
                 uploadRPM()
-            }
-        }
-        stage('Build client docker') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
-                        sg docker -c "
-                            docker login -u "${USER}" -p "${PASS}"
-                        "
-                    """
-                }
-                sh '''
-                    sg docker -c "
-                        export PUSH_DOCKER=1
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')
-                        ./build/bin/build-client-docker
-                    "
-                '''
-                stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
-                archiveArtifacts 'results/docker/CLIENT_TAG'
             }
         }
         stage('Build server packages') {
