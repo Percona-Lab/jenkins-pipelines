@@ -110,6 +110,9 @@ pipeline {
                     """
                     sh '''
                         export VERSION=$(cat VERSION)
+                        export TOP_VER=$(cat VERSION | cut -d. -f1)
+                        export MID_VER=$(cat VERSION | cut -d. -f2)
+                        export DOCKER_MID="$TOP_VER.$MID_VER"
                         declare -A repo=(
                             ["percona-dashboards"]="percona/grafana-dashboards"
                             ["pmm-server"]="percona/pmm-server"
@@ -162,9 +165,15 @@ pipeline {
                     sg docker -c "
                         docker pull ${DOCKER_VERSION}
                         docker tag ${DOCKER_VERSION} percona/pmm-server:${VERSION}
+                        docker tag ${DOCKER_VERSION} percona/pmm-server:${DOCKER_MID}
+                        docker tag ${DOCKER_VERSION} percona/pmm-server:${TOP_VER}
                         docker tag ${DOCKER_VERSION} percona/pmm-server:latest
                         docker push percona/pmm-server:${VERSION}
-                        docker push percona/pmm-server:latest
+                        docker push percona/pmm-server:${DOCKER_MID}
+                        docker push percona/pmm-server:${TOP_VER}
+                        if [ ${TOP_VER} = 1 ]; then
+                            docker push percona/pmm-server:latest
+                        fi
                         docker save percona/pmm-server:${VERSION} | xz > pmm-server-${VERSION}.docker
 
                         docker pull ${DOCKER_CLIENT_VERSION}
