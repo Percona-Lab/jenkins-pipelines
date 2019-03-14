@@ -13,13 +13,15 @@
         type: label-expression
         values:
         - min-centos-7-x64
-        - min-artful-x64
+        - min-cosmic-x64
+        - min-xenial-x64
         - asan
     - axis:
         name: xtrabackuptarget
         type: user-defined
         values:
         - innodb80
+        - xtradb80
     block-downstream: false
     block-upstream: false
     builders:

@@ -29,7 +29,8 @@ imageMap['min-bionic-x64'] = 'ami-12cdeb6a'
 imageMap['min-jessie-x64'] = 'ami-fde96b9d'
 imageMap['min-stretch-x64'] = 'ami-76f6ab0e'
 imageMap['min-trusty-x64'] = 'ami-4218403a'
-imageMap['min-xenial-x64'] = 'ami-7272530a'
+imageMap['min-cosmic-x64'] = 'ami-077b0a677133eb06a'
+imageMap['min-xenial-x64'] = 'ami-0f2016003e1759f35'
 imageMap['psmdb'] = imageMap['min-xenial-x64']
 
 priceMap = [:]
@@ -53,6 +54,7 @@ userMap['fips-centos-7-x64'] = 'centos'
 userMap['min-jessie-x64'] = 'admin'
 userMap['min-stretch-x64'] = 'admin'
 userMap['min-trusty-x64'] = 'ubuntu'
+userMap['min-cosmic-x64'] = 'ubuntu'
 userMap['min-xenial-x64'] = 'ubuntu'
 userMap['psmdb'] = userMap['min-xenial-x64']
 
@@ -157,6 +159,7 @@ initMap['min-artful-x64'] = '''
 initMap['min-bionic-x64'] = initMap['min-artful-x64']
 initMap['min-stretch-x64'] = initMap['min-artful-x64']
 initMap['min-xenial-x64'] = initMap['min-artful-x64']
+initMap['min-cosmic-x64'] = initMap['min-artful-x64']
 initMap['psmdb'] = initMap['min-xenial-x64']
 initMap['min-jessie-x64'] = '''
     set -o xtrace
@@ -192,6 +195,7 @@ typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-cosmic-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32'] = 'm1.medium'
 typeMap['min-centos-6-x64'] = 'm4.xlarge'
 typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
@@ -206,6 +210,7 @@ execMap['docker-32gb'] = execMap['docker']
 execMap['micro-amazon'] = '30'
 execMap['min-artful-x64'] = '1'
 execMap['min-bionic-x64'] = '1'
+execMap['min-cosmic-x64'] = '1'
 execMap['min-centos-6-x32'] = '1'
 execMap['min-centos-6-x64'] = '1'
 execMap['min-centos-7-x64'] = '1'
@@ -222,6 +227,7 @@ devMap['docker-32gb'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
 devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-bionic-x64'] = devMap['min-artful-x64']
+devMap['min-cosmic-x64'] = devMap['min-artful-x64']
 devMap['min-centos-6-x64'] = devMap['min-artful-x64']
 devMap['min-centos-7-x64'] = devMap['min-artful-x64']
 devMap['fips-centos-7-x64'] = devMap['min-artful-x64']
@@ -238,6 +244,7 @@ labelMap['docker-32gb'] = ''
 labelMap['micro-amazon'] = 'master'
 labelMap['min-artful-x64'] = ''
 labelMap['min-bionic-x64'] = 'asan'
+labelMap['min-cosmic-x64'] = ''
 labelMap['min-centos-6-x32'] = ''
 labelMap['min-centos-6-x64'] = ''
 labelMap['min-centos-7-x64'] = ''
@@ -317,6 +324,7 @@ String region = 'us-west-2'
             getTemplate('min-xenial-x64', "${region}${it}"),
             getTemplate('min-artful-x64', "${region}${it}"),
             getTemplate('min-bionic-x64', "${region}${it}"),
+            getTemplate('min-cosmic-x64', "${region}${it}"),
         ]                                       // List<? extends SlaveTemplate> templates
     )
 
