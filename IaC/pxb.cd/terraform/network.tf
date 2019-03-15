@@ -71,6 +71,7 @@ resource "aws_security_group" "jenkins-SSH" {
     protocol  = "tcp"
 
     cidr_blocks = [
+      "46.149.86.84/32",    # slava home
       "176.37.55.60/32",    # mykola home
       "178.214.223.112/32",
     ] # mykola coworking
