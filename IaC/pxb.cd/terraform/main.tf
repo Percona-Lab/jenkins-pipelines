@@ -1,10 +1,24 @@
-# Specify the provider and access details
+# Specify the provider and access details"${var.aws_region}"
 provider "aws" {
   region = "${var.aws_region}"
+  version = "<= 1.30.0"
+}
+
+provider "template" {
+  version = "<= 1.0.0"
 }
 
 resource "aws_eip" "jenkins" {
   vpc = true
+}
+
+terraform {
+ backend "s3" {
+   encrypt = true
+   region  = "us-west-2"
+   bucket  = "terraform-state-storage-pxb"
+   key = "terraform.tfstate"
+ }
 }
 
 # DNS record for jenkins master
@@ -43,7 +57,7 @@ resource "aws_spot_fleet_request" "jenkins" {
   valid_until                         = "2099-01-01T00:00:00Z"
 
   launch_specification {
-    instance_type = "m4.large"
+    instance_type = "c4.large"
     ami           = "${data.aws_ami.amazon-linux-2.id}"
     subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
 
