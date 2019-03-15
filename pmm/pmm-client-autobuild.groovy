@@ -108,6 +108,7 @@ pipeline {
             steps {
                 sh '''
                     sg docker -c "
+                        export pmm_version=$(cat VERSION)
                         ./build/bin/build-client-rpm centos:6
                         ./build/bin/build-client-rpm centos:7
                         ./build/bin/build-client-rpm roboxes/rhel8 
