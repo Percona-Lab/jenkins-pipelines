@@ -22,12 +22,14 @@ netMap['us-west-2c'] = 'subnet-0b51237c5d9b9c3ed'
 imageMap = [:]
 imageMap['micro-amazon'] = 'ami-0ad99772'
 imageMap['min-artful-x64'] = 'ami-96dd93ee'
-imageMap['min-centos-6-x64'] = 'ami-6fcc8f17'
-imageMap['min-centos-7-x64'] = 'ami-3ecc8f46'
+imageMap['min-centos-6-x64'] = 'ami-0362922178e02e9f3'
+imageMap['min-centos-7-x64'] = 'ami-01ed306a12b7d1c96'
 imageMap['min-jessie-x64'] = 'ami-fde96b9d'
-imageMap['min-stretch-x64'] = 'ami-b6e499ce'
+imageMap['min-stretch-x64'] = 'ami-0b9cb6198bfca486d'
 imageMap['min-trusty-x64'] = 'ami-08fbb070'
 imageMap['min-xenial-x64'] = 'ami-ba602bc2'
+imageMap['min-cosmic-x64'] = 'ami-080cf36c2a905f2b8'
+imageMap['min-bionic-x64'] = 'ami-0438319fc572e1a20'
 imageMap['psmdb'] = imageMap['min-xenial-x64']
 imageMap['docker'] = imageMap['micro-amazon']
 
@@ -49,6 +51,8 @@ userMap['min-jessie-x64'] = 'admin'
 userMap['min-stretch-x64'] = 'admin'
 userMap['min-trusty-x64'] = 'ubuntu'
 userMap['min-xenial-x64'] = 'ubuntu'
+userMap['min-bionic-x64'] = 'ubuntu'
+userMap['min-cosmic-x64'] = 'ubuntu'
 userMap['psmdb'] = userMap['min-xenial-x64']
 
 initMap = [:]
@@ -156,6 +160,8 @@ initMap['min-jessie-x64'] = '''
 initMap['min-stretch-x64'] = initMap['min-artful-x64']
 initMap['min-trusty-x64'] = initMap['min-jessie-x64']
 initMap['min-xenial-x64'] = initMap['min-artful-x64']
+initMap['min-cosmic-x64'] = initMap['min-artful-x64']
+initMap['min-bionic-x64'] = initMap['min-artful-x64']
 initMap['psmdb'] = initMap['min-xenial-x64']
 
 capMap = [:]
@@ -167,14 +173,16 @@ typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
 typeMap['docker'] = 'c4.xlarge'
 typeMap['docker-32gb'] = 'm4.2xlarge'
-typeMap['min-centos-7-x64'] = typeMap['docker']
+typeMap['min-centos-7-x64'] = typeMap['docker-32gb']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-centos-6-x64'] = 'm4.xlarge'
-typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
-typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-centos-6-x64'] = typeMap['docker-32gb']
+typeMap['min-jessie-x64'] = typeMap['docker-32gb']
+typeMap['min-stretch-x64'] = typeMap['docker-32gb']
 typeMap['min-trusty-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-cosmic-x64'] = typeMap['docker-32gb']
+typeMap['min-bionic-x64'] = typeMap['docker-32gb']
 typeMap['psmdb'] = typeMap['docker-32gb']
 
 execMap = [:]
@@ -189,21 +197,25 @@ execMap['min-jessie-x64'] = '1'
 execMap['min-stretch-x64'] = '1'
 execMap['min-trusty-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
+execMap['min-bionic-x64'] = '1'
+execMap['min-cosmic-x64'] = '1'
 execMap['psmdb'] = '1'
 
 devMap = [:]
 devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 devMap['docker-32gb'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
 devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['min-centos-6-x64'] = devMap['min-artful-x64']
-devMap['min-centos-7-x64'] = devMap['min-artful-x64']
+devMap['min-centos-6-x64'] = devMap['psmdb']
+devMap['min-centos-7-x64'] = devMap['psmdb']
 devMap['fips-centos-7-x64'] = devMap['min-artful-x64']
-devMap['min-jessie-x64'] = devMap['micro-amazon']
-devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
+devMap['min-jessie-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:160:true:gp2'
+devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:160:true:gp2'
 devMap['min-trusty-x64'] = devMap['min-artful-x64']
 devMap['min-xenial-x64'] = devMap['min-artful-x64']
-devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
+devMap['min-bionic-x64'] = devMap['psmdb']
+devMap['min-cosmic-x64'] = devMap['psmdb']
 
 labelMap = [:]
 labelMap['docker'] = ''
@@ -217,6 +229,8 @@ labelMap['min-jessie-x64'] = ''
 labelMap['min-stretch-x64'] = ''
 labelMap['min-trusty-x64'] = ''
 labelMap['min-xenial-x64'] = ''
+labelMap['min-bionic-x64'] = ''
+labelMap['min-cosmic-x64'] = ''
 labelMap['psmdb'] = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
@@ -280,6 +294,12 @@ String region = 'us-west-2'
         [
             getTemplate('docker', "${region}${it}"),
             getTemplate('psmdb',  "${region}${it}"),
+            getTemplate('min-centos-6-x64', "${region}${it}"),
+            getTemplate('min-centos-7-x64', "${region}${it}"),
+            getTemplate('min-stretch-x64',  "${region}${it}"),
+            getTemplate('min-jessie-x64',   "${region}${it}"),
+            getTemplate('min-bionic-x64',   "${region}${it}"),
+            getTemplate('min-cosmic-x64',   "${region}${it}"),
         ],
         '',
         ''                                    // List<? extends SlaveTemplate> templates
