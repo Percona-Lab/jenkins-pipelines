@@ -27,7 +27,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: abychko-rsa-key
+    Default: slava
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
@@ -180,7 +180,7 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 0.0.0.0/0
+        CidrIp: 159.65.115.164/32
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
@@ -349,7 +349,7 @@ Resources:
       AvailabilityZone:
         Fn::Select: [ 1, !GetAZs '' ]
       Encrypted: false
-      Size: 100
+      Size: 200
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
@@ -401,6 +401,7 @@ Resources:
           Groups:
           - !GetAtt JVPC.DefaultSecurityGroup
           - !GetAtt HTTPSecurityGroup.GroupId
+          - !GetAtt SSHSecurityGroup.GroupId
         TagSpecifications:
         - ResourceType: instance
           Tags:
@@ -471,7 +472,7 @@ Resources:
                       echo try again
                   done
 
-                  wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+                  wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat/jenkins.repo
                   rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key
                   yum -y update --security
                   amazon-linux-extras install -y nginx1.12
