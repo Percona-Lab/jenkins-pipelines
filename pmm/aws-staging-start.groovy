@@ -287,7 +287,7 @@ pipeline {
                                 ${DOCKER_VERSION}
 
                             if [[ \$CLIENT_VERSION = dev-latest ]]; then
-                                sudo yum -y install pmm-client --enablerepo=percona-testing-*
+                                sudo yum -y install pmm2-client --enablerepo=percona-testing-*
                             else
                                 if [[ \$CLIENT_VERSION == http* ]]; then
                                     wget -O pmm-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
@@ -304,13 +304,16 @@ pipeline {
                             docker logs \${VM_NAME}-server
 
                             export PATH=\$PATH:/usr/sbin:/sbin
-                            sudo pmm-admin config --client-name pmm-client-hostname --server \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1)
+                            if [[ \$CLIENT_VERSION = dev-latest ]]; then
+                                bash /srv/percona-qa/pmm-tests/pmm2-client-setup.sh \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1) mysql localhost root
+                            else
+                                sudo pmm-admin config --client-name pmm-client-hostname --server \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1)
+                            fi
                         "
                     """
                 }
             }
         }
-
         stage('Run Clients') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
@@ -323,17 +326,19 @@ pipeline {
                             export PATH=\$PATH:/usr/sbin
                             test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
 
-                            bash /srv/percona-qa/pmm-tests/pmm-framework.sh \
-                                --pxc-version ${PXC_VERSION} \
-                                --ps-version  ${PS_VERSION} \
-                                --ms-version  ${MS_VERSION} \
-                                --md-version  ${MD_VERSION} \
-                                --mo-version  ${MO_VERSION} \
-                                --pgsql-version ${PGSQL_VERSION} \
-                                --download \
-                                ${CLIENTS} \
-                                --sysbench-data-load \
-                                --sysbench-oltp-run
+                            if [[ \$CLIENT_VERSION != dev-latest ]]; then
+                                bash /srv/percona-qa/pmm-tests/pmm-framework.sh \
+                                    --pxc-version ${PXC_VERSION} \
+                                    --ps-version  ${PS_VERSION} \
+                                    --ms-version  ${MS_VERSION} \
+                                    --md-version  ${MD_VERSION} \
+                                    --mo-version  ${MO_VERSION} \
+                                    --pgsql-version ${PGSQL_VERSION} \
+                                    --download \
+                                    ${CLIENTS} \
+                                    --sysbench-data-load \
+                                    --sysbench-oltp-run
+                            fi
                         "
                     """
                 }
