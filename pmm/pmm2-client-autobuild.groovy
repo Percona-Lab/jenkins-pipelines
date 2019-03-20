@@ -9,7 +9,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: 'PMM-2.0',
             description: 'Tag/Branch for percona-images repository',
             name: 'GIT_BRANCH')
         choice(
@@ -22,7 +22,7 @@ pipeline {
         disableConcurrentBuilds()
     }
     triggers {
-        upstream upstreamProjects: 'pmm-submodules-rewind', threshold: hudson.model.Result.SUCCESS
+        upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
     }
     stages {
         stage('Prepare') {
@@ -111,7 +111,7 @@ pipeline {
                         export pmm_version=$(cat VERSION)
                         ./build/bin/build-client-rpm centos:6
                         ./build/bin/build-client-rpm centos:7
-                        ./build/bin/build-client-rpm roboxes/rhel8 
+                        ./build/bin/build-client-rpm roboxes/rhel8
                     "
                 '''
                 stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
