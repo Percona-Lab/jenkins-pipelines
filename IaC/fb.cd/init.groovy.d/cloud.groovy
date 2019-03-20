@@ -55,7 +55,7 @@ priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
-priceMap['r4.4xlarge'] = '0.35'
+priceMap['r4.4xlarge'] = '0.38'
 priceMap['m5d.2xlarge'] = '0.20'
 priceMap['c5d.xlarge'] = '0.20'
 
@@ -109,7 +109,7 @@ initMap['docker'] = '''
     sudo install -o root -g root -d /mnt/docker
     sudo usermod -aG docker $(id -u -n)
     sudo mkdir -p /etc/docker
-    echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json
+    echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl status docker || sudo systemctl start docker
     sudo service docker status || sudo service docker start
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
