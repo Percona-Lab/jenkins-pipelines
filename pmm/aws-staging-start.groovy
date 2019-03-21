@@ -305,7 +305,7 @@ pipeline {
 
                             export PATH=\$PATH:/usr/sbin:/sbin
                             if [[ \$CLIENT_VERSION = dev-latest ]]; then
-                                bash /srv/percona-qa/pmm-tests/pmm2-client-setup.sh \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1) mysql localhost root
+                                bash /srv/percona-qa/pmm-tests/pmm2-client-setup.sh \${IP} mysql localhost root
                             else
                                 sudo pmm-admin config --client-name pmm-client-hostname --server \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1)
                             fi
