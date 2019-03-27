@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     environment {
-        DESTINATION = 'laboratory'
+        DESTINATION = 'pmm2-components/yum/laboratory'
     }
     agent {
         label 'large-amazon'
