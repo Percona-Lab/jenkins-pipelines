@@ -45,7 +45,7 @@ pipeline {
 
                     cd doc
                     make clean html
-                    rsync --delete-before -avzr -O -e ssh build/html/ jenkins@${HOST_IP}:/www/percona.com/htdocs/doc/percona-monitoring-and-management/
+                    rsync --delete-before -avzr -O -e ssh build/html/ jenkins@${HOST_IP}:/www/percona.com/htdocs/doc/percona-monitoring-and-management/2.0/
                 """
             }
         }
