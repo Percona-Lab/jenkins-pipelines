@@ -51,22 +51,6 @@ pipeline {
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-Lab/pmm-api-tests'
                 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-
-                sh '''
-                    sudo yum group install -y "Development Tools"
-                    wget https://dl.google.com/go/go1.11.4.linux-amd64.tar.gz
-                    tar -xzf go1.11.4.linux-amd64.tar.gz
-                    sudo mv go /usr/local
-                    export GOROOT=/usr/local/go
-                    export GOPATH=/usr/local/go
-                    export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
-                    go env
-                    sudo ln -s \$(pwd -P) $GOPATH/src/pmm-api-tests
-                    sudo curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-                    cd $GOPATH/src/pmm-api-tests/
-                    dep ensure -v
-                    make
-                '''
             }
         }
         stage('Start staging') {
@@ -86,21 +70,21 @@ pipeline {
         }
         stage('Run API Test') {
             steps {
-                sh '''
-                    export GOPATH=/usr/local/go
-                    cd $GOPATH/src/pmm-api-tests/
-                    ./inventory.test -pmm.server-url=\${PMM_URL} -test.v
-                '''
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh '''
+
+                        sudo yum -y install docker
+                        sudo usermod -aG docker ec2-user
+                        sudo service docker start
+                        sudo docker build -t pmm-api-tests .
+                        sudo docker run -e PMM_SERVER_URL=\${PMM_URL} pmm-api-tests
+                    '''
+                }
             }
         }
     }
     post {
         always {
-            sh '''
-                sudo rm -r /usr/local/go
-            '''
-            // stop staging
-            destroyStaging(VM_NAME)
             script {
                 if (currentBuild.result == 'SUCCESS') {
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
@@ -108,6 +92,8 @@ pipeline {
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
                 }
             }
+            // stop staging
+            destroyStaging(VM_NAME)
             deleteDir()
         }
     }
