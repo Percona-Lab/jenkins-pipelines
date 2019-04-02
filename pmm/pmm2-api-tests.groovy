@@ -49,7 +49,6 @@ pipeline {
                 // clean up workspace and fetch pmm-qa repository
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-Lab/pmm-api-tests'
-                
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
@@ -72,7 +71,6 @@ pipeline {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
-
                         sudo yum -y install docker
                         sudo usermod -aG docker ec2-user
                         sudo service docker start
