@@ -24,7 +24,7 @@ imageMap['us-west-2a.docker-32gb'] = 'ami-020f88cb17f8dbdea'
 imageMap['us-west-2a.docker2'] = 'ami-020f88cb17f8dbdea'
 imageMap['us-west-2a.micro-amazon'] = 'ami-020f88cb17f8dbdea'
 imageMap['us-west-2a.min-centos-7-x64'] = 'ami-01ed306a12b7d1c96'
-imageMap['us-west-2a.fips-centos-7-x64'] = 'ami-01ed306a12b7d1c96'
+imageMap['us-west-2a.fips-centos-7-x64'] = 'ami-036d2cdf95d86d256'
 
 imageMap['us-west-2b.docker'] = imageMap['us-west-2a.docker']
 imageMap['us-west-2b.docker-32gb'] = imageMap['us-west-2a.docker-32gb']
@@ -210,10 +210,10 @@ capMap['c5d.xlarge'] = '10'
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
 typeMap['docker'] = 'c4.xlarge'
-typeMap['docker-32gb'] = 'r4.4xlarge'
+typeMap['docker-32gb'] = 'm4.2xlarge'
 typeMap['docker2'] = 'r4.4xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
-typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
+typeMap['fips-centos-7-x64'] = typeMap['docker-32gb']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32'] = 'm1.medium'
@@ -261,7 +261,7 @@ devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 labelMap = [:]
 labelMap['docker'] = ''
 labelMap['docker-32gb'] = ''
-labelMap['docker2'] = 'docker-32gb'
+labelMap['docker2'] = ''
 labelMap['micro-amazon'] = 'master'
 labelMap['min-artful-x64'] = ''
 labelMap['min-bionic-x64'] = 'asan'
@@ -336,8 +336,10 @@ String region = 'us-west-2'
         [
             getTemplate('docker',           "${region}${it}"),
             getTemplate('docker2',          "${region}${it}"),
+            getTemplate('docker-32gb',      "${region}${it}"),
             getTemplate('micro-amazon',     "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
+            getTemplate('fips-centos-7-x64', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates 
         '',
         ''

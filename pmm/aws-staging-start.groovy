@@ -230,9 +230,9 @@ pipeline {
                             sudo usermod -aG docker ec2-user
                             sudo service docker start
 
-                            sudo mkdir -p /srv/percona-qa || :
-                            pushd /srv/percona-qa
-                                sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/pmm-tests
+                            sudo mkdir -p /srv/pmm-qa || :
+                            pushd /srv/pmm-qa
+                                sudo svn export https://github.com/percona/pmm-qa.git/trunk/pmm-tests
                                 sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
                                 sudo chmod 755 get_download_link.sh
                             popd
@@ -305,7 +305,7 @@ pipeline {
 
                             export PATH=\$PATH:/usr/sbin:/sbin
                             if [[ \$CLIENT_VERSION = dev-latest ]]; then
-                                bash /srv/percona-qa/pmm-tests/pmm2-client-setup.sh \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1) mysql localhost root
+                                bash /srv/pmm-qa/pmm-tests/pmm2-client-setup.sh \${IP} mysql localhost root
                             else
                                 sudo pmm-admin config --client-name pmm-client-hostname --server \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1)
                             fi
@@ -327,7 +327,7 @@ pipeline {
                             test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
 
                             if [[ \$CLIENT_VERSION != dev-latest ]]; then
-                                bash /srv/percona-qa/pmm-tests/pmm-framework.sh \
+                                bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                                     --pxc-version ${PXC_VERSION} \
                                     --ps-version  ${PS_VERSION} \
                                     --ms-version  ${MS_VERSION} \

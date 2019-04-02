@@ -17,7 +17,7 @@ void destroyStaging(IP) {
     ]
 }
 
-void runTAP(String TYPE, String PRODUCT, String COUNT) {
+void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
@@ -28,11 +28,12 @@ void runTAP(String TYPE, String PRODUCT, String COUNT) {
                 export PATH=\$PATH:/usr/sbin
                 export instance_t="${TYPE}"
                 export instance_c="${COUNT}"
+                export version="${VERSION}"
                 export stress="1"
                 export table_c="100"
                 export tap="1"
 
-                wget --progress=dot:giga \$(bash /srv/percona-qa/get_download_link.sh --product=${PRODUCT} --distribution=centos)
+                wget --progress=dot:giga \$(bash /srv/percona-qa/get_download_link.sh --product=${PRODUCT} --distribution=centos --version=${VERSION})
                 bash /srv/percona-qa/pmm-tests/pmm-testsuite.sh \
                     | tee /tmp/result.output
 
@@ -103,29 +104,44 @@ pipeline {
                 sh "curl --silent --insecure '${PMM_URL}/prometheus/targets' | grep localhost:9090"
             }
         }
-        stage('Test: PS') {
+        stage('Test: PS57') {
             steps {
-                runTAP("ps", "ps", "2")
+                runTAP("ps", "ps", "2", "5.7")
+            }
+        }
+        stage('Test: PS80') {
+            steps {
+                runTAP("ps", "ps", "2", "8.0")
+            }
+        }
+        stage('Test: MS57') {
+            steps {
+                runTAP("ms", "mysql", "2", "5.7")
+            }
+        }
+        stage('Test: MS80') {
+            steps {
+                runTAP("ms", "mysql", "2", "8.0")
             }
         }
         stage('Test: PXC') {
             steps {
-                runTAP("pxc", "pxc", "3")
+                runTAP("pxc", "pxc", "3", "5.7")
             }
         }
         stage('Test: PSMDB') {
             steps {
-                runTAP("mo", "psmdb", "3")
+                runTAP("mo", "psmdb", "3", "4.0")
             }
         }
-        stage('Test: PGSQL') {
+        stage('Test: PGSQL10') {
             steps {
-                runTAP("pgsql", "postgresql", "3")
+                runTAP("pgsql", "postgresql", "3", "10.6")
             }
         }
         stage('Test: MariaDB') {
             steps {
-                runTAP("md", "mariadb", "2")
+                runTAP("md", "mariadb", "2", "10.3")
             }
         }
     }
