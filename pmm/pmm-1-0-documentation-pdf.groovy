@@ -10,7 +10,6 @@ pipeline {
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '14', numToKeepStr: '5'))
-        timestamps()
     }
     triggers {
         pollSCM 'H/15 * * * *'
