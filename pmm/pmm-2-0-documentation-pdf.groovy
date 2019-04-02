@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'sphinx-1.4'
+        label 'micro-amazon'
     }
     parameters {
         string(
@@ -28,11 +28,18 @@ pipeline {
         }
         stage('Publish') {
             steps {
-                sh """
-                    echo BRANCH = ${BRANCH}
-                    echo "Building in: " `pwd`
-                    make clean latex && make latexpdf
-                """
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh '''
+                        sudo yum -y install docker
+                        sudo usermod -aG docker ec2-user
+                        sudo service docker start
+                        echo BRANCH = \${BRANCH_NAME}
+                        echo "Building in: " `pwd`
+                        cd doc
+                        sudo docker build . --tag pmm_2_0_doc_docker_image
+                        sudo docker run -i -v `pwd`:/doc -e USER_ID=$UID pmm_2_0_doc_docker_image make clean latex && make latexpdf
+                    '''
+                }
                 stash includes: 'doc/build/latex/*.pdf', name: 'PDF'
                 archiveArtifacts 'doc/build/latex/*.pdf'
             }
@@ -42,9 +49,6 @@ pipeline {
         always {
             // stop staging
             script {
-                publishers {
-                    warnings(['sphinx'], ['sphinx': '**/*.log']) {}
-                }
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
                 } else {

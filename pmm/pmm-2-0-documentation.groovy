@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'sphinx-1.4'
+        label 'micro-amazon'
     }
     parameters {
         string(
@@ -32,21 +32,25 @@ pipeline {
         }
         stage('Publish') {
             steps {
-                sh """
-                    if [ "${PUBLISH_TARGET}" = "www.percona.com" ]; then
-                      # production
-                      HOST_IP="10.10.9.210"
-                    else
-                      # test
-                      HOST_IP="10.10.9.250"
-                    fi
-                    echo BRANCH=${BRANCH_NAME}
-                    echo "Building in: " `pwd`
-
-                    cd doc
-                    make clean html
-                    rsync --delete-before -avzr -O -e ssh build/html/ jenkins@${HOST_IP}:/www/percona.com/htdocs/doc/percona-monitoring-and-management/2.0/
-                """
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh '''
+                        sudo yum -y install docker
+                        sudo usermod -aG docker ec2-user
+                        sudo service docker start
+                        cd doc
+                        sudo docker build . --tag pmm_2_0_doc_docker_image
+                        sudo docker run -i -v `pwd`:/doc -e USER_ID=$UID pmm_2_0_doc_docker_image make clean html
+                        if [ "\${PUBLISH_TARGET}" = "www.percona.com" ]; then
+                          # production
+                          export HOST_IP="10.10.9.210"
+                        else
+                          # test
+                          export HOST_IP="10.10.9.250"
+                        fi
+                        echo BRANCH=${BRANCH_NAME}
+                        rsync --delete-before -avzr -O -e ssh build/html/ jenkins@${HOST_IP}:/www/percona.com/htdocs/doc/percona-monitoring-and-management/2.0/
+                    '''
+                }
             }
         }
     }
