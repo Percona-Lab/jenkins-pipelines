@@ -287,7 +287,8 @@ pipeline {
                                 ${DOCKER_VERSION}
 
                             if [[ \$CLIENT_VERSION = dev-latest ]]; then
-                                sudo yum -y install pmm2-client --enablerepo=percona-testing-*
+                                sudo percona-release enable original testing 
+                                sudo yum -y install pmm2-client
                             else
                                 if [[ \$CLIENT_VERSION == http* ]]; then
                                     wget -O pmm-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
