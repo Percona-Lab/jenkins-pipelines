@@ -32,7 +32,8 @@ pipeline {
                         echo "Building in: " `pwd`
                         cd doc
                         sudo docker build . --tag pmm_1_0_doc_docker_image
-                        sudo docker run -i -v `pwd`:/doc -e USER_ID=$UID pmm_1_0_doc_docker_image make clean latex && make latexpdf
+                        sudo docker run -i -v `pwd`:/doc -e USER_ID=$UID pmm_1_0_doc_docker_image make clean latex
+                        sudo docker run -i -v `pwd`:/doc -e USER_ID=$UID pmm_1_0_doc_docker_image make latexpdf
                     '''
                 }
                 stash includes: 'doc/build/latex/*.pdf', name: 'PDF'

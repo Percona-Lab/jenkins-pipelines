@@ -29,9 +29,9 @@ pipeline {
                 git poll: false, branch: BRANCH_NAME, url: REPO_NAME
             }
         }
-        stage('Publish') {
+        stage('Doc Prepare') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'publish-doc-percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
                         sudo yum -y install docker
                         sudo usermod -aG docker ec2-user
@@ -39,6 +39,19 @@ pipeline {
                         cd doc
                         sudo docker build . --tag pmm_2_0_doc_docker_image
                         sudo docker run -i -v `pwd`:/doc -e USER_ID=$UID pmm_2_0_doc_docker_image make clean html
+                    '''
+                }
+                stash name: "html-files", includes: "doc/build/html/*"
+            }
+        }
+        stage('Doc Publish'){
+            agent {
+                label 'vbox-01.ci.percona.com'
+            }
+            steps{
+                unstash "html-files"
+                withCredentials([sshUserPrivateKey(credentialsId: 'publish-doc-percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh '''
                         if [ "\${PUBLISH_TARGET}" = "www.percona.com" ]; then
                           # production
                           export HOST_IP="10.10.9.210"
@@ -47,7 +60,7 @@ pipeline {
                           export HOST_IP="10.10.9.250"
                         fi
                         echo BRANCH=${BRANCH_NAME}
-                        rsync --delete-before -avzr -O -e ssh build/html/ jenkins@${HOST_IP}:/www/percona.com/htdocs/doc/percona-monitoring-and-management/2.0/
+                        rsync --delete-before -avzr -O -e -e "ssh -i \${KEY_PATH}"  build/html/ \${USER}@${HOST_IP}:/www/percona.com/htdocs/doc/percona-monitoring-and-management/2.0/
                     '''
                 }
             }
@@ -57,9 +70,6 @@ pipeline {
         always {
             // stop staging
             script {
-                publishers {
-                    warnings(['sphinx'], ['sphinx': '**/*.log']) {}
-                }
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
                 } else {

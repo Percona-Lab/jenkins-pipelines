@@ -19,11 +19,11 @@ pipeline {
         pollSCM 'H/15 * * * *'
     }
     stages {
-        stage('Doc Publish') {
+        stage('Doc Prepare') {
             steps {
                 deleteDir()
                 git poll: false, branch: BRANCH_NAME, url: 'https://github.com/percona/pmm.git'
-                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'publish-doc-percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
                         sudo yum -y install docker
                         sudo usermod -aG docker ec2-user
@@ -31,6 +31,19 @@ pipeline {
                         cd doc
                         sudo docker build . --tag pmm_1_0_doc_docker_image
                         sudo docker run -i -v `pwd`:/doc -e USER_ID=$UID pmm_1_0_doc_docker_image make clean html
+                    '''
+                }
+                stash name: "html-files", includes: "doc/build/html/*"
+            }
+        }
+        stage('Publis Docs Server'){
+            agent {
+                label 'vbox-01.ci.percona.com'
+            }
+            steps{
+                unstash "html-files"
+                withCredentials([sshUserPrivateKey(credentialsId: 'publish-doc-percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh '''
                         if [ "\${PUBLISH_TARGET}" = "www.percona.com" ]; then
                           # production
                           export HOST_IP="10.10.9.210"
@@ -38,8 +51,9 @@ pipeline {
                           # test
                           export HOST_IP="10.10.9.250"
                         fi
+                        cd doc
                         echo BRANCH=${BRANCH_NAME}
-                        rsync --delete-before -avzr -O -e ssh build/html/ jenkins@${HOST_IP}:/www/percona.com/htdocs/doc/percona-monitoring-and-management/1.0/
+                        rsync --delete-before -avzr -O -e "ssh -i \${KEY_PATH}"  build/html/ \${USER}@${HOST_IP}:/www/percona.com/htdocs/doc/percona-monitoring-and-management/1.0/
                     '''
                 }
             }
