@@ -57,27 +57,30 @@ pipeline {
                 runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1')
             }
         }
-        stage('Sanity check') {
-            steps {
-                sh "curl --silent --insecure '${PMM_URL}/prometheus/targets' | grep localhost:9090"
-            }
-        }
-        stage('Sleep') {
-            steps {
-                sleep 100
-            }
-        }
-        stage('Run API Test') {
-            steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        parallel {
+            stage('Setup Docker')
+            {
+                steps{
                     sh '''
                         sudo yum -y install docker
                         sudo usermod -aG docker ec2-user
                         sudo service docker start
                         sudo docker build -t pmm-api-tests .
-                        sudo docker run -e PMM_SERVER_URL=\${PMM_URL} pmm-api-tests
                     '''
                 }
+            }
+            stage('Sanity Check')
+            {
+                steps {
+                    sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+                }
+            }
+        }
+        stage('Run API Test') {
+            steps {
+                sh '''
+                    sudo docker run -e PMM_SERVER_URL=\${PMM_URL} pmm-api-tests
+                '''
             }
         }
     }
