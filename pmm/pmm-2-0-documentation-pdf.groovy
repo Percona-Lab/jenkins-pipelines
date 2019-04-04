@@ -4,10 +4,6 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'git@github.com:percona/pmm-doc',
-            description: 'Repository name for build',
-            name: 'REPO_NAME')
-        string(
             defaultValue: 'master',
             description: 'Tag/Branch for build',
             name: 'BRANCH_NAME')
@@ -22,7 +18,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                git poll: false, branch: BRANCH_NAME, url: REPO_NAME
+                git poll: false, branch: BRANCH_NAME, url: 'https://github.com/percona/pmm-doc.git'
             }
         }
         stage('Publish') {
