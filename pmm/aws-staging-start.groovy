@@ -290,7 +290,6 @@ pipeline {
                                 sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                                 sudo percona-release enable original testing 
                                 sudo yum -y install pmm2-client
-                                pmm-admin --version
                             else
                                 if [[ \$CLIENT_VERSION == http* ]]; then
                                     wget -O pmm-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
