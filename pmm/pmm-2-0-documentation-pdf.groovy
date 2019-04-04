@@ -22,7 +22,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                git poll: false, branch: BRANCH_NAME, url: 'https://github.com/percona/pmm.git'
+                git poll: false, branch: BRANCH_NAME, url: REPO_NAME
             }
         }
         stage('Publish') {
