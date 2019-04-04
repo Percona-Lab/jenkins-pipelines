@@ -31,9 +31,11 @@ pipeline {
                         echo BRANCH = \${BRANCH_NAME}
                         echo "Building in: " `pwd`
                         cd doc
-                        sudo docker pull perconalab/pmm-doc
-                        sudo docker run -i -v `pwd`:/doc -e USER_ID=$UID perconalab/pmm-doc make clean latex
-                        sudo docker run -i -v `pwd`:/doc -e USER_ID=$UID perconalab/pmm-doc make latexpdf
+                        sg docker -c "
+                            docker pull perconalab/pmm-doc
+                            docker run -i -v `pwd`:/doc -e USER_ID=$UID perconalab/pmm-doc make clean latex
+                            docker run -i -v `pwd`:/doc -e USER_ID=$UID perconalab/pmm-doc make latexpdf
+                        "
                     '''
                 }
                 stash includes: 'doc/build/latex/*.pdf', name: 'PDF'

@@ -37,8 +37,10 @@ pipeline {
                         sudo usermod -aG docker ec2-user
                         sudo service docker start
                         cd doc
-                        sudo docker pull perconalab/pmm-doc
-                        sudo docker run -i -v `pwd`:/doc -e USER_ID=$UID perconalab/pmm-doc make clean html
+                        sg docker -c "
+                            docker pull perconalab/pmm-doc
+                            docker run -i -v `pwd`:/doc -e USER_ID=$UID perconalab/pmm-doc make clean html
+                        "
                     '''
                 }
                 stash name: "html-files", includes: "doc/build/html/*"
