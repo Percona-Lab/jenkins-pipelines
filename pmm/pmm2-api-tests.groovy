@@ -40,7 +40,7 @@ pipeline {
         disableConcurrentBuilds()
     }
     triggers {
-        upstream upstreamProjects: '', threshold: hudson.model.Result.SUCCESS
+        upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
 
     stages {
@@ -57,22 +57,24 @@ pipeline {
                 runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1')
             }
         }
-        parallel {
-            stage('Setup Docker')
-            {
-                steps{
-                    sh '''
-                        sudo yum -y install docker
-                        sudo usermod -aG docker ec2-user
-                        sudo service docker start
-                        sudo docker build -t pmm-api-tests .
-                    '''
+        stage('Run Tests') {
+            parallel {
+                stage('Setup Docker')
+                {
+                    steps{
+                        sh '''
+                            sudo yum -y install docker
+                            sudo usermod -aG docker ec2-user
+                            sudo service docker start
+                            sudo docker build -t pmm-api-tests .
+                        '''
+                    }
                 }
-            }
-            stage('Sanity Check')
-            {
-                steps {
-                    sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+                stage('Sanity Check')
+                {
+                    steps {
+                        sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+                    }
                 }
             }
         }
