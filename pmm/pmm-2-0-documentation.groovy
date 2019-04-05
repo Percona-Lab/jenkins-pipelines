@@ -32,14 +32,13 @@ pipeline {
                         sudo yum -y install docker
                         sudo usermod -aG docker ec2-user
                         sudo service docker start
-                        cd doc
                         sg docker -c "
                             docker pull perconalab/pmm-doc
                             docker run -i -v `pwd`:/doc -e USER_ID=$UID perconalab/pmm-doc make clean html
                         "
                     '''
                 }
-                stash name: "html-files", includes: "doc/build/html/*"
+                stash name: "html-files", includes: "build/html/*"
             }
         }
         stage('Doc Publish'){
