@@ -30,7 +30,6 @@ pipeline {
                         sudo service docker start
                         echo BRANCH = \${BRANCH_NAME}
                         echo "Building in: " `pwd`
-                        cd doc
                         sg docker -c "
                             docker pull perconalab/pmm-doc
                             docker run -i -v `pwd`:/doc -e USER_ID=$UID perconalab/pmm-doc make clean latex
@@ -38,8 +37,8 @@ pipeline {
                         "
                     '''
                 }
-                stash includes: 'doc/build/latex/*.pdf', name: 'PDF'
-                archiveArtifacts 'doc/build/latex/*.pdf'
+                stash includes: 'build/latex/*.pdf', name: 'PDF'
+                archiveArtifacts 'build/latex/*.pdf'
             }
         }
     }
