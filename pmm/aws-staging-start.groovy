@@ -292,7 +292,6 @@ pipeline {
                                 sudo percona-release enable original testing
                                 sudo yum -y install pmm2-client
                                 sudo yum -y update
-                                pmm-admin --version
                             else
                                 if [[ \$CLIENT_VERSION == http* ]]; then
                                     wget -O pmm-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
@@ -310,6 +309,7 @@ pipeline {
 
                             export PATH=\$PATH:/usr/sbin:/sbin
                             if [[ \$CLIENT_VERSION = dev-latest ]]; then
+                                pmm-admin --version
                                 bash /srv/pmm-qa/pmm-tests/pmm2-client-setup.sh \${IP} mysql localhost root
                             else
                                 sudo pmm-admin config --client-name pmm-client-hostname --server \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1)
