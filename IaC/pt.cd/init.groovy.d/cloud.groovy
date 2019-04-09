@@ -225,7 +225,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
-        new UnixData('', '', '22'),                 // AMITypeData amiType
+        new UnixData('', '', '', '22'),             // AMITypeData amiType
         '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
@@ -264,10 +264,12 @@ String region = 'us-west-2'
         '',                                     // String credentialsId
         region,                                 // String region
         privateKey,                             // String privateKey
-        '240',                                   // String instanceCapStr
+        '240',                                  // String instanceCapStr
         [
             getTemplate('docker', "${region}${it}"),
-        ]                                       // List<? extends SlaveTemplate> templates
+        ],
+        '',
+        ''                                       // List<? extends SlaveTemplate> templates
     )
 
     // add cloud configuration to Jenkins
