@@ -168,6 +168,14 @@ initMap['min-jessie-x64'] = '''
         sudo mkfs.ext2 ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
+
+    sudo rm -rf  /etc/apt/sources.list.d/backports.list
+    echo "deb http://httpredir.debian.org/debian jessie main" > sources.list
+    echo "deb-src http://httpredir.debian.org/debian jessie main" >> sources.list
+    echo "deb http://security.debian.org/ jessie/updates main" >> sources.list
+    echo "deb-src http://security.debian.org/ jessie/updates main" >> sources.list
+    sudo mv sources.list /etc/apt/sources.list
+
     until sudo apt-get update; do
         sleep 1
         echo try again
@@ -180,7 +188,26 @@ initMap['min-jessie-x64'] = '''
     rm -fv jre-8u152-linux-x64.tar.gz
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-trusty-x64'] = initMap['min-jessie-x64']
+
+initMap['min-trusty-x64'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
+        sudo mkfs.ext2 ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+    sudo apt-get -y install git wget
+    wget https://jenkins.percona.com/downloads/jre/jre-8u152-linux-x64.tar.gz
+    sudo tar -zxf jre-8u152-linux-x64.tar.gz -C /usr/local
+    sudo ln -s /usr/local/jre1.8.0_152 /usr/local/java
+    sudo ln -s /usr/local/jre1.8.0_152/bin/java /usr/bin/java
+    rm -fv jre-8u152-linux-x64.tar.gz
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
 
 capMap = [:]
 capMap['c4.xlarge'] = '60'
