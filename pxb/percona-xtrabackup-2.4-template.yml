@@ -54,10 +54,21 @@
                 echo "waiting"
             done
         #
-            PKGLIST="wget libcurl-devel cmake make gcc gcc-c++ libev-devel openssl-devel"
+            sudo yum -y install wget
+            PKGLIST="libcurl-devel cmake make gcc gcc-c++ libev-devel openssl-devel"
             PKGLIST="${PKGLIST} libaio-devel perl-DBD-MySQL vim-common ncurses-devel readline-devel"
             PKGLIST="${PKGLIST} zlib-devel python-sphinx python-docutils libgcrypt-devel bison perl-Digest-MD5"
             PKGLIST="${PKGLIST} socat numactl-libs numactl"
+
+            RHVER="$(rpm --eval %rhel)"
+            if [[ ${RHVER} -eq 6 ]]; then
+                sudo wget -O /etc/yum.repos.d/slc6-devtoolset.repo http://linuxsoft.cern.ch/cern/devtoolset/slc6-devtoolset.repo
+                sudo wget -O /etc/pki/rpm-gpg/RPM-GPG-KEY-cern https://raw.githubusercontent.com/cms-sw/cms-docker/master/slc6-vanilla/RPM-GPG-KEY-cern
+                PKGLIST+=" devtoolset-2-gcc-c++ devtoolset-2-binutils"
+                PKGLIST+=" devtoolset-2-libasan-devel"
+                PKGLIST+=" devtoolset-2-valgrind devtoolset-2-valgrind-devel"
+            fi
+
             until sudo -E yum -y install ${PKGLIST}; do
                 echo "waiting"
                 sleep 1
@@ -112,6 +123,13 @@
     - shell: |-
         #!/bin/bash -x
 
+        RHVER="$(rpm --eval %rhel)"
+        if [[ ${RHVER} -eq 6 ]]; then
+            if [[ -f /opt/rh/devtoolset-2/enable ]]; then
+                source /opt/rh/devtoolset-2/enable
+            fi
+        fi
+
         echo BRANCH = ${BRANCH}
         echo "Building in: " `pwd`
 
@@ -161,6 +179,13 @@
     - shell: |-
         #!/bin/bash -x
 
+        RHVER="$(rpm --eval %rhel)"
+        if [[ ${RHVER} -eq 6 ]]; then
+            if [[ -f /opt/rh/devtoolset-2/enable ]]; then
+                source /opt/rh/devtoolset-2/enable
+            fi
+        fi
+
         if [ -d ${WORKSPACE}/xtrabackup ]
         then
             # Old (patch-based) directory layout
@@ -190,6 +215,13 @@
         fi
     - shell: |-
         #!/bin/bash -x
+
+        RHVER="$(rpm --eval %rhel)"
+        if [[ ${RHVER} -eq 6 ]]; then
+            if [[ -f /opt/rh/devtoolset-2/enable ]]; then
+                source /opt/rh/devtoolset-2/enable
+            fi
+        fi
 
         if test -f /usr/local/lib/libeatmydata.so
         then
