@@ -57,8 +57,10 @@
         export PATH=$PATH:/usr/local/go/bin
         #
         sudo apt-get update
-        sudo apt-get -y install curl build-essential python-pip g++-5 gcc-5 libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev python-ptyprocess scons libsasl2-dev pkg-config libpcap0.8-dev libssl-dev cmake libcurl4-openssl-dev
-        sudo pip install -r percona-server-mongodb/buildscripts/requirements.txt
+        sudo apt-get -y install curl build-essential g++-5 gcc-5 libgflags-dev libexpat1-dev libpython-dev libpython2.7 libpython2.7-dev python-dev python2.7-dev libsnappy-dev zlib1g-dev libbz2-dev python-ptyprocess scons libsasl2-dev pkg-config libpcap0.8-dev libssl-dev cmake libcurl4-openssl-dev
+        curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+        python get-pip.py --user
+        sudo /home/ubuntu/.local/bin/pip install -r percona-server-mongodb/buildscripts/requirements.txt
         #sudo pip install pymongo subprocess32 PyYAML typing requests Cheetah regex
 
         sudo percona-server-mongodb/support-files/ldap-sasl/deploy_ldap_and_sasl.sh
