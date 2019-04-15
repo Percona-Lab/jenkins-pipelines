@@ -58,11 +58,15 @@
         fi
         export PATH=$PATH:/usr/local/go/bin
         #
+
         sudo apt-get update
-        sudo apt-get -y install build-essential python-pip g++-5 gcc-5 libgflags-dev libsnappy-dev gcc-4.8
+        sudo apt-get -y install build-essential libexpat1-dev libpython-dev libpython2.7 libpython2.7-dev python-dev python2.7-dev g++-5 gcc-5 libgflags-dev libsnappy-dev gcc-4.8
         sudo apt-get -y install zlib1g-dev libbz2-dev python-ptyprocess scons libsasl2-dev scons g++-4.8
         sudo apt-get -y install pkg-config libpcap0.8-dev libssl-dev cmake valgrind libsasl2-dev
-        sudo pip install pymongo subprocess32 PyYAML typing requests
+
+        curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+        python get-pip.py --user
+        sudo ~/.local/bin/pip install pymongo subprocess32 PyYAML typing requests
 
         sudo percona-server-mongodb/support-files/ldap-sasl/deploy_ldap_and_sasl.sh
         # https://docs.mongodb.com/manual/tutorial/configure-ldap-sasl-openldap/#test-the-saslauthd-configuration
