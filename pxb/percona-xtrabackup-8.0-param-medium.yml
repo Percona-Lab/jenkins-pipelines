@@ -97,3 +97,7 @@
     triggers: []
     wrappers:
     - timestamps
+    - credentials-binding:
+      - text:
+          credential-id: PXBCLOUD_CREDENTIALS
+          variable: XBCLOUD_CREDENTIALS
