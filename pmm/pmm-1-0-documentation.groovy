@@ -35,7 +35,7 @@ pipeline {
                         "
                     '''
                 }
-                stash name: "html-files", includes: "doc/build/html/*"
+                stash name: "html-files", includes: "doc/build/html/**/*.*"
             }
         }
         stage('Publis Docs Server'){
