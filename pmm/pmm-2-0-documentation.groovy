@@ -38,7 +38,7 @@ pipeline {
                         "
                     '''
                 }
-                stash name: "html-files", includes: "build/html/*"
+                stash name: "html-files", includes: "build/html/**/*.*"
             }
         }
         stage('Doc Publish'){
