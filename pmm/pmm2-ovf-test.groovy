@@ -5,7 +5,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'dev-latest',
-            description: 'PMM Client version',
+            description: 'PMM2 Client version',
             name: 'CLIENT_VERSION')
         string(
             defaultValue: 'PMM2-Server-dev-latest.ova',
