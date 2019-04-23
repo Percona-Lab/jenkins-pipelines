@@ -311,7 +311,7 @@ pipeline {
                             export PATH=\$PATH:/usr/sbin:/sbin
                             if [[ \$CLIENT_VERSION = dev-latest ]]; then
                                 pmm-admin --version
-                                bash /srv/pmm-qa/pmm-tests/pmm2-client-setup.sh \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1) mysql localhost root
+                                bash /srv/pmm-qa/pmm-tests/pmm2-client-setup.sh \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1) mysql 127.0.0.1 root
                             else
                                 sudo pmm-admin config --client-name pmm-client-hostname --server \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1)
                             fi
