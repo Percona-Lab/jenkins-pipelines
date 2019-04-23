@@ -225,7 +225,8 @@ pipeline {
                             sudo yum -y update --security
                             sudo yum -y install https://repo.percona.com/yum/percona-release-0.1-7.noarch.rpm
                             sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
-                            sudo yum -y install svn docker sysbench mysql
+                            sudo yum -y install svn docker sysbench mysql57-server
+                            sudo service mysqld start
                             sudo yum -y install bats --enablerepo=epel
                             sudo usermod -aG docker ec2-user
                             sudo service docker start
@@ -310,7 +311,7 @@ pipeline {
                             export PATH=\$PATH:/usr/sbin:/sbin
                             if [[ \$CLIENT_VERSION = dev-latest ]]; then
                                 pmm-admin --version
-                                bash /srv/pmm-qa/pmm-tests/pmm2-client-setup.sh \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1) mysql localhost root
+                                bash /srv/pmm-qa/pmm-tests/pmm2-client-setup.sh \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1) mysql 127.0.0.1 root
                             else
                                 sudo pmm-admin config --client-name pmm-client-hostname --server \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1)
                             fi
