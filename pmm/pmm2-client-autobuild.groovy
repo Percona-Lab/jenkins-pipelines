@@ -33,7 +33,8 @@ pipeline {
                 sh '''
                     git reset --hard
                     sudo git clean -xdf
-                    git submodule update --init
+                    git submodule update --init --jobs 10
+                    git submodule status
 
                     git rev-parse --short HEAD > shortCommit
                     echo "UPLOAD/${DESTINATION}/${JOB_NAME}/pmm/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
