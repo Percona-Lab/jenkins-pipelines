@@ -36,6 +36,7 @@ pipeline {
                         git reset --hard
                         git clean -xdf
                         git submodule update --remote --init --recommend-shallow --jobs 10
+                        git submodule status
                     '''
                 }
 
@@ -65,7 +66,7 @@ pipeline {
                     git commit -a -m "rewind submodules"
                     git show
                 """
-                
+
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
                         echo "/usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh
