@@ -275,22 +275,38 @@ pipeline {
                             set -o errexit
                             set -o xtrace
 
-                            docker create \
-                                -v /opt/prometheus/data \
-                                -v /opt/consul-data \
-                                -v /var/lib/mysql \
-                                -v /var/lib/grafana \
-                                --name \${VM_NAME}-data \
-                                ${DOCKER_VERSION} /bin/true
+                            if [[ \$PMM_VERSION == pmm2 ]]; then
 
-                            docker run -d \
-                                -p 80:80 \
-                                -p 443:443 \
-                                --volumes-from \${VM_NAME}-data \
-                                --name \${VM_NAME}-server \
-                                --restart always \
-                                -e METRICS_RESOLUTION=5s \
-                                ${DOCKER_VERSION}
+                                docker create \
+                                    -v /srv \
+                                    --name \${VM_NAME}-data \
+                                    ${DOCKER_VERSION} /bin/true
+
+                                docker run -d \
+                                    -p 80:80 \
+                                    -p 443:443 \
+                                    --volumes-from \${VM_NAME}-data \
+                                    --name \${VM_NAME}-server \
+                                    --restart always \
+                                    ${DOCKER_VERSION}
+                            else
+                                docker create \
+                                    -v /opt/prometheus/data \
+                                    -v /opt/consul-data \
+                                    -v /var/lib/mysql \
+                                    -v /var/lib/grafana \
+                                    --name \${VM_NAME}-data \
+                                    ${DOCKER_VERSION} /bin/true
+
+                                docker run -d \
+                                    -p 80:80 \
+                                    -p 443:443 \
+                                    --volumes-from \${VM_NAME}-data \
+                                    --name \${VM_NAME}-server \
+                                    --restart always \
+                                    -e METRICS_RESOLUTION=5s \
+                                    ${DOCKER_VERSION}
+                            fi
 
                             if [[ \$CLIENT_VERSION = dev-latest ]]; then
                                 sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
