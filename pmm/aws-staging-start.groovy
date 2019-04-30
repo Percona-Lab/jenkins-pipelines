@@ -16,6 +16,10 @@ pipeline {
             description: 'public ssh key for "ec2-user" user, please set if you need ssh access',
             name: 'SSH_KEY')
         choice(
+            choices: ['pmm2', 'pmm1'],
+            description: 'Which Version of PMM-Server',
+            name: 'PMM_VERSION')
+        choice(
             choices: '7\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
@@ -76,6 +80,7 @@ pipeline {
                     echo """
                         DOCKER_VERSION: ${DOCKER_VERSION}
                         CLIENT_VERSION: ${CLIENT_VERSION}
+                        PMM_VERSION:    ${PMM_VERSION}
                         PXC_VERSION:    ${PXC_VERSION}
                         PS_VERSION:     ${PS_VERSION}
                         MS_VERSION:     ${MS_VERSION}
@@ -270,22 +275,38 @@ pipeline {
                             set -o errexit
                             set -o xtrace
 
-                            docker create \
-                                -v /opt/prometheus/data \
-                                -v /opt/consul-data \
-                                -v /var/lib/mysql \
-                                -v /var/lib/grafana \
-                                --name \${VM_NAME}-data \
-                                ${DOCKER_VERSION} /bin/true
+                            if [[ \$PMM_VERSION == pmm2 ]]; then
 
-                            docker run -d \
-                                -p 80:80 \
-                                -p 443:443 \
-                                --volumes-from \${VM_NAME}-data \
-                                --name \${VM_NAME}-server \
-                                --restart always \
-                                -e METRICS_RESOLUTION=5s \
-                                ${DOCKER_VERSION}
+                                docker create \
+                                    -v /srv \
+                                    --name \${VM_NAME}-data \
+                                    ${DOCKER_VERSION} /bin/true
+
+                                docker run -d \
+                                    -p 80:80 \
+                                    -p 443:443 \
+                                    --volumes-from \${VM_NAME}-data \
+                                    --name \${VM_NAME}-server \
+                                    --restart always \
+                                    ${DOCKER_VERSION}
+                            else
+                                docker create \
+                                    -v /opt/prometheus/data \
+                                    -v /opt/consul-data \
+                                    -v /var/lib/mysql \
+                                    -v /var/lib/grafana \
+                                    --name \${VM_NAME}-data \
+                                    ${DOCKER_VERSION} /bin/true
+
+                                docker run -d \
+                                    -p 80:80 \
+                                    -p 443:443 \
+                                    --volumes-from \${VM_NAME}-data \
+                                    --name \${VM_NAME}-server \
+                                    --restart always \
+                                    -e METRICS_RESOLUTION=5s \
+                                    ${DOCKER_VERSION}
+                            fi
 
                             if [[ \$CLIENT_VERSION = dev-latest ]]; then
                                 sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
@@ -294,24 +315,34 @@ pipeline {
                                 sudo yum -y install pmm2-client
                                 sudo yum -y update
                             else
-                                if [[ \$CLIENT_VERSION == http* ]]; then
-                                    wget -O pmm-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
+                                if [[ \$PMM_VERSION == pmm1 ]]; then
+                                    if [[ \$CLIENT_VERSION == http* ]]; then
+                                        wget -O pmm-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
+                                    else
+                                        wget -O pmm-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm-client/pmm-client-\${CLIENT_VERSION}/binary/tarball/pmm-client-\${CLIENT_VERSION}.tar.gz"
+                                    fi
+                                    tar -zxpf pmm-client.tar.gz
+                                    pushd pmm-client-*
+                                        sudo ./install
+                                    popd
                                 else
-                                    wget -O pmm-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm-client/pmm-client-\${CLIENT_VERSION}/binary/tarball/pmm-client-\${CLIENT_VERSION}.tar.gz"
-                                fi
-                                tar -zxpf pmm-client.tar.gz
-                                pushd pmm-client-*
-                                    sudo ./install
-                                popd
+                                    if [[ \$CLIENT_VERSION == http* ]]; then
+                                        wget -O pmm2-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
+                                    else
+                                        wget -O pmm2-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm2-client/pmm2-client-\${CLIENT_VERSION}/binary/tarball/pmm2-client-\${CLIENT_VERSION}.tar.gz"
+                                    fi
+                                    tar -zxpf pmm2-client.tar.gz
+                                    export PATH=\$PWD/bin:\$PATH
                             fi
 
                             sleep 10
                             docker logs \${VM_NAME}-server
 
                             export PATH=\$PATH:/usr/sbin:/sbin
-                            if [[ \$CLIENT_VERSION = dev-latest ]]; then
+                            if [[ \$PMM_VERSION == pmm2 ]]; then
                                 pmm-admin --version
-                                bash /srv/pmm-qa/pmm-tests/pmm2-client-setup.sh \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1) mysql 127.0.0.1 root
+                                pmm-agent setup --server-insecure-tls --server-address=\\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1):443
+                                pmm-admin add mysql --use-perfschema --username=root
                             else
                                 sudo pmm-admin config --client-name pmm-client-hostname --server \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1)
                             fi
@@ -332,7 +363,7 @@ pipeline {
                             export PATH=\$PATH:/usr/sbin
                             test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
 
-                            if [[ \$CLIENT_VERSION != dev-latest ]]; then
+                            if [[ \$PMM_VERSION == pmm1 ]]; then
                                 bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                                     --pxc-version ${PXC_VERSION} \
                                     --ps-version  ${PS_VERSION} \
