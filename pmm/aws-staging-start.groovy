@@ -276,7 +276,6 @@ pipeline {
                             set -o xtrace
 
                             if [[ \$PMM_VERSION == pmm2 ]]; then
-
                                 docker create \
                                     -v /srv \
                                     --name \${VM_NAME}-data \
@@ -332,7 +331,14 @@ pipeline {
                                         wget -O pmm2-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm2-client/pmm2-client-\${CLIENT_VERSION}/binary/tarball/pmm2-client-\${CLIENT_VERSION}.tar.gz"
                                     fi
                                     tar -zxpf pmm2-client.tar.gz
-                                    export PATH=\$PWD/bin:\$PATH
+                                    rm -r pmm2-client.tar.gz
+                                    export PMM_CLIENT_BASEDIR=\\\$(ls -1td pmm2-client-* 2>/dev/null | grep -v ".tar" | head -n1)
+                                    export PATH="$PWD/pmm2-client-2.0.0/bin:$PATH"
+                                    pmm-admin --version
+                                    bash /srv/pmm-qa/pmm-tests/pmm2-client-setup.sh localhost mysql 127.0.0.1 root
+                                    sleep 10
+                                    pmm-admin list
+                                fi
                             fi
 
                             sleep 10
@@ -340,9 +346,10 @@ pipeline {
 
                             export PATH=\$PATH:/usr/sbin:/sbin
                             if [[ \$PMM_VERSION == pmm2 ]]; then
-                                pmm-admin --version
-                                pmm-agent setup --server-insecure-tls --server-address=\\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1):443
-                                pmm-admin add mysql --use-perfschema --username=root
+                                if [[ \$CLIENT_VERSION != http* ]]; then
+                                    pmm-admin --version
+                                    bash /srv/pmm-qa/pmm-tests/pmm2-client-setup.sh \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1) mysql 127.0.0.1 root
+                                fi
                             else
                                 sudo pmm-admin config --client-name pmm-client-hostname --server \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1)
                             fi
