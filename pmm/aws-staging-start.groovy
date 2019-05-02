@@ -348,7 +348,11 @@ pipeline {
                             if [[ \$PMM_VERSION == pmm2 ]]; then
                                 if [[ \$CLIENT_VERSION != http* ]]; then
                                     pmm-admin --version
-                                    bash /srv/pmm-qa/pmm-tests/pmm2-client-setup.sh \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1) mysql 127.0.0.1 root
+                                    sudo pmm-agent setup --server-insecure-tls --server-address=\\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1):443 --trace
+                                    sleep 5
+                                    sudo cat /var/log/pmm-agent.log
+                                    pmm-admin add mysql --use-perfschema --username=root
+                                    pmm-admin list
                                 fi
                             else
                                 sudo pmm-admin config --client-name pmm-client-hostname --server \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1)
