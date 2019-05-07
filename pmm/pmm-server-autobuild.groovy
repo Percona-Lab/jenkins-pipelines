@@ -134,11 +134,11 @@ pipeline {
 
                         ./build/bin/build-server-docker
 
-                        docker tag  \\${DOCKER_TAG} perconalab/pmm-server:dev-latest
+                        docker tag  \\${DOCKER_TAG} perconalab/pmm-server:pmm1-dev-latest
                         docker push \\${DOCKER_TAG}
-                        docker push perconalab/pmm-server:dev-latest
+                        docker push perconalab/pmm-server:pmm1-dev-latest
                         docker rmi  \\${DOCKER_TAG}
-                        docker rmi  perconalab/pmm-server:dev-latest
+                        docker rmi  perconalab/pmm-server:pmm1-dev-latest
                     "
                 '''
                 stash includes: 'results/docker/TAG', name: 'IMAGE'
