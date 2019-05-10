@@ -95,7 +95,7 @@
                 echo "waiting"
             done
             #
-            PKGLIST="bison cmake devscripts debconf debhelper automake bison ca-certificates libcurl4-openssl-dev"
+            PKGLIST="bison pkg-config cmake devscripts debconf debhelper automake bison ca-certificates libcurl4-openssl-dev"
             PKGLIST="${PKGLIST} cmake debhelper libaio-dev libncurses-dev libssl-dev libtool libz-dev"
             PKGLIST="${PKGLIST} libgcrypt-dev libev-dev lsb-release python-sphinx python-docutils"
             PKGLIST="${PKGLIST} build-essential rsync libdbd-mysql-perl libnuma1 socat librtmp-dev libtinfo5"
