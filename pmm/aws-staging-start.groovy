@@ -36,7 +36,7 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         string(
-            defaultValue: '10.7',
+            defaultValue: '10.8',
             description: 'Postgre SQL Server version',
             name: 'PGSQL_VERSION')
         string(
@@ -349,7 +349,7 @@ pipeline {
                                 if [[ \$CLIENT_VERSION != http* ]]; then
                                     pmm-admin --version
                                     sudo pmm-agent setup --server-insecure-tls --server-address=\\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1):443 --trace
-                                    sleep 5
+                                    sleep 10
                                     sudo cat /var/log/pmm-agent.log
                                     pmm-admin add mysql --use-perfschema --username=root
                                     pmm-admin list
@@ -366,6 +366,7 @@ pipeline {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
+                        export IP=\$(cat IP)
                         [ -z "${CLIENTS}" ] && exit 0 || :
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
                             set -o errexit
@@ -386,6 +387,18 @@ pipeline {
                                     ${CLIENTS} \
                                     --sysbench-data-load \
                                     --sysbench-oltp-run
+                            fi
+
+                            if [[ \$PMM_VERSION == pmm2 ]]; then
+                                bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
+                                    --ms-version  ${MS_VERSION} \
+                                    --mo-version  ${MO_VERSION} \
+                                    --pgsql-version ${PGSQL_VERSION} \
+                                    --download \
+                                    ${CLIENTS} \
+                                    --pmm2 \
+                                    --dbdeployer \
+                                    --pmm2-server-ip=\$IP
                             fi
                         "
                     """
