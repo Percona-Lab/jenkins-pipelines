@@ -35,9 +35,9 @@ pipeline {
             defaultValue: '8.0',
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
-        string(
-            defaultValue: '10.8',
-            description: 'Postgre SQL Server version',
+        choice(
+            choices: ['11', '10.8', '9.6'],
+            description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         string(
             defaultValue: '10.2',
