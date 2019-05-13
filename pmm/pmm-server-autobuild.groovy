@@ -13,7 +13,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'master',
-            description: 'Tag/Branch for percona-images repository',
+            description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
     }
     options {
