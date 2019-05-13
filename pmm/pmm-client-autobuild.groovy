@@ -10,7 +10,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'master',
-            description: 'Tag/Branch for percona-images repository',
+            description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(
             choices: 'testing\nlaboratory',
@@ -111,7 +111,7 @@ pipeline {
                         export pmm_version=$(cat VERSION)
                         ./build/bin/build-client-rpm centos:6
                         ./build/bin/build-client-rpm centos:7
-                        ./build/bin/build-client-rpm roboxes/rhel8 
+                        ./build/bin/build-client-rpm roboxes/rhel8
                     "
                 '''
                 stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
