@@ -58,7 +58,7 @@
                 sleep 1
             done
         #
-            PKGLIST="wget libcurl-devel cmake make gcc gcc-c++ libev-devel openssl-devel"
+            PKGLIST="wget libcurl-devel cmake cmake3 make gcc gcc-c++ libev-devel openssl-devel"
             PKGLIST="${PKGLIST} libaio-devel perl-DBD-MySQL vim-common ncurses-devel readline-devel"
             PKGLIST="${PKGLIST} zlib-devel python-sphinx python-docutils libgcrypt-devel bison perl-Digest-MD5"
             PKGLIST="${PKGLIST} socat numactl-libs numactl"
@@ -158,11 +158,17 @@
                 CMAKE_EXTRA_OPTIONS="$CMAKE_EXTRA_OPTIONS -DWITH_ASAN=ON"
             fi
 
+            if [ -f '/usr/bin/yum' ]; then
+                cmake_bin='cmake3'
+            else
+                cmake_bin='cmake'
+            fi
+
             if test "x${BUILD_TYPE}" = "xdebug"
             then
-                cmake -DWITH_DEBUG=ON -DDOWNLOAD_BOOST=1 -DWITH_BOOST=mysql-boost $CMAKE_EXTRA_OPTIONS .
+                $cmake_bin -DWITH_DEBUG=ON -DDOWNLOAD_BOOST=1 -DWITH_BOOST=mysql-boost $CMAKE_EXTRA_OPTIONS .
             else
-                cmake -DBUILD_CONFIG=xtrabackup_release -DDOWNLOAD_BOOST=1 -DWITH_BOOST=mysql-boost -DWITH_MAN_PAGES=OFF $CMAKE_EXTRA_OPTIONS .
+                $cmake_bin -DBUILD_CONFIG=xtrabackup_release -DDOWNLOAD_BOOST=1 -DWITH_BOOST=mysql-boost -DWITH_MAN_PAGES=OFF $CMAKE_EXTRA_OPTIONS .
             fi
 
             make -k -j${THREADS}
