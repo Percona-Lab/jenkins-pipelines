@@ -48,7 +48,7 @@ pipeline {
             steps {
                 sh '''
                     sg docker -c "
-                        export pmm_version=$(cat VERSION)
+                        env
                         ./build/bin/build-client-source
                     "
                 '''
@@ -60,7 +60,7 @@ pipeline {
             steps {
                 sh '''
                     sg docker -c "
-                        export pmm_version=$(cat VERSION)
+                        env
                         ./build/bin/build-client-binary
                     "
                 '''
