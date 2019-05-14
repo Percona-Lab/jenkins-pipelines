@@ -1,0 +1,42 @@
+#!/bin/bash
+
+#  possible vars:
+#      GIT_REPO
+#      GIT_BRANCH
+
+set -o errexit
+set -o xtrace
+
+ROOT_DIR=$(cd $(dirname $0)/../..; pwd -P)/source
+
+clone_repo() {
+    ROOT_DIR=$1
+    GIT_REPO=$2
+    BRANCH=${3:-master}
+
+    if [ ! -d "${ROOT_DIR}" ]; then
+        git clone "${GIT_REPO}" "${ROOT_DIR}"
+    fi
+
+    pushd $ROOT_DIR
+        if [ -n "${GIT_REPO}" ]; then
+            git remote set-url origin "${GIT_REPO}"
+            git fetch --all
+        fi
+
+        git reset --hard
+        git clean -xdf
+
+        if [ -n "${BRANCH}" ]; then
+            git checkout "${BRANCH}"
+        fi
+
+        if [ -n "${GIT_REPO}" -a -n "${BRANCH}" ]; then
+            git pull origin ${BRANCH}
+        fi
+    popd
+
+    return
+}
+
+clone_repo ${ROOT_DIR} ${GIT_REPO} ${GIT_BRANCH}

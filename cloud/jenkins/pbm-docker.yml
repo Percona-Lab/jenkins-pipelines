@@ -1,0 +1,30 @@
+- job:
+    name: pbm-docker-build
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: false
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 10
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 10
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/hors/jenkins-pipelines.git
+            branches:
+            - cloud-215
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: cloud/jenkins/pbm_docker_build.groovy
+    parameters:
+    - string:
+        name: GIT_REPO
+        default: https://github.com/percona/percona-backup-mongodb
+        description: percona/percona-backup-mongodb repository
+    - string:
+        name: GIT_BRANCH
+        default: master
+        description: Tag/Branch for percona/percona-backup-mongodb repository
