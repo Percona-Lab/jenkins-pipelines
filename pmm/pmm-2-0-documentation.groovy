@@ -57,7 +57,7 @@ pipeline {
                           export HOST_IP="10.10.9.250"
                         fi
                         echo BRANCH=${BRANCH_NAME}
-                        rsync --delete-before -avzr -O -e "ssh -i \${KEY_PATH}"  build/html/ \${USER}@${HOST_IP}:/www/percona.com/htdocs/doc/percona-monitoring-and-management/2.0/
+                        rsync --delete-before -avzr -O -e "ssh -i \${KEY_PATH}"  build/html/ \${USER}@${HOST_IP}:/www/percona.com/htdocs/doc/percona-monitoring-and-management/2.x/
                     '''
                 }
             }
