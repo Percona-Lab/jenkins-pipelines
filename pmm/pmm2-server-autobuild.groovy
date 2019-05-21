@@ -13,7 +13,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'PMM-2.0',
-            description: 'Tag/Branch for percona-images repository',
+            description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
     }
     options {
@@ -48,7 +48,7 @@ pipeline {
             steps {
                 sh '''
                     sg docker -c "
-                        export pmm_version=$(cat VERSION)
+                        env
                         ./build/bin/build-client-source
                     "
                 '''
@@ -60,7 +60,7 @@ pipeline {
             steps {
                 sh '''
                     sg docker -c "
-                        export pmm_version=$(cat VERSION)
+                        env
                         ./build/bin/build-client-binary
                     "
                 '''
