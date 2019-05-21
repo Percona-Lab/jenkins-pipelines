@@ -112,7 +112,7 @@ pipeline {
                         env
                         ./build/bin/build-client-rpm centos:6
                         ./build/bin/build-client-rpm centos:7
-                        ./build/bin/build-client-rpm roboxes/rhel8
+                        ./build/bin/build-client-rpm registry.access.redhat.com/ubi8
                     "
                 '''
                 stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
