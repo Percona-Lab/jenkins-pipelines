@@ -27,9 +27,9 @@ pipeline {
             defaultValue: '5.7',
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
-        string(
-            defaultValue: '5.7',
-            description: 'Percona Server for MySQL version',
+        choice(
+            choices: ['5.7', '8.0'],
+            description: "Percona Server for MySQL version",
             name: 'PS_VERSION')
         string(
             defaultValue: '8.0',
