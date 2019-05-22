@@ -46,7 +46,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git branch: 'cloud-215', url: 'https://github.com/hors/jenkins-pipelines'
+                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh '''
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
