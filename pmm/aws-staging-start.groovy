@@ -343,11 +343,10 @@ pipeline {
                                         export PATH="$PWD/pmm2-client-2.0.0/bin:$PATH"
                                         echo "export PATH=$PWD/pmm2-client-2.0.0/bin:$PATH" >> ~/.bash_profile
                                         source ~/.bash_profile
-                                        touch pmm-agent.log
                                         pmm-admin --version
                                         pmm-agent setup --config-file=$PWD/pmm2-client-2.0.0/config/pmm-agent.yaml --server-insecure-tls --server-address=\$IP:443
                                         sleep 10
-                                        JENKINS_NODE_COOKIE=dontKillMe nohup bash -c 'pmm-agent --config-file=$PWD/pmm2-client-2.0.0/config/pmm-agent.yaml >> pmm-agent.log 2>&1 &'
+                                        JENKINS_NODE_COOKIE=dontKillMe nohup bash -c 'pmm-agent --config-file=$PWD/pmm2-client-2.0.0/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
                                         sleep 10
                                         cat pmm-agent.log
                                         pmm-admin status
@@ -401,7 +400,6 @@ pipeline {
 
                             if [[ \$CLIENT_VERSION == http* ]]; then
                                 export PATH="$PWD/pmm2-client-2.0.0/bin:$PATH"
-                                source ~/.bash_profile
                             fi
 
                             if [[ \$PMM_VERSION == pmm2 ]]; then
