@@ -4,6 +4,7 @@ import hudson.plugins.ec2.AmazonEC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
+import hudson.plugins.ec2.ConnectionStrategy
 import hudson.plugins.ec2.UnixData
 import java.util.logging.Logger
 import jenkins.model.Jenkins
@@ -22,7 +23,7 @@ imageMap = [:]
 imageMap['eu-west-1a.docker'] = 'ami-0bfe21f21a54b82f9'
 imageMap['eu-west-1a.docker-32gb'] = 'ami-0bfe21f21a54b82f9'
 imageMap['eu-west-1a.micro-amazon'] = 'ami-0bfe21f21a54b82f9'
-imageMap['eu-west-1a.min-centos-7-x64'] = 'ami-0ff760d16d9497662'
+imageMap['eu-west-1a.min-centos-7-x64'] = 'ami-0d5a7aa2893e99a9c'
 imageMap['eu-west-1a.fips-centos-7-x64'] = 'ami-0ff760d16d9497662'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
@@ -52,7 +53,7 @@ priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
-priceMap['m5d.2xlarge'] = '0.20'
+priceMap['c5d.xlarge'] = '0.20'
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
@@ -197,9 +198,10 @@ capMap = [:]
 capMap['c4.xlarge'] = '60'
 capMap['m4.xlarge'] = '60'
 capMap['m4.2xlarge'] = '10'
+capMap['c5d.xlarge'] = '10'
 
 typeMap = [:]
-typeMap['micro-amazon'] = 't2.small'
+typeMap['micro-amazon'] = 'c4.xlarge'
 typeMap['docker'] = 'c4.xlarge'
 typeMap['docker-32gb'] = 'm4.2xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
@@ -267,7 +269,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
     return new SlaveTemplate(
         imageMap[AZ + '.' + OSType],                // String ami
         '',                                         // String zone
-        new SpotConfiguration(priceMap[typeMap[OSType]]), // SpotConfiguration spotConfig
+        new SpotConfiguration(true, priceMap[typeMap[OSType]], false), // SpotConfiguration spotConfig
         'default',                                  // String securityGroups
         '/mnt/jenkins',                             // String remoteFS
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type
@@ -280,7 +282,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
-        new UnixData('', '', '22'),             // AMITypeData amiType
+        new UnixData('', '', '', '22'),             // AMITypeData amiType
         '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
@@ -289,7 +291,6 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
             new EC2Tag('iit-billing-tag', 'jenkins-ps3-worker')
         ],                                          // List<EC2Tag> tags
         '3',                                        // String idleTerminationMinutes
-        false,                                      // boolean usePrivateDnsName
         capMap[typeMap[OSType]],                    // String instanceCapStr
         'arn:aws:iam::119175775298:instance-profile/jenkins-ps3-worker', // String iamInstanceProfile
         true,                                       // boolean deleteRootOnTermination
@@ -299,7 +300,10 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         true,                                       // boolean associatePublicIp
         devMap[OSType],                             // String customDeviceMapping
         true,                                       // boolean connectBySSHProcess
-        false                                       // boolean connectUsingPublicIp
+        false,                                      // boolean monitoring
+        false,                                      // boolean t2Unlimited
+        ConnectionStrategy.PUBLIC_DNS,              // connectionStrategy
+        -1,                                         // int maxTotalUses
     )
 }
 
@@ -325,7 +329,10 @@ String region = 'eu-west-1'
             getTemplate('docker-32gb',      "${region}${it}"),
             getTemplate('micro-amazon',     "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
-        ]                                       // List<? extends SlaveTemplate> templates
+            getTemplate('fips-centos-7-x64', "${region}${it}"),
+        ],                                       // List<? extends SlaveTemplate> templates
+        '',
+        ''
     )
 
     // add cloud configuration to Jenkins
