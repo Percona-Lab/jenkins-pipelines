@@ -13,9 +13,9 @@
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/hors/jenkins-pipelines.git
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - cloud-215
+            - master
             wipe-workspace: false
       lightweight-checkout: true
       script-path: cloud/jenkins/pbm_docker_build.groovy
