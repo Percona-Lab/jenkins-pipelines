@@ -1,5 +1,5 @@
 - job:
-    name: po-docker-build
+    name: pxc-containers-docker-build
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -18,7 +18,7 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/po_docker_build.groovy
+      script-path: cloud/jenkins/pxc_containers_docker_build.groovy
     parameters:
     - string:
         name: GIT_REPO

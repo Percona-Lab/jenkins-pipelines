@@ -1,5 +1,5 @@
 - job:
-    name: build-po-images
+    name: build-pxc-containers-images
     description: |
         Do not edit this job through the web!
     concurrent: false
@@ -21,7 +21,7 @@
         ignore-post-commit-hooks: false
     builders:
     - trigger-builds:
-      - project: po-docker-build
+      - project: pxc-containers-docker 
         block: true
         block-thresholds:
           build-step-failure-threshold: FAILURE
