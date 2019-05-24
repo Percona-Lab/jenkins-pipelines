@@ -4,6 +4,7 @@ import hudson.plugins.ec2.AmazonEC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
+import hudson.plugins.ec2.ConnectionStrategy
 import hudson.plugins.ec2.UnixData
 import java.util.logging.Logger
 import jenkins.model.Jenkins
@@ -253,7 +254,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
     return new SlaveTemplate(
         imageMap[OSType],                           // String ami
         '',                                         // String zone
-        new SpotConfiguration(priceMap[typeMap[OSType]]), // SpotConfiguration spotConfig
+        new SpotConfiguration(true, priceMap[typeMap[OSType]], false), // SpotConfiguration spotConfig
         'default',                                  // String securityGroups
         '/mnt/jenkins',                             // String remoteFS
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type
@@ -266,7 +267,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
-        new UnixData('', '', '22'),                 // AMITypeData amiType
+        new UnixData('', '', '', '22'),             // AMITypeData amiType
         '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
@@ -275,7 +276,6 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
             new EC2Tag('iit-billing-tag', 'jenkins-pxc-worker')
         ],                                          // List<EC2Tag> tags
         '3',                                        // String idleTerminationMinutes
-        false,                                      // boolean usePrivateDnsName
         capMap[typeMap[OSType]],                    // String instanceCapStr
         'arn:aws:iam::119175775298:instance-profile/jenkins-pxc-worker', // String iamInstanceProfile
         true,                                       // boolean deleteRootOnTermination
@@ -285,7 +285,10 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         true,                                       // boolean associatePublicIp
         devMap[OSType],                             // String customDeviceMapping
         true,                                       // boolean connectBySSHProcess
-        false                                       // boolean connectUsingPublicIp
+        false,                                      // boolean monitoring
+        false,                                      // boolean t2Unlimited
+        ConnectionStrategy.PUBLIC_DNS,              // connectionStrategy
+        -1,                                         // int maxTotalUses
     )
 }
 
@@ -315,9 +318,10 @@ String region = 'us-west-1'
             getTemplate('min-stretch-x64', "${region}${it}"),
             getTemplate('min-trusty-x64', "${region}${it}"),
             getTemplate('min-xenial-x64', "${region}${it}"),
-            getTemplate('min-artful-x64', "${region}${it}"),
             getTemplate('min-bionic-x64', "${region}${it}"),
-        ]                                       // List<? extends SlaveTemplate> templates
+        ],                                       // List<? extends SlaveTemplate> templates
+        '',
+        ''
     )
 
     // add cloud configuration to Jenkins
