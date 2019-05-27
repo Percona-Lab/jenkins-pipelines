@@ -21,7 +21,7 @@
         ignore-post-commit-hooks: false
     builders:
     - trigger-builds:
-      - project: pxc-containers-docker 
+      - project: pxc-containers-docker-build
         block: true
         block-thresholds:
           build-step-failure-threshold: FAILURE
