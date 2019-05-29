@@ -112,8 +112,12 @@ pipeline {
             steps {
                 unstash "sourceFILES"
                 echo 'Build PSMDB docker images'
-                build('mongod3.6')
-                build('mongod4.0')
+                retry(3) {
+                    build('mongod3.6')
+                }
+                retry(3) {
+                    build('mongod4.0')
+                }
             }
         }
 
