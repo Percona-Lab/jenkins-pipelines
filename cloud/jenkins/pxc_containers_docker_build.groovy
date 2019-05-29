@@ -74,9 +74,15 @@ pipeline {
         stage('Build docker images') {
             steps {
                 unstash "sourceFILES"
-                build('pxc')
-                build('proxysql')
-                build('backup')
+                retry(3) {
+                    build('pxc')
+                }
+                retry(3) {
+                    build('proxysql')
+                }
+                retry(3) {
+                    build('backup')
+                }
             }
         }
 
