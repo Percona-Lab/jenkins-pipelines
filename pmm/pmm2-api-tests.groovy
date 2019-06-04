@@ -94,7 +94,7 @@ pipeline {
         always {
             script {
                 if (currentBuild.result == 'SUCCESS') {
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER}"
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
                 } else {
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, owner: @${OWNER}"
                 }
