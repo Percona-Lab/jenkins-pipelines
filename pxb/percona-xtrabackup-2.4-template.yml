@@ -109,7 +109,7 @@
             if [[ "$Host" == *"asan" ]] ; then
                 PKGLIST="${PKGLIST} libasan4"
             fi
-            until sudo -E apt-get -y install ${PKGLIST}; do
+            until sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install ${PKGLIST}; do
                 sleep 1
                 echo "waiting"
             done
