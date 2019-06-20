@@ -49,7 +49,7 @@ pipeline {
             name: 'MO_VERSION')
         string(
             defaultValue: '--addclient=ps,1',
-            description: 'Configure PMM Clients. ps - Percona Server for MySQL, pxc - Percona XtraDB Cluster, ms - MySQL Community Server, md - MariaDB Server, mo - Percona Server for MongoDB, pgsql - Postgre SQL Server',
+            description: 'Configure PMM Clients. ps - Percona Server for MySQL, pxc - Percona XtraDB Cluster, --with-proxysql (to be used with pxc only ex. --addclient=pxc,1 --with-proxysql) , ms - MySQL Community Server, md - MariaDB Server, mo - Percona Server for MongoDB, pgsql - Postgre SQL Server',
             name: 'CLIENTS')
         string(
             defaultValue: 'true',
