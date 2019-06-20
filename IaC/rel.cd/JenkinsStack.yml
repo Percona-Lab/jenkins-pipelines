@@ -1,10 +1,10 @@
-# aws cloudformation --region us-west-1 create-stack --template-body file://IaC/ps.cd/JenkinsStack.yml_fb --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-fb --tags Key=iit-billing-tag,Value=jenkins-fb
+# aws cloudformation --region us-west-1 create-stack --template-body file://IaC/cloud.cd/JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-rel --tags Key=iit-billing-tag,Value=jenkins-rel
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
 
   JHostName:
-    Default: fb.cd.percona.com
+    Default: rel.cd.percona.com
     Description: Fully Qualified Domain Name
     Type: String
     MinLength: 1
@@ -13,7 +13,7 @@ Parameters:
     ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
 
   JShortName:
-    Default: jenkins-fb
+    Default: jenkins-rel
     Description: Short host name
     Type: String
     MinLength: 1
@@ -32,7 +32,7 @@ Parameters:
     Type: AWS::EC2::KeyPair::KeyName
 
   CacheBucketName:
-    Default: ps-build-cache
+    Default: rel-build-cache
     Description: Fully Qualified Domain Name
     Type: String
     MinLength: 1
@@ -453,7 +453,7 @@ Resources:
   JMasterTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: FBMasterTemplate
+      LaunchTemplateName: RELMasterTemplate
       LaunchTemplateData:
         NetworkInterfaces:
         - DeviceIndex: 0

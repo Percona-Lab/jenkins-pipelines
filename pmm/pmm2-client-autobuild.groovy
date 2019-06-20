@@ -14,7 +14,7 @@ pipeline {
             name: 'GIT_BRANCH')
         choice(
             choices: 'testing\nlaboratory',
-            description: 'publish result package to internal or external repository',
+            description: 'publish result package to internal (testing) or external (laboratory) repository',
             name: 'DESTINATION')
     }
     options {

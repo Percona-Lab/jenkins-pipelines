@@ -34,6 +34,10 @@ pipeline {
             defaultValue: 'dev-latest',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
+        string(
+            defaultValue: '',
+            description: 'Author of recent Commit to pmm-managed',
+            name: 'OWNER')
     }
     options {
         skipDefaultCheckout()
@@ -57,7 +61,7 @@ pipeline {
                 runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1')
             }
         }
-        stage('Run Tests') {
+        stage('Setup Step') {
             parallel {
                 stage('Setup Docker')
                 {
@@ -90,9 +94,9 @@ pipeline {
         always {
             script {
                 if (currentBuild.result == 'SUCCESS') {
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                 } else {
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
+                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, owner: @${OWNER}"
                 }
             }
             // stop staging

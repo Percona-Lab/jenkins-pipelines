@@ -1,0 +1,29 @@
+- job:
+    name: build-pxc-containers-images
+    description: |
+        Do not edit this job through the web!
+    concurrent: false
+    project-type: freestyle
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 10
+        days-to-keep: -1
+        num-to-keep: 10
+    scm:
+    - git:
+        branches:
+        - '*/master'
+        url: https://github.com/Percona-Lab/percona-openshift
+    triggers:
+    - pollscm:
+        cron: '*/5 * * * *'
+        ignore-post-commit-hooks: false
+    builders:
+    - trigger-builds:
+      - project: pxc-containers-docker-build
+        block: true
+        block-thresholds:
+          build-step-failure-threshold: FAILURE
+          unstable-threshold: never
+          failure-threshold: FAILURE

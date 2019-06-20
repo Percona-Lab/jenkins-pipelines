@@ -349,7 +349,6 @@ String region = 'us-west-2'
             getTemplate('min-stretch-x64', "${region}${it}"),
             getTemplate('min-trusty-x64', "${region}${it}"),
             getTemplate('min-xenial-x64', "${region}${it}"),
-            getTemplate('min-artful-x64', "${region}${it}"),
             getTemplate('min-bionic-x64', "${region}${it}"),
             getTemplate('min-cosmic-x64', "${region}${it}"),
         ]                                       // List<? extends SlaveTemplate> templates

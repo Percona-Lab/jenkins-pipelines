@@ -16,27 +16,30 @@ logger.info("Cloud init started")
 Jenkins jenkins = Jenkins.getInstance()
 
 netMap = [:]
-netMap['us-west-1b'] = 'subnet-016104ddcdfbf521b'
-netMap['us-west-1c'] = 'subnet-08c73ba89640dfa60'
+netMap['eu-west-1b'] = 'subnet-07be59c818b8817bb'
+netMap['eu-west-1c'] = 'subnet-0715169526086fb70'
 
 imageMap = [:]
-imageMap['us-west-1a.docker'] = 'ami-01beb64058d271bc4'
-imageMap['us-west-1a.docker-32gb'] = 'ami-01beb64058d271bc4'
-imageMap['us-west-1a.micro-amazon'] = 'ami-01beb64058d271bc4'
-imageMap['us-west-1a.min-centos-7-x64'] = 'ami-4826c22b'
-imageMap['us-west-1a.fips-centos-7-x64'] = 'ami-0f472ecc4a3e9620c'
+imageMap['eu-west-1a.docker'] = 'ami-0bfe21f21a54b82f9'
+imageMap['eu-west-1a.docker-32gb'] = 'ami-0bfe21f21a54b82f9'
+imageMap['eu-west-1a.docker2'] = 'ami-0bfe21f21a54b82f9'
+imageMap['eu-west-1a.micro-amazon'] = 'ami-0bfe21f21a54b82f9'
+imageMap['eu-west-1a.min-centos-7-x64'] = 'ami-0ff760d16d9497662'
+imageMap['eu-west-1a.fips-centos-7-x64'] = 'ami-0ff760d16d9497662'
 
-imageMap['us-west-1b.docker'] = imageMap['us-west-1a.docker']
-imageMap['us-west-1b.docker-32gb'] = imageMap['us-west-1a.docker-32gb']
-imageMap['us-west-1b.micro-amazon'] = imageMap['us-west-1a.micro-amazon']
-imageMap['us-west-1b.min-centos-7-x64'] = imageMap['us-west-1a.min-centos-7-x64']
-imageMap['us-west-1b.fips-centos-7-x64'] = imageMap['us-west-1a.fips-centos-7-x64']
+imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
+imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
+imageMap['eu-west-1b.docker2'] = imageMap['eu-west-1a.docker2']
+imageMap['eu-west-1b.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
+imageMap['eu-west-1b.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64']
+imageMap['eu-west-1b.fips-centos-7-x64'] = imageMap['eu-west-1a.fips-centos-7-x64']
 
-imageMap['us-west-1c.docker'] = imageMap['us-west-1a.docker']
-imageMap['us-west-1c.docker-32gb'] = imageMap['us-west-1a.docker-32gb']
-imageMap['us-west-1c.micro-amazon'] = imageMap['us-west-1a.micro-amazon']
-imageMap['us-west-1c.min-centos-7-x64'] = imageMap['us-west-1a.min-centos-7-x64']
-imageMap['us-west-1c.fips-centos-7-x64'] = imageMap['us-west-1a.fips-centos-7-x64']
+imageMap['eu-west-1c.docker'] = imageMap['eu-west-1a.docker']
+imageMap['eu-west-1c.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
+imageMap['eu-west-1c.docker2'] = imageMap['eu-west-1a.docker2']
+imageMap['eu-west-1c.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
+imageMap['eu-west-1c.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64']
+imageMap['eu-west-1c.fips-centos-7-x64'] = imageMap['eu-west-1a.fips-centos-7-x64']
 
 /*
 imageMap['min-artful-x64'] = 'ami-db2919be'
@@ -53,11 +56,14 @@ priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
+priceMap['r4.4xlarge'] = '0.38'
 priceMap['m5d.2xlarge'] = '0.20'
+priceMap['c5d.xlarge'] = '0.20'
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
 userMap['docker-32gb'] = userMap['docker']
+userMap['docker2'] = userMap['docker']
 userMap['micro-amazon'] = userMap['docker']
 userMap['min-artful-x64'] = 'ubuntu'
 userMap['min-bionic-x64'] = 'ubuntu'
@@ -110,6 +116,7 @@ initMap['docker'] = '''
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 initMap['docker-32gb'] = initMap['docker']
+initMap['docker2'] = initMap['docker']
 initMap['micro-amazon'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -196,13 +203,16 @@ initMap['min-trusty-x64'] = initMap['min-jessie-x64']
 
 capMap = [:]
 capMap['c4.xlarge'] = '60'
-capMap['m4.xlarge'] = '60'
-capMap['m4.2xlarge'] = '10'
+capMap['m4.xlarge'] = '5'
+capMap['m4.2xlarge'] = '40'
+capMap['r4.4xlarge'] = '40'
+capMap['c5d.xlarge'] = '10'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
 typeMap['docker'] = 'c4.xlarge'
 typeMap['docker-32gb'] = 'm4.2xlarge'
+typeMap['docker2'] = 'r4.4xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
@@ -218,6 +228,7 @@ typeMap['psmdb'] = typeMap['docker-32gb']
 execMap = [:]
 execMap['docker'] = '1'
 execMap['docker-32gb'] = execMap['docker']
+execMap['docker2'] = execMap['docker']
 execMap['micro-amazon'] = '30'
 execMap['min-artful-x64'] = '1'
 execMap['min-bionic-x64'] = '1'
@@ -233,6 +244,7 @@ execMap['psmdb'] = '1'
 
 devMap = [:]
 devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker2'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
 devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
@@ -250,6 +262,7 @@ devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 labelMap = [:]
 labelMap['docker'] = ''
 labelMap['docker-32gb'] = ''
+labelMap['docker2'] = 'docker-32gb'
 labelMap['micro-amazon'] = 'master'
 labelMap['min-artful-x64'] = ''
 labelMap['min-bionic-x64'] = 'asan'
@@ -286,12 +299,12 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
         [
-            new EC2Tag('Name', 'jenkins-ps56-' + OSType),
-            new EC2Tag('iit-billing-tag', 'jenkins-ps56-worker')
+            new EC2Tag('Name', 'jenkins-rel-' + OSType),
+            new EC2Tag('iit-billing-tag', 'jenkins-rel-worker')
         ],                                          // List<EC2Tag> tags
         '3',                                        // String idleTerminationMinutes
         capMap[typeMap[OSType]],                    // String instanceCapStr
-        'arn:aws:iam::119175775298:instance-profile/jenkins-ps56-worker', // String iamInstanceProfile
+        'arn:aws:iam::119175775298:instance-profile/jenkins-rel-worker', // String iamInstanceProfile
         true,                                       // boolean deleteRootOnTermination
         false,                                      // boolean useEphemeralDevices
         false,                                      // boolean useDedicatedTenancy
@@ -308,12 +321,12 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
 
 String privateKey = ''
 jenkins.clouds.each {
-    if (it.hasProperty('cloudName') && it['cloudName'] == 'AWS-Dev c') {
+    if (it.hasProperty('cloudName') && it['cloudName'] == 'AWS-Dev b') {
         privateKey = it['privateKey']
     }
 }
 
-String region = 'us-west-1'
+String region = 'eu-west-1'
 ('b'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
     AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
@@ -324,14 +337,11 @@ String region = 'us-west-1'
         privateKey,                             // String privateKey
         '240',                                   // String instanceCapStr
         [
-            getTemplate('docker',            "${region}${it}"),
-            getTemplate('docker-32gb',       "${region}${it}"),
-            getTemplate('micro-amazon',      "${region}${it}"),
-            getTemplate('min-centos-7-x64',  "${region}${it}"),
-            getTemplate('fips-centos-7-x64', "${region}${it}"),
+            getTemplate('docker',           "${region}${it}"),
+            getTemplate('micro-amazon',     "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
-	'',
-	''
+        '',
+        ''
     )
 
     // add cloud configuration to Jenkins
@@ -347,3 +357,4 @@ String region = 'us-west-1'
 jenkins.save()
 
 logger.info("Cloud init finished")
+
