@@ -36,7 +36,7 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['11', '10.8', '9.6'],
+            choices: ['10.8', '11', '9.6'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         string(
