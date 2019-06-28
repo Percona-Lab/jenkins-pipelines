@@ -2,7 +2,7 @@ void build(String IMAGE_PREFIX){
     sh """
         cd ./source/
         if [ ${IMAGE_PREFIX} = pxc ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} pxc-57
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-57/Dockerfile.k8s pxc-57
         else
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} images/${IMAGE_PREFIX}-image
         fi
