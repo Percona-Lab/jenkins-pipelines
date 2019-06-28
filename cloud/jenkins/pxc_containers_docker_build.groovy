@@ -1,7 +1,11 @@
 void build(String IMAGE_PREFIX){
     sh """
         cd ./source/
-        docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} images/${IMAGE_PREFIX}-image
+        if [ ${IMAGE_PREFIX} = pxc ]; then
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} pxc-57
+        else
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} images/${IMAGE_PREFIX}-image
+        fi
     """
 }
 void pushImageToDocker(String IMAGE_PREFIX){
@@ -46,6 +50,14 @@ pipeline {
             defaultValue: 'https://github.com/Percona-Lab/percona-openshift',
             description: 'Percona-Lab/percona-openshift repository',
             name: 'GIT_REPO')
+        string(
+            defaultValue: 'master',
+            description: 'Tag/Branch for percona/percona-docker repository',
+            name: 'GIT_PD_BRANCH')
+        string(
+            defaultValue: 'https://github.com/percona/percona-docker',
+            description: 'percona/percona-docker repository',
+            name: 'GIT_PD_REPO')
     }
     agent {
          label 'docker' 
@@ -67,16 +79,13 @@ pipeline {
                     sudo rm -rf source
                     ./cloud/local/checkout
                 '''
+                stash includes: "cloud/**", name: "cloud"
                 stash includes: "source/**", name: "sourceFILES"
             }
         }
-
         stage('Build docker images') {
             steps {
                 unstash "sourceFILES"
-                retry(3) {
-                    build('pxc')
-                }
                 retry(3) {
                     build('proxysql')
                 }
@@ -85,7 +94,23 @@ pipeline {
                 }
             }
         }
-
+        stage('Build pxc docker images') {
+            steps {
+                sh '''
+                    sudo rm -rf cloud
+                '''
+                unstash "cloud"
+                sh """
+                   sudo rm -rf source
+                   export GIT_REPO=$GIT_PD_REPO
+                   export GIT_BRANCH=$GIT_PD_BRANCH
+                   ./cloud/local/checkout
+                """          
+                retry(3) {
+                    build('pxc')
+                }
+            }
+        }
         stage('Push Images to Docker registry') {
             steps {
                 pushImageToDocker('pxc')
@@ -93,7 +118,6 @@ pipeline {
                 pushImageToDocker('backup')
             }
         }
-
         stage('Push Images to RHEL registry') {
             steps {
                 pushImageToRhel('pxc')
@@ -102,7 +126,6 @@ pipeline {
             }
         }
     }
-
     post {
         always {
             sh '''

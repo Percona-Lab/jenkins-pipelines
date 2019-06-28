@@ -28,3 +28,11 @@
         name: GIT_BRANCH
         default: master
         description: Tag/Branch for Percona-Lab/percona-openshift repository
+    - string:
+        name: GIT_PD_REPO
+        default: https://github.com/percona/percona-docker
+        description: percona/percona-docker repository
+    - string:
+        name: GIT_PD_BRANCH
+        default: master
+        description: Tag/Branch for percona/percona-docker repository
