@@ -1,0 +1,143 @@
+- job:
+    axes:
+    - axis:
+        name: Host
+        type: label-expression
+        values:
+        - min-centos-6-x32
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-jessie-x64
+        - min-stretch-x64
+        - min-trusty-x64
+        - min-xenial-x64
+        - min-artful-x64
+        - min-bionic-x64
+        - min-cosmic-x64
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - shell: |-
+        if [ -f /usr/bin/yum ]; then
+            sudo yum clean all
+            sudo -E yum -y install epel-release
+            sudo -E yum -y install gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel curl-devel curl wget vim-common
+            sudo -E yum -y install libev-devel libgcrypt-devel zlib-devel ncurses-devel python-docutils libgcrypt-devel bison
+            sudo -E yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat python-docutils
+
+            #GodDamnSphinx installation
+            RHEL=$(rpm --eval %rhel)
+            if [ ${RHEL} -lt 7 ]; then
+                wget https://bootstrap.pypa.io/2.6/get-pip.py
+            else
+                wget https://bootstrap.pypa.io/get-pip.py
+            fi
+
+            sudo python get-pip.py
+            sudo pip install --upgrade wheel setuptools urllib3
+            sudo pip install --upgrade sphinx===1.4
+        fi
+
+        if [ -f /usr/bin/apt-get ]; then
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get update
+            sleep 5
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ bison libasio-dev libssl-dev libtool libc-dev libgpg-error-dev python-sphinx
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check python-sphinx libgcrypt-dev python-docutils
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat libev-dev libcurl4-openssl-dev
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install lsb-release
+
+            # TODO REMOVE AFTER image fix
+            DEBVERSION=$(lsb_release -sc)
+            ARCH=$(uname -m)
+            if [ ${ARCH} = x86_64 ]; then
+                export mArch=amd64
+            else
+                export mArch=i386
+            fi
+
+            if [ ${DEBVERSION} = wheezy ]; then
+                sudo -E apt-get -y install libjsoncpp0
+                wget http://jenkins.percona.com/apt-repo/pool/main/c/cmake/cmake-data_3.5.1-1.wheezy_all.deb
+                wget http://jenkins.percona.com/apt-repo/pool/main/c/cmake/cmake_3.5.1-1.wheezy_${mArch}.deb
+                sudo dpkg -i *.deb
+                rm -fv *.deb
+            fi
+        fi
+
+    - shell: |-
+        rm -rf target
+        mkdir -p target
+
+        # Read XTRABACKUP_VERSION from the VERSION file
+        . ${WORKSPACE}/XB_VERSION
+
+        XTRABACKUP_VERSION="${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}"
+
+        if [ "x${XTRABACKUP_VERSION}" = "x" ]; then
+            exit 2
+        fi
+
+        # Information for publishing the binaries:
+        BRANCH_NAME="${BRANCH}"
+        REVNO="$(git rev-parse --short HEAD)"
+        REMOTE_DIR="/www/percona.com/htdocs/downloads/TESTING/XtraBackup/xtrabackup-${XTRABACKUP_VERSION}/${BRANCH_NAME}/${REVNO}/binary/Linux/$(uname -m)"
+        echo "${REMOTE_DIR}" > REMOTE_DIR
+        bash ./storage/innobase/xtrabackup/utils/build-binary.sh ./target
+
+    concurrent: false
+    description: Build 2.4 binaries (for PXC now).
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: percona-xtrabackup-2.4-binaries
+    node: micro-amazon
+    parameters:
+    - string:
+        default: https://github.com/percona/percona-xtrabackup.git
+        description: Repository to build
+        name: GIT_REPO
+        trim: 'false'
+    - string:
+        default: release-2.4.13
+        description: Branch to build
+        name: BRANCH
+        trim: 'false'
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 2
+        days-to-keep: -1
+        num-to-keep: 5
+    - copyartifact:
+        projects: "*"
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: target/percona*
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    - workspace-cleanup:
+        clean-if:
+        - success: true
+        - unstable: true
+        - failure: true
+        - not-built: true
+        - aborted: true
+        clean-parent: false
+        dirmatch: false
+        exclude: []
+        fail-build: true
+        include: []
+    scm:
+    - git:
+        branches:
+        - ${BRANCH}
+        clean:
+          before: true
+        url: ${GIT_REPO}
+    triggers: []
+    wrappers:
+    - timestamps
