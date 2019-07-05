@@ -7,7 +7,7 @@
     description: null
     disabled: false
     name: !!python/unicode 'percona-server-for-mongodb-master-param'
-    node: psmdb || mongodb-xenial-x64
+    node: psmdb-bionic
     parameters:
     - choice:
         choices:
