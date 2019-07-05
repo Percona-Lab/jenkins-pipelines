@@ -90,7 +90,7 @@ pipeline {
                 }
                 stage('Build PMM2 Client') {
                     steps {
-                        build job: 'pmm2-client-autobuild', parameters: [
+                        build job: 'pmm2-client-autobuilds', parameters: [
                             string(name: 'GIT_BRANCH', value: 'PMM-2.0')
                         ]
                     }
