@@ -65,11 +65,6 @@
           1 suite some number of times because of flapping tests.
         name: NUM_TRIALS
         trim: false
-    - bool:
-        default: false
-        description: If this is enabled the binaries will be built with ASAN instrumentation
-          and then tests run.
-        name: ASAN_RUN
     - string:
         default: https://github.com/Percona-QA/psmdb-misc-scripts.git
         description: Use this if you wish to use another psmdb-misc-repo for testing
@@ -103,14 +98,14 @@
         console-log-parsers:
           - GNU Make + GNU C Compiler (gcc)
     - archive:
-        artifacts: 'percona-server-mongodb/resmoke_summary*.log, percona-server-mongodb/killer.log, percona-server-mongodb/resmoke_logs.tar.gz, percona-server-mongodb/perf.json, percona-server-mongodb/perf_sharding.json'
+        artifacts: '**/**/percona-server-mongodb/bin/resmoke_summary*.log, **/**/percona-server-mongodb/bin/resmoke_summary*.log, **/**/percona-server-mongodb/bin/killer.log, **/**/percona-server-mongodb/bin/resmoke_logs.tar.gz, **/**/percona-server-mongodb/bin/perf.json, **/**/percona-server-mongodb/bin/perf_sharding.json'
         allow-empty: false
         fingerprint: false
         default-excludes: true
         only-if-success: false
         case-sensitive: true
     - junit:
-        results: 'percona-server-mongodb/junit.xml'
+        results: '**/**/percona-server-mongodb/bin/junit.xml'
         keep-long-stdio: false
         health-scale-factor: 1.0
         allow-empty-results: false
