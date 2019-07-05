@@ -1,0 +1,52 @@
+- job:
+    auth-token: pxc56clonegalera3testgalera
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - shell: |-
+        git submodule deinit -f . || true
+        git submodule init
+        git submodule update
+    concurrent: false
+    disabled: false
+    name: qa-pxc56-clone-galera3-testgalera
+    node: micro-amazon
+    parameters:
+    - string:
+        default: https://github.com/percona/galera.git
+        description: Default repo (galera-plugin fork maintained by percona)
+        name: GIT_REPO
+        trim: 'false'
+    - string:
+        default: 3.x
+        description: |-
+          Default branch is 3.x (head branch of galera-plugin fork maintained by percona).
+          Change it to relevant branch if needed.
+        name: GIT_BRANCH
+        trim: 'false'
+    project-type: freestyle
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 3
+        days-to-keep: 3
+        num-to-keep: 3
+    publishers:
+     - clone-workspace
+     - trigger-parameterized-builds:
+       - project:
+           - qa-pxc56-buildandtest-galera3-testgalera
+         predefined-parameters: |
+           REVISION=${GIT_COMMIT}
+         current-parameters: true
+         condition: SUCCESS’
+    scm:
+    - git:
+        branches:
+        - ${GIT_BRANCH}
+        url: ${GIT_REPO}
+        submodule:
+            recursive: true
+        wipe-workspace: false
+    triggers: []
+    wrappers: []

@@ -39,7 +39,7 @@
 
         if [ -f /usr/bin/yum ]; then
             sudo yum clean all
-            sudo yum install epel-release
+            sudo yum -y install epel-release
             sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel
             sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel
             sudo yum -y install numactl-devel centos-release-scl
