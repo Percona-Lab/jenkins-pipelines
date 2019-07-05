@@ -32,6 +32,7 @@ imageMap['min-xenial-x64'] = 'ami-ba602bc2'
 imageMap['min-cosmic-x64'] = 'ami-080cf36c2a905f2b8'
 imageMap['min-bionic-x64'] = 'ami-0438319fc572e1a20'
 imageMap['psmdb'] = imageMap['min-xenial-x64']
+imageMap['psmdb-bionic'] = 'ami-0013ea6a76d3b8874'
 imageMap['docker'] = imageMap['micro-amazon']
 
 priceMap = [:]
@@ -55,6 +56,7 @@ userMap['min-xenial-x64'] = 'ubuntu'
 userMap['min-bionic-x64'] = 'ubuntu'
 userMap['min-cosmic-x64'] = 'ubuntu'
 userMap['psmdb'] = userMap['min-xenial-x64']
+userMap['psmdb-bionic'] = userMap['min-xenial-x64']
 
 initMap = [:]
 initMap['docker'] = '''
@@ -164,6 +166,7 @@ initMap['min-xenial-x64'] = initMap['min-artful-x64']
 initMap['min-cosmic-x64'] = initMap['min-artful-x64']
 initMap['min-bionic-x64'] = initMap['min-artful-x64']
 initMap['psmdb'] = initMap['min-xenial-x64']
+initMap['psmdb-bionic'] = initMap['min-xenial-x64']
 
 capMap = [:]
 capMap['c4.xlarge'] = '60'
@@ -185,6 +188,7 @@ typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-cosmic-x64'] = typeMap['docker-32gb']
 typeMap['min-bionic-x64'] = typeMap['docker-32gb']
 typeMap['psmdb'] = typeMap['docker-32gb']
+typeMap['psmdb-bionic'] = typeMap['docker-32gb']
 
 execMap = [:]
 execMap['docker'] = '1'
@@ -201,10 +205,12 @@ execMap['min-xenial-x64'] = '1'
 execMap['min-bionic-x64'] = '1'
 execMap['min-cosmic-x64'] = '1'
 execMap['psmdb'] = '1'
+execMap['psmdb-bionic'] = '1'
 
 devMap = [:]
 devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
+devMap['psmdb-bionic'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:300:true:gp2'
 devMap['docker-32gb'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
 devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
@@ -233,6 +239,7 @@ labelMap['min-xenial-x64'] = ''
 labelMap['min-bionic-x64'] = ''
 labelMap['min-cosmic-x64'] = ''
 labelMap['psmdb'] = ''
+labelMap['psmdb-bionic'] = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -297,6 +304,7 @@ String region = 'us-west-2'
         [
             getTemplate('docker', "${region}${it}"),
             getTemplate('psmdb',  "${region}${it}"),
+            getTemplate('psmdb-bionic',  "${region}${it}"),
             getTemplate('min-centos-6-x64', "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
             getTemplate('min-stretch-x64',  "${region}${it}"),
