@@ -78,6 +78,12 @@
         mkdir test
 
         sudo bash -x psmdb_builder.sh --builddir=$(pwd)/test --repo=${PSM_REPO} --branch=${PSM_BRANCH} --install_deps=1
+
+        sudo percona-server-mongodb/support-files/ldap-sasl/deploy_ldap_and_sasl.sh
+        # https://docs.mongodb.com/manual/tutorial/configure-ldap-sasl-openldap/#test-the-saslauthd-configuration
+        sudo chmod 755 /var/run/saslauthd
+        sudo percona-server-mongodb/support-files/ldap-sasl/check_saslauthd.sh
+        
         sudo rm -rf test/*
     - shell: |-
         rm -rf psmdb-misc-scripts
