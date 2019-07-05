@@ -47,13 +47,15 @@ pipeline {
                             PATCH=\$(echo ${NEW_VERSION} | cut -d. -f 3 | awk -F'-' '{print $1}')
                             PRE_RELEASE=\$(echo ${NEW_VERSION}  | awk -F'-' '{print $2}')
                             NEW_PLAYBOOK_DIR=ansible/\$(printf "v%02i%02i%02i%s" "\$MAJOR" "\$MINOR" "\$PATCH" "\$PRE_RELEASE")
+                            NEW_RPMS_VERSION=\$(echo $NEW_VERSION | tr '-' '.')
+                            OLD_RPMS_VERSION=\$(echo $OLD_VERSION | tr '-' '.')
 
                             mkdir -p \$NEW_PLAYBOOK_DIR
                             cp \$LATEST_PLAYBOOK_DIR/main.yml \$NEW_PLAYBOOK_DIR/main.yml
 
                             sed \
                                 -i'' \
-                                -r "s/- (pmm-\\S+|percona-\\S+|rds_exporter)-\$OLD_VERSION\\\$/- \\1-${NEW_VERSION}/" \
+                                -r "s/- (pmm-\\S+|percona-\\S+|rds_exporter)-\$OLD_RPMS_VERSION\\\$/- \\1-${NEW_RPMS_VERSION}/" \
                                 \$NEW_PLAYBOOK_DIR/main.yml
                             sed \
                                 -i'' \
