@@ -1,0 +1,82 @@
+- job:
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - shell: |-
+        #!/bin/bash
+
+        sudo DEBIAN_FRONTEND=noninteractive apt-get update
+        sudo DEBIAN_FRONTEND=noninteractive apt-get -y install bison cmake devscripts debconf debhelper automake bison ca-certificates cmake debhelper libaio-dev libncurses-dev libssl-dev libtool libz-dev libcurl4-openssl-dev libgcrypt-dev libev-dev lsb-release python-sphinx python-docutils gcc g++
+
+        REVISION=$(git rev-parse --short HEAD)
+        git reset --hard
+
+        source XB_VERSION
+        cat XB_VERSION > percona-xtrabackup-8.0.properties
+        echo "REVISION=${REVISION}" >> percona-xtrabackup-8.0.properties
+
+        BRANCH_NAME="${BRANCH}"
+        echo "BRANCH_NAME=$(echo ${BRANCH_NAME} | awk -F '/' '{print $(NF)}')" >> percona-xtrabackup-8.0.properties
+        echo "PRODUCT=Percona-XtraBackup" >> percona-xtrabackup-8.0.properties
+        echo "PRODUCT_FULL=Percona-XtraBackup-${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}-${XB_VERSION_PATCH}${XB_VERSION_EXTRA}" >> percona-xtrabackup-8.0.properties
+        echo "PRODUCT_UL_DIR=XtraBackup" >> percona-xtrabackup-8.0.properties
+
+        if [ -z "${DESTINATION}" ]; then
+            export DESTINATION=experimental
+        fi
+
+        echo "DESTINATION=${DESTINATION}" >> percona-xtrabackup-8.0.properties
+        # Run an out of source build
+        rm -rf target
+        mkdir -p target
+        cd target
+        cmake .. -DDOWNLOAD_BOOST=1 -DWITH_BOOST=${WORKSPACE}/boost
+        make dist
+        cd ..
+
+        # Copy the artifacts
+        mv target/percona-xtrabackup-*.tar.gz .
+        # Cleanup
+        rm -rf target
+
+    concurrent: false
+    disabled: false
+    name: percona-xtrabackup-8.0-source-tarball_for_pxc
+    node: min-bionic-x64
+    parameters:
+    - string:
+        default: https://github.com/percona/percona-xtrabackup.git
+        description: ''
+        name: GIT_REPO
+        trim: 'false'
+    - string:
+        default: release-8.0.4
+        description: ''
+        name: BRANCH
+        trim: 'false'
+    project-type: freestyle
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: -1
+        days-to-keep: 30
+        num-to-keep: 10
+    - copyartifact:
+        projects: "*"
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: '*.tar.gz, percona-xtrabackup-8.0.properties'
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    scm:
+    - git:
+        branches:
+        - ${BRANCH}
+        clean:
+          before: true
+        url: ${GIT_REPO}
+    triggers: []
+    wrappers: []

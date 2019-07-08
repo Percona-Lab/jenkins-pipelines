@@ -1,0 +1,68 @@
+- job:
+    auth-token: pxc80clone
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - shell: |-
+        export LANG=en_US.UTF-8
+
+        rm -rf percona-xtradb-cluster-galera || true
+        git submodule deinit -f . || true
+        git submodule init
+        git submodule update
+
+        cd percona-xtradb-cluster-galera
+        git submodule deinit -f . || true
+        git submodule init
+        git submodule update
+
+        #cd percona-xtradb-cluster-galera
+        #git checkout $GIT_GALERA_BRANCH
+        #cd ../
+    concurrent: false
+    description: "Jenkins base job to clone and kick-start build + dev-testing for\
+      \ PXC-8.0\t\t"
+    disabled: false
+    name: pxc80-clone
+    node: micro-amazon
+    parameters:
+    - string:
+        default: https://github.com/percona/percona-xtradb-cluster.git
+        description: Default is percona server repos (main upstream) if you have your
+          own fork then you may want to use it.
+        name: GIT_REPO
+        trim: 'false'
+    - string:
+        default: '8.0'
+        description: Should be feature branch if you are fixing a bug or developing
+          a blueprint
+        name: GIT_PXC_BRANCH
+        trim: 'false'
+    project-type: freestyle
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 3
+        days-to-keep: 10
+        num-to-keep: 10
+    publishers:
+     - clone-workspace
+     - trigger-parameterized-builds:
+       - project:
+           - pxc80-build
+         predefined-parameters: |
+           REVNO=${GIT_COMMIT}
+         current-parameters: true
+         condition: SUCCESS’
+    scm:
+    - git:
+        branches:
+        - ${GIT_PXC_BRANCH}
+        clean:
+          before: true
+        url: ${GIT_REPO}
+    triggers: []
+    wrappers:
+    - timestamps
+    - ansicolor:
+        colormap: xterm

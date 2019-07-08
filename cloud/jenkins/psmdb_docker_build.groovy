@@ -1,8 +1,8 @@
 void build(String IMAGE_PREFIX){
     sh """
         cd ./source/
-        DOCKER_FILE_PREFIX=\$(echo ${IMAGE_PREFIX} | tr -d '.')
-        docker build --no-cache --squash -t perconalab/percona-server-mongodb-operator:master-${IMAGE_PREFIX} -f build/Dockerfile.\$DOCKER_FILE_PREFIX .
+        DOCKER_FILE_PREFIX=\$(echo ${IMAGE_PREFIX} | tr -d '.' | tr -d 'mongod')
+        docker build --no-cache --squash -t perconalab/percona-server-mongodb-operator:master-${IMAGE_PREFIX} -f percona-server-mongodb.\$DOCKER_FILE_PREFIX/Dockerfile.k8s percona-server-mongodb.\$DOCKER_FILE_PREFIX
     """
 }
 
@@ -67,6 +67,14 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
             description: 'percona/percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
+        string(
+            defaultValue: 'master',
+            description: 'Tag/Branch for percona/percona-docker repository',
+            name: 'GIT_PD_BRANCH')
+        string(
+            defaultValue: 'https://github.com/percona/percona-docker',
+            description: 'percona/percona-docker repository',
+            name: 'GIT_PD_REPO')
     }
     agent {
          label 'docker' 
@@ -88,7 +96,12 @@ pipeline {
                     sudo rm -rf source
                     ./cloud/local/checkout
                 '''
+                stash includes: "cloud/**" , name: "checkout"
                 stash includes: "source/**", name: "sourceFILES"
+
+                sh '''
+                    rm -rf cloud
+                '''
             }
         }
 
@@ -110,7 +123,13 @@ pipeline {
 
         stage('Build PSMDB docker images') {
             steps {
-                unstash "sourceFILES"
+                unstash "checkout"
+                sh """
+                    sudo rm -rf ./source
+                    export GIT_REPO=$GIT_PD_REPO
+                    export GIT_BRANCH=$GIT_PD_BRANCH
+                    ./cloud/local/checkout
+                """
                 echo 'Build PSMDB docker images'
                 retry(3) {
                     build('mongod3.6')

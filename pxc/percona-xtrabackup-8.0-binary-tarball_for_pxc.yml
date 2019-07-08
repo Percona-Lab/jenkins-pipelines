@@ -1,0 +1,153 @@
+- job:
+    axes:
+    - axis:
+        name: Host
+        type: label-expression
+        values:
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-stretch-x64
+        - min-xenial-x64
+        - min-bionic-x64
+        - min-cosmic-x64
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - shell: |-
+        rm -fr ${WORKSPACE}/*
+        if [ -f /etc/redhat-release ]; then
+            sudo -E yum -y install wget curl libcurl-devel
+            sudo -E yum -y install centos-release-scl epel-release
+            sudo -E yum -y install devtoolset-7
+        fi
+    - copyartifact:
+        exclude-pattern: null
+        filter: percona-xtrabackup-*
+        flatten: true
+        project: percona-xtrabackup-8.0-source-tarball_for_pxc
+        target: ""
+        which-build: last-successful
+    - shell: |-
+        if [ -f /usr/bin/yum ]; then
+            sudo yum clean all
+            sudo -E yum -y install gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel curl-devel curl
+            sudo -E yum -y install libev-devel libgcrypt-devel zlib-devel ncurses-devel python-docutils libgcrypt-devel bison
+            sudo -E yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat python-docutils vim-common
+            #GodDamnSphinx installation
+            RHEL=$(rpm --eval %rhel)
+            if [ ${RHEL} -lt 7 ]; then
+                wget https://bootstrap.pypa.io/2.6/get-pip.py
+            else
+                wget https://bootstrap.pypa.io/get-pip.py
+            fi
+
+            sudo python get-pip.py
+            sudo pip install --upgrade wheel setuptools urllib3
+            sudo pip install --upgrade sphinx===1.4
+
+            RHVER="$(rpm --eval %rhel)"
+
+            if [[ ${RHVER} -eq 6 ]]; then
+                until sudo yum -y install centos-release-scl; do
+                    echo "waiting"
+                    sleep 1
+                done
+
+                sudo yum -y install  gcc-c++ devtoolset-7-gcc-c++ devtoolset-7-binutils cmake
+                source /opt/rh/devtoolset-7/enable
+            fi
+
+            if [[ ${RHVER} -eq 7 ]]; then
+                until sudo yum -y install centos-release-scl; do
+                    echo "waiting"
+                    sleep 1
+                done
+
+                sudo yum -y install  gcc-c++ devtoolset-7-gcc-c++ devtoolset-7-binutils cmake
+                source /opt/rh/devtoolset-7/enable
+            fi
+        fi
+
+        if [ -f /usr/bin/apt-get ]; then
+            sudo -E sudo -E DEBIAN_FRONTEND=noninteractive apt-get update
+            sleep 5
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ bison libasio-dev libssl-dev libtool libc-dev libgpg-error-dev python-sphinx
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check python-sphinx libgcrypt-dev python-docutils
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat libev-dev libcurl4-openssl-dev
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install lsb-release
+            # TODO REMOVE AFTER image fix
+            DEBVERSION=$(lsb_release -sc)
+            ARCH=$(uname -m)
+            if [ ${ARCH} = x86_64 ]; then
+                export mArch=amd64
+            else
+                export mArch=i386
+            fi
+
+            if [ ${DEBVERSION} = wheezy ]; then
+                sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install libjsoncpp0
+                wget http://jenkins.percona.com/apt-repo/pool/main/c/cmake/cmake-data_3.5.1-1.wheezy_all.deb
+                wget http://jenkins.percona.com/apt-repo/pool/main/c/cmake/cmake_3.5.1-1.wheezy_${mArch}.deb
+                sudo dpkg -i *.deb
+                rm -fv *.deb
+            fi
+        fi
+        #
+    - shell: |- 
+        #!/bin/bash
+
+        mkdir TARGET
+        source percona-xtrabackup-8.0.properties
+        NAME=percona-xtrabackup
+        VERSION=${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}
+
+        if [ -z "${XB_VERSION_EXTRA}" ]; then
+            DIRNAME=${NAME}-${VERSION}
+        else
+            DIRNAME=${NAME}-${VERSION}${XB_VERSION_EXTRA}
+        fi
+
+        if [ -f /etc/redhat-release ]; then
+            RHEL=$(rpm --eval %rhel 2>/dev/null||true)
+
+            GCRYPT_VER_TMP=$(yum list installed|grep -i libgcrypt | grep -v dev|head -n1|awk '{print $2}'|awk -F "-" '{print $1}'|sed 's/\.//g'|sed 's/[a-z]$//')
+            export GCRYPT_VER=".libgcrypt${GCRYPT_VER_TMP}"
+            source /opt/rh/devtoolset-7/enable
+        else
+            GCRYPT_VER_TMP=$(dpkg -l|grep -i libgcrypt | grep -v dev | awk '{print $2}' | awk -F':' '{print $1}')
+            export GCRYPT_VER=".${GCRYPT_VER_TMP}"
+        fi
+
+        rm -rf "${DIRNAME}"
+        TARBALL=$(find . -type f -name '*.tar.gz')
+        tar xzf ${TARBALL}
+
+        cd ${DIRNAME}
+        sed -i 's|.tar.gz|${GCRYPT_VER}.tar.gz|' ./storage/innobase/xtrabackup/utils/build-binary.sh
+        bash -x ./storage/innobase/xtrabackup/utils/build-binary.sh ${WORKSPACE}/TARGET
+    concurrent: false
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: percona-xtrabackup-8.0-binary-tarball_for_pxc
+    node: micro-amazon
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: -1
+        days-to-keep: 5
+        num-to-keep: 5
+    - copyartifact:
+        projects: "*"
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: TARGET/percona*
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    triggers: []
+    wrappers:
+    - timestamps

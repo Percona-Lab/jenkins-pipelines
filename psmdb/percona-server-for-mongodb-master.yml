@@ -8,7 +8,7 @@
       suite on the <b>master</b> branch.
     disabled: false
     name: !!python/unicode 'percona-server-for-mongodb-master'
-    node: psmdb || mongodb-xenial-x64
+    node: psmdb-bionic
     project-type: freestyle
     properties:
     - build-discarder:
@@ -22,14 +22,14 @@
         console-log-parsers:
           - GNU Make + GNU C Compiler (gcc)
     - archive:
-        artifacts: 'percona-server-mongodb/resmoke_summary*.log, percona-server-mongodb/killer.log, percona-server-mongodb/resmoke_logs.tar.gz, percona-server-mongodb/perf.json, percona-server-mongodb/perf_sharding.json'
+        artifacts: '**/**/percona-server-mongodb/bin/resmoke_summary*.log, **/**/percona-server-mongodb/bin/resmoke_summary*.log, **/**/percona-server-mongodb/bin/killer.log, **/**/percona-server-mongodb/bin/resmoke_logs.tar.gz, **/**/percona-server-mongodb/bin/perf.json, **/**/percona-server-mongodb/bin/perf_sharding.json'
         allow-empty: false
         fingerprint: false
         default-excludes: true
         only-if-success: false
         case-sensitive: true
     - junit:
-        results: 'percona-server-mongodb/junit.xml'
+        results: '**/**/percona-server-mongodb/bin/junit.xml'
         keep-long-stdio: false
         health-scale-factor: 1.0
         allow-empty-results: false
