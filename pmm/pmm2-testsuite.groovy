@@ -34,7 +34,7 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
                 export tap="1"
 
                 wget --progress=dot:giga \$(bash /srv/percona-qa/get_download_link.sh --product=${PRODUCT} --distribution=centos --version=${VERSION})
-                bash /srv/percona-qa/pmm-tests/pmm-testsuite.sh \
+                bash /srv/percona-qa/pmm-tests/pmm-2-0-bats-tests/pmm-testsuite.sh \
                     | tee /tmp/result.output
 
                 perl -ane "
@@ -79,7 +79,7 @@ pipeline {
         disableConcurrentBuilds()
     }
     triggers {
-        upstream upstreamProjects: 'pmm-server-autobuild', threshold: hudson.model.Result.SUCCESS
+        upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
 
     stages {
@@ -124,11 +124,6 @@ pipeline {
                 runTAP("ms", "mysql", "2", "8.0")
             }
         }
-        stage('Test: PXC') {
-            steps {
-                runTAP("pxc", "pxc", "3", "5.7")
-            }
-        }
         stage('Test: PSMDB') {
             steps {
                 runTAP("mo", "psmdb", "3", "4.0")
@@ -137,11 +132,6 @@ pipeline {
         stage('Test: PGSQL10') {
             steps {
                 runTAP("pgsql", "postgresql", "3", "10.6")
-            }
-        }
-        stage('Test: MariaDB') {
-            steps {
-                runTAP("md", "mariadb", "2", "10.3")
             }
         }
     }
