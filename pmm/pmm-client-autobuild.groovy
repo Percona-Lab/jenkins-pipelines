@@ -128,6 +128,7 @@ pipeline {
         }
         stage('Build client binary debs') {
             steps {
+                sh 'sg docker -c "./build/bin/build-client-deb debian:buster"'
                 sh 'sg docker -c "./build/bin/build-client-deb debian:jessie"'
                 sh 'sg docker -c "./build/bin/build-client-deb debian:stretch"'
                 sh 'sg docker -c "./build/bin/build-client-deb ubuntu:bionic"'
