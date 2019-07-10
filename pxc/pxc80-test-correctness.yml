@@ -1,0 +1,174 @@
+- job:
+    auth-token: pxc80testcorrectness
+    axes:
+    - axis:
+        name: Host
+        type: label-expression
+        values:
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-jessie-x64
+        - min-stretch-x64
+        - min-xenial-x64
+        - min-artful-x64
+        - min-bionic-x64
+    - axis:
+        name: BTYPE
+        type: user-defined
+        values:
+        - release
+        - debug
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - copyartifact:
+        exclude-pattern: null
+        filter: TARGET/percona-xtrabackup-*.tar.gz
+        flatten: true
+        project: percona-xtrabackup-8.0-binary-tarball_for_pxc/Host=$Host
+        target: ""
+        which-build: last-successful
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/*
+        flatten: true
+        project: qa-pxc80-build/Host=$Host,BUILD_TYPE=$BTYPE
+        target: ""
+        which-build: last-successful
+    - shell: |-
+        #!/bin/bash
+
+        if [ -f /usr/bin/yum ]; then
+            sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+            sudo percona-release setup ps80
+            sudo yum -y install epel-release
+            sudo yum -y install perl-DBI perl-DBD-mysql perl-Time-HiRes perl-IO-Socket-SSL perl-Digest* perl-TermReadKey
+            sudo yum clean all
+            sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel perl-DBI perl-DBD-MySQL wget
+            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel lsof socat zlib-devel sysbench
+            sudo yum -y install percona-xtrabackup-80.x86_64
+        fi
+
+        if [ -f /usr/bin/apt-get ]; then
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install wget
+            sudo wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb
+            sudo dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb
+            sudo percona-release setup ps80
+            sudo DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev libdbi-perl libdbd-mysql-perl libterm-readkey-perl libio-socket-ssl-perl
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev lsof socat sysbench
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install percona-xtrabackup-80
+        fi
+
+    - shell:
+        unstable-return: 1
+        command: |
+          #!/bin/bash
+
+          export LDFLAGS="-z defs"
+          #export ASAN_OPTIONS=sleep_before_dying=120
+
+          ROOT_FS=$(pwd)
+
+          rm -rf $ROOT_FS/percona-toolkit-2.2.16.tar.gz
+
+          if test -f /usr/local/lib/libeatmydata.so
+          then
+              export LD_PRELOAD=/usr/local/lib/libeatmydata.so
+          elif test -f /usr/lib/libeatmydata.so
+          then
+              export LD_PRELOAD=/usr/lib/libeatmydata.so
+          fi
+
+          killall -9 mysqld || true
+
+
+          if [ -d percona-qa ]; then
+              cd percona-qa
+              git pull || true
+          else
+              git clone https://github.com/Percona-QA/percona-qa.git
+              cd percona-qa
+          fi
+
+          bash -x ./pxc-tests/pxc-correctness-testing.sh -w$ROOT_FS $SCRIPT_PARAM -b$BUILD_NUMBER
+          EXIT_CODE=$?
+
+          cd $ROOT_FS
+          rm -rf ${BUILD_NUMBER}
+          du -sh  $ROOT_FS
+        
+          exit $EXIT_CODE
+     
+    concurrent: false
+    description: PXC80 correctness job
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: pxc80-test-correctness
+    parameters:
+    - string:
+        default: '300'
+        description: ''
+        name: SDURATION
+        trim: 'false'
+    - string:
+        default: xtrabackup-v2
+        description: ''
+        name: SST_METHOD
+        trim: 'false'
+    - string:
+        default: '500'
+        description: ''
+        name: TSIZE
+        trim: 'false'
+    - string:
+        default: '16'
+        description: ''
+        name: NUMT
+        trim: 'false'
+    - string:
+        default: '20'
+        description: ''
+        name: TCOUNT
+        trim: 'false'
+    - string:
+        default: '--with-encryption '
+        description: ''
+        name: SCRIPT_PARAM
+        trim: 'false'
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 3
+        days-to-keep: 3
+        num-to-keep: 3
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: results-${BUILD_NUMBER}.tar.gz
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    - workspace-cleanup:
+        clean-if:
+        - success: true
+        - unstable: true
+        - failure: true
+        - not-built: true
+        - aborted: true
+        clean-parent: false
+        dirmatch: false
+        exclude: []
+        fail-build: false
+        include: []
+    triggers: []
+    wrappers:
+    - timeout:
+        abort: true
+        timeout: 300
+        type: absolute
+    - timestamps

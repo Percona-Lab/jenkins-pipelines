@@ -1,0 +1,133 @@
+- job:
+    auth-token: pxc80testcrashrecovery
+    axes:
+    - axis:
+        name: Host
+        type: label-expression
+        values:
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-stretch-x64
+        - min-xenial-x64
+        - min-bionic-x64
+        - min-cosmic-x64
+    - axis:
+        name: Ttype
+        type: user-defined
+        values:
+        - release
+        - debug
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/Percona-XtraDB-Cluster-*.tar.gz
+        flatten: true
+        project: qa-pxc80-build/Host=$Host,BUILD_TYPE=$Ttype
+        target: ""
+        which-build: last-successful
+    - copyartifact:
+        exclude-pattern: null
+        filter: TARGET/percona-xtrabackup-*.tar.gz
+        flatten: true
+        project: percona-xtrabackup-8.0-binary-tarball_for_pxc/Host=$Host
+        target: ""
+        which-build: last-successful
+    - shell: |-
+        #!/bin/bash
+
+        if [ -f /usr/bin/yum ]; then
+            sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+            sudo percona-release setup ps80
+            sudo yum clean all
+            sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel rsync wget
+            sudo yum -y install percona-xtrabackup-24.x86_64 || true
+            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel sysbench
+        fi
+
+        if [ -f /usr/bin/apt-get ]; then
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install wget
+            sudo wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb
+            sudo dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb
+            sudo percona-release setup ps80
+            sudo DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev wget libtool libc-dev percona-xtrabackup-24
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check rsync
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat sysbench
+        fi
+
+    - shell:
+        unstable-return: 1
+        command: |
+          #!/bin/bash
+
+          ROOT_FS=$(pwd)
+
+          if test -f /usr/local/lib/libeatmydata.so
+          then
+              export LD_PRELOAD=/usr/local/lib/libeatmydata.so
+          elif test -f /usr/lib/libeatmydata.so
+          then
+              export LD_PRELOAD=/usr/lib/libeatmydata.so
+          fi
+
+          # Use modern gcc for rhel5.
+          if test "x$REDHAT_VERSION" == "xrhel5"
+          then
+              export BUILTIN_SYSBENCH=1
+          fi
+
+          if [ -d percona-qa ]; then
+              cd percona-qa
+              git pull || true
+          else
+              git clone https://github.com/Percona-QA/percona-qa.git
+              cd percona-qa
+          fi
+
+          cd $ROOT_FS
+
+          ./percona-qa/pxc-tests/pxc-crash-recovery.sh -w$ROOT_FS --sst-method=$SST_METHOD
+          EXIT_CODE=$?
+
+          rm -rf ${BUILD_NUMBER}
+
+          exit $EXIT_CODE
+
+    concurrent: false
+    description: PXC80 Crash recovery qa
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: pxc80-test-crashrecovery
+    node: micro-amazon
+    parameters:
+    - string:
+        default: xtrabackup-v2
+        description: ''
+        name: SST_METHOD
+        trim: 'false'
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 3
+        days-to-keep: 3
+        num-to-keep: 3
+    publishers:
+    - archive:
+        allow-empty: true
+        artifacts: results-${BUILD_NUMBER}.tar.gz
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    - workspace-cleanup
+    triggers: []
+    wrappers:
+    - timeout:
+        abort: true
+        timeout: 100
+        type: absolute
+    - timestamps

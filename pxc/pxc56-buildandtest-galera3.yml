@@ -1,0 +1,145 @@
+- job:
+    auth-token: pxcgalera
+    axes:
+    - axis:
+        name: label_exp
+        type: label-expression
+        values:
+        - min-centos-6-x32
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-jessie-x64
+        - min-stretch-x64
+        - min-trusty-x64
+        - min-xenial-x64
+        - min-bionic-x64
+        - min-cosmic-x64
+    - axis:
+        name: Btype
+        type: user-defined
+        values:
+        - release
+        - debug
+    block-downstream: false
+    block-upstream: true
+    builders:
+    - shell: |-
+        #!/bin/bash
+
+        #----redhat/centos
+        if [ -f /usr/bin/yum ]; then
+            sudo yum -y install epel-release
+            sudo -E yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel wget 
+            sudo -E yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel scons
+        fi
+
+        #----ubuntu/debian
+        if [ -f /usr/bin/apt-get ]; then
+            DEBIAN_VERSION=$(lsb_release -sc)
+            if [[ ${DEBIAN_VERSION} = jessie ]]; then
+        cat << EOF > sources.list
+        ###### Debian Main Repos
+        deb http://httpredir.debian.org/debian jessie main contrib non-free
+        deb http://security.debian.org/ jessie/updates main contrib non-free
+        EOF
+                sudo mv -vf sources.list /etc/apt/sources.list
+            fi
+
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat
+        fi
+
+        #!/bin/bash
+
+        #----redhat/centos
+        if [ -f /usr/bin/yum ]; then
+            sudo -E yum -y install epel-release
+            sudo -E yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel
+            sudo -E yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel
+        fi
+
+        #----ubuntu/debian
+        if [ -f /usr/bin/apt-get ]; then
+	     DEBIAN_VERSION=$(lsb_release -sc)
+             if [[ ${DEBIAN_VERSION} = jessie ]]; then
+        cat << EOF > sources.list
+        ###### Debian Main Repos
+        deb http://httpredir.debian.org/debian jessie main contrib non-free
+        deb http://security.debian.org/ jessie/updates main contrib non-free
+        EOF
+	    sudo mv -vf sources.list /etc/apt/sources.list
+            fi
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat
+        fi
+
+    - shell: |
+
+        #!/bin/bash
+        # The number of processors is a good default for -j
+        if test -e "/proc/cpuinfo"
+        then
+            PROCESSORS="$(grep -c ^processor /proc/cpuinfo)"
+        else
+            PROCESSORS=4
+        fi
+
+
+        if [ -f /usr/bin/yum ]; then
+            REDHAT_VERSION="rhel$(grep -o 'release [0-9][0-9]*' /etc/redhat-release | cut -d ' ' -f 2)"
+
+            # Use modern gcc for rhel5.
+            if test "x$REDHAT_VERSION" == "xrhel5"
+            then
+                export CC=gcc44 CXX=g++44 GALERA_CC=gcc44 GALERA_CXX=g++44
+            fi
+        fi
+
+        GALERA_REVISION="$(test -r GALERA-REVISION && cat GALERA-REVISION)"
+
+        set -e
+
+        if [[ $Btype = 'debug' ]];then
+            bash -x ./scripts/build.sh -s -c -d -j $PROCESSORS
+        else
+            bash -x ./scripts/build.sh -s -c -o -j $PROCESSORS
+        fi
+
+        cp garb/garbd .
+
+        set +e
+
+    concurrent: false
+    description: Build galera libs
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: pxc56-buildandtest-galera3
+    node: micro-amazon
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 5
+        days-to-keep: 7
+        num-to-keep: 6
+    scm:
+      - workspace:
+          parent-job: pxc56-clone-galera3-testgalera
+          criteria: Any
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: libgalera_smm.so, garbd
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    - workspace-cleanup
+    triggers: []
+    wrappers:
+    - timestamps
