@@ -6,13 +6,6 @@
     - description-setter:
         regexp: "^###DESCRIPTION###(.*)###$"
     - shell: |-
-        result=$(hostname | grep -c "min.*xenial" || true)
-        if [ "${result}" -eq 0 ]; then
-            result=$(hostname | grep -c "mongodb.*xenial" || true)
-        fi
-        if [ "${result}" -eq 0 ]; then
-            result=$(hostname | grep -c "bigram.*xenial" || true)
-        fi
         # we need to setup the instance first
         # disable THP
         echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" > disable-thp.sh
@@ -153,7 +146,7 @@
             export CXXFLAGS="${CFLAGS}"
             export INSTALLDIR=${WORKSPACE}/install
             source $WORKSPACE/test/percona-server-mongodb-40.properties
-            if [ ${BUILD_TYPE} = "debug" ]; then
+            if [ "${BUILD_TYPE}" = "debug" ]; then
                 bash -x $WORKSPACE/psmdb_builder.sh --builddir=$WORKSPACE/test --repo=${PSM_REPO} --branch=${PSM_BRANCH} --psm_ver=${VERSION} --psm_release=${RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} --jemalloc_tag=${JEMALLOC_TAG} --rocksdb_tag=${MONGO_TOOLS_TAG} --debug=1 --special_targets="$PSM_TARGETS"
             else
                 bash -x $WORKSPACE/psmdb_builder.sh --builddir=$WORKSPACE/test --repo=${PSM_REPO} --branch=${PSM_BRANCH} --psm_ver=${VERSION} --psm_release=${RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} --jemalloc_tag=${JEMALLOC_TAG} --rocksdb_tag=${MONGO_TOOLS_TAG} --build_tarball=1 --special_targets="$PSM_TARGETS"
@@ -168,7 +161,7 @@
         PSMDIR_ABS=${WORKSPACE}/${PSMDIR}
         DISTRIBUTION="xenial"
 
-        if [ ${build_type} = "debug" ]; then
+        if [ "${BUILD_TYPE}" = "debug" ]; then
             TARBALL='debug'
         else
             TARBALL='tarball'

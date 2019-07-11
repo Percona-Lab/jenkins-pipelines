@@ -6,13 +6,6 @@
     - description-setter:
         regexp: "^###DESCRIPTION###(.*)###$"
     - shell: |-
-        result=$(hostname | grep -c "min.*xenial" || true)
-        if [ "${result}" -eq 0 ]; then
-            result=$(hostname | grep -c "mongodb.*xenial" || true)
-        fi
-        if [ "${result}" -eq 0 ]; then
-            result=$(hostname | grep -c "bigram.*xenial" || true)
-        fi
         # we need to setup the instance first
         # disable THP
         echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" > disable-thp.sh
