@@ -1,0 +1,228 @@
+- job:
+    auth-token: pxc57testmtr
+    axes:
+    - axis:
+        name: Host
+        type: label-expression
+        values:
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-jessie-x64
+        - min-stretch-x64
+        - min-trusty-x64
+        - min-xenial-x64
+        - min-artful-x64
+        - min-bionic-x64
+    - axis:
+        name: Ttype
+        type: user-defined
+        values:
+        - release
+        - debug
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/Percona-XtraDB-Cluster-*.tar.gz
+        flatten: true
+        project: qa-pxc57-build/label_exp=$Host,BUILD_TYPE=$Ttype
+        target: ""
+        which-build: last-completed
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/percona-xtrabackup-*.tar.gz
+        flatten: true
+        project: percona-xtrabackup-2.4-binaries/label_exp=$Host
+        target: ""
+        which-build: last-successful
+    - shell: |-
+
+        if [ -f /usr/bin/yum ]; then
+            wget https://jenkins.percona.com/yum-repo/percona-dev.repo
+            sudo -E mv -vf percona-dev.repo /etc/yum.repos.d/
+            sudo -E yum -y install libeatmydata socat perl-Time-HiRes nocache || true
+        fi
+
+        if [ -f /usr/bin/apt-get ]; then
+            sudo -E apt-get update
+            sudo -E apt-get -y install lsb-release nocache socat libaio1 libnuma1 || true
+            DEBIAN=$(lsb_release -sc)
+            ARCH=$(uname -m)
+            if [ ${ARCH} = x86_64 ]; then
+                export mArch=amd64
+            else
+                export mArch=i386
+            fi
+
+            set +e
+            EMD=$(dpkg -l | grep eatmydata)
+            if [ -z "${EMD}" ]; then
+                wget http://jenkins.percona.com/apt-repo/pool/main/libe/libeatmydata/libeatmydata_0.2-105.${DEBIAN}_${mArch}.deb
+                sudo -E dpkg -i *.deb
+                rm -vf *.deb
+            fi
+
+            set -e
+        fi
+
+    - shell: |-
+        set -o pipefail
+
+        ROOT_FS=$(pwd)
+        mkdir -p ${ROOT_FS}/res
+        rm *.tar || true
+
+        # load eat my data to avoid IO and acclerate test.
+
+        if test -f /usr/local/lib/libeatmydata.so
+        then
+            LD_PRELOAD=/usr/local/lib/libeatmydata.so
+        elif test -f /usr/lib/libeatmydata.so
+        then
+            LD_PRELOAD=/usr/lib/libeatmydata.so
+        fi
+
+        # disable libeatydata.so for a test
+        LD_PRELOAD=""
+
+        killall -9 mysqld || true
+
+        find . -type d -name 'Percona-XtraDB-Cluster-*' -exec rm -rf {} \; || true
+        find . -type d -name 'percona-xtrabackup-*' -exec rm -rf {} \; || true
+
+
+        mkdir -p ${BUILD_NUMBER}
+        mv *.tar.gz ${BUILD_NUMBER}/
+        pushd ${BUILD_NUMBER}
+
+        PXC_TAR=$(find . -maxdepth 1 -type f -name 'Percona-XtraDB-Cluster-*.tar.gz' | sort | tail -n1)
+        PXB_TAR=$(find . -maxdepth 1 -type f -name 'percona-xtrabackup-*.tar.gz' | sort | tail -n1)
+
+        nocache tar xzf ${PXC_TAR} || tar xzf ${PXC_TAR}
+        nocache tar xzf ${PXB_TAR} || tar xzf ${PXB_TAR}
+
+        PXB_BASE=$(find . -maxdepth 1 -type d -name 'percona-xtrabackup-*' | sort | tail -n1)
+
+        export PATH="$PWD/${PXB_BASE}/bin:${ROOT_FS}:${PATH}"
+
+        rm -rf Percona-XtraDB-Cluster
+
+        rm *.tar.gz
+
+        mv Percona-XtraDB-Cluster-* Percona-XtraDB-Cluster
+        PXC_BASE=$PWD/Percona-XtraDB-Cluster
+
+        export WSREP_PROVIDER=${PXC_BASE}/lib/libgalera_smm.so
+
+        echo -e $SKIPEM > /tmp/skip.tests
+        failed=""
+
+        cd ${PXC_BASE}/mysql-test
+
+        # we need to clear up /dev/shm to ensure that previous left over jobs stale directory doesn't cause the /dev/shm to run out of space.
+        # host is allocated for single job and other jobs if any are queue so there is no parallel running job with same user (user=jenkins)
+        # If some other user has created directory under /dev/shm removal of it will be blocked by UNIX user ACL.
+
+        # get rid of any stale info left over by previous test.
+        rm -rf $HOME/var || true
+
+        mkdir $HOME/var
+
+        if [ -z $MTR_SUITES ]; then
+            SUITE_OPT=""
+        else
+            SUITE_OPT="--suite=$MTR_SUITES"
+        fi
+        export LD_PRELOAD="$MY_PRELOAD $LD_PRELOAD"
+
+        # Lengthen the time available for server startup from 180 -> 480 seconds.
+        # This is needed during SST (when using SSL), since the dhparams.pem file
+        # may need to be generated.  See PXC-723
+        export MTR_START_TIMEOUT=480
+
+        #(perl ./mysql-test-run.pl --force-restart --big-test --vardir=$HOME/var1 --parallel 1 --retry-failure=3 --clean-vardir --max-test-fail=0 --force --suite-timeout=600 \
+        #--suite=galera 2>&1 | tee -a mtr1.out) || false
+
+        (perl ./mysql-test-run.pl --big-test --suite --vardir=$HOME/var1 --port-group-size=20 --parallel $GALERA_PARALLEL_RUN --retry-failure=3 --clean-vardir --max-test-fail=0 --force --suite-timeout=6000 \
+        --suite=$MTR_SUITES 2>&1 | tee -a mtr1.out) || false
+
+        killall -9 mysqld || true
+
+        rm -rf $HOME/var1
+
+        set +e
+
+        exitcode1=`grep "\[ fail \]" mtr1.out | wc -l`
+        #exitcode2=`grep "\[ fail \]" mtr2.out | wc -l`
+        exitcode2=0
+
+
+        # get rid of the files created during the process.
+        popd
+        rm -rf ${BUILD_NUMBER}
+
+        if [ $exitcode1 -gt 0 -o $exitcode2 -gt 0 ]
+        then
+        exit 1;
+        else
+        exit 0;
+        fi
+
+    concurrent: false
+    description: MySQL Test Framework for Percona XtraDB Cluster 5.7 (Galera suite
+      by default)
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: pxc57-test-mtr-all
+    node: min-centos-7-x86
+    parameters:
+    - string:
+        default: main,sys_vars,binlog,binlog_encryption,rpl_encryption,gis,rpl,innodb,innodb_gis,innodb_fts,innodb_zip,innodb_undo,innodb_stress,perfschema,funcs_1,funcs_2,opt_trace,parts,auth_sec,query_rewrite_plugins,gcol,sysschema,test_service_sql_api,jp,stress,engines/iuds,engines/funcs,x,galera,query_response_time,audit_log,json,connection_control
+        description: |-
+          Specify the MTR suites to run. (for multiple suite command separate them)
+          galera,innodb,sys_vars
+        name: MTR_SUITES
+        trim: 'false'
+    - string:
+        default: '2'
+        description: |-
+          (galera and galera_3nodes test suite) mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism
+          (beyond CPU power) will have less effect. This value is used for the galera and galera_3nodes test suite.
+        name: GALERA_PARALLEL_RUN
+        trim: 'false'
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 3
+        days-to-keep: 10
+        num-to-keep: 10
+    publishers:
+    - archive:
+        allow-empty: true
+        artifacts: res/${BUILD_NUMBER}.tar.gz
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    - workspace-cleanup:
+        clean-if:
+        - success: true
+        - unstable: true
+        - failure: false
+        - not-built: true
+        - aborted: true
+        clean-parent: false
+        dirmatch: false
+        exclude: []
+        fail-build: false
+        include: []
+    triggers: []
+    wrappers:
+    - timeout:
+        abort: true
+        timeout: 99999
+        type: absolute
+    - timestamps

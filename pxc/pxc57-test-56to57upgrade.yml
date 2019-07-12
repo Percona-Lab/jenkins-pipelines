@@ -1,0 +1,233 @@
+- job:
+    auth-token: pxc57test56to57upgradecumreplication
+    axes:
+    - axis:
+        name: Host
+        type: label-expression
+        values:
+        - min-centos-6-x32
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-jessie-x64
+        - min-stretch-x64
+        - min-trusty-x64
+        - min-xenial-x64
+        - min-artful-x64
+        - min-bionic-x64
+    - axis:
+        name: BTYPE
+        type: user-defined
+        values:
+        - release
+        - debug
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/*
+        flatten: true
+        project: qa-pxc57-build/label_exp=$Host,BUILD_TYPE=$BTYPE
+        target: ""
+        which-build: last-successful
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/*
+        flatten: true
+        project: qa-pxc56-build/label_exp=$Host,BUILD_TYPE=$BTYPE
+        target: ""
+        which-build: last-successful
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/percona-xtrabackup-*.tar.gz
+        flatten: true
+        project: percona-xtrabackup-2.4-binaries/Host=$Host
+        target: ""
+        which-build: last-successful
+    - shell: |-
+        #!/bin/bash
+
+        if [ -f /usr/bin/yum ]; then
+            sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+            sudo percona-release enable original
+            sudo yum update -y
+            sudo yum -y install epel-release
+            sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel
+            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel lsof socat zlib-devel sysbench
+        fi
+
+        if [ -f /usr/bin/apt-get ]; then
+            sudo wget https://repo.percona.com/apt/percona-release_0.1-5.$(lsb_release -sc)_all.deb
+            sudo dpkg -i percona-release_0.1-5.$(lsb_release -sc)_all.deb
+            sudo DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev lsof socat sysbench
+
+        fi
+
+    - shell: |-
+        #!/bin/bash
+
+        ROOT_FS=$(pwd)
+
+        # cleanup
+        #rm -f proxysql
+        killall -9 mysqld || true
+
+        rm -f proxysql.db
+        rm -rf test_db
+        rm -f results*.tar.gz
+
+        if test -f /usr/local/lib/libeatmydata.so
+        then
+            export LD_PRELOAD=/usr/local/lib/libeatmydata.so
+        elif test -f /usr/lib/libeatmydata.so
+        then
+            export LD_PRELOAD=/usr/lib/libeatmydata.so
+        fi
+
+        LOWER_BASE=$(ls -d Percona-XtraDB-Cluster-5.6* | head -n1 | sed 's/.tar.gz//')
+        UPPER_BASE=$(ls -d Percona-XtraDB-Cluster-5.7* | head -n1 | sed 's/.tar.gz//')
+
+        echo $LOWER_BASE
+        echo $UPPER_BASE
+
+        if [ -d percona-qa ]; then
+            cd percona-qa
+            git pull || true
+        else
+            git clone https://github.com/Percona-QA/percona-qa.git
+        fi
+
+        #if [ $USE_PROXYSQL -eq 1 ]; then
+        #  wget http://jenkins.percona.com/view/QA/job/build.proxysql/Btype=$BTYPE,label_exp=$Host/lastSuccessfulBuild/artifact/proxysql/src/proxysql
+        #fi
+
+        cd $ROOT_FS
+
+        bash -x ./percona-qa/pxc-tests/pxc-upgrade.sh -w$ROOT_FS -b${BUILD_NUMBER} -l$LOWER_BASE -u$UPPER_BASE
+
+        rm -rf ${BUILD_NUMBER}
+        du -sh  $ROOT_FS
+    concurrent: false
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: pxc57-test-56to57upgrade
+    node: micro-amazon
+    parameters:
+    - string:
+        default: '0'
+        description: ''
+        name: USE_PROXYSQL
+        trim: 'false'
+    - string:
+        default: '300'
+        description: ''
+        name: SDURATION
+        trim: 'false'
+    - string:
+        default: qa-pxc57-build
+        description: ''
+        name: JOB_SOURCE1
+        trim: 'false'
+    - string:
+        default: qa-pxc56-build
+        description: ''
+        name: JOB_SOURCE2
+        trim: 'false'
+    - string:
+        default: 'off'
+        description: ''
+        name: AUTOINC
+        trim: 'false'
+    - string:
+        default: '500'
+        description: ''
+        name: TSIZE
+        trim: 'false'
+    - string:
+        default: '0'
+        description: ''
+        name: DEBUG
+        trim: 'false'
+    - string:
+        default: '0'
+        description: ''
+        name: DIR
+        trim: 'false'
+    - string:
+        default: '16'
+        description: ''
+        name: NUMT
+        trim: 'false'
+    - string:
+        default: oltp
+        description: ''
+        name: STEST
+        trim: 'false'
+    - string:
+        default: release
+        description: ''
+        name: BUILD_SOURCE
+        trim: 'false'
+    - string:
+        default: ''
+        description: ''
+        name: EXTERNALS
+        trim: 'false'
+    - string:
+        default: '0'
+        description: ''
+        name: MEM
+        trim: 'false'
+    - string:
+        default: rsync
+        description: ''
+        name: SST_METHOD
+        trim: 'false'
+    - string:
+        default: '100'
+        description: ''
+        name: TCOUNT
+        trim: 'false'
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 3
+        days-to-keep: -1
+        num-to-keep: 2
+    properties:
+    - build-blocker:
+        blocking-jobs:
+          - "qa-pxc57-build"
+        queue-scanning: 'DISABLED'
+    publishers:
+    - archive:
+        allow-empty: true
+        artifacts: results-${BUILD_NUMBER}.tar.gz
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    - workspace-cleanup:
+        clean-if:
+        - success: true
+        - unstable: true
+        - failure: true
+        - not-built: true
+        - aborted: true
+        clean-parent: false
+        dirmatch: false
+        exclude: []
+        fail-build: false
+        include: []
+    triggers: []
+    wrappers:
+    - timeout:
+        abort: true
+        timeout: 100
+        type: absolute
+    - timestamps

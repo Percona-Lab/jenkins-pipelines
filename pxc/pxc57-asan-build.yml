@@ -1,0 +1,101 @@
+- job:
+    auth-token: pxc57build
+    axes:
+    - axis:
+        name: Host
+        type: label-expression
+        values:
+        - debian-stretch-64bit
+        - ubuntu-xenial-64bit
+    - axis:
+        name: BUILD_TYPE
+        type: user-defined
+        values:
+        - debug
+    block-downstream: false
+    block-upstream: true
+    builders:
+    - shell: |-
+        #!/bin/bash
+
+        if [ -f /usr/bin/yum ]; then
+            sudo yum clean all
+            sudo yum -y install epel-release
+            sudo -E yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel wget libcurl-devl
+            sudo -E yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel scons
+        fi
+
+        if [ -f /usr/bin/apt-get ]; then
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev wget
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat
+        fi
+
+    - shell: |
+        #!/bin/bash
+
+        export LANG=en_US.UTF-8
+
+        if [ -f /usr/bin/yum ]; then
+            REDHAT_VERSION="rhel$(grep -o 'release [0-9][0-9]*' /etc/redhat-release | cut -d ' ' -f 2)"
+
+            # Use modern gcc for rhel5.
+            if test "x$REDHAT_VERSION" == "xrhel5"
+            then
+                export CC=gcc44 CXX=g++44 GALERA_CC=gcc44 GALERA_CXX=g++44
+            fi
+        fi
+
+        #echo "Copying the galera library"
+        #mv libgalera_smm.so ./target/
+        #mv garbd ./target/
+
+        rm -rf target
+        mkdir -p target
+
+        set -e
+        if test "x${BUILD_TYPE}" = "xdebug"
+        then
+            bash -x ./build-ps/build-binary.sh -d -a ./target
+        else
+            bash -x ./build-ps/build-binary.sh ./target
+        fi
+        set +e
+
+
+        find ./target # For testing results and log
+
+    concurrent: false
+    description: We build PXC binaries on each platform for then using in XB test
+      suite.
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: pxc57-asan-build
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 5
+        days-to-keep: 4
+        num-to-keep: 4
+    scm:
+      - workspace:
+          parent-job: pxc57-clone
+          criteria: Any
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: target/Percona*
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    - trigger:
+        project: pxc57-test-asan-mtr
+        threshold: SUCCESS
+    - workspace-cleanup
+    triggers: []
+    wrappers:
+    - timestamps

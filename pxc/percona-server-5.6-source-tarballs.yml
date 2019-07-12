@@ -1,0 +1,181 @@
+- job:
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - shell: |-
+        #!/bin/bash
+
+
+        if [ -f /usr/bin/yum ]; then
+            sudo yum clean all
+            sudo yum -y install epel-release
+            sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel
+            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel
+            sudo yum -y install numactl-devel centos-release-scl
+            sudo yum -y install gcc-c++ devtoolset-7-gcc-c++ devtoolset-7-binutils cmake
+
+            source /opt/rh/devtoolset-7/enable
+        fi
+
+        rm -f ${WORKSPACE}/*.tar.gz
+
+        REVISION=$(git rev-parse --short HEAD)
+        git reset --hard
+
+        source VERSION
+        cat VERSION > percona-server-5.6.properties
+        echo "REVISION=${REVISION}" >> percona-server-5.6.properties
+        BRANCH_NAME="${BRANCH}"
+        echo "BRANCH_NAME=${BRANCH_NAME}" >> percona-server-5.6.properties
+        echo "PRODUCT=Percona-Server-${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}" >> percona-server-5.6.properties
+        echo 'PRODUCT_FULL=${PRODUCT}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}' >> percona-server-5.6.properties
+        echo "BUILD_NUMBER=${BUILD_NUMBER}" >> percona-server-5.6.properties
+        echo "BUILD_ID=${BUILD_ID}" >> percona-server-5.6.properties
+        echo "PERCONAFT_REPO=${PERCONAFT_REPO}" >> percona-server-5.6.properties
+        echo "PERCONAFT_BRANCH=${PERCONAFT_BRANCH}" >> percona-server-5.6.properties
+        echo "TOKUBACKUP_REPO=${TOKUBACKUP_REPO}" >> percona-server-5.6.properties
+        echo "TOKUBACKUP_BRANCH=${TOKUBACKUP_BRANCH}" >> percona-server-5.6.properties
+        echo "TOKUDB_VERSION=${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}" >> percona-server-5.6.properties
+        #
+        if [ -z "${DESTINATION}" ]; then
+            export DESTINATION=experimental
+        fi
+        #
+        echo "DESTINATION=${DESTINATION}" >> percona-server-5.6.properties
+        echo 'UPLOAD=UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${REVISION}' >> percona-server-5.6.properties
+        #
+        # initialize git submodules
+        rm -rf storage/tokudb/PerconaFT
+        rm -rf plugin/tokudb-backup-plugin/Percona-TokuBackup
+        git submodule deinit -f .
+        rm -rf storage/tokudb/PerconaFT
+        rm -rf plugin/tokudb-backup-plugin/Percona-TokuBackup
+        if [ -z ${PERCONAFT_REPO} -a -z ${TOKUBACKUP_REPO} ]; then
+            mkdir plugin/tokudb-backup-plugin/Percona-TokuBackup
+            mkdir storage/tokudb/PerconaFT
+            git submodule init
+            git submodule update
+            pushd storage/tokudb/PerconaFT
+            git fetch origin
+            git checkout ${PERCONAFT_BRANCH}
+            if [ ${PERCONAFT_BRANCH} = "master" ]; then
+                git pull
+            fi
+            popd
+            pushd plugin/tokudb-backup-plugin/Percona-TokuBackup
+            git fetch origin
+            git checkout ${TOKUBACKUP_BRANCH}
+            if [ ${TOKUBACKUP_BRANCH} = "master" ]; then
+                git pull
+            fi
+            popd
+        else
+            cd storage/tokudb
+            git clone ${PERCONAFT_REPO}
+            pushd PerconaFT
+            git checkout ${PERCONAFT_BRANCH}
+            popd
+            cd ${WORKSPACE}
+            cd plugin/tokudb-backup-plugin
+            git clone ${TOKUBACKUP_REPO}
+            pushd Percona-TokuBackup
+            git checkout ${TOKUBACKUP_BRANCH}
+            popd
+            cd ${WORKSPACE}
+        fi
+
+        cmake .
+        make dist
+
+    - shell: |-
+        #
+        EXPORTED_TAR=$(basename $(find . -type f -name *.tar.gz | sort | tail -n 1))
+        #
+        PSDIR=${EXPORTED_TAR%.tar.gz}
+        rm -fr ${PSDIR}
+        tar xzf ${EXPORTED_TAR}
+        rm -f ${EXPORTED_TAR}
+        # add git submodules because make dist uses git archive which doesn't include them
+        rsync -av storage/tokudb/PerconaFT ${PSDIR}/storage/tokudb --exclude .git
+        rsync -av plugin/tokudb-backup-plugin/Percona-TokuBackup ${PSDIR}/plugin/tokudb-backup-plugin --exclude .git
+        #
+        cd ${PSDIR}
+        # set tokudb version - can be seen with show variables like '%version%'
+        sed -i "1s/^/SET(TOKUDB_VERSION ${TOKUDB_VERSION})\n/" storage/tokudb/CMakeLists.txt
+        #
+        sed -i "s:@@PERCONA_VERSION_EXTRA@@:${MYSQL_VERSION_EXTRA#-}:g" build-ps/debian/rules
+        sed -i "s:@@REVISION@@:${REVISION}:g" build-ps/debian/rules
+        sed -i "s:@@TOKUDB_BACKUP_VERSION@@:${TOKUDB_VERSION}:g" build-ps/debian/rules
+        sed -i "s:@@PERCONA_VERSION_EXTRA@@:${MYSQL_VERSION_EXTRA#-}:g" build-ps/debian/rules.yakkety
+        sed -i "s:@@REVISION@@:${REVISION}:g" build-ps/debian/rules.yakkety
+        sed -i "s:@@TOKUDB_BACKUP_VERSION@@:${TOKUDB_VERSION}:g" build-ps/debian/rules.yakkety
+
+        sed -i "s:@@PERCONA_VERSION_EXTRA@@:${MYSQL_VERSION_EXTRA#-}:g" build-ps/debian/rules.notokudb
+        sed -i "s:@@REVISION@@:${REVISION}:g" build-ps/debian/rules.notokudb
+        #
+        sed -i "s:@@MYSQL_VERSION@@:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}:g" build-ps/percona-server.spec
+        sed -i "s:@@PERCONA_VERSION@@:${MYSQL_VERSION_EXTRA#-}:g" build-ps/percona-server.spec
+        sed -i "s:@@REVISION@@:${REVISION}:g" build-ps/percona-server.spec
+        sed -i "s:@@TOKUDB_BACKUP_VERSION@@:${TOKUDB_VERSION}:g" build-ps/percona-server.spec
+        #
+        sed -i "s:@@TOKUDB_BACKUP_VERSION@@:${TOKUDB_VERSION}:g" build-ps/build-binary.sh
+
+        # create a PS tar
+        cd ${WORKSPACE}
+        tar --owner=0 --group=0 --exclude=.bzr --exclude=.git -czf ${PSDIR}.tar.gz ${PSDIR}
+        rm -fr ${PSDIR}
+
+    concurrent: false
+    disabled: false
+    name: percona-server-5.6-source-tarballs
+    node: micro-amazon
+    parameters:
+    - string:
+        default: https://github.com/percona/percona-server.git
+        description: ''
+        name: GIT_REPO
+    - string:
+        default: '5.6'
+        description: ''
+        name: BRANCH
+    - string:
+        default: ''
+        description: ''
+        name: PERCONAFT_REPO
+    - string:
+        default: master
+        description: ''
+        name: PERCONAFT_BRANCH
+    - string:
+        default: ''
+        description: ''
+        name: TOKUBACKUP_REPO
+    - string:
+        default: master
+        description: ''
+        name: TOKUBACKUP_BRANCH
+    project-type: freestyle
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: -1
+        days-to-keep: 30
+        num-to-keep: 10
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: '*.tar.gz, percona-server-5.6.properties'
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    scm:
+    - git:
+        branches:
+        - ${BRANCH}
+        clean:
+          before: true
+        url: ${GIT_REPO}
+    triggers: []
+    wrappers:
+    - timestamps
