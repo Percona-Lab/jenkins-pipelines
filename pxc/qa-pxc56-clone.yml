@@ -1,0 +1,63 @@
+- job:
+    auth-token: qapxc56clone
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - shell: |-
+        git submodule deinit -f --all . || true
+        git submodule init wsrep/src || true
+        git submodule update wsrep/src || true
+    concurrent: false
+    description: SCM for PXC
+    disabled: false
+    name: qa-pxc56-clone
+    node: micro-amazon
+    parameters:
+    - string:
+        default: https://github.com/percona/percona-xtradb-cluster.git
+        description: Default is percona server repos (main upstream) if you have your
+          own fork then you may want to use it.
+        name: GIT_REPO
+        trim: 'false'
+    - string:
+        default: '5.6'
+        description: Should be feature branch if you are fixing a bug or developing
+          a blueprint
+        name: GIT_BRANCH
+        trim: 'false'
+    - string:
+        default: pxc56.buildandtest.galera3
+        description: |-
+          Please specify galera library to use by specifying galera job to use.
+          For now there are only 2 options: pxc56.buildandtest.galera3, pxc56.buildandtest.testgalera3
+          (testgalera is used if you have custom build of galera library).
+        name: GALERA_JOB
+        trim: 'false'
+    project-type: freestyle
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 3
+        days-to-keep: 10
+        num-to-keep: 10
+    publishers:
+     - clone-workspace
+     - trigger-parameterized-builds:
+       - project:
+           - qa-pxc56-build
+         predefined-parameters: |
+           REVNO=${GIT_COMMIT}
+         current-parameters: true
+         condition: SUCCESS’
+    scm:
+    - git:
+        branches:
+        - ${GIT_BRANCH}
+        clean:
+          before: true
+        url: ${GIT_REPO}
+    triggers: []
+    wrappers:
+    - timestamps
+    - ansicolor:
+        colormap: xterm

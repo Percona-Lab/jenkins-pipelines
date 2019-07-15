@@ -1,0 +1,83 @@
+- job:
+    auth-token: qpressbin
+    axes:
+    - axis:
+        name: label_exp
+        type: label-expression
+        values:
+        - min-centos-6-x32
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-jessie-x64
+        - min-stretch-x64
+        - min-trusty-x64
+        - min-xenial-x64
+        - min-artful-x64
+        - min-bionic-x64
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - shell: |-
+        #!/bin/bash
+
+        if [ -f /usr/bin/yum ]; then
+            sudo yum -y -q install http://www.percona.com/downloads/percona-release/redhat/0.1-4/percona-release-0.1-4.noarch.rpm
+            sudo yum clean all
+            sudo yum -y install epel-release
+            sudo yum -y install scons gcc gcc-c++ wget check-devel openssl-devel cmake bison boost-devel unzip wget
+            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel lsof socat zlib-devel sysbench
+        fi
+
+        if [ -f /usr/bin/apt-get ]; then
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install wget
+            sudo wget https://repo.percona.com/apt/percona-release_0.1-6.$(lsb_release -sc)_all.deb
+            sudo dpkg -i percona-release_0.1-6.$(lsb_release -sc)_all.deb
+            sudo DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev unzip
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev lsof socat sysbench
+        fi
+
+    - shell: |-
+        #!/bin/bash
+
+        mkdir qpress-source
+        cd qpress-source
+        wget ${QPRESS_SOURCE}
+        unzip qpress.zip
+
+        cd qpress
+        make
+        cp qpress ../../
+        cd ../..
+        rm -rf qpress-source
+    concurrent: false
+    description: Create binaries for qpress
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: qpress-binaries
+    node: micro-amazon
+    parameters:
+    - text:
+        default: http://files.wnohang.net/files/qpress.zip
+        description: ''
+        name: QPRESS_SOURCE
+        trim: 'false'
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: -1
+        days-to-keep: -1
+        num-to-keep: 2
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: qpress
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    triggers: []
+    wrappers: []
