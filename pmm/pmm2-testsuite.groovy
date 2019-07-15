@@ -29,12 +29,13 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
                 export instance_t="${TYPE}"
                 export instance_c="${COUNT}"
                 export version="${VERSION}"
+                export pmm_server_ip="${VM_IP}"
                 export stress="1"
                 export table_c="100"
                 export tap="1"
 
-                wget --progress=dot:giga \$(bash /srv/percona-qa/get_download_link.sh --product=${PRODUCT} --distribution=centos --version=${VERSION})
-                bash /srv/percona-qa/pmm-tests/pmm-2-0-bats-tests/pmm-testsuite.sh \
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
+                bash /srv/pmm-qa/pmm-tests/pmm-2-0-bats-tests/pmm-testsuite.sh \
                     | tee /tmp/result.output
 
                 perl -ane "
@@ -101,27 +102,12 @@ pipeline {
         }
         stage('Sanity check') {
             steps {
-                sh "curl --silent --insecure '${PMM_URL}/prometheus/targets' | grep localhost:9090"
+                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
         stage('Test: PS57') {
             steps {
                 runTAP("ps", "ps", "2", "5.7")
-            }
-        }
-        stage('Test: PS80') {
-            steps {
-                runTAP("ps", "ps", "2", "8.0")
-            }
-        }
-        stage('Test: MS57') {
-            steps {
-                runTAP("ms", "mysql", "2", "5.7")
-            }
-        }
-        stage('Test: MS80') {
-            steps {
-                runTAP("ms", "mysql", "2", "8.0")
             }
         }
         stage('Test: PSMDB') {
