@@ -17,7 +17,7 @@
         - min-centos-6-x64
         - min-centos-7-x64
         - min-bionic-x64
-        - min-cosmic-x64
+        - min-disco-x64
         - min-stretch-x64
         - asan
     - axis:
