@@ -110,6 +110,21 @@ pipeline {
                 runTAP("ps", "ps", "2", "5.7")
             }
         }
+        stage('Test: PS80') {
+            steps {
+                runTAP("ps", "ps", "2", "8.0")
+            }
+        }
+        stage('Test: MS57') {
+            steps {
+                runTAP("ms", "mysql", "2", "5.7")
+            }
+        }
+        stage('Test: MS80') {
+            steps {
+                runTAP("ms", "mysql", "2", "8.0")
+            }
+        }
         stage('Test: PSMDB') {
             steps {
                 runTAP("mo", "psmdb", "3", "4.0")
