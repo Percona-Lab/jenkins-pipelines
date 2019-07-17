@@ -65,7 +65,7 @@
             PSM_REPO=https://github.com/percona/percona-server-mongodb.git
             PSM_BRANCH=v4.2
             JOBS=auto
-            SUITE=resmoke_psmdb_v4.2_big
+            SUITE=resmoke_psmdb_4.2_big
             RELEASE_TEST=false
             NUM_TRIALS=1
             MISC_SCRIPTS_REPO=https://github.com/Percona-QA/psmdb-misc-scripts.git
