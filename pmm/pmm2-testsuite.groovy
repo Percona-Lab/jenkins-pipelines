@@ -35,6 +35,10 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
                 export tap="1"
 
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
+                export CLIENT_VERSION=${CLIENT_VERSION}
+                if [[ \$CLIENT_VERSION == http* ]]; then
+                    export PATH="$PWD/pmm2-client-2.0.0/bin:$PATH"
+                fi
                 bash /srv/pmm-qa/pmm-tests/pmm-2-0-bats-tests/pmm-testsuite.sh \
                     | tee /tmp/result.output
 
@@ -97,7 +101,7 @@ pipeline {
         }
         stage('Start staging') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1')
+                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2')
             }
         }
         stage('Sanity check') {
