@@ -107,7 +107,7 @@
             PKGLIST="${PKGLIST} libgcrypt-dev libev-dev lsb-release python-sphinx python-docutils"
             PKGLIST="${PKGLIST} build-essential rsync libdbd-mysql-perl libnuma1 socat librtmp-dev"
             if [[ "$Host" == *"asan" ]] ; then
-                PKGLIST="${PKGLIST} libasan4"
+                PKGLIST="${PKGLIST} libasan4 pkg-config"
             fi
             until sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install ${PKGLIST}; do
                 sleep 1
@@ -115,8 +115,13 @@
             done
             #
             sudo -E apt-get -y install libreadline6 || true
+            sudo -E apt-get -y install libreadline6-dev || true
             if [ -e /lib/x86_64-linux-gnu/libreadline.so.7 -a ! -e /lib/x86_64-linux-gnu/libreadline.so.6 ]; then
                 sudo ln -s /lib/x86_64-linux-gnu/libreadline.so.7 /lib/x86_64-linux-gnu/libreadline.so.6
+            fi
+
+            if [ -e /lib/x86_64-linux-gnu/libreadline.so -a ! -e /lib/x86_64-linux-gnu/libreadline.so.6 ]; then
+                sudo ln -s /lib/x86_64-linux-gnu/libreadline.so /lib/x86_64-linux-gnu/libreadline.so.6
             fi
 
         fi

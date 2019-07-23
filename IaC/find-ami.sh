@@ -17,6 +17,7 @@ declare -A prod_code=(
     ["min-bionic-x64"]="Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*"
     ["min-artful-x64"]="Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-artful-17.10-amd64-server-*"
     ["min-jessie-x64"]="Name=product-code,Values=3f8t6t8fp5m9xx18yzwriozxi"
+    ["min-disco-x64"]="Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-disco-19.04-amd64-server-*"
     ["min-stretch-x64"]="Name=product-code,Values=55q52qvgjfpdj2fpfy9mb1lo4"
 )
 

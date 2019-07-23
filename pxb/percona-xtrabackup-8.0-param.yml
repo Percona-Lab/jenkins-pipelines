@@ -1,6 +1,7 @@
 - job:
-    name: percona-xtrabackup-8.0-param-medium
+    name: percona-xtrabackup-8.0-param
     node: master
+    auth-token: xbparam24
     axes:
     - axis:
         name: BUILD_TYPE
@@ -12,9 +13,11 @@
         name: Host
         type: label-expression
         values:
+        - min-centos-6-x64
         - min-centos-7-x64
         - min-bionic-x64
-        - min-xenial-x64
+        - min-disco-x64
+        - min-stretch-x64
         - asan
     - axis:
         name: xtrabackuptarget
