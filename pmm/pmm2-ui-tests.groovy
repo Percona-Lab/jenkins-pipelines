@@ -52,10 +52,14 @@ pipeline {
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
 
                 sh '''
-                    curl --silent --location https://rpm.nodesource.com/setup_8.x | sudo bash -
-                    sudo yum install -y nodejs
-
-                    export PATH=$PATH:/usr/local/node/bin
+                    sudo yum -y update --security
+                    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
+                    . ~/.nvm/nvm.sh
+                    nvm install 10.6.0
+                    sudo rm /usr/bin/node
+                    sudo ln -s ~/.nvm/versions/node/v10.6.0/bin/node /usr/bin/node
+                    node -v
+                    npm -v
                     npm install
                 '''
             }
@@ -96,7 +100,7 @@ pipeline {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     saucePublisher()
                     junit 'tests/output/parallel_chunk*/chrome_report.xml'
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'parallel_chunk2_*/result.html, parallel_chunk3_*/result.html, parallel_chunk1_*/result.html', reportName: 'HTML Report', reportTitles: ''])
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'parallel_chunk1_*/result.html, parallel_chunk2_*/result.html, parallel_chunk3_*/result.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
                 } else {
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
