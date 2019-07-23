@@ -8,7 +8,7 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "http://${VM_IP}"
+    env.PMM_URL = "http://admin:admin@${VM_IP}"
 }
 
 void destroyStaging(IP) {
