@@ -56,7 +56,7 @@ pipeline {
                     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
                     . ~/.nvm/nvm.sh
                     nvm install 10.6.0
-                    sudo rm /usr/bin/node
+                    sudo rm -f /usr/bin/node
                     sudo ln -s ~/.nvm/versions/node/v10.6.0/bin/node /usr/bin/node
                     node -v
                     npm -v
