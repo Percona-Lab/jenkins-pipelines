@@ -18,7 +18,7 @@
         - min-centos-7-x64
         - min-bionic-x64
         - min-disco-x64
-        - min-stretch-x64
+        - min-buster-x64
         - asan
     - axis:
         name: xtrabackuptarget

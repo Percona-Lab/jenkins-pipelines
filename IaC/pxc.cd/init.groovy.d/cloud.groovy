@@ -29,6 +29,7 @@ imageMap['min-centos-6-x64'] = 'ami-8adb3fe9'
 imageMap['min-centos-7-x64'] = 'ami-4826c22b'
 imageMap['min-jessie-x64'] = 'ami-9899c7f8'
 imageMap['min-stretch-x64'] = 'ami-0bcaff0e3bf791af1'
+imageMap['min-buster-x64'] = 'ami-08811566c4b9768a8'
 imageMap['min-trusty-x64'] = 'ami-00048435fed26a8d1'
 imageMap['min-xenial-x64'] = 'ami-0ad16744583f21877'
 imageMap['psmdb'] = imageMap['min-xenial-x64']
@@ -53,6 +54,7 @@ userMap['min-centos-7-x64'] = 'centos'
 userMap['fips-centos-7-x64'] = 'centos'
 userMap['min-jessie-x64'] = 'admin'
 userMap['min-stretch-x64'] = 'admin'
+userMap['min-buster-x64'] = 'admin'
 userMap['min-trusty-x64'] = 'ubuntu'
 userMap['min-xenial-x64'] = 'ubuntu'
 userMap['psmdb'] = userMap['min-xenial-x64']
@@ -141,6 +143,20 @@ initMap['min-centos-6-x32'] = '''
     sudo umount /dev/shm
     sudo mount /dev/shm
 '''
+initMap['min-buster-x64'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
+        sudo mkfs.ext2 ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+    sudo apt-get -y install openjdk-11-jre-headless git
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
 initMap['min-artful-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -196,6 +212,7 @@ typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32'] = 'm1.medium'
 typeMap['min-centos-6-x64'] = 'm4.xlarge'
 typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
+typeMap['min-buster-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-trusty-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
@@ -212,6 +229,7 @@ execMap['min-centos-6-x64'] = '1'
 execMap['min-centos-7-x64'] = '1'
 execMap['fips-centos-7-x64'] = '1'
 execMap['min-jessie-x64'] = '1'
+execMap['min-buster-x64'] = '1'
 execMap['min-stretch-x64'] = '1'
 execMap['min-trusty-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
@@ -228,6 +246,7 @@ devMap['min-centos-7-x64'] = devMap['min-artful-x64']
 devMap['fips-centos-7-x64'] = devMap['min-artful-x64']
 devMap['min-jessie-x64'] = devMap['micro-amazon']
 devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
+devMap['min-buster-x64'] = devMap['min-stretch-x64']
 devMap['min-trusty-x64'] = devMap['min-artful-x64']
 devMap['min-xenial-x64'] = devMap['min-artful-x64']
 devMap['min-centos-6-x32'] = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
@@ -245,6 +264,7 @@ labelMap['min-centos-7-x64'] = ''
 labelMap['fips-centos-7-x64'] = ''
 labelMap['min-jessie-x64'] = ''
 labelMap['min-stretch-x64'] = ''
+labelMap['min-buster-x64'] = ''
 labelMap['min-trusty-x64'] = ''
 labelMap['min-xenial-x64'] = ''
 labelMap['psmdb'] = ''
@@ -316,6 +336,7 @@ String region = 'us-west-1'
             getTemplate('min-centos-7-x64', "${region}${it}"),
             getTemplate('min-jessie-x64', "${region}${it}"),
             getTemplate('min-stretch-x64', "${region}${it}"),
+            getTemplate('min-buster-x64', "${region}${it}"),
             getTemplate('min-trusty-x64', "${region}${it}"),
             getTemplate('min-xenial-x64', "${region}${it}"),
             getTemplate('min-bionic-x64', "${region}${it}"),
