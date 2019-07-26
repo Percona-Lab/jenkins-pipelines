@@ -66,11 +66,11 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'perconalab/pmm-server:dev-latest',
+            defaultValue: 'perconalab/pmm-server:pmm1-dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
-            defaultValue: 'dev-latest',
+            defaultValue: 'pmm1-dev-latest',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
     }
