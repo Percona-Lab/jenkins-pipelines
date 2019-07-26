@@ -5,11 +5,11 @@ pipeline {
     parameters {
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
-            description: 'PMM Server docker container version (image-name:version-tag)',
+            description: 'PMM Server docker container version (image-name:version-tag ex. perconalab/pmm-server:dev-latest or perconalab/pmm-server:pmm1-dev-latest)',
             name: 'DOCKER_VERSION')
         string(
             defaultValue: 'dev-latest',
-            description: 'PMM Client version ("dev-latest" for master branch, "latest" or "X.X.X" for released version, "http://..." for feature build)',
+            description: 'PMM Client version ("dev-latest" for master branch, "pmm1-dev-latest" for 1.x latest, "latest" or "X.X.X" for released version, "http://..." for feature build)',
             name: 'CLIENT_VERSION')
         string(
             defaultValue: '',
@@ -316,6 +316,12 @@ pipeline {
                                     sudo percona-release disable all
                                     sudo percona-release enable original testing
                                     sudo yum -y install pmm2-client
+                                    sudo yum -y update
+                                elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then
+                                    sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                                    sudo percona-release disable all
+                                    sudo percona-release enable original testing
+                                    sudo yum -y install pmm-client
                                     sudo yum -y update
                                 else
                                     if [[ \$PMM_VERSION == pmm1 ]]; then
