@@ -9,6 +9,7 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
     env.PMM_URL = "http://admin:admin@${VM_IP}"
+    env.PMM_UI_URL = "https://${VM_IP}"
 }
 
 void destroyStaging(IP) {
@@ -53,14 +54,6 @@ pipeline {
 
                 sh '''
                     sudo yum -y update --security
-                    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
-                    . ~/.nvm/nvm.sh
-                    nvm install 10.6.0
-                    sudo rm -f /usr/bin/node
-                    sudo ln -s ~/.nvm/versions/node/v10.6.0/bin/node /usr/bin/node
-                    node -v
-                    npm -v
-                    npm install
                 '''
             }
         }
@@ -76,7 +69,7 @@ pipeline {
         }
         stage('Sleep') {
             steps {
-                sleep 180
+                sleep 60
             }
         }
         stage('Run Grafana Test') {
@@ -84,8 +77,16 @@ pipeline {
                 sauce('SauceLabsKey') {
                     sauceconnect(options: '', sauceConnectPath: '') {
                         sh """
+                            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
+                            . ~/.nvm/nvm.sh
+                            nvm install 10.6.0
+                            sudo rm -f /usr/bin/node
+                            sudo ln -s ~/.nvm/versions/node/v10.6.0/bin/node /usr/bin/node
+                             npm install
+                            node -v
+                            npm -v
                             sed -i 's/{SAUCE_USER_KEY}/${SAUCE_ACCESS_KEY}/g' codecept.json
-                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -o '{ "helpers": {"WebDriver": {"url": "${PMM_URL}"}}}' --grep '(?=.*)^(?!.*@visual-test)'
+                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -o '{ "helpers": {"WebDriver": {"url": "${PMM_UI_URL}"}}}' --grep '(?=.*)^(?!.*@visual-test)'
                         """
                     }
                 }
@@ -95,15 +96,22 @@ pipeline {
     post {
         always {
             // stop staging
+            sh '''
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip
+            '''
             destroyStaging(VM_NAME)
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     saucePublisher()
                     junit 'tests/output/parallel_chunk*/chrome_report.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'parallel_chunk1_*/result.html, parallel_chunk2_*/result.html, parallel_chunk3_*/result.html', reportName: 'HTML Report', reportTitles: ''])
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
+                    archiveArtifacts artifacts: 'tests/output/parallel_chunk*/result.html'
+                    archiveArtifacts artifacts: 'logs.zip'
                 } else {
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
+                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    archiveArtifacts artifacts: 'tests/output/parallel_chunk*/result.html'
+                    archiveArtifacts artifacts: 'logs.zip'
                 }
             }
             sh '''

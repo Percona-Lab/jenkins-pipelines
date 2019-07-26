@@ -142,6 +142,9 @@ pipeline {
     }
     post {
         always {
+            sh '''
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip
+            '''
             destroyStaging(VM_NAME)
         }
         success {
@@ -160,10 +163,12 @@ pipeline {
                     returnStdout: true
                 ).trim()
                 slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}"
+                archiveArtifacts artifacts: 'logs.zip'
             }
         }
         failure {
             slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+            archiveArtifacts artifacts: 'logs.zip'
         }
     }
 }
