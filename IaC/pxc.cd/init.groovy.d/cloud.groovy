@@ -274,7 +274,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
     return new SlaveTemplate(
         imageMap[OSType],                           // String ami
         '',                                         // String zone
-        new SpotConfiguration(true, priceMap[typeMap[OSType]], false), // SpotConfiguration spotConfig
+        new SpotConfiguration(true, priceMap[typeMap[OSType]], false, '0'), // SpotConfiguration spotConfig
         'default',                                  // String securityGroups
         '/mnt/jenkins',                             // String remoteFS
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type

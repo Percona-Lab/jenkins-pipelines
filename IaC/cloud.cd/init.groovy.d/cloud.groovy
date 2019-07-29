@@ -9,6 +9,7 @@ import hudson.plugins.ec2.UnixData
 import java.util.logging.Logger
 import jenkins.model.Jenkins
 
+
 def logger = Logger.getLogger("")
 logger.info("Cloud init started")
 
@@ -281,7 +282,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
     return new SlaveTemplate(
         imageMap[AZ + '.' + OSType],                // String ami
         '',                                         // String zone
-        new SpotConfiguration(true, priceMap[typeMap[OSType]], false), // SpotConfiguration spotConfig
+        new SpotConfiguration(true, priceMap[typeMap[OSType]], false, '0'), // SpotConfiguration spotConfig
         'default',                                  // String securityGroups
         '/mnt/jenkins',                             // String remoteFS
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type
