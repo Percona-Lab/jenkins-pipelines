@@ -1,13 +1,16 @@
 - job:
-    auth-token: pxc80testmtr
+    auth-token: pxc57testmtr
     axes:
     - axis:
         name: Host
         type: label-expression
         values:
+        - min-centos-6-x32
         - min-centos-6-x64
         - min-centos-7-x64
+        - min-jessie-x64
         - min-stretch-x64
+        - min-trusty-x64
         - min-xenial-x64
         - min-bionic-x64
         - min-cosmic-x64
@@ -24,53 +27,69 @@
         exclude-pattern: null
         filter: target/Percona-XtraDB-Cluster-*.tar.gz
         flatten: true
-        project: pxc80-build/Host=$Host,BUILD_TYPE=$Ttype
+        project: pxc57-build/Host=$Host,BUILD_TYPE=$Ttype
         target: ""
         which-build: last-completed
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/percona-xtrabackup-*.tar.gz
+        flatten: true
+        project: percona-xtrabackup-2.4-binaries/Host=$Host
+        target: ""
+        which-build: last-successful
     - shell: |-
         #!/bin/bash
 
         if [ -f /usr/bin/yum ]; then
-            sudo yum -y install wgetepel-release
+            sudo yum -y install wget epel-release
+            sudo yum -y install wget
             wget https://jenkins.percona.com/yum-repo/percona-dev.repo
             sudo -E mv -vf percona-dev.repo /etc/yum.repos.d/
             sudo yum -y install libeatmydata socat libaio perl-Time-HiRes nocache curl lsof || true
-            sudo yum -y install boost-program-options || true
-            sudo yum -y install numactl-devel jsoncpp || true
 
             # Install these packages for the memcached API tests
             sudo -E yum -y install gcc gcc-c++ cmake perl-CPAN
             export PERL_MM_USE_DEFAULT=1
-            sudo -E cpan -T Memcached::libmemcached
-            sudo -E cpan -T Cache::Memcached::libmemcached
+            sudo -E cpan Memcached::libmemcached
+            sudo -E cpan Cache::Memcached::libmemcached
         fi
 
         if [ -f /usr/bin/apt-get ]; then
-            sudo DEBIAN_FRONTEND=noninteractive apt-get update
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install wget lsb-release nocache socat libaio1 libnuma1 rsync curl lsof psmisc || true
-
-            # Install these packages for the memcached API tests
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install gcc g++ cmake || true
-            export PERL_MM_USE_DEFAULT=1 
-            sudo -E cpan -T Memcached::libmemcached
-            sudo -E cpan -T Cache::Memcached::libmemcached
-
-            DEBIAN=$(lsb_release -sc)
-            ARCH=$(uname -m)
-            if [ ${ARCH} = x86_64 ]; then
-                export mArch=amd64
-            else
-                export mArch=i386
+            DEBIAN_VERSION=$(lsb_release -sc)
+            if [[ ${DEBIAN_VERSION} = jessie ]]; then
+        cat << EOF > sources.list
+        ###### Debian Main Repos
+        deb http://httpredir.debian.org/debian jessie main contrib non-free
+        deb http://security.debian.org/ jessie/updates main contrib non-free
+        EOF
+                sudo mv -vf sources.list /etc/apt/sources.list
             fi
-            set +e
-            EMD=$(dpkg -l | grep eatmydata)
-            if [ -z "${EMD}" ]; then
-                wget http://jenkins.percona.com/apt-repo/pool/main/libe/libeatmydata/libeatmydata_0.2-105.${DEBIAN}_${mArch}.deb
-                sudo -E dpkg -i *.deb
-                rm -vf *.deb
-            fi
-            set -e
+            sudo apt-get update
+            sudo apt-get -y install wget lsb-release nocache socat libaio1 libnuma1 rsync curl lsof || true
+
+        # Install these packages for the memcached API tests
+        sudo apt-get -y install gcc g++ cmake || true
+        export PERL_MM_USE_DEFAULT=1
+        sudo -E cpan install Memcached::libmemcached
+        sudo -E cpan install Cache::Memcached::libmemcached
+
+        DEBIAN=$(lsb_release -sc)
+        ARCH=$(uname -m)
+        if [ ${ARCH} = x86_64 ]; then
+            export mArch=amd64
+        else
+            export mArch=i386
         fi
+        set +e
+        EMD=$(dpkg -l | grep eatmydata)
+        if [ -z "${EMD}" ]; then
+            wget http://jenkins.percona.com/apt-repo/pool/main/libe/libeatmydata/libeatmydata_0.2-105.${DEBIAN}_${mArch}.deb
+            sudo -E dpkg -i *.deb
+            rm -vf *.deb
+        fi
+        set -e
+        fi\
+
     - shell: |-
         #!/bin/bash
 
@@ -80,14 +99,14 @@
         mkdir -p ${ROOT_FS}/res
         rm *.tar || true
 
-        # load eat my data to avoid IO and accelerate test.
+        # load eat my data to avoid IO and acclerate test.
 
         if test -f /usr/local/lib/libeatmydata.so
         then
-        LD_PRELOAD=/usr/local/lib/libeatmydata.so
+            LD_PRELOAD=/usr/local/lib/libeatmydata.so
         elif test -f /usr/lib/libeatmydata.so
         then
-        LD_PRELOAD=/usr/lib/libeatmydata.so
+            LD_PRELOAD=/usr/lib/libeatmydata.so
         fi
 
         # disable libeatydata.so for a test
@@ -96,22 +115,35 @@
         killall -9 mysqld || true
 
         find . -type d -name 'Percona-XtraDB-Cluster-*' -exec rm -rf {} \; || true
+        find . -type d -name 'percona-xtrabackup-*' -exec rm -rf {} \; || true
+
 
         mkdir -p ${BUILD_NUMBER}
         mv *.tar.gz ${BUILD_NUMBER}/
         pushd ${BUILD_NUMBER}
 
         PXC_TAR=$(find . -maxdepth 1 -type f -name 'Percona-XtraDB-Cluster-*.tar.gz' | sort | tail -n1)
+        PXB_TAR=$(find . -maxdepth 1 -type f -name 'percona-xtrabackup-*.tar.gz' | sort | tail -n1)
 
         tar xzf ${PXC_TAR} || tar xzf ${PXC_TAR}
+        tar xzf ${PXB_TAR} || tar xzf ${PXB_TAR}
 
-        export PATH="${ROOT_FS}:${PATH}"
+        #nocache tar xzf ${PXC_TAR} || tar xzf ${PXC_TAR}
+        #nocache tar xzf ${PXB_TAR} || tar xzf ${PXB_TAR}
+
+
+        PXB_BASE=$(find . -maxdepth 1 -type d -name 'percona-xtrabackup-*' | sort | tail -n1)
+
+        export XB_PLUGIN_DIR=$PWD/${PXB_BASE}/lib/plugin/
+        export PATH="$PWD/${PXB_BASE}/bin:${ROOT_FS}:${PATH}"
 
         rm -rf Percona-XtraDB-Cluster
+
         rm *.tar.gz
 
         mv Percona-XtraDB-Cluster-* Percona-XtraDB-Cluster
         PXC_BASE=$PWD/Percona-XtraDB-Cluster
+
         export WSREP_PROVIDER=${PXC_BASE}/lib/libgalera_smm.so
 
         echo -e $SKIPEM > /tmp/skip.tests
@@ -119,19 +151,14 @@
 
         cd ${PXC_BASE}/mysql-test
 
-        VAR_DIR=/tmp/pxc80-test-mtr
-        rm -fr $VAR_DIR
-        ln -sf $WORKSPACE $VAR_DIR
-
         # we need to clear up /dev/shm to ensure that previous left over jobs stale directory doesn't cause the /dev/shm to run out of space.
         # host is allocated for single job and other jobs if any are queue so there is no parallel running job with same user (user=jenkins)
         # If some other user has created directory under /dev/shm removal of it will be blocked by UNIX user ACL.
 
         # get rid of any stale info left over by previous test.
-        rm -rf ${VAR_DIR}/var1 || true
-        rm -rf ${VAR_DIR}/var2 || true
-        rm -rf ${VAR_DIR}/var3 || true
-
+        rm -rf $WORKSPACE/var1 || true
+        rm -rf $WORKSPACE/var2 || true
+        rm -rf $WORKSPACE/var3 || true
 
         if [ -z $MTR_SUITES ]; then
             SUITE_OPT=""
@@ -140,82 +167,96 @@
         fi
         export LD_PRELOAD="$MY_PRELOAD $LD_PRELOAD"
 
-        # Lengthen the time available for server startup from 180 -> 720 seconds.
+        # Lengthen the time available for server startup from 180 -> 480 seconds.
         # This is needed during SST (when using SSL), since the dhparams.pem file
         # may need to be generated.  See PXC-723
+        export MTR_START_TIMEOUT=480
 
-        export MTR_START_TIMEOUT=720
         set +e
-
         exitcode1=0
         exitcode2=0
         exitcode3=0
 
+        #(perl ./mysql-test-run.pl --force-restart --big-test --vardir=$HOME/var1 --parallel 1 --retry-failure=3 --clean-vardir --max-test-fail=0 --force --suite-timeout=600 \
+        #--suite=galera 2>&1 | tee -a mtr1.out) || false
+
         # galera suite
         if echo "$MTR_SUITES" | grep -Eq "galera[ ,]"; then
-            mkdir ${VAR_DIR}/var1
-            perl ./mysql-test-run.pl --big-test --vardir=${VAR_DIR}/var1 --port-group-size=20 --parallel $GALERA_PARALLEL_RUN \
-                --retry-failure=3 --max-test-fail=0 --force --suite-timeout=600 --suite=galera 2>&1 | tee -a mtr1.out
-
-            killall -9 mysqld || true
-            exitcode1=`grep "\[ fail \]" mtr1.out | wc -l`
+        mkdir $WORKSPACE/var1
+        perl ./mysql-test-run.pl --big-test --vardir=$WORKSPACE/var1 --port-group-size=20 --parallel $GALERA_PARALLEL_RUN --retry-failure=3 --clean-vardir --max-test-fail=0 --force --suite-timeout=600 \
+        --suite=galera 2>&1 | tee -a mtr1.out
+        killall -9 mysqld || true
+        exitcode1=`grep "\[ fail \]" mtr1.out | wc -l`
         fi
+
+        #(perl ./mysql-test-run.pl galera.galera_garbd --vardir=$WORKSPACE/var1 --clean-vardir  2>&1 | tee -a mtr1.out) || false
+        #killall -9 mysqld || true
 
         # galera_3nodes suite
         if echo "$MTR_SUITES" | grep -Eq "galera_3nodes"; then
-            mkdir ${VAR_DIR}/var2
-            perl ./mysql-test-run.pl --big-test --vardir=${VAR_DIR}/var2 --port-group-size=20 --parallel $GALERA_PARALLEL_RUN \
-                --retry-failure=3 --max-test-fail=0 --force --suite-timeout=600 --suite=galera_3nodes 2>&1 | tee -a mtr2.out
+        mkdir $WORKSPACE/var2
+        perl ./mysql-test-run.pl --big-test --vardir=$WORKSPACE/var2 --port-group-size=20 --parallel $GALERA_PARALLEL_RUN --retry-failure=3 --clean-vardir --max-test-fail=0 --force --suite-timeout=600 \
+        --suite=galera_3nodes 2>&1 | tee -a mtr2.out
 
-            killall -9 mysqld || true
-            exitcode2=`grep "\[ fail \]" mtr2.out | wc -l`
+        killall -9 mysqld || true
+        exitcode2=`grep "\[ fail \]" mtr2.out | wc -l`
         fi
 
         # sys_vars suite
         if echo "$MTR_SUITES" | grep -Eq "sys_vars"; then
-            mkdir ${VAR_DIR}/var3
-            perl ./mysql-test-run.pl --big-test --vardir=${VAR_DIR}/var3 --parallel $PARALLEL_RUN --retry-failure=3 \
-                --max-test-fail=0 --force --suite-timeout=600 --suite=sys_vars 2>&1 | tee -a mtr3.out
-
+            mkdir $WORKSPACE/var3
+            perl ./mysql-test-run.pl --big-test --vardir=$WORKSPACE/var3 --parallel $PARALLEL_RUN --retry-failure=3 --clean-vardir --max-test-fail=0 --force --suite-timeout=600 \
+        --suite=sys_vars 2>&1 | tee -a mtr3.out
             killall -9 mysqld || true
             exitcode3=`grep "\[ fail \]" mtr3.out | wc -l`
         fi
 
+
         # get rid of the files created during the process.
         popd
 
-        cd ${VAR_DIR}
-        TARNAME="pxc80-test-mtr_logs"
-
+        #
+        cd ${WORKSPACE}
+        #
+        TARNAME="pxc57-test-mtr_logs"
+        #
         for num in 1 2 3; do
-            mkdir -p ${VAR_DIR}/${TARNAME}/var${num}
-            for num2 in 1 2; do
-                mkdir -p ${VAR_DIR}/${TARNAME}/var${num}/${num2}
-                find ${VAR_DIR}/var${num}/${num2} -type f -name '*.err' -exec cp -av '{}' ${VAR_DIR}/${TARNAME}/var${num}/${num2} \;
-            done
+        mkdir -p ${WORKSPACE}/${TARNAME}/var${num}
+        for num2 in 1 2; do
+        mkdir -p ${WORKSPACE}/${TARNAME}/var${num}/${num2}
+        find ${WORKSPACE}/var${num}/${num2} -type f -name '*.err' -exec cp -av '{}' ${WORKSPACE}/${TARNAME}/var${num}/${num2} \;
         done
+        done
+        #
+        tar -czvf ${WORKSPACE}/${TARNAME}.tar.gz ${WORKSPACE}/${TARNAME}
+        #
 
-        tar -czvf ${VAR_DIR}/${TARNAME}.tar.gz ${VAR_DIR}/${TARNAME}
+        set +e
 
-        if [ $exitcode1 -gt 0 -o $exitcode2 -gt 0 -o $exitcode3 -gt 0 ]; then
+        # get rid of the files created during the process.
+        #rm -rf ${BUILD_NUMBER
+
+        if [ $exitcode1 -gt 0 -o $exitcode2 -gt 0 -o $exitcode3 -gt 0 ]
+        then
             exit 1;
         else
             exit 0;
         fi
+
     concurrent: false
-    description: MySQL Test Framework for Percona XtraDB Cluster 8.0 (Galera suite
+    description: MySQL Test Framework for Percona XtraDB Cluster 5.7 (Galera suite
       by default)
     disabled: false
     execution-strategy:
       sequential: false
-    name: pxc80-test-mtr
-    node: micro-amazon 
+    name: pxc57-test-mtr
+    node: micro-amazon
     parameters:
     - string:
         default: galera,sys_vars
         description: |-
-          Specify the MTR suites to run. (for multiple suite command separate them with commas)
-          The only supported test suites are galera, galera_3nodes, and sys_vars.
+          Specify the MTR suites to run. (for multiple suite command separate them)
+          galera,innodb,sys_vars
         name: MTR_SUITES
         trim: 'false'
     - string:
@@ -242,8 +283,8 @@
     properties:
     - build-blocker:
         blocking-jobs:
-          - "percona-xtrabackup-8.0-binary-tarball_for_pxc"
-          - "pxc80-build"
+          - "percona-xtrabackup-2.4-binaries"
+          - "pxc57-build"
         block-level: 'GLOBAL'
         queue-scanning: 'DISABLED'
     publishers:

@@ -1,0 +1,174 @@
+- job:
+    auth-token: pxc57testsstmultitest
+    axes:
+    - axis:
+        name: Host
+        type: label-expression
+        values:
+        - min-centos-6-x32
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-jessie-x64
+        - min-stretch-x64
+        - min-trusty-x64
+        - min-xenial-x64
+        - min-artful-x64
+        - min-bionic-x64
+    - axis:
+        name: Ttype
+        type: user-defined
+        values:
+        - release
+        - debug
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/Percona-XtraDB-Cluster-*.tar.gz
+        flatten: true
+        project: qa-pxc57-build/label_exp=$Host,BUILD_TYPE=$Ttype
+        target: ""
+        which-build: last-successful
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/percona-xtrabackup-*.tar.gz
+        flatten: true
+        project: percona-xtrabackup-2.4-binaries/Host=$Host
+        target: ""
+        which-build: last-successful
+    - copyartifact:
+        exclude-pattern: null
+        filter: qpress
+        flatten: true
+        project: qpress-binaries/Host=$Host
+        target: ""
+        which-build: last-successful
+    - shell: |-
+        #!/bin/bash
+
+        if [ -f /usr/bin/yum ]; then
+            sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+            sudo percona-release enable original
+            sudo yum update -y
+            sudo yum clean all
+            sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel rsync
+            sudo yum -y install percona-xtrabackup-24.x86_64 || true
+            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel sysbench
+        fi
+
+        if [ -f /usr/bin/apt-get ]; then
+            DEBIAN_VERSION=$(lsb_release -sc)
+            if [[ ${DEBIAN_VERSION} = jessie ]]; then
+        cat << EOF > sources.list
+        ###### Debian Main Repos
+        deb http://httpredir.debian.org/debian jessie main contrib non-free
+        deb http://security.debian.org/ jessie/updates main contrib non-free
+        EOF
+                sudo mv -vf sources.list /etc/apt/sources.list
+            fi
+            sudo wget https://repo.percona.com/apt/percona-release_0.1-4.$(lsb_release -sc)_all.deb
+            sudo dpkg -i percona-release_0.1-4.$(lsb_release -sc)_all.deb
+            sudo DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev percona-xtrabackup-24
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check rsync
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat sysbench
+        fi
+
+    - shell:
+          unstable-return: 1
+          command: |
+            #!/bin/bash
+
+            ROOT_FS=$(pwd)
+
+            if test -f /usr/local/lib/libeatmydata.so
+            then
+                export LD_PRELOAD=/usr/local/lib/libeatmydata.so
+            elif test -f /usr/lib/libeatmydata.so
+            then
+                export LD_PRELOAD=/usr/lib/libeatmydata.so
+            fi
+
+            killall -9 mysqld || true
+
+            REDHAT_VERSION="rhel$(grep -o 'release [0-9][0-9]*' /etc/redhat-release | cut -d ' ' -f 2)"
+
+            # Use modern gcc for rhel5.
+            if test "x$REDHAT_VERSION" == "xrhel5"
+            then
+                export BUILTIN_SYSBENCH=1
+            fi
+
+            if [ -d percona-qa/.bzr ]; then
+                rm -rf percona-qa
+            fi
+
+            if [ -d percona-qa ]; then
+                cd percona-qa
+                git pull || true
+            else
+                git clone https://github.com/Percona-QA/percona-qa.git
+                cd percona-qa
+            fi
+
+            ./pxc-tests/pxc57_sst_test.sh $ROOT_FS
+            EXIT_CODE=$?
+
+            rm -rf percona-qa
+            rm -rf ${BUILD_NUMBER}
+            rm -rf percona*.gz
+            rm -rf Percona*.gz
+
+            exit $EXIT_CODE
+
+    concurrent: false
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: pxc57-test-sstmultitest
+    parameters:
+    - string:
+        default: ''
+        description: ''
+        name: SST_DEBUG
+        trim: 'false'
+    - string:
+        default: --log-bin
+        description: ''
+        name: ADDNLOP
+        trim: 'false'
+    - string:
+        default: '0'
+        description: ''
+        name: FORCE_FTWRL
+        trim: 'false'
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 3
+        days-to-keep: 3
+        num-to-keep: 3
+    - build-blocker:
+        blocking-jobs:
+          - "percona-xtrabackup-2.4-binaries"
+          - "qpress-binaries"
+        block-level: 'GLOBAL'
+        queue-scanning: 'DISABLED'
+    publishers:
+    - archive:
+        allow-empty: true
+        artifacts: results-${BUILD_NUMBER}.tar.gz
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    - workspace-cleanup
+    triggers: []
+    wrappers:
+    - timeout:
+        abort: true
+        timeout: 100
+        type: absolute
+    - timestamps

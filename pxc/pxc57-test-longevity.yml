@@ -1,0 +1,137 @@
+- job:
+    auth-token: pxc57testsysbench
+    axes:
+    - axis:
+        name: Host
+        type: label-expression
+        values:
+        - min-centos-7-x64
+        - min-essie-x64
+    - axis:
+        name: BTYPE
+        type: user-defined
+        values:
+        - release
+        - debug
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/percona-xtrabackup-*.tar.gz
+        flatten: true
+        project: percona-xtrabackup-2.4-binaries/label_exp=$Host
+        target: ""
+        which-build: last-successful
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/*
+        flatten: true
+        project: pxc57-build/label_exp=$Host,BUILD_TYPE=$BTYPE
+        target: ""
+        which-build: last-successful
+    - shell: |-
+        export LANG=en_US.UTF-8
+
+        ROOT_FS=$(pwd)
+
+        #
+        # load eat my data to avoid disk-io
+        #
+        if test -f /usr/local/lib/libeatmydata.so
+        then
+            export LD_PRELOAD=/usr/local/lib/libeatmydata.so
+        elif test -f /usr/lib/libeatmydata.so
+        then
+            export LD_PRELOAD=/usr/lib/libeatmydata.so
+        fi
+
+        killall -9 mysqld || true
+
+        #
+        # verbose for testing only
+        #
+        #set -x
+        set -e
+
+        #
+        # extract tar file that also host the needed test-cases.
+        #
+        rm -rf results*.tar.gz || true
+        rm -rf pxc-sysbench-qa || true
+        mkdir -p pxc-sysbench-qa
+        PXC_TAR=$(find . -maxdepth 1 -type f -name 'Percona-XtraDB-Cluster-*.tar.gz' | sort | tail -n1)
+        PXB_TAR=$(find . -maxdepth 1 -type f -name 'percona-xtrabackup-*.tar.gz' | sort | tail -n1)
+        cp ${PXC_TAR} ./pxc-sysbench-qa/
+
+
+        cd pxc-sysbench-qa
+        tar xzf $PXC_TAR
+        rm -rf *.tar.gz
+        mv Percona-XtraDB-Cluster-* Percona-XtraDB-Cluster
+        PXC_BASE=$PWD/Percona-XtraDB-Cluster
+        cd $PXC_BASE/percona-xtradb-cluster-tests/sysbench/
+
+        #
+        # run the test-case
+        #
+        mkdir ./working-target/
+
+        cp ${ROOT_FS}/${PXC_TAR} ./working-target/
+        cp ${ROOT_FS}/${PXB_TAR} ./working-target/
+        ./pxc-sysbench.sh -d $DURATION -s rsync -w `pwd`/working-target -l $LUASCRIPTS -n 10 -x 1000000 -t $THREADS
+        mv ./working-target/results-*.gz ${ROOT_FS}/results-rsync-${BUILD_NUMBER}-10-1000000.tar.gz
+
+        #
+        # archive and cleanup
+        #
+        cd ${ROOT_FS}
+        rm -rf pxc-sysbench-qa
+        rm -rf ${ROOT_FS}/${PXC_TAR}
+        rm -rf ${ROOT_FS}/${PXB_TAR}
+
+        #
+        # exit
+        #
+        #set +x
+        exit 0;
+    concurrent: false
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: pxc57-test-longevity
+    parameters:
+    - string:
+        default: '14400'
+        description: Duration of RW_workload run
+        name: DURATION
+    - string:
+        default: /usr/share/doc/sysbench/tests/db
+        description: lua script location
+        name: LUASCRIPTS
+    - string:
+        default: '8'
+        description: number fo threads
+        name: THREADS
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 3
+        days-to-keep: 3
+        num-to-keep: 3
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: results-*-${BUILD_NUMBER}-*.tar.gz
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    triggers: []
+    wrappers:
+    - timeout:
+        abort: true
+        timeout: 2000
+        type: absolute
+    - timestamps

@@ -1,0 +1,133 @@
+- job:
+    auth-token: pxc57testgarbd
+    axes:
+    - axis:
+        name: Host
+        type: label-expression
+        values:
+        - min-centos-6-x64
+        - min-centos-7-x64
+    - axis:
+        name: BTYPE
+        type: user-defined
+        values:
+        - release
+        - debug
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - copyartifact:
+        exclude-pattern: null
+        filter: ""
+        flatten: true
+        project: pxc56-buildandtest-galera3/Btype=$BTYPE,label_exp=$Host
+        target: ""
+        which-build: last-successful
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/*
+        flatten: true
+        project: qa-pxc57-build/label_exp=$Host,BUILD_TYPE=$BTYPE
+        target: ""
+        which-build: last-successful
+    - shell: |-
+        export LDFLAGS="-z defs"
+        #export ASAN_OPTIONS=sleep_before_dying=120
+
+        ROOT_FS=$(pwd)
+
+        cd $ROOT_FS
+        ls -l
+        if test -f /usr/local/lib/libeatmydata.so
+        then
+            export LD_PRELOAD=/usr/local/lib/libeatmydata.so
+        elif test -f /usr/lib/libeatmydata.so
+        then
+            export LD_PRELOAD=/usr/lib/libeatmydata.so
+        fi
+
+        killall -9 mysqld || true
+
+        export BUILD_SOURCE=$BTYPE
+        REDHAT_VERSION="rhel$(grep -o 'release [0-9][0-9]*' /etc/redhat-release | cut -d ' ' -f 2)"
+
+        if [ -d percona-qa/.bzr ]; then
+            rm -rf percona-qa
+        fi
+
+        if [ -d percona-qa ]; then
+            cd percona-qa
+            git pull || true
+        else
+           git clone https://github.com/Percona-QA/percona-qa.git
+           cd percona-qa
+        fi
+
+        bash -x ./pxc-garbd.sh $ROOT_FS
+
+        cd $ROOT_FS
+        rm -rf ${BUILD_NUMBER}
+        du -sh  $ROOT_FS
+
+    concurrent: false
+    description: |
+      pxc57-test-garbd checks garbd functionality
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: pxc57-test-garbd
+    parameters:
+    - string:
+        default: '300'
+        description: ''
+        name: SDURATION
+    - string:
+        default: rsync
+        description: ''
+        name: SST_METHOD
+    - string:
+        default: '500'
+        description: ''
+        name: TSIZE
+    - string:
+        default: '16'
+        description: ''
+        name: NUMT
+    - string:
+        default: '100'
+        description: ''
+        name: TCOUNT
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 3
+        days-to-keep: -1
+        num-to-keep: 15
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: results-${BUILD_NUMBER}.tar.gz
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    - workspace-cleanup:
+        clean-if:
+        - success: true
+        - unstable: true
+        - failure: true
+        - not-built: true
+        - aborted: true
+        clean-parent: false
+        dirmatch: false
+        exclude: []
+        fail-build: false
+        include: []
+    triggers: []
+    wrappers:
+    - timeout:
+        abort: true
+        timeout: 2700
+        type: absolute
+    - timestamps

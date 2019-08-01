@@ -1,0 +1,162 @@
+- job:
+    auth-token: pxc57testasyncreplication
+    axes:
+    - axis:
+        name: Host
+        type: label-expression
+        values:
+        - min-centos-6-x32
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-jessie-x64
+        - min-stretch-x64
+        - min-trusty-x64
+        - min-xenial-x64
+        - min-artful-x64
+        - min-bionic-x64
+    - axis:
+        name: BTYPE
+        type: user-defined
+        values:
+        - release
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/percona-xtrabackup-*.tar.gz
+        flatten: true
+        project: percona-xtrabackup-2.4-binaries/Host=$Host
+        target: ""
+        which-build: last-successful
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/*
+        flatten: true
+        project: qa-pxc57-build/label_exp=$Host,BUILD_TYPE=$BTYPE
+        target: ""
+        which-build: last-successful
+    - shell: |-
+        #!/bin/bash
+
+        if [ -f /usr/bin/yum ]; then
+            sudo yum clean all
+            sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+            sudo percona-release enable original
+            sudo yum -y install epel-release
+            sudo yum update -y
+            sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel rsync lsof wget
+            sudo yum -y install percona-xtrabackup-24.x86_64 || true
+            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel sysbench
+        fi
+
+        if [ -f /usr/bin/apt-get ]; then
+            sudo apt-get -y install wget
+            sudo wget https://repo.percona.com/apt/percona-release_0.1-4.$(lsb_release -sc)_all.deb
+            sudo dpkg -i percona-release_0.1-4.$(lsb_release -sc)_all.deb
+            sudo DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev percona-xtrabackup-24
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check rsync lsof
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat sysbench
+        fi
+
+    - shell: |-
+        #!/bin/bash
+
+        export LDFLAGS="-z defs"
+        #export ASAN_OPTIONS=sleep_before_dying=120
+
+        ROOT_FS=$(pwd)
+
+        if test -f /usr/local/lib/libeatmydata.so
+        then
+            export LD_PRELOAD=/usr/local/lib/libeatmydata.so
+        elif test -f /usr/lib/libeatmydata.so
+        then
+            export LD_PRELOAD=/usr/lib/libeatmydata.so
+        fi
+
+        killall -9 mysqld || true
+
+        export BUILD_SOURCE=$BTYPE
+        REDHAT_VERSION="rhel$(grep -o 'release [0-9][0-9]*' /etc/redhat-release | cut -d ' ' -f 2)"
+
+        if [ -d percona-qa/.bzr ]; then
+            rm -rf percona-qa
+        fi
+
+        if [ -d percona-qa ]; then
+            cd percona-qa
+            git pull || true
+        else
+            git clone https://github.com/Percona-QA/percona-qa.git
+            cd percona-qa
+        fi
+
+        ./pxc-tests/pxc-async-repl-test_v2.sh --workdir=$ROOT_FS $SCRIPT_PARAM --build-number=$BUILD_NUMBER
+
+        cd $ROOT_FS
+        rm -rf ${BUILD_NUMBER}
+        du -sh  $ROOT_FS
+
+    concurrent: false
+    description: |
+      pxc57-test-async-replication checks two async replication scenarios
+
+      S1) Master-Slave aync replication test : Starts two node PXC cluster and one Percona Server. PXC node1 will act as Master to Percona Server slave
+      S2) Master-Master aync replication test : Starts two node PXC cluster and one Percona Server. PXC node1 will act as Master to Percona Server slave
+      and Percona Server act as master to PXC node1 slave.
+
+      PS : Debug build is failing due to upstream bug : https://github.com/codership/galera/issues/382
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: pxc57-test-async-replication
+    parameters:
+    - string:
+        default: '300'
+        description: ''
+        name: SDURATION
+        trim: 'false'
+    - string:
+        default: '500'
+        description: ''
+        name: TSIZE
+        trim: 'false'
+    - string:
+        default: '16'
+        description: ''
+        name: NUMT
+        trim: 'false'
+    - string:
+        default: '100'
+        description: ''
+        name: TCOUNT
+        trim: 'false'
+    - string:
+        default: '--with-encryption '
+        description: ''
+        name: SCRIPT_PARAM
+        trim: 'false'
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 3
+        days-to-keep: -1
+        num-to-keep: 3
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: results-${BUILD_NUMBER}.tar.gz
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    triggers: []
+    wrappers:
+    - timeout:
+        abort: true
+        timeout: 2700
+        type: absolute
+    - timestamps

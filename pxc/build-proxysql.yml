@@ -1,0 +1,96 @@
+- job:
+    auth-token: buildproxysql
+    axes:
+    - axis:
+        name: label_exp
+        type: label-expression
+        values:
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-jessie-x64
+        - min-stretch-x64
+        - min-trusty-x64
+        - min-xenial-x64
+        - min-artful-x64
+    - axis:
+        name: Btype
+        type: user-defined
+        values:
+        - release
+        - debug
+    block-downstream: false
+    block-upstream: true
+    builders:
+    - shell: |-
+        if [ -f /usr/bin/yum ]; then
+            sudo yum -y install wget epel-release
+            sudo yum -y reinstall http://www.percona.com/downloads/percona-release/redhat/0.1-4/percona-release-0.1-4.noarch.rpm
+            sudo yum clean all
+            sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel patch centos-release-scl-rh
+            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel lsof socat zlib-devel sysbench
+            sudo yum -y install devtoolset-7-gcc-c++ devtoolset-7-binutils devtoolset-7-libasan-devel devtoolset-7-libubsan-devel
+            sudo yum -y install devtoolset-7-valgrind devtoolset-7-valgrind-devel
+
+        fi
+
+        if [ -f /usr/bin/apt-get ]; then
+            sudo wget https://repo.percona.com/apt/percona-release_0.1-4.$(lsb_release -sc)_all.deb
+            sudo dpkg -i percona-release_0.1-4.$(lsb_release -sc)_all.deb
+            sudo apt-get update
+            sudo apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev patch
+            sudo apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
+            sudo apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev lsof socat sysbench
+        fi
+
+    - shell: |-
+        #!/bin/bash
+
+        if [ -f /opt/percona-devtoolset/enable ]; then
+            source /opt/percona-devtoolset/enable
+        fi
+
+        if [ -f /opt/rh/devtoolset-7/enable ]; then
+            source /opt/rh/devtoolset-7/enable
+        fi
+
+        # Building proxysql
+        ROOT_FS=$(pwd)
+
+        rm -rf proxysql
+
+        if [ -d proxysql ]; then
+            cd proxysql
+            git pull
+        else
+            git clone https://github.com/sysown/proxysql.git
+            cd proxysql
+        fi
+
+        set -e
+        make
+        set +e
+
+    concurrent: false
+    description: Build proxysql libs
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: build-proxysql
+    node: min-bionic-x64
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 5
+        days-to-keep: 3
+        num-to-keep: 3
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: proxysql/src/proxysql
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    triggers: []
+    wrappers: []

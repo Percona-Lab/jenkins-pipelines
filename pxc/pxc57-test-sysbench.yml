@@ -1,0 +1,189 @@
+- job:
+    auth-token: pxc57testsysbench
+    axes:
+    - axis:
+        name: Host
+        type: label-expression
+        values:
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-trusty-x64
+        - min-jessie-x64
+        - min-xenial-x64
+    - axis:
+        name: BTYPE
+        type: user-defined
+        values:
+        - release
+        - debug
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/percona-xtrabackup-*.tar.gz
+        flatten: true
+        project: percona-xtrabackup-2.4-binaries/label_exp=$Host
+        target: ""
+        which-build: last-successful
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/*
+        flatten: true
+        project: qa-pxc57-build/label_exp=$Host,BUILD_TYPE=$BTYPE
+        target: ""
+        which-build: last-successful
+    - shell: |-
+        export LANG=en_US.UTF-8
+
+        ROOT_FS=$(pwd)
+
+        sysbench --version
+        #
+        # load eat my data to avoid disk-io
+        #
+        if test -f /usr/local/lib/libeatmydata.so
+        then
+            export LD_PRELOAD=/usr/local/lib/libeatmydata.so
+        elif test -f /usr/lib/libeatmydata.so
+        then
+            export LD_PRELOAD=/usr/lib/libeatmydata.so
+        fi
+
+        killall -9 mysqld || true
+        rm -rf /tmp/n1.* || true
+        rm -rf /tmp/n2.* || true
+        rm -rf /tmp/n3.* || true
+        killall -9 pxc-sysbench.sh || true
+
+        #
+        # extract tar file that also host the needed test-cases.
+        #
+
+
+        # set path to XB binary.
+        PXB_TAR=$(find . -maxdepth 1 -type f -name 'percona-xtrabackup-*.tar.gz' | sort | tail -n1)
+        nocache tar xzf ${PXB_TAR} || tar xzf ${PXB_TAR}
+        PXB_BASE=$(find . -maxdepth 1 -type d -name 'percona-xtrabackup-*' | sort | tail -n1)
+        export PATH="$PWD/${PXB_BASE}/bin:${ROOT_FS}:${PATH}"
+
+        # set up pxc directory
+        PXC_TAR=$(find . -maxdepth 1 -type f -name 'Percona-XtraDB-Cluster-*.tar.gz' | sort | tail -n1)
+        nocache tar xzf ${PXC_TAR} || tar xzf ${PXC_TAR}
+        rm -rf Percona-XtraDB-Cluster
+        rm *.tar.gz
+        mv Percona-XtraDB-Cluster-* Percona-XtraDB-Cluster
+        PXC_BASE=$PWD/Percona-XtraDB-Cluster
+        cd $PXC_BASE/percona-xtradb-cluster-tests/sysbench/
+
+        #
+        # run the test-case
+        #
+        mkdir ./working-target/
+
+        echo "--------------------------------"
+        echo "Running with rsync sst"
+        echo "--------------------------------"
+
+        #
+        # rsync
+        sed -i 's/| tee $logfile || exit 1/;cat $logfile/g' ./pxc-sysbench.sh
+
+        bash -x ./pxc-sysbench.sh -d $DURATION -s rsync -w `pwd`/working-target -l $LUASCRIPTS -n 10 -x 100 -t $THREADS
+        mv ./working-target/results-*.gz ${ROOT_FS}/results-rsync-${BUILD_NUMBER}-500-100.tar.gz
+
+        ./pxc-sysbench.sh -d $DURATION -s rsync -w `pwd`/working-target -l $LUASCRIPTS -n 50 -x 100 -t $THREADS
+        mv ./working-target/results-*.gz ${ROOT_FS}/results-rsync-${BUILD_NUMBER}-50-1000.tar.gz
+
+        ./pxc-sysbench.sh -d $DURATION -s rsync -w `pwd`/working-target -l $LUASCRIPTS -n 1 -x 10000 -t $THREADS
+        mv ./working-target/results-*.gz ${ROOT_FS}/results-rsync-${BUILD_NUMBER}-1-100000.tar.gz
+
+
+        echo "--------------------------------"
+        echo "Running with mysqldump sst"
+        echo "--------------------------------"
+
+        #
+        # mysqldump
+        ./pxc-sysbench.sh -d $DURATION -s mysqldump -w `pwd`/working-target -l $LUASCRIPTS -n 10 -x 100 -t $THREADS
+        mv ./working-target/results-*.gz ${ROOT_FS}/results-mysqldump-${BUILD_NUMBER}-500-100.tar.gz
+
+        ./pxc-sysbench.sh -d $DURATION -s mysqldump -w `pwd`/working-target -l $LUASCRIPTS -n 50 -x 100 -t $THREADS
+        mv ./working-target/results-*.gz ${ROOT_FS}/results-mysqldump-${BUILD_NUMBER}-50-1000.tar.gz
+
+        ./pxc-sysbench.sh -d $DURATION -s mysqldump -w `pwd`/working-target -l $LUASCRIPTS -n 1 -x 10000 -t $THREADS
+        mv ./working-target/results-*.gz ${ROOT_FS}/results-mysqldump-${BUILD_NUMBER}-1-100000.tar.gz
+
+
+        echo "--------------------------------"
+        echo "Running with xtrabackup-v2 sst"
+        echo "--------------------------------"
+
+        #
+        # xtrabackup-v2
+        ./pxc-sysbench.sh -d $DURATION -s xtrabackup-v2 -w `pwd`/working-target -l $LUASCRIPTS -n 10 -x 100 -t $THREADS
+        mv ./working-target/results-*.gz ${ROOT_FS}/results-xtrabackup-v2-${BUILD_NUMBER}-500-100.tar.gz
+
+        ./pxc-sysbench.sh -d $DURATION -s xtrabackup-v2 -w `pwd`/working-target -l $LUASCRIPTS -n 50 -x 100 -t $THREADS
+        mv ./working-target/results-*.gz ${ROOT_FS}/results-xtrabackup-v2-${BUILD_NUMBER}-50-1000.tar.gz
+
+        ./pxc-sysbench.sh -d $DURATION -s xtrabackup-v2 -w `pwd`/working-target -l $LUASCRIPTS -n 1 -x 10000 -t $THREADS
+        mv ./working-target/results-*.gz ${ROOT_FS}/results-xtrabackup-v2-${BUILD_NUMBER}-1-100000.tar.gz
+
+        #
+        # archive and cleanup
+        #
+        cd ${ROOT_FS}
+
+        #
+        # exit
+        #
+        #set +x
+        exit 0;
+
+    concurrent: false
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: pxc57-test-sysbench
+    parameters:
+    - string:
+        default: '20'
+        description: Duration of RW_workload run
+        name: DURATION
+    - string:
+        default: /usr/share/doc/sysbench/tests/db
+        description: lua script location
+        name: LUASCRIPTS
+    - string:
+        default: '4'
+        description: number fo threads
+        name: THREADS
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 3
+        days-to-keep: 3
+        num-to-keep: 3
+    properties:
+    - build-blocker:
+        blocking-jobs:
+          - "percona-xtrabackup-2.4-binaries"
+        block-level: 'GLOBAL'
+        queue-scanning: 'DISABLED'
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: results-*-${BUILD_NUMBER}-*.tar.gz
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    triggers: []
+    wrappers:
+    - timeout:
+        abort: true
+        timeout: 1000
+        type: absolute
+    - timestamps

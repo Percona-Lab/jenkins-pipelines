@@ -1,0 +1,124 @@
+- job:
+    auth-token: pxc57testproxysql
+    axes:
+    - axis:
+        name: Host
+        type: label-expression
+        values:
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-stretch-x64
+        - min-trusty-x64
+        - min-xenial-x64
+    - axis:
+        name: BTYPE
+        type: user-defined
+        values:
+        - release
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - copyartifact:
+        exclude-pattern: null
+        filter: proxysql/src/proxysql
+        flatten: true
+        project: build-proxysql/label_exp=$Host,Btype=$BTYPE
+        target: ""
+        which-build: last-successful
+    - copyartifact:
+        exclude-pattern: null
+        filter: target/*
+        flatten: true
+        project: qa-pxc57-build/label_exp=$Host,BUILD_TYPE=$BTYPE
+        target: ""
+        which-build: last-successful
+    - copyartifact:
+        exclude-pattern: null
+        filter: Percona-Server-*.tar.gz
+        flatten: true
+        project: percona-server-5.6-binaries-opt-yassl/label_exp=centos6-64
+        target: ""
+        which-build: last-successful
+    - shell: |-
+        export LDFLAGS="-z defs"
+        #export ASAN_OPTIONS=sleep_before_dying=120
+
+        ROOT_FS=$(pwd)
+
+        killall -9 mysqld || true
+
+        if test -f /usr/local/lib/libeatmydata.so
+        then
+            export LD_PRELOAD=/usr/local/lib/libeatmydata.so
+        elif test -f /usr/lib/libeatmydata.so
+        then
+            export LD_PRELOAD=/usr/lib/libeatmydata.so
+        fi
+
+        export BUILD_SOURCE=$BTYPE
+        REDHAT_VERSION="rhel$(grep -o 'release [0-9][0-9]*' /etc/redhat-release | cut -d ' ' -f 2)"
+
+        if [ -d percona-qa/.bzr ]; then
+            rm -rf percona-qa
+        fi
+
+        if [ -d percona-qa ]; then
+            cd percona-qa
+            git pull || true
+        else
+            git clone https://github.com/Percona-QA/percona-qa.git
+            cd percona-qa
+        fi
+
+        bash -x ./pxc-proxysql-test.sh $ROOT_FS
+
+        cd $ROOT_FS
+        #rm -rf ${BUILD_NUMBER}/node*
+    concurrent: false
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: pxc57-test-proxysql
+    parameters:
+    - string:
+        default: '300'
+        description: ''
+        name: SDURATION
+    - string:
+        default: rsync
+        description: ''
+        name: SST_METHOD
+    - string:
+        default: '500'
+        description: ''
+        name: TSIZE
+    - string:
+        default: '150'
+        description: ''
+        name: NUMT
+    - string:
+        default: '20'
+        description: ''
+        name: TCOUNT
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 3
+        days-to-keep: -1
+        num-to-keep: 3
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: results-${BUILD_NUMBER}.tar.gz
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    triggers: []
+    wrappers:
+    - timeout:
+        abort: true
+        timeout: 300
+        type: absolute
+    - timestamps
