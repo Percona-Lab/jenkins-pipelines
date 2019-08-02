@@ -158,7 +158,7 @@ pipeline {
                 unstash 'binary.tarball'
                 withCredentials([sshUserPrivateKey(credentialsId: 'downloads-area', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
-                        scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no results/tarball/*.tar.* ${USER}@10.10.9.216:/data/downloads/TESTING/pmm/
+                        scp -i "${KEY_PATH}" -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no results/tarball/*.tar.* ${USER}@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
                     '''
                 }
             }
