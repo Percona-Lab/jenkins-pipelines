@@ -34,6 +34,7 @@ imageMap['min-bionic-x64'] = 'ami-0438319fc572e1a20'
 imageMap['psmdb'] = imageMap['min-xenial-x64']
 imageMap['psmdb-bionic'] = 'ami-0013ea6a76d3b8874'
 imageMap['docker'] = imageMap['micro-amazon']
+imageMap['docker-32gb'] = 'ami-020f88cb17f8dbdea'
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
@@ -208,7 +209,7 @@ execMap['psmdb'] = '1'
 execMap['psmdb-bionic'] = '1'
 
 devMap = [:]
-devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:160:true:gp2'
 devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 devMap['psmdb-bionic'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:300:true:gp2'
 devMap['docker-32gb'] = devMap['docker']
@@ -303,6 +304,7 @@ String region = 'us-west-2'
         '240',                                   // String instanceCapStr
         [
             getTemplate('docker', "${region}${it}"),
+            getTemplate('docker-32gb', "${region}${it}"),
             getTemplate('psmdb',  "${region}${it}"),
             getTemplate('psmdb-bionic',  "${region}${it}"),
             getTemplate('min-centos-6-x64', "${region}${it}"),
