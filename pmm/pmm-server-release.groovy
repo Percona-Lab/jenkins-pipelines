@@ -205,12 +205,12 @@ pipeline {
                     """
                 }
                 sh """
-                    ssh -i ~/.ssh/id_rsa_downloads jenkins@10.10.9.216 "mkdir -p /data/downloads/pmm/${VERSION}/{ova,docker}" || true
+                    ssh -i ~/.ssh/id_rsa_downloads -p 2222 jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com "mkdir -p /data/downloads/pmm/${VERSION}/{ova,docker}" || true
                     md5sum pmm-server-${VERSION}.docker > pmm-server-${VERSION}.md5sum
-                    scp -i ~/.ssh/id_rsa_downloads pmm-server-${VERSION}.docker pmm-server-${VERSION}.md5sum jenkins@10.10.9.216:/data/downloads/pmm/${VERSION}/docker/
+                    scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-${VERSION}.docker pmm-server-${VERSION}.md5sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm/${VERSION}/docker/
 
                     md5sum pmm-server-${VERSION}.ova > pmm-server-${VERSION}.md5sum
-                    scp -i ~/.ssh/id_rsa_downloads pmm-server-${VERSION}.ova pmm-server-${VERSION}.md5sum jenkins@10.10.9.216:/data/downloads/pmm/${VERSION}/ova/
+                    scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-${VERSION}.ova pmm-server-${VERSION}.md5sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm/${VERSION}/ova/
                 """
                 deleteDir()
             }
