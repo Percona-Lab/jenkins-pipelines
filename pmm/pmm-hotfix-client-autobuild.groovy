@@ -150,7 +150,7 @@ pipeline {
         }
         stage('Push to public repository') {
             agent {
-                label 'master'
+                label 'virtualbox'
             }
             steps {
                 // sync packages
