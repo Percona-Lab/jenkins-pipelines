@@ -156,11 +156,9 @@ pipeline {
                 // upload tarball
                 deleteDir()
                 unstash 'binary.tarball'
-                withCredentials([sshUserPrivateKey(credentialsId: 'downloads-area', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh '''
-                        scp -i "${KEY_PATH}" -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no results/tarball/*.tar.* ${USER}@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
-                    '''
-                }
+                sh '''
+                    scp -i ~/.ssh/id_rsa_downloads -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no results/tarball/*.tar.* jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
+                '''
             }
         }
     }
