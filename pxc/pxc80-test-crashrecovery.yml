@@ -22,14 +22,14 @@
     builders:
     - copyartifact:
         exclude-pattern: null
-        filter: target/Percona-XtraDB-Cluster-*.tar.gz
+        filter: PXC_URL
         flatten: true
         project: qa-pxc80-build/Host=$Host,BUILD_TYPE=$Ttype
         target: ""
         which-build: last-successful
     - copyartifact:
         exclude-pattern: null
-        filter: TARGET/percona-xtrabackup-*.tar.gz
+        filter: PXB_BIN_TAR_URL
         flatten: true
         project: percona-xtrabackup-8.0-binary-tarball_for_pxc/Host=$Host
         target: ""
@@ -40,10 +40,14 @@
         if [ -f /usr/bin/yum ]; then
             sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
             sudo percona-release setup ps80
+            sudo yum -y install epel-release
             sudo yum clean all
             sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel rsync wget
             sudo yum -y install percona-xtrabackup-24.x86_64 || true
-            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel sysbench
+            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel sysbench python-pip python2-pip numactl
+
+            sudo pip install awscli
+            sudo pip install --upgrade awscli
         fi
 
         if [ -f /usr/bin/apt-get ]; then
@@ -54,7 +58,10 @@
             sudo DEBIAN_FRONTEND=noninteractive apt-get update
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev wget libtool libc-dev percona-xtrabackup-24
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check rsync
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat sysbench
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat sysbench python3-pip numactl
+
+            sudo pip3 install awscli
+            sudo pip3 install --upgrade awscli
         fi
 
     - shell:
@@ -77,6 +84,16 @@
           then
               export BUILTIN_SYSBENCH=1
           fi
+
+          PXB_BIN_TAR_URL=$(cat PXB_BIN_TAR_URL)
+          until aws s3 cp --no-progress s3://pxc-build-cache/$PXB_BIN_TAR_URL ./; do
+              sleep 5
+          done
+
+          PXC_URL=$(cat PXC_URL)
+          until aws s3 cp --no-progress s3://pxc-build-cache/$PXC_URL ./; do
+              sleep 5
+          done
 
           if [ -d percona-qa ]; then
               cd percona-qa
@@ -131,3 +148,8 @@
         timeout: 100
         type: absolute
     - timestamps
+    - credentials-binding:
+         - amazon-web-services:
+            credential-id: c42456e5-c28d-4962-b32c-b75d161bff27
+            access-key: AWS_ACCESS_KEY_ID
+            secret-key: AWS_SECRET_ACCESS_KEY
