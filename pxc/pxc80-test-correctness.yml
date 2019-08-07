@@ -23,14 +23,14 @@
     builders:
     - copyartifact:
         exclude-pattern: null
-        filter: TARGET/percona-xtrabackup-*.tar.gz
+        filter: PXB_BIN_TAR_URL
         flatten: true
         project: percona-xtrabackup-8.0-binary-tarball_for_pxc/Host=$Host
         target: ""
         which-build: last-successful
     - copyartifact:
         exclude-pattern: null
-        filter: target/*
+        filter: PXC_URL
         flatten: true
         project: qa-pxc80-build/Host=$Host,BUILD_TYPE=$BTYPE
         target: ""
@@ -46,7 +46,10 @@
             sudo yum clean all
             sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel perl-DBI perl-DBD-MySQL wget
             sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel lsof socat zlib-devel sysbench
-            sudo yum -y install percona-xtrabackup-80.x86_64
+            sudo yum -y install percona-xtrabackup-80.x86_64 python-pip python2-pip numactl
+
+            sudo pip install awscli
+            sudo pip install --upgrade awscli
         fi
 
         if [ -f /usr/bin/apt-get ]; then
@@ -58,7 +61,10 @@
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev libdbi-perl libdbd-mysql-perl libterm-readkey-perl libio-socket-ssl-perl
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev lsof socat sysbench
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install percona-xtrabackup-80
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install percona-xtrabackup-80 numactl python3-pip
+
+            sudo pip3 install awscli
+            sudo pip3 install --upgrade awscli
         fi
 
     - shell:
@@ -83,6 +89,15 @@
 
           killall -9 mysqld || true
 
+          PXB_BIN_TAR_URL=$(cat PXB_BIN_TAR_URL)
+          until aws s3 cp --no-progress s3://pxc-build-cache/$PXB_BIN_TAR_URL ./; do
+              sleep 5
+          done
+
+          PXC_URL=$(cat PXC_URL)
+          until aws s3 cp --no-progress s3://pxc-build-cache/$PXC_URL ./; do
+              sleep 5
+          done
 
           if [ -d percona-qa ]; then
               cd percona-qa
@@ -134,7 +149,7 @@
         name: TCOUNT
         trim: 'false'
     - string:
-        default: '--with-encryption '
+        default: ''
         description: ''
         name: SCRIPT_PARAM
         trim: 'false'
@@ -172,3 +187,8 @@
         timeout: 300
         type: absolute
     - timestamps
+    - credentials-binding:
+         - amazon-web-services:
+            credential-id: c42456e5-c28d-4962-b32c-b75d161bff27
+            access-key: AWS_ACCESS_KEY_ID
+            secret-key: AWS_SECRET_ACCESS_KEY
