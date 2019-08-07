@@ -22,7 +22,7 @@
     builders:
     - copyartifact:
         exclude-pattern: null
-        filter: TARGET/percona-xtrabackup-*.tar.gz
+        filter: PXB_BIN_TAR_URL
         flatten: true
         project: percona-xtrabackup-8.0-binary-tarball_for_pxc/Host=$Host
         target: ""
@@ -43,7 +43,10 @@
             sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel
             sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel
             sudo yum -y install numactl-devel centos-release-scl
-            sudo yum -y install gcc-c++ devtoolset-7-gcc-c++ devtoolset-7-binutils cmake
+            sudo yum -y install gcc-c++ devtoolset-7-gcc-c++ devtoolset-7-binutils cmake python-pip python2-pip
+
+            sudo pip install awscli
+            sudo pip install --upgrade awscli
 
             source /opt/rh/devtoolset-7/enable
         fi
@@ -52,7 +55,10 @@
             sudo DEBIAN_FRONTEND=noninteractive apt-get update
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev libcurl4-openssl-dev
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat python3-pip
+
+            sudo pip3 install awscli
+            sudo pip install --upgrade awscli
         fi
 
     - shell: |
@@ -67,6 +73,11 @@
 
         rm -rf target
         mkdir -p target
+
+        PXB_BIN_TAR_URL=$(cat PXB_BIN_TAR_URL)
+        until aws s3 cp --no-progress s3://pxc-build-cache/$PXB_BIN_TAR_URL ./; do
+            sleep 5
+        done
 
         PXB_TAR=$(ls -1td percona-xtrabackup-2.*.tar.gz | sort --version-sort | tail -n1)
         mv "${PXB_TAR}" ./target
@@ -93,6 +104,18 @@
         fi
         set +e
 
+        PXC_TAR=$(ls ./target/Percona-XtraDB-Cluster-* | awk -F'/' '{print $3}')
+        if [[ -n "${PXC_TAR}" ]]; then
+            until aws s3 cp --no-progress --acl public-read ./target/$PXC_TAR s3://pxc-build-cache/${BUILD_TAG}/$PXC_TAR; do
+                sleep 5
+            done
+        else
+            echo cannot find compiled archive
+            exit 1
+        fi
+
+        echo "${BUILD_TAG}/$PXC_TAR" > PXC_URL
+
     concurrent: false
     description: We build PXC binaries on each platform for then using in XB test
       suite.
@@ -117,12 +140,12 @@
         queue-scanning: 'DISABLED'
     scm:
       - workspace:
-          parent-job: pxc80-build
+          parent-job: pxc80-clone
           criteria: Any
     publishers:
     - archive:
         allow-empty: false
-        artifacts: target/Percona*
+        artifacts: PXC_URL
         case-sensitive: true
         default-excludes: true
         fingerprint: false
@@ -134,3 +157,8 @@
     triggers: []
     wrappers:
     - timestamps
+    - credentials-binding:
+         - amazon-web-services:
+            credential-id: c42456e5-c28d-4962-b32c-b75d161bff27
+            access-key: AWS_ACCESS_KEY_ID
+            secret-key: AWS_SECRET_ACCESS_KEY

@@ -7,6 +7,8 @@
 
         sudo DEBIAN_FRONTEND=noninteractive apt-get update
         sudo DEBIAN_FRONTEND=noninteractive apt-get -y install bison cmake devscripts debconf debhelper automake bison ca-certificates cmake debhelper libaio-dev libncurses-dev libssl-dev libtool libz-dev libcurl4-openssl-dev libgcrypt-dev libev-dev lsb-release python-sphinx python-docutils gcc g++
+        sudo DEBIAN_FRONTEND=noninteractive apt-get -y install python3-pip
+        sudo pip3 install awscli
 
         REVISION=$(git rev-parse --short HEAD)
         git reset --hard
@@ -35,9 +37,23 @@
         cd ..
 
         # Copy the artifacts
-        mv target/percona-xtrabackup-*.tar.gz .
+        mkdir artifacts
+        mv percona-xtrabackup-8.0.properties ./artifacts/
+        mv target/percona-xtrabackup-*.tar.gz ./artifacts/
+
+        if [[ -f $(ls ./artifacts/percona-xtrabackup-* | head -1) ]]; then
+            until aws s3 sync --no-progress --acl public-read ./artifacts/ s3://pxc-build-cache/${BUILD_TAG}/; do
+                sleep 5
+            done
+        else
+            echo cannot find compiled archive
+            exit 1
+        fi
+
+        echo "${BUILD_TAG}" > PXB_SOURCE_URL
+
         # Cleanup
-        rm -rf target
+        rm -rf target artifacts
 
     concurrent: false
     disabled: false
@@ -66,7 +82,7 @@
     publishers:
     - archive:
         allow-empty: false
-        artifacts: '*.tar.gz, percona-xtrabackup-8.0.properties'
+        artifacts: PXB_SOURCE_URL
         case-sensitive: true
         default-excludes: true
         fingerprint: false
@@ -79,4 +95,9 @@
           before: true
         url: ${GIT_REPO}
     triggers: []
-    wrappers: []
+    wrappers:
+    - credentials-binding:
+         - amazon-web-services:
+            credential-id: c42456e5-c28d-4962-b32c-b75d161bff27
+            access-key: AWS_ACCESS_KEY_ID
+            secret-key: AWS_SECRET_ACCESS_KEY

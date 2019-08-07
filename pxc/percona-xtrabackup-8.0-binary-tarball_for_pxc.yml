@@ -22,7 +22,7 @@
         fi
     - copyartifact:
         exclude-pattern: null
-        filter: percona-xtrabackup-*
+        filter: PXB_SOURCE_URL
         flatten: true
         project: percona-xtrabackup-8.0-source-tarball_for_pxc
         target: ""
@@ -42,6 +42,8 @@
             fi
 
             sudo python get-pip.py
+            sudo pip install awscli
+            sudo pip install --upgrade --no-deps --force-reinstall awscli
             sudo pip install --upgrade wheel setuptools urllib3
             sudo pip install --upgrade sphinx===1.4
 
@@ -91,10 +93,18 @@
                 sudo dpkg -i *.deb
                 rm -fv *.deb
             fi
+
+            sudo pip3 install awscli
+            sudo pip3 install --upgrade awscli
         fi
-        #
+
     - shell: |- 
         #!/bin/bash
+
+        PXB_SOURCE_URL=$(cat PXB_SOURCE_URL)
+        until aws s3 sync --no-progress s3://pxc-build-cache/$PXB_SOURCE_URL/ ./; do
+            sleep 5
+        done
 
         mkdir TARGET
         source percona-xtrabackup-8.0.properties
@@ -125,6 +135,20 @@
         cd ${DIRNAME}
         sed -i 's|.tar.gz|${GCRYPT_VER}.tar.gz|' ./storage/innobase/xtrabackup/utils/build-binary.sh
         bash -x ./storage/innobase/xtrabackup/utils/build-binary.sh ${WORKSPACE}/TARGET
+
+        PXB_BIN_TAR=$(ls $WORKSPACE/TARGET/percona-xtrabackup-* | awk -F'/' '{print $9}')
+        if [[ -n "${PXB_BIN_TAR}" ]]; then
+            until aws s3 cp --no-progress --acl public-read $WORKSPACE/TARGET/$PXB_BIN_TAR s3://pxc-build-cache/${BUILD_TAG}/$PXB_BIN_TAR; do
+                sleep 5
+            done
+        else
+            echo cannot find compiled archive
+            exit 1
+        fi
+
+        cd $WORKSPACE
+        echo "${BUILD_TAG}/$PXB_BIN_TAR" > PXB_BIN_TAR_URL
+
     concurrent: false
     disabled: false
     execution-strategy:
@@ -143,7 +167,7 @@
     publishers:
     - archive:
         allow-empty: false
-        artifacts: TARGET/percona*
+        artifacts: PXB_BIN_TAR_URL
         case-sensitive: true
         default-excludes: true
         fingerprint: false
@@ -151,3 +175,8 @@
     triggers: []
     wrappers:
     - timestamps
+    - credentials-binding:
+         - amazon-web-services:
+            credential-id: c42456e5-c28d-4962-b32c-b75d161bff27
+            access-key: AWS_ACCESS_KEY_ID
+            secret-key: AWS_SECRET_ACCESS_KEY
