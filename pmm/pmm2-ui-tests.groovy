@@ -59,7 +59,7 @@ pipeline {
         }
         stage('Start staging') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=mo,2 --with-replica  --addclient=pgsql,1 --pmm2')
+                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=mo,2 --with-replica  --addclient=pgsql,1 --addclient=pxc,1 --with-proxysql --pmm2')
             }
         }
         stage('Sanity check') {
@@ -82,11 +82,11 @@ pipeline {
                             nvm install 10.6.0
                             sudo rm -f /usr/bin/node
                             sudo ln -s ~/.nvm/versions/node/v10.6.0/bin/node /usr/bin/node
-                             npm install
+                            npm install
                             node -v
                             npm -v
                             sed -i 's/{SAUCE_USER_KEY}/${SAUCE_ACCESS_KEY}/g' codecept.json
-                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -o '{ "helpers": {"WebDriver": {"url": "${PMM_UI_URL}"}}}' --grep '(?=.*)^(?!.*@visual-test)'
+                            ./node_modules/.bin/codeceptjs run-multiple parallel --steps --debug --reporter mocha-multi -o '{ "helpers": {"WebDriver": {"url": "${PMM_UI_URL}"}}}' --grep '(?=.*)^(?!.*@visual-test)'
                         """
                     }
                 }
@@ -109,9 +109,13 @@ pipeline {
                     archiveArtifacts artifacts: 'tests/output/parallel_chunk*/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
+                    saucePublisher()
+                    junit 'tests/output/parallel_chunk*/chrome_report.xml'
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'parallel_chunk1_*/result.html, parallel_chunk2_*/result.html, parallel_chunk3_*/result.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'tests/output/parallel_chunk*/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
+                    archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
                 }
             }
             sh '''

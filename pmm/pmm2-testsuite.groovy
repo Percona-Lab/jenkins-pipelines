@@ -139,6 +139,11 @@ pipeline {
                 runTAP("pgsql", "postgresql", "3", "10.6")
             }
         }
+        stage('Test: PXC') {
+            steps {
+                runTAP("pxc", "pxc", "1", "5.7")
+            }
+        }
     }
     post {
         always {
