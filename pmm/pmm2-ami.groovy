@@ -35,6 +35,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
+                        set -o pipefail
                         ~/bin/packer build -only amazon-ebs -color=false packer/pmm2.json \
                             | tee build.log
                     """
