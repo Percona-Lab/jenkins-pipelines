@@ -25,14 +25,14 @@
     builders:
     - copyartifact:
         exclude-pattern: null
-        filter: target/Percona-XtraDB-Cluster-*.tar.gz
+        filter: PXC_5_7_URL
         flatten: true
         project: pxc57-build/Host=$Host,BUILD_TYPE=$Ttype
         target: ""
         which-build: last-completed
     - copyartifact:
         exclude-pattern: null
-        filter: target/percona-xtrabackup-*.tar.gz
+        filter: PXB_2_4_BIN_TAR_URL
         flatten: true
         project: percona-xtrabackup-2.4-binaries/Host=$Host
         target: ""
@@ -45,13 +45,16 @@
             sudo yum -y install wget
             wget https://jenkins.percona.com/yum-repo/percona-dev.repo
             sudo -E mv -vf percona-dev.repo /etc/yum.repos.d/
-            sudo yum -y install libeatmydata socat libaio perl-Time-HiRes nocache curl lsof || true
+            sudo yum -y install libeatmydata socat libaio perl-Time-HiRes nocache curl lsof python-pip python2-pip
 
             # Install these packages for the memcached API tests
             sudo -E yum -y install gcc gcc-c++ cmake perl-CPAN
             export PERL_MM_USE_DEFAULT=1
             sudo -E cpan Memcached::libmemcached
             sudo -E cpan Cache::Memcached::libmemcached
+
+            sudo pip install awscli
+            sudo pip install --upgrade awscli
         fi
 
         if [ -f /usr/bin/apt-get ]; then
@@ -64,11 +67,15 @@
         EOF
                 sudo mv -vf sources.list /etc/apt/sources.list
             fi
-            sudo apt-get update
-            sudo apt-get -y install wget lsb-release nocache socat libaio1 libnuma1 rsync curl lsof || true
+
+        sudo DEBIAN_FRONTEND=noninteractive apt-get update
+        sudo DEBIAN_FRONTEND=noninteractive apt-get -y install wget lsb-release nocache socat libaio1 libnuma1 rsync curl lsof python3-pip
+
+        sudo pip3 install awscli
+        sudo pip3 install --upgrade awscli
 
         # Install these packages for the memcached API tests
-        sudo apt-get -y install gcc g++ cmake || true
+        sudo DEBIAN_FRONTEND=noninteractive apt-get -y install gcc g++ cmake || true
         export PERL_MM_USE_DEFAULT=1
         sudo -E cpan install Memcached::libmemcached
         sudo -E cpan install Cache::Memcached::libmemcached
@@ -113,6 +120,16 @@
         LD_PRELOAD=""
 
         killall -9 mysqld || true
+
+        PXC_5_7_URL=$(cat PXC_5_7_URL)
+        until aws s3 cp --no-progress s3://pxc-build-cache/$PXC_5_7_URL ${BUILD_NUMBER}/; do
+            sleep 5
+        done
+
+        PXB_2_4_BIN_TAR_URL=$(cat PXB_2_4_BIN_TAR_URL)
+        until aws s3 cp --no-progress s3://pxc-build-cache/$PXB_2_4_BIN_TAR_URL ./; do
+            sleep 5
+        done
 
         find . -type d -name 'Percona-XtraDB-Cluster-*' -exec rm -rf {} \; || true
         find . -type d -name 'percona-xtrabackup-*' -exec rm -rf {} \; || true
@@ -182,11 +199,11 @@
 
         # galera suite
         if echo "$MTR_SUITES" | grep -Eq "galera[ ,]"; then
-        mkdir $WORKSPACE/var1
-        perl ./mysql-test-run.pl --big-test --vardir=$WORKSPACE/var1 --port-group-size=20 --parallel $GALERA_PARALLEL_RUN --retry-failure=3 --clean-vardir --max-test-fail=0 --force --suite-timeout=600 \
-        --suite=galera 2>&1 | tee -a mtr1.out
-        killall -9 mysqld || true
-        exitcode1=`grep "\[ fail \]" mtr1.out | wc -l`
+            mkdir $WORKSPACE/var1
+            perl ./mysql-test-run.pl --big-test --vardir=$WORKSPACE/var1 --port-group-size=20 --parallel $GALERA_PARALLEL_RUN --retry-failure=3 --clean-vardir --max-test-fail=0 --force --suite-timeout=600 \
+            --suite=galera 2>&1 | tee -a mtr1.out
+            killall -9 mysqld || true
+            exitcode1=`grep "\[ fail \]" mtr1.out | wc -l`
         fi
 
         #(perl ./mysql-test-run.pl galera.galera_garbd --vardir=$WORKSPACE/var1 --clean-vardir  2>&1 | tee -a mtr1.out) || false
@@ -194,12 +211,12 @@
 
         # galera_3nodes suite
         if echo "$MTR_SUITES" | grep -Eq "galera_3nodes"; then
-        mkdir $WORKSPACE/var2
-        perl ./mysql-test-run.pl --big-test --vardir=$WORKSPACE/var2 --port-group-size=20 --parallel $GALERA_PARALLEL_RUN --retry-failure=3 --clean-vardir --max-test-fail=0 --force --suite-timeout=600 \
-        --suite=galera_3nodes 2>&1 | tee -a mtr2.out
+            mkdir $WORKSPACE/var2
+            perl ./mysql-test-run.pl --big-test --vardir=$WORKSPACE/var2 --port-group-size=20 --parallel $GALERA_PARALLEL_RUN --retry-failure=3 --clean-vardir --max-test-fail=0 --force --suite-timeout=600 \
+            --suite=galera_3nodes 2>&1 | tee -a mtr2.out
 
-        killall -9 mysqld || true
-        exitcode2=`grep "\[ fail \]" mtr2.out | wc -l`
+            killall -9 mysqld || true
+            exitcode2=`grep "\[ fail \]" mtr2.out | wc -l`
         fi
 
         # sys_vars suite
@@ -221,11 +238,11 @@
         TARNAME="pxc57-test-mtr_logs"
         #
         for num in 1 2 3; do
-        mkdir -p ${WORKSPACE}/${TARNAME}/var${num}
-        for num2 in 1 2; do
-        mkdir -p ${WORKSPACE}/${TARNAME}/var${num}/${num2}
-        find ${WORKSPACE}/var${num}/${num2} -type f -name '*.err' -exec cp -av '{}' ${WORKSPACE}/${TARNAME}/var${num}/${num2} \;
-        done
+            mkdir -p ${WORKSPACE}/${TARNAME}/var${num}
+            for num2 in 1 2; do
+                mkdir -p ${WORKSPACE}/${TARNAME}/var${num}/${num2}
+                find ${WORKSPACE}/var${num}/${num2} -type f -name '*.err' -exec cp -av '{}' ${WORKSPACE}/${TARNAME}/var${num}/${num2} \;
+            done
         done
         #
         tar -czvf ${WORKSPACE}/${TARNAME}.tar.gz ${WORKSPACE}/${TARNAME}
@@ -314,3 +331,8 @@
         timeout: 600
         type: absolute
     - timestamps
+    - credentials-binding:
+         - amazon-web-services:
+            credential-id: c42456e5-c28d-4962-b32c-b75d161bff27
+            access-key: AWS_ACCESS_KEY_ID
+            secret-key: AWS_SECRET_ACCESS_KEY
