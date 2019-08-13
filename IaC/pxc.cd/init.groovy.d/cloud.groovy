@@ -34,6 +34,12 @@ imageMap['min-trusty-x64'] = 'ami-00048435fed26a8d1'
 imageMap['min-xenial-x64'] = 'ami-0ad16744583f21877'
 imageMap['psmdb'] = imageMap['min-xenial-x64']
 
+imageMap['ramdisk-centos-6-x64'] = imageMap['min-centos-6-x64']
+imageMap['ramdisk-centos-7-x64'] = imageMap['min-centos-7-x64']
+imageMap['ramdisk-stretch-x64']  = imageMap['min-stretch-x64']
+imageMap['ramdisk-xenial-x64']   = imageMap['min-xenial-x64']
+imageMap['ramdisk-bionic-x64']   = imageMap['min-bionic-x64']
+
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
 priceMap['m1.medium'] = '0.05'
@@ -58,6 +64,12 @@ userMap['min-buster-x64'] = 'admin'
 userMap['min-trusty-x64'] = 'ubuntu'
 userMap['min-xenial-x64'] = 'ubuntu'
 userMap['psmdb'] = userMap['min-xenial-x64']
+
+userMap['ramdisk-centos-6-x64'] = userMap['min-centos-6-x64']
+userMap['ramdisk-centos-7-x64'] = userMap['min-centos-7-x64']
+userMap['ramdisk-stretch-x64']  = userMap['min-stretch-x64']
+userMap['ramdisk-xenial-x64']   = userMap['min-xenial-x64']
+userMap['ramdisk-bionic-x64']   = userMap['min-bionic-x64']
 
 initMap = [:]
 initMap['docker'] = '''
@@ -196,6 +208,36 @@ initMap['min-jessie-x64'] = '''
 '''
 initMap['min-trusty-x64'] = initMap['min-jessie-x64']
 
+initMap['ramdisk-centos-6-x64'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        sudo mount -t tmpfs -o size=20G tmpfs /mnt
+    fi
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+    sudo yum -y install java-1.8.0-openjdk git aws-cli || :
+    sudo yum -y remove java-1.7.0-openjdk || :
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
+initMap['ramdisk-centos-7-x64'] = initMap['ramdisk-centos-6-x64']
+
+initMap['ramdisk-bionic-x64'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        sudo mount -t tmpfs -o size=20G tmpfs /mnt
+    fi
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+    sudo apt-get -y install openjdk-8-jre-headless git
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
+initMap['ramdisk-stretch-x64'] = initMap['ramdisk-bionic-x64']
+initMap['ramdisk-xenial-x64']  = initMap['ramdisk-bionic-x64']
+
 capMap = [:]
 capMap['c4.xlarge'] = '60'
 capMap['m4.xlarge'] = '60'
@@ -218,6 +260,12 @@ typeMap['min-trusty-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
 typeMap['psmdb'] = typeMap['docker-32gb']
 
+typeMap['ramdisk-centos-6-x64'] = typeMap['docker-32gb']
+typeMap['ramdisk-centos-7-x64'] = typeMap['docker-32gb']
+typeMap['ramdisk-stretch-x64']  = typeMap['docker-32gb']
+typeMap['ramdisk-xenial-x64']   = typeMap['docker-32gb']
+typeMap['ramdisk-bionic-x64']   = typeMap['docker-32gb']
+
 execMap = [:]
 execMap['docker'] = '1'
 execMap['docker-32gb'] = execMap['docker']
@@ -234,6 +282,12 @@ execMap['min-stretch-x64'] = '1'
 execMap['min-trusty-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
 execMap['psmdb'] = '1'
+
+execMap['ramdisk-centos-6-x64'] = execMap['docker-32gb']
+execMap['ramdisk-centos-7-x64'] = execMap['docker-32gb']
+execMap['ramdisk-stretch-x64']  = execMap['docker-32gb']
+execMap['ramdisk-xenial-x64']   = execMap['docker-32gb']
+execMap['ramdisk-bionic-x64']   = execMap['docker-32gb']
 
 devMap = [:]
 devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -252,6 +306,12 @@ devMap['min-xenial-x64'] = devMap['min-artful-x64']
 devMap['min-centos-6-x32'] = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 
+devMap['ramdisk-centos-6-x64'] = '/dev/sda1=:8:true:gp2'
+devMap['ramdisk-centos-7-x64'] = devMap['ramdisk-centos-6-x64']
+devMap['ramdisk-bionic-x64']   = devMap['ramdisk-centos-6-x64']
+devMap['ramdisk-xenial-x64']   = devMap['ramdisk-centos-6-x64']
+devMap['ramdisk-stretch-x64']  = 'xvda=:8:true:gp2'
+
 labelMap = [:]
 labelMap['docker'] = ''
 labelMap['docker-32gb'] = ''
@@ -268,6 +328,12 @@ labelMap['min-buster-x64'] = ''
 labelMap['min-trusty-x64'] = ''
 labelMap['min-xenial-x64'] = ''
 labelMap['psmdb'] = ''
+
+labelMap['ramdisk-centos-6-x64'] = ''
+labelMap['ramdisk-centos-7-x64'] = ''
+labelMap['ramdisk-bionic-x64']   = ''
+labelMap['ramdisk-xenial-x64']   = ''
+labelMap['ramdisk-stretch-x64']  = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -340,6 +406,11 @@ String region = 'us-west-1'
             getTemplate('min-trusty-x64', "${region}${it}"),
             getTemplate('min-xenial-x64', "${region}${it}"),
             getTemplate('min-bionic-x64', "${region}${it}"),
+            getTemplate('ramdisk-centos-6-x64', "${region}${it}"),
+            getTemplate('ramdisk-centos-7-x64', "${region}${it}"),
+            getTemplate('ramdisk-stretch-x64', "${region}${it}"),
+            getTemplate('ramdisk-xenial-x64', "${region}${it}"),
+            getTemplate('ramdisk-bionic-x64', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
