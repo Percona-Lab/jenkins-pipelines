@@ -34,6 +34,8 @@
             fi
 
             sudo python get-pip.py
+            sudo pip install awscli
+            sudo pip install --upgrade --no-deps --force-reinstall awscli
             sudo pip install --upgrade wheel setuptools urllib3
             sudo pip install --upgrade sphinx===1.4
         fi
@@ -44,7 +46,7 @@
             sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ bison libasio-dev libssl-dev libtool libc-dev libgpg-error-dev python-sphinx
             sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check python-sphinx libgcrypt-dev python-docutils
             sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat libev-dev libcurl4-openssl-dev
-            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install lsb-release
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install lsb-release python3-pip
 
             # TODO REMOVE AFTER image fix
             DEBVERSION=$(lsb_release -sc)
@@ -62,6 +64,9 @@
                 sudo dpkg -i *.deb
                 rm -fv *.deb
             fi
+
+            sudo pip3 install awscli
+            sudo pip3 install --upgrade awscli
         fi
 
     - shell: |-
@@ -83,6 +88,18 @@
         REMOTE_DIR="/www/percona.com/htdocs/downloads/TESTING/XtraBackup/xtrabackup-${XTRABACKUP_VERSION}/${BRANCH_NAME}/${REVNO}/binary/Linux/$(uname -m)"
         echo "${REMOTE_DIR}" > REMOTE_DIR
         bash ./storage/innobase/xtrabackup/utils/build-binary.sh ./target
+
+        PXB_BIN_TAR=$(ls ./target/percona-xtrabackup-* | awk -F'/' '{print $3}')
+        if [ -n "${PXB_BIN_TAR}" ]; then
+            until aws s3 cp --no-progress --acl public-read ./target/$PXB_BIN_TAR s3://pxc-build-cache/${BUILD_TAG}/$PXB_BIN_TAR; do
+                sleep 5
+            done
+        else
+            echo cannot find compiled archive
+            exit 1
+        fi
+
+        echo "${BUILD_TAG}/$PXB_BIN_TAR" > PXB_2_4_BIN_TAR_URL
 
     concurrent: false
     description: Build 2.4 binaries (for PXC now).
@@ -110,7 +127,7 @@
         days-to-keep: -1
         num-to-keep: 5
     - copyartifact:
-        projects: "*"
+        projects: "PXB_2_4_BIN_TAR_URL"
     publishers:
     - archive:
         allow-empty: false
@@ -141,3 +158,8 @@
     triggers: []
     wrappers:
     - timestamps
+    - credentials-binding:
+         - amazon-web-services:
+            credential-id: c42456e5-c28d-4962-b32c-b75d161bff27
+            access-key: AWS_ACCESS_KEY_ID
+            secret-key: AWS_SECRET_ACCESS_KEY
