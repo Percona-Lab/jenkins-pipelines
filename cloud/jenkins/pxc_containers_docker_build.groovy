@@ -89,9 +89,6 @@ pipeline {
             steps {
                 unstash "sourceFILES"
                 retry(3) {
-                    build('proxysql')
-                }
-                retry(3) {
                     build('backup')
                 }
             }
@@ -108,6 +105,9 @@ pipeline {
                    export GIT_BRANCH=$GIT_PD_BRANCH
                    ./cloud/local/checkout
                 """          
+                retry(3) {
+                    build('proxysql')
+                }
                 retry(3) {
                     build('pxc')
                 }
