@@ -25,11 +25,25 @@
         which-build: last-successful
     - copyartifact:
         exclude-pattern: null
-        filter: target/*
+        filter: PXC_5_7_URL
         flatten: true
         project: qa-pxc57-build/label_exp=$Host,BUILD_TYPE=$BTYPE
         target: ""
         which-build: last-successful
+    - shell: |-
+        #!/bin/bash
+
+        if [ -f /usr/bin/yum ]; then
+            sudo yum clean all
+            sudo yum -y install epel-release
+            sudo yum update -y
+            sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel rsync lsof wget
+            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel sysbench python-pip python2-pip numactl
+    
+            sudo pip install awscli
+            sudo pip install --upgrade awscli
+        fi
+
     - shell: |-
         export LDFLAGS="-z defs"
         #export ASAN_OPTIONS=sleep_before_dying=120
@@ -48,6 +62,11 @@
 
         killall -9 mysqld || true
 
+        PXC_5_7_URL=$(cat PXC_5_7_URL)
+        until aws s3 cp --no-progress s3://pxc-build-cache/$PXC_5_7_URL ./; do
+            sleep 5
+        done
+
         export BUILD_SOURCE=$BTYPE
         REDHAT_VERSION="rhel$(grep -o 'release [0-9][0-9]*' /etc/redhat-release | cut -d ' ' -f 2)"
 
@@ -63,7 +82,7 @@
            cd percona-qa
         fi
 
-        bash -x ./pxc-garbd.sh $ROOT_FS
+        bash -x ./pxc-tests/pxc-garbd.sh $ROOT_FS
 
         cd $ROOT_FS
         rm -rf ${BUILD_NUMBER}
@@ -131,3 +150,8 @@
         timeout: 2700
         type: absolute
     - timestamps
+    - credentials-binding:
+         - amazon-web-services:
+            credential-id: c42456e5-c28d-4962-b32c-b75d161bff27
+            access-key: AWS_ACCESS_KEY_ID
+            secret-key: AWS_SECRET_ACCESS_KEY

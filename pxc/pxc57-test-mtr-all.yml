@@ -24,14 +24,14 @@
     builders:
     - copyartifact:
         exclude-pattern: null
-        filter: target/Percona-XtraDB-Cluster-*.tar.gz
+        filter: PXC_5_7_URL
         flatten: true
         project: qa-pxc57-build/label_exp=$Host,BUILD_TYPE=$Ttype
         target: ""
         which-build: last-completed
     - copyartifact:
         exclude-pattern: null
-        filter: target/percona-xtrabackup-*.tar.gz
+        filter: PXB_2_4_BIN_TAR_URL
         flatten: true
         project: percona-xtrabackup-2.4-binaries/label_exp=$Host
         target: ""
@@ -39,14 +39,24 @@
     - shell: |-
 
         if [ -f /usr/bin/yum ]; then
+            sudo yum -y install epel-release
+            sudo -E yum -y install wget
             wget https://jenkins.percona.com/yum-repo/percona-dev.repo
             sudo -E mv -vf percona-dev.repo /etc/yum.repos.d/
-            sudo -E yum -y install libeatmydata socat perl-Time-HiRes nocache || true
+            sudo -E yum -y install libeatmydata socat perl-Time-HiRes nocache libaio libaio-devel || true
+            sudo -E yum -y install python-pip python2-pip
+
+            sudo pip install awscli
+            sudo pip install --upgrade awscli
         fi
 
         if [ -f /usr/bin/apt-get ]; then
-            sudo -E apt-get update
-            sudo -E apt-get -y install lsb-release nocache socat libaio1 libnuma1 || true
+            sudo DEBIAN_FRONTEND=noninteractive -E apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive -E apt-get -y install lsb-release nocache socat libaio1 libnuma1 python3-pip || true
+
+            sudo pip3 install awscli
+            sudo pip3 install --upgrade awscli
+
             DEBIAN=$(lsb_release -sc)
             ARCH=$(uname -m)
             if [ ${ARCH} = x86_64 ]; then
@@ -88,6 +98,16 @@
 
         killall -9 mysqld || true
 
+        PXC_5_7_URL=$(cat PXC_5_7_URL)
+        until aws s3 cp --no-progress s3://pxc-build-cache/$PXC_5_7_URL ./; do
+            sleep 5
+        done
+
+        PXB_2_4_BIN_TAR_URL=$(cat PXB_2_4_BIN_TAR_URL)
+        until aws s3 cp --no-progress s3://pxc-build-cache/$PXB_2_4_BIN_TAR_URL ./; do
+            sleep 5
+        done
+
         find . -type d -name 'Percona-XtraDB-Cluster-*' -exec rm -rf {} \; || true
         find . -type d -name 'percona-xtrabackup-*' -exec rm -rf {} \; || true
 
@@ -104,6 +124,7 @@
 
         PXB_BASE=$(find . -maxdepth 1 -type d -name 'percona-xtrabackup-*' | sort | tail -n1)
 
+        export XB_PLUGIN_DIR=$PWD/${PXB_BASE}/lib/plugin/
         export PATH="$PWD/${PXB_BASE}/bin:${ROOT_FS}:${PATH}"
 
         rm -rf Percona-XtraDB-Cluster
@@ -164,9 +185,9 @@
 
         if [ $exitcode1 -gt 0 -o $exitcode2 -gt 0 ]
         then
-        exit 1;
+            exit 1;
         else
-        exit 0;
+            exit 0;
         fi
 
     concurrent: false
@@ -226,3 +247,8 @@
         timeout: 99999
         type: absolute
     - timestamps
+    - credentials-binding:
+         - amazon-web-services:
+            credential-id: c42456e5-c28d-4962-b32c-b75d161bff27
+            access-key: AWS_ACCESS_KEY_ID
+            secret-key: AWS_SECRET_ACCESS_KEY
