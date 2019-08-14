@@ -25,14 +25,14 @@
     builders:
     - copyartifact:
         exclude-pattern: null
-        filter: target/percona-xtrabackup-*.tar.gz
+        filter: PXB_2_4_BIN_TAR_URL
         flatten: true
         project: percona-xtrabackup-2.4-binaries/Host=$Host
         target: ""
         which-build: last-successful
     - copyartifact:
         exclude-pattern: null
-        filter: target/*
+        filter: PXC_5_7_URL
         flatten: true
         project: qa-pxc57-build/label_exp=$Host,BUILD_TYPE=$BTYPE
         target: ""
@@ -44,10 +44,14 @@
             sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
             sudo percona-release enable original
             sudo yum update -y
+            sudo yum -y install epel-release
             sudo yum clean all
             sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel perl-DBI perl-DBD-MySQL
-            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel lsof socat zlib-devel sysbench
+            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel lsof socat zlib-devel sysbench numactl python-pip python2-pip
             sudo yum -y install percona-xtrabackup-24.x86_64
+
+            sudo pip install awscli
+            sudo pip install --upgrade awscli
         fi
 
         if [ -f /usr/bin/apt-get ]; then
@@ -56,8 +60,11 @@
             sudo DEBIAN_FRONTEND=noninteractive apt-get update
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev libdbi-perl libdbd-mysql-perl libterm-readkey-perl libio-socket-ssl-perl
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev lsof socat sysbench
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install percona-xtrabackup-24
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev lsof socat sysbench numactl python3-pip
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install percona-xtrabackup-24 
+
+            sudo pip3 install awscli
+            sudo pip3 install --upgrade awscli
         fi
 
     - shell: |-
@@ -77,6 +84,15 @@
         fi
 
         killall -9 mysqld || true
+        PXC_5_7_URL=$(cat PXC_5_7_URL)
+        until aws s3 cp --no-progress s3://pxc-build-cache/$PXC_5_7_URL ./; do
+            sleep 5
+        done
+
+        PXB_2_4_BIN_TAR_URL=$(cat PXB_2_4_BIN_TAR_URL)
+        until aws s3 cp --no-progress s3://pxc-build-cache/$PXB_2_4_BIN_TAR_URL ./; do
+            sleep 5
+        done
 
         export BUILD_SOURCE=$BTYPE
         REDHAT_VERSION="rhel$(grep -o 'release [0-9][0-9]*' /etc/redhat-release | cut -d ' ' -f 2)"
@@ -130,7 +146,7 @@
         name: TCOUNT
         trim: 'false'
     - string:
-        default: --with-encryption
+        default: ''
         description: ''
         name: SCRIPT_PARAM
         trim: 'false'
@@ -157,3 +173,8 @@
         timeout: 300
         type: absolute
     - timestamps
+    - credentials-binding:
+         - amazon-web-services:
+            credential-id: c42456e5-c28d-4962-b32c-b75d161bff27
+            access-key: AWS_ACCESS_KEY_ID
+            secret-key: AWS_SECRET_ACCESS_KEY
