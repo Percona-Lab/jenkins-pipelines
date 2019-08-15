@@ -1,0 +1,147 @@
+- job:
+    auth-token: pxc56build
+    axes:
+    - axis:
+        name: label_exp
+        type: label-expression
+        values:
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-stretch-x64
+        - min-trusty-x64
+        - min-xenial-x64
+        - min-bionic-x64
+    - axis:
+        name: BUILD_TYPE
+        type: user-defined
+        values:
+        - release
+        - debug
+    block-downstream: false
+    block-upstream: true
+    builders:
+    - copyartifact:
+        exclude-pattern: null
+        filter: '*'
+        flatten: true
+        project: $GL_JOB/label_exp=$label_exp,Btype=$BUILD_TYPE
+        target: ""
+        which-build: last-completed
+    - shell: |-
+        #!/bin/bash
+
+        if [ -f /usr/bin/yum ]; then
+            sudo yum clean all
+            sudo -E yum -y install epel-release
+            sudo -E yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel scons
+            sudo -E yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel python-pip python2-pip
+
+            sudo pip install awscli
+            sudo pip install --upgrade awscli
+        fi
+
+        if [ -f /usr/bin/apt-get ]; then
+            DEBIAN_VERSION=$(lsb_release -sc)
+            if [[ ${DEBIAN_VERSION} = jessie ]]; then
+        cat << EOF > sources.list
+        ###### Debian Main Repos
+        deb http://httpredir.debian.org/debian jessie main contrib non-free
+        deb http://security.debian.org/ jessie/updates main contrib non-free
+        EOF
+            sudo mv -vf sources.list /etc/apt/sources.list
+            fi
+            # Adding the DEBIAN_FRONTEND=noninteractive to avoid
+            # blocking the build, otherwise the build gets a dialog
+            # about restarting
+            # https://unix.stackexchange.com/questions/146283
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat python3-pip
+
+            sudo pip3 install awscli
+            sudo pip3 install --upgrade awscli
+        fi
+
+    - shell: |
+        #!/bin/bash
+
+        rm -rf target
+        mkdir -p target
+
+
+        #echo "Copying the galera library"
+        mv libgalera_smm.so ./target/
+        mv garbd ./target/
+
+        set -e
+        if test "x${BUILD_TYPE}" = "xdebug"
+        then
+        #  bash -x ./build-ps/build-binary-nobzr.sh -G -d ./target
+            bash -x ./build-ps/build-binary.sh -G -d ./target
+        else
+        #  bash -x ./build-ps/build-binary-nobzr.sh -G ./target
+            bash -x ./build-ps/build-binary.sh -G ./target
+        fi
+        set +e
+
+
+        find ./target # For testing results and log
+
+        PXC_TAR=$(ls ./target/Percona-XtraDB-Cluster-* | awk -F'/' '{print $3}')
+        if [[ -n "${PXC_TAR}" ]]; then
+            until aws s3 cp --no-progress --acl public-read ./target/$PXC_TAR s3://pxc-build-cache/${BUILD_TAG}/$PXC_TAR; do
+                sleep 5
+            done
+        else
+            echo cannot find compiled archive
+            exit 1
+        fi
+
+        echo "${BUILD_TAG}/$PXC_TAR" > PXC_5_6_URL
+
+    concurrent: false
+    description: We build PXC binaries on each platform for then using in XB test
+      suite.
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: pxc56-build
+    node: micro-amazon
+    parameters:
+    - string:
+        default: pxc56-buildandtest-galera3
+        description: ''
+        name: GL_JOB
+        trim: 'false'
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 5
+        days-to-keep: 4
+        num-to-keep: 4
+    scm:
+      - workspace:
+          parent-job: pxc56-clone
+          criteria: Any
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: PXC_5_6_URL
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    - trigger:
+        project: pxc56-test-mtr
+        threshold: SUCCESS
+    - workspace-cleanup
+    triggers: []
+    wrappers:
+    - timestamps
+    - credentials-binding:
+         - amazon-web-services:
+            credential-id: c42456e5-c28d-4962-b32c-b75d161bff27
+            access-key: AWS_ACCESS_KEY_ID
+            secret-key: AWS_SECRET_ACCESS_KEY
