@@ -1,0 +1,155 @@
+- job:
+    axes:
+    - axis:
+        name: label_exp
+        type: label-expression
+        values:
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-stretch-x64
+        - min-trusty-x64
+        - min-xenial-x64
+        - min-bionic-x64
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - shell: |-
+        if [ -f /usr/bin/yum ]; then
+            sudo -E yum -y install epel-release
+            sudo -E yum -y install gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel curl-devel wget vim-common
+            sudo -E yum -y install libev-devel libgcrypt-devel zlib-devel ncurses-devel python-docutils libgcrypt-devel bison
+            sudo -E yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat python-docutils
+            
+            wget https://bootstrap.pypa.io/2.6/get-pip.py
+            sudo -E python get-pip.py
+
+            #GodDamnSphinx installation
+            RHEL=$(rpm --eval %rhel)
+            if [ ${RHEL} -lt 7 ]; then
+                sudo -E pip install --upgrade pip wheel setuptools urllib3
+                sudo -E pip install sphinx===1.4
+            else
+                sudo yum -y install python-sphinx python-sphinx-doc
+            fi
+
+            sudo pip install awscli
+            sudo pip install --upgrade --no-deps --force-reinstall awscli
+        fi
+
+        if [ -f /usr/bin/apt-get ]; then
+            sudo DEBIAN_FRONTEND=noninteractive -E apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive -E apt-get -y install make gcc g++ bison libasio-dev libssl-dev libtool libc-dev libgpg-error-dev python-sphinx
+            sudo DEBIAN_FRONTEND=noninteractive -E apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check python-sphinx libgcrypt-dev python-docutils
+            sudo DEBIAN_FRONTEND=noninteractive -E apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat libev-dev libcurl4-openssl-dev
+            sudo DEBIAN_FRONTEND=noninteractive -E apt-get -y install lsb-release python3-pip
+
+            sudo pip3 install awscli
+            sudo pip3 install --upgrade awscli
+
+            # TODO REMOVE AFTER image fix
+            DEBVERSION=$(lsb_release -sc)
+            ARCH=$(uname -m)
+            if [ ${ARCH} = x86_64 ]; then
+                export mArch=amd64
+            else
+                export mArch=i386
+            fi
+
+            if [ ${DEBVERSION} = wheezy ]; then
+                #wget http://jenkins.percona.com/apt-repo/pool/main/c/cmake/cmake-data_3.0.2-1.wheezy_all.deb
+                #wget http://jenkins.percona.com/apt-repo/pool/main/c/cmake/cmake_3.0.2-1.wheezy_${mArch}.deb
+                wget http://jenkins.percona.com/apt-repo/pool/main/c/cmake/cmake-data_3.5.1-1.wheezy_all.deb
+                wget http://jenkins.percona.com/apt-repo/pool/main/c/cmake/cmake_3.5.1-1.wheezy_amd64.deb
+                sudo apt-get -y install libjsoncpp0
+                sudo dpkg -i *.deb
+                rm -fv *.deb
+            fi
+        fi
+
+    - shell: |-
+        rm -rf target
+        mkdir -p target
+
+        # Read XTRABACKUP_VERSION from the VERSION file
+        . ${WORKSPACE}/XB_VERSION
+
+        XTRABACKUP_VERSION="${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}"
+
+        if test "x${XTRABACKUP_VERSION}" == "x"
+        then
+            exit 2
+        fi
+
+        # Information for publishing the binaries:
+        BRANCH_NAME="${BRANCH}"
+        REVNO="$(git rev-parse --short HEAD)"
+        REDHAT_VERSION="rhel$(grep -o 'release [0-9][0-9]*' /etc/redhat-release | cut -d ' ' -f 2)"
+
+        REMOTE_DIR="/www/percona.com/htdocs/downloads/TESTING/XtraBackup/xtrabackup-${XTRABACKUP_VERSION}/${BRANCH_NAME}/${REVNO}/binary/Linux/$(uname -m)"
+
+        echo "${REMOTE_DIR}" > REMOTE_DIR
+        bash ./storage/innobase/xtrabackup/utils/build-binary.sh ./target
+
+        PXB_BIN_TAR=$(ls ./target/percona-xtrabackup-* | awk -F'/' '{print $3}')
+        if [ -n "${PXB_BIN_TAR}" ]; then
+            until aws s3 cp --no-progress --acl public-read ./target/$PXB_BIN_TAR s3://pxc-build-cache/${BUILD_TAG}/$PXB_BIN_TAR; do
+                sleep 5
+            done
+        else
+            echo cannot find compiled archive
+            exit 1
+        fi
+
+        echo "${BUILD_TAG}/$PXB_BIN_TAR" > PXB_2_3_BIN_TAR_URL
+
+    concurrent: false
+    description: Build 2.3 binaries (for PXC now).
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: percona-xtrabackup-2.3-binaries
+    node: micro-amazon
+    parameters:
+    - string:
+        default: https://github.com/percona/percona-xtrabackup.git
+        description: Repository to build
+        name: GIT_REPO
+        trim: 'false'
+    - string:
+        default: '2.3'
+        description: Branch to build
+        name: BRANCH
+        trim: 'false'
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 2
+        days-to-keep: -1
+        num-to-keep: 2
+    - copyartifact:
+        projects: "*"
+    publishers:
+    - archive:
+        allow-empty: false
+        artifacts: PXB_2_3_BIN_TAR_URL,REMOTE_DIR
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    - workspace-cleanup
+    scm:
+    - git:
+        branches:
+        - ${BRANCH}
+        clean:
+          before: true
+        url: ${GIT_REPO}
+    triggers: []
+    wrappers:
+    - timestamps
+    - credentials-binding:
+         - amazon-web-services:
+            credential-id: c42456e5-c28d-4962-b32c-b75d161bff27
+            access-key: AWS_ACCESS_KEY_ID
+            secret-key: AWS_SECRET_ACCESS_KEY
