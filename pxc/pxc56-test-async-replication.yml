@@ -2,50 +2,55 @@
     auth-token: pxc56testasyncreplication
     axes:
     - axis:
-        name: Host
+        name: label
         type: label-expression
         values:
-        - min-centos-6-x32
-        - min-centos-6-x64
-        - min-centos-7-x64
-        - min-jessie-x64
-        - min-stretch-x64
-        - min-trusty-x64
-        - min-xenial-x64
-        - min-bionic-x64
+        - ramdisk-centos-6-x64
+        - ramdisk-centos-7-x64
+        - ramdisk-stretch-x64
+        - ramdisk-xenial-x64
+        - ramdisk-bionic-x64
     - axis:
-        name: BTYPE
+        name: Host
         type: user-defined
         values:
-        - release
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-stretch-x64
+        - min-xenial-x64
+        - min-bionic-x64
     block-downstream: false
     block-upstream: false
     builders:
     - copyartifact:
         exclude-pattern: null
-        filter: target/percona-xtrabackup-*.tar.gz
+        filter: PXB_2_4_BIN_TAR_URL
         flatten: true
         project: percona-xtrabackup-2.4-binaries/Host=$Host
         target: ""
         which-build: last-successful
     - copyartifact:
         exclude-pattern: null
-        filter: target/*
+        filter: PXC_5_6_URL
         flatten: true
-        project: qa-pxc56-build/Host=$Host,BUILD_TYPE=$BTYPE
+        project: qa-pxc56-build/Host=$Host,BUILD_TYPE=release
         target: ""
         which-build: last-successful
     - shell: |-
         #!/bin/bash
 
         if [ -f /usr/bin/yum ]; then
+            sudo yum -y install epel-release
             sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
             sudo percona-release enable original
             sudo yum update -y
             sudo yum clean all
             sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel wget
             sudo yum -y install percona-xtrabackup-24.x86_64 || true
-            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel sysbench
+            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel sysbench python-pip python2-pip numactl
+
+            sudo pip install awscli
+            sudo pip install --upgrade awscli
         fi
 
         if [ -f /usr/bin/apt-get ]; then
@@ -55,7 +60,10 @@
             sudo DEBIAN_FRONTEND=noninteractive apt-get update
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev percona-xtrabackup-24
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat sysbench
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat sysbench python3-pip numactl
+
+            sudo pip3 install awscli
+            sudo pip3 install --upgrade awscli
         fi
 
     - shell:
@@ -77,6 +85,16 @@
           fi
 
           killall -9 mysqld || true
+
+          PXC_5_6_URL=$(cat PXC_5_6_URL)
+          until aws s3 cp --no-progress s3://pxc-build-cache/$PXC_5_6_URL ./; do
+              sleep 5
+          done
+
+          PXB_2_4_BIN_TAR_URL=$(cat PXB_2_4_BIN_TAR_URL)
+          until aws s3 cp --no-progress s3://pxc-build-cache/$PXB_2_4_BIN_TAR_URL ./; do
+              sleep 5
+          done
 
           export BUILD_SOURCE=$BTYPE
           if [ -d percona-qa/.bzr ]; then
@@ -139,6 +157,9 @@
         name: SCRIPT_PARAM
         trim: 'false'
     project-type: matrix
+    execution-strategy:
+      combination-filter: |
+        (((label=="ramdisk-centos-6-x64") && (Host=="min-centos-6-x64")) || ((label=="ramdisk-centos-7-x64") && (Host=="min-centos-7-x64")) || ((label=="ramdisk-stretch-x64") && (Host=="min-stretch-x64")) ||((label=="ramdisk-xenial-x64") && (Host=="min-xenial-x64")) || ((label=="ramdisk-bionic-x64") && (Host=="min-bionic-x64")))
     properties:
     - build-blocker:
         blocking-jobs:
@@ -165,3 +186,8 @@
         timeout: 2700
         type: absolute
     - timestamps
+    - credentials-binding:
+         - amazon-web-services:
+            credential-id: c42456e5-c28d-4962-b32c-b75d161bff27
+            access-key: AWS_ACCESS_KEY_ID
+            secret-key: AWS_SECRET_ACCESS_KEY
