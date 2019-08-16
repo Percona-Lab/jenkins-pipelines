@@ -81,7 +81,7 @@
         sudo rm -rf test/*
     - shell: |-
         rm -rf psmdb-misc-scripts
-        git clone ${MISC_SCRIPTS_REPO} --depth 1
+        git clone ${MISC_SCRIPTS_REPO} --branch ${MISC_SCRIPTS_BRANCH} --depth 1
 
         bash -x psmdb_builder.sh --builddir=$(pwd)/test --repo=${PSM_REPO} --branch=${PSM_BRANCH} --jenkins_mode=1 --get_sources=1
     - shell: |-
