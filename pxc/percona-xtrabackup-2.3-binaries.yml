@@ -4,10 +4,11 @@
         name: label_exp
         type: label-expression
         values:
+        - min-centos-6-x32
         - min-centos-6-x64
         - min-centos-7-x64
         - min-stretch-x64
-        - min-trusty-x64
+        - min-jessie-x64
         - min-xenial-x64
         - min-bionic-x64
     block-downstream: false
@@ -19,21 +20,20 @@
             sudo -E yum -y install gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel curl-devel wget vim-common
             sudo -E yum -y install libev-devel libgcrypt-devel zlib-devel ncurses-devel python-docutils libgcrypt-devel bison
             sudo -E yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat python-docutils
-            
-            wget https://bootstrap.pypa.io/2.6/get-pip.py
-            sudo -E python get-pip.py
 
             #GodDamnSphinx installation
             RHEL=$(rpm --eval %rhel)
             if [ ${RHEL} -lt 7 ]; then
-                sudo -E pip install --upgrade pip wheel setuptools urllib3
-                sudo -E pip install sphinx===1.4
+                wget https://bootstrap.pypa.io/2.6/get-pip.py
             else
-                sudo yum -y install python-sphinx python-sphinx-doc
+                wget https://bootstrap.pypa.io/get-pip.py
             fi
 
+            sudo python get-pip.py
             sudo pip install awscli
             sudo pip install --upgrade --no-deps --force-reinstall awscli
+            sudo pip install --upgrade wheel setuptools urllib3
+            sudo pip install --upgrade sphinx===1.4
         fi
 
         if [ -f /usr/bin/apt-get ]; then
@@ -145,6 +145,10 @@
         clean:
           before: true
         url: ${GIT_REPO}
+        shallow-clone: true
+        depth: 2
+        clean:
+          after: true
     triggers: []
     wrappers:
     - timestamps

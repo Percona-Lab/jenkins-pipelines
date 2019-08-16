@@ -10,7 +10,7 @@
         - min-stretch-x64
         - min-xenial-x64
         - min-bionic-x64
-        - min-cosmic-x64
+        - min-buster-x64
     - axis:
         name: Ttype
         type: user-defined
@@ -58,7 +58,14 @@
             sudo DEBIAN_FRONTEND=noninteractive apt-get update
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev wget libtool libc-dev percona-xtrabackup-24
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check rsync
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat sysbench python3-pip numactl
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat curl python3-pip numactl
+            DISTRIBUTOR_ID=$(lsb_release -sc)
+            if [[ ${DISTRIBUTOR_ID} == buster ]]; then
+                curl -s https://packagecloud.io/install/repositories/akopytov/sysbench/script.deb.sh | sudo bash
+                sudo apt -y install sysbench
+            else
+                sudo DEBIAN_FRONTEND=noninteractive apt-get -y install sysbench 
+            fi
 
             sudo pip3 install awscli
             sudo pip3 install --upgrade awscli
