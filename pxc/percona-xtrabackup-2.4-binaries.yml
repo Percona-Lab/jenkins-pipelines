@@ -9,11 +9,9 @@
         - min-centos-7-x64
         - min-jessie-x64
         - min-stretch-x64
-        - min-trusty-x64
         - min-xenial-x64
-        - min-artful-x64
         - min-bionic-x64
-        - min-cosmic-x64
+        - min-buster-x64
     block-downstream: false
     block-upstream: false
     builders:
@@ -155,6 +153,10 @@
         clean:
           before: true
         url: ${GIT_REPO}
+        shallow-clone: true
+        depth: 2
+        clean:
+          after: true
     triggers: []
     wrappers:
     - timestamps

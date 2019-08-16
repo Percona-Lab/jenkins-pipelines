@@ -10,9 +10,8 @@
         - min-centos-7-x64
         - min-jessie-x64
         - min-stretch-x64
-        - min-trusty-x64
         - min-xenial-x64
-        - min-artful-x64
+        - min-buster-x64
         - min-bionic-x64
     block-downstream: false
     block-upstream: false
@@ -35,7 +34,16 @@
             sudo DEBIAN_FRONTEND=noninteractive apt-get update
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev unzip
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev lsof socat sysbench
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev lsof socat curl
+
+            DISTRIBUTOR_ID=$(lsb_release -sc)
+            if [[ ${DISTRIBUTOR_ID} == buster ]]; then
+                curl -s https://packagecloud.io/install/repositories/akopytov/sysbench/script.deb.sh | sudo bash
+                sudo apt -y install sysbench
+            else
+                sudo DEBIAN_FRONTEND=noninteractive apt-get -y install sysbench 
+            fi
+
         fi
 
     - shell: |-
