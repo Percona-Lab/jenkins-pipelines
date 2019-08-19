@@ -10,6 +10,8 @@
         - ramdisk-stretch-x64
         - ramdisk-xenial-x64
         - ramdisk-bionic-x64
+        - ramdisk-jessie-x64
+        - ramdisk-buster-x64
     - axis:
         name: Host
         type: user-defined
@@ -19,6 +21,8 @@
         - min-stretch-x64
         - min-xenial-x64
         - min-bionic-x64
+        - min-jessie-x64
+        - min-buster-x64
     block-downstream: false
     block-upstream: false
     builders:
@@ -60,7 +64,15 @@
             sudo DEBIAN_FRONTEND=noninteractive apt-get update
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev percona-xtrabackup-24
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check rsync lsof
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat sysbench python3-pip numactl
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat python3-pip numactl
+
+            DISTRIBUTOR_ID=$(lsb_release -sc)
+            if [[ ${DISTRIBUTOR_ID} == buster ]]; then
+                 curl -s https://packagecloud.io/install/repositories/akopytov/sysbench/script.deb.sh | sudo bash
+                 sudo apt -y install sysbench
+            else
+                 sudo DEBIAN_FRONTEND=noninteractive apt-get -y install sysbench 
+            fi
 
             sudo pip3 install awscli
             sudo pip3 install --upgrade awscli
@@ -158,7 +170,7 @@
     project-type: matrix
     execution-strategy:
       combination-filter: |
-        (((label=="ramdisk-centos-6-x64") && (Host=="min-centos-6-x64")) || ((label=="ramdisk-centos-7-x64") && (Host=="min-centos-7-x64")) || ((label=="ramdisk-stretch-x64") && (Host=="min-stretch-x64")) ||((label=="ramdisk-xenial-x64") && (Host=="min-xenial-x64")) || ((label=="ramdisk-bionic-x64") && (Host=="min-bionic-x64")))
+        (((label=="ramdisk-buster-x64") && (Host=="min-buster-x64")) || ((label=="ramdisk-jessie-x64") && (Host=="min-jessie-x64")) || ((label=="ramdisk-centos-6-x64") && (Host=="min-centos-6-x64")) || ((label=="ramdisk-centos-7-x64") && (Host=="min-centos-7-x64")) || ((label=="ramdisk-stretch-x64") && (Host=="min-stretch-x64")) ||((label=="ramdisk-xenial-x64") && (Host=="min-xenial-x64")) || ((label=="ramdisk-bionic-x64") && (Host=="min-bionic-x64")))
     properties:
     - build-discarder:
         artifact-days-to-keep: -1

@@ -1,5 +1,5 @@
 - job:
-    auth-token: pxcgalera.testgalera
+    auth-token: pxcgalera
     axes:
     - axis:
         name: label_exp
@@ -8,8 +8,8 @@
         - min-centos-6-x32
         - min-centos-6-x64
         - min-centos-7-x64
-        - min-stretch-x64
         - min-jessie-x64
+        - min-stretch-x64
         - min-xenial-x64
         - min-bionic-x64
     - axis:
@@ -22,31 +22,19 @@
     block-upstream: true
     builders:
     - shell: |-
-        #!/bin/bash
-
         if [ -f /usr/bin/yum ]; then
-            sudo yum -y install epel-release
-            sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-            sudo percona-release enable original
-            sudo yum update -y
-            sudo yum clean all
-            sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel wget
-            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel lsof socat zlib-devel sysbench
+            sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel
+            sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel
         fi
-        #
+
         if [ -f /usr/bin/apt-get ]; then
-        sudo wget https://repo.percona.com/apt/percona-release_0.1-6.$(lsb_release -sc)_all.deb
-        sudo dpkg -i percona-release_0.1-6.$(lsb_release -sc)_all.deb
-        sudo DEBIAN_FRONTEND=noninteractive apt-get update
-        sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev
-        sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
-        sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev lsof socat sysbench
-
+            sudo DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat
         fi
-        #
-    - shell: |
-       #!/bin/bash
 
+    - shell: |+
         # The number of processors is a good default for -j
         if test -e "/proc/cpuinfo"
         then
@@ -70,10 +58,12 @@
 
         set -e
 
+        #export RUN_TESTS=0
+
         if [[ $Btype = 'debug' ]];then
-            ./scripts/build.sh -s -c -d -j $PROCESSORS
+            bash -x ./scripts/build.sh -s -c -d -j $PROCESSORS
         else
-            ./scripts/build.sh -s -c -o -j $PROCESSORS
+            bash -x ./scripts/build.sh -s -c -o -j $PROCESSORS
         fi
 
         cp garb/garbd .
@@ -85,8 +75,8 @@
     disabled: false
     execution-strategy:
       sequential: false
-    name: qa-pxc56-buildandtest-galera3-testgalera
-    node: min-bionic-x64
+    name: pxc56-buildandtest-testgalera3
+    node: micro-amazon
     project-type: matrix
     properties:
     - build-discarder:

@@ -10,6 +10,7 @@
         - ramdisk-stretch-x64
         - ramdisk-xenial-x64
         - ramdisk-bionic-x64
+        - ramdisk-jessie-x64
     - axis:
         name: Host
         type: user-defined
@@ -19,6 +20,7 @@
         - min-stretch-x64
         - min-xenial-x64
         - min-bionic-x64
+        - min-jessie-x64
     block-downstream: false
     block-upstream: false
     builders:
@@ -159,7 +161,7 @@
     project-type: matrix
     execution-strategy:
       combination-filter: |
-        (((label=="ramdisk-centos-6-x64") && (Host=="min-centos-6-x64")) || ((label=="ramdisk-centos-7-x64") && (Host=="min-centos-7-x64")) || ((label=="ramdisk-stretch-x64") && (Host=="min-stretch-x64")) ||((label=="ramdisk-xenial-x64") && (Host=="min-xenial-x64")) || ((label=="ramdisk-bionic-x64") && (Host=="min-bionic-x64")))
+        (((label=="ramdisk-jessie-x64") && (Host=="min-jessie-x64")) || ((label=="ramdisk-centos-6-x64") && (Host=="min-centos-6-x64")) || ((label=="ramdisk-centos-7-x64") && (Host=="min-centos-7-x64")) || ((label=="ramdisk-stretch-x64") && (Host=="min-stretch-x64")) ||((label=="ramdisk-xenial-x64") && (Host=="min-xenial-x64")) || ((label=="ramdisk-bionic-x64") && (Host=="min-bionic-x64")))
     properties:
     - build-blocker:
         blocking-jobs:

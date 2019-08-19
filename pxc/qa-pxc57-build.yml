@@ -9,11 +9,10 @@
         - min-centos-6-x64
         - min-centos-7-x64
         - min-redhat-8-x64
-        - min-jessie-x64
         - min-stretch-x64
-        - min-trusty-x64
+        - min-jessie-x64
+        - min-buster-x64
         - min-xenial-x64
-        - min-artful-x64
         - min-bionic-x64
     - axis:
         name: BUILD_TYPE
