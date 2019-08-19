@@ -29,9 +29,9 @@ imageMap['min-centos-6-x64'] = 'ami-8adb3fe9'
 imageMap['min-centos-7-x64'] = 'ami-4826c22b'
 imageMap['min-jessie-x64'] = 'ami-9899c7f8'
 imageMap['min-stretch-x64'] = 'ami-0bcaff0e3bf791af1'
-imageMap['min-buster-x64'] = 'ami-08811566c4b9768a8'
 imageMap['min-trusty-x64'] = 'ami-00048435fed26a8d1'
 imageMap['min-xenial-x64'] = 'ami-0ad16744583f21877'
+imageMap['min-buster-x64'] = 'ami-08811566c4b9768a8'
 imageMap['psmdb'] = imageMap['min-xenial-x64']
 
 imageMap['ramdisk-centos-6-x64'] = imageMap['min-centos-6-x64']
@@ -39,6 +39,8 @@ imageMap['ramdisk-centos-7-x64'] = imageMap['min-centos-7-x64']
 imageMap['ramdisk-stretch-x64']  = imageMap['min-stretch-x64']
 imageMap['ramdisk-xenial-x64']   = imageMap['min-xenial-x64']
 imageMap['ramdisk-bionic-x64']   = imageMap['min-bionic-x64']
+imageMap['ramdisk-buster-x64']   = imageMap['min-buster-x64']
+imageMap['ramdisk-jessie-x64']   = imageMap['min-jessie-x64']
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
@@ -70,6 +72,8 @@ userMap['ramdisk-centos-7-x64'] = userMap['min-centos-7-x64']
 userMap['ramdisk-stretch-x64']  = userMap['min-stretch-x64']
 userMap['ramdisk-xenial-x64']   = userMap['min-xenial-x64']
 userMap['ramdisk-bionic-x64']   = userMap['min-bionic-x64']
+userMap['ramdisk-buster-x64']   = userMap['min-buster-x64']
+userMap['ramdisk-jessie-x64']   = userMap['min-jessie-x64']
 
 initMap = [:]
 initMap['docker'] = '''
@@ -166,6 +170,9 @@ initMap['min-buster-x64'] = '''
         sleep 1
         echo try again
     done
+    sleep 5
+    sudo rm -rf /var/lib/dpkg/lock-frontend
+    sudo rm -rf  /var/cache/apt/archives/lock
     sudo apt-get -y install openjdk-11-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
@@ -187,7 +194,7 @@ initMap['min-bionic-x64'] = initMap['min-artful-x64']
 initMap['min-stretch-x64'] = initMap['min-artful-x64']
 initMap['min-xenial-x64'] = initMap['min-artful-x64']
 initMap['psmdb'] = initMap['min-xenial-x64']
-initMap['min-jessie-x64'] = '''
+initMap['min-trusty-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
         DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
@@ -206,8 +213,61 @@ initMap['min-jessie-x64'] = '''
     rm -fv jre-8u152-linux-x64.tar.gz
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-trusty-x64'] = initMap['min-jessie-x64']
+initMap['min-jessie-x64'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
+        sudo mkfs.ext2 ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
 
+    sudo rm -rf  /etc/apt/sources.list.d/backports.list
+    echo "deb http://httpredir.debian.org/debian jessie main" > sources.list
+    echo "deb-src http://httpredir.debian.org/debian jessie main" >> sources.list
+    echo "deb http://security.debian.org/ jessie/updates main" >> sources.list
+    echo "deb-src http://security.debian.org/ jessie/updates main" >> sources.list
+    sudo mv sources.list /etc/apt/sources.list
+
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+
+    sudo apt-get -y install git wget
+    wget https://jenkins.percona.com/downloads/jre/jre-8u152-linux-x64.tar.gz
+    sudo tar -zxf jre-8u152-linux-x64.tar.gz -C /usr/local
+    sudo ln -s /usr/local/jre1.8.0_152 /usr/local/java
+    sudo ln -s /usr/local/jre1.8.0_152/bin/java /usr/bin/java
+    rm -fv jre-8u152-linux-x64.tar.gz
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
+
+initMap['ramdisk-jessie-x64'] = '''
+    set -o xtrace
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        sudo mount -t tmpfs -o size=20G tmpfs /mnt
+    fi
+    sudo rm -rf  /etc/apt/sources.list.d/backports.list
+    echo "deb http://httpredir.debian.org/debian jessie main" > sources.list
+    echo "deb-src http://httpredir.debian.org/debian jessie main" >> sources.list
+    echo "deb http://security.debian.org/ jessie/updates main" >> sources.list
+    echo "deb-src http://security.debian.org/ jessie/updates main" >> sources.list
+    sudo mv sources.list /etc/apt/sources.list
+
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+
+    sudo apt-get -y install git wget
+    wget https://jenkins.percona.com/downloads/jre/jre-8u152-linux-x64.tar.gz
+    sudo tar -zxf jre-8u152-linux-x64.tar.gz -C /usr/local
+    sudo ln -s /usr/local/jre1.8.0_152 /usr/local/java
+    sudo ln -s /usr/local/jre1.8.0_152/bin/java /usr/bin/java
+    rm -fv jre-8u152-linux-x64.tar.gz
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
 initMap['ramdisk-centos-6-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -223,6 +283,23 @@ initMap['ramdisk-centos-6-x64'] = '''
 '''
 initMap['ramdisk-centos-7-x64'] = initMap['ramdisk-centos-6-x64']
 
+initMap['ramdisk-buster-x64'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        sudo mount -t tmpfs -o size=20G tmpfs /mnt
+    fi
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+    sleep 5
+
+    sudo rm -rf /var/lib/dpkg/lock-frontend
+    sudo rm -rf  /var/cache/apt/archives/lock
+
+    sudo apt-get -y install openjdk-11-jre-headless git
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
 initMap['ramdisk-bionic-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -247,13 +324,13 @@ typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
 typeMap['docker'] = 'c4.xlarge'
 typeMap['docker-32gb'] = 'm4.2xlarge'
-typeMap['min-centos-7-x64'] = typeMap['docker']
+typeMap['min-centos-7-x64'] = typeMap['docker-32gb']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32'] = 'm1.medium'
-typeMap['min-centos-6-x64'] = 'm4.xlarge'
-typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
+typeMap['min-centos-6-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-jessie-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-trusty-x64'] = typeMap['min-centos-7-x64']
@@ -265,6 +342,8 @@ typeMap['ramdisk-centos-7-x64'] = typeMap['docker-32gb']
 typeMap['ramdisk-stretch-x64']  = typeMap['docker-32gb']
 typeMap['ramdisk-xenial-x64']   = typeMap['docker-32gb']
 typeMap['ramdisk-bionic-x64']   = typeMap['docker-32gb']
+typeMap['ramdisk-buster-x64']   = typeMap['docker-32gb']
+typeMap['ramdisk-jessie-x64']   = typeMap['docker-32gb']
 
 execMap = [:]
 execMap['docker'] = '1'
@@ -288,6 +367,8 @@ execMap['ramdisk-centos-7-x64'] = execMap['docker-32gb']
 execMap['ramdisk-stretch-x64']  = execMap['docker-32gb']
 execMap['ramdisk-xenial-x64']   = execMap['docker-32gb']
 execMap['ramdisk-bionic-x64']   = execMap['docker-32gb']
+execMap['ramdisk-buster-x64']   = execMap['docker-32gb']
+execMap['ramdisk-jessie-x64']   = execMap['docker-32gb']
 
 devMap = [:]
 devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -311,6 +392,8 @@ devMap['ramdisk-centos-7-x64'] = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-bionic-x64']   = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-xenial-x64']   = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-stretch-x64']  = 'xvda=:8:true:gp2'
+devMap['ramdisk-buster-x64']   = devMap['ramdisk-stretch-x64']
+devMap['ramdisk-jessie-x64']   = '/dev/xvda=:8:true:gp2'
 
 labelMap = [:]
 labelMap['docker'] = ''
@@ -334,6 +417,8 @@ labelMap['ramdisk-centos-7-x64'] = ''
 labelMap['ramdisk-bionic-x64']   = ''
 labelMap['ramdisk-xenial-x64']   = ''
 labelMap['ramdisk-stretch-x64']  = ''
+labelMap['ramdisk-buster-x64']   = ''
+labelMap['ramdisk-jessie-x64']   = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -374,7 +459,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         false,                                      // boolean monitoring
         false,                                      // boolean t2Unlimited
         ConnectionStrategy.PUBLIC_DNS,              // connectionStrategy
-        -1,                                         // int maxTotalUses
+        1,                                          // int maxTotalUses
     )
 }
 
@@ -411,6 +496,8 @@ String region = 'us-west-1'
             getTemplate('ramdisk-stretch-x64', "${region}${it}"),
             getTemplate('ramdisk-xenial-x64', "${region}${it}"),
             getTemplate('ramdisk-bionic-x64', "${region}${it}"),
+            getTemplate('ramdisk-buster-x64', "${region}${it}"),
+            getTemplate('ramdisk-jessie-x64', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
