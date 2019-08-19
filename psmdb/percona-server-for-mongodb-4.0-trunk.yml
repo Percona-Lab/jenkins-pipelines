@@ -69,5 +69,5 @@
             RELEASE_TEST=false
             NUM_TRIALS=1
             MISC_SCRIPTS_REPO=https://github.com/Percona-QA/psmdb-misc-scripts.git
-            MISC_SCRIPTS_TAG=master
+            MISC_SCRIPTS_BRANCH=master
             ENABLE_KILLER=true

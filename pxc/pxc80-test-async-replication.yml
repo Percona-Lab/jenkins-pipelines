@@ -2,21 +2,25 @@
     auth-token: pxc80testasyncreplication
     axes:
     - axis:
-        name: Host
+        name: label
         type: label-expression
+        values:
+        - ramdisk-centos-6-x64
+        - ramdisk-centos-7-x64
+        - ramdisk-stretch-x64
+        - ramdisk-xenial-x64
+        - ramdisk-bionic-x64
+        - ramdisk-buster-x64
+    - axis:
+        name: Host
+        type: user-defined
         values:
         - min-centos-6-x64
         - min-centos-7-x64
-        - min-jessie-x64
         - min-stretch-x64
         - min-xenial-x64
-        - min-artful-x64
         - min-bionic-x64
-    - axis:
-        name: BTYPE
-        type: user-defined
-        values:
-        - release
+        - min-buster-x64
     block-downstream: false
     block-upstream: false
     builders:
@@ -31,7 +35,7 @@
         exclude-pattern: null
         filter: PXC_URL
         flatten: true
-        project: qa-pxc80-build/Host=$Host,BUILD_TYPE=$BTYPE
+        project: qa-pxc80-build/Host=$Host,BUILD_TYPE=release
         target: ""
         which-build: last-successful
     - shell: |-
@@ -51,15 +55,23 @@
         fi
 
         if [ -f /usr/bin/apt-get ]; then
-            sudo apt-get -y install wget
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install wget
             sudo wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb
             sudo dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb
             sudo percona-release setup ps80
-            sudo apt-get update
-            sudo apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev percona-xtrabackup-24
-            sudo apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check rsync lsof
-            sudo apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat sysbench python3-pip numactl
- 
+            sudo DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev percona-xtrabackup-24
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check rsync lsof
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat curl python3-pip numactl
+
+            DISTRIBUTOR_ID=$(lsb_release -sc)
+            if [[ ${DISTRIBUTOR_ID} == buster ]]; then
+                curl -s https://packagecloud.io/install/repositories/akopytov/sysbench/script.deb.sh | sudo bash
+                sudo apt -y install sysbench
+            else
+                sudo DEBIAN_FRONTEND=noninteractive apt-get -y install sysbench 
+            fi
+
             sudo pip3 install awscli
             sudo pip3 install --upgrade awscli
         fi
@@ -150,6 +162,9 @@
         name: SCRIPT_PARAM
         trim: 'false'
     project-type: matrix
+    execution-strategy:
+      combination-filter: |
+        (((label=="ramdisk-buster-x64") && (Host=="min-buster-x64")) || ((label=="ramdisk-centos-6-x64") && (Host=="min-centos-6-x64")) || ((label=="ramdisk-centos-7-x64") && (Host=="min-centos-7-x64")) || ((label=="ramdisk-stretch-x64") && (Host=="min-stretch-x64")) ||((label=="ramdisk-xenial-x64") && (Host=="min-xenial-x64")) || ((label=="ramdisk-bionic-x64") && (Host=="min-bionic-x64")))
     properties:
     - build-discarder:
         artifact-days-to-keep: -1

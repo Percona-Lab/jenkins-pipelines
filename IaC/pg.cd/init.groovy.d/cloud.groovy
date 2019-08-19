@@ -16,29 +16,39 @@ logger.info("Cloud init started")
 Jenkins jenkins = Jenkins.getInstance()
 
 netMap = [:]
-netMap['us-west-1b'] = 'subnet-01d9a7d6b4722eb43'
-netMap['us-west-1c'] = 'subnet-0550c1d2ffd688021'
+netMap['eu-central-1b'] = 'subnet-085deaca8c1c59a4f'
+netMap['eu-central-1c'] = 'subnet-0643c0784b4e3cedd'
 
 imageMap = [:]
-imageMap['micro-amazon'] = 'ami-0bdb828fd58c52235'
-imageMap['micro-amazon2'] = 'ami-0782017a917e973e7'
-imageMap['min-artful-x64'] = 'ami-20bb5d43'
-imageMap['min-bionic-x64'] = 'ami-063aa838bd7631e0b'
-imageMap['min-centos-6-x32'] = 'ami-67e3cd22'
-imageMap['min-centos-6-x64'] = 'ami-8adb3fe9'
-imageMap['min-centos-7-x64'] = 'ami-4826c22b'
-imageMap['min-jessie-x64'] = 'ami-9899c7f8'
-imageMap['min-stretch-x64'] = 'ami-0bcaff0e3bf791af1'
-imageMap['min-buster-x64'] = 'ami-08811566c4b9768a8'
-imageMap['min-trusty-x64'] = 'ami-00048435fed26a8d1'
-imageMap['min-xenial-x64'] = 'ami-0ad16744583f21877'
-imageMap['psmdb'] = imageMap['min-xenial-x64']
+imageMap['eu-central-1a.docker'] = 'ami-00657de8a0aa24375'
+imageMap['eu-central-1a.docker-32gb'] = 'ami-00657de8a0aa24375'
+imageMap['eu-central-1a.docker2'] = 'ami-00657de8a0aa24375'
+imageMap['eu-central-1a.micro-amazon'] = 'ami-00657de8a0aa24375'
+imageMap['eu-central-1a.min-centos-7-x64'] = 'ami-04cf43aca3e6f3de3'
+imageMap['eu-central-1a.fips-centos-7-x64'] = 'ami-0837950ffca9ae6e8'
 
-imageMap['ramdisk-centos-6-x64'] = imageMap['min-centos-6-x64']
-imageMap['ramdisk-centos-7-x64'] = imageMap['min-centos-7-x64']
-imageMap['ramdisk-stretch-x64']  = imageMap['min-stretch-x64']
-imageMap['ramdisk-xenial-x64']   = imageMap['min-xenial-x64']
-imageMap['ramdisk-bionic-x64']   = imageMap['min-bionic-x64']
+imageMap['eu-central-1b.docker'] = imageMap['eu-central-1a.docker']
+imageMap['eu-central-1b.docker-32gb'] = imageMap['eu-central-1a.docker-32gb']
+imageMap['eu-central-1b.docker2'] = imageMap['eu-central-1a.docker2']
+imageMap['eu-central-1b.micro-amazon'] = imageMap['eu-central-1a.micro-amazon']
+imageMap['eu-central-1b.min-centos-7-x64'] = imageMap['eu-central-1a.min-centos-7-x64']
+imageMap['eu-central-1b.fips-centos-7-x64'] = imageMap['eu-central-1a.fips-centos-7-x64']
+
+imageMap['eu-central-1c.docker'] = imageMap['eu-central-1a.docker']
+imageMap['eu-central-1c.docker-32gb'] = imageMap['eu-central-1a.docker-32gb']
+imageMap['eu-central-1c.docker2'] = imageMap['eu-central-1a.docker2']
+imageMap['eu-central-1c.micro-amazon'] = imageMap['eu-central-1a.micro-amazon']
+imageMap['eu-central-1c.min-centos-7-x64'] = imageMap['eu-central-1a.min-centos-7-x64']
+imageMap['eu-central-1c.fips-centos-7-x64'] = imageMap['eu-central-1a.fips-centos-7-x64']
+
+/*
+imageMap['min-artful-x64'] = 'ami-db2919be'
+imageMap['min-centos-6-x64'] = 'ami-ff48629a'
+imageMap['min-jessie-x64'] = 'ami-c5ba9fa0'
+imageMap['min-stretch-x64'] = 'ami-79c0f01c'
+imageMap['min-trusty-x64'] = 'ami-2ddeee48'
+imageMap['min-xenial-x64'] = 'ami-e82a1a8d'
+*/
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
@@ -46,11 +56,14 @@ priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
+priceMap['r4.4xlarge'] = '0.35'
 priceMap['m5d.2xlarge'] = '0.20'
+priceMap['c5d.xlarge'] = '0.20'
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
 userMap['docker-32gb'] = userMap['docker']
+userMap['docker2'] = userMap['docker']
 userMap['micro-amazon'] = userMap['docker']
 userMap['min-artful-x64'] = 'ubuntu'
 userMap['min-bionic-x64'] = 'ubuntu'
@@ -60,16 +73,9 @@ userMap['min-centos-7-x64'] = 'centos'
 userMap['fips-centos-7-x64'] = 'centos'
 userMap['min-jessie-x64'] = 'admin'
 userMap['min-stretch-x64'] = 'admin'
-userMap['min-buster-x64'] = 'admin'
 userMap['min-trusty-x64'] = 'ubuntu'
 userMap['min-xenial-x64'] = 'ubuntu'
 userMap['psmdb'] = userMap['min-xenial-x64']
-
-userMap['ramdisk-centos-6-x64'] = userMap['min-centos-6-x64']
-userMap['ramdisk-centos-7-x64'] = userMap['min-centos-7-x64']
-userMap['ramdisk-stretch-x64']  = userMap['min-stretch-x64']
-userMap['ramdisk-xenial-x64']   = userMap['min-xenial-x64']
-userMap['ramdisk-bionic-x64']   = userMap['min-bionic-x64']
 
 initMap = [:]
 initMap['docker'] = '''
@@ -104,12 +110,13 @@ initMap['docker'] = '''
     sudo install -o root -g root -d /mnt/docker
     sudo usermod -aG docker $(id -u -n)
     sudo mkdir -p /etc/docker
-    echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json
+    echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl status docker || sudo systemctl start docker
-    echo sudo service docker status || sudo service docker start
+    sudo service docker status || sudo service docker start
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 initMap['docker-32gb'] = initMap['docker']
+initMap['docker2'] = initMap['docker']
 initMap['micro-amazon'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -155,20 +162,6 @@ initMap['min-centos-6-x32'] = '''
     sudo umount /dev/shm
     sudo mount /dev/shm
 '''
-initMap['min-buster-x64'] = '''
-    set -o xtrace
-    if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
-        sudo mkfs.ext2 ${DEVICE}
-        sudo mount ${DEVICE} /mnt
-    fi
-    until sudo apt-get update; do
-        sleep 1
-        echo try again
-    done
-    sudo apt-get -y install openjdk-11-jre-headless git
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-'''
 initMap['min-artful-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -208,45 +201,18 @@ initMap['min-jessie-x64'] = '''
 '''
 initMap['min-trusty-x64'] = initMap['min-jessie-x64']
 
-initMap['ramdisk-centos-6-x64'] = '''
-    set -o xtrace
-    if ! mountpoint -q /mnt; then
-        sudo mount -t tmpfs -o size=20G tmpfs /mnt
-    fi
-    until sudo yum makecache; do
-        sleep 1
-        echo try again
-    done
-    sudo yum -y install java-1.8.0-openjdk git aws-cli || :
-    sudo yum -y remove java-1.7.0-openjdk || :
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-'''
-initMap['ramdisk-centos-7-x64'] = initMap['ramdisk-centos-6-x64']
-
-initMap['ramdisk-bionic-x64'] = '''
-    set -o xtrace
-    if ! mountpoint -q /mnt; then
-        sudo mount -t tmpfs -o size=20G tmpfs /mnt
-    fi
-    until sudo apt-get update; do
-        sleep 1
-        echo try again
-    done
-    sudo apt-get -y install openjdk-8-jre-headless git
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-'''
-initMap['ramdisk-stretch-x64'] = initMap['ramdisk-bionic-x64']
-initMap['ramdisk-xenial-x64']  = initMap['ramdisk-bionic-x64']
-
 capMap = [:]
 capMap['c4.xlarge'] = '60'
-capMap['m4.xlarge'] = '60'
-capMap['m4.2xlarge'] = '10'
+capMap['m4.xlarge'] = '5'
+capMap['m4.2xlarge'] = '40'
+capMap['r4.4xlarge'] = '40'
+capMap['c5d.xlarge'] = '10'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
 typeMap['docker'] = 'c4.xlarge'
 typeMap['docker-32gb'] = 'm4.2xlarge'
+typeMap['docker2'] = 'r4.4xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
@@ -254,21 +220,15 @@ typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32'] = 'm1.medium'
 typeMap['min-centos-6-x64'] = 'm4.xlarge'
 typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
-typeMap['min-buster-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-trusty-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
 typeMap['psmdb'] = typeMap['docker-32gb']
 
-typeMap['ramdisk-centos-6-x64'] = typeMap['docker-32gb']
-typeMap['ramdisk-centos-7-x64'] = typeMap['docker-32gb']
-typeMap['ramdisk-stretch-x64']  = typeMap['docker-32gb']
-typeMap['ramdisk-xenial-x64']   = typeMap['docker-32gb']
-typeMap['ramdisk-bionic-x64']   = typeMap['docker-32gb']
-
 execMap = [:]
 execMap['docker'] = '1'
 execMap['docker-32gb'] = execMap['docker']
+execMap['docker2'] = execMap['docker']
 execMap['micro-amazon'] = '30'
 execMap['min-artful-x64'] = '1'
 execMap['min-bionic-x64'] = '1'
@@ -277,20 +237,14 @@ execMap['min-centos-6-x64'] = '1'
 execMap['min-centos-7-x64'] = '1'
 execMap['fips-centos-7-x64'] = '1'
 execMap['min-jessie-x64'] = '1'
-execMap['min-buster-x64'] = '1'
 execMap['min-stretch-x64'] = '1'
 execMap['min-trusty-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
 execMap['psmdb'] = '1'
 
-execMap['ramdisk-centos-6-x64'] = execMap['docker-32gb']
-execMap['ramdisk-centos-7-x64'] = execMap['docker-32gb']
-execMap['ramdisk-stretch-x64']  = execMap['docker-32gb']
-execMap['ramdisk-xenial-x64']   = execMap['docker-32gb']
-execMap['ramdisk-bionic-x64']   = execMap['docker-32gb']
-
 devMap = [:]
 devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker2'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
 devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
@@ -300,21 +254,15 @@ devMap['min-centos-7-x64'] = devMap['min-artful-x64']
 devMap['fips-centos-7-x64'] = devMap['min-artful-x64']
 devMap['min-jessie-x64'] = devMap['micro-amazon']
 devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
-devMap['min-buster-x64'] = devMap['min-stretch-x64']
 devMap['min-trusty-x64'] = devMap['min-artful-x64']
 devMap['min-xenial-x64'] = devMap['min-artful-x64']
 devMap['min-centos-6-x32'] = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 
-devMap['ramdisk-centos-6-x64'] = '/dev/sda1=:8:true:gp2'
-devMap['ramdisk-centos-7-x64'] = devMap['ramdisk-centos-6-x64']
-devMap['ramdisk-bionic-x64']   = devMap['ramdisk-centos-6-x64']
-devMap['ramdisk-xenial-x64']   = devMap['ramdisk-centos-6-x64']
-devMap['ramdisk-stretch-x64']  = 'xvda=:8:true:gp2'
-
 labelMap = [:]
 labelMap['docker'] = ''
 labelMap['docker-32gb'] = ''
+labelMap['docker2'] = 'docker-32gb'
 labelMap['micro-amazon'] = 'master'
 labelMap['min-artful-x64'] = ''
 labelMap['min-bionic-x64'] = 'asan'
@@ -324,21 +272,14 @@ labelMap['min-centos-7-x64'] = ''
 labelMap['fips-centos-7-x64'] = ''
 labelMap['min-jessie-x64'] = ''
 labelMap['min-stretch-x64'] = ''
-labelMap['min-buster-x64'] = ''
 labelMap['min-trusty-x64'] = ''
 labelMap['min-xenial-x64'] = ''
 labelMap['psmdb'] = ''
 
-labelMap['ramdisk-centos-6-x64'] = ''
-labelMap['ramdisk-centos-7-x64'] = ''
-labelMap['ramdisk-bionic-x64']   = ''
-labelMap['ramdisk-xenial-x64']   = ''
-labelMap['ramdisk-stretch-x64']  = ''
-
-// https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
+// https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
     return new SlaveTemplate(
-        imageMap[OSType],                           // String ami
+        imageMap[AZ + '.' + OSType],                // String ami
         '',                                         // String zone
         new SpotConfiguration(true, priceMap[typeMap[OSType]], false, '0'), // SpotConfiguration spotConfig
         'default',                                  // String securityGroups
@@ -358,12 +299,12 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
         [
-            new EC2Tag('Name', 'jenkins-pxc-' + OSType),
-            new EC2Tag('iit-billing-tag', 'jenkins-pxc-worker')
+            new EC2Tag('Name', 'jenkins-pg-' + OSType),
+            new EC2Tag('iit-billing-tag', 'jenkins-pg-worker')
         ],                                          // List<EC2Tag> tags
         '3',                                        // String idleTerminationMinutes
         capMap[typeMap[OSType]],                    // String instanceCapStr
-        'arn:aws:iam::119175775298:instance-profile/jenkins-pxc-worker', // String iamInstanceProfile
+        'arn:aws:iam::119175775298:instance-profile/jenkins-pg-worker', // String iamInstanceProfile
         true,                                       // boolean deleteRootOnTermination
         false,                                      // boolean useEphemeralDevices
         false,                                      // boolean useDedicatedTenancy
@@ -385,9 +326,9 @@ jenkins.clouds.each {
     }
 }
 
-String region = 'us-west-1'
-('b'..'b').each {
-    // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
+String region = 'eu-central-1'
+('b'..'c').each {
+    // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
     AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
@@ -396,21 +337,7 @@ String region = 'us-west-1'
         privateKey,                             // String privateKey
         '240',                                   // String instanceCapStr
         [
-            getTemplate('micro-amazon', "${region}${it}"),
-            getTemplate('min-centos-6-x32', "${region}${it}"),
-            getTemplate('min-centos-6-x64', "${region}${it}"),
-            getTemplate('min-centos-7-x64', "${region}${it}"),
-            getTemplate('min-jessie-x64', "${region}${it}"),
-            getTemplate('min-stretch-x64', "${region}${it}"),
-            getTemplate('min-buster-x64', "${region}${it}"),
-            getTemplate('min-trusty-x64', "${region}${it}"),
-            getTemplate('min-xenial-x64', "${region}${it}"),
-            getTemplate('min-bionic-x64', "${region}${it}"),
-            getTemplate('ramdisk-centos-6-x64', "${region}${it}"),
-            getTemplate('ramdisk-centos-7-x64', "${region}${it}"),
-            getTemplate('ramdisk-stretch-x64', "${region}${it}"),
-            getTemplate('ramdisk-xenial-x64', "${region}${it}"),
-            getTemplate('ramdisk-bionic-x64', "${region}${it}"),
+            getTemplate('micro-amazon',     "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''

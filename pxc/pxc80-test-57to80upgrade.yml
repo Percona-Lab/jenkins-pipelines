@@ -7,11 +7,10 @@
         values:
         - min-centos-6-x64
         - min-centos-7-x64
-        - min-jessie-x64
         - min-stretch-x64
-        - min-trusty-x64
         - min-xenial-x64
         - min-bionic-x64
+        - min-buster-x64
     - axis:
         name: BTYPE
         type: user-defined
@@ -23,14 +22,14 @@
     builders:
     - copyartifact:
         exclude-pattern: null
-        filter: target/*
+        filter: PXC_5_7_URL
         flatten: true
         project: qa-pxc57-build/label_exp=$Host,BUILD_TYPE=$BTYPE
         target: ""
         which-build: last-successful
     - copyartifact:
         exclude-pattern: null
-        filter: target/*
+        filter: PXC_5_6_URL
         flatten: true
         project: qa-pxc56-build/label_exp=$Host,BUILD_TYPE=$BTYPE
         target: ""
@@ -58,13 +57,22 @@
         fi
 
         if [ -f /usr/bin/apt-get ]; then
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install wget
             sudo wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb
             sudo dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb
             sudo percona-release setup ps80
             sudo DEBIAN_FRONTEND=noninteractive apt-get update
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check python3-pip
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev lsof socat sysbench
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev lsof socat curl
+
+            DISTRIBUTOR_ID=$(lsb_release -sc)
+            if [[ ${DISTRIBUTOR_ID} == buster ]]; then
+                curl -s https://packagecloud.io/install/repositories/akopytov/sysbench/script.deb.sh | sudo bash
+                sudo apt -y install sysbench
+            else
+                sudo DEBIAN_FRONTEND=noninteractive apt-get -y install sysbench 
+            fi
 
             sudo pip3 install awscli
             sudo pip3 install --upgrade awscli

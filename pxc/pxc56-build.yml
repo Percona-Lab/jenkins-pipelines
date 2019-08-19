@@ -1,19 +1,16 @@
 - job:
-    auth-token: qapxc56build
+    auth-token: pxc56build
     axes:
     - axis:
         name: label_exp
         type: label-expression
         values:
-        - min-centos-6-x32
         - min-centos-6-x64
         - min-centos-7-x64
-        - min-jessie-x64
         - min-stretch-x64
         - min-trusty-x64
         - min-xenial-x64
         - min-bionic-x64
-        - min-cosmic-x64
     - axis:
         name: BUILD_TYPE
         type: user-defined
@@ -25,7 +22,7 @@
     builders:
     - copyartifact:
         exclude-pattern: null
-        filter: "*"
+        filter: '*'
         flatten: true
         project: $GL_JOB/label_exp=$label_exp,Btype=$BUILD_TYPE
         target: ""
@@ -42,18 +39,21 @@
             sudo pip install awscli
             sudo pip install --upgrade awscli
         fi
- 
+
         if [ -f /usr/bin/apt-get ]; then
             DEBIAN_VERSION=$(lsb_release -sc)
             if [[ ${DEBIAN_VERSION} = jessie ]]; then
-                cat << EOF > sources.list
-                ###### Debian Main Repos
-                deb http://httpredir.debian.org/debian jessie main contrib non-free
-                deb http://security.debian.org/ jessie/updates main contrib non-free
-                EOF
-                sudo mv -vf sources.list /etc/apt/sources.list
+        cat << EOF > sources.list
+        ###### Debian Main Repos
+        deb http://httpredir.debian.org/debian jessie main contrib non-free
+        deb http://security.debian.org/ jessie/updates main contrib non-free
+        EOF
+            sudo mv -vf sources.list /etc/apt/sources.list
             fi
-
+            # Adding the DEBIAN_FRONTEND=noninteractive to avoid
+            # blocking the build, otherwise the build gets a dialog
+            # about restarting
+            # https://unix.stackexchange.com/questions/146283
             sudo -E DEBIAN_FRONTEND=noninteractive apt-get update
             sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev
             sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
@@ -65,16 +65,6 @@
 
     - shell: |
         #!/bin/bash
-
-        if [ -f /usr/bin/yum ]; then
-            REDHAT_VERSION="rhel$(grep -o 'release [0-9][0-9]*' /etc/redhat-release | cut -d ' ' -f 2)"
-
-            # Use modern gcc for rhel5.
-            if test "x$REDHAT_VERSION" == "xrhel5"
-            then
-                export CC=gcc44 CXX=g++44 GALERA_CC=gcc44 GALERA_CXX=g++44
-            fi
-        fi
 
         rm -rf target
         mkdir -p target
@@ -88,10 +78,10 @@
         if test "x${BUILD_TYPE}" = "xdebug"
         then
         #  bash -x ./build-ps/build-binary-nobzr.sh -G -d ./target
-        bash -x ./build-ps/build-binary.sh -G -d ./target
+            bash -x ./build-ps/build-binary.sh -G -d ./target
         else
         #  bash -x ./build-ps/build-binary-nobzr.sh -G ./target
-        bash -x ./build-ps/build-binary.sh -G ./target
+            bash -x ./build-ps/build-binary.sh -G ./target
         fi
         set +e
 
@@ -116,7 +106,7 @@
     disabled: false
     execution-strategy:
       sequential: false
-    name: qa-pxc56-build
+    name: pxc56-build
     node: micro-amazon
     parameters:
     - string:
@@ -133,7 +123,7 @@
         num-to-keep: 4
     scm:
       - workspace:
-          parent-job: qa-pxc56-clone
+          parent-job: pxc56-clone
           criteria: Any
     publishers:
     - archive:
@@ -143,6 +133,9 @@
         default-excludes: true
         fingerprint: false
         only-if-success: false
+    - trigger:
+        project: pxc56-test-mtr
+        threshold: SUCCESS
     - workspace-cleanup
     triggers: []
     wrappers:

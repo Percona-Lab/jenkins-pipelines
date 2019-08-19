@@ -71,6 +71,11 @@
           purposes.
         name: MISC_SCRIPTS_REPO
         trim: false
+    - string:
+        default: master
+        description: Set to whatever needs to be checked out from psmdb-misc-scripts repo
+        name: MISC_SCRIPTS_BRANCH
+        trim: false
     - bool:
         default: false
         description: Don't build the binaries from github but copy the latest binaries
@@ -80,11 +85,6 @@
         default: true
         description: This enables killer.sh to monitor and kill stalled tests
         name: ENABLE_KILLER
-    - string:
-        default: master
-        description: Set to whatever needs to be checked out from psmdb-misc-scripts repo
-        name: MISC_SCRIPTS_TAG
-        trim: false
     project-type: freestyle
     properties:
     - build-discarder:

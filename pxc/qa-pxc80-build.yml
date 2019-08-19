@@ -10,7 +10,7 @@
         - min-stretch-x64
         - min-xenial-x64
         - min-bionic-x64
-        - min-cosmic-x64
+        - min-buster-x64
     - axis:
         name: BUILD_TYPE
         type: user-defined
@@ -29,7 +29,7 @@
         which-build: last-successful
     - copyartifact:
         exclude-pattern: null
-        filter: target/percona-xtrabackup-*.tar.gz
+        filter: PXB_2_4_BIN_TAR_URL
         flatten: true
         project: percona-xtrabackup-2.4-binaries/Host=$Host
         target: ""
@@ -76,6 +76,11 @@
 
         PXB_BIN_TAR_URL=$(cat PXB_BIN_TAR_URL)
         until aws s3 cp --no-progress s3://pxc-build-cache/$PXB_BIN_TAR_URL ./; do
+            sleep 5
+        done
+
+        PXB_2_4_BIN_TAR_URL=$(cat PXB_2_4_BIN_TAR_URL)
+        until aws s3 cp --no-progress s3://pxc-build-cache/$PXB_2_4_BIN_TAR_URL ./; do
             sleep 5
         done
 

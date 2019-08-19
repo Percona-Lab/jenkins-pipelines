@@ -1,5 +1,5 @@
 - job:
-    auth-token: pxc57testmtr
+    auth-token: pxcmtest
     axes:
     - axis:
         name: Host
@@ -7,11 +7,9 @@
         values:
         - min-centos-6-x64
         - min-centos-7-x64
-        - min-jessie-x64
         - min-stretch-x64
         - min-trusty-x64
         - min-xenial-x64
-        - min-artful-x64
         - min-bionic-x64
     - axis:
         name: Ttype
@@ -24,38 +22,60 @@
     builders:
     - copyartifact:
         exclude-pattern: null
-        filter: PXC_5_7_URL
+        filter: PXC_5_6_URL
         flatten: true
-        project: qa-pxc57-build/label_exp=$Host,BUILD_TYPE=$Ttype
+        project: pxc56-build/label_exp=$Host,BUILD_TYPE=$Ttype
         target: ""
-        which-build: last-completed
+        which-build: last-successful
     - copyartifact:
         exclude-pattern: null
-        filter: PXB_2_4_BIN_TAR_URL
+        filter: PXB_2_3_BIN_TAR_URL
         flatten: true
-        project: percona-xtrabackup-2.4-binaries/label_exp=$Host
+        project: percona-xtrabackup-2.3-binaries/label_exp=$Host
         target: ""
         which-build: last-successful
     - shell: |-
-
         if [ -f /usr/bin/yum ]; then
-            sudo yum -y install epel-release
-            sudo -E yum -y install wget
+            sudo yum -y install wget epel-release
             wget https://jenkins.percona.com/yum-repo/percona-dev.repo
             sudo -E mv -vf percona-dev.repo /etc/yum.repos.d/
-            sudo -E yum -y install libeatmydata socat perl-Time-HiRes nocache libaio libaio-devel || true
-            sudo -E yum -y install python-pip python2-pip
+            sudo -E yum -y install libeatmydata socat perl-Time-HiRes nocache curl lsof python-pip python2-pip libaio
+
+            # Install these packages for the memcached API tests
+            sudo -E yum -y install gcc gcc-c++ cmake perl-CPAN
+            export PERL_MM_USE_DEFAULT=1
+            sudo -E cpan Memcached::libmemcached
+            sudo -E cpan Cache::Memcached::libmemcached
 
             sudo pip install awscli
             sudo pip install --upgrade awscli
         fi
 
         if [ -f /usr/bin/apt-get ]; then
-            sudo DEBIAN_FRONTEND=noninteractive -E apt-get update
-            sudo DEBIAN_FRONTEND=noninteractive -E apt-get -y install lsb-release nocache socat libaio1 libnuma1 python3-pip || true
+            DEBIAN_VERSION=$(lsb_release -sc)
+            if [[ ${DEBIAN_VERSION} = jessie ]]; then
+        cat << EOF > sources.list
+        ###### Debian Main Repos
+        deb http://httpredir.debian.org/debian jessie main contrib non-free
+        deb http://security.debian.org/ jessie/updates main contrib non-free
+        EOF
+                sudo mv -vf sources.list /etc/apt/sources.list
+            fi
+            sudo DEBIAN_FRONTEND=noninteractive -E apt-get -y install python3-pip wget
+
+            wget -q -O - http://jenkins.percona.com/apt-repo/8507EFA5.pub | sudo apt-key add -
+            wget -q -O - http://jenkins.percona.com/apt-repo/CD2EFD2A.pub | sudo apt-key add -
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install wget lsb-release nocache socat libaio1 libnuma1 rsync
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install gcc g++ cmake || true
 
             sudo pip3 install awscli
-            sudo pip3 install --upgrade awscli
+            sudo pip3 install --upgrade awscli 
+
+            # Install these packages for the memcached API tests
+            export PERL_MM_USE_DEFAULT=1
+            sudo -E cpan install Memcached::libmemcached
+            sudo -E cpan install Cache::Memcached::libmemcached
 
             DEBIAN=$(lsb_release -sc)
             ARCH=$(uname -m)
@@ -64,23 +84,23 @@
             else
                 export mArch=i386
             fi
-
             set +e
             EMD=$(dpkg -l | grep eatmydata)
+            set -e
             if [ -z "${EMD}" ]; then
                 wget http://jenkins.percona.com/apt-repo/pool/main/libe/libeatmydata/libeatmydata_0.2-105.${DEBIAN}_${mArch}.deb
                 sudo -E dpkg -i *.deb
                 rm -vf *.deb
             fi
 
-            set -e
         fi
 
     - shell: |-
+        #!/bin/bash
+
         set -o pipefail
 
         ROOT_FS=$(pwd)
-        mkdir -p ${ROOT_FS}/res
         rm *.tar || true
 
         # load eat my data to avoid IO and acclerate test.
@@ -93,24 +113,20 @@
             LD_PRELOAD=/usr/lib/libeatmydata.so
         fi
 
-        # disable libeatydata.so for a test
-        LD_PRELOAD=""
-
         killall -9 mysqld || true
 
-        PXC_5_7_URL=$(cat PXC_5_7_URL)
-        until aws s3 cp --no-progress s3://pxc-build-cache/$PXC_5_7_URL ./; do
+        PXC_5_6_URL=$(cat PXC_5_6_URL)
+        until aws s3 cp --no-progress s3://pxc-build-cache/$PXC_5_6_URL ${BUILD_NUMBER}/; do
             sleep 5
         done
 
-        PXB_2_4_BIN_TAR_URL=$(cat PXB_2_4_BIN_TAR_URL)
-        until aws s3 cp --no-progress s3://pxc-build-cache/$PXB_2_4_BIN_TAR_URL ./; do
+        PXB_2_3_BIN_TAR_URL=$(cat PXB_2_3_BIN_TAR_URL)
+        until aws s3 cp --no-progress s3://pxc-build-cache/$PXB_2_3_BIN_TAR_URL ./; do
             sleep 5
         done
 
         find . -type d -name 'Percona-XtraDB-Cluster-*' -exec rm -rf {} \; || true
         find . -type d -name 'percona-xtrabackup-*' -exec rm -rf {} \; || true
-
 
         mkdir -p ${BUILD_NUMBER}
         mv *.tar.gz ${BUILD_NUMBER}/
@@ -119,12 +135,13 @@
         PXC_TAR=$(find . -maxdepth 1 -type f -name 'Percona-XtraDB-Cluster-*.tar.gz' | sort | tail -n1)
         PXB_TAR=$(find . -maxdepth 1 -type f -name 'percona-xtrabackup-*.tar.gz' | sort | tail -n1)
 
-        nocache tar xzf ${PXC_TAR} || tar xzf ${PXC_TAR}
-        nocache tar xzf ${PXB_TAR} || tar xzf ${PXB_TAR}
+        #nocache tar xzf ${PXC_TAR} || tar xzf ${PXC_TAR}
+        #nocache tar xzf ${PXB_TAR} || tar xzf ${PXB_TAR}
+        tar xzf ${PXC_TAR} || tar xzf ${PXC_TAR}
+        tar xzf ${PXB_TAR} || tar xzf ${PXB_TAR}
 
         PXB_BASE=$(find . -maxdepth 1 -type d -name 'percona-xtrabackup-*' | sort | tail -n1)
 
-        export XB_PLUGIN_DIR=$PWD/${PXB_BASE}/lib/plugin/
         export PATH="$PWD/${PXB_BASE}/bin:${ROOT_FS}:${PATH}"
 
         rm -rf Percona-XtraDB-Cluster
@@ -155,7 +172,6 @@
         else
             SUITE_OPT="--suite=$MTR_SUITES"
         fi
-        export LD_PRELOAD="$MY_PRELOAD $LD_PRELOAD"
 
         # Lengthen the time available for server startup from 180 -> 480 seconds.
         # This is needed during SST (when using SSL), since the dhparams.pem file
@@ -165,25 +181,38 @@
         #(perl ./mysql-test-run.pl --force-restart --big-test --vardir=$HOME/var1 --parallel 1 --retry-failure=3 --clean-vardir --max-test-fail=0 --force --suite-timeout=600 \
         #--suite=galera 2>&1 | tee -a mtr1.out) || false
 
-        (perl ./mysql-test-run.pl --big-test --suite --vardir=$HOME/var1 --port-group-size=20 --parallel $GALERA_PARALLEL_RUN --retry-failure=3 --clean-vardir --max-test-fail=0 --force --suite-timeout=6000 \
-        --suite=$MTR_SUITES 2>&1 | tee -a mtr1.out) || false
+        (perl ./mysql-test-run.pl --big-test --vardir=$HOME/var1 --port-group-size=20 --parallel=$GALERA_PARALLEL_RUN --retry-failure=3 --clean-vardir --max-test-fail=0 --force --suite-timeout=600 \
+        --suite=galera 2>&1 | tee -a mtr1.out) || false
+
+        killall -9 mysqld || true
+
+        #(perl ./mysql-test-run.pl --big-test --vardir=$HOME/var2 --port-group-size=20 --parallel $GALERA_PARALLEL_RUN --retry-failure=3 --clean-vardir --max-test-fail=0 --force --suite-timeout=600 \
+        #--suite=galera_3nodes 2>&1 | tee -a mtr2.out) || false
+        #
+        #killall -9 mysqld || true
+
+        (perl ./mysql-test-run.pl --big-test --vardir=$HOME/var3 --parallel $PARALLEL_RUN --retry-failure=3 --clean-vardir --max-test-fail=0 --force --suite-timeout=600 \
+        --suite=sys_vars 2>&1 | tee -a mtr3.out) || false
 
         killall -9 mysqld || true
 
         rm -rf $HOME/var1
+        rm -rf $HOME/var2
+        rm -rf $HOME/var3
 
         set +e
 
         exitcode1=`grep "\[ fail \]" mtr1.out | wc -l`
         #exitcode2=`grep "\[ fail \]" mtr2.out | wc -l`
         exitcode2=0
+        exitcode3=`grep "\[ fail \]" mtr3.out | wc -l`
 
 
         # get rid of the files created during the process.
         popd
         rm -rf ${BUILD_NUMBER}
 
-        if [ $exitcode1 -gt 0 -o $exitcode2 -gt 0 ]
+        if [ $exitcode1 -gt 0 -o $exitcode2 -gt 0 -o $exitcode3 -gt 0 ]
         then
             exit 1;
         else
@@ -191,26 +220,33 @@
         fi
 
     concurrent: false
-    description: MySQL Test Framework for Percona XtraDB Cluster 5.7 (Galera suite
+    description: MySQL Test Framework for Percona XtraDB Cluster 5.6 (Galera suite
       by default)
     disabled: false
     execution-strategy:
       sequential: false
-    name: pxc57-test-mtr-all
-    node: min-centos-7-x86
+    name: pxc56-test-mtr
+    node: micro-amazon
     parameters:
     - string:
-        default: main,sys_vars,binlog,binlog_encryption,rpl_encryption,gis,rpl,innodb,innodb_gis,innodb_fts,innodb_zip,innodb_undo,innodb_stress,perfschema,funcs_1,funcs_2,opt_trace,parts,auth_sec,query_rewrite_plugins,gcol,sysschema,test_service_sql_api,jp,stress,engines/iuds,engines/funcs,x,galera,query_response_time,audit_log,json,connection_control
+        default: galera,sys_vars
         description: |-
           Specify the MTR suites to run. (for multiple suite command separate them)
           galera,innodb,sys_vars
         name: MTR_SUITES
         trim: 'false'
     - string:
+        default: '4'
+        description: |-
+          (sys_vars test suite) mtr can start n parallel server and distrbut workload among them. More parallelism is better but extra parallelism
+          (beyond CPU power) will have less effect.
+        name: PARALLEL_RUN
+        trim: 'false'
+    - string:
         default: '2'
         description: |-
-          (galera and galera_3nodes test suite) mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism
-          (beyond CPU power) will have less effect. This value is used for the galera and galera_3nodes test suite.
+          (galera and galera_3nodes test suites) mtr can start n parallel server and distrbut workload among them. More parallelism is better but extra parallelism
+          (beyond CPU power) will have less effect.
         name: GALERA_PARALLEL_RUN
         trim: 'false'
     project-type: matrix
@@ -220,10 +256,17 @@
         artifact-num-to-keep: 3
         days-to-keep: 10
         num-to-keep: 10
+    properties:
+    - build-blocker:
+        blocking-jobs:
+          - "percona-xtrabackup-2.3-binaries"
+          - "pxc56-build"
+        block-level: 'GLOBAL'
+        queue-scanning: 'DISABLED'
     publishers:
     - archive:
         allow-empty: true
-        artifacts: res/${BUILD_NUMBER}.tar.gz
+        artifacts: '*.tar.gz'
         case-sensitive: true
         default-excludes: true
         fingerprint: false
@@ -232,19 +275,19 @@
         clean-if:
         - success: true
         - unstable: true
-        - failure: false
+        - failure: true
         - not-built: true
         - aborted: true
         clean-parent: false
         dirmatch: false
         exclude: []
-        fail-build: false
+        fail-build: true
         include: []
     triggers: []
     wrappers:
     - timeout:
         abort: true
-        timeout: 99999
+        timeout: 600
         type: absolute
     - timestamps
     - credentials-binding:

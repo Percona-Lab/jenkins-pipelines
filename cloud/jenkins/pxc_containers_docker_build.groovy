@@ -3,6 +3,8 @@ void build(String IMAGE_PREFIX){
         cd ./source/
         if [ ${IMAGE_PREFIX} = pxc ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-57/Dockerfile.k8s pxc-57
+        elif [ ${IMAGE_PREFIX} = proxysql ]; then
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f proxysql/Dockerfile.k8s proxysql
         else
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} images/${IMAGE_PREFIX}-image
         fi
@@ -87,9 +89,6 @@ pipeline {
             steps {
                 unstash "sourceFILES"
                 retry(3) {
-                    build('proxysql')
-                }
-                retry(3) {
                     build('backup')
                 }
             }
@@ -106,6 +105,9 @@ pipeline {
                    export GIT_BRANCH=$GIT_PD_BRANCH
                    ./cloud/local/checkout
                 """          
+                retry(3) {
+                    build('proxysql')
+                }
                 retry(3) {
                     build('pxc')
                 }

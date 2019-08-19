@@ -22,14 +22,20 @@
             sudo yum clean all
             sudo yum -y install epel-release
             sudo -E yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel wget libcurl-devl
-            sudo -E yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel scons
+            sudo -E yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel scons python-pip python2-pip
+
+            sudo pip install awscli
+            sudo pip install --upgrade awscli
         fi
 
         if [ -f /usr/bin/apt-get ]; then
             sudo -E DEBIAN_FRONTEND=noninteractive apt-get update
-            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev wget
-            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
-            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev wget libcurl4-openssl-dev
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check pkg-config
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat python3-pip
+
+            sudo pip3 install awscli
+            sudo pip3 install --upgrade awscli
         fi
 
     - shell: |
@@ -66,6 +72,19 @@
 
         find ./target # For testing results and log
 
+        PXC_TAR=$(ls ./target/Percona-XtraDB-Cluster-* | awk -F'/' '{print $3}')
+        if [[ -n "${PXC_TAR}" ]]; then
+            until aws s3 cp --no-progress --acl public-read ./target/$PXC_TAR s3://pxc-build-cache/${BUILD_TAG}/$PXC_TAR; do
+                sleep 5
+            done
+        else
+            echo cannot find compiled archive
+            exit 1
+        fi
+
+        echo "${BUILD_TAG}/$PXC_TAR" > PXC_5_7_ASAN_URL
+
+
     concurrent: false
     description: We build PXC binaries on each platform for then using in XB test
       suite.
@@ -87,7 +106,7 @@
     publishers:
     - archive:
         allow-empty: false
-        artifacts: target/Percona*
+        artifacts: PXC_5_7_ASAN_URL
         case-sensitive: true
         default-excludes: true
         fingerprint: false
@@ -99,3 +118,8 @@
     triggers: []
     wrappers:
     - timestamps
+    - credentials-binding:
+         - amazon-web-services:
+            credential-id: c42456e5-c28d-4962-b32c-b75d161bff27
+            access-key: AWS_ACCESS_KEY_ID
+            secret-key: AWS_SECRET_ACCESS_KEY
