@@ -47,9 +47,17 @@ pipeline {
             defaultValue: '3.6',
             description: 'Percona Server for MongoDB version',
             name: 'MO_VERSION')
-        string(
+        text(
             defaultValue: '--addclient=ps,1',
-            description: 'Configure PMM Clients. ps - Percona Server for MySQL, pxc - Percona XtraDB Cluster, --with-proxysql (to be used with pxc only ex. --addclient=pxc,1 --with-proxysql) , ms - MySQL Community Server, md - MariaDB Server, mo - Percona Server for MongoDB, pgsql - Postgre SQL Server',
+            description: '''
+            Configure PMM Clients
+            ms - MySQL (ex. --addclient=ms,1), To Start with Slowlog use (--addclient=ms,1 --query-source=slowlog),
+            ps - Percona Server for MySQL (ex. --addclient=ps,1),
+            pxc - Percona XtraDB Cluster, --with-proxysql (to be used with proxysql only ex. --addclient=pxc,1 --with-proxysql),
+            md - MariaDB Server (ex. --addclient=md,1),
+            mo - Percona Server for MongoDB(ex. --addclient=mo,1),
+            pgsql - Postgre SQL Server (ex. --addclient=pgsql,1)
+            ''',
             name: 'CLIENTS')
         string(
             defaultValue: 'true',
