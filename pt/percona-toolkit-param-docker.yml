@@ -15,7 +15,6 @@
         name: DIST
         type: user-defined
         values:
-        - ubuntu-14.04
         - ubuntu-16.04
         - ubuntu-18.04
     - axis:
