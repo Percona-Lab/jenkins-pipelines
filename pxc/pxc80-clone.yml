@@ -15,6 +15,13 @@
         git submodule deinit -f . || true
         git submodule init
         git submodule update
+        cd ../
+
+        cd wsrep-lib/
+        git submodule deinit -f . || true
+        git submodule init
+        git submodule update
+        cd ../
 
         #cd percona-xtradb-cluster-galera
         #git checkout $GIT_GALERA_BRANCH
