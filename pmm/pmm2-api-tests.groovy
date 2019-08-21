@@ -92,8 +92,11 @@ pipeline {
     }
     post {
         always {
-            sh 'sudo docker cp ${BUILD_TAG}:/go/src/github.com/Percona-Lab/pmm-api-tests/pmm-api-tests-junit-report.xml ./pmm-api-tests-junit-report.xml'
-            junit './pmm-api-tests-junit-report.xml'
+            sh '''
+                sudo docker cp ${BUILD_TAG}:/go/src/github.com/Percona-Lab/pmm-api-tests/pmm-api-tests-junit-report.xml ./pmm-api-tests-junit-report.xml
+                ls
+            '''
+            junit '*.xml'
             script {
                 if (currentBuild.result == 'SUCCESS') {
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
