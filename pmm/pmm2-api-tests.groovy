@@ -86,13 +86,13 @@ pipeline {
             steps {
                 sh '''
                     sudo docker run -e PMM_SERVER_URL=\${PMM_URL} pmm-api-tests
-                    sudo docker cp pmm-api-tests:/go/src/github.com/Percona-Lab/pmm-api-tests/pmm-api-tests-junit-report.xml ./pmm-api-tests-junit-report.xml
                 '''
             }
         }
     }
     post {
         always {
+            sh 'sudo docker cp pmm-api-tests:/go/src/github.com/Percona-Lab/pmm-api-tests/pmm-api-tests-junit-report.xml ./pmm-api-tests-junit-report.xml'
             junit './pmm-api-tests-junit-report.xml'
             script {
                 if (currentBuild.result == 'SUCCESS') {
