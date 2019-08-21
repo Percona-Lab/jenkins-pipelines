@@ -92,7 +92,7 @@ pipeline {
     }
     post {
         always {
-            sh 'docker cp pmm-api-tests:/go/src/github.com/Percona-Lab/pmm-api-tests/pmm-api-tests-junit-report.xml ./pmm-api-tests-junit-report.xml'
+            sh 'sudo docker cp pmm-api-tests:/go/src/github.com/Percona-Lab/pmm-api-tests/pmm-api-tests-junit-report.xml ./pmm-api-tests-junit-report.xml'
             junit './pmm-api-tests-junit-report.xml'
             script {
                 if (currentBuild.result == 'SUCCESS') {
