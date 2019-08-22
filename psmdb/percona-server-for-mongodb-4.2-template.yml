@@ -6,6 +6,8 @@
     - description-setter:
         regexp: "^###DESCRIPTION###(.*)###$"
     - shell: |-
+        #!/bin/bash
+
         # we need to setup the instance first
         # disable THP
         echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" > disable-thp.sh
@@ -156,6 +158,12 @@
         fi
     - shell: |-
         # run tests
+
+        if [ -f /usr/bin/yum ]; then
+            ulimit -u 64000
+            ulimit -n 64000
+        fi
+
         cd ${WORKSPACE}
         PSMDIR="percona-server-mongodb"
         PSMDIR_ABS=${WORKSPACE}/${PSMDIR}
