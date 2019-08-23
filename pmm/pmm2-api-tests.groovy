@@ -85,7 +85,7 @@ pipeline {
         stage('Run API Test') {
             steps {
                 sh '''
-                    sudo docker run -e PMM_SERVER_URL=\${PMM_URL} --name ${BUILD_TAG} pmm-api-tests
+                    sudo docker run -e PMM_SERVER_URL=\${PMM_URL} -e PMM_RUN_UPDATE_TEST=1 --name ${BUILD_TAG} pmm-api-tests
                 '''
             }
         }
@@ -93,8 +93,9 @@ pipeline {
     post {
         always {
             sh '''
+                sudo docker ps -a
                 sudo docker cp ${BUILD_TAG}:/go/src/github.com/Percona-Lab/pmm-api-tests/pmm-api-tests-junit-report.xml ./pmm-api-tests-junit-report.xml
-                ls
+                ls -al
             '''
             junit '*.xml'
             script {
