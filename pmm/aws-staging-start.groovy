@@ -31,8 +31,8 @@ pipeline {
             choices: ['5.7', '8.0'],
             description: "Percona Server for MySQL version",
             name: 'PS_VERSION')
-        string(
-            defaultValue: '8.0',
+        choice(
+            choices: ['5.7', '8.0'],
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
@@ -43,20 +43,30 @@ pipeline {
             defaultValue: '10.2',
             description: 'MariaDB Server version',
             name: 'MD_VERSION')
-        string(
-            defaultValue: '3.6',
-            description: 'Percona Server for MongoDB version',
+        choice(
+            choices: ['4.0', '3.6'],
+            description: "Percona Server for MongoDB version",
             name: 'MO_VERSION')
+        choice(
+            choices: ['4.2', '4.0'],
+            description: "Official MongoDB version from MongoDB Inc",
+            name: 'MODB_VERSION')
+        choice(
+            choices: ['perfschema', 'slowlog'],
+            description: "Query Source for Monitoring",
+            name: 'QUERY_SOURCE')
         text(
             defaultValue: '--addclient=ps,1',
             description: '''
             Configure PMM Clients
-            ms - MySQL (ex. --addclient=ms,1), To Start with Slowlog use (--addclient=ms,1 --query-source=slowlog),
+            ms - MySQL (ex. --addclient=ms,1),
             ps - Percona Server for MySQL (ex. --addclient=ps,1),
             pxc - Percona XtraDB Cluster, --with-proxysql (to be used with proxysql only ex. --addclient=pxc,1 --with-proxysql),
             md - MariaDB Server (ex. --addclient=md,1),
             mo - Percona Server for MongoDB(ex. --addclient=mo,1),
+            modb - Official MongoDB version from MongoDB Inc (ex. --addclient=modb,1),
             pgsql - Postgre SQL Server (ex. --addclient=pgsql,1)
+            An example: --addclient=ps,1 --addclient=mo,1 --addclient=md,1 --addclient=pgsql,2 --addclient=modb,2
             ''',
             name: 'CLIENTS')
         string(
@@ -94,7 +104,9 @@ pipeline {
                         MS_VERSION:     ${MS_VERSION}
                         MD_VERSION:     ${MD_VERSION}
                         MO_VERSION:     ${MO_VERSION}
+                        MODB_VERSION:   ${MODB_VERSION}
                         PGSQL_VERSION:  ${PGSQL_VERSION}
+                        QUERY_SOURCE:   ${QUERY_SOURCE}
                         CLIENTS:        ${CLIENTS}
                         OWNER:          ${OWNER}
                     """
@@ -420,11 +432,15 @@ pipeline {
                                 bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                                     --ms-version  ${MS_VERSION} \
                                     --mo-version  ${MO_VERSION} \
+                                    --ps-version  ${PS_VERSION} \
+                                    --modb-version ${MODB_VERSION} \
                                     --pgsql-version ${PGSQL_VERSION} \
+                                    --pxc-version ${PXC_VERSION} \
                                     --download \
                                     ${CLIENTS} \
                                     --pmm2 \
                                     --dbdeployer \
+                                    --query-source=${QUERY_SOURCE} \
                                     --pmm2-server-ip=\$IP
                             fi
                         "
