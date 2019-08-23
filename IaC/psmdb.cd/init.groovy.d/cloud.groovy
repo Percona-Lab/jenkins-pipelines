@@ -115,6 +115,11 @@ initMap['micro-amazon'] = '''
         sudo mount ${DEVICE} /mnt
     fi
 
+    echo "*  soft  nofile  65000" | sudo tee -a /etc/security/limits.conf
+    echo "*  hard  nofile  65000" | sudo tee -a /etc/security/limits.conf
+    echo "*  soft  nproc  65000"  | sudo tee -a /etc/security/limits.conf
+    echo "*  hard  nproc  65000"  | sudo tee -a /etc/security/limits.conf
+
     sudo yum -y install java-1.8.0-openjdk git aws-cli || :
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
@@ -215,14 +220,14 @@ devMap['psmdb-bionic'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:300:true:gp2'
 devMap['docker-32gb'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
 devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['min-centos-6-x64'] = devMap['psmdb']
-devMap['min-centos-7-x64'] = devMap['psmdb']
+devMap['min-centos-6-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:300:true:gp2'
+devMap['min-centos-7-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:300:true:gp2'
 devMap['fips-centos-7-x64'] = devMap['min-artful-x64']
-devMap['min-jessie-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:160:true:gp2'
-devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:160:true:gp2'
+devMap['min-jessie-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:300:true:gp2'
+devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:300:true:gp2'
 devMap['min-trusty-x64'] = devMap['min-artful-x64']
-devMap['min-xenial-x64'] = devMap['min-artful-x64']
-devMap['min-bionic-x64'] = devMap['psmdb']
+devMap['min-xenial-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:300:true:gp2'
+devMap['min-bionic-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:300:true:gp2'
 devMap['min-cosmic-x64'] = devMap['psmdb']
 
 labelMap = [:]
@@ -310,9 +315,8 @@ String region = 'us-west-2'
             getTemplate('min-centos-6-x64', "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
             getTemplate('min-stretch-x64',  "${region}${it}"),
-            getTemplate('min-jessie-x64',   "${region}${it}"),
             getTemplate('min-bionic-x64',   "${region}${it}"),
-            getTemplate('min-cosmic-x64',   "${region}${it}"),
+            getTemplate('min-xenial-x64',   "${region}${it}"),
         ],
         '',
         ''                                    // List<? extends SlaveTemplate> templates

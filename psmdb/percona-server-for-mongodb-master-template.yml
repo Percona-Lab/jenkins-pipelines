@@ -6,6 +6,8 @@
     - description-setter:
         regexp: "^###DESCRIPTION###(.*)###$"
     - shell: |-
+        #!/bin/bash
+
         # we need to setup the instance first
         # disable THP
         echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" > disable-thp.sh
@@ -156,6 +158,12 @@
         fi
     - shell: |-
         # run tests
+
+        if [ -f /usr/bin/yum ]; then
+            ulimit -u 64000
+            ulimit -n 64000
+        fi
+
         cd ${WORKSPACE}
         PSMDIR="percona-server-mongodb"
         PSMDIR_ABS=${WORKSPACE}/${PSMDIR}
@@ -220,7 +228,6 @@
         if [ "${ENABLE_KILLER}" = "true" ]; then
             $WORKSPACE/psmdb-misc-scripts/killer.sh &
         fi
-
 
         for trial in `seq 1 ${NUM_TRIALS}`; do
             ../../../../psmdb-misc-scripts/run_resmoke_psmdb_3.2.sh ${trial} ${TEST_SUITE_FILE}

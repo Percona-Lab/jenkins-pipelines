@@ -1,0 +1,149 @@
+- job:
+    axes:
+    - axis:
+        name: label_exp
+        type: label-expression
+        values:
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-stretch-x64
+        - min-bionic-x64
+        - min-xenial-x64
+    - axis:
+        name: BUILD_TYPE
+        type: user-defined
+        values:
+        - debug
+        - release
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - builders-from: percona-server-for-mongodb-master-template
+    concurrent: true
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: multi-psmdb-master-param
+    node: docker
+    parameters:
+    - string:
+        default: ''
+        description: Build description which will be visible in build history on the
+          right side.
+        name: DESCRIPTION
+        trim: 'true'
+    - string:
+        default: https://github.com/percona/percona-server-mongodb.git
+        description: ''
+        name: PSM_REPO
+        trim: 'true'
+    - string:
+        default: master
+        description: ''
+        name: PSM_BRANCH
+        trim: 'true'
+    - string:
+        default: auto
+        description: <h3>Number of parallel jobs for running tests, auto=number of
+          cores or specify exact number like 8,4,2,1</h3>
+        name: JOBS
+        trim: 'true'
+    - string:
+        default: resmoke_psmdb_master_medium
+        description: |-
+          <h3>AVAILABLE OPTIONS:<br>
+          core_all_engines<br>
+          core_default<br>
+          resmoke_psmdb_master_big<br>
+          resmoke_psmdb_master_big_nommap<br>
+          resmoke_psmdb_master_medium<br>
+          This is test suite from psmdb-misc-scripts/suite_sets and needs to be without .txt extension</h3>
+        name: SUITE
+        trim: 'true'
+    - string:
+        default: ''
+        description: |-
+          <h3>With this you can specify a custom suite content which will be generated and passed to resmoke script.<br>
+          EXAMPLE CONTENT:<br>
+          aggregation|mmapv1|wiredTiger|inMemory<br>
+          core|mmapv1|wiredTiger|inMemory<br>
+          sharding --excludeWithAnyTags=requires_persistence,requires_journaling|inMemory</h3>
+        name: CUSTOM_SUITE
+        trim: 'false'
+    - string:
+        default: '1'
+        description: Number of trials to execute - makes sense if you wish to execute
+          1 suite some number of times because of flapping tests.
+        name: NUM_TRIALS
+        trim: 'true'
+    - string:
+        default: https://github.com/Percona-QA/psmdb-misc-scripts.git
+        description: Use this if you wish to use another psmdb-misc-repo for testing
+          purposes.
+        name: MISC_SCRIPTS_REPO
+        trim: 'true'
+    - bool:
+        default: false
+        description: Don't build the binaries from github but copy the latest binaries
+          from the release job and run tests on them
+        name: RELEASE_TEST
+    - string:
+        default: master
+        description: Set to whatever needs to be checked out from psmdb-misc-scripts
+          repo
+        name: MISC_SCRIPTS_BRANCH
+        trim: 'true'
+    - bool:
+        default: true
+        description: This enables killer.sh to monitor and kill stalled tests
+        name: ENABLE_KILLER
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 10
+        days-to-keep: -1
+        num-to-keep: 10
+    publishers:
+    - warnings:
+        console-log-parsers:
+          - GNU Make + GNU C Compiler (gcc)
+    - archive:
+        allow-empty: false
+        artifacts: '**/**/percona-server-mongodb/bin/resmoke_summary*.log, **/**/percona-server-mongodb/bin/resmoke_summary*.log,
+          **/**/percona-server-mongodb/bin/killer.log, **/**/percona-server-mongodb/bin/resmoke_logs.tar.gz,
+          **/**/percona-server-mongodb/bin/perf.json, **/**/percona-server-mongodb/bin/perf_sharding.json'
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    - junit:
+        results: '**/**/percona-server-mongodb/bin/junit.xml'
+        keep-long-stdio: false
+        health-scale-factor: 1.0
+        allow-empty-results: false
+    - workspace-cleanup:
+        clean-if:
+        - success: true
+        - unstable: true
+        - failure: true
+        - not-built: true
+        - aborted: true
+        clean-parent: false
+        dirmatch: false
+        exclude: []
+        fail-build: true
+        include: []
+    scm:
+    - git:
+        basedir: percona-server-mongodb
+        branches:
+        - ${PSM_BRANCH}
+        url: ${PSM_REPO}
+        wipe-workspace: true
+    triggers: []
+    wrappers:
+    - timestamps
+    - inject:
+        properties-content: |
+            WORKFLOW_TYPE=param
