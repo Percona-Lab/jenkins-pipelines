@@ -47,23 +47,23 @@
         description: Build description which will be visible in build history on the
           right side.
         name: DESCRIPTION
-        trim: false
+        trim: true
     - string:
         default: https://github.com/percona/percona-server-mongodb.git
         description: ''
         name: PSM_REPO
-        trim: false
+        trim: true
     - string:
         default: v3.2
         description: ''
         name: PSM_BRANCH
-        trim: false
+        trim: true
     - string:
         default: 'auto'
         description: <h3>Number of parallel jobs for running tests, auto=number of
           cores or specify exact number like 8,4,2,1</h3>
         name: JOBS
-        trim: false
+        trim: true
     - string:
         default: resmoke_psmdb_3.2_medium
         description: |-
@@ -74,7 +74,7 @@
           resmoke_psmdb_3.2_medium<br>
           This is test suite from psmdb-misc-scripts/suite_sets and needs to be without .txt extension</h3>
         name: SUITE
-        trim: false
+        trim: true
     - text:
         default: ''
         description: |-

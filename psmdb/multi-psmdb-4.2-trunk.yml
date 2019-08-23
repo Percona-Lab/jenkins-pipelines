@@ -1,0 +1,92 @@
+- job:
+    axes:
+    - axis:
+        name: label_exp
+        type: label-expression
+        values:
+        - min-centos-6-x64
+        - min-centos-7-x64
+        - min-stretch-x64
+        - min-bionic-x64
+        - min-xenial-x64
+    - axis:
+        name: BUILD_TYPE
+        type: user-defined
+        values:
+        - debug
+        - release
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - builders-from: percona-server-for-mongodb-4.2-template
+    concurrent: true
+    description: This job is currently running <b>resmoke_psmdb_4.2_big</b> test
+      suite on the <b>v4.2</b> branch.
+    disabled: false
+    execution-strategy:
+      sequential: false
+    name: multi-psmdb-4.2-trunk
+    node: docker
+    project-type: matrix
+    properties:
+    - build-discarder:
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 10
+        days-to-keep: -1
+        num-to-keep: 10
+    publishers:
+    - warnings:
+        console-log-parsers:
+          - GNU Make + GNU C Compiler (gcc)
+    - archive:
+        allow-empty: false
+        artifacts: '**/**/percona-server-mongodb/bin/resmoke_summary*.log, **/**/percona-server-mongodb/bin/resmoke_summary*.log,
+          **/**/percona-server-mongodb/bin/killer.log, **/**/percona-server-mongodb/bin/resmoke_logs.tar.gz,
+          **/**/percona-server-mongodb/bin/perf.json, **/**/percona-server-mongodb/bin/perf_sharding.json'
+        case-sensitive: true
+        default-excludes: true
+        fingerprint: false
+        only-if-success: false
+    - junit:
+        results: '**/**/percona-server-mongodb/bin/junit.xml'
+        keep-long-stdio: false
+        health-scale-factor: 1.0
+        allow-empty-results: false
+    - workspace-cleanup:
+        clean-if:
+        - success: true
+        - unstable: true
+        - failure: true
+        - not-built: true
+        - aborted: true
+        clean-parent: false
+        dirmatch: false
+        exclude: []
+        fail-build: true
+        include: []
+    scm:
+    - git:
+        basedir: percona-server-mongodb
+        branches:
+        - '*/v4.2'
+        url: https://github.com/percona/percona-server-mongodb.git
+        wipe-workspace: true
+    triggers:
+    - pollscm:
+        cron: H 12 * * 5
+        ignore-post-commit-hooks: false
+    wrappers:
+    - timestamps
+    - inject:
+        properties-content: |
+            WORKFLOW_TYPE=trunk
+            BUILD_TYPE=release
+            PSM_REPO=https://github.com/percona/percona-server-mongodb.git
+            PSM_BRANCH=v4.2
+            JOBS=auto
+            SUITE=resmoke_psmdb_4.2_big
+            RELEASE_TEST=false
+            NUM_TRIALS=1
+            MISC_SCRIPTS_REPO=https://github.com/Percona-QA/psmdb-misc-scripts.git
+            MISC_SCRIPTS_BRANCH=master
+            ENABLE_KILLER=true
