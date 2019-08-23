@@ -20,23 +20,23 @@
         description: Build description which will be visible in build history on the
           right side.
         name: DESCRIPTION
-        trim: false
+        trim: true
     - string:
         default: https://github.com/percona/percona-server-mongodb.git
         description: ''
         name: PSM_REPO
-        trim: false
+        trim: true
     - string:
         default: v3.6
         description: ''
         name: PSM_BRANCH
-        trim: false
+        trim: true
     - string:
         default: 'auto'
         description: <h3>Number of parallel jobs for running tests, auto=number of
           cores or specify exact number like 8,4,2,1</h3>
         name: JOBS
-        trim: false
+        trim: true
     - string:
         default: resmoke_psmdb_3.6_medium
         description: |-
@@ -49,7 +49,7 @@
           resmoke_psmdb_3.6_medium<br>
           This is test suite from psmdb-misc-scripts/suite_sets and needs to be without .txt extension</h3>
         name: SUITE
-        trim: false
+        trim: true
     - text:
         default: ''
         description: |-
@@ -65,19 +65,19 @@
         description: Number of trials to execute - makes sense if you wish to execute
           1 suite some number of times because of flapping tests.
         name: NUM_TRIALS
-        trim: false
+        trim: true
     - string:
         default: https://github.com/Percona-QA/psmdb-misc-scripts.git
         description: Use this if you wish to use another psmdb-misc-repo for testing
           purposes.
         name: MISC_SCRIPTS_REPO
-        trim: false
+        trim: true
     - string:
         default: master
         description: Set to whatever needs to be checked out from psmdb-misc-scripts
           repo
         name: MISC_SCRIPTS_TAG
-        trim: false
+        trim: true
     - bool:
         default: false
         description: Don't build the binaries from github but copy the latest binaries
