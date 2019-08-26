@@ -5,15 +5,15 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     environment {
-        specName = 'pmm-release'
+        specName = 'pmm2-release'
     }
     agent {
         label 'master'
     }
     parameters {
         choice(
-            choices: 'laboratory\npmm-hotfix-laboratory',
-            description: 'publish pmm-server packages from regular(laboratory) or hotfix(pmm-hotfix-laboratory) repository',
+            choices: 'laboratory',
+            description: 'publish pmm2-server packages from regular(laboratory) repository',
             name: 'UPDATER_REPO')
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
@@ -32,8 +32,8 @@ pipeline {
             description: 'OVA image filename',
             name: 'OVF_VERSION')
         string(
-            defaultValue: '1.9.1',
-            description: 'PMM Server version',
+            defaultValue: '2.0.0',
+            description: 'PMM2 Server version',
             name: 'VERSION')
     }
     stages {
@@ -54,7 +54,7 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            ls /srv/repo-copy/${UPDATER_REPO}/7/RPMS/x86_64 \
+                            ls /srv/repo-copy/pmm2-components/yum/${UPDATER_REPO}/7/RPMS/x86_64 \
                             > repo.list
                         cat rpms.list \
                             | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
@@ -72,7 +72,7 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         cat copy.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            "cat - | xargs -I{} cp -v /srv/repo-copy/${UPDATER_REPO}/7/RPMS/x86_64/{} /srv/repo-copy/pmm/7/RPMS/x86_64/{}"
+                            "cat - | xargs -I{} cp -v /srv/repo-copy/pmm2-components/yum/${UPDATER_REPO}/7/RPMS/x86_64/{} /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/{}"
                     '''
                 }
             }
@@ -82,7 +82,7 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            createrepo --update /srv/repo-copy/pmm/7/RPMS/x86_64/
+                            createrepo --update /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/
                     '''
                 }
             }
@@ -93,8 +93,8 @@ pipeline {
                     sh """
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
                             rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
-                                /srv/repo-copy/pmm/ \
-                                10.10.9.209:/www/repo.percona.com/htdocs/pmm/
+                                /srv/repo-copy/pmm2-components/yum/release \
+                                10.10.9.209:/www/repo.percona.com/htdocs/pmm2/
                         "
                     """
                 }
@@ -116,7 +116,7 @@ pipeline {
                         declare -A repo=(
                             ["percona-dashboards"]="percona/grafana-dashboards"
                             ["pmm-server"]="percona/pmm-server"
-                            ["percona-qan-api"]="percona/qan-api"
+                            ["percona-qan-api2"]="percona/qan-api2"
                             ["percona-qan-app"]="percona/qan-app"
                             ["pmm-update"]="percona/pmm-update"
                             ["pmm-manage"]="percona/pmm-manage"
