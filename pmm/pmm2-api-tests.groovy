@@ -96,6 +96,8 @@ pipeline {
                 sudo docker ps -a
                 sudo docker cp ${BUILD_TAG}:/go/src/github.com/Percona-Lab/pmm-api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml
                 ls -al
+                sudo docker container stop $(docker container ls -aq)
+                sudo docker system prune -f
             '''
             junit '${BUILD_TAG}.xml'
             script {
