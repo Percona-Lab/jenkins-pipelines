@@ -85,7 +85,7 @@ pipeline {
         stage('Run API Test') {
             steps {
                 sh '''
-                    sudo docker run -e PMM_SERVER_URL=\${PMM_URL} --name ${BUILD_TAG} pmm-api-tests
+                    sudo docker run -e PMM_SERVER_URL=\${PMM_URL} -e PMM_RUN_UPDATE_TEST=1 --name ${BUILD_TAG} pmm-api-tests
                 '''
             }
         }
@@ -93,10 +93,11 @@ pipeline {
     post {
         always {
             sh '''
-                sudo docker cp ${BUILD_TAG}:/go/src/github.com/Percona-Lab/pmm-api-tests/pmm-api-tests-junit-report.xml ./pmm-api-tests-junit-report.xml
-                ls
+                sudo docker ps -a
+                sudo docker cp ${BUILD_TAG}:/go/src/github.com/Percona-Lab/pmm-api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml
+                ls -al
             '''
-            junit '*.xml'
+            junit '${BUILD_TAG}.xml'
             script {
                 if (currentBuild.result == 'SUCCESS') {
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
