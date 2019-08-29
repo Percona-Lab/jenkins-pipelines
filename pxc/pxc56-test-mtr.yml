@@ -67,7 +67,7 @@
             wget -q -O - http://jenkins.percona.com/apt-repo/8507EFA5.pub | sudo apt-key add -
             wget -q -O - http://jenkins.percona.com/apt-repo/CD2EFD2A.pub | sudo apt-key add -
             sudo -E DEBIAN_FRONTEND=noninteractive apt-get update
-            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install wget lsb-release nocache socat libaio1 libnuma1 rsync
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install wget lsb-release nocache socat libaio1 libnuma1 rsync lsof
             sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install gcc g++ cmake || true
 
             sudo pip3 install awscli
