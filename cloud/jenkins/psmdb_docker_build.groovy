@@ -5,6 +5,20 @@ void build(String IMAGE_PREFIX){
         docker build --no-cache --squash -t perconalab/percona-server-mongodb-operator:master-${IMAGE_PREFIX} -f percona-server-mongodb.\$DOCKER_FILE_PREFIX/Dockerfile.k8s percona-server-mongodb.\$DOCKER_FILE_PREFIX
     """
 }
+void checkImageForDocker(String IMAGE_PREFIX){
+     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        sh """
+            IMAGE_PREFIX=${IMAGE_PREFIX}
+            IMAGE_NAME='percona-server-mongodb-operator'
+ 
+            sg docker -c "
+                docker login -u '${USER}' -p '${PASS}'
+                /usr/local/bin/trivy -o $WORKSPACE/trivy-hight-\$IMAGE_NAME-\${IMAGE_PREFIX}.log --exit-code 0 --severity HIGH --quiet --auto-refresh perconalab/\$IMAGE_NAME:\${IMAGE_PREFIX}
+                /usr/local/bin/trivy -o $WORKSPACE/trivy-critical-\$IMAGE_NAME-\${IMAGE_PREFIX}.log --exit-code 0 --severity CRITICAL --quiet --auto-refresh perconalab/\$IMAGE_NAME:\${IMAGE_PREFIX}
+            "
+        """
+    }
+}
 
 void pushImageToDocker(String IMAGE_PREFIX){
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -88,14 +102,18 @@ pipeline {
         stage('Prepare') {
             steps {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                sh '''
+                sh """
+                    TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
+                    wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
+                    sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
+
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
                     ./cloud/local/checkout
-                '''
+                """
                 stash includes: "cloud/**" , name: "checkout"
                 stash includes: "source/**", name: "sourceFILES"
 
@@ -154,15 +172,32 @@ pipeline {
                 pushImageToRhelOperator()
             }
         }
+        stage('Check PSMDB Docker images') {
+            steps {
+                checkImageForDocker('master')
+                checkImageForDocker('master-mongod3.6')
+                checkImageForDocker('master-mongod4.0')
+                sh '''
+                   CRITICAL=$(ls trivy-critical-*)
+                   if [ -n "$CRITICAL" ]; then
+                       exit 1
+                   fi
+                '''
+            }
+        }
     }
 
     post {
         always {
+            archiveArtifacts '*.log'
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./source/build
             '''
             deleteDir()
+        }
+        failure {
+            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PSMDB images failed. Please check the log ${BUILD_URL}"
         }
     }
 }
