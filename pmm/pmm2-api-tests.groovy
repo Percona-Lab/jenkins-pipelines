@@ -41,7 +41,6 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
-        disableConcurrentBuilds()
     }
     triggers {
         upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
