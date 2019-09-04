@@ -349,7 +349,7 @@ Resources:
       AvailabilityZone:
         Fn::Select: [ 1, !GetAZs '' ]
       Encrypted: false
-      Size: 200
+      Size: 300
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
@@ -476,7 +476,7 @@ Resources:
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                   yum -y update --security
                   amazon-linux-extras install -y nginx1.12
-                  yum -y install java-1.8.0-openjdk jenkins-2.176.2 git yum-cron aws-cli xfsprogs
+                  yum -y install java-1.8.0-openjdk jenkins-2.176.3 git yum-cron aws-cli xfsprogs
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -643,7 +643,7 @@ Resources:
                   /opt/certbot-auto --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
-                  printf '#!/bin/sh\n/opt/certbot-auto renew\nservice nginx restart\n' > /etc/cron.daily/certbot
+                  echo '/opt/certbot-auto renew' > /etc/cron.daily/certbot
                   chmod 755 /etc/cron.daily/certbot
                   service nginx stop
                   sleep 2
