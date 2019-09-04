@@ -369,7 +369,6 @@ pipeline {
                                         echo "export PATH=$PWD/pmm2-client-2.0.0/bin:$PATH" >> ~/.bash_profile
                                         source ~/.bash_profile
                                         pmm-admin --version
-                                        cat pmm-agent.log
                                         pmm-agent setup --config-file=$PWD/pmm2-client-2.0.0/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin --trace
                                         sleep 10
                                         JENKINS_NODE_COOKIE=dontKillMe nohup bash -c 'pmm-agent --config-file=$PWD/pmm2-client-2.0.0/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
