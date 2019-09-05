@@ -34,7 +34,7 @@ pipeline {
                         export GIT_SSH=$(pwd -P)/github-ssh.sh
 
                         git reset --hard
-                        git clean -xdf
+                        git clean -xdff
                         git submodule update --remote --init --recommend-shallow --jobs 10
                         git submodule status
                     '''
