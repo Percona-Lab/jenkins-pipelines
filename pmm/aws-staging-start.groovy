@@ -365,7 +365,7 @@ pipeline {
                                         tar -zxpf pmm2-client.tar.gz
                                         rm -r pmm2-client.tar.gz
                                         cd pmm2-client-2.0.0
-                                        bash -x ./install_tarball
+                                        sudo bash -x ./install_tarball
                                         cd ../
                                         export PMM_CLIENT_BASEDIR=\\\$(ls -1td pmm2-client-* 2>/dev/null | grep -v ".tar" | head -n1)
                                         export PATH="$PWD/pmm2-client-2.0.0/bin:$PATH"
