@@ -23,6 +23,7 @@ pipeline {
             defaultValue: 'perconalab/pmm-client:dev-latest',
             description: 'pmm-client docker container version (image-name:version-tag)',
             name: 'DOCKER_CLIENT_VERSION')
+/*
         string(
             defaultValue: '',
             description: 'Amazon Machine Image (AMI) ID',
@@ -31,6 +32,7 @@ pipeline {
             defaultValue: '',
             description: 'OVA image filename',
             name: 'OVF_VERSION')
+*/
         string(
             defaultValue: '2.0.0',
             description: 'PMM2 Server version',
@@ -57,6 +59,7 @@ pipeline {
                             ls /srv/repo-copy/pmm2-components/yum/${UPDATER_REPO}/7/RPMS/x86_64 \
                             > repo.list
                         cat rpms.list \
+                            | grep -v 'pmm2-client' \
                             | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
                             | xargs -n 1 -I {} grep "^{}.rpm" repo.list \
                             | tee copy.list
@@ -66,6 +69,7 @@ pipeline {
                 archiveArtifacts 'copy.list'
             }
         }
+// Publish RPMs to repo.ci.percona.com
         stage('Copy RPMs to PMM repo') {
             steps {
                 unstash 'copy'
@@ -87,6 +91,7 @@ pipeline {
                 }
             }
         }
+// Publish RPMs to repo.percona.com
         stage('Publish RPMs') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
@@ -94,12 +99,13 @@ pipeline {
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
                             rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                                 /srv/repo-copy/pmm2-components/yum/release \
-                                10.10.9.209:/www/repo.percona.com/htdocs/pmm2/
+                                10.10.9.209:/www/repo.percona.com/htdocs/pmm2-components/
                         "
                     """
                 }
             }
         }
+/*
         stage('Set Tags') {
             steps {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
@@ -117,9 +123,8 @@ pipeline {
                             ["percona-dashboards"]="percona/grafana-dashboards"
                             ["pmm-server"]="percona/pmm-server"
                             ["percona-qan-api2"]="percona/qan-api2"
-                            ["percona-qan-app"]="percona/qan-app"
                             ["pmm-update"]="percona/pmm-update"
-                            ["pmm-manage"]="percona/pmm-manage"
+                            ["pmm-managed"]="percona/pmm-managed"
                         )
 
                         for package in "${!repo[@]}"; do
@@ -325,7 +330,7 @@ pipeline {
             }
         }
     }
-
+*/
     post {
         always {
             deleteDir()
