@@ -106,7 +106,6 @@ pipeline {
                 }
             }
         }
-/*
         stage('Set Tags') {
             steps {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
@@ -141,12 +140,8 @@ pipeline {
                                     git checkout $SHA
                                     FULL_SHA=$(git rev-parse HEAD)
 
-                                    set +o xtrace
-                                        curl -X POST \
-                                            -H "Authorization: token $(cat ../GITHUB_API_TOKEN)" \
-                                            -d "{\\"ref\\":\\"refs/tags/v${VERSION}\\",\\"sha\\": \\"${FULL_SHA}\\"}" \
-                                            https://api.github.com/repos/${repo["$package"]}/git/refs
-                                    set -o xtrace
+                                    echo "$FULL_SHA"
+                                    echo "$VERSION"
                                 popd >/dev/null
                             fi
                         done
@@ -173,7 +168,6 @@ pipeline {
                         docker tag ${DOCKER_VERSION} percona/pmm-server:${VERSION}
                         docker tag ${DOCKER_VERSION} percona/pmm-server:${DOCKER_MID}
                         docker tag ${DOCKER_VERSION} percona/pmm-server:${TOP_VER}
-                        docker tag ${DOCKER_VERSION} percona/pmm-server:latest
                         docker push percona/pmm-server:${VERSION}
                         docker push percona/pmm-server:${DOCKER_MID}
                         docker push percona/pmm-server:${TOP_VER}
@@ -186,7 +180,6 @@ pipeline {
                         docker tag ${DOCKER_CLIENT_VERSION} perconalab/pmm-client:${VERSION}
                         docker tag ${DOCKER_CLIENT_VERSION} perconalab/pmm-client:latest
                         docker push perconalab/pmm-client:${VERSION}
-                        docker push perconalab/pmm-client:latest
                         docker save perconalab/pmm-client:${VERSION} | xz > pmm-client-${VERSION}.docker
                     "
                 """
@@ -199,6 +192,7 @@ pipeline {
                 deleteDir()
             }
         }
+/*
         stage('Publish OVF') {
             agent {
                 label 'virtualbox'
