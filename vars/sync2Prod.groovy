@@ -32,7 +32,7 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
 
                                 # SRPMS
                                 mkdir -p \${dest_path}/SRPMS
-                                if [ `find ../source/redhat -name '*.src.rpm' | wc -l` -gt 0 ]; then
+                                if [ `find ../source/redhat -name '*.src.rpm' \${find_exclude}  | wc -l` -gt 0 ]; then
                                     cp -v `find ../source/redhat -name '*.src.rpm' \${find_exclude}` \${dest_path}/SRPMS/
                                 fi
                                 createrepo --update \${dest_path}/SRPMS
