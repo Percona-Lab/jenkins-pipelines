@@ -62,6 +62,7 @@ pipeline {
                             | grep -v 'pmm2-client' \
                             | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
                             | xargs -n 1 -I {} grep "^{}.rpm" repo.list \
+                            | sort \
                             | tee copy.list
                     '''
                 }
@@ -99,7 +100,7 @@ pipeline {
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
                             rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                                 /srv/repo-copy/pmm2-components/yum/release \
-                                10.10.9.209:/www/repo.percona.com/htdocs/pmm2-components/
+                                10.10.9.209:/www/repo.percona.com/htdocs/pmm2-components/yum/
                         "
                     """
                 }
@@ -329,8 +330,8 @@ pipeline {
                 """
             }
         }
-    }
 */
+    }
     post {
         always {
             deleteDir()
