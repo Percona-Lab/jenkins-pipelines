@@ -148,7 +148,7 @@ pipeline {
         }
         stage('Push to public repository') {
             steps {
-                sync2Prod(DESTINATION)
+                sync2Prod(DESTINATION, 'yes')
             }
         }
     }
