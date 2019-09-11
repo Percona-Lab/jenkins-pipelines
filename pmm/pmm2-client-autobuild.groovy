@@ -150,7 +150,7 @@ pipeline {
             }
             steps {
                 // sync packages
-                sync2Prod(DESTINATION)
+                sync2Prod(DESTINATION, 'yes')
 
                 // upload tarball
                 deleteDir()

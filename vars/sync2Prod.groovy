@@ -1,4 +1,4 @@
-def call(String DESTINATION) {
+def call(String DESTINATION, String SYNC_PMM_CLIENT) {
     node('master') {
         unstash 'uploadPath'
         def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
@@ -11,6 +11,11 @@ def call(String DESTINATION) {
                         set -o xtrace
 
                         pushd ${path_to_build}/binary
+                            if [ "${SYNC_PMM_CLIENT}" == 'no' ]; then
+                                rsync_exclude=" --exclude pmm2-client-*"
+                                find_exclude="! -name pmm2-client-*"
+                            fi
+
                             for rhel in `ls -1 redhat`; do
                                 export dest_path=/srv/repo-copy/${DESTINATION}/\${rhel}
 
@@ -20,7 +25,7 @@ def call(String DESTINATION) {
                                     repo_path=\${dest_path}/RPMS/\${arch}
                                     mkdir -p \${repo_path}
                                     if [ `ls redhat/\${rhel}/\${arch}/*.rpm | wc -l` -gt 0 ]; then
-                                        cp -av redhat/\${rhel}/\${arch}/*.rpm \${repo_path}/
+                                        rsync -aHv redhat/\${rhel}/\${arch}/*.rpm \${rsync_exclude} \${repo_path}/
                                     fi
                                     createrepo --update \${repo_path}
                                 done
@@ -28,7 +33,7 @@ def call(String DESTINATION) {
                                 # SRPMS
                                 mkdir -p \${dest_path}/SRPMS
                                 if [ `find ../source/redhat -name '*.src.rpm' | wc -l` -gt 0 ]; then
-                                    cp -v `find ../source/redhat -name '*.src.rpm'` \${dest_path}/SRPMS/
+                                    cp -v `find ../source/redhat -name '*.src.rpm' \${find_exclude}` \${dest_path}/SRPMS/
                                 fi
                                 createrepo --update \${dest_path}/SRPMS
                             done
