@@ -166,7 +166,7 @@ pipeline {
                         if [ \${TOP_VER} = 1 ]; then
                             docker push percona/pmm-server:latest
                         fi
-                        #docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
+                        docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
 
                         #docker pull \${DOCKER_CLIENT_VERSION}
                         #docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${VERSION}
@@ -175,18 +175,33 @@ pipeline {
                         #docker save perconalab/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}.docker
                     "
                 """
-/*
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         aws s3 cp --only-show-errors pmm-server-\${VERSION}.docker s3://percona-vm/pmm-server-\${VERSION}.docker
-                        aws s3 cp --only-show-errors pmm-client-\${VERSION}.docker s3://percona-vm/pmm-client-\${VERSION}.docker
+                        #aws s3 cp --only-show-errors pmm-client-\${VERSION}.docker s3://percona-vm/pmm-client-\${VERSION}.docker
                     """
                 }
-*/
                 deleteDir()
             }
         }
-/*
+        stage('Publish Docker image') {
+            agent {
+                label 'virtualbox'
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.docker
+                    """
+                }
+                sh """
+                    ssh -i ~/.ssh/id_rsa_downloads -p 2222 jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com "mkdir -p /data/downloads/pmm2/\${VERSION}/docker" || true
+                    md5sum pmm-server-\${VERSION}.docker > pmm-server-\${VERSION}.md5sum
+                    scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.md5sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/docker/
+                """
+                deleteDir()
+            }
+        }
         stage('Refresh website') {
             agent {
                 label 'virtualbox'
@@ -201,7 +216,6 @@ pipeline {
                 """
             }
         }
-*/
     }
     post {
         always {
