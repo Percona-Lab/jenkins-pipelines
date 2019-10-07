@@ -27,7 +27,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: tomislav
+    Default: slava
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
@@ -475,7 +475,7 @@ Resources:
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                   yum -y update --security
                   amazon-linux-extras install -y nginx1.12
-                  yum -y install java-1.8.0-openjdk jenkins-2.176.2 git yum-cron aws-cli xfsprogs
+                  yum -y install java-1.8.0-openjdk jenkins-2.190.1 git yum-cron aws-cli xfsprogs
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -543,7 +543,7 @@ Resources:
 
                   wget -O /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy \
                     https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
-                  sed -i 's/%LIST%/analysis-core compress-buildlog disk-usage ec2 git google-login junit matrix-auth matrix-reloaded matrix-combinations-parameter pipeline-model-definition pipeline-stage-view run-condition script-security slack timestamper ws-cleanup/' /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy
+                  sed -i 's/%LIST%/analysis-core build-blocker-plugin compress-buildlog conditional-buildstep copyartifact description-setter disk-usage ec2 envinject git google-login jobConfigHistory junit matrix-auth matrix-reloaded pipeline-model-definition pipeline-stage-view run-condition script-security slack ssh-slaves template-project timestamper warnings ws-cleanup/' /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy
 
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
