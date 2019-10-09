@@ -33,6 +33,7 @@
             sudo -E yum -y install gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel curl-devel curl
             sudo -E yum -y install libev-devel libgcrypt-devel zlib-devel ncurses-devel python-docutils libgcrypt-devel bison
             sudo -E yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat python-docutils vim-common
+            sudo -E yum -y install cmake3 redhat-lsb-core
             #GodDamnSphinx installation
             RHEL=$(rpm --eval %rhel)
             if [ ${RHEL} -lt 7 ]; then

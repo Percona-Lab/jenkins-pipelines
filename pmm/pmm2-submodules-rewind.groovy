@@ -21,7 +21,7 @@ pipeline {
         skipStagesAfterUnstable()
     }
     triggers {
-        cron('H/15 7-23 * * 1-5')
+        cron('H/10 * * * *')
     }
     stages {
         stage('Checkout') {
