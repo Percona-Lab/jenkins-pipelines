@@ -81,8 +81,8 @@ pipeline {
                         IMAGE_NAME='percona-xtradb-cluster-operator'
                         sg docker -c "
                             docker login -u '${USER}' -p '${PASS}'
-                            /usr/local/bin/trivy -o $WORKSPACE/trivy-hight-pxc.log --exit-code 0 --severity HIGH --quiet --auto-refresh perconalab/\$IMAGE_NAME:master
-                            /usr/local/bin/trivy -o $WORKSPACE/trivy-critical-pxc.log --exit-code 1 --severity CRITICAL --quiet --auto-refresh perconalab/\$IMAGE_NAME:master
+                            /usr/local/bin/trivy -o $WORKSPACE/trivy-hight-pxc.log --ignore-unfixed --exit-code 0 --severity HIGH --quiet --auto-refresh perconalab/\$IMAGE_NAME:master
+                            /usr/local/bin/trivy -o $WORKSPACE/trivy-critical-pxc.log --ignore-unfixed --exit-code 1 --severity CRITICAL --quiet --auto-refresh perconalab/\$IMAGE_NAME:master
                         "
                     """
                 }
