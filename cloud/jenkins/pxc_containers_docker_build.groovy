@@ -17,8 +17,8 @@ void checkImageForDocker(String IMAGE_PREFIX){
             IMAGE_NAME='percona-xtradb-cluster-operator'
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -o $WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_PREFIX}.log --exit-code 0 --severity HIGH --quiet --auto-refresh perconalab/\$IMAGE_NAME:master-${IMAGE_PREFIX}
-                /usr/local/bin/trivy -o $WORKSPACE/trivy-critical-\$IMAGE_NAME-${IMAGE_PREFIX}.log --exit-code 0 --severity CRITICAL --quiet --auto-refresh perconalab/\$IMAGE_NAME:master-${IMAGE_PREFIX}
+                /usr/local/bin/trivy -o $WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_PREFIX}.log --ignore-unfixed --exit-code 0 --severity HIGH --quiet --auto-refresh perconalab/\$IMAGE_NAME:master-${IMAGE_PREFIX}
+                /usr/local/bin/trivy -o $WORKSPACE/trivy-critical-\$IMAGE_NAME-${IMAGE_PREFIX}.log --ignore-unfixed --exit-code 0 --severity CRITICAL --quiet --auto-refresh perconalab/\$IMAGE_NAME:master-${IMAGE_PREFIX}
             "
         """
     }
