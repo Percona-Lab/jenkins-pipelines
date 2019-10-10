@@ -29,7 +29,7 @@ imageMap['min-centos-7-x64'] = 'ami-3ecc8f46'
 imageMap['min-bionic-x64'] = 'ami-12cdeb6a'
 imageMap['min-jessie-x64'] = 'ami-fde96b9d'
 imageMap['min-stretch-x64'] = 'ami-76f6ab0e'
-imageMap['min-buster-x64'] = 'ami-029a096793541cec3'
+imageMap['min-buster-x64'] = 'ami-0f5d8e2951e3f83a5'
 imageMap['min-trusty-x64'] = 'ami-4218403a'
 imageMap['min-cosmic-x64'] = 'ami-077b0a677133eb06a'
 imageMap['min-xenial-x64'] = 'ami-0f2016003e1759f35'
@@ -230,10 +230,10 @@ initMap['min-trusty-x64'] = '''
 '''
 
 capMap = [:]
-capMap['c4.xlarge'] = '5'
-capMap['m4.xlarge'] = '5'
-capMap['m4.2xlarge'] = '5'
-capMap['m1.medium'] = '5'
+capMap['c4.xlarge'] = '10'
+capMap['m4.xlarge'] = '10'
+capMap['m4.2xlarge'] = '10'
+capMap['m1.medium'] = '10'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'

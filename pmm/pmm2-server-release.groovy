@@ -20,18 +20,6 @@ pipeline {
             description: 'pmm-server container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
-            defaultValue: 'perconalab/pmm-client:dev-latest',
-            description: 'pmm-client docker container version (image-name:version-tag)',
-            name: 'DOCKER_CLIENT_VERSION')
-        string(
-            defaultValue: '',
-            description: 'Amazon Machine Image (AMI) ID',
-            name: 'AMI_VERSION')
-        string(
-            defaultValue: '',
-            description: 'OVA image filename',
-            name: 'OVF_VERSION')
-        string(
             defaultValue: '2.0.0',
             description: 'PMM2 Server version',
             name: 'VERSION')
@@ -57,8 +45,10 @@ pipeline {
                             ls /srv/repo-copy/pmm2-components/yum/${UPDATER_REPO}/7/RPMS/x86_64 \
                             > repo.list
                         cat rpms.list \
+                            | grep -v 'pmm2-client' \
                             | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
                             | xargs -n 1 -I {} grep "^{}.rpm" repo.list \
+                            | sort \
                             | tee copy.list
                     '''
                 }
@@ -66,6 +56,7 @@ pipeline {
                 archiveArtifacts 'copy.list'
             }
         }
+// Publish RPMs to repo.ci.percona.com
         stage('Copy RPMs to PMM repo') {
             steps {
                 unstash 'copy'
@@ -87,6 +78,7 @@ pipeline {
                 }
             }
         }
+// Publish RPMs to repo.percona.com
         stage('Publish RPMs') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
@@ -94,7 +86,8 @@ pipeline {
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
                             rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                                 /srv/repo-copy/pmm2-components/yum/release \
-                                10.10.9.209:/www/repo.percona.com/htdocs/pmm2/
+                                10.10.9.209:/www/repo.percona.com/htdocs/pmm2-components/yum/
+                            bash +x /usr/local/bin/clear_cdn_cache.sh
                         "
                     """
                 }
@@ -117,9 +110,8 @@ pipeline {
                             ["percona-dashboards"]="percona/grafana-dashboards"
                             ["pmm-server"]="percona/pmm-server"
                             ["percona-qan-api2"]="percona/qan-api2"
-                            ["percona-qan-app"]="percona/qan-app"
                             ["pmm-update"]="percona/pmm-update"
-                            ["pmm-manage"]="percona/pmm-manage"
+                            ["pmm-managed"]="percona/pmm-managed"
                         )
 
                         for package in "${!repo[@]}"; do
@@ -135,17 +127,14 @@ pipeline {
                                     git checkout $SHA
                                     FULL_SHA=$(git rev-parse HEAD)
 
-                                    set +o xtrace
-                                        curl -X POST \
-                                            -H "Authorization: token $(cat ../GITHUB_API_TOKEN)" \
-                                            -d "{\\"ref\\":\\"refs/tags/v${VERSION}\\",\\"sha\\": \\"${FULL_SHA}\\"}" \
-                                            https://api.github.com/repos/${repo["$package"]}/git/refs
-                                    set -o xtrace
+                                    echo "$FULL_SHA"
+                                    echo "$VERSION"
                                 popd >/dev/null
                             fi
                         done
                     '''
                 }
+                stash includes: 'VERSION', name: 'version_file'
             }
         }
         stage('Set Docker Tag') {
@@ -153,6 +142,7 @@ pipeline {
                 label 'min-centos-7-x64'
             }
             steps {
+                unstash 'version_file'
                 installDocker()
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
@@ -162,152 +152,55 @@ pipeline {
                     """
                 }
                 sh """
+                    VERSION=\$(cat VERSION)
+                    TOP_VER=\$(cat VERSION | cut -d. -f1)
+                    MID_VER=\$(cat VERSION | cut -d. -f2)
+                    DOCKER_MID="\$TOP_VER.\$MID_VER"
                     sg docker -c "
-                        docker pull ${DOCKER_VERSION}
-                        docker tag ${DOCKER_VERSION} percona/pmm-server:${VERSION}
-                        docker tag ${DOCKER_VERSION} percona/pmm-server:${DOCKER_MID}
-                        docker tag ${DOCKER_VERSION} percona/pmm-server:${TOP_VER}
-                        docker tag ${DOCKER_VERSION} percona/pmm-server:latest
-                        docker push percona/pmm-server:${VERSION}
-                        docker push percona/pmm-server:${DOCKER_MID}
-                        docker push percona/pmm-server:${TOP_VER}
-                        if [ ${TOP_VER} = 1 ]; then
+                        docker pull \${DOCKER_VERSION}
+                        docker tag \${DOCKER_VERSION} percona/pmm-server:\${VERSION}
+                        docker tag \${DOCKER_VERSION} percona/pmm-server:\${DOCKER_MID}
+                        docker tag \${DOCKER_VERSION} percona/pmm-server:\${TOP_VER}
+                        docker push percona/pmm-server:\${VERSION}
+                        docker push percona/pmm-server:\${DOCKER_MID}
+                        docker push percona/pmm-server:\${TOP_VER}
+                        if [ \${TOP_VER} = 1 ]; then
                             docker push percona/pmm-server:latest
                         fi
-                        docker save percona/pmm-server:${VERSION} | xz > pmm-server-${VERSION}.docker
+                        docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
 
-                        docker pull ${DOCKER_CLIENT_VERSION}
-                        docker tag ${DOCKER_CLIENT_VERSION} perconalab/pmm-client:${VERSION}
-                        docker tag ${DOCKER_CLIENT_VERSION} perconalab/pmm-client:latest
-                        docker push perconalab/pmm-client:${VERSION}
-                        docker push perconalab/pmm-client:latest
-                        docker save perconalab/pmm-client:${VERSION} | xz > pmm-client-${VERSION}.docker
+                        #docker pull \${DOCKER_CLIENT_VERSION}
+                        #docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${VERSION}
+                        #docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:latest
+                        #docker push perconalab/pmm-client:\${VERSION}
+                        #docker save perconalab/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}.docker
                     "
                 """
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        aws s3 cp --only-show-errors pmm-server-${VERSION}.docker s3://percona-vm/pmm-server-${VERSION}.docker
-                        aws s3 cp --only-show-errors pmm-client-${VERSION}.docker s3://percona-vm/pmm-client-${VERSION}.docker
+                        aws s3 cp --only-show-errors pmm-server-\${VERSION}.docker s3://percona-vm/pmm-server-\${VERSION}.docker
+                        #aws s3 cp --only-show-errors pmm-client-\${VERSION}.docker s3://percona-vm/pmm-client-\${VERSION}.docker
                     """
                 }
                 deleteDir()
             }
         }
-        stage('Publish OVF') {
+        stage('Publish Docker image') {
             agent {
                 label 'virtualbox'
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        aws s3 cp --only-show-errors s3://percona-vm/${OVF_VERSION} pmm-server-${VERSION}.ova
-                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}.docker pmm-server-${VERSION}.docker
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.docker
                     """
                 }
                 sh """
-                    ssh -i ~/.ssh/id_rsa_downloads -p 2222 jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com "mkdir -p /data/downloads/pmm/${VERSION}/{ova,docker}" || true
-                    md5sum pmm-server-${VERSION}.docker > pmm-server-${VERSION}.md5sum
-                    scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-${VERSION}.docker pmm-server-${VERSION}.md5sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm/${VERSION}/docker/
-
-                    md5sum pmm-server-${VERSION}.ova > pmm-server-${VERSION}.md5sum
-                    scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-${VERSION}.ova pmm-server-${VERSION}.md5sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm/${VERSION}/ova/
+                    ssh -i ~/.ssh/id_rsa_downloads -p 2222 jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com "mkdir -p /data/downloads/pmm2/\${VERSION}/docker" || true
+                    sha256sum pmm-server-\${VERSION}.docker > pmm-server-\${VERSION}.sha256sum
+                    scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/docker/
                 """
                 deleteDir()
-            }
-        }
-        stage('Copy AMI') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        get_image_id() {
-                            aws ec2 describe-images \
-                                --owners self \
-                                --filters "Name=name,Values=\$1" \
-                                --query 'Images[].ImageId' \
-                                --output text \
-                                --region \$2 \
-                                | tr '\t' '\n' \
-                                | sort -k 4 \
-                                | tail -1
-                        }
-                        SOURCE_REGION="us-east-1"
-                        IMAGE_NAME=\$(
-                            aws ec2 describe-images \
-                            --image-ids ${AMI_VERSION} \
-                            --query 'Images[].Name' \
-                            --region "\$SOURCE_REGION" \
-                            --output text \
-                            || :
-                        )
-                        if [ -z "\$IMAGE_NAME" ]; then
-                            echo Cannot find ${AMI_VERSION} AMI | tee ami.list
-                            exit 0
-                        fi
-                        IMAGE_NAME_REGEX=\$(echo \$IMAGE_NAME | sed -e 's/]\$/*/')
-                        rm -rf ami.list || :
-                        for REGION in \$(aws ec2 describe-regions --query 'Regions[].RegionName' --region "\$SOURCE_REGION" --output text | tr '\t' '\n' | sort); do
-                            COPY_IMAGE_ID=\$(get_image_id "\$IMAGE_NAME_REGEX" "\$REGION")
-                            if [ -z "\$COPY_IMAGE_ID" ]; then
-                                COPY_IMAGE_ID=\$(
-                                    aws ec2 copy-image \
-                                        --source-region "\$SOURCE_REGION" \
-                                        --source-image-id ${AMI_VERSION} \
-                                        --name "\$IMAGE_NAME" \
-                                        --region "\$REGION" \
-                                        --output text
-                                )
-                            fi
-                            printf "%-20s %-20s\n" "\$REGION" "\$COPY_IMAGE_ID" >> ami.list
-                        done
-                    """
-                    archiveArtifacts 'ami.list'
-                }
-            }
-        }
-        stage('Sleep') {
-            steps {
-                sleep 600
-            }
-        }
-        stage('Publish AMI') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        get_image_id() {
-                            aws ec2 describe-images \
-                                --owners self \
-                                --filters "Name=name,Values=\$1" \
-                                --query 'Images[].ImageId' \
-                                --output text \
-                                --region \$2 \
-                                | tr '\t' '\n' \
-                                | sort -k 4 \
-                                | tail -1
-                        }
-                        SOURCE_REGION="us-east-1"
-                        IMAGE_NAME=\$(
-                            aws ec2 describe-images \
-                            --image-ids ${AMI_VERSION} \
-                            --query 'Images[].Name' \
-                            --region "\$SOURCE_REGION" \
-                            --output text \
-                            || :
-                        )
-                        if [ -z "\$IMAGE_NAME" ]; then
-                            echo Cannot find ${AMI_VERSION} AMI | tee ami.list
-                            exit 0
-                        fi
-                        IMAGE_NAME_REGEX=\$(echo \$IMAGE_NAME | sed -e 's/]\$/*/')
-
-                        for REGION in \$(aws ec2 describe-regions --query 'Regions[].RegionName' --region "\$SOURCE_REGION" --output text | tr '\t' '\n' | sort); do
-                            COPY_IMAGE_ID=\$(get_image_id "\$IMAGE_NAME_REGEX" "\$REGION")
-                            while ! aws ec2 modify-image-attribute --image-id "\$COPY_IMAGE_ID" --region "\$REGION" --launch-permission "{\\"Add\\": [{\\"Group\\":\\"all\\"}]}"; do
-                                sleep 60
-                                COPY_IMAGE_ID=\$(get_image_id "\$IMAGE_NAME_REGEX" "\$REGION")
-                            done
-                        done
-                    """
-                }
             }
         }
         stage('Refresh website') {
@@ -325,7 +218,6 @@ pipeline {
             }
         }
     }
-
     post {
         always {
             deleteDir()
