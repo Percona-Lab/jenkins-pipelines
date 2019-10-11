@@ -79,11 +79,22 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
                         IMAGE_NAME='percona-xtradb-cluster-operator'
+                        TrityHightLog="$WORKSPACE/trivy-hight-pxc.log"
+                        TrityCriticaltLog="$WORKSPACE/trivy-critical-pxc.log"
+
                         sg docker -c "
                             docker login -u '${USER}' -p '${PASS}'
-                            /usr/local/bin/trivy -o $WORKSPACE/trivy-hight-pxc.log --exit-code 0 --severity HIGH --quiet --auto-refresh perconalab/\$IMAGE_NAME:master
-                            /usr/local/bin/trivy -o $WORKSPACE/trivy-critical-pxc.log --exit-code 1 --severity CRITICAL --quiet --auto-refresh perconalab/\$IMAGE_NAME:master
+                            /usr/local/bin/trivy -o \$TrityHightLog  --ignore-unfixed --exit-code 0 --severity HIGH --quiet --auto-refresh perconalab/\$IMAGE_NAME:master
+                            /usr/local/bin/trivy -o \$TrityCriticaltLog --ignore-unfixed --exit-code 1 --severity CRITICAL --quiet --auto-refresh perconalab/\$IMAGE_NAME:master
                         "
+
+                        if [ ! -s \$TrityHightLog ]; then
+                            rm -rf \$TrityHightLog
+                        fi
+
+                        if [ ! -s \$TrityCriticaltLog ]; then
+                            rm -rf \$TrityCriticaltLog
+                        fi
                     """
                 }
             }
@@ -92,7 +103,7 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts '*.log'
+            archiveArtifacts artifacts: '*-pxc.log', allowEmptyArchive: true
             deleteDir()
         }
         failure {
