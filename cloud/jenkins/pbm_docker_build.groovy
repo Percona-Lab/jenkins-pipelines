@@ -16,11 +16,22 @@ void checkImageForDocker(String IMAGE_PREFIX){
         sh """
             IMAGE_PREFIX=${IMAGE_PREFIX}
             IMAGE_NAME='percona-server-mongodb-operator'
+            TrityHightLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_PREFIX}.log"
+            TrityCriticaltLog="$WORKSPACE/trivy-critical-\$IMAGE_NAME-${IMAGE_PREFIX}.log"
+
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -o $WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_PREFIX}.log --ignore-unfixed --exit-code 0 --severity HIGH --quiet --auto-refresh perconalab/\$IMAGE_NAME:master-${IMAGE_PREFIX}
-                /usr/local/bin/trivy -o $WORKSPACE/trivy-critical-\$IMAGE_NAME-${IMAGE_PREFIX}.log --ignore-unfixed --exit-code 1 --severity CRITICAL --quiet --auto-refresh perconalab/\$IMAGE_NAME:master-${IMAGE_PREFIX}
+                /usr/local/bin/trivy -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH --quiet --auto-refresh perconalab/\$IMAGE_NAME:master-${IMAGE_PREFIX}
+                /usr/local/bin/trivy -o \$TrityCriticaltLog --ignore-unfixed --exit-code 1 --severity CRITICAL --quiet --auto-refresh perconalab/\$IMAGE_NAME:master-${IMAGE_PREFIX}
             "
+
+            if [ ! -s \$TrityHightLog ]; then
+                rm -rf \$TrityHightLog
+            fi
+
+            if [ ! -s \$TrityCriticaltLog ]; then
+                rm -rf \$TrityCriticaltLog
+            fi
         """
     }
 }
@@ -118,7 +129,7 @@ pipeline {
     }
     post {
         always {
-            archiveArtifacts '*.log'
+            archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q | uniq) || true
             '''
