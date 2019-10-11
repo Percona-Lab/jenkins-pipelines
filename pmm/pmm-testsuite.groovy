@@ -34,7 +34,7 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
                 export table_c="100"
                 export tap="1"
 
-                wget --progress=dot:giga \$(bash /srv/percona-qa/get_download_link.sh --product=${PRODUCT} --distribution=centos --version=${VERSION})
+                wget --progress=dot:giga \$(bash /srv/pmm-qa/get_download_link.sh --product=${PRODUCT} --distribution=centos --version=${VERSION})
                 bash /srv/percona-qa/pmm-tests/pmm-testsuite.sh \
                     | tee /tmp/result.output
 
