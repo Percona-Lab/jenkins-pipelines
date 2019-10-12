@@ -2,10 +2,10 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
-        string(name: 'PMM_VERSION', value: 'pmm1'),
         string(name: 'CLIENTS', value: ''),
         string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1')
+        string(name: 'DAYS', value: '1'),
+        string(name: 'PMM_VERSION', value: 'pmm1')
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
@@ -34,8 +34,13 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
                 export table_c="100"
                 export tap="1"
 
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
+                export PRODUCT=${PRODUCT}
+                if [[ \$PRODUCT != postgresql ]]; then
+                    wget --progress=dot:giga \$(bash /srv/pmm-qa/get_download_link.sh --product=${PRODUCT} --distribution=centos --version=${VERSION})
+                fi
                 wget --progress=dot:giga \$(bash /srv/pmm-qa/get_download_link.sh --product=${PRODUCT} --distribution=centos --version=${VERSION})
-                bash /srv/percona-qa/pmm-tests/pmm-testsuite.sh \
+                bash /srv/pmm-qa/pmm-tests/pmm-testsuite.sh \
                     | tee /tmp/result.output
 
                 perl -ane "
@@ -133,11 +138,6 @@ pipeline {
         stage('Test: PSMDB') {
             steps {
                 runTAP("mo", "psmdb", "3", "4.0")
-            }
-        }
-        stage('Test: PGSQL10') {
-            steps {
-                runTAP("pgsql", "postgresql", "3", "10.6")
             }
         }
         stage('Test: MariaDB') {
