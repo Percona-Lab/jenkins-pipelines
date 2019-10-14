@@ -357,7 +357,7 @@ pipeline {
                                         if [[ \$CLIENT_VERSION == http* ]]; then
                                             wget -O pmm2-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
                                         else
-                                            wget -O pmm2-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm2-client/pmm2-client-\${CLIENT_VERSION}/binary/tarball/pmm2-client-\${CLIENT_VERSION}.tar.gz"
+                                            wget -O pmm2-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm2/\${CLIENT_VERSION}/binary/tarball/pmm2-client-\${CLIENT_VERSION}.tar.gz"
                                         fi
                                         export BUILD_ID=dear-jenkins-please-dont-kill-virtualbox
                                         export JENKINS_NODE_COOKIE=dear-jenkins-please-dont-kill-virtualbox
@@ -383,7 +383,7 @@ pipeline {
                                 fi
                             export PATH=\$PATH:/usr/sbin:/sbin
                             if [[ \$PMM_VERSION == pmm2 ]]; then
-                                if [[ \$CLIENT_VERSION != http* ]]; then
+                                if [[ \$CLIENT_VERSION == dev-latest ]]; then
                                     pmm-admin --version
                                     sudo pmm-agent setup --server-address=\\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1):443 --server-insecure-tls --server-username=admin --server-password=admin --trace
                                     sleep 10
@@ -427,11 +427,11 @@ pipeline {
                                     --sysbench-oltp-run
                             fi
 
-                            if [[ \$CLIENT_VERSION == http* ]]; then
-                                export PATH="$PWD/pmm2-client/bin:$PATH"
-                            fi
-
                             if [[ \$PMM_VERSION == pmm2 ]]; then
+
+                                if [[ \$CLIENT_VERSION != dev-latest ]]; then
+                                    export PATH="$PWD/pmm2-client/bin:$PATH"
+                                fi
                                 bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                                     --ms-version  ${MS_VERSION} \
                                     --mo-version  ${MO_VERSION} \
