@@ -21,7 +21,7 @@ netMap['us-west-2b'] = 'subnet-0706d7d3b7bf7a2a5'
 netMap['us-west-2c'] = 'subnet-0b51237c5d9b9c3ed'
 
 imageMap = [:]
-imageMap['micro-amazon'] = 'ami-0ad99772'
+imageMap['micro-amazon'] = 'ami-020f88cb17f8dbdea'
 imageMap['min-artful-x64'] = 'ami-96dd93ee'
 imageMap['min-centos-6-x64'] = 'ami-0362922178e02e9f3'
 imageMap['min-centos-7-x64'] = 'ami-01ed306a12b7d1c96'
@@ -233,7 +233,7 @@ devMap['min-cosmic-x64'] = devMap['psmdb']
 labelMap = [:]
 labelMap['docker'] = ''
 labelMap['docker-32gb'] = ''
-labelMap['micro-amazon'] = 'master'
+labelMap['micro-amazon'] = ''
 labelMap['min-artful-x64'] = ''
 labelMap['min-centos-6-x64'] = ''
 labelMap['min-centos-7-x64'] = ''
@@ -317,6 +317,7 @@ String region = 'us-west-2'
             getTemplate('min-stretch-x64',  "${region}${it}"),
             getTemplate('min-bionic-x64',   "${region}${it}"),
             getTemplate('min-xenial-x64',   "${region}${it}"),
+            getTemplate('micro-amazon',     "${region}${it}"),
         ],
         '',
         ''                                    // List<? extends SlaveTemplate> templates
