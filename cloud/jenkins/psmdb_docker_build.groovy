@@ -188,7 +188,7 @@ pipeline {
                 checkImageForDocker('master-mongod3.6')
                 checkImageForDocker('master-mongod4.0')
                 sh '''
-                   CRITICAL=$(ls trivy-critical-*)
+                   CRITICAL=$(ls trivy-critical-*) || true
                    if [ -n "$CRITICAL" ]; then
                        exit 1
                    fi
