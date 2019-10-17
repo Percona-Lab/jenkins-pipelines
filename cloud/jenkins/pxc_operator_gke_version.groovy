@@ -62,6 +62,9 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             if [ -n "${IMAGE_PROXY}" ]; then
                 export IMAGE_PROXY=${IMAGE_PROXY}
             fi
+            if [ -n "${IMAGE_BACKUP}" ]; then
+                export IMAGE_BACKUP=${IMAGE_BACKUP}
+            fi
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             source $HOME/google-cloud-sdk/path.bash.inc
 
@@ -101,12 +104,16 @@ pipeline {
             name: 'GKE_VERSION')
         string(
             defaultValue: '',
-            description: 'PXC image',
+            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc',
             name: 'IMAGE_PXC')
         string(
             defaultValue: '',
-            description: 'PXC proxy image',
+            description: 'PXC proxy image: perconalab/percona-xtradb-cluster-operator:master-proxysql',
             name: 'IMAGE_PROXY')
+        string(
+            defaultValue: '',
+            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-backup',
+            name: 'IMAGE_BACKUP')
     }	
     agent {
         label 'docker'
