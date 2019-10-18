@@ -56,6 +56,14 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
         else
             cd ./source
             export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
+
+            if [ -n "${IMAGE_MONGOD}" ]; then
+                export IMAGE_MONGOD=${IMAGE_MONGOD}
+            fi
+            if [ -n "${IMAGE_BACKUP}" ]; then
+                export IMAGE_BACKUP=${IMAGE_BACKUP}
+            fi
+
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             source $HOME/google-cloud-sdk/path.bash.inc
 
@@ -93,6 +101,14 @@ pipeline {
             defaultValue: '1.12',
             description: 'GKE version',
             name: 'GKE_VERSION')
+        string(
+            defaultValue: '',
+            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:master-mongod4.0',
+            name: 'IMAGE_MONGOD')
+        string(
+            defaultValue: '',
+            description: 'Backup image: perconalab/percona-server-mongodb-operator:master-backup',
+            name: 'IMAGE_BACKUP')
     }	
     agent {
         label 'docker'
