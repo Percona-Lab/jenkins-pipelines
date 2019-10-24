@@ -147,6 +147,7 @@ pipeline {
                         done
                     '''
                 }
+                stash includes: 'VERSION', name: 'version_file'
             }
         }
         stage('Set Docker Tag') {
@@ -154,6 +155,7 @@ pipeline {
                 label 'min-centos-7-x64'
             }
             steps {
+                unstash 'version_file'
                 installDocker()
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
