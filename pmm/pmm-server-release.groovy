@@ -163,6 +163,10 @@ pipeline {
                     """
                 }
                 sh """
+                    VERSION=\$(cat VERSION)
+                    TOP_VER=\$(cat VERSION | cut -d. -f1)
+                    MID_VER=\$(cat VERSION | cut -d. -f2)
+                    DOCKER_MID="\$TOP_VER.\$MID_VER"
                     sg docker -c "
                         docker pull \${DOCKER_VERSION}
                         docker tag \${DOCKER_VERSION} percona/pmm-server:\${VERSION}
