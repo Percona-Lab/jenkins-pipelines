@@ -165,6 +165,9 @@ pipeline {
                 retry(3) {
                     build('mongod4.0')
                 }
+                retry(3) {
+                    build('mongod4.2')
+                }
             }
         }
 
@@ -172,6 +175,7 @@ pipeline {
             steps {
                 pushImageToDocker('mongod3.6')
                 pushImageToDocker('mongod4.0')
+                pushImageToDocker('mongod4.2')
             }
         }
 
@@ -179,6 +183,7 @@ pipeline {
             steps {
                 pushImageToRhel('mongod3.6')
                 pushImageToRhel('mongod4.0')
+                pushImageToRhel('mongod4.2')
                 pushImageToRhelOperator()
             }
         }
@@ -187,8 +192,9 @@ pipeline {
                 checkImageForDocker('master')
                 checkImageForDocker('master-mongod3.6')
                 checkImageForDocker('master-mongod4.0')
+                checkImageForDocker('master-mongod4.2')
                 sh '''
-                   CRITICAL=$(ls trivy-critical-*)
+                   CRITICAL=$(ls trivy-critical-*) || true
                    if [ -n "$CRITICAL" ]; then
                        exit 1
                    fi

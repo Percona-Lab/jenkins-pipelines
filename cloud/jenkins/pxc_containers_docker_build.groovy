@@ -160,7 +160,7 @@ pipeline {
                 checkImageForDocker('proxysql')
                 checkImageForDocker('backup')
                 sh '''
-                   CRITICAL=$(ls trivy-critical-*)
+                   CRITICAL=$(ls trivy-critical-*) || true
                    if [ -n "$CRITICAL" ]; then
                        exit 1
                    fi
