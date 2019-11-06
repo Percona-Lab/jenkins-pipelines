@@ -33,7 +33,7 @@ imageMap['min-jessie-x64'] = 'ami-9899c7f8'
 imageMap['min-stretch-x64'] = 'ami-0bcaff0e3bf791af1'
 imageMap['min-trusty-x64'] = 'ami-00048435fed26a8d1'
 imageMap['min-xenial-x64'] = 'ami-0ad16744583f21877'
-imageMap['min-buster-x64'] = 'ami-08811566c4b9768a8'
+imageMap['min-buster-x64'] = 'ami-09e03f9fdef632722'
 imageMap['psmdb'] = imageMap['min-xenial-x64']
 
 imageMap['ramdisk-centos-6-x64'] = imageMap['min-centos-6-x64']
@@ -44,6 +44,8 @@ imageMap['ramdisk-bionic-x64']   = imageMap['min-bionic-x64']
 imageMap['ramdisk-buster-x64']   = imageMap['min-buster-x64']
 imageMap['ramdisk-jessie-x64']   = imageMap['min-jessie-x64']
 
+imageMap['performance-centos-6-x64']   = imageMap['min-centos-6-x64']
+
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
 priceMap['m1.medium'] = '0.05'
@@ -51,6 +53,7 @@ priceMap['c4.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
 priceMap['m5d.2xlarge'] = '0.20'
+priceMap['r32.xlarge'] = '0.20'
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
@@ -76,6 +79,8 @@ userMap['ramdisk-xenial-x64']   = userMap['min-xenial-x64']
 userMap['ramdisk-bionic-x64']   = userMap['min-bionic-x64']
 userMap['ramdisk-buster-x64']   = userMap['min-buster-x64']
 userMap['ramdisk-jessie-x64']   = userMap['min-jessie-x64']
+
+userMap['performance-centos-6-x64'] = userMap['min-centos-6-x64']
 
 initMap = [:]
 initMap['docker'] = '''
@@ -172,9 +177,6 @@ initMap['min-buster-x64'] = '''
         sleep 1
         echo try again
     done
-    sleep 5
-    sudo rm -rf /var/lib/dpkg/lock-frontend
-    sudo rm -rf  /var/cache/apt/archives/lock
     sudo apt-get -y install openjdk-11-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
@@ -294,11 +296,6 @@ initMap['ramdisk-buster-x64'] = '''
         sleep 1
         echo try again
     done
-    sleep 5
-
-    sudo rm -rf /var/lib/dpkg/lock-frontend
-    sudo rm -rf  /var/cache/apt/archives/lock
-
     sudo apt-get -y install openjdk-11-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
@@ -314,18 +311,23 @@ initMap['ramdisk-bionic-x64'] = '''
     sudo apt-get -y install openjdk-8-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['ramdisk-stretch-x64'] = initMap['ramdisk-bionic-x64']
-initMap['ramdisk-xenial-x64']  = initMap['ramdisk-bionic-x64']
+initMap['ramdisk-stretch-x64']       = initMap['ramdisk-bionic-x64']
+initMap['ramdisk-xenial-x64']        = initMap['ramdisk-bionic-x64']
+initMap['performance-centos-6-x64']  = initMap['min-centos-6-x64']
 
 capMap = [:]
 capMap['c4.xlarge'] = '60'
 capMap['m4.xlarge'] = '60'
 capMap['m4.2xlarge'] = '10'
+capMap['r32.xlarge'] = '10'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
 typeMap['docker'] = 'c4.xlarge'
 typeMap['docker-32gb'] = 'm4.2xlarge'
+
+typeMap['performance-centos-6-x64'] = 'r32.xlarge'
+
 typeMap['min-centos-7-x64'] = typeMap['docker-32gb']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
@@ -372,6 +374,8 @@ execMap['ramdisk-bionic-x64']   = execMap['docker-32gb']
 execMap['ramdisk-buster-x64']   = execMap['docker-32gb']
 execMap['ramdisk-jessie-x64']   = execMap['docker-32gb']
 
+execMap['performance-centos-6-x64']   = execMap['docker-32gb']
+
 devMap = [:]
 devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb'] = devMap['docker']
@@ -396,6 +400,8 @@ devMap['ramdisk-xenial-x64']   = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-stretch-x64']  = 'xvda=:8:true:gp2'
 devMap['ramdisk-buster-x64']   = devMap['ramdisk-stretch-x64']
 devMap['ramdisk-jessie-x64']   = '/dev/xvda=:8:true:gp2'
+
+devMap['performance-centos-6-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:120:true:gp2'
 
 labelMap = [:]
 labelMap['docker'] = ''
@@ -422,6 +428,8 @@ labelMap['ramdisk-stretch-x64']  = ''
 labelMap['ramdisk-buster-x64']   = ''
 labelMap['ramdisk-jessie-x64']   = ''
 
+labelMap['performance-centos-6-x64'] = 'perf-centos-6-x64'
+
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
     return new SlaveTemplate(
@@ -431,7 +439,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         'default',                                  // String securityGroups
         '/mnt/jenkins',                             // String remoteFS
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type
-        ( typeMap[OSType].startsWith("c4") || typeMap[OSType].startsWith("m4") || typeMap[OSType].startsWith("c5") || typeMap[OSType].startsWith("m5") ), // boolean ebsOptimized
+        ( typeMap[OSType].startsWith("c4") || typeMap[OSType].startsWith("m4") || typeMap[OSType].startsWith("c5") || typeMap[OSType].startsWith("m5") || typeMap[OSType].startsWith("r32") ), // boolean ebsOptimized
         OSType + ' ' + labelMap[OSType],            // String labelString
         Node.Mode.NORMAL,                           // Node.Mode mode
         OSType,                                     // String description
@@ -500,6 +508,7 @@ String region = 'us-west-1'
             getTemplate('ramdisk-bionic-x64', "${region}${it}"),
             getTemplate('ramdisk-buster-x64', "${region}${it}"),
             getTemplate('ramdisk-jessie-x64', "${region}${it}"),
+            getTemplate('performance-centos-6-x64', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
