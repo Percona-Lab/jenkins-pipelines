@@ -18,7 +18,7 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
 
                             for rhel in `ls -1 redhat`; do
                                 # skip synchronization of el8/el6 repos in case of pmm server rpms sync
-                                if [ "${SYNC_PMM_CLIENT}" == 'no' ] && [ "$rhel" -eq '8' -o "$rhel" -eq '6' ]; then
+                                if [ "${SYNC_PMM_CLIENT}" == 'no' ] && [ "${rhel}" -eq '8' -o "${rhel}" -eq '6' ]; then
                                     continue
                                 fi
 
