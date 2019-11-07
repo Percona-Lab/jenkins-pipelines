@@ -9,6 +9,8 @@ import hudson.plugins.ec2.UnixData
 import java.util.logging.Logger
 import jenkins.model.Jenkins
 
+System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "sandbox allow-scripts; script-src 'unsafe-inline' https://www.gstatic.com;")
+
 def logger = Logger.getLogger("")
 logger.info("Cloud init started")
 
@@ -22,21 +24,42 @@ netMap['eu-west-1c'] = 'subnet-0de17643aea1f04a4'
 imageMap = [:]
 imageMap['eu-west-1a.docker'] = 'ami-0bfe21f21a54b82f9'
 imageMap['eu-west-1a.docker-32gb'] = 'ami-0bfe21f21a54b82f9'
+imageMap['eu-west-1a.docker2'] = 'ami-0bfe21f21a54b82f9'
 imageMap['eu-west-1a.micro-amazon'] = 'ami-0bfe21f21a54b82f9'
-imageMap['eu-west-1a.min-centos-7-x64'] = 'ami-0d5a7aa2893e99a9c'
 imageMap['eu-west-1a.fips-centos-7-x64'] = 'ami-0ff760d16d9497662'
+
+imageMap['eu-west-1a.min-centos-6-x64'] = 'ami-0451e9d3427711cb1'
+imageMap['eu-west-1a.min-centos-7-x64'] = 'ami-09b9d14dc2de358a5'
+imageMap['eu-west-1a.min-buster-x64']   = 'ami-0a06bdac16827ac46'
+imageMap['eu-west-1a.min-bionic-x64']   = 'ami-021225f6fa049d781'
+imageMap['eu-west-1a.min-stretch-x64']  = 'ami-00a845a11b3d1f308'
+imageMap['eu-west-1a.min-xenial-x64']   = 'ami-03ef731cc103c9f09'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
+imageMap['eu-west-1b.docker2'] = imageMap['eu-west-1a.docker2']
 imageMap['eu-west-1b.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
 imageMap['eu-west-1b.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64']
 imageMap['eu-west-1b.fips-centos-7-x64'] = imageMap['eu-west-1a.fips-centos-7-x64']
 
+imageMap['eu-west-1b.min-centos-6-x64'] = imageMap['eu-west-1a.min-centos-6-x64']
+imageMap['eu-west-1b.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
+imageMap['eu-west-1b.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
+imageMap['eu-west-1b.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
+imageMap['eu-west-1b.min-xenial-x64']   = imageMap['eu-west-1a.min-xenial-x64']
+
 imageMap['eu-west-1c.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1c.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
+imageMap['eu-west-1c.docker2'] = imageMap['eu-west-1a.docker2']
 imageMap['eu-west-1c.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
 imageMap['eu-west-1c.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64']
 imageMap['eu-west-1c.fips-centos-7-x64'] = imageMap['eu-west-1a.fips-centos-7-x64']
+
+imageMap['eu-west-1c.min-centos-6-x64'] = imageMap['eu-west-1a.min-centos-6-x64']
+imageMap['eu-west-1c.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
+imageMap['eu-west-1c.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
+imageMap['eu-west-1c.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
+imageMap['eu-west-1c.min-xenial-x64']   = imageMap['eu-west-1a.min-xenial-x64']
 
 /*
 imageMap['min-artful-x64'] = 'ami-db2919be'
@@ -56,19 +79,22 @@ priceMap['m4.2xlarge'] = '0.20'
 priceMap['c5d.xlarge'] = '0.20'
 
 userMap = [:]
-userMap['docker'] = 'ec2-user'
-userMap['docker-32gb'] = userMap['docker']
-userMap['micro-amazon'] = userMap['docker']
-userMap['min-artful-x64'] = 'ubuntu'
-userMap['min-bionic-x64'] = 'ubuntu'
-userMap['min-centos-6-x32'] = 'root'
-userMap['min-centos-6-x64'] = 'centos'
-userMap['min-centos-7-x64'] = 'centos'
+userMap['docker']            = 'ec2-user'
+userMap['docker-32gb']       = userMap['docker']
+userMap['docker2']           = userMap['docker']
+userMap['micro-amazon']      = userMap['docker']
+userMap['min-artful-x64']    = 'ubuntu'
+userMap['min-bionic-x64']    = 'ubuntu'
+userMap['min-trusty-x64']    = 'ubuntu'
+userMap['min-xenial-x64']    = 'ubuntu'
+userMap['min-centos-6-x32']  = 'root'
+userMap['min-centos-6-x64']  = 'centos'
+userMap['min-centos-7-x64']  = 'centos'
 userMap['fips-centos-7-x64'] = 'centos'
-userMap['min-jessie-x64'] = 'admin'
-userMap['min-stretch-x64'] = 'admin'
-userMap['min-trusty-x64'] = 'ubuntu'
-userMap['min-xenial-x64'] = 'ubuntu'
+userMap['min-jessie-x64']    = 'admin'
+userMap['min-stretch-x64']   = 'admin'
+userMap['min-buster-x64']    = 'admin'
+
 userMap['psmdb'] = userMap['min-xenial-x64']
 
 initMap = [:]
@@ -110,6 +136,7 @@ initMap['docker'] = '''
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 initMap['docker-32gb'] = initMap['docker']
+initMap['docker2'] = initMap['docker']
 initMap['micro-amazon'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -169,6 +196,20 @@ initMap['min-artful-x64'] = '''
     sudo apt-get -y install openjdk-8-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
+initMap['min-buster-x64'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
+        sudo mkfs.ext2 ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+    sudo apt-get -y install openjdk-11-jre-headless git
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
 initMap['min-bionic-x64'] = initMap['min-artful-x64']
 initMap['min-stretch-x64'] = initMap['min-artful-x64']
 initMap['min-xenial-x64'] = initMap['min-artful-x64']
@@ -201,75 +242,83 @@ capMap['m4.2xlarge'] = '10'
 capMap['c5d.xlarge'] = '10'
 
 typeMap = [:]
-typeMap['micro-amazon'] = 'c4.xlarge'
-typeMap['docker'] = 'c4.xlarge'
-typeMap['docker-32gb'] = 'm4.2xlarge'
-typeMap['min-centos-7-x64'] = typeMap['docker']
+typeMap['micro-amazon']      = 'c4.xlarge'
+typeMap['docker']            = 'c4.xlarge'
+typeMap['docker-32gb']       = 'm4.2xlarge'
+typeMap['docker2']           = 'c5d.xlarge'
+typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-centos-6-x32'] = 'm1.medium'
-typeMap['min-centos-6-x64'] = 'm4.xlarge'
-typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
-typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-trusty-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
-typeMap['psmdb'] = typeMap['docker-32gb']
+typeMap['min-artful-x64']    = typeMap['min-centos-7-x64']
+typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
+typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
+typeMap['min-centos-6-x32']  = 'm1.medium'
+typeMap['min-centos-6-x64']  = 'm4.xlarge'
+typeMap['min-jessie-x64']    = typeMap['min-centos-6-x64']
+typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
+typeMap['min-trusty-x64']    = typeMap['min-centos-7-x64']
+typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
+typeMap['psmdb']             = typeMap['docker-32gb']
 
 execMap = [:]
-execMap['docker'] = '1'
-execMap['docker-32gb'] = execMap['docker']
-execMap['micro-amazon'] = '30'
-execMap['min-artful-x64'] = '1'
-execMap['min-bionic-x64'] = '1'
-execMap['min-centos-6-x32'] = '1'
-execMap['min-centos-6-x64'] = '1'
-execMap['min-centos-7-x64'] = '1'
+execMap['docker']            = '1'
+execMap['docker-32gb']       = execMap['docker']
+execMap['docker2']           = execMap['docker']
+execMap['micro-amazon']      = '30'
+execMap['min-artful-x64']    = '1'
+execMap['min-bionic-x64']    = '1'
+execMap['min-centos-6-x32']  = '1'
+execMap['min-centos-6-x64']  = '1'
+execMap['min-centos-7-x64']  = '1'
 execMap['fips-centos-7-x64'] = '1'
-execMap['min-jessie-x64'] = '1'
-execMap['min-stretch-x64'] = '1'
-execMap['min-trusty-x64'] = '1'
-execMap['min-xenial-x64'] = '1'
-execMap['psmdb'] = '1'
+execMap['min-jessie-x64']    = '1'
+execMap['min-stretch-x64']   = '1'
+execMap['min-trusty-x64']    = '1'
+execMap['min-xenial-x64']    = '1'
+execMap['min-buster-x64']    = '1'
+execMap['psmdb']             = '1'
 
 devMap = [:]
-devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
-devMap['docker-32gb'] = devMap['docker']
-devMap['micro-amazon'] = devMap['docker']
-devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['min-bionic-x64'] = devMap['min-artful-x64']
-devMap['min-centos-6-x64'] = devMap['min-artful-x64']
-devMap['min-centos-7-x64'] = devMap['min-artful-x64']
+devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker2']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker-32gb']       = devMap['docker']
+devMap['micro-amazon']      = devMap['docker']
+devMap['min-artful-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-bionic-x64']    = devMap['min-artful-x64']
+devMap['min-centos-6-x64']  = devMap['min-artful-x64']
+devMap['min-centos-7-x64']  = devMap['min-artful-x64']
 devMap['fips-centos-7-x64'] = devMap['min-artful-x64']
-devMap['min-jessie-x64'] = devMap['micro-amazon']
-devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
-devMap['min-trusty-x64'] = devMap['min-artful-x64']
-devMap['min-xenial-x64'] = devMap['min-artful-x64']
-devMap['min-centos-6-x32'] = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
+devMap['min-jessie-x64']    = devMap['micro-amazon']
+devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
+devMap['min-trusty-x64']    = devMap['min-artful-x64']
+devMap['min-xenial-x64']    = devMap['min-artful-x64']
+devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-buster-x64']    = devMap['min-stretch-x64']
+devMap['psmdb']             = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 
 labelMap = [:]
-labelMap['docker'] = ''
-labelMap['docker-32gb'] = ''
-labelMap['micro-amazon'] = 'master'
-labelMap['min-artful-x64'] = ''
-labelMap['min-bionic-x64'] = 'asan'
-labelMap['min-centos-6-x32'] = ''
-labelMap['min-centos-6-x64'] = ''
-labelMap['min-centos-7-x64'] = ''
+labelMap['docker']            = ''
+labelMap['docker-32gb']       = ''
+labelMap['docker2']           = 'docker-32gb'
+labelMap['micro-amazon']      = 'master'
+labelMap['min-artful-x64']    = ''
+labelMap['min-bionic-x64']    = 'asan'
+labelMap['min-centos-6-x32']  = ''
+labelMap['min-centos-6-x64']  = ''
+labelMap['min-centos-7-x64']  = ''
 labelMap['fips-centos-7-x64'] = ''
-labelMap['min-jessie-x64'] = ''
-labelMap['min-stretch-x64'] = ''
-labelMap['min-trusty-x64'] = ''
-labelMap['min-xenial-x64'] = ''
-labelMap['psmdb'] = ''
+labelMap['min-jessie-x64']    = ''
+labelMap['min-stretch-x64']   = ''
+labelMap['min-trusty-x64']    = ''
+labelMap['min-xenial-x64']    = ''
+labelMap['min-buster-x64']    = ''
+labelMap['psmdb']             = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
     return new SlaveTemplate(
         imageMap[AZ + '.' + OSType],                // String ami
         '',                                         // String zone
-        new SpotConfiguration(true, priceMap[typeMap[OSType]], false), // SpotConfiguration spotConfig
+        new SpotConfiguration(true, priceMap[typeMap[OSType]], false, '0'), // SpotConfiguration spotConfig
         'default',                                  // String securityGroups
         '/mnt/jenkins',                             // String remoteFS
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type
@@ -325,11 +374,16 @@ String region = 'eu-west-1'
         privateKey,                             // String privateKey
         '240',                                   // String instanceCapStr
         [
-            getTemplate('docker',           "${region}${it}"),
-            getTemplate('docker-32gb',      "${region}${it}"),
-            getTemplate('micro-amazon',     "${region}${it}"),
-            getTemplate('min-centos-7-x64', "${region}${it}"),
-            getTemplate('fips-centos-7-x64', "${region}${it}"),
+            getTemplate('docker',             "${region}${it}"),
+            getTemplate('docker-32gb',        "${region}${it}"),
+            getTemplate('micro-amazon',       "${region}${it}"),
+            getTemplate('min-centos-7-x64',   "${region}${it}"),
+            getTemplate('fips-centos-7-x64',  "${region}${it}"),
+            getTemplate('min-centos-6-x64',   "${region}${it}"),
+            getTemplate('min-bionic-x64',     "${region}${it}"),
+            getTemplate('min-buster-x64',     "${region}${it}"),
+            getTemplate('min-stretch-x64',    "${region}${it}"),
+            getTemplate('min-xenial-x64',     "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
