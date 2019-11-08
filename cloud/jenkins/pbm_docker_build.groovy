@@ -132,6 +132,7 @@ pipeline {
             archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q | uniq) || true
+                sudo rm -rf ${WORKSPACE}/*
             '''
             deleteDir()
         }
