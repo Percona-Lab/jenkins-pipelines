@@ -329,6 +329,8 @@ pipeline {
                                 fi
                                 sleep 10
                                 docker logs \${VM_NAME}-server
+                                docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/laboratory/^' /etc/yum.repos.d/pmm2-server.repo
+                                docker exec \${VM_NAME}-server percona-release enable original testing
 
                                 if [[ \$CLIENT_VERSION = dev-latest ]]; then
                                     sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
