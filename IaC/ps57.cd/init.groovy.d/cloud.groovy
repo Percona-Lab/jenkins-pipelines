@@ -28,7 +28,7 @@ imageMap['eu-central-1a.min-centos-7-x64']  = 'ami-04cf43aca3e6f3de3'
 imageMap['eu-central-1a.fips-centos-7-x64'] = 'ami-0837950ffca9ae6e8'
 imageMap['eu-central-1a.min-centos-6-x64']  = 'ami-07fa74e425f2abf29'
 imageMap['eu-central-1a.min-buster-x64']    = 'ami-0420ba71f75826799'
-imageMap['eu-central-1a.min-bionic-x64']    = 'ami-063aa838bd7631e0b'
+imageMap['eu-central-1a.min-bionic-x64']    = 'ami-040a1551f9c9d11ad'
 imageMap['eu-central-1a.min-stretch-x64']   = 'ami-0457476522c3d78c5'
 imageMap['eu-central-1a.min-xenial-x64']    = 'ami-0fd4fe10cea7264a7'
 
@@ -38,9 +38,9 @@ imageMap['eu-central-1b.docker2']           = imageMap['eu-central-1a.docker2']
 imageMap['eu-central-1b.micro-amazon']      = imageMap['eu-central-1a.micro-amazon']
 imageMap['eu-central-1b.min-centos-7-x64']  = imageMap['eu-central-1a.min-centos-7-x64']
 imageMap['eu-central-1b.fips-centos-7-x64'] = imageMap['eu-central-1a.fips-centos-7-x64']
-imageMap['eu-central-1b.min-centos-6-x64']  = imageMap['eu-central-1a.min-centos-6-x64'']
+imageMap['eu-central-1b.min-centos-6-x64']  = imageMap['eu-central-1a.min-centos-6-x64']
 imageMap['eu-central-1b.min-buster-x64']    = imageMap['eu-central-1a.min-buster-x64']
-imageMap['eu-central-1b.min-bionic-x64']    = imageMap['eu-central-1a.min-bionic-x64]
+imageMap['eu-central-1b.min-bionic-x64']    = imageMap['eu-central-1a.min-bionic-x64']
 imageMap['eu-central-1b.min-stretch-x64']   = imageMap['eu-central-1a.min-stretch-x64']
 imageMap['eu-central-1b.min-xenial-x64']    = imageMap['eu-central-1a.min-xenial-x64']
 
@@ -50,9 +50,9 @@ imageMap['eu-central-1c.docker2']           = imageMap['eu-central-1a.docker2']
 imageMap['eu-central-1c.micro-amazon']      = imageMap['eu-central-1a.micro-amazon']
 imageMap['eu-central-1c.min-centos-7-x64']  = imageMap['eu-central-1a.min-centos-7-x64']
 imageMap['eu-central-1c.fips-centos-7-x64'] = imageMap['eu-central-1a.fips-centos-7-x64']
-imageMap['eu-central-1c.min-centos-6-x64']  = imageMap['eu-central-1a.min-centos-6-x64'']
+imageMap['eu-central-1c.min-centos-6-x64']  = imageMap['eu-central-1a.min-centos-6-x64']
 imageMap['eu-central-1c.min-buster-x64']    = imageMap['eu-central-1a.min-buster-x64']
-imageMap['eu-central-1c.min-bionic-x64']    = imageMap['eu-central-1a.min-bionic-x64]
+imageMap['eu-central-1c.min-bionic-x64']    = imageMap['eu-central-1a.min-bionic-x64']
 imageMap['eu-central-1c.min-stretch-x64']   = imageMap['eu-central-1a.min-stretch-x64']
 imageMap['eu-central-1c.min-xenial-x64']    = imageMap['eu-central-1a.min-xenial-x64']
 
@@ -67,6 +67,7 @@ imageMap['min-xenial-x64'] = 'ami-e82a1a8d'
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
+priceMap['m4.large'] = '0.04'
 priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
@@ -240,7 +241,7 @@ capMap['r4.4xlarge'] = '40'
 capMap['c5d.xlarge'] = '10'
 
 typeMap = [:]
-typeMap['micro-amazon']      = 't2.small'
+typeMap['micro-amazon']      = 'm4.large'
 typeMap['docker']            = 'c4.xlarge'
 typeMap['docker-32gb']       = 'm4.2xlarge'
 typeMap['docker2']           = 'r4.4xlarge'
