@@ -57,7 +57,7 @@ pipeline {
         }
         stage('Start staging') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=mo,2 --with-replica --addclient=pgsql,1')
+                runStaging(DOCKER_VERSION, CLIENT_VERSION, ' ')
             }
         }
         stage('Setup Step') {
