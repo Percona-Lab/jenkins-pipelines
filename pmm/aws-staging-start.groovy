@@ -73,6 +73,13 @@ pipeline {
             defaultValue: 'true',
             description: 'Enable Slack notification (option for high level pipelines)',
             name: 'NOTIFY')
+        choice(
+            choices: ['no', 'yes'],
+            description: "Use this instance only as a client host",
+            name: 'CLIENT_INSTANCE')
+        string (
+            description: 'Value for Server Public IP, to use this instance just as client',
+            name: 'SERVER_IP')
     }
     options {
         skipDefaultCheckout()
@@ -273,6 +280,9 @@ pipeline {
         }
 
         stage('Run Docker') {
+            when {
+                expression { env.CLIENT_INSTANCE == "no" }
+            }
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     script {
@@ -329,8 +339,26 @@ pipeline {
                                 fi
                                 sleep 10
                                 docker logs \${VM_NAME}-server
-
-                                if [[ \$CLIENT_VERSION = dev-latest ]]; then
+                            "
+                         """
+                        }
+                    }
+                }
+            }
+        }
+        stage('Run Clients') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        export IP=\$(cat IP)
+                        [ -z "${CLIENTS}" ] && exit 0 || :
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
+                            set -o errexit
+                            set -o xtrace
+                            export PATH=\$PATH:/usr/sbin
+                            test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
+                            export CLIENT_IP=\$(curl ifconfig.me);
+                            if [[ \$CLIENT_VERSION = dev-latest ]]; then
                                     sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                                     sudo percona-release disable all
                                     sudo percona-release enable original testing
@@ -373,7 +401,11 @@ pipeline {
                                         echo "export PATH=$PWD/pmm2-client/bin:$PATH" >> ~/.bash_profile
                                         source ~/.bash_profile
                                         pmm-admin --version
-                                        pmm-agent setup --config-file=$PWD/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin --trace
+                                        if [[ \$CLIENT_INSTANCE == yes ]]; then
+                                            pmm-agent setup --config-file=$PWD/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin --trace \$IP
+                                        else
+                                            pmm-agent setup --config-file=$PWD/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin --trace \$IP
+                                        fi
                                         sleep 10
                                         JENKINS_NODE_COOKIE=dontKillMe nohup bash -c 'pmm-agent --config-file=$PWD/pmm2-client/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
                                         sleep 10
@@ -385,33 +417,19 @@ pipeline {
                             if [[ \$PMM_VERSION == pmm2 ]]; then
                                 if [[ \$CLIENT_VERSION == dev-latest ]]; then
                                     pmm-admin --version
-                                    sudo pmm-agent setup --server-address=\\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1):443 --server-insecure-tls --server-username=admin --server-password=admin --trace
+                                    if [[ \$CLIENT_INSTANCE == yes ]]; then
+                                        sudo pmm-agent setup --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin --trace \$IP
+                                    else
+                                        sudo pmm-agent setup --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin --trace \$IP
+                                    fi
                                     sleep 10
                                     sudo cat /var/log/pmm-agent.log
                                     pmm-admin --debug add mysql --use-perfschema --username=root
                                     pmm-admin list
                                 fi
                             else
-                                sudo pmm-admin config --client-name pmm-client-hostname --server \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1)
+                                sudo pmm-admin config --client-name pmm-client-hostname --server \$IP
                             fi
-                            "
-                         """
-                        }
-                    }
-                }
-            }
-        }
-        stage('Run Clients') {
-            steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh """
-                        export IP=\$(cat IP)
-                        [ -z "${CLIENTS}" ] && exit 0 || :
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
-                            set -o errexit
-                            set -o xtrace
-                            export PATH=\$PATH:/usr/sbin
-                            test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
 
                             if [[ \$PMM_VERSION == pmm1 ]]; then
                                 bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
@@ -432,6 +450,9 @@ pipeline {
                                 if [[ \$CLIENT_VERSION != dev-latest ]]; then
                                     export PATH="$PWD/pmm2-client/bin:$PATH"
                                 fi
+                                if [[ \$CLIENT_INSTANCE == no ]]; then
+                                    export SERVER_IP=\$IP;
+                                fi
                                 bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                                     --ms-version  ${MS_VERSION} \
                                     --mo-version  ${MO_VERSION} \
@@ -444,7 +465,7 @@ pipeline {
                                     --pmm2 \
                                     --dbdeployer \
                                     --query-source=${QUERY_SOURCE} \
-                                    --pmm2-server-ip=\$IP
+                                    --pmm2-server-ip=\$SERVER_IP
                             fi
                         "
                     """
