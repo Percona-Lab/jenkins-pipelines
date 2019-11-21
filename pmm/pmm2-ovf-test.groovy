@@ -129,12 +129,6 @@ pipeline {
                     
                     tar xvf \$VM_NAME.ova
                     export ovf_name=$(find -type f -name '*.ovf');
-                    ifconfig
-                    ip addr show
-                    sudo yum install -y NetworkManager
-                    systemctl start NetworkManager
-                    service NetworkManager-wait-online.service start
-                    systemctl status NetworkManager
                     VBoxManage import \$ovf_name --vsys 0 --memory 2048 --vmname \$VM_NAME > /dev/null
                     VBoxManage modifyvm \$VM_NAME \
                         --memory 2048 \
