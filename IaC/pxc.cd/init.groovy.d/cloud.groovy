@@ -9,7 +9,7 @@ import hudson.plugins.ec2.UnixData
 import java.util.logging.Logger
 import jenkins.model.Jenkins
 
-System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "sandbox allow-scripts; script-src 'unsafe-inline' https://www.gstatic.com;")
+System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "sandbox allow-scripts; script-src 'unsafe-eval' 'unsafe-inline' https://www.google.com;")
 
 def logger = Logger.getLogger("")
 logger.info("Cloud init started")
