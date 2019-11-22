@@ -1,6 +1,18 @@
+void runUITests(CLIENT_VERSION, CLIENT_INSTANCE, SERVER_IP) {
+    stagingJob = build job: 'pmm2-ui-tests', parameters: [
+        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
+        string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
+        string(name: 'SERVER_IP', value: SERVER_IP)
+    ]
+    env.VM_IP = stagingJob.buildVariables.IP
+    env.VM_NAME = stagingJob.buildVariables.VM_NAME
+    env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+    env.PMM_UI_URL = "https://${SERVER_IP}"
+}
+
 pipeline {
     agent {
-        label 'virtualbox'
+        label 'ovf-do'
     }
     parameters {
         string(
@@ -101,7 +113,7 @@ pipeline {
                 }
             }
         }
-        stage('Run VM') {
+        stage('Run PMM-Server') {
             steps {
                 unstash 'VM_NAME'
                 sh '''
@@ -121,25 +133,33 @@ pipeline {
                     VBoxManage modifyvm \$VM_NAME \
                         --memory 2048 \
                         --audio none \
-                        --nic1 bridged --bridgeadapter1 bond0 \
+                        --natpf1 "guestssh,tcp,,80,,80" \
                         --uart1 0x3F8 4 --uartmode1 file /tmp/\$VM_NAME-console.log \
                         --groups "/\$OWNER,/${JOB_NAME}"
+                    VBoxManage modifyvm \$VM_NAME --natpf1 "guesthttps,tcp,,443,,443"
+                    for p in $(seq 0 10); do
+                        VBoxManage modifyvm \$VM_NAME --natpf1 "guestexporters\$p,tcp,,4200\$p,,4200\$p"
+                    done
                     VBoxManage startvm --type headless \$VM_NAME
-
+                    sleep 180
+                    cat /tmp/\$VM_NAME-console.log
                     for I in $(seq 1 6); do
-                        IP=\$(grep eth0: /tmp/\$VM_NAME-console.log | cut -d '|' -f 4 | sed -e 's/ //g')
+                        IP=\$(grep eth0 /tmp/\$VM_NAME-console.log | cut -d '|' -f 4 | sed -e 's/ //g' | head -n 1)
                         if [ -n "\$IP" ]; then
                             break
                         fi
                         sleep 10
                     done
                     echo \$IP > IP
-                    echo \$IP > PUBLIC_IP
+                    PUBIP=\$(curl ifconfig.me)
+                    echo \$PUBIP > PUBLIC_IP
+                    cat PUBLIC_IP
                     
                     if [ "X\$IP" = "X." ]; then
                         echo Error during DHCP configure. exiting
                         exit 1
                     fi
+                    sleep 120
                 '''
                 withCredentials([usernamePassword(credentialsId: 'Jenkins API', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
@@ -159,11 +179,18 @@ pipeline {
                 stash includes: 'PUB_KEY', name: 'PUB_ACCESS'
                 script {
                     env.IP      = sh(returnStdout: true, script: "cat IP | cut -f1 -d' '").trim()
+                    env.PUBLIC_IP = sh(returnStdout: true, script: "cat PUBLIC_IP").trim()
                     env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
                     env.PUB_KEY = sh(returnStdout: true, script: "cat PUB_KEY").trim()
                     env.OWNER   = sh(returnStdout: true, script: "cat OWNER | cut -d . -f 1").trim()
                 }
                 archiveArtifacts 'PUBLIC_IP'
+                archiveArtifacts 'VM_NAME'
+            }
+        }
+        stage('Start UI Tests') {
+            steps {
+                runUITests(CLIENT_VERSION, 'yes', "${env.PUBLIC_IP}")
             }
         }
     }
