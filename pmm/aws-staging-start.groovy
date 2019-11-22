@@ -78,6 +78,7 @@ pipeline {
             description: "Use this instance only as a client host",
             name: 'CLIENT_INSTANCE')
         string (
+            defaultValue: '',
             description: 'Value for Server Public IP, to use this instance just as client',
             name: 'SERVER_IP')
     }
