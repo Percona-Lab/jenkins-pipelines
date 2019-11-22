@@ -352,7 +352,6 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         export IP=\$(cat IP)
-                        [ -z "${CLIENTS}" ] && exit 0 || :
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
                             set -o errexit
                             set -o xtrace
@@ -431,7 +430,7 @@ pipeline {
                             else
                                 sudo pmm-admin config --client-name pmm-client-hostname --server \$IP
                             fi
-
+                            [ -z "${CLIENTS}" ] && exit 0 || :
                             if [[ \$PMM_VERSION == pmm1 ]]; then
                                 bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                                     --pxc-version ${PXC_VERSION} \
