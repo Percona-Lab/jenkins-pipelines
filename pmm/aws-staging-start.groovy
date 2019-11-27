@@ -20,7 +20,7 @@ pipeline {
             description: 'Which Version of PMM-Server',
             name: 'PMM_VERSION')
         choice(
-            choices: '7\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
+            choices: '1\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
         string(
@@ -364,55 +364,55 @@ pipeline {
                                     sudo percona-release enable original testing
                                     sudo yum -y install pmm2-client
                                     sudo yum -y update
-                                elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then
-                                    sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-                                    sudo percona-release disable all
-                                    sudo percona-release enable original testing
-                                    sudo yum -y install pmm-client
-                                    sudo yum -y update
-                                else
-                                    if [[ \$PMM_VERSION == pmm1 ]]; then
-                                         if [[ \$CLIENT_VERSION == http* ]]; then
-                                            wget -O pmm-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
-                                        else
-                                            wget -O pmm-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm-client/pmm-client-\${CLIENT_VERSION}/binary/tarball/pmm-client-\${CLIENT_VERSION}.tar.gz"
-                                        fi
-                                        tar -zxpf pmm-client.tar.gz
-                                        pushd pmm-client-*
-                                            sudo ./install
-                                        popd
+                            elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then
+                                sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                                sudo percona-release disable all
+                                sudo percona-release enable original testing
+                                sudo yum -y install pmm-client
+                                sudo yum -y update
+                            else
+                                if [[ \$PMM_VERSION == pmm1 ]]; then
+                                     if [[ \$CLIENT_VERSION == http* ]]; then
+                                        wget -O pmm-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
                                     else
-                                        if [[ \$CLIENT_VERSION == http* ]]; then
-                                            wget -O pmm2-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
-                                        else
-                                            wget -O pmm2-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm2/\${CLIENT_VERSION}/binary/tarball/pmm2-client-\${CLIENT_VERSION}.tar.gz"
-                                        fi
-                                        export BUILD_ID=dear-jenkins-please-dont-kill-virtualbox
-                                        export JENKINS_NODE_COOKIE=dear-jenkins-please-dont-kill-virtualbox
-                                        export JENKINS_SERVER_COOKIE=dear-jenkins-please-dont-kill-virtualbox
-                                        tar -zxpf pmm2-client.tar.gz
-                                        rm -r pmm2-client.tar.gz
-                                        mv pmm2-client-* pmm2-client
-                                        cd pmm2-client
-                                        sudo bash -x ./install_tarball
-                                        cd ../
-                                        export PMM_CLIENT_BASEDIR=\\\$(ls -1td pmm2-client 2>/dev/null | grep -v ".tar" | head -n1)
-                                        export PATH="$PWD/pmm2-client/bin:$PATH"
-                                        echo "export PATH=$PWD/pmm2-client/bin:$PATH" >> ~/.bash_profile
-                                        source ~/.bash_profile
-                                        pmm-admin --version
-                                        if [[ \$CLIENT_INSTANCE == yes ]]; then
-                                            pmm-agent setup --config-file=$PWD/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin --trace \$IP
-                                        else
-                                            pmm-agent setup --config-file=$PWD/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin --trace \$IP
-                                        fi
-                                        sleep 10
-                                        JENKINS_NODE_COOKIE=dontKillMe nohup bash -c 'pmm-agent --config-file=$PWD/pmm2-client/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
-                                        sleep 10
-                                        cat pmm-agent.log
-                                        pmm-admin status
+                                        wget -O pmm-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm-client/pmm-client-\${CLIENT_VERSION}/binary/tarball/pmm-client-\${CLIENT_VERSION}.tar.gz"
                                     fi
+                                    tar -zxpf pmm-client.tar.gz
+                                    pushd pmm-client-*
+                                        sudo ./install
+                                    popd
+                                else
+                                    if [[ \$CLIENT_VERSION == http* ]]; then
+                                        wget -O pmm2-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
+                                    else
+                                        wget -O pmm2-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm2/\${CLIENT_VERSION}/binary/tarball/pmm2-client-\${CLIENT_VERSION}.tar.gz"
+                                    fi
+                                    export BUILD_ID=dear-jenkins-please-dont-kill-virtualbox
+                                    export JENKINS_NODE_COOKIE=dear-jenkins-please-dont-kill-virtualbox
+                                    export JENKINS_SERVER_COOKIE=dear-jenkins-please-dont-kill-virtualbox
+                                    tar -zxpf pmm2-client.tar.gz
+                                    rm -r pmm2-client.tar.gz
+                                    mv pmm2-client-* pmm2-client
+                                    cd pmm2-client
+                                    sudo bash -x ./install_tarball
+                                    cd ../
+                                    export PMM_CLIENT_BASEDIR=\\\$(ls -1td pmm2-client 2>/dev/null | grep -v ".tar" | head -n1)
+                                    export PATH="$PWD/pmm2-client/bin:$PATH"
+                                    echo "export PATH=$PWD/pmm2-client/bin:$PATH" >> ~/.bash_profile
+                                    source ~/.bash_profile
+                                    pmm-admin --version
+                                    if [[ \$CLIENT_INSTANCE == yes ]]; then
+                                        pmm-agent setup --config-file=$PWD/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin --trace \$IP
+                                    else
+                                        pmm-agent setup --config-file=$PWD/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin --trace \$IP
+                                    fi
+                                    sleep 10
+                                    JENKINS_NODE_COOKIE=dontKillMe nohup bash -c 'pmm-agent --config-file=$PWD/pmm2-client/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
+                                    sleep 10
+                                    cat pmm-agent.log
+                                    pmm-admin status
                                 fi
+                            fi
                             export PATH=\$PATH:/usr/sbin:/sbin
                             if [[ \$PMM_VERSION == pmm2 ]]; then
                                 if [[ \$CLIENT_VERSION == dev-latest ]]; then
@@ -428,7 +428,7 @@ pipeline {
                                     pmm-admin list
                                 fi
                             else
-                                sudo pmm-admin config --client-name pmm-client-hostname --server \$IP
+                                sudo pmm-admin config --client-name pmm-client-hostname --server \\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1)
                             fi
                             [ -z "${CLIENTS}" ] && exit 0 || :
                             if [[ \$PMM_VERSION == pmm1 ]]; then
