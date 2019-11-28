@@ -38,10 +38,10 @@ Mappings:
 
 Resources:
 
-  JVPC: # separate virtual network for jenkins instances
+  JPSMDBVPC: # separate virtual network for jenkins instances
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 10.177.0.0/22
+      CidrBlock: 10.188.0.0/22
       EnableDnsSupport: true
       EnableDnsHostnames: true
       InstanceTenancy: default
@@ -51,7 +51,7 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JInternetGateway: # Internet Gateway for jenkins VPC
+  JPSMDBInternetGateway: # Internet Gateway for jenkins VPC
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
@@ -60,17 +60,17 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JVPCGatewayAttachment: # Attach Gateway to VPC
+  JPSMDBVPCGatewayAttachment: # Attach Gateway to VPC
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      VpcId: !Ref JVPC
-      InternetGatewayId: !Ref JInternetGateway
+      VpcId: !Ref JPSMDBVPC
+      InternetGatewayId: !Ref JPSMDBInternetGateway
 
-  JSubnetA: # create subnet in AZ
+  JPSMDBSubnetA: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref JVPC
-      CidrBlock: 10.177.0.0/24
+      VpcId: !Ref JPSMDBVPC
+      CidrBlock: 10.188.0.0/24
       MapPublicIpOnLaunch: true
       AvailabilityZone:
         Fn::Select: [ 0, !GetAZs '' ]
@@ -80,11 +80,11 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JSubnetB: # create subnet in AZ
+  JPSMDBSubnetB: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref JVPC
-      CidrBlock: 10.177.1.0/24
+      VpcId: !Ref JPSMDBVPC
+      CidrBlock: 10.188.1.0/24
       MapPublicIpOnLaunch: true
       AvailabilityZone:
         Fn::Select: [ 1, !GetAZs '' ]
@@ -94,11 +94,11 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JSubnetC: # create subnet in AZ
+  JPSMDBSubnetC: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref JVPC
-      CidrBlock: 10.177.2.0/24
+      VpcId: !Ref JPSMDBVPC
+      CidrBlock: 10.188.2.0/24
       MapPublicIpOnLaunch: true
       AvailabilityZone:
         Fn::Select: [ 2, !GetAZs '' ]
@@ -108,40 +108,41 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JRouteTable: # create route table for VPC
+  JPSMDBRouteTable: # create route table for VPC
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref JVPC
+      VpcId: !Ref JPSMDBVPC
       Tags:
       - Key: Name
         Value: !Ref JShortName
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JInternetRoute: # add default route
+  JPSMDBInternetRoute: # add default route
     Type: AWS::EC2::Route
+    DependsOn: JPSMDBInternetGateway
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref JInternetGateway
-      RouteTableId: !Ref JRouteTable
+      GatewayId: !Ref JPSMDBInternetGateway
+      RouteTableId: !Ref JPSMDBRouteTable
 
-  SubnetARouteTable: # add subnet route
+  SubnetAPSMDBRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref JRouteTable
-      SubnetId: !Ref JSubnetA
+      RouteTableId: !Ref JPSMDBRouteTable
+      SubnetId: !Ref JPSMDBSubnetA
 
-  SubnetBRouteTable: # add subnet route
+  SubnetBPSMDBRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref JRouteTable
-      SubnetId: !Ref JSubnetB
+      RouteTableId: !Ref JPSMDBRouteTable
+      SubnetId: !Ref JPSMDBSubnetB
 
-  SubnetCRouteTable: # add subnet route
+  SubnetCPSMDBRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref JRouteTable
-      SubnetId: !Ref JSubnetC
+      RouteTableId: !Ref JPSMDBRouteTable
+      SubnetId: !Ref JPSMDBSubnetC
 
   S3Endpoint: # route S3 traffic over private network
     Type: AWS::EC2::VPCEndpoint
@@ -162,20 +163,20 @@ Resources:
             Resource:
             - '*'
       RouteTableIds:
-        - !Ref JRouteTable
+        - !Ref JPSMDBRouteTable
       ServiceName: !Join
         - ''
         - - com.amazonaws.
           - !Ref 'AWS::Region'
           - .s3
-      VpcId: !Ref JVPC
+      VpcId: !Ref JPSMDBVPC
 
-  SSHSecurityGroup: # allow ssh access (assign when needed)
+  SSHPSMDBSecurityGroup: # allow ssh access (assign when needed)
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: SSH
+      GroupName: PSMDBSSH
       GroupDescription: SSH traffic in
-      VpcId: !Ref JVPC
+      VpcId: !Ref JPSMDBVPC
       SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: 22
@@ -185,12 +186,12 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  HTTPSecurityGroup: # allow http and https access to jenkins master
+  HTTPPSMDBSecurityGroup: # allow http and https access to jenkins master
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: HTTP
+      GroupName: PSMDBHTTP
       GroupDescription: HTTP and HTTPS traffic in
-      VpcId: !Ref JVPC
+      VpcId: !Ref JPSMDBVPC
       SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: 80
@@ -327,7 +328,7 @@ Resources:
 
   MasterIP: # create public IP for jenkins master
     Type: AWS::EC2::EIP
-    DependsOn: JVPC
+    DependsOn: JPSMDBVPC
     Properties:
       Domain: vpc
 
@@ -365,7 +366,7 @@ Resources:
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true
-        SpotPrice: 0.10
+        SpotPrice: 0.12
         TargetCapacity: 1
         TerminateInstancesWithExpiration: false
         Type: maintain
@@ -397,11 +398,11 @@ Resources:
       LaunchTemplateData:
         NetworkInterfaces:
         - DeviceIndex: 0
-          SubnetId: !Ref JSubnetB
+          SubnetId: !Ref JPSMDBSubnetB
           Groups:
-          - !GetAtt JVPC.DefaultSecurityGroup
-          - !GetAtt HTTPSecurityGroup.GroupId
-          - !GetAtt SSHSecurityGroup.GroupId
+          - !GetAtt JPSMDBVPC.DefaultSecurityGroup
+          - !GetAtt HTTPPSMDBSecurityGroup.GroupId
+          - !GetAtt SSHPSMDBSecurityGroup.GroupId
         TagSpecifications:
         - ResourceType: instance
           Tags:
@@ -476,7 +477,7 @@ Resources:
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                   yum -y update --security
                   amazon-linux-extras install -y nginx1.12
-                  yum -y install java-1.8.0-openjdk jenkins-2.190.2 git yum-cron aws-cli xfsprogs
+                  yum -y install java-1.8.0-openjdk jenkins-2.190.3 git yum-cron aws-cli xfsprogs
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -544,7 +545,7 @@ Resources:
 
                   wget -O /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy \
                     https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
-                  sed -i 's/%LIST%/analysis-core build-blocker-plugin compress-buildlog conditional-buildstep copyartifact description-setter disk-usage ec2 envinject git github google-login jobConfigHistory junit matrix-auth matrix-reloaded pipeline-model-definition pipeline-stage-view run-condition script-security slack ssh-slaves template-project timestamper warnings ws-cleanup/' /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy
+                  sed -i 's/%LIST%/analysis-core build-blocker-plugin compress-buildlog conditional-buildstep copyartifact description-setter disk-usage ec2 envinject git google-login jobConfigHistory junit matrix-auth matrix-reloaded pipeline-model-definition pipeline-stage-view run-condition script-security slack ssh-slaves template-project timestamper warnings ws-cleanup/' /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy
 
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts

@@ -16,9 +16,9 @@ logger.info("Cloud init started")
 Jenkins jenkins = Jenkins.getInstance()
 
 netMap = [:]
-netMap['us-west-2a'] = 'subnet-017ed13966a157f40'
-netMap['us-west-2b'] = 'subnet-0706d7d3b7bf7a2a5'
-netMap['us-west-2c'] = 'subnet-0b51237c5d9b9c3ed'
+netMap['us-west-2a'] = 'subnet-086a759af174241ac'
+netMap['us-west-2b'] = 'subnet-03136d8c244f56036'
+netMap['us-west-2c'] = 'subnet-09103aa8678a054f7'
 
 imageMap = [:]
 imageMap['micro-amazon'] = 'ami-020f88cb17f8dbdea'
@@ -98,7 +98,7 @@ initMap['docker'] = '''
     echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json
     sudo systemctl status docker || sudo systemctl start docker
     sudo service docker status || sudo service docker start
-    echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+    echo "* * * * * root /usr/sbin/route add default gw 10.188.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 initMap['docker-32gb'] = initMap['docker']
 initMap['micro-amazon'] = '''
