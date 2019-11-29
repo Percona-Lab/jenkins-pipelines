@@ -26,7 +26,22 @@ void runTest(String TEST_NAME) {
             echo Skip $TEST_NAME test
         else
             cd ./source
-            export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
+            if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                export IMAGE=${PSMDB_OPERATOR_IMAGE}
+            else
+                export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
+            fi
+
+            if [ -n "${IMAGE_MONGOD}" ]; then
+                export IMAGE_MONGOD=${IMAGE_MONGOD}
+            fi
+            if [ -n "${IMAGE_BACKUP}" ]; then
+                export IMAGE_BACKUP=${IMAGE_BACKUP}
+            fi
+            if [ -n "${IMAGE_PMM}" ]; then
+                export IMAGE_PMM=${IMAGE_PMM}
+            fi
+
             source $HOME/google-cloud-sdk/path.bash.inc
             ./e2e-tests/$TEST_NAME/run
             touch $VERSION-$TEST_NAME
@@ -55,6 +70,22 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
+        string(
+            defaultValue: '',
+            description: 'Operator image: perconalab/percona-server-mongodb-operator:master',
+            name: 'PSMDB_OPERATOR_IMAGE')
+        string(
+            defaultValue: '',
+            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:master-mongod4.0',
+            name: 'IMAGE_MONGOD')
+        string(
+            defaultValue: '',
+            description: 'Backup image: perconalab/percona-server-mongodb-operator:master-backup',
+            name: 'IMAGE_BACKUP')
+        string(
+            defaultValue: '',
+            description: 'PMM image: perconalab/percona-server-mongodb-operator:master-pmm',
+            name: 'IMAGE_PMM')
     }
     environment {
         TF_IN_AUTOMATION = 'true'
@@ -102,21 +133,25 @@ pipeline {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        # sudo is needed for better node recovery after compilation failure
-                        # if building failed on compilation stage directory will have files owned by docker user
-                        sudo git reset --hard
-                        sudo git clean -xdf
-                        sudo rm -rf source
-                        ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
+                        if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                            echo "SKIP: Build is not needed, PSMDB operator image was set!"
+                        else
+                            # sudo is needed for better node recovery after compilation failure
+                            # if building failed on compilation stage directory will have files owned by docker user
+                            sudo git reset --hard
+                            sudo git clean -xdf
+                            sudo rm -rf source
+                            ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
 
-                        cd ./source/
-                        sg docker -c "
-                            docker login -u '${USER}' -p '${PASS}'
-                            export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                            ./e2e-tests/build
-                            docker logout
-                        "
-                        sudo rm -rf ./build
+                            cd ./source/
+                            sg docker -c "
+                                docker login -u '${USER}' -p '${PASS}'
+                                export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                                ./e2e-tests/build
+                                docker logout
+                            "
+                            sudo rm -rf ./build
+                        fi
                     '''
                 }
             }
@@ -166,10 +201,20 @@ pipeline {
                 runTest('scaling')
             }
         }
+        stage('E2E Basic Tests') {
+            steps {
+                runTest('monitoring')
+                runTest('monitoring-2-0')
+                runTest('arbiter')
+                runTest('service-per-pod')
+           }
+        }
         stage('E2E Backups') {
             steps {
                 runTest('demand-backup')
                 runTest('scheduled-backup')
+                runTest('upgrade')
+                runTest('upgrade-consistency')
             }
         }
     }
