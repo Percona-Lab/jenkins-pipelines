@@ -55,13 +55,20 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             echo Skip $TEST_NAME test
         else
             cd ./source
-            export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
+            if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                export IMAGE=${PSMDB_OPERATOR_IMAGE}
+            else
+                export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
+            fi
 
             if [ -n "${IMAGE_MONGOD}" ]; then
                 export IMAGE_MONGOD=${IMAGE_MONGOD}
             fi
             if [ -n "${IMAGE_BACKUP}" ]; then
                 export IMAGE_BACKUP=${IMAGE_BACKUP}
+            fi
+            if [ -n "${IMAGE_PMM}" ]; then
+                export IMAGE_PMM=${IMAGE_PMM}
             fi
 
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
@@ -98,7 +105,11 @@ pipeline {
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.12',
+            defaultValue: '',
+            description: 'Operator image: perconalab/percona-server-mongodb-operator:master',
+            name: 'PSMDB_OPERATOR_IMAGE')
+        string(
+            defaultValue: '1.14',
             description: 'GKE version',
             name: 'GKE_VERSION')
         string(
@@ -109,7 +120,11 @@ pipeline {
             defaultValue: '',
             description: 'Backup image: perconalab/percona-server-mongodb-operator:master-backup',
             name: 'IMAGE_BACKUP')
-    }	
+        string(
+            defaultValue: '',
+            description: 'PMM image: perconalab/percona-server-mongodb-operator:master-pmm',
+            name: 'IMAGE_PMM')
+    }
     agent {
         label 'docker'
     }
@@ -160,14 +175,18 @@ pipeline {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        cd ./source/
-                        sg docker -c "
-                            docker login -u '${USER}' -p '${PASS}'
-                            export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                            ./e2e-tests/build
-                            docker logout
-                        "
-                        sudo rm -rf ./build
+                        if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                            echo "SKIP: Build is not needed, PSMDB operator image was set!"
+                        else
+                            cd ./source/
+                            sg docker -c "
+                                docker login -u '${USER}' -p '${PASS}'
+                                export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                                ./e2e-tests/build
+                                docker logout
+                            "
+                            sudo rm -rf ./build
+                        fi
                     '''
                 }
             }
@@ -193,6 +212,7 @@ pipeline {
                         CreateCluster('basic')
                         runTest('storage', 'basic')
                         runTest('monitoring', 'basic')
+                        runTest('monitoring-2-0', 'basic')
                         runTest('arbiter', 'basic')
                         runTest('service-per-pod', 'basic')
                     }
@@ -202,6 +222,7 @@ pipeline {
                         CreateCluster('selfhealing')
                         runTest('self-healing', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
+                        runTest('one-pod', 'selfhealing')
                     }
                 }
                 stage('E2E Backups') {
@@ -209,6 +230,8 @@ pipeline {
                         CreateCluster('backups')
                         runTest('demand-backup', 'backups')
                         runTest('scheduled-backup', 'backups')
+                        runTest('upgrade', 'backups')
+                        runTest('upgrade-consistency', 'backups')
                     }
                 } 
             }
