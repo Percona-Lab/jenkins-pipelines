@@ -55,19 +55,30 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             echo Skip $TEST_NAME test
         else
             cd ./source
-            export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+            if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                export IMAGE=${PXC_OPERATOR_IMAGE}
+            else
+                export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+            fi
+
             if [ -n "${IMAGE_PXC}" ]; then
                 export IMAGE_PXC=${IMAGE_PXC}
             fi
+
             if [ -n "${IMAGE_PROXY}" ]; then
                 export IMAGE_PROXY=${IMAGE_PROXY}
             fi
+
             if [ -n "${IMAGE_BACKUP}" ]; then
                 export IMAGE_BACKUP=${IMAGE_BACKUP}
             fi
+
+            if [ -n "${IMAGE_PMM}" ]; then
+                export IMAGE_PMM=${IMAGE_PMM}
+            fi
+
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             source $HOME/google-cloud-sdk/path.bash.inc
-
             ./e2e-tests/$TEST_NAME/run
             touch $FILE_NAME
         fi
@@ -99,9 +110,13 @@ pipeline {
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.12',
+            defaultValue: '1.14',
             description: 'GKE version',
             name: 'GKE_VERSION')
+        string(
+            defaultValue: '',
+            description: 'Operator image: perconalab/percona-xtradb-cluster-operator:master',
+            name: 'PXC_OPERATOR_IMAGE')
         string(
             defaultValue: '',
             description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc',
@@ -114,7 +129,11 @@ pipeline {
             defaultValue: '',
             description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-backup',
             name: 'IMAGE_BACKUP')
-    }	
+        string(
+            defaultValue: '',
+            description: 'PMM image: perconalab/percona-server-mongodb-operator:master-pmm',
+            name: 'IMAGE_PMM')
+    }
     agent {
         label 'docker'
     }
@@ -143,10 +162,11 @@ pipeline {
                         rm -rf $HOME/google-cloud-sdk
                         curl https://sdk.cloud.google.com | bash
                     fi
+
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud components install alpha
                     gcloud components install kubectl
-                    
+
                     curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.14.0-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
                     curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
@@ -165,14 +185,18 @@ pipeline {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        cd ./source/
-                        sg docker -c "
-                            docker login -u '${USER}' -p '${PASS}'
-                            export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
-                            ./e2e-tests/build
-                            docker logout
-                        "
-                        sudo rm -rf ./build
+                        if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                            echo "SKIP: Build is not needed, PXC operator image was set!"
+                        else
+                            cd ./source/
+                            sg docker -c "
+                                docker login -u '${USER}' -p '${PASS}'
+                                export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                                ./e2e-tests/build
+                                docker logout
+                            "
+                            sudo rm -rf ./build
+                        fi
                     '''
                 }
             }
@@ -200,13 +224,18 @@ pipeline {
                         CreateCluster('scaling')
                         runTest('scaling', 'scaling')
                         runTest('scaling-proxysql', 'scaling')
+                        runTest('upgrade', 'scaling')
+                        runTest('upgrade-consistency', 'scaling')
                     }
                 }
                 stage('E2E SelfHealing') {
                     steps {
                         CreateCluster('selfhealing')
                         runTest('self-healing', 'selfhealing')
+                        runTest('self-healing-advanced', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
+                        runTest('one-pod', 'selfhealing')
+                        runTest('auto-tuning', 'selfhealing')
                     }
                 }
                 stage('E2E Backups') {
@@ -215,6 +244,12 @@ pipeline {
                         runTest('recreate', 'backups')
                         runTest('demand-backup', 'backups')
                         runTest('scheduled-backup', 'backups')
+                    }
+                }
+                stage('E2E BigData') {
+                    steps {
+                        CreateCluster('bigdata')
+                        runTest('big-data', 'bigdata')
                     }
                 }
             }

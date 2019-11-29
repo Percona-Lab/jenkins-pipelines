@@ -26,13 +26,26 @@ void runTest(String TEST_NAME) {
             echo Skip $TEST_NAME test
         else
             cd ./source
-            export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+            if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                export IMAGE=${PXC_OPERATOR_IMAGE}
+            else
+                export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+            fi
+
             if [ -n "${IMAGE_PXC}" ]; then
                 export IMAGE_PXC=${IMAGE_PXC}
             fi
 
             if [ -n "${IMAGE_PROXY}" ]; then
                 export IMAGE_PROXY=${IMAGE_PROXY}
+            fi
+
+            if [ -n "${IMAGE_BACKUP}" ]; then
+                export IMAGE_BACKUP=${IMAGE_BACKUP}
+            fi
+
+            if [ -n "${IMAGE_PMM}" ]; then
+                export IMAGE_PMM=${IMAGE_PMM}
             fi
 
             source $HOME/google-cloud-sdk/path.bash.inc
@@ -64,17 +77,25 @@ pipeline {
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'master',
-            description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
-            name: 'GIT_BRANCH')
+            defaultValue: '',
+            description: 'Operator image: perconalab/percona-xtradb-cluster-operator:master',
+            name: 'PXC_OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'PXC image',
+            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc',
             name: 'IMAGE_PXC')
         string(
             defaultValue: '',
-            description: 'PXC proxy image',
+            description: 'PXC proxy image: perconalab/percona-xtradb-cluster-operator:master-proxysql',
             name: 'IMAGE_PROXY')
+        string(
+            defaultValue: '',
+            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-backup',
+            name: 'IMAGE_BACKUP')
+        string(
+            defaultValue: '',
+            description: 'PMM image: perconalab/percona-server-mongodb-operator:master-pmm',
+            name: 'IMAGE_PMM')
     }
     environment {
         TF_IN_AUTOMATION = 'true'
@@ -122,21 +143,25 @@ pipeline {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        # sudo is needed for better node recovery after compilation failure
-                        # if building failed on compilation stage directory will have files owned by docker user
-                        sudo git reset --hard
-                        sudo git clean -xdf
-                        sudo rm -rf source
-                        ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
+                        if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                            echo "SKIP: Build is not needed, PXC operator image was set!"
+                        else
+                            # sudo is needed for better node recovery after compilation failure
+                            # if building failed on compilation stage directory will have files owned by docker user
+                            sudo git reset --hard
+                            sudo git clean -xdf
+                            sudo rm -rf source
+                            ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
 
-                        cd ./source/
-                        sg docker -c "
-                            docker login -u '${USER}' -p '${PASS}'
-                            export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
-                            ./e2e-tests/build
-                            docker logout
-                        "
-                        sudo rm -rf ./build
+                            cd ./source/
+                            sg docker -c "
+                                docker login -u '${USER}' -p '${PASS}'
+                                export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                                ./e2e-tests/build
+                                docker logout
+                            "
+                            sudo rm -rf ./build
+                        fi
                     '''
                 }
             }
@@ -191,6 +216,16 @@ pipeline {
             steps {
                 runTest('scaling')
                 runTest('scaling-proxysql')
+                runTest('upgrade')
+                runTest('upgrade-consistency')
+            }
+        }
+        stage('E2E SelfHealing') {
+            steps {
+                CreateCluster('selfhealing')
+                runTest('self-healing-advanced')
+                runTest('one-pod')
+                runTest('auto-tuning')
             }
         }
         stage('E2E Backups') {
@@ -198,6 +233,12 @@ pipeline {
                 runTest('recreate')
                 runTest('demand-backup')
                 runTest('scheduled-backup')
+            }
+        }
+        stage('E2E BigData') {
+            steps {
+                CreateCluster('bigdata')
+                runTest('big-data')
             }
         }
     }
