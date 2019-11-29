@@ -1,5 +1,5 @@
 void CreateCluster(String CLUSTER_PREFIX) {
-    if ( "${params.GKE_VERSION}" == "1.14" ) {
+    if ( "${params.GKE_VERSION}" == "1.15" ) {
         runGKEclusterAlpha(CLUSTER_PREFIX)
     } else {
        runGKEcluster(CLUSTER_PREFIX)
