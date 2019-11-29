@@ -3,7 +3,7 @@ void CreateCluster(String CLUSTER_PREFIX) {
         runGKEclusterAlpha(CLUSTER_PREFIX)
     } else {
        runGKEcluster(CLUSTER_PREFIX)
-   }
+    }
 }
 void runGKEcluster(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
@@ -64,16 +64,17 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             if [ -n "${IMAGE_MONGOD}" ]; then
                 export IMAGE_MONGOD=${IMAGE_MONGOD}
             fi
+
             if [ -n "${IMAGE_BACKUP}" ]; then
                 export IMAGE_BACKUP=${IMAGE_BACKUP}
             fi
+
             if [ -n "${IMAGE_PMM}" ]; then
                 export IMAGE_PMM=${IMAGE_PMM}
             fi
 
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             source $HOME/google-cloud-sdk/path.bash.inc
-
             ./e2e-tests/$TEST_NAME/run
             touch $FILE_NAME
         fi
@@ -85,11 +86,11 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     """
 }
 void installRpms() {
-    sh """
+    sh '''
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable-only tools
         sudo yum install -y percona-xtrabackup-80 jq | true
-    """
+    '''
 }
 pipeline {
     environment {
@@ -105,13 +106,13 @@ pipeline {
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '',
-            description: 'Operator image: perconalab/percona-server-mongodb-operator:master',
-            name: 'PSMDB_OPERATOR_IMAGE')
-        string(
             defaultValue: '1.14',
             description: 'GKE version',
             name: 'GKE_VERSION')
+        string(
+            defaultValue: '',
+            description: 'Operator image: perconalab/percona-server-mongodb-operator:master',
+            name: 'PSMDB_OPERATOR_IMAGE')
         string(
             defaultValue: '',
             description: 'MONGOD image: perconalab/percona-server-mongodb-operator:master-mongod4.0',
@@ -153,16 +154,16 @@ pipeline {
                         rm -rf $HOME/google-cloud-sdk
                         curl https://sdk.cloud.google.com | bash
                     fi
+
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud components install alpha
                     gcloud components install kubectl
-                    
-                    curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.14.0-linux-amd64.tar.gz \
+
+                    curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.16.1-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
                     curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
                 '''
-
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
                     sh '''
                         cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
@@ -233,7 +234,7 @@ pipeline {
                         runTest('upgrade', 'backups')
                         runTest('upgrade-consistency', 'backups')
                     }
-                } 
+                }
             }
         }
     }
