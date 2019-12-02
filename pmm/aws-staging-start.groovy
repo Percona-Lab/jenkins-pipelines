@@ -424,7 +424,7 @@ pipeline {
                                     fi
                                     sleep 10
                                     sudo cat /var/log/pmm-agent.log
-                                    pmm-admin --debug add mysql --use-perfschema --username=root
+                                    pmm-admin --debug add mysql --query-source=perfschema --username=root
                                     pmm-admin list
                                 fi
                             else
