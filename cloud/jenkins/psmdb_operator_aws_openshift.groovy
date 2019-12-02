@@ -133,15 +133,15 @@ pipeline {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
+                        # sudo is needed for better node recovery after compilation failure
+                        # if building failed on compilation stage directory will have files owned by docker user
+                        sudo git reset --hard
+                        sudo git clean -xdf
+                        sudo rm -rf source
+                        ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
+
                         if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
                             echo "SKIP: Build is not needed, PSMDB operator image was set!"
-
-                            # sudo is needed for better node recovery after compilation failure
-                            # if building failed on compilation stage directory will have files owned by docker user
-                            sudo git reset --hard
-                            sudo git clean -xdf
-                            sudo rm -rf source
-                            ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
                         else
                            
                             cd ./source/
