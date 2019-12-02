@@ -135,14 +135,15 @@ pipeline {
                     sh '''
                         if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
                             echo "SKIP: Build is not needed, PSMDB operator image was set!"
-                        else
+
                             # sudo is needed for better node recovery after compilation failure
                             # if building failed on compilation stage directory will have files owned by docker user
                             sudo git reset --hard
                             sudo git clean -xdf
                             sudo rm -rf source
                             ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
-
+                        else
+                           
                             cd ./source/
                             sg docker -c "
                                 docker login -u '${USER}' -p '${PASS}'
