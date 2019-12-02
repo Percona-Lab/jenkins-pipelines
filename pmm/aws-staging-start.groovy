@@ -388,7 +388,7 @@ pipeline {
                                     sudo pmm-agent setup --server-address=\\\$(ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1):443 --server-insecure-tls --server-username=admin --server-password=admin --trace
                                     sleep 10
                                     sudo cat /var/log/pmm-agent.log
-                                    pmm-admin --debug add mysql --use-perfschema --username=root
+                                    pmm-admin --debug add mysql --query-source=perfschema --username=root
                                     pmm-admin list
                                 fi
                             else
