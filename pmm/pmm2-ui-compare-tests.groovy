@@ -13,7 +13,7 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE,
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
         env.PMM_URL = "http://admin:admin@${SERVER_IP}"
-        env.PMM_UI_URL = "https://${SERVER_IP}"    
+        env.PMM_UI_URL = "https://${SERVER_IP}"
     }
     else
     {
@@ -119,7 +119,7 @@ pipeline {
             // stop staging
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip
-                sed -i 's+/mnt/workspace/pmm2-ui-compare-tests/+../+g' mochawesome-report/mochawesome.html 
+                sed -i 's+/mnt/workspace/pmm2-ui-compare-tests/+../+g' mochawesome-report/mochawesome.html
             '''
             destroyStaging(VM_NAME)
             script {
