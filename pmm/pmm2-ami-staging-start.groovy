@@ -151,7 +151,7 @@ pipeline {
                         if [ -n "$SSH_KEY" ]; then
                             echo '$SSH_KEY' | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) 'cat - >> .ssh/authorized_keys'
                         fi
-                        sleep 60
+                        sleep 300
                     """
                 } 
                 script {
