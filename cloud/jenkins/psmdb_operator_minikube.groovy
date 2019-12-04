@@ -156,7 +156,7 @@ pipeline {
 
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
-                        minikube start --vm-driver=none --dns-domain=percona.com --memory=4096 --cpus=3 --kubernetes-version v1.12.8
+                        minikube start --vm-driver=none --dns-domain=percona.com --memory=4096 --cpus=3 --kubernetes-version v1.14.8
                     '''
                     
                     unstash "sourceFILES"
