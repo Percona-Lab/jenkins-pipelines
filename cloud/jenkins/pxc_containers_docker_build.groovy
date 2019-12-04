@@ -5,8 +5,8 @@ void build(String IMAGE_PREFIX){
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-57/Dockerfile.k8s pxc-57
         elif [ ${IMAGE_PREFIX} = proxysql ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f proxysql/Dockerfile.k8s proxysql
-        else
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} images/${IMAGE_PREFIX}-image
+        elif [ ${IMAGE_PREFIX} = backup ]; then
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-57-backup/Dockerfile pxc-57-backup
         fi
     """
 }
@@ -70,14 +70,6 @@ pipeline {
     parameters {
         string(
             defaultValue: 'master',
-            description: 'Tag/Branch for Percona-Lab/percona-openshift repository',
-            name: 'GIT_BRANCH')
-        string(
-            defaultValue: 'https://github.com/Percona-Lab/percona-openshift',
-            description: 'Percona-Lab/percona-openshift repository',
-            name: 'GIT_REPO')
-        string(
-            defaultValue: 'master',
             description: 'Tag/Branch for percona/percona-docker repository',
             name: 'GIT_PD_BRANCH')
         string(
@@ -112,14 +104,6 @@ pipeline {
                 stash includes: "source/**", name: "sourceFILES"
             }
         }
-        stage('Build docker images') {
-            steps {
-                unstash "sourceFILES"
-                retry(3) {
-                    build('backup')
-                }
-            }
-        }
         stage('Build pxc docker images') {
             steps {
                 sh '''
@@ -132,6 +116,9 @@ pipeline {
                    export GIT_BRANCH=$GIT_PD_BRANCH
                    ./cloud/local/checkout
                 """          
+                retry(3) {
+                    build('backup')
+                }
                 retry(3) {
                     build('proxysql')
                 }
