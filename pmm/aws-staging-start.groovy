@@ -320,6 +320,10 @@ pipeline {
                                         --name \${VM_NAME}-server \
                                         --restart always \
                                         ${DOCKER_VERSION}
+                                    sleep 10
+                                    docker logs \${VM_NAME}-server
+                                    docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/laboratory/^' /etc/yum.repos.d/pmm2-server.repo
+                                    docker exec \${VM_NAME}-server percona-release enable original testing
                                 else
                                     docker create \
                                         -v /opt/prometheus/data \
@@ -337,11 +341,9 @@ pipeline {
                                         --restart always \
                                         -e METRICS_RESOLUTION=5s \
                                         ${DOCKER_VERSION}
+                                    sleep 10
+                                    docker logs \${VM_NAME}-server
                                 fi
-                                sleep 10
-                                docker logs \${VM_NAME}-server
-                                docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/laboratory/^' /etc/yum.repos.d/pmm2-server.repo
-                                docker exec \${VM_NAME}-server percona-release enable original testing
                             "
                          """
                         }
