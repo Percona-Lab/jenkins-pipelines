@@ -229,11 +229,10 @@ pipeline {
                 stage('E2E Backups') {
                     steps {
                         CreateCluster('backups')
-                        sleep 60
-                        runTest('demand-backup', 'backups')
-                        runTest('scheduled-backup', 'backups')
                         runTest('upgrade', 'backups')
                         runTest('upgrade-consistency', 'backups')
+                        runTest('demand-backup', 'backups')
+                        runTest('scheduled-backup', 'backups')
                     }
                 }
             }
