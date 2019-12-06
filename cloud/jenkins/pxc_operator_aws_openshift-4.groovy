@@ -69,7 +69,6 @@ void runTest(String TEST_NAME) {
 
                 ./e2e-tests/$TEST_NAME/run
                 touch $VERSION-$TEST_NAME
-                echo "-------- \$? ---------"
             fi
         """
         pushArtifactFile("$VERSION-$TEST_NAME")
@@ -152,9 +151,11 @@ pipeline {
 
                     curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.14.0-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux-4.2.8.tar.gz \
+
+                    VERSION=$(curl --silent 'https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/release.txt' | grep 'Version:' | awk '{print $2}')
+                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux-$VERSION.tar.gz \
                         | sudo tar -C /usr/local/bin --wildcards -zxvpf -
-                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-install-linux-4.2.8.tar.gz \
+                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-install-linux-$VERSION.tar.gz \
                         | sudo tar -C /usr/local/bin  --wildcards -zxvpf -
                 '''
 
@@ -191,7 +192,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
                      sh """
                          mkdir openshift
-                         cp $OPENSHIFT_CONF_FILE ./openshift/
+                         cp $OPENSHIFT_CONF_FILE ./openshift/install-config.yaml
                      """
                      sshagent(['aws-openshift-41-key']) {
                          sh """
