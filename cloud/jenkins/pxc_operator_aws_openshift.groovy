@@ -16,45 +16,65 @@ void popArtifactFile(String FILE_NAME) {
         """
     }
 }
+TestsReport = '<testsuite  name=\\"PXC\\">\n'
+testsReportMap = [:]
+void makeReport() {
+    for ( test in testsReportMap ) {
+        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
+    }
+    TestsReport = TestsReport + '</testsuite>\n'
+}
+
 void runTest(String TEST_NAME) {
-    GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
-    VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-     
-    popArtifactFile("$VERSION-$TEST_NAME")
-    sh """
-        if [ -f "$VERSION-$TEST_NAME" ]; then
-            echo Skip $TEST_NAME test
-        else
-            cd ./source
-            if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                export IMAGE=${PXC_OPERATOR_IMAGE}
+    try {
+        echo "The $TEST_NAME test was started!"
+
+        GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
+        VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
+        testsReportMap[TEST_NAME] = 'failure'
+
+        popArtifactFile("$VERSION-$TEST_NAME")
+
+        sh """
+            if [ -f "$VERSION-$TEST_NAME" ]; then
+                echo Skip $TEST_NAME test
             else
-                export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                cd ./source
+                if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                    export IMAGE=${PXC_OPERATOR_IMAGE}
+                else
+                    export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                fi
+
+                if [ -n "${IMAGE_PXC}" ]; then
+                    export IMAGE_PXC=${IMAGE_PXC}
+                fi
+
+                if [ -n "${IMAGE_PROXY}" ]; then
+                    export IMAGE_PROXY=${IMAGE_PROXY}
+                fi
+
+                if [ -n "${IMAGE_BACKUP}" ]; then
+                    export IMAGE_BACKUP=${IMAGE_BACKUP}
+                fi
+
+                if [ -n "${IMAGE_PMM}" ]; then
+                    export IMAGE_PMM=${IMAGE_PMM}
+                fi
+
+                source $HOME/google-cloud-sdk/path.bash.inc
+                ./e2e-tests/$TEST_NAME/run
+                touch $VERSION-$TEST_NAME
             fi
+        """
+        pushArtifactFile("$VERSION-$TEST_NAME")
+        testsReportMap[TEST_NAME] = 'passed'
+    }
+    catch (exc) {
+        currentBuild.result = 'FAILURE'
+    }
 
-            if [ -n "${IMAGE_PXC}" ]; then
-                export IMAGE_PXC=${IMAGE_PXC}
-            fi
-
-            if [ -n "${IMAGE_PROXY}" ]; then
-                export IMAGE_PROXY=${IMAGE_PROXY}
-            fi
-
-            if [ -n "${IMAGE_BACKUP}" ]; then
-                export IMAGE_BACKUP=${IMAGE_BACKUP}
-            fi
-
-            if [ -n "${IMAGE_PMM}" ]; then
-                export IMAGE_PMM=${IMAGE_PMM}
-            fi
-
-            source $HOME/google-cloud-sdk/path.bash.inc
-            ./e2e-tests/$TEST_NAME/run
-            touch $VERSION-$TEST_NAME
-        fi
-    """
-    pushArtifactFile("$VERSION-$TEST_NAME")
-
+    echo "The $TEST_NAME test was finished!"
     sh """
         rm -rf $VERSION-$TEST_NAME
     """
@@ -222,7 +242,6 @@ pipeline {
         }
         stage('E2E SelfHealing') {
             steps {
-                CreateCluster('selfhealing')
                 runTest('self-healing-advanced')
                 runTest('one-pod')
                 runTest('auto-tuning')
@@ -237,8 +256,17 @@ pipeline {
         }
         stage('E2E BigData') {
             steps {
-                CreateCluster('bigdata')
                 runTest('big-data')
+            }
+        }
+        stage('Make report') {
+            steps {
+                makeReport()
+                sh """
+                    echo "${TestsReport}" > TestsReport.xml
+                """
+                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+                archiveArtifacts '*.xml'
             }
         }
     }
