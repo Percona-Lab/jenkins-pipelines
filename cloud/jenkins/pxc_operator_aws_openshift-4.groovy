@@ -16,6 +16,7 @@ void popArtifactFile(String FILE_NAME) {
         """
     }
 }
+
 TestsReport = '<testsuite  name=\\"PXC\\">\n'
 testsReportMap = [:]
 void makeReport() {
@@ -63,6 +64,9 @@ void runTest(String TEST_NAME) {
                 fi
 
                 source $HOME/google-cloud-sdk/path.bash.inc
+                export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
+                oc whoami
+
                 ./e2e-tests/$TEST_NAME/run
                 touch $VERSION-$TEST_NAME
             fi
@@ -75,9 +79,6 @@ void runTest(String TEST_NAME) {
     }
 
     echo "The $TEST_NAME test was finished!"
-    sh """
-        rm -rf $VERSION-$TEST_NAME
-    """
 }
 void installRpms() {
     sh """
@@ -119,8 +120,6 @@ pipeline {
     }
     environment {
         TF_IN_AUTOMATION = 'true'
-        RHEL_USER = credentials('RHEL-USER')
-        RHEL_PASSWORD = credentials('RHEL-PASSWD')
     }
     agent {
          label 'docker' 
@@ -152,8 +151,12 @@ pipeline {
 
                     curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.14.0-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-                    curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
-                        | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
+
+                    VERSION=$(curl --silent 'https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/release.txt' | grep 'Version:' | awk '{print $2}')
+                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux-$VERSION.tar.gz \
+                        | sudo tar -C /usr/local/bin --wildcards -zxvpf -
+                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-install-linux-$VERSION.tar.gz \
+                        | sudo tar -C /usr/local/bin  --wildcards -zxvpf -
                 '''
 
             }
@@ -163,8 +166,6 @@ pipeline {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        # sudo is needed for better node recovery after compilation failure
-                        # if building failed on compilation stage directory will have files owned by docker user
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf source
@@ -188,40 +189,18 @@ pipeline {
         }
         stage('Create AWS Infrastructure') {
             steps {
-                git branch: 'master', url: 'https://github.com/Percona-Lab/k8s-lab'
-                    sh """
-                        # sudo is needed for better node recovery after compilation failure
-                        # if building failed on compilation stage directory will have files owned by docker user
-                        sudo git reset --hard
-                        sudo git clean -xdf
-                    """
-
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-key-pub', variable: 'AWS_NODES_KEY_PUB')]) {
-                     sshagent(['aws-openshift-key']) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
+                     sh """
+                         mkdir openshift
+                         cp $OPENSHIFT_CONF_FILE ./openshift/install-config.yaml
+                     """
+                     sshagent(['aws-openshift-41-key']) {
                          sh """
-                            pushd ./aws-openshift-automation
-                                make infrastructure
-                                sleep 400
-                            popd
-                    """
-                    }
-               }
-
-            }
-        }
-        stage('Install and conigure Openshift') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-key-pub', variable: 'AWS_NODES_KEY_PUB')]) {
-                     sshagent(['aws-openshift-key']) {
-                         sh """
-                            pushd ./aws-openshift-automation
-                                make openshift
-                                sleep 120
-                                oc login \$(terraform output master-url) --insecure-skip-tls-verify=true -u=real-admin -p=123
-                            popd
+                             /usr/local/bin/openshift-install create cluster --dir=./openshift/
                          """
                     }
                }
+
             }
         }
         stage('E2E Basic Tests') {
@@ -273,16 +252,14 @@ pipeline {
 
     post {
         always {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-key-pub', variable: 'AWS_NODES_KEY_PUB')]) {
-                     sshagent(['aws-openshift-key']) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+                     sshagent(['aws-openshift-41-key']) {
                          sh """
-                            pushd ./aws-openshift-automation
-                                make unregister-rhel-subscription || true
-                                make destroy
-                            popd
+                             /usr/local/bin/openshift-install destroy cluster --dir=./openshift/
                          """
                      }
                 }
+            
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf $HOME/google-cloud-sdk

@@ -16,7 +16,8 @@ void popArtifactFile(String FILE_NAME) {
         """
     }
 }
-TestsReport = '<testsuite  name=\\"PXC\\">\n'
+
+TestsReport = '<testsuite  name=\\"PSMDB\\">\n'
 testsReportMap = [:]
 void makeReport() {
     for ( test in testsReportMap ) {
@@ -32,7 +33,7 @@ void runTest(String TEST_NAME) {
         GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
         VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
         testsReportMap[TEST_NAME] = 'failure'
-
+ 
         popArtifactFile("$VERSION-$TEST_NAME")
 
         sh """
@@ -40,18 +41,14 @@ void runTest(String TEST_NAME) {
                 echo Skip $TEST_NAME test
             else
                 cd ./source
-                if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                    export IMAGE=${PXC_OPERATOR_IMAGE}
+                if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                    export IMAGE=${PSMDB_OPERATOR_IMAGE}
                 else
-                    export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                    export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
                 fi
 
-                if [ -n "${IMAGE_PXC}" ]; then
-                    export IMAGE_PXC=${IMAGE_PXC}
-                fi
-
-                if [ -n "${IMAGE_PROXY}" ]; then
-                    export IMAGE_PROXY=${IMAGE_PROXY}
+                if [ -n "${IMAGE_MONGOD}" ]; then
+                    export IMAGE_MONGOD=${IMAGE_MONGOD}
                 fi
 
                 if [ -n "${IMAGE_BACKUP}" ]; then
@@ -63,6 +60,9 @@ void runTest(String TEST_NAME) {
                 fi
 
                 source $HOME/google-cloud-sdk/path.bash.inc
+                export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
+                oc whoami
+
                 ./e2e-tests/$TEST_NAME/run
                 touch $VERSION-$TEST_NAME
             fi
@@ -75,9 +75,6 @@ void runTest(String TEST_NAME) {
     }
 
     echo "The $TEST_NAME test was finished!"
-    sh """
-        rm -rf $VERSION-$TEST_NAME
-    """
 }
 void installRpms() {
     sh """
@@ -90,27 +87,23 @@ pipeline {
     parameters {
         string(
             defaultValue: 'master',
-            description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
+            description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator',
-            description: 'percona-xtradb-cluster-operator repository',
+            defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
+            description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
             defaultValue: '',
-            description: 'Operator image: perconalab/percona-xtradb-cluster-operator:master',
-            name: 'PXC_OPERATOR_IMAGE')
+            description: 'Operator image: perconalab/percona-server-mongodb-operator:master',
+            name: 'PSMDB_OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc',
-            name: 'IMAGE_PXC')
+            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:master-mongod4.0',
+            name: 'IMAGE_MONGOD')
         string(
             defaultValue: '',
-            description: 'PXC proxy image: perconalab/percona-xtradb-cluster-operator:master-proxysql',
-            name: 'IMAGE_PROXY')
-        string(
-            defaultValue: '',
-            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-backup',
+            description: 'Backup image: perconalab/percona-server-mongodb-operator:master-backup',
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
@@ -119,8 +112,6 @@ pipeline {
     }
     environment {
         TF_IN_AUTOMATION = 'true'
-        RHEL_USER = credentials('RHEL-USER')
-        RHEL_PASSWORD = credentials('RHEL-PASSWD')
     }
     agent {
          label 'docker' 
@@ -152,8 +143,12 @@ pipeline {
 
                     curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.14.0-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-                    curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
-                        | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
+                    
+                    VERSION=$(curl --silent 'https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/release.txt' | grep 'Version:' | awk '{print $2}')
+                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux-$VERSION.tar.gz \
+                        | sudo tar -C /usr/local/bin --wildcards -zxvpf -
+                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-install-linux-$VERSION.tar.gz \
+                        | sudo tar -C /usr/local/bin  --wildcards -zxvpf -
                 '''
 
             }
@@ -163,20 +158,18 @@ pipeline {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        # sudo is needed for better node recovery after compilation failure
-                        # if building failed on compilation stage directory will have files owned by docker user
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf source
                         ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
 
-                        if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                            echo "SKIP: Build is not needed, PXC operator image was set!"
+                        if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                            echo "SKIP: Build is not needed, PSMDB operator image was set!"
                         else
                             cd ./source/
                             sg docker -c "
                                 docker login -u '${USER}' -p '${PASS}'
-                                export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                                export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                                 ./e2e-tests/build
                                 docker logout
                             "
@@ -188,75 +181,41 @@ pipeline {
         }
         stage('Create AWS Infrastructure') {
             steps {
-                git branch: 'master', url: 'https://github.com/Percona-Lab/k8s-lab'
-                    sh """
-                        # sudo is needed for better node recovery after compilation failure
-                        # if building failed on compilation stage directory will have files owned by docker user
-                        sudo git reset --hard
-                        sudo git clean -xdf
-                    """
-
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-key-pub', variable: 'AWS_NODES_KEY_PUB')]) {
-                     sshagent(['aws-openshift-key']) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'psmdb-openshift-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
+                     sh """
+                         mkdir openshift
+                         cp $OPENSHIFT_CONF_FILE ./openshift/install-config.yaml
+                     """
+                     sshagent(['aws-openshift-41-key']) {
                          sh """
-                            pushd ./aws-openshift-automation
-                                make infrastructure
-                                sleep 400
-                            popd
-                    """
+                             /usr/local/bin/openshift-install create cluster --dir=./openshift/
+                         """
                     }
                }
 
             }
         }
-        stage('Install and conigure Openshift') {
+        stage('E2E Scaling') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-key-pub', variable: 'AWS_NODES_KEY_PUB')]) {
-                     sshagent(['aws-openshift-key']) {
-                         sh """
-                            pushd ./aws-openshift-automation
-                                make openshift
-                                sleep 120
-                                oc login \$(terraform output master-url) --insecure-skip-tls-verify=true -u=real-admin -p=123
-                            popd
-                         """
-                    }
-               }
+                runTest('init-deploy')
+                runTest('limits')
+                runTest('scaling')
             }
         }
         stage('E2E Basic Tests') {
             steps {
-                runTest('init-deploy')
-                runTest('limits')
                 runTest('monitoring')
-                runTest('affinity')
+                runTest('monitoring-2-0')
+                runTest('arbiter')
+                runTest('service-per-pod')
            }
-        }
-        stage('E2E Scaling') {
-            steps {
-                runTest('scaling')
-                runTest('scaling-proxysql')
-                runTest('upgrade')
-                runTest('upgrade-consistency')
-            }
-        }
-        stage('E2E SelfHealing') {
-            steps {
-                runTest('self-healing-advanced')
-                runTest('one-pod')
-                runTest('auto-tuning')
-            }
         }
         stage('E2E Backups') {
             steps {
-                runTest('recreate')
                 runTest('demand-backup')
                 runTest('scheduled-backup')
-            }
-        }
-        stage('E2E BigData') {
-            steps {
-                runTest('big-data')
+                runTest('upgrade')
+                runTest('upgrade-consistency')
             }
         }
         stage('Make report') {
@@ -273,16 +232,14 @@ pipeline {
 
     post {
         always {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-key-pub', variable: 'AWS_NODES_KEY_PUB')]) {
-                     sshagent(['aws-openshift-key']) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'psmdb-openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+                     sshagent(['aws-openshift-41-key']) {
                          sh """
-                            pushd ./aws-openshift-automation
-                                make unregister-rhel-subscription || true
-                                make destroy
-                            popd
+                             /usr/local/bin/openshift-install destroy cluster --dir=./openshift/
                          """
                      }
                 }
+            
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf $HOME/google-cloud-sdk

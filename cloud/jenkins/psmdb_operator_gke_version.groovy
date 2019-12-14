@@ -30,8 +30,11 @@ void runGKEclusterAlpha(String CLUSTER_PREFIX) {
    }
 }
 void pushArtifactFile(String FILE_NAME) {
+    echo "Push $FILE_NAME file to S3!"
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
+            touch ${FILE_NAME}
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git rev-parse --short HEAD)
             aws s3 ls \$S3_PATH/${FILE_NAME} || :
             aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
@@ -40,6 +43,8 @@ void pushArtifactFile(String FILE_NAME) {
 }
 
 void popArtifactFile(String FILE_NAME) {
+    echo "Try to get $FILE_NAME file from S3!"
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git rev-parse --short HEAD)
@@ -47,11 +52,20 @@ void popArtifactFile(String FILE_NAME) {
         """
     }
 }
+
+testsResultsMap = [:]
+
+void setTestsresults() {
+    testsResultsMap.each { file ->
+        pushArtifactFile("${file.key}")
+    }
+}
+
 void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
-    FILE_NAME = "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}"
-    popArtifactFile(FILE_NAME)
+    popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}")
+
     sh """
-        if [ -f "$FILE_NAME" ]; then
+        if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}" ]; then
             echo Skip $TEST_NAME test
         else
             cd ./source
@@ -76,14 +90,10 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             source $HOME/google-cloud-sdk/path.bash.inc
             ./e2e-tests/$TEST_NAME/run
-            touch $FILE_NAME
         fi
     """
-    pushArtifactFile(FILE_NAME)
-
-    sh """
-        rm -rf $FILE_NAME
-    """
+    pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}")
+    testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}"] = 'passed'
 }
 void installRpms() {
     sh '''
@@ -229,11 +239,10 @@ pipeline {
                 stage('E2E Backups') {
                     steps {
                         CreateCluster('backups')
-                        sleep 60
-                        runTest('demand-backup', 'backups')
-                        runTest('scheduled-backup', 'backups')
                         runTest('upgrade', 'backups')
                         runTest('upgrade-consistency', 'backups')
+                        runTest('demand-backup', 'backups')
+                        runTest('scheduled-backup', 'backups')
                     }
                 }
             }
@@ -241,6 +250,7 @@ pipeline {
     }
     post {
         always {
+            setTestsresults()
             withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                 sh '''
                     export CLUSTER_NAME=$(echo jenkins-psmdb-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
