@@ -1,3 +1,9 @@
+void runPmm2AmiUITests(String AMI_ID) {
+    stagingJob = build job: 'pmm2-ami-test', parameters: [
+        string(name: 'AMI_ID', value: AMI_ID),
+    ]
+}
+
 pipeline {
     environment {
         specName = 'AMI'
@@ -56,6 +62,7 @@ pipeline {
                 unstash 'IMAGE'
                 def IMAGE = sh(returnStdout: true, script: "cat IMAGE").trim()
                 slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
+                runPmm2AmiUITests(IMAGE)
             }
         }
         failure {
