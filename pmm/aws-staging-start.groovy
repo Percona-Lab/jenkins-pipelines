@@ -255,7 +255,7 @@ pipeline {
                             set -o xtrace
 
                             sudo yum -y update --security
-                            sudo yum -y install https://repo.percona.com/yum/percona-release-0.1-7.noarch.rpm
+                            sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-13.noarch.rpm
                             sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                             sudo yum -y install svn docker sysbench mysql57-server
                             sudo service mysqld start
