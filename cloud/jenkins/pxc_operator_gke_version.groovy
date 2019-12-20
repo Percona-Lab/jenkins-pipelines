@@ -29,6 +29,17 @@ void runGKEclusterAlpha(String CLUSTER_PREFIX) {
         """
    }
 }
+void ShutdownCluster(String CLUSTER_PREFIX) {
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            source $HOME/google-cloud-sdk/path.bash.inc
+            gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
+            gcloud config set project $GCP_PROJECT
+            gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX}
+        """
+   }
+}
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -62,41 +73,49 @@ void setTestsresults() {
 }
 
 void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
-    popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}")
-    sh """
-        if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}" ]; then
-            echo Skip $TEST_NAME test
-        else
-            cd ./source
-            if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                export IMAGE=${PXC_OPERATOR_IMAGE}
+    try {
+        echo "The $TEST_NAME test was started!"
+        popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}")
+        sh """
+            if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}" ]; then
+                echo Skip $TEST_NAME test
             else
-                export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
-            fi
+                cd ./source
+                if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                    export IMAGE=${PXC_OPERATOR_IMAGE}
+                else
+                    export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                fi
 
-            if [ -n "${IMAGE_PXC}" ]; then
-                export IMAGE_PXC=${IMAGE_PXC}
-            fi
+                if [ -n "${IMAGE_PXC}" ]; then
+                    export IMAGE_PXC=${IMAGE_PXC}
+                fi
 
-            if [ -n "${IMAGE_PROXY}" ]; then
-                export IMAGE_PROXY=${IMAGE_PROXY}
-            fi
+                if [ -n "${IMAGE_PROXY}" ]; then
+                    export IMAGE_PROXY=${IMAGE_PROXY}
+                fi
 
-            if [ -n "${IMAGE_BACKUP}" ]; then
-                export IMAGE_BACKUP=${IMAGE_BACKUP}
-            fi
+                if [ -n "${IMAGE_BACKUP}" ]; then
+                    export IMAGE_BACKUP=${IMAGE_BACKUP}
+                fi
 
-            if [ -n "${IMAGE_PMM}" ]; then
-                export IMAGE_PMM=${IMAGE_PMM}
-            fi
+                if [ -n "${IMAGE_PMM}" ]; then
+                    export IMAGE_PMM=${IMAGE_PMM}
+                fi
 
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
-            source $HOME/google-cloud-sdk/path.bash.inc
-            ./e2e-tests/$TEST_NAME/run
-        fi
-    """
-    pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}")
-    testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}"] = 'passed'
+                export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                source $HOME/google-cloud-sdk/path.bash.inc
+                ./e2e-tests/$TEST_NAME/run
+            fi
+        """
+        pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}")
+        testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}"] = 'passed'
+    }
+    catch (exc) {
+        currentBuild.result = 'FAILURE'
+    }
+
+    echo "The $TEST_NAME test was finished!"
 }
 void installRpms() {
     sh '''
@@ -226,6 +245,7 @@ pipeline {
                         runTest('monitoring', 'basic')
                         runTest('monitoring-2-0', 'basic')
                         runTest('affinity', 'basic')
+                        ShutdownCluster('basic')
                    }
                 }
                 stage('E2E Scaling') {
@@ -235,6 +255,7 @@ pipeline {
                         runTest('scaling-proxysql', 'scaling')
                         runTest('upgrade', 'scaling')
                         runTest('upgrade-consistency', 'scaling')
+                        ShutdownCluster('scaling')
                     }
                 }
                 stage('E2E SelfHealing') {
@@ -245,6 +266,7 @@ pipeline {
                         runTest('operator-self-healing', 'selfhealing')
                         runTest('one-pod', 'selfhealing')
                         runTest('auto-tuning', 'selfhealing')
+                        ShutdownCluster('selfhealing')
                     }
                 }
                 stage('E2E Backups') {
@@ -253,12 +275,14 @@ pipeline {
                         runTest('recreate', 'backups')
                         runTest('demand-backup', 'backups')
                         runTest('scheduled-backup', 'backups')
+                        ShutdownCluster('backups')
                     }
                 }
                 stage('E2E BigData') {
                     steps {
                         CreateCluster('bigdata')
                         runTest('big-data', 'bigdata')
+                        ShutdownCluster('bigdata')
                     }
                 }
             }
@@ -273,7 +297,7 @@ pipeline {
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
                     gcloud config set project $GCP_PROJECT
-                    gcloud alpha container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups $CLUSTER_NAME-bigdata
+                    gcloud alpha container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups $CLUSTER_NAME-bigdata | true
                 '''
             }
             sh '''
