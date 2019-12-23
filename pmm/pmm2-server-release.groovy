@@ -20,6 +20,10 @@ pipeline {
             description: 'pmm-server container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
+            defaultValue: '',
+            description: 'OVA image filename',
+            name: 'OVF_IMAGE')
+        string(
             defaultValue: '2.0.0',
             description: 'PMM2 Server version',
             name: 'VERSION')
@@ -199,6 +203,38 @@ pipeline {
                     ssh -i ~/.ssh/id_rsa_downloads -p 2222 jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com "mkdir -p /data/downloads/pmm2/\${VERSION}/docker" || true
                     sha256sum pmm-server-\${VERSION}.docker > pmm-server-\${VERSION}.sha256sum
                     scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/docker/
+                """
+                deleteDir()
+            }
+        }
+        stage('Refresh website') {
+            agent {
+                label 'virtualbox'
+            }
+            steps {
+                sh """
+                    until curl https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory > /tmp/crawler; do
+                        tail /tmp/crawler
+                        sleep 10
+                    done
+                    tail /tmp/crawler
+                """
+            }
+        }
+        stage('Publish OVF image') {
+            agent {
+                label 'virtualbox'
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        aws s3 cp --only-show-errors s3://percona-vm/\${OVF_IMAGE} pmm-server-\${VERSION}.ova
+                    """
+                }
+                sh """
+                    ssh -i ~/.ssh/id_rsa_downloads -p 2222 jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com "mkdir -p /data/downloads/pmm2/\${VERSION}/ova" || true
+                    sha256sum pmm-server-\${VERSION}.ova > pmm-server-\${VERSION}.sha256sum
+                    scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-\${VERSION}.ova pmm-server-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/ova/
                 """
                 deleteDir()
             }
