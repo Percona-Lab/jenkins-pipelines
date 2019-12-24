@@ -97,11 +97,8 @@ pipeline {
                     # if building failed on compilation stage directory will have files owned by docker user
                     sudo git reset --hard
                     sudo git clean -xdf
-                    sudo rm -rf source
-                    ./cloud/local/checkout
                 """
                 stash includes: "cloud/**", name: "cloud"
-                stash includes: "source/**", name: "sourceFILES"
             }
         }
         stage('Build pxc docker images') {
