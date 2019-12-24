@@ -211,7 +211,7 @@ pipeline {
                 deleteDir()
             }
         }
-        stage('Refresh website') {
+        stage('Refresh website part 1') {
             agent {
                 label 'virtualbox'
             }
@@ -338,7 +338,7 @@ pipeline {
                 }
             }
         }
-        stage('Refresh website') {
+        stage('Refresh website part 2') {
             agent {
                 label 'virtualbox'
             }
