@@ -1,6 +1,9 @@
 void pushArtifactFile(String FILE_NAME) {
+    echo "Push $FILE_NAME file to S3!"
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
+            touch ${FILE_NAME}
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git rev-parse --short HEAD)
             aws s3 ls \$S3_PATH/${FILE_NAME} || :
             aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
@@ -9,6 +12,8 @@ void pushArtifactFile(String FILE_NAME) {
 }
 
 void popArtifactFile(String FILE_NAME) {
+    echo "Try to get $FILE_NAME file from S3!"
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git rev-parse --short HEAD)
@@ -61,7 +66,6 @@ void runTest(String TEST_NAME) {
 
                 source $HOME/google-cloud-sdk/path.bash.inc
                 ./e2e-tests/$TEST_NAME/run
-                touch $VERSION-$TEST_NAME
             fi
         """
         pushArtifactFile("$VERSION-$TEST_NAME")
@@ -72,9 +76,6 @@ void runTest(String TEST_NAME) {
     }
 
     echo "The $TEST_NAME test was finished!"
-    sh """
-        rm -rf $VERSION-$TEST_NAME
-    """
 }
 void installRpms() {
     sh """
