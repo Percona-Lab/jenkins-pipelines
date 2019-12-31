@@ -225,7 +225,6 @@ pipeline {
         }
         stage('E2E SelfHealing') {
             steps {
-                runTest('self-healing-advanced')
                 runTest('one-pod')
                 runTest('auto-tuning')
             }
