@@ -172,15 +172,13 @@ pipeline {
                     unstash "sourceFILES"
                     installRpms()
                     unstash "sourceFILES"
-                    runTest('init-deploy')
                     runTest('limits')
-                    runTest('monitoring')
-                    runTest('affinity')
                     runTest('scaling')
-                    runTest('scaling-proxysql')
-                    runTest('recreate')
-                    runTest('demand-backup')
-                    runTest('scheduled-backup')
+                    runTest('affinity')
+                    runTest('one-pod')
+                    runTest('upgrade-consistency')
+                    runTest('self-healing-advanced')
+                    runTest('operator-self-healing')
             }
         }
     }
