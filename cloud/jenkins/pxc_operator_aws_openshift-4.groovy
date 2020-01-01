@@ -168,12 +168,14 @@ pipeline {
         stage('Build docker image') {
             steps {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
                     sh '''
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf source
                         ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
+
+                        cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
 
                         if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
                             echo "SKIP: Build is not needed, PXC operator image was set!"

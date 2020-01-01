@@ -38,7 +38,7 @@ void runTest(String TEST_NAME) {
         GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
         VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
         testsReportMap[TEST_NAME] = 'failure'
- 
+
         popArtifactFile("$VERSION-$TEST_NAME")
 
         sh """
@@ -147,7 +147,7 @@ pipeline {
 
                     curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.14.0-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-                    
+
                     VERSION=$(curl --silent 'https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/release.txt' | grep 'Version:' | awk '{print $2}')
                     curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux-$VERSION.tar.gz \
                         | sudo tar -C /usr/local/bin --wildcards -zxvpf -
@@ -160,12 +160,14 @@ pipeline {
         stage('Build docker image') {
             steps {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
                     sh '''
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf source
                         ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
+
+                        cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
 
                         if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
                             echo "SKIP: Build is not needed, PSMDB operator image was set!"
