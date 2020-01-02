@@ -155,6 +155,7 @@ pipeline {
 
                     curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.14.0-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+                    /usr/local/bin/helm init --client-only
 
                     VERSION=$(curl --silent 'https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/release.txt' | grep 'Version:' | awk '{print $2}')
                     curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux-$VERSION.tar.gz \
