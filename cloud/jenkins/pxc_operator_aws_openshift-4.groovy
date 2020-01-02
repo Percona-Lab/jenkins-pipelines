@@ -153,7 +153,7 @@ pipeline {
                     gcloud components update kubectl
                     gcloud version
 
-                    curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.14.0-linux-amd64.tar.gz \
+                    curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.14.1-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
                     /usr/local/bin/helm init --client-only
 
