@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@CLOUD-476-create-build-inf-dbaas-tests', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/hors/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 pipeline {
