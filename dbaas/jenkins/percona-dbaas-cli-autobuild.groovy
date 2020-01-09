@@ -68,7 +68,7 @@ pipeline {
         }
         stage('Build dbaas rpm') {
             steps {
-//                sh 'sg docker -c "./build/bin/build-dbaas-rpm centos:8"'
+                sh 'sg docker -c "./build/bin/build-dbaas-rpm centos:8"'
                 sh 'sg docker -c "./build/bin/build-dbaas-rpm centos:7"'
                 sh 'sg docker -c "./build/bin/build-dbaas-rpm centos:6"'
                 stash includes: 'results/rpm/*.rpm', name: 'rpms'
