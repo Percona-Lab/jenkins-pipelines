@@ -51,11 +51,19 @@
             sudo percona-release enable original
             sudo yum update -y
             sudo yum -y install epel-release
-            sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel
+            sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel redhat-lsb-core
             sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel lsof socat zlib-devel sysbench python-pip python2-pip
 
-            sudo pip install awscli
-            sudo pip install --upgrade awscli
+            CENTOS_VER=$(lsb_release -sr | awk -F'.' '{print $1}')
+            if [[ ${CENTOS_VER} = '6' ]]; then
+                sudo yum -y install python34
+                sudo curl -O https://bootstrap.pypa.io/get-pip.py
+                sudo python3 get-pip.py --user
+                sudo /root/.local/bin/pip3 install awscli
+            else
+                sudo pip install awscli
+                sudo pip install --upgrade awscli
+            fi
         fi
 
         if [ -f /usr/bin/apt-get ]; then
