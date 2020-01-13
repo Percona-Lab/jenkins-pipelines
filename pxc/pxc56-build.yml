@@ -34,11 +34,19 @@
         if [ -f /usr/bin/yum ]; then
             sudo yum clean all
             sudo -E yum -y install epel-release
-            sudo -E yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel scons
+            sudo -E yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel scons redhat-lsb-core
             sudo -E yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel python-pip python2-pip
 
-            sudo pip install awscli
-            sudo pip install --upgrade awscli
+            CENTOS_VER=$(lsb_release -sr | awk -F'.' '{print $1}')
+            if [[ ${CENTOS_VER} = '6' ]]; then
+                sudo yum -y install python34
+                sudo curl -O https://bootstrap.pypa.io/get-pip.py
+                sudo python3 get-pip.py --user
+                sudo /root/.local/bin/pip3 install awscli
+            else
+                sudo pip install awscli
+                sudo pip install --upgrade awscli
+            fi
         fi
 
         if [ -f /usr/bin/apt-get ]; then

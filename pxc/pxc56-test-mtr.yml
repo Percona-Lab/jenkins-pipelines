@@ -40,7 +40,7 @@
             sudo yum -y install wget epel-release
             wget https://jenkins.percona.com/yum-repo/percona-dev.repo
             sudo -E mv -vf percona-dev.repo /etc/yum.repos.d/
-            sudo -E yum -y install libeatmydata socat perl-Time-HiRes nocache curl lsof python-pip python2-pip libaio
+            sudo -E yum -y install libeatmydata socat perl-Time-HiRes nocache curl lsof python-pip python2-pip libaio redhat-lsb-core
 
             # Install these packages for the memcached API tests
             sudo -E yum -y install gcc gcc-c++ cmake perl-CPAN
@@ -48,8 +48,16 @@
             sudo -E cpan Memcached::libmemcached
             sudo -E cpan Cache::Memcached::libmemcached
 
-            sudo pip install awscli
-            sudo pip install --upgrade awscli
+            CENTOS_VER=$(lsb_release -sr | awk -F'.' '{print $1}')
+            if [[ ${CENTOS_VER} = '6' ]]; then
+                sudo yum -y install python34
+                sudo curl -O https://bootstrap.pypa.io/get-pip.py
+                sudo python3 get-pip.py --user
+                sudo /root/.local/bin/pip3 install awscli
+            else
+                sudo pip install awscli
+                sudo pip install --upgrade awscli
+            fi
         fi
 
         if [ -f /usr/bin/apt-get ]; then
