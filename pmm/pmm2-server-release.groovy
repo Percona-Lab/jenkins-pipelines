@@ -28,6 +28,10 @@ pipeline {
             description: 'Amazon Machine Image (AMI) ID',
             name: 'AMI_ID')
         string(
+            defaultValue: 'perconalab/pmm-client:dev-latest',
+            description: 'pmm-client docker container version (image-name:version-tag)',
+            name: 'DOCKER_CLIENT_VERSION')
+        string(
             defaultValue: '2.0.0',
             description: 'PMM2 Server version',
             name: 'VERSION')
@@ -177,17 +181,24 @@ pipeline {
                         fi
                         docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
 
-                        #docker pull \${DOCKER_CLIENT_VERSION}
-                        #docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${VERSION}
-                        #docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:latest
-                        #docker push perconalab/pmm-client:\${VERSION}
-                        #docker save perconalab/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}.docker
+                        docker pull \${DOCKER_CLIENT_VERSION}
+                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${VERSION}
+                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${DOCKER_MID}
+                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${TOP_VER}
+                        if [ \${TOP_VER} = 1 ]; then
+                            docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:latest
+                            docker push perconalab/pmm-client:latest
+                        fi
+                        docker push perconalab/pmm-client:\${VERSION}
+                        docker push perconalab/pmm-client:\${DOCKER_MID}
+                        docker push perconalab/pmm-client:\${TOP_VER}
+                        docker save perconalab/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}.docker
                     "
                 """
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         aws s3 cp --only-show-errors pmm-server-\${VERSION}.docker s3://percona-vm/pmm-server-\${VERSION}.docker
-                        #aws s3 cp --only-show-errors pmm-client-\${VERSION}.docker s3://percona-vm/pmm-client-\${VERSION}.docker
+                        aws s3 cp --only-show-errors pmm-client-\${VERSION}.docker s3://percona-vm/pmm-client-\${VERSION}.docker
                     """
                 }
                 deleteDir()
@@ -201,12 +212,15 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.docker
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-client-\${VERSION}.docker pmm-client-\${VERSION}.docker
                     """
                 }
                 sh """
                     ssh -i ~/.ssh/id_rsa_downloads -p 2222 jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com "mkdir -p /data/downloads/pmm2/\${VERSION}/docker" || true
                     sha256sum pmm-server-\${VERSION}.docker > pmm-server-\${VERSION}.sha256sum
+                    sha256sum pmm-client-\${VERSION}.docker > pmm-client-\${VERSION}.sha256sum
                     scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/docker/
+                    scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-client-\${VERSION}.docker pmm-client-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/docker/
                 """
                 deleteDir()
             }
