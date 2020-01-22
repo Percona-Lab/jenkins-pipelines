@@ -20,9 +20,6 @@ pipeline {
         disableConcurrentBuilds()
         skipStagesAfterUnstable()
     }
-    triggers {
-        cron('H/10 * * * *')
-    }
     stages {
         stage('Checkout') {
             steps {
