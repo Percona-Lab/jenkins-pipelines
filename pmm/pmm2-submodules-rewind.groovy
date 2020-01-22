@@ -2,18 +2,6 @@ pipeline {
     agent {
         label 'micro-amazon'
     }
-    parameters {
-        string(
-            defaultValue: 'PMM-2.0',
-            description: 'Tag/Branch for pmm-submodules repository',
-            name: 'GIT_BRANCH'
-        )
-        string(
-            defaultValue: 'auto',
-            description: 'version of result package',
-            name: 'VERSION'
-        )
-    }
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         skipDefaultCheckout()
@@ -26,7 +14,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
+                git branch: 'PMM-2.0', credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
                         echo "/usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh
@@ -40,12 +28,6 @@ pipeline {
                         git status --untracked-files=all --ignore-submodules=none
                     '''
                 }
-
-                sh """
-                    if [ "${VERSION}" != "auto" ]; then
-                        echo ${VERSION} > VERSION
-                    fi
-                """
 
                 script {
                     def changes_count = sh(returnStdout: true, script: '''
