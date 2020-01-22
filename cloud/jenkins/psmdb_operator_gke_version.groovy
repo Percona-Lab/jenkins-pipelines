@@ -29,13 +29,24 @@ void runGKEclusterAlpha(String CLUSTER_PREFIX) {
         """
    }
 }
+void ShutdownCluster(String CLUSTER_PREFIX) {
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            source $HOME/google-cloud-sdk/path.bash.inc
+            gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
+            gcloud config set project $GCP_PROJECT
+            gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX}
+        """
+   }
+}
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             touch ${FILE_NAME}
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git rev-parse --short HEAD)
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${env.GIT_SHORT_COMMIT}
             aws s3 ls \$S3_PATH/${FILE_NAME} || :
             aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
         """
@@ -47,7 +58,7 @@ void popArtifactFile(String FILE_NAME) {
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git rev-parse --short HEAD)
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${env.GIT_SHORT_COMMIT}
             aws s3 cp --quiet \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
         """
     }
@@ -62,38 +73,47 @@ void setTestsresults() {
 }
 
 void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
-    popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}")
+    try {
+        echo "The $TEST_NAME test was started!"
 
-    sh """
-        if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}" ]; then
-            echo Skip $TEST_NAME test
-        else
-            cd ./source
-            if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
-                export IMAGE=${PSMDB_OPERATOR_IMAGE}
+        popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}")
+
+        sh """
+            if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}" ]; then
+                echo Skip $TEST_NAME test
             else
-                export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
-            fi
+                cd ./source
+                if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                    export IMAGE=${PSMDB_OPERATOR_IMAGE}
+                else
+                    export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
+                fi
 
-            if [ -n "${IMAGE_MONGOD}" ]; then
-                export IMAGE_MONGOD=${IMAGE_MONGOD}
-            fi
+                if [ -n "${IMAGE_MONGOD}" ]; then
+                    export IMAGE_MONGOD=${IMAGE_MONGOD}
+                fi
 
-            if [ -n "${IMAGE_BACKUP}" ]; then
-                export IMAGE_BACKUP=${IMAGE_BACKUP}
-            fi
+                if [ -n "${IMAGE_BACKUP}" ]; then
+                    export IMAGE_BACKUP=${IMAGE_BACKUP}
+                fi
 
-            if [ -n "${IMAGE_PMM}" ]; then
-                export IMAGE_PMM=${IMAGE_PMM}
-            fi
+                if [ -n "${IMAGE_PMM}" ]; then
+                    export IMAGE_PMM=${IMAGE_PMM}
+                fi
 
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
-            source $HOME/google-cloud-sdk/path.bash.inc
-            ./e2e-tests/$TEST_NAME/run
-        fi
-    """
-    pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}")
-    testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}"] = 'passed'
+                export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                source $HOME/google-cloud-sdk/path.bash.inc
+                ./e2e-tests/$TEST_NAME/run
+            fi
+        """
+        pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}")
+        testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}"] = 'passed'
+    }
+    catch (exc) {
+        currentBuild.result = 'FAILURE'
+    }
+
+    echo "The $TEST_NAME test was finished!"
 }
 void installRpms() {
     sh '''
@@ -216,6 +236,7 @@ pipeline {
                         runTest('init-deploy', 'scaling')
                         runTest('limits', 'scaling')
                         runTest('scaling', 'scaling')
+                        ShutdownCluster('scaling')
                    }
                 }
                 stage('E2E Basic Tests') {
@@ -226,6 +247,7 @@ pipeline {
                         runTest('monitoring-2-0', 'basic')
                         runTest('arbiter', 'basic')
                         runTest('service-per-pod', 'basic')
+                        ShutdownCluster('basic')
                     }
                 }
                 stage('E2E SelfHealing') {
@@ -234,6 +256,7 @@ pipeline {
                         runTest('self-healing', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
                         runTest('one-pod', 'selfhealing')
+                        ShutdownCluster('selfhealing')
                     }
                 }
                 stage('E2E Backups') {
@@ -243,6 +266,7 @@ pipeline {
                         runTest('upgrade-consistency', 'backups')
                         runTest('demand-backup', 'backups')
                         runTest('scheduled-backup', 'backups')
+                        ShutdownCluster('backups')
                     }
                 }
             }
@@ -257,7 +281,7 @@ pipeline {
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
                     gcloud config set project $GCP_PROJECT
-                    gcloud alpha container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups
+                    gcloud alpha container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups | true
                 '''
             }
             sh '''

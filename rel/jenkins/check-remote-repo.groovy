@@ -46,6 +46,7 @@ def GitHubURL='https://github.com'
 ReposPathMap = [
     'MongoDB':           "${GitHubURL}/mongodb/mongo",
     'MySQL':             "${GitHubURL}/mysql/mysql-server",
+    'MySQLShell':        "${GitHubURL}/mysql/mysql-shell",
     'ProxySQL':          "${GitHubURL}/sysown/proxysql",
     'MyRocks':           "${GitHubURL}/facebook/mysql-5.6",
     'RocksDB':           "${GitHubURL}/facebook/rocksdb",
@@ -65,6 +66,7 @@ ReposPathMap = [
 ReposSlackMap = [
     'MongoDB':           "#opensource-psmdb",
     'MySQL':             "#opensource-ps",
+    'MySQLShell':        "#opensource-ps",
     'ProxySQL':          "#opensource_proxysql",
     'MyRocks':           "#opensource-myrocks",
     'RocksDB':           "#opensource-myrocks",

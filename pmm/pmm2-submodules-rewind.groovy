@@ -25,6 +25,7 @@ pipeline {
                         git clean -xdff
                         git submodule update --remote --init --recommend-shallow --jobs 10
                         git submodule status
+                        git status --untracked-files=all --ignore-submodules=none
                     '''
                 }
 

@@ -22,7 +22,7 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite  name=\\"PXC\\">\n'
+TestsReport = '<testsuite  name=\\"PSMDB\\">\n'
 testsReportMap = [:]
 void makeReport() {
     for ( test in testsReportMap ) {
@@ -41,40 +41,38 @@ void runTest(String TEST_NAME) {
 
         popArtifactFile("$VERSION-$TEST_NAME")
 
-        sh """
-            if [ -f "$VERSION-$TEST_NAME" ]; then
-                echo Skip $TEST_NAME test
-            else
-                cd ./source
-                if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                    export IMAGE=${PXC_OPERATOR_IMAGE}
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
+            sh """
+                if [ -f "$VERSION-$TEST_NAME" ]; then
+                    echo Skip $TEST_NAME test
                 else
-                    export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                    cd ./source
+                    if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                         export IMAGE=${PSMDB_OPERATOR_IMAGE}
+                    else
+                        export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
+                    fi
+
+                    if [ -n "${IMAGE_MONGOD}" ]; then
+                        export IMAGE_MONGOD=${IMAGE_MONGOD}
+                    fi
+
+                    if [ -n "${IMAGE_BACKUP}" ]; then
+                        export IMAGE_BACKUP=${IMAGE_BACKUP}
+                    fi
+
+                    if [ -n "${IMAGE_PMM}" ]; then
+                        export IMAGE_PMM=${IMAGE_PMM}
+                    fi
+
+                    export PATH=/home/ec2-user/.local/bin:$PATH
+                    source $HOME/google-cloud-sdk/path.bash.inc
+                    export KUBECONFIG=~/.kube/config
+
+                    ./e2e-tests/$TEST_NAME/run
                 fi
-
-                if [ -n "${IMAGE_PXC}" ]; then
-                    export IMAGE_PXC=${IMAGE_PXC}
-                fi
-
-                if [ -n "${IMAGE_PROXY}" ]; then
-                    export IMAGE_PROXY=${IMAGE_PROXY}
-                fi
-
-                if [ -n "${IMAGE_BACKUP}" ]; then
-                    export IMAGE_BACKUP=${IMAGE_BACKUP}
-                fi
-
-                if [ -n "${IMAGE_PMM}" ]; then
-                    export IMAGE_PMM=${IMAGE_PMM}
-                fi
-
-                source $HOME/google-cloud-sdk/path.bash.inc
-                export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
-                oc whoami
-
-                ./e2e-tests/$TEST_NAME/run
-            fi
-        """
+            """
+        }
         pushArtifactFile("$VERSION-$TEST_NAME")
         testsReportMap[TEST_NAME] = 'passed'
     }
@@ -95,35 +93,28 @@ pipeline {
     parameters {
         string(
             defaultValue: 'master',
-            description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
+            description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator',
-            description: 'percona-xtradb-cluster-operator repository',
+            defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
+            description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
             defaultValue: '',
-            description: 'Operator image: perconalab/percona-xtradb-cluster-operator:master',
-            name: 'PXC_OPERATOR_IMAGE')
+            description: 'Operator image: perconalab/percona-server-mongodb-operator:master',
+            name: 'PSMDB_OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc',
-            name: 'IMAGE_PXC')
+            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:master-mongod4.0',
+            name: 'IMAGE_MONGOD')
         string(
             defaultValue: '',
-            description: 'PXC proxy image: perconalab/percona-xtradb-cluster-operator:master-proxysql',
-            name: 'IMAGE_PROXY')
-        string(
-            defaultValue: '',
-            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-backup',
+            description: 'Backup image: perconalab/percona-server-mongodb-operator:master-backup',
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
             description: 'PMM image: perconalab/percona-server-mongodb-operator:master-pmm',
             name: 'IMAGE_PMM')
-    }
-    environment {
-        TF_IN_AUTOMATION = 'true'
     }
     agent {
          label 'docker' 
@@ -137,11 +128,6 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                sh """
-                    wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
-                    unzip terraform_0.11.14_linux_amd64.zip
-                    sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
-                """
                 installRpms()
                 sh '''
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
@@ -157,11 +143,8 @@ pipeline {
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
                     /usr/local/bin/helm init --client-only
 
-                    VERSION=$(curl --silent 'https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/release.txt' | grep 'Version:' | awk '{print $2}')
-                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux-$VERSION.tar.gz \
-                        | sudo tar -C /usr/local/bin --wildcards -zxvpf -
-                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-install-linux-$VERSION.tar.gz \
-                        | sudo tar -C /usr/local/bin  --wildcards -zxvpf -
+                    curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/latest_release/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+                    sudo mv -v /tmp/eksctl /usr/local/bin
                 '''
 
             }
@@ -178,13 +161,13 @@ pipeline {
 
                         cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
 
-                        if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                            echo "SKIP: Build is not needed, PXC operator image was set!"
+                        if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                            echo "SKIP: Build is not needed, PSMDB operator image was set!"
                         else
                             cd ./source/
                             sg docker -c "
                                 docker login -u '${USER}' -p '${PASS}'
-                                export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                                export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                                 ./e2e-tests/build
                                 docker logout
                             "
@@ -194,54 +177,74 @@ pipeline {
                 }
             }
         }
-        stage('Create AWS Infrastructure') {
+        stage('Create EKS Infrastructure') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
-                     sh """
-                         mkdir openshift
-                         cp $OPENSHIFT_CONF_FILE ./openshift/install-config.yaml
-                     """
-                     sshagent(['aws-openshift-41-key']) {
-                         sh """
-                             /usr/local/bin/openshift-install create cluster --dir=./openshift/
-                         """
-                    }
-               }
+                sh '''
+cat <<-EOF > cluster.yaml
+# An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
 
+metadata:
+    name: eks-psmdb-cluster
+    region: eu-west-3
+
+nodeGroups:
+    - name: ng-1
+      minSize: 3
+      maxSize: 5
+      instancesDistribution:
+        maxPrice: 0.15
+        instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
+        onDemandBaseCapacity: 0
+        onDemandPercentageAboveBaseCapacity: 50
+        spotInstancePools: 2
+      tags:
+        'iit-billing-tag': 'jenkins-eks'
+EOF
+                '''
+
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                     sh """
+                         export PATH=/home/ec2-user/.local/bin:$PATH
+                         source $HOME/google-cloud-sdk/path.bash.inc
+
+                         eksctl create cluster -f cluster.yaml
+                     """
+                }
+                stash includes: 'cluster.yaml', name: 'cluster_conf'
+            }
+        }
+        stage('E2E Scaling') {
+            steps {
+                runTest('init-deploy')
+                runTest('limits')
+                runTest('scaling')
             }
         }
         stage('E2E Basic Tests') {
             steps {
-                runTest('init-deploy')
-                runTest('limits')
+                runTest('storage')
                 runTest('monitoring')
-                runTest('affinity')
+                runTest('monitoring-2-0')
+                runTest('arbiter')
+                runTest('service-per-pod')
            }
-        }
-        stage('E2E Scaling') {
-            steps {
-                runTest('scaling')
-                runTest('scaling-proxysql')
-                runTest('upgrade')
-                runTest('upgrade-consistency')
-            }
         }
         stage('E2E SelfHealing') {
             steps {
+                runTest('self-healing')
+                runTest('operator-self-healing')
                 runTest('one-pod')
-                runTest('auto-tuning')
             }
         }
         stage('E2E Backups') {
             steps {
-                runTest('recreate')
                 runTest('demand-backup')
                 runTest('scheduled-backup')
-            }
-        }
-        stage('E2E BigData') {
-            steps {
-                runTest('big-data')
+                runTest('upgrade')
+                runTest('upgrade-consistency')
             }
         }
         stage('Make report') {
@@ -258,12 +261,11 @@ pipeline {
 
     post {
         always {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
-                     sshagent(['aws-openshift-41-key']) {
-                         sh """
-                             /usr/local/bin/openshift-install destroy cluster --dir=./openshift/
-                         """
-                     }
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    unstash 'cluster_conf'
+                    sh """
+                        eksctl delete cluster -f cluster.yaml --wait
+                    """
                 }
             
             sh '''

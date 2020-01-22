@@ -37,7 +37,7 @@
             sudo yum -y install libeatmydata socat libaio perl-Time-HiRes nocache curl lsof || true
             sudo yum -y install boost-program-options || true
             sudo yum -y install numactl-devel jsoncpp || true
-            sudo yum -y install python-pip python2-pip
+            sudo yum -y install python-pip python2-pip redhat-lsb-core
 
             # Install these packages for the memcached API tests
             sudo -E yum -y install gcc gcc-c++ cmake perl-CPAN
@@ -45,8 +45,16 @@
             sudo -E cpan -T Memcached::libmemcached
             sudo -E cpan -T Cache::Memcached::libmemcached
 
-            sudo pip install awscli
-            sudo pip install --upgrade awscli
+            CENTOS_VER=$(lsb_release -sr | awk -F'.' '{print $1}')
+            if [[ ${CENTOS_VER} = '6' ]]; then
+                sudo yum -y install python34
+                sudo curl -O https://bootstrap.pypa.io/get-pip.py
+                sudo python3 get-pip.py --user
+                sudo /root/.local/bin/pip3 install awscli
+            else
+                sudo pip install awscli
+                sudo pip install --upgrade awscli
+            fi
         fi
 
         if [ -f /usr/bin/apt-get ]; then
