@@ -8,11 +8,6 @@ pipeline {
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH'
         )
-        string(
-            defaultValue: 'auto',
-            description: 'version of result package',
-            name: 'VERSION'
-        )
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
@@ -36,12 +31,6 @@ pipeline {
                         git submodule status
                     '''
                 }
-
-                sh """
-                    if [ "${VERSION}" != "auto" ]; then
-                        echo ${VERSION} > VERSION
-                    fi
-                """
 
                 script {
                     def changes_count = sh(returnStdout: true, script: '''
