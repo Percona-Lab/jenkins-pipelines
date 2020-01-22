@@ -2,13 +2,6 @@ pipeline {
     agent {
         label 'micro-amazon'
     }
-    parameters {
-        string(
-            defaultValue: 'auto',
-            description: 'version of result package',
-            name: 'VERSION'
-        )
-    }
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         skipDefaultCheckout()
@@ -34,12 +27,6 @@ pipeline {
                         git submodule status
                     '''
                 }
-
-                sh """
-                    if [ "${VERSION}" != "auto" ]; then
-                        echo ${VERSION} > VERSION
-                    fi
-                """
 
                 script {
                     def changes_count = sh(returnStdout: true, script: '''
