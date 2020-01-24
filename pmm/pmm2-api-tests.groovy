@@ -27,6 +27,10 @@ pipeline {
             description: 'Tag/Branch for pmm-api-tests repository',
             name: 'GIT_BRANCH')
         string(
+            defaultValue: '',
+            description: 'Commit hash for the branch',
+            name: 'GIT_COMMIT_HASH')
+        string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
@@ -53,6 +57,14 @@ pipeline {
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-Lab/pmm-api-tests'
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+            }
+        }
+        stage('Checkout Commit') {
+             when {
+                expression { env.GIT_COMMIT_HASH.length()>0 }
+            }
+            steps {
+                sh 'git checkout ' + env.GIT_COMMIT_HASH
             }
         }
         stage('Start staging') {
