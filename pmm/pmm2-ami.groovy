@@ -62,6 +62,7 @@ pipeline {
                 unstash 'IMAGE'
                 def IMAGE = sh(returnStdout: true, script: "cat IMAGE").trim()
                 slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
+                runPmm2AmiUITests(IMAGE)
             }
         }
         failure {
