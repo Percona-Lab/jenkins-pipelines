@@ -94,7 +94,7 @@ pipeline {
         }
         stage('Start UI Tests') {
             steps {
-                runUITests(CLIENT_VERSION, 'yes', "${env.AMI_INSTANCE_IP}", 'yes', "${env.AMI_INSTANCE_ID}")
+                //runUITests(CLIENT_VERSION, 'yes', "${env.AMI_INSTANCE_IP}", 'yes', "${env.AMI_INSTANCE_ID}")
             }
         }
     }
