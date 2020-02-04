@@ -20,6 +20,10 @@ pipeline {
             description: 'Which Version of PMM-Server',
             name: 'PMM_VERSION')
         choice(
+            choices: ['yes', 'no'],
+            description: 'Enable Testing Repo?',
+            name: 'ENABLE_TESTING_REPO')
+        choice(
             choices: '1\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
@@ -81,6 +85,14 @@ pipeline {
             defaultValue: '0.0.0.0',
             description: 'Please change the default Value for Server Public IP, When you need to use this instance just as client',
             name: 'SERVER_IP')
+        string(
+            defaultValue: 'master',
+            description: 'Tag/Branch for pmm-qa repository',
+            name: 'PMM_QA_GIT_BRANCH')
+        string(
+            defaultValue: '',
+            description: 'Commit hash for pmm-qa branch',
+            name: 'PMM_QA_GIT_COMMIT_HASH')
     }
     options {
         skipDefaultCheckout()
@@ -257,18 +269,19 @@ pipeline {
                             sudo yum -y update --security
                             sudo yum -y install https://repo.percona.com/yum/percona-release-0.1-7.noarch.rpm
                             sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
-                            sudo yum -y install svn docker sysbench mysql57-server
+                            sudo yum -y install svn docker sysbench mysql57-server git
                             sudo service mysqld start
                             sudo yum -y install bats --enablerepo=epel
                             sudo usermod -aG docker ec2-user
                             sudo service docker start
-
                             sudo mkdir -p /srv/pmm-qa || :
                             pushd /srv/pmm-qa
-                                sudo svn export https://github.com/percona/pmm-qa.git/trunk/pmm-tests
+                                sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                                sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
                                 sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
                                 sudo chmod 755 get_download_link.sh
                             popd
+
                         "
                     """
                 }
@@ -279,7 +292,6 @@ pipeline {
                 archiveArtifacts 'IP'
             }
         }
-
         stage('Run Docker') {
             when {
                 expression { env.CLIENT_INSTANCE == "no" }
@@ -322,8 +334,6 @@ pipeline {
                                         ${DOCKER_VERSION}
                                     sleep 10
                                     docker logs \${VM_NAME}-server
-                                    docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/laboratory/^' /etc/yum.repos.d/pmm2-server.repo
-                                    docker exec \${VM_NAME}-server percona-release enable original testing
                                 else
                                     docker create \
                                         -v /opt/prometheus/data \
@@ -346,6 +356,29 @@ pipeline {
                                 fi
                             "
                          """
+                        }
+                    }
+                }
+            }
+        }
+        stage('Enable Testing Repo') {
+            when {
+                expression { env.ENABLE_TESTING_REPO == "yes" && env.PMM_VERSION == "pmm2" }
+            }
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    script {
+                        withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
+                            sh """
+                                export IP=\$(cat IP)
+                                export VM_NAME=\$(cat VM_NAME)
+                                ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
+                                    set -o errexit
+                                    set -o xtrace
+                                    docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/laboratory/^' /etc/yum.repos.d/pmm2-server.repo
+                                    docker exec \${VM_NAME}-server percona-release enable original testing
+                                "
+                            """
                         }
                     }
                 }
@@ -428,7 +461,6 @@ pipeline {
                                     fi
                                     sleep 10
                                     sudo cat /var/log/pmm-agent.log
-                                    pmm-admin --debug add mysql --query-source=perfschema --username=root
                                     pmm-admin list
                                 fi
                             else

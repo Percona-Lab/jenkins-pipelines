@@ -1,10 +1,12 @@
-void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
+void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: ''),
         string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1')
+        string(name: 'DAYS', value: '1'),
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
+        string(name: 'PMM_QA_GIT_COMMIT_HASH', value: PMM_QA_GIT_COMMIT_HASH)
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
@@ -37,7 +39,7 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
                 export CLIENT_VERSION=${CLIENT_VERSION}
                 if [[ \$CLIENT_VERSION == http* ]]; then
-                    export PATH="$PWD/pmm2-client-2.0.0/bin:$PATH"
+                    export PATH="$PWD/pmm2-client/bin:$PATH"
                 fi
                 bash /srv/pmm-qa/pmm-tests/pmm-2-0-bats-tests/pmm-testsuite.sh \
                     | tee /tmp/result.output
@@ -65,6 +67,29 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
     }
 }
 
+void fetchAgentLog(String CLIENT_VERSION) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
+                set -o errexit
+                set -o xtrace
+                export CLIENT_VERSION=${CLIENT_VERSION}
+                if [[ \$CLIENT_VERSION != http* ]]; then
+                    sudo chmod 777 /var/log/pmm-agent.log
+                fi
+
+                if [[ -e /var/log/pmm-agent.log ]]; then
+                    cp /var/log/pmm-agent.log .
+                fi
+            '
+            scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+                ${USER}@${VM_IP}:pmm-agent.log \
+                pmm-agent.log
+        """
+
+    }
+}
+
 pipeline {
     agent {
         label 'micro-amazon'
@@ -78,6 +103,14 @@ pipeline {
             defaultValue: 'dev-latest',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
+        string(
+            defaultValue: 'master',
+            description: 'Tag/Branch for pmm-qa repository',
+            name: 'PMM_QA_GIT_BRANCH')
+        string(
+            defaultValue: '',
+            description: 'Commit hash for pmm-qa branch',
+            name: 'PMM_QA_GIT_COMMIT_HASH')
     }
     options {
         skipDefaultCheckout()
@@ -101,7 +134,7 @@ pipeline {
         }
         stage('Start staging') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2')
+                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2', PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH)
             }
         }
         stage('Sanity check') {
@@ -129,14 +162,34 @@ pipeline {
                 runTAP("ms", "mysql", "2", "8.0")
             }
         }
-        stage('Test: PSMDB') {
+        stage('Test: PSMDB_4_0') {
             steps {
                 runTAP("mo", "psmdb", "3", "4.0")
+            }
+        }
+        stage('Test: PSMDB_3_6') {
+            steps {
+                runTAP("mo", "psmdb", "3", "3.6")
+            }
+        }
+        stage('Test: MDB_4_2') {
+            steps {
+                runTAP("modb", "modb", "3", "4.2")
+            }
+        }
+        stage('Test: MDB_4_0') {
+            steps {
+                runTAP("modb", "modb", "3", "4.0")
             }
         }
         stage('Test: PGSQL10') {
             steps {
                 runTAP("pgsql", "postgresql", "3", "10.6")
+            }
+        }
+        stage('Test: PXC') {
+            steps {
+                runTAP("pxc", "pxc", "1", "5.7")
             }
         }
     }
@@ -145,6 +198,7 @@ pipeline {
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip
             '''
+            fetchAgentLog(CLIENT_VERSION)
             destroyStaging(VM_NAME)
         }
         success {
@@ -164,11 +218,13 @@ pipeline {
                 ).trim()
                 slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}"
                 archiveArtifacts artifacts: 'logs.zip'
+                archiveArtifacts artifacts: 'pmm-agent.log'
             }
         }
         failure {
             slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
             archiveArtifacts artifacts: 'logs.zip'
+            archiveArtifacts artifacts: 'pmm-agent.log'
         }
     }
 }
