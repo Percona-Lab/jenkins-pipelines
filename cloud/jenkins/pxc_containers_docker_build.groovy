@@ -1,8 +1,10 @@
 void build(String IMAGE_PREFIX){
     sh """
         cd ./source/
-        if [ ${IMAGE_PREFIX} = pxc ]; then
+        if [ ${IMAGE_PREFIX} = pxc5.7 ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-57/Dockerfile.k8s pxc-57
+        elif [ ${IMAGE_PREFIX} = pxc8.0 ]; then
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-80/Dockerfile.k8s pxc-80
         elif [ ${IMAGE_PREFIX} = proxysql ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f proxysql/Dockerfile.k8s proxysql
         elif [ ${IMAGE_PREFIX} = backup ]; then
@@ -120,27 +122,33 @@ pipeline {
                     build('proxysql')
                 }
                 retry(3) {
-                    build('pxc')
+                    build('pxc5.7')
+                }
+                retry(3) {
+                    build('pxс8.0')
                 }
             }
         }
         stage('Push Images to Docker registry') {
             steps {
-                pushImageToDocker('pxc')
+                pushImageToDocker('pxc5.7')
+                pushImageToDocker('pxc8.0')
                 pushImageToDocker('proxysql')
                 pushImageToDocker('backup')
             }
         }
         stage('Push Images to RHEL registry') {
             steps {
-                pushImageToRhel('pxc')
+                pushImageToRhel('pxc5.7')
+                pushImageToRhel('pxc8.0')
                 pushImageToRhel('proxysql')
                 pushImageToRhel('backup')
             }
         }
         stage('Check Docker images') {
             steps {
-                checkImageForDocker('pxc')
+                checkImageForDocker('pxc5.7')
+                checkImageForDocker('pxc8.0')
                 checkImageForDocker('proxysql')
                 checkImageForDocker('backup')
                 sh '''

@@ -84,7 +84,7 @@ pipeline {
             name: 'PXC_OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc',
+            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc5.7',
             name: 'IMAGE_PXC')
         string(
             defaultValue: '',
