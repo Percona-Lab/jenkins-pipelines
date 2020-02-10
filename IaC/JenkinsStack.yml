@@ -531,7 +531,7 @@ Resources:
                   wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat/jenkins.repo
                   rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key
                   yum -y update --security
-                  yum -y install java-1.8.0-openjdk jenkins-2.187 nginx git yum-cron-daily aws-cli nfs-utils
+                  yum -y install java-1.8.0-openjdk jenkins-2.204.2 nginx git yum-cron-daily aws-cli nfs-utils
                   yum -y remove java-1.7.0-openjdk
 
                   sed -i 's/apply_updates = no/apply_updates = yes/' /etc/yum/yum-cron.conf
