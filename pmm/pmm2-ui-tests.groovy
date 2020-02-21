@@ -147,7 +147,6 @@ pipeline {
                 sauce('SauceLabsKey') {
                     sauceconnect(options: '', sauceConnectPath: '') {
                         sh """
-                            export INSTANCE_IP=${SERVER_IP}
                             sed -i 's/{SAUCE_USER_KEY}/${SAUCE_ACCESS_KEY}/g' codecept.json
                             ./node_modules/.bin/codeceptjs run-multiple parallel --steps --debug --reporter mocha-multi -o '{ "helpers": {"WebDriver": {"url": "${PMM_UI_URL}"}}}' --grep @pmm-ami
                             ./node_modules/.bin/codeceptjs run-multiple parallel --steps --debug --reporter mocha-multi -o '{ "helpers": {"WebDriver": {"url": "${PMM_UI_URL}"}}}' --grep '(?=.*)^(?!.*@visual-test)'
@@ -164,7 +163,6 @@ pipeline {
                 sauce('SauceLabsKey') {
                     sauceconnect(options: '', sauceConnectPath: '') {
                         sh """
-                            export INSTANCE_IP=${SERVER_IP}
                             sed -i 's/{SAUCE_USER_KEY}/${SAUCE_ACCESS_KEY}/g' codecept.json
                             ./node_modules/.bin/codeceptjs run-multiple parallel --steps --debug --reporter mocha-multi -o '{ "helpers": {"WebDriver": {"url": "${PMM_UI_URL}"}}}' --grep '(?=.*)^(?!.*@visual-test)'
                         """
