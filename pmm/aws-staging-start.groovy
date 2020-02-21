@@ -108,7 +108,7 @@ pipeline {
                             | python -c "import sys, json; print json.load(sys.stdin)['actions'][1]['causes'][0]['userId']" \
                             | sed -e 's/@percona.com//' \
                             > OWNER
-                        echo "pmm-\$(cat OWNER | cut -d . -f 1)-\$(date -u '+%Y%m%d%H%M')" \
+                        echo "pmm-\$(cat OWNER | cut -d . -f 1)-\$(date -u '+%Y%m%d%H%M%S')" \
                             > VM_NAME
                     """
                 }
