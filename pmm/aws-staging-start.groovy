@@ -363,7 +363,7 @@ pipeline {
         }
         stage('Enable Testing Repo') {
             when {
-                expression { env.ENABLE_TESTING_REPO == "yes" && env.PMM_VERSION == "pmm2" }
+                expression { env.ENABLE_TESTING_REPO == "yes" && env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" }
             }
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
@@ -399,12 +399,14 @@ pipeline {
                                     sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                                     sudo percona-release disable all
                                     sudo percona-release enable original testing
+                                    sudo yum clean all
                                     sudo yum -y install pmm2-client
                                     sudo yum -y update
                             elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then
                                 sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                                 sudo percona-release disable all
                                 sudo percona-release enable original testing
+                                sudo yum clean all
                                 sudo yum -y install pmm-client
                                 sudo yum -y update
                             else
