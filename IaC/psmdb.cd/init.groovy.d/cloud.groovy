@@ -30,7 +30,7 @@ imageMap['min-stretch-x64'] = 'ami-0b9cb6198bfca486d'
 imageMap['min-trusty-x64'] = 'ami-08fbb070'
 imageMap['min-xenial-x64'] = 'ami-ba602bc2'
 imageMap['min-cosmic-x64'] = 'ami-080cf36c2a905f2b8'
-imageMap['min-bionic-x64'] = 'ami-0438319fc572e1a20'
+imageMap['min-bionic-x64'] = 'ami-0013ea6a76d3b8874'
 imageMap['psmdb'] = imageMap['min-xenial-x64']
 imageMap['psmdb-bionic'] = 'ami-0013ea6a76d3b8874'
 imageMap['docker'] = imageMap['micro-amazon']
@@ -40,6 +40,7 @@ priceMap = [:]
 priceMap['t2.small'] = '0.01'
 priceMap['c4.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
+priceMap['m5.2xlarge'] = '0.20'
 priceMap['m4.2xlarge'] = '0.20'
 
 userMap = [:]
@@ -100,7 +101,46 @@ initMap['docker'] = '''
     sudo service docker status || sudo service docker start
     echo "* * * * * root /usr/sbin/route add default gw 10.188.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
-initMap['docker-32gb'] = initMap['docker']
+initMap['docker-32gb'] = '''
+    set -o xtrace
+
+    sudo ethtool -K eth0 sg off
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+        sudo yum -y install xfsprogs
+        sudo mkfs.xfs ${DEVICE}
+        sudo mount -o noatime ${DEVICE} /mnt
+    fi
+
+    sudo yum -y install java-1.8.0-openjdk git aws-cli docker
+    sudo yum -y remove java-1.7.0-openjdk
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+
+    sudo sysctl net.ipv4.tcp_fin_timeout=15
+    sudo sysctl net.ipv4.tcp_tw_reuse=1
+    sudo sysctl net.ipv6.conf.all.disable_ipv6=1
+    sudo sysctl net.ipv6.conf.default.disable_ipv6=1
+    sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
+    sudo sysctl -w fs.aio-max-nr=1048576 || true
+    sudo sysctl -w fs.file-max=6815744 || true
+    echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
+    sudo sed -i.bak -e 's/nofile=1024:4096/nofile=900000:900000/; s/DAEMON_MAXFILES=.*/DAEMON_MAXFILES=990000/' /etc/sysconfig/docker
+    echo 'DOCKER_STORAGE_OPTIONS="--data-root=/mnt/docker"' | sudo tee -a /etc/sysconfig/docker-storage
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
+    sudo systemctl daemon-reload
+    sudo install -o root -g root -d /mnt/docker
+    sudo usermod -aG docker $(id -u -n)
+    sudo mkdir -p /etc/docker
+    echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json
+    sudo systemctl status docker || sudo systemctl start docker
+    sudo service docker status || sudo service docker start
+    echo "* * * * * root /usr/sbin/route add default gw 10.188.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+'''
 initMap['micro-amazon'] = '''
     set -o xtrace
     until sudo yum makecache; do
@@ -141,9 +181,31 @@ initMap['min-artful-x64'] = '''
     sudo apt-get -y install openjdk-8-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-centos-6-x64'] = initMap['micro-amazon']
-initMap['min-centos-7-x64'] = initMap['micro-amazon']
-initMap['fips-centos-7-x64'] = initMap['micro-amazon']
+initMap['min-centos-6-x64'] = '''
+    set -o xtrace
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/nvme2n1 | head -1)
+        sudo yum -y install xfsprogs
+        sudo mkfs.xfs ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
+
+    echo "*  soft  nofile  65000" | sudo tee -a /etc/security/limits.conf
+    echo "*  hard  nofile  65000" | sudo tee -a /etc/security/limits.conf
+    echo "*  soft  nproc  65000"  | sudo tee -a /etc/security/limits.conf
+    echo "*  hard  nproc  65000"  | sudo tee -a /etc/security/limits.conf
+
+    sudo yum -y install java-1.8.0-openjdk git aws-cli || :
+    sudo yum -y remove java-1.7.0-openjdk || :
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
+initMap['min-centos-7-x64']  = initMap['min-centos-6-x64']
+initMap['fips-centos-7-x64'] = initMap['min-centos-6-x64']
 initMap['min-jessie-x64'] = '''
     set -o xtrace
     until sudo apt-get update; do
@@ -152,7 +214,7 @@ initMap['min-jessie-x64'] = '''
     done
 
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
+        DEVICE=$(ls /dev/xvdd /dev/nvme0n1 | head -1)
         sudo apt-get -y install xfsprogs
         sudo mkfs.xfs ${DEVICE}
         sudo mount ${DEVICE} /mnt
@@ -166,35 +228,52 @@ initMap['min-jessie-x64'] = '''
     rm -fv jre-8u152-linux-x64.tar.gz
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
+initMap['min-bionic-x64'] = '''
+    set -o xtrace
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/nvme0n1 | head -1)
+        sudo apt-get -y install xfsprogs
+        sudo mkfs.xfs ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
+
+    sudo apt-get -y install openjdk-8-jre-headless git
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
 initMap['min-stretch-x64'] = initMap['min-artful-x64']
-initMap['min-trusty-x64'] = initMap['min-jessie-x64']
-initMap['min-xenial-x64'] = initMap['min-artful-x64']
-initMap['min-cosmic-x64'] = initMap['min-artful-x64']
-initMap['min-bionic-x64'] = initMap['min-artful-x64']
-initMap['psmdb'] = initMap['min-xenial-x64']
-initMap['psmdb-bionic'] = initMap['min-xenial-x64']
+initMap['min-trusty-x64']  = initMap['min-jessie-x64']
+initMap['min-xenial-x64']  = initMap['min-artful-x64']
+initMap['min-cosmic-x64']  = initMap['min-artful-x64']
+initMap['psmdb']           = initMap['min-xenial-x64']
+initMap['psmdb-bionic']    = initMap['min-bionic-x64']
 
 capMap = [:]
 capMap['c4.xlarge'] = '60'
 capMap['m4.xlarge'] = '60'
+capMap['m5.2xlarge'] = '10'
 capMap['m4.2xlarge'] = '10'
 
 typeMap = [:]
-typeMap['micro-amazon'] = 't2.small'
-typeMap['docker'] = 'c4.xlarge'
-typeMap['docker-32gb'] = 'm4.2xlarge'
-typeMap['min-centos-7-x64'] = typeMap['docker-32gb']
-typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-centos-6-x64'] = typeMap['docker-32gb']
-typeMap['min-jessie-x64'] = typeMap['docker-32gb']
-typeMap['min-stretch-x64'] = typeMap['docker-32gb']
-typeMap['min-trusty-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-cosmic-x64'] = typeMap['docker-32gb']
-typeMap['min-bionic-x64'] = typeMap['docker-32gb']
-typeMap['psmdb'] = typeMap['docker-32gb']
-typeMap['psmdb-bionic'] = typeMap['docker-32gb']
+typeMap['micro-amazon']      = 't2.small'
+typeMap['docker']            = 'c4.xlarge'
+typeMap['docker-32gb']       = 'm5.2xlarge'
+typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
+typeMap['fips-centos-7-x64'] = typeMap['docker-32gb']
+typeMap['min-artful-x64']    = typeMap['docker-32gb']
+typeMap['min-centos-6-x64']  = 'm4.2xlarge'
+typeMap['min-jessie-x64']    = typeMap['docker-32gb']
+typeMap['min-stretch-x64']   = typeMap['docker-32gb']
+typeMap['min-trusty-x64']    = typeMap['docker-32gb']
+typeMap['min-xenial-x64']    = typeMap['docker-32gb']
+typeMap['min-cosmic-x64']    = typeMap['docker-32gb']
+typeMap['min-bionic-x64']    = typeMap['docker-32gb']
+typeMap['psmdb']             = typeMap['docker-32gb']
+typeMap['psmdb-bionic']      = typeMap['docker-32gb']
 
 execMap = [:]
 execMap['docker'] = '1'
@@ -233,7 +312,7 @@ devMap['min-cosmic-x64'] = devMap['psmdb']
 labelMap = [:]
 labelMap['docker'] = ''
 labelMap['docker-32gb'] = ''
-labelMap['micro-amazon'] = ''
+labelMap['micro-amazon'] = 'master'
 labelMap['min-artful-x64'] = ''
 labelMap['min-centos-6-x64'] = ''
 labelMap['min-centos-7-x64'] = ''
