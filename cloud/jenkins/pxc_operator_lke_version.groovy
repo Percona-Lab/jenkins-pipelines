@@ -16,7 +16,7 @@ void CreateCluster(String CLUSTER_PREFIX) {
             done
         }
 
-        CLUSTER_ID="$(linode-cli lke cluster-create --version \$LKE_VERSION --label \$CLUSTER_NAME-\$CLUSTER_PREFIX --region us-central --node_pools.count 3 --tags jenkins,\$CLUSTER_NAME-\$CLUSTER_PREFIX --node_pools.type g6-standard-2 --json | jq '.[].id')"
+        CLUSTER_ID="$(linode-cli lke cluster-create --version \$LKE_VERSION --label \$CLUSTER_NAME-\$CLUSTER_PREFIX --region us-central --node_pools.count 3 --tags jenkins,\$CLUSTER_NAME-${CLUSTER_PREFIX} --node_pools.type g6-standard-2 --json | jq '.[].id')"
 
         KUBECONF=$(retry 10 60 linode-cli lke kubeconfig-view \$CLUSTER_ID --json)
         echo \$KUBECONF | jq '.[].kubeconfig' | sed 's/\"//g' | base64 -D > /tmp/\$CLUSTER_NAME-\$CLUSTER_PREFIX
@@ -174,7 +174,7 @@ pipeline {
 
                 installRpms()
                 sh '''
-                    pip install --upgrade linode-cli
+                    sudo pip3 install --upgrade linode-cli
 
                     curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.16.1-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
@@ -183,7 +183,7 @@ pipeline {
                 '''
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'LINODE-CONFIG', variable: 'LKE_CLIENT_FILE')]) {
                     sh '''
-                        mkdir ${HOME}/.config || true
+                        mkdir ${HOME}/.local || true
                         cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
                         cp ${LKE_CLIENT_FILE} ${HOME}/.local/linode-cli
                     '''
