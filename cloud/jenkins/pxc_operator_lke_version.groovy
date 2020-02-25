@@ -1,34 +1,33 @@
 void CreateCluster(String CLUSTER_PREFIX) {
-    sh """
-            retry() {
-                local max=$1
-                local delay=$2
-                shift 2 # cut delay and max args
-                local n=1
+    sh '''
+        retry() {
+            local max=\$1
+            local delay=\$2
+            shift 2 # cut delay and max args
+            local n=1
 
-                until "$@"; do
-                    if [[ $n -ge $max ]]; then
-                        echo "The command '$@' has failed after $n attempts."
-                        exit 1
-                    fi
-                    ((n++))
-                    sleep $delay
-                done
-            }
+            until \$@; do
+                if [[ \$n -ge \$max ]]; then
+                    echo "The command '$@' has failed after \$n attempts."
+                    exit 1
+                fi
+                ((n++))
+                sleep \$delay
+            done
+        }
 
-            CLUSTER_ID="$(linode-cli lke cluster-create --version ${LKE_VERSION} --label $CLUSTER_NAME-${CLUSTER_PREFIX} --region us-central --node_pools.count 3 --tags jenkins,$CLUSTER_NAME-${CLUSTER_PREFIX} --node_pools.type g6-standard-2 --json | jq '.[].id')"
+        CLUSTER_ID="$(linode-cli lke cluster-create --version \$LKE_VERSION --label \$CLUSTER_NAME-\$CLUSTER_PREFIX --region us-central --node_pools.count 3 --tags jenkins,\$CLUSTER_NAME-\$CLUSTER_PREFIX --node_pools.type g6-standard-2 --json | jq '.[].id')"
 
-            KUBECONF=$(retry 10 60 linode-cli lke kubeconfig-view "${CLUSTER_ID}" --json)
-            echo ${KUBECONF} | jq '.[].kubeconfig' | sed 's/\"//g' | base64 -D > /tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
-        """
+        KUBECONF=$(retry 10 60 linode-cli lke kubeconfig-view \$CLUSTER_ID --json)
+        echo \$KUBECONF | jq '.[].kubeconfig' | sed 's/\"//g' | base64 -D > /tmp/\$CLUSTER_NAME-\$CLUSTER_PREFIX
+        export KUBECONFIG=/tmp/\$CLUSTER_NAME-\$CLUSTER_PREFIX"
+    '''
 }
 
 void ShutdownCluster(String CLUSTER_PREFIX) {
-    sh """
+    sh '''
         linode-cli lke cluster-delete $(linode-cli lke clusters-list --json | jq '.[] | select(.label == "'"${CLUSTER_NAME}-${CLUSTER_PREFIX}"'").id' )
-    """
-
+    '''
 }
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
@@ -175,7 +174,7 @@ pipeline {
 
                 installRpms()
                 sh '''
-                    pip3 install --upgrade linode-cli
+                    pip install --upgrade linode-cli
 
                     curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.16.1-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
