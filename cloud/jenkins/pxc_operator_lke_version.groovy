@@ -17,7 +17,10 @@ void CreateCluster(String CLUSTER_PREFIX) {
         }
 
         CLUSTER_ID="$(linode-cli lke cluster-create --version \$LKE_VERSION --label \$CLUSTER_NAME-\$CLUSTER_PREFIX --region us-central --node_pools.count 3 --tags jenkins,\$CLUSTER_NAME-${CLUSTER_PREFIX} --node_pools.type g6-standard-2 --json | jq '.[].id')"
-
+        if [[ x\$CLUSTER_ID == "x" ]]; then
+           echo "No cluster created. Exiting."
+           exit 1
+        fi
         KUBECONF=$(retry 10 60 linode-cli lke kubeconfig-view \$CLUSTER_ID --json)
         echo \$KUBECONF | jq '.[].kubeconfig' | sed 's/\"//g' | base64 -D > /tmp/\$CLUSTER_NAME-\$CLUSTER_PREFIX
         export KUBECONFIG=/tmp/\$CLUSTER_NAME-\$CLUSTER_PREFIX"
@@ -126,7 +129,7 @@ pipeline {
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.14',
+            defaultValue: '1.16',
             description: 'LKE version',
             name: 'LKE_VERSION')
         string(
@@ -183,9 +186,9 @@ pipeline {
                 '''
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'LINODE-CONFIG', variable: 'LKE_CLIENT_FILE')]) {
                     sh '''
-                        mkdir ${HOME}/.local || true
+                        mkdir ${HOME}/.config || true
                         cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-                        cp ${LKE_CLIENT_FILE} ${HOME}/.local/linode-cli
+                        cp ${LKE_CLIENT_FILE} ${HOME}/.config/linode-cli
                     '''
                 }
             }
