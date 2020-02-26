@@ -21,8 +21,8 @@ void CreateCluster(String CLUSTER_PREFIX) {
            echo "No cluster created. Exiting."
            exit 1
         fi
-        KUBECONF=$(retry 10 60 linode-cli lke kubeconfig-view \$CLUSTER_ID --json)
-        echo \$KUBECONF | jq -r '.[].kubeconfig' | base64 -d > /tmp/\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' 
+        retry 10 60 linode-cli lke kubeconfig-view \$CLUSTER_ID --json > /dev/null 2>&1
+        linode-cli lke kubeconfig-view \$CLUSTER_ID --json | jq -r '.[].kubeconfig' | base64 -d > /tmp/\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' 
         export KUBECONFIG=/tmp/\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' 
     '''
 }
@@ -110,9 +110,19 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
 }
 void installRpms() {
     sh '''
+        cat <<EOF > /tmp/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+        sudo mv /tmp/kubernetes.repo /etc/yum.repos.d
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 jq python3-pip | true
+        sudo yum install -y percona-xtrabackup-80 jq python3-pip kubectl || true
     '''
 }
 pipeline {
@@ -181,8 +191,6 @@ pipeline {
 
                     curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.16.1-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-                    curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
-                        | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
                 '''
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'LINODE-CONFIG', variable: 'LKE_CLIENT_FILE')]) {
                     sh '''
