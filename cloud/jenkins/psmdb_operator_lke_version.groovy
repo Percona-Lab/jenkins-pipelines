@@ -95,7 +95,6 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                 fi
 
                 export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
-                source $HOME/google-cloud-sdk/path.bash.inc
                 ./e2e-tests/$TEST_NAME/run
             fi
         """
@@ -126,9 +125,6 @@ EOF
     '''
 }
 pipeline {
-    environment {
-        CLOUDSDK_CORE_DISABLE_PROMPTS = 1
-    }
     parameters {
         string(
             defaultValue: 'master',
@@ -246,7 +242,7 @@ pipeline {
                         ShutdownCluster('basic')
                     }
                 }
-                stage('E2E SelfHeal') {
+                stage('E2E SelfHealing') {
                     steps {
                         CreateCluster('selfheal')
                         runTest('self-healing', 'selfheal')
