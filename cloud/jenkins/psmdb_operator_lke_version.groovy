@@ -246,13 +246,13 @@ pipeline {
                         ShutdownCluster('basic')
                     }
                 }
-                stage('E2E SelfHealing') {
+                stage('E2E SelfHeal') {
                     steps {
-                        CreateCluster('selfhealing')
-                        runTest('self-healing', 'selfhealing')
-                        runTest('operator-self-healing', 'selfhealing')
-                        runTest('one-pod', 'selfhealing')
-                        ShutdownCluster('selfhealing')
+                        CreateCluster('selfheal')
+                        runTest('self-healing', 'selfheal')
+                        runTest('operator-self-healing', 'selfheal')
+                        runTest('one-pod', 'selfheal')
+                        ShutdownCluster('selfheal')
                     }
                 }
                 stage('E2E Backups') {
