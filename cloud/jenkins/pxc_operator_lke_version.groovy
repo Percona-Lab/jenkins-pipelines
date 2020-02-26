@@ -188,7 +188,7 @@ pipeline {
                     sh '''
                         mkdir ${HOME}/.config || true
                         cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-                        cp ${LKE_CLIENT_FILE} ${HOME}/.config/linode-cli
+                        cp ${LKE_CLIENT_FILE} ${HOME}/.config/linode-cli || true
                     '''
                 }
             }
