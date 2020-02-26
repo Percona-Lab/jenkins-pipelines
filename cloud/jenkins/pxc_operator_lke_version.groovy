@@ -22,7 +22,7 @@ void CreateCluster(String CLUSTER_PREFIX) {
            exit 1
         fi
         KUBECONF=$(retry 10 60 linode-cli lke kubeconfig-view \$CLUSTER_ID --json)
-        echo \$KUBECONF | jq '.[].kubeconfig' | sed 's/\"//g' | base64 -D > /tmp/\$CLUSTER_NAME-\$CLUSTER_PREFIX
+        echo \$KUBECONF | jq '.[].kubeconfig' | sed 's/\"//g' | base64 -d > /tmp/\$CLUSTER_NAME-\$CLUSTER_PREFIX
         export KUBECONFIG=/tmp/\$CLUSTER_NAME-\$CLUSTER_PREFIX"
     '''
 }
