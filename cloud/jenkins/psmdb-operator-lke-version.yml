@@ -1,5 +1,5 @@
 - job:
-    name: pxc-operator-lke-version
+    name: psmdb-operator-lke-version
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -18,26 +18,18 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxc_operator_lke_version.groovy
+      script-path: cloud/jenkins/psmdb_operator_lke_version.groovy
     parameters:
     - string:
         name: GIT_REPO
-        default: https://github.com/percona/percona-xtradb-cluster-operator
-        description: percona/percona-xtradb-cluster-operator repository
+        default: https://github.com/percona/percona-server-mongodb-operator
+        description: percona/percona-server-mongodb-operator repository
     - string:
         name: GIT_BRANCH
         default: master
-        description: Tag/Branch for percona/percona-xtradb-cluster-operator repository
+        description: Tag/Branch for percona/percona-server-mongodb-operator repository
     - string:
         name: LKE_VERSION
         default: '1.16'
         description: LKE version
-    - string:
-        name: IMAGE_PXC
-        default:
-        description: PXC image
-    - string:
-        name: IMAGE_PROXY
-        default:
-        description: PXC proxy image
 
