@@ -16,20 +16,20 @@ void CreateCluster(String CLUSTER_PREFIX) {
             done
         }
 
-        CLUSTER_ID="$(linode-cli lke cluster-create --version \$LKE_VERSION --label \$CLUSTER_NAME-\$CLUSTER_PREFIX --region us-central --node_pools.count 3 --tags jenkins,\$CLUSTER_NAME-${CLUSTER_PREFIX} --node_pools.type g6-standard-2 --json | jq '.[].id')"
+        CLUSTER_ID="$(linode-cli lke cluster-create --version \$LKE_VERSION --label \$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' --region us-central --node_pools.count 3 --tags jenkins,\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' --node_pools.type g6-standard-2 --json | jq '.[].id')"
         if [[ x\$CLUSTER_ID == "x" ]]; then
            echo "No cluster created. Exiting."
            exit 1
         fi
         KUBECONF=$(retry 10 60 linode-cli lke kubeconfig-view \$CLUSTER_ID --json)
-        echo \$KUBECONF | jq -r '.[].kubeconfig' | base64 -d > /tmp/\$CLUSTER_NAME-\$CLUSTER_PREFIX
-        export KUBECONFIG=/tmp/\$CLUSTER_NAME-\$CLUSTER_PREFIX"
+        echo \$KUBECONF | jq -r '.[].kubeconfig' | base64 -d > /tmp/\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' 
+        export KUBECONFIG=/tmp/\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' 
     '''
 }
 
 void ShutdownCluster(String CLUSTER_PREFIX) {
     sh '''
-        linode-cli lke cluster-delete $(linode-cli lke clusters-list --json | jq '.[] | select(.label == "'"${CLUSTER_NAME}-${CLUSTER_PREFIX}"'").id' )
+        linode-cli lke cluster-delete $(linode-cli lke clusters-list --json | jq '.[] | select(.label == "'"${CLUSTER_NAME}-''' + CLUSTER_PREFIX + '''"'").id' )
     '''
 }
 void pushArtifactFile(String FILE_NAME) {
