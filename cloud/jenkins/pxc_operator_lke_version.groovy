@@ -16,7 +16,7 @@ void CreateCluster(String CLUSTER_PREFIX) {
             done
         }
 
-        CLUSTER_ID="$(linode-cli lke cluster-create --version \$LKE_VERSION --label \$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' --region us-central --node_pools.count 3 --tags jenkins,\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' --node_pools.type g6-standard-2 --json | jq '.[].id')"
+        CLUSTER_ID="$(linode-cli lke cluster-create --version \$LKE_VERSION --label \$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' --region us-central --node_pools.count 3 --tags jenkins,\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' --node_pools.type g6-standard-6 --json | jq '.[].id')"
         if [[ x\$CLUSTER_ID == "x" ]]; then
            echo "No cluster created. Exiting."
            exit 1
@@ -254,13 +254,13 @@ pipeline {
                 }
                 stage('E2E SelfHealing') {
                     steps {
-                        CreateCluster('selfhealing')
-                        runTest('self-healing', 'selfhealing')
-                        runTest('self-healing-advanced', 'selfhealing')
-                        runTest('operator-self-healing', 'selfhealing')
-                        runTest('one-pod', 'selfhealing')
-                        runTest('auto-tuning', 'selfhealing')
-                        ShutdownCluster('selfhealing')
+                        CreateCluster('selfheal')
+                        runTest('self-healing', 'selfheal')
+                        runTest('self-healing-advanced', 'selfheal')
+                        runTest('operator-self-healing', 'selfheal')
+                        runTest('one-pod', 'selfheal')
+                        runTest('auto-tuning', 'selfheal')
+                        ShutdownCluster('selfheal')
                     }
                 }
                 stage('E2E Backups') {
