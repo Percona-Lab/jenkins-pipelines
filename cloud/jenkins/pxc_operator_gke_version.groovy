@@ -155,7 +155,7 @@ pipeline {
             name: 'IMAGE_PROXY')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-backup',
+            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-pxc5.7-backup',
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
