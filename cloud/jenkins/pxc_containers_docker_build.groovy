@@ -3,12 +3,16 @@ void build(String IMAGE_PREFIX){
         cd ./source/
         if [ ${IMAGE_PREFIX} = pxc5.7 ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-57/Dockerfile.k8s pxc-57
+            docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX}-debug -f pxc-57/Dockerfile.k8s pxc-57
         elif [ ${IMAGE_PREFIX} = pxc8.0 ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-80/Dockerfile.k8s pxc-80
+            docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX}-debug -f pxc-80/Dockerfile.k8s pxc-80
         elif [ ${IMAGE_PREFIX} = proxysql ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f proxysql/Dockerfile.k8s proxysql
-        elif [ ${IMAGE_PREFIX} = backup ]; then
+        elif [ ${IMAGE_PREFIX} = pxc5.7-backup ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-57-backup/Dockerfile pxc-57-backup
+        elif [ ${IMAGE_PREFIX} = pxc8.0-backup ]; then
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-80-backup/Dockerfile pxc-80-backup
         fi
     """
 }
@@ -116,7 +120,10 @@ pipeline {
                    ./cloud/local/checkout
                 """          
                 retry(3) {
-                    build('backup')
+                    build('pxc5.7-backup')
+                }
+                retry(3) {
+                    build('pxc8.0-backup')
                 }
                 retry(3) {
                     build('proxysql')
@@ -125,7 +132,7 @@ pipeline {
                     build('pxc5.7')
                 }
                 retry(3) {
-                    build('pxс8.0')
+                    build('pxc8.0')
                 }
             }
         }
@@ -133,24 +140,33 @@ pipeline {
             steps {
                 pushImageToDocker('pxc5.7')
                 pushImageToDocker('pxc8.0')
+                pushImageToDocker('pxc5.7-debug')
+                pushImageToDocker('pxc8.0-debug')
                 pushImageToDocker('proxysql')
-                pushImageToDocker('backup')
+                pushImageToDocker('pxc5.7-backup')
+                pushImageToDocker('pxc8.0-backup')
             }
         }
         stage('Push Images to RHEL registry') {
             steps {
                 pushImageToRhel('pxc5.7')
                 pushImageToRhel('pxc8.0')
+                pushImageToRhel('pxc5.7-debug')
+                pushImageToRhel('pxc8.0-debug')
                 pushImageToRhel('proxysql')
-                pushImageToRhel('backup')
+                pushImageToRhel('pxc5.7-backup')
+                pushImageToRhel('pxc8.0-backup')
             }
         }
         stage('Check Docker images') {
             steps {
                 checkImageForDocker('pxc5.7')
                 checkImageForDocker('pxc8.0')
+                checkImageForDocker('pxc5.7-debug')
+                checkImageForDocker('pxc8.0-debug')
                 checkImageForDocker('proxysql')
-                checkImageForDocker('backup')
+                checkImageForDocker('pxc5.7-backup')
+                checkImageForDocker('pxc8.0-backup')
                 sh '''
                    CRITICAL=$(ls trivy-critical-*) || true
                    if [ -n "$CRITICAL" ]; then
