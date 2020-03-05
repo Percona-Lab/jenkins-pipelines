@@ -5,7 +5,6 @@
         name: label
         type: label-expression
         values:
-        - ramdisk-centos-6-x64
         - ramdisk-centos-7-x64
         - ramdisk-stretch-x64
         - ramdisk-xenial-x64
@@ -15,7 +14,6 @@
         name: Host
         type: user-defined
         values:
-        - min-centos-6-x64
         - min-centos-7-x64
         - min-stretch-x64
         - min-xenial-x64
@@ -170,7 +168,7 @@
     project-type: matrix
     execution-strategy:
       combination-filter: |
-        (((label=="ramdisk-buster-x64") && (Host=="min-buster-x64")) || ((label=="ramdisk-centos-6-x64") && (Host=="min-centos-6-x64")) || ((label=="ramdisk-centos-7-x64") && (Host=="min-centos-7-x64")) || ((label=="ramdisk-stretch-x64") && (Host=="min-stretch-x64")) ||((label=="ramdisk-xenial-x64") && (Host=="min-xenial-x64")) || ((label=="ramdisk-bionic-x64") && (Host=="min-bionic-x64")))
+        (((label=="ramdisk-buster-x64") && (Host=="min-buster-x64")) || ((label=="ramdisk-centos-7-x64") && (Host=="min-centos-7-x64")) || ((label=="ramdisk-stretch-x64") && (Host=="min-stretch-x64")) ||((label=="ramdisk-xenial-x64") && (Host=="min-xenial-x64")) || ((label=="ramdisk-bionic-x64") && (Host=="min-bionic-x64")))
     properties:
     - build-discarder:
         artifact-days-to-keep: -1
