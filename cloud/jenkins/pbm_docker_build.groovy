@@ -7,7 +7,7 @@ void build(String IMAGE_PREFIX){
         cd src/github.com/percona/percona-backup-mongodb
         docker run --rm -v \$(pwd):/go/src/github.com/percona/percona-backup-mongodb -w /go/src/github.com/percona/percona-backup-mongodb golang:1.12 make
         cd \$SOURCE_ROOT_DIR
-        docker build -t perconalab/percona-server-mongodb-operator:master-${IMAGE_PREFIX} -f docker/Dockerfile.common .
+        docker build -t perconalab/percona-server-mongodb-operator:master-${IMAGE_PREFIX} -f docker/Dockerfile.k8s .
         sudo rm -rf ./vendor
     """
 }
