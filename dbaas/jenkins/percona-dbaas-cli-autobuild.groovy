@@ -12,7 +12,15 @@ pipeline {
             defaultValue: 'master',
             description: 'Tag/Branch for percona-dbaas-cli repository',
             name: 'GIT_BRANCH')
-         }
+        string(
+            defaultValue: '1',
+            description: 'REVISION for release build only',
+            name: 'REVISION')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Is this build for release?',
+            name: 'RELEASE_BUILD')
+    }
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
@@ -20,7 +28,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git branch: 'master', url: 'https://github.com/Percona-Lab/percona-dbaas-cli.git'
+                git branch: GIT_BRANCH, url: 'https://github.com/Percona-Lab/percona-dbaas-cli.git'
                 sh '''
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
