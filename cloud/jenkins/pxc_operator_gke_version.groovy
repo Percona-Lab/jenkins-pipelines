@@ -117,6 +117,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
 
     echo "The $TEST_NAME test was finished!"
 }
+
 void installRpms() {
     sh '''
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
@@ -240,11 +241,13 @@ pipeline {
                     steps {
                         CreateCluster('basic')
                         runTest('init-deploy', 'basic')
-                        runTest('storage', 'basic')
                         runTest('limits', 'basic')
                         runTest('monitoring', 'basic')
                         runTest('monitoring-2-0', 'basic')
                         runTest('affinity', 'basic')
+                        runTest('one-pod', 'basic')
+                        runTest('auto-tuning', 'basic')
+                        runTest('proxysql-sidecar-res-limits', 'basic')
                         ShutdownCluster('basic')
                    }
                 }
@@ -255,17 +258,17 @@ pipeline {
                         runTest('scaling-proxysql', 'scaling')
                         runTest('upgrade', 'scaling')
                         runTest('upgrade-consistency', 'scaling')
+                        runTest('security-context', 'scaling')
                         ShutdownCluster('scaling')
                     }
                 }
                 stage('E2E SelfHealing') {
                     steps {
                         CreateCluster('selfhealing')
+                        runTest('storage', 'selfhealing')
                         runTest('self-healing', 'selfhealing')
                         runTest('self-healing-advanced', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
-                        runTest('one-pod', 'selfhealing')
-                        runTest('auto-tuning', 'selfhealing')
                         ShutdownCluster('selfhealing')
                     }
                 }

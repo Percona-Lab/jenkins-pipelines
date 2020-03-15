@@ -227,11 +227,13 @@ EOF
         stage('E2E Basic Tests') {
             steps {
                 runTest('init-deploy')
-                runTest('storage')
                 runTest('limits')
                 runTest('monitoring')
                 runTest('monitoring-2-0')
                 runTest('affinity')
+                runTest('one-pod')
+                runTest('auto-tuning')
+                runTest('proxysql-sidecar-res-limits')
             }
         }
         stage('E2E Scaling') {
@@ -240,15 +242,15 @@ EOF
                 runTest('scaling-proxysql')
                 runTest('upgrade')
                 runTest('upgrade-consistency')
+                runTest('security-context')
             }
         }
         stage('E2E SelfHealing') {
             steps {
+                runTest('storage')
                 runTest('self-healing')
                 runTest('self-healing-advanced')
                 runTest('operator-self-healing')
-                runTest('one-pod')
-                runTest('auto-tuning')
             }
         }
         stage('E2E Backups') {

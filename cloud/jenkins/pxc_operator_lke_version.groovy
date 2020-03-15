@@ -234,11 +234,13 @@ pipeline {
                     steps {
                         CreateCluster('basic')
                         runTest('init-deploy', 'basic')
-                        runTest('storage', 'basic')
                         runTest('limits', 'basic')
                         runTest('monitoring', 'basic')
                         runTest('monitoring-2-0', 'basic')
                         runTest('affinity', 'basic')
+                        runTest('one-pod', 'basic')
+                        runTest('auto-tuning', 'basic')
+                        runTest('proxysql-sidecar-res-limits', 'basic')
                         ShutdownCluster('basic')
                    }
                 }
@@ -249,17 +251,17 @@ pipeline {
                         runTest('scaling-proxysql', 'scaling')
                         runTest('upgrade', 'scaling')
                         runTest('upgrade-consistency', 'scaling')
+                        runTest('security-context', 'scaling')
                         ShutdownCluster('scaling')
                     }
                 }
                 stage('E2E SelfHealing') {
                     steps {
                         CreateCluster('selfheal')
+                        runTest('storage', 'selfheal')
                         runTest('self-healing', 'selfheal')
                         runTest('self-healing-advanced', 'selfheal')
                         runTest('operator-self-healing', 'selfheal')
-                        runTest('one-pod', 'selfheal')
-                        runTest('auto-tuning', 'selfheal')
                         ShutdownCluster('selfheal')
                     }
                 }

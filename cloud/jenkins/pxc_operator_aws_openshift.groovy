@@ -235,7 +235,10 @@ pipeline {
                 runTest('limits')
                 runTest('monitoring')
                 runTest('affinity')
-           }
+                runTest('one-pod')
+                runTest('auto-tuning')
+                runTest('proxysql-sidecar-res-limits')
+            }
         }
         stage('E2E Scaling') {
             steps {
@@ -243,12 +246,7 @@ pipeline {
                 runTest('scaling-proxysql')
                 runTest('upgrade')
                 runTest('upgrade-consistency')
-            }
-        }
-        stage('E2E SelfHealing') {
-            steps {
-                runTest('one-pod')
-                runTest('auto-tuning')
+                runTest('security-context')
             }
         }
         stage('E2E Backups') {
