@@ -227,6 +227,7 @@ pipeline {
                 runTest('init-deploy')
                 runTest('limits')
                 runTest('scaling')
+                runTest('security-context')
             }
         }
         stage('E2E Basic Tests') {

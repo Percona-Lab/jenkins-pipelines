@@ -170,6 +170,7 @@ pipeline {
                     runTest('operator-self-healing')
                     runTest('demand-backup')
                     runTest('liveness')
+                    runTest('security-context')
             }
         }
     }
