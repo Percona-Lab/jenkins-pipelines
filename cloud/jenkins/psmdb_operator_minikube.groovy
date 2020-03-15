@@ -169,6 +169,7 @@ pipeline {
                     runTest('self-healing')
                     runTest('operator-self-healing')
                     runTest('demand-backup')
+                    runTest('liveness')
             }
         }
     }
