@@ -236,6 +236,7 @@ pipeline {
                         runTest('init-deploy', 'scaling')
                         runTest('limits', 'scaling')
                         runTest('scaling', 'scaling')
+                        runTest('security-context', 'scaling')
                         ShutdownCluster('scaling')
                    }
                 }
@@ -263,6 +264,7 @@ pipeline {
                 stage('E2E Backups') {
                     steps {
                         CreateCluster('backups')
+                        sleep 60
                         runTest('upgrade', 'backups')
                         runTest('upgrade-consistency', 'backups')
                         runTest('demand-backup', 'backups')

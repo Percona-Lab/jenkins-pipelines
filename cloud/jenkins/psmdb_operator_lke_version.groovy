@@ -228,6 +228,7 @@ pipeline {
                         runTest('init-deploy', 'scaling')
                         runTest('limits', 'scaling')
                         runTest('scaling', 'scaling')
+                        runTest('security-context', 'scaling')
                         ShutdownCluster('scaling')
                    }
                 }
