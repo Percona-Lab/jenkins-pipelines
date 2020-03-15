@@ -242,20 +242,21 @@ pipeline {
                 stage('E2E Basic Tests') {
                     steps {
                         CreateCluster('basic')
-                        runTest('storage', 'basic')
+                        runTest('one-pod', 'basic')
                         runTest('monitoring', 'basic')
                         runTest('monitoring-2-0', 'basic')
                         runTest('arbiter', 'basic')
                         runTest('service-per-pod', 'basic')
+                        runTest('liveness', 'basic')
                         ShutdownCluster('basic')
                     }
                 }
                 stage('E2E SelfHealing') {
                     steps {
                         CreateCluster('selfhealing')
+                        runTest('storage', 'selfhealing')
                         runTest('self-healing', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
-                        runTest('one-pod', 'selfhealing')
                         ShutdownCluster('selfhealing')
                     }
                 }

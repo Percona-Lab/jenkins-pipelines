@@ -225,26 +225,27 @@ EOF
         }
         stage('E2E Basic Tests') {
             steps {
-                runTest('storage')
+                runTest('one-pod')
                 runTest('monitoring')
                 runTest('monitoring-2-0')
                 runTest('arbiter')
                 runTest('service-per-pod')
+                runTest('liveness')
            }
         }
         stage('E2E SelfHealing') {
             steps {
+                runTest('storage')
                 runTest('self-healing')
                 runTest('operator-self-healing')
-                runTest('one-pod')
             }
         }
         stage('E2E Backups') {
             steps {
-                runTest('demand-backup')
-                runTest('scheduled-backup')
                 runTest('upgrade')
                 runTest('upgrade-consistency')
+                runTest('demand-backup')
+                runTest('scheduled-backup')
             }
         }
         stage('Make report') {
