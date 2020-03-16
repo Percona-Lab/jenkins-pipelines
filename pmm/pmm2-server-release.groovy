@@ -35,9 +35,6 @@ pipeline {
             defaultValue: '2.0.0',
             description: 'PMM2 Server version',
             name: 'VERSION')
-        string(
-            description: 'Password for PGP key',
-            name: 'PGP_KEY_PASS')
     }
     stages {
         stage('Get Docker RPMs') {
