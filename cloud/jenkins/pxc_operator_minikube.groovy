@@ -16,48 +16,69 @@ void popArtifactFile(String FILE_NAME) {
         """
     }
 }
+
+TestsReport = '<testsuite  name=\\"PXC\\">\n'
+testsReportMap = [:]
+void makeReport() {
+    for ( test in testsReportMap ) {
+        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
+    }
+    TestsReport = TestsReport + '</testsuite>\n'
+}
+
 void runTest(String TEST_NAME) {
-    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-    VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-    FILE_NAME = "$VERSION-$TEST_NAME-minikube"
+    try {
+        echo "The $TEST_NAME test was started!"
 
-    popArtifactFile("$FILE_NAME")
-    sh """
-        if [ -f "FILE_NAME" ]; then
-            echo Skip $TEST_NAME test
-        else
-            cd ./source
-            if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                export IMAGE=${PXC_OPERATOR_IMAGE}
+        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+        VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
+        FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.KUBER_VERSION}"
+        testsReportMap[TEST_NAME] = 'failure'
+
+        popArtifactFile("$FILE_NAME")
+        sh """
+            if [ -f "FILE_NAME" ]; then
+                echo Skip $TEST_NAME test
             else
-                export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
-            fi
+                cd ./source
+                if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                    export IMAGE=${PXC_OPERATOR_IMAGE}
+                else
+                    export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                fi
 
-            if [ -n "${IMAGE_PXC}" ]; then
-                export IMAGE_PXC=${IMAGE_PXC}
-            fi
+                if [ -n "${IMAGE_PXC}" ]; then
+                    export IMAGE_PXC=${IMAGE_PXC}
+                fi
 
-            if [ -n "${IMAGE_PROXY}" ]; then
-                export IMAGE_PROXY=${IMAGE_PROXY}
-            fi
+                if [ -n "${IMAGE_PROXY}" ]; then
+                    export IMAGE_PROXY=${IMAGE_PROXY}
+                fi
 
-            if [ -n "${IMAGE_BACKUP}" ]; then
-                export IMAGE_BACKUP=${IMAGE_BACKUP}
-            fi
+                if [ -n "${IMAGE_BACKUP}" ]; then
+                    export IMAGE_BACKUP=${IMAGE_BACKUP}
+                fi
 
-            if [ -n "${IMAGE_PMM}" ]; then
-                export IMAGE_PMM=${IMAGE_PMM}
-            fi
+                if [ -n "${IMAGE_PMM}" ]; then
+                    export IMAGE_PMM=${IMAGE_PMM}
+                fi
 
-            ./e2e-tests/$TEST_NAME/run
-            touch $FILE_NAME
-        fi
-    """
-    pushArtifactFile("$FILE_NAME")
+                ./e2e-tests/$TEST_NAME/run
+                touch $FILE_NAME
+            fi
+        """
+        pushArtifactFile("$FILE_NAME")
+        testsReportMap[TEST_NAME] = 'passed'
+    }
+    catch (exc) {
+        currentBuild.result = 'FAILURE'
+    }
 
     sh """
         rm -rf $FILE_NAME
     """
+
+    echo "The $TEST_NAME test was finished!"
 }
 void installRpms() {
     sh '''
@@ -98,13 +119,17 @@ pipeline {
             defaultValue: '',
             description: 'PMM image: perconalab/percona-server-mongodb-operator:master-pmm',
             name: 'IMAGE_PMM')
+        string(
+            defaultValue: 'v1.14.8',
+            description: 'Kubernetes Version',
+            name: 'KUBER_VERSION',
+            trim: true)
     }
     agent {
          label 'micro-amazon' 
     }
     options {
         skipDefaultCheckout()
-        disableConcurrentBuilds()
     }
 
     stages {
@@ -164,7 +189,7 @@ pipeline {
 
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
-                        minikube start --vm-driver=none --dns-domain=percona.com --memory=4096 --cpus=3 --kubernetes-version v1.12.8
+                        minikube start --force --vm-driver=virtualbox --dns-domain=percona.com --memory=4096 --cpus=3 --kubernetes-version ${KUBER_VERSION}
                     '''
                     
                     unstash "sourceFILES"
@@ -177,6 +202,16 @@ pipeline {
                     runTest('upgrade-consistency')
                     runTest('self-healing-advanced')
                     runTest('operator-self-healing')
+            }
+        }
+        stage('Make report') {
+            steps {
+                makeReport()
+                sh """
+                    echo "${TestsReport}" > TestsReport.xml
+                """
+                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+                archiveArtifacts '*.xml'
             }
         }
     }
