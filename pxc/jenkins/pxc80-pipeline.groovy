@@ -125,7 +125,7 @@ pipeline {
                                 " 2>&1 | tee build.log
                              
                                 if [[ -f \$(ls pxc/sources/pxb24/results/*.tar.gz | head -1) ]]; then
-                                    until aws s3 cp --no-progress --acl public-read pxc/sources/pxb24/results/*.tar.gz s3://pxc-build-cach/${BUILD_TAG}/pxb24.tar.gz; do
+                                    until aws s3 cp --no-progress --acl public-read pxc/sources/pxb24/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxb24.tar.gz; do
                                         sleep 5
                                     done
                                 else
@@ -160,7 +160,7 @@ pipeline {
                                 " 2>&1 | tee build.log
 
                                 if [[ -f \$(ls pxc/sources/pxb80/results/*.tar.gz | head -1) ]]; then
-                                    until aws s3 cp --no-progress --acl public-read pxc/sources/pxb80/results/*.tar.gz s3://pxc-build-cach/${BUILD_TAG}/pxb80.tar.gz; do
+                                    until aws s3 cp --no-progress --acl public-read pxc/sources/pxb80/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxb80.tar.gz; do
                                         sleep 5
                                     done
                                 else
@@ -190,11 +190,11 @@ pipeline {
                     echo 'Build PXC80'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
-                            until aws s3 cp --no-progress s3://pxc-build-cach/${BUILD_TAG}/pxb24.tar.gz ./pxc/sources/pxc/pxb24.tar.gz; do
+                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxb24.tar.gz ./pxc/sources/pxc/pxb24.tar.gz; do
                                 sleep 5
                             done
 
-                            until aws s3 cp --no-progress s3://pxc-build-cach/${BUILD_TAG}/pxb80.tar.gz ./pxc/sources/pxc/pxb80.tar.gz; do
+                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxb80.tar.gz ./pxc/sources/pxc/pxb80.tar.gz; do
                                 sleep 5
                             done
 
@@ -206,7 +206,7 @@ pipeline {
                             " 2>&1 | tee build.log
                           
                             if [[ -f \$(ls pxc/sources/pxc/results/*.tar.gz | head -1) ]]; then
-                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxc/results/*.tar.gz s3://pxc-build-cach/${BUILD_TAG}/pxc80.tar.gz; do
+                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxc/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc80.tar.gz; do
                                     sleep 5
                                 done
                             else
@@ -224,7 +224,7 @@ pipeline {
                     echo 'Test PXC80'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
-                            until aws s3 cp --no-progress s3://pxc-build-cach/jenkins-pxc-8.0-pipeline-99/pxc80.tar.gz ./pxc/sources/pxc/results/pxc80.tar.gz; do
+                            until aws s3 cp --no-progress s3://pxc-build-cache/jenkins-pxc-8.0-pipeline-99/pxc80.tar.gz ./pxc/sources/pxc/results/pxc80.tar.gz; do
                                 sleep 5
                             done
 
