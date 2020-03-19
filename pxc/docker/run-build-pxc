@@ -1,0 +1,39 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+ROOT_DIR=$(cd $(dirname $0)/../sources/pxc; pwd -P)
+SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
+SOURCE_IMAGE=${1:-centos:7}
+
+docker run --rm \
+    --cap-add SYS_PTRACE \
+    --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxc \
+    --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
+    perconalab/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+    sh -c "
+    set -o errexit
+    set -o xtrace
+
+    export JOB_CMAKE='${JOB_CMAKE}'
+    export COMPILER='${COMPILER}'
+    export CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'
+    export CMAKE_OPTS='${CMAKE_OPTS}'
+    export MAKE_OPTS='${MAKE_OPTS}'
+    export BUILD_COMMENT='${BUILD_COMMENT}'
+    export TAG='${TAG}'
+    export DIST_NAME='${DIST_NAME}'
+    export SSL_VER='${SSL_VER}'
+
+    mkdir /tmp/results
+   
+    cp -r /tmp/source_downloads /tmp/results/source_downloads
+    sudo chown -R mysql:mysql /tmp/pxc/wsrep-lib /tmp/pxc/percona-xtradb-cluster-galera /tmp/pxc/mysql-test /tmp/pxc/target || :
+    bash -x /tmp/scripts/build-binary-pxc /tmp/results /tmp/pxc
+
+    sudo rm -rf /tmp/pxc/results
+    sudo mkdir /tmp/pxc/results
+    sudo mv /tmp/results/*.tar.gz /tmp/pxc/results/
+    sudo chown -R $(id -u):$(id -g) /tmp/pxc/results /tmp/pxc/wsrep-lib /tmp/pxc/percona-xtradb-cluster-galera /tmp/pxc/mysql-test /tmp/pxc/target
+"

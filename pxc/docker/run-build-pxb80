@@ -1,0 +1,38 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+ROOT_DIR=$(cd $(dirname $0)/../sources/pxb80; pwd -P)
+SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
+SOURCE_IMAGE=${1:-centos:7}
+
+docker run --rm \
+    --cap-add SYS_PTRACE \
+    --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxb80 \
+    --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
+    perconalab/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+    sh -c "
+    set -o errexit
+    set -o xtrace
+
+    export JOB_CMAKE='${JOB_CMAKE}'
+    export COMPILER='${COMPILER}'
+    export CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'
+    export CMAKE_OPTS='${CMAKE_OPTS}'
+    export MAKE_OPTS='${MAKE_OPTS}'
+    export BUILD_COMMENT='${BUILD_COMMENT}'
+    export TAG='${TAG}'
+    export DIST_NAME='${DIST_NAME}'
+    export SSL_VER='${SSL_VER}'
+
+    mkdir /tmp/results
+    cp -r /tmp/source_downloads /tmp/results/source_downloads
+    sudo chown -R mysql:mysql /tmp/pxb80/storage/innobase/xtrabackup/src /tmp/pxb80/mysql-test || :
+    bash -x /tmp/scripts/build-binary-pxb80 /tmp/results /tmp/pxb80
+
+    sudo rm -rf /tmp/pxb80/results
+    sudo mkdir /tmp/pxb80/results
+    sudo mv /tmp/results/*.tar.gz /tmp/pxb80/results/
+    sudo chown -R $(id -u):$(id -g) /tmp/pxb80/results /tmp/pxb80/storage/innobase/xtrabackup/src /tmp/pxb80/mysql-test
+"
