@@ -224,7 +224,7 @@ pipeline {
                     echo 'Test PXC80'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
-                            until aws s3 cp --no-progress s3://pxc-build-cache/jenkins-pxc-8.0-pipeline-99/pxc80.tar.gz ./pxc/sources/pxc/results/pxc80.tar.gz; do
+                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxc80.tar.gz ./pxc/sources/pxc/results/pxc80.tar.gz; do
                                 sleep 5
                             done
 
