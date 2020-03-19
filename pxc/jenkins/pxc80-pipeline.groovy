@@ -57,7 +57,7 @@ pipeline {
             description: 'Run mysql-test-run.pl',
             name: 'DEFAULT_TESTING')
         string(
-            defaultValue: '--unit-tests-report --suite=galera,galera_3nodes,galera_sr,sys_vars',
+            defaultValue: '--unit-tests-report --suite=galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars',
             description: 'mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report',
             name: 'MTR_ARGS')
         string(
@@ -115,23 +115,25 @@ pipeline {
                             ./pxc/local/checkout PXB24
                         '''
                         echo 'Build PXB24'
-                        sh '''
-                            sg docker -c "
-                                if [ \$(docker ps -q | wc -l) -ne 0 ]; then
-                                    docker ps -q | xargs docker stop --time 1 || :
-                                fi
-                                ./pxc/docker/run-build-pxb24 ${DOCKER_OS}
-                            " 2>&1 | tee build.log
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''
+                                sg docker -c "
+                                    if [ \$(docker ps -q | wc -l) -ne 0 ]; then
+                                        docker ps -q | xargs docker stop --time 1 || :
+                                    fi
+                                    ./pxc/docker/run-build-pxb24 ${DOCKER_OS}
+                                " 2>&1 | tee build.log
                              
-                            if [[ -f \$(ls pxc/sources/pxb24/results/*.tar.gz | head -1) ]]; then
-                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxb24/results/*.tar.gz s3://ps-build-cache/${BUILD_TAG}/pxb24.tar.gz; do
-                                    sleep 5
-                                done
-                            else
-                                echo cannot find compiled archive
-                                exit 1
-                            fi
-                        '''
+                                if [[ -f \$(ls pxc/sources/pxb24/results/*.tar.gz | head -1) ]]; then
+                                    until aws s3 cp --no-progress --acl public-read pxc/sources/pxb24/results/*.tar.gz s3://pxc-build-cach/${BUILD_TAG}/pxb24.tar.gz; do
+                                        sleep 5
+                                    done
+                                else
+                                    echo cannot find compiled archive
+                                    exit 1
+                                fi
+                            '''
+                        }
                     }
                 }
                 stage('Build PXB80') {
@@ -148,23 +150,25 @@ pipeline {
                             ./pxc/local/checkout PXB80
                         '''
                         echo 'Build PXB80'
-                        sh '''
-                            sg docker -c "
-                                if [ \$(docker ps -q | wc -l) -ne 0 ]; then
-                                    docker ps -q | xargs docker stop --time 1 || :
-                                fi
-                                ./pxc/docker/run-build-pxb80 ${DOCKER_OS}
-                            " 2>&1 | tee build.log
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''
+                                sg docker -c "
+                                    if [ \$(docker ps -q | wc -l) -ne 0 ]; then
+                                        docker ps -q | xargs docker stop --time 1 || :
+                                    fi
+                                    ./pxc/docker/run-build-pxb80 ${DOCKER_OS}
+                                " 2>&1 | tee build.log
 
-                            if [[ -f \$(ls pxc/sources/pxb80/results/*.tar.gz | head -1) ]]; then
-                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxb80/results/*.tar.gz s3://ps-build-cache/${BUILD_TAG}/pxb80.tar.gz; do
-                                    sleep 5
-                                done
-                            else
-                                echo cannot find compiled archive
-                                exit 1
-                            fi
-                        '''
+                                if [[ -f \$(ls pxc/sources/pxb80/results/*.tar.gz | head -1) ]]; then
+                                    until aws s3 cp --no-progress --acl public-read pxc/sources/pxb80/results/*.tar.gz s3://pxc-build-cach/${BUILD_TAG}/pxb80.tar.gz; do
+                                        sleep 5
+                                    done
+                                else
+                                    echo cannot find compiled archive
+                                    exit 1
+                                fi
+                            '''
+                       }
                     }
                 }
             }
@@ -184,31 +188,33 @@ pipeline {
                     '''
 
                     echo 'Build PXC80'
-                    sh '''
-                        until aws s3 cp --no-progress s3://ps-build-cache/${BUILD_TAG}/pxb24.tar.gz ./pxc/sources/pxc/pxb24.tar.gz; do
-                            sleep 5
-                        done
-
-                        until aws s3 cp --no-progress s3://ps-build-cache/${BUILD_TAG}/pxb80.tar.gz ./pxc/sources/pxc/pxb80.tar.gz; do
-                            sleep 5
-                        done
-
-                        sg docker -c "
-                            if [ \$(docker ps -q | wc -l) -ne 0 ]; then
-                                docker ps -q | xargs docker stop --time 1 || :
-                            fi
-                            ./pxc/docker/run-build-pxc ${DOCKER_OS}
-                        " 2>&1 | tee build.log
-                          
-                        if [[ -f \$(ls pxc/sources/pxc/results/*.tar.gz | head -1) ]]; then
-                            until aws s3 cp --no-progress --acl public-read pxc/sources/pxc/results/*.tar.gz s3://ps-build-cache/${BUILD_TAG}/pxc80.tar.gz; do
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        sh '''
+                            until aws s3 cp --no-progress s3://pxc-build-cach/${BUILD_TAG}/pxb24.tar.gz ./pxc/sources/pxc/pxb24.tar.gz; do
                                 sleep 5
                             done
-                        else
-                            echo cannot find compiled archive
-                            exit 1
-                        fi
-                    '''
+
+                            until aws s3 cp --no-progress s3://pxc-build-cach/${BUILD_TAG}/pxb80.tar.gz ./pxc/sources/pxc/pxb80.tar.gz; do
+                                sleep 5
+                            done
+
+                            sg docker -c "
+                                if [ \$(docker ps -q | wc -l) -ne 0 ]; then
+                                    docker ps -q | xargs docker stop --time 1 || :
+                                fi
+                                ./pxc/docker/run-build-pxc ${DOCKER_OS}
+                            " 2>&1 | tee build.log
+                          
+                            if [[ -f \$(ls pxc/sources/pxc/results/*.tar.gz | head -1) ]]; then
+                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxc/results/*.tar.gz s3://pxc-build-cach/${BUILD_TAG}/pxc80.tar.gz; do
+                                    sleep 5
+                                done
+                            else
+                                echo cannot find compiled archive
+                                exit 1
+                            fi
+                        '''
+                   }
                 }
         }
         stage('Test PXC80') {
@@ -216,18 +222,20 @@ pipeline {
                 steps {
                     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Test PXC80'
-                    sh '''
-                        until aws s3 cp --no-progress s3://ps-build-cache/jenkins-pxc-8.0-pipeline-99/pxc80.tar.gz ./pxc/sources/pxc/results/pxc80.tar.gz; do
-                            sleep 5
-                        done
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        sh '''
+                            until aws s3 cp --no-progress s3://pxc-build-cach/jenkins-pxc-8.0-pipeline-99/pxc80.tar.gz ./pxc/sources/pxc/results/pxc80.tar.gz; do
+                                sleep 5
+                            done
 
-                        sg docker -c "
-                            if [ \$(docker ps -q | wc -l) -ne 0 ]; then
-                                docker ps -q | xargs docker stop --time 1 || :
-                            fi
-                            ./pxc/docker/run-test ${DOCKER_OS}
-                        "
-                    '''
+                            sg docker -c "
+                                if [ \$(docker ps -q | wc -l) -ne 0 ]; then
+                                    docker ps -q | xargs docker stop --time 1 || :
+                                fi
+                                ./pxc/docker/run-test ${DOCKER_OS}
+                            "
+                        '''
+                    }
                     step([$class: 'JUnitResultArchiver', testResults: 'pxc/sources/pxc/results/*.xml', healthScaleFactor: 1.0])
                     archiveArtifacts 'pxc/sources/pxc/results/*.xml,pxc/sources/pxc/results/pxc80-test-mtr_logs.tar.gz'
                 }

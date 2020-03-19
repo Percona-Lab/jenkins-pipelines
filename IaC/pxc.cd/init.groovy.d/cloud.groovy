@@ -35,6 +35,7 @@ imageMap['min-trusty-x64']   = 'ami-00048435fed26a8d1'
 imageMap['min-xenial-x64']   = 'ami-0ad16744583f21877'
 imageMap['min-buster-x64']   = 'ami-09e03f9fdef632722'
 imageMap['docker']           = 'ami-0b2d8d1abb76a53d8'
+imageMap['docker-32gb']      = imageMap['docker']
 imageMap['psmdb']            = imageMap['min-xenial-x64']
 
 imageMap['ramdisk-centos-6-x64'] = imageMap['min-centos-6-x64']
@@ -514,6 +515,7 @@ String region = 'us-west-1'
         [
             getTemplate('micro-amazon',     "${region}${it}"),
             getTemplate('docker',           "${region}${it}"),
+            getTemplate('docker-32gb',       "${region}${it}"),
             getTemplate('min-centos-6-x32', "${region}${it}"),
             getTemplate('min-centos-6-x64', "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
