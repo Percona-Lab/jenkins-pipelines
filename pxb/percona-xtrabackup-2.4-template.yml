@@ -63,7 +63,7 @@
             RHVER="$(rpm --eval %rhel)"
             if [[ ${RHVER} -eq 6 ]]; then
                 sudo wget -O /etc/yum.repos.d/slc6-devtoolset.repo http://linuxsoft.cern.ch/cern/devtoolset/slc6-devtoolset.repo
-                sudo wget -O /etc/pki/rpm-gpg/RPM-GPG-KEY-cern https://raw.githubusercontent.com/cms-sw/cms-docker/master/slc6-vanilla/RPM-GPG-KEY-cern
+                sudo wget -O /etc/pki/rpm-gpg/RPM-GPG-KEY-cern https://raw.githubusercontent.com/cms-sw/cms-docker/master/slc6/RPM-GPG-KEY-cern
                 PKGLIST+=" devtoolset-2-gcc-c++ devtoolset-2-binutils"
                 PKGLIST+=" devtoolset-2-libasan-devel"
                 PKGLIST+=" devtoolset-2-valgrind devtoolset-2-valgrind-devel"
