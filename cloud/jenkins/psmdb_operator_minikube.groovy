@@ -1,17 +1,20 @@
-void pushArtifactFile(String FILE_NAME) {
+void pushArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
+    echo "Push $FILE_NAME file to S3!"
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git -C source rev-parse --short HEAD)
+            touch ${FILE_NAME}
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${GIT_SHORT_COMMIT}
             aws s3 ls \$S3_PATH/${FILE_NAME} || :
             aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
         """
     }
 }
 
-void popArtifactFile(String FILE_NAME) {
+void popArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git -C source rev-parse --short HEAD)
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${GIT_SHORT_COMMIT}
             aws s3 cp --quiet \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
         """
     }
@@ -35,7 +38,7 @@ void runTest(String TEST_NAME) {
         FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.KUBER_VERSION}"
         testsReportMap[TEST_NAME] = 'failure'
 
-        popArtifactFile("$FILE_NAME")
+        popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
         sh """
             if [ -f "$FILE_NAME" ]; then
                 echo Skip $TEST_NAME test
@@ -59,10 +62,9 @@ void runTest(String TEST_NAME) {
                 fi
 
                 ./e2e-tests/$TEST_NAME/run
-                touch $FILE_NAME
             fi
         """
-        pushArtifactFile("$FILE_NAME")
+        pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
         testsReportMap[TEST_NAME] = 'passed'
     }
     catch (exc) {
