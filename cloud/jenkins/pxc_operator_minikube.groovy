@@ -82,11 +82,20 @@ void runTest(String TEST_NAME) {
 }
 void installRpms() {
     sh '''
-        wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb
-        sudo dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb
-        sudo percona-release setup ps80
-        sudo apt-get update
-        sudo apt-get install -y percona-xtrabackup-80 jq
+        cat <<EOF > /tmp/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+        sudo mv /tmp/kubernetes.repo /etc/yum.repos.d/
+
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+        sudo percona-release enable-only tools
+        sudo yum install -y percona-xtrabackup-80 jq kubectl || true
     '''
 }
 pipeline {
@@ -175,21 +184,27 @@ pipeline {
             }
         }
         stage('Tests') {
-            agent { label 'virtualbox' }
+            agent { label 'docker-32gb' }
                 steps {
                     sh '''
+                        if [ ! -d $HOME/google-cloud-sdk/bin ]; then
+                            rm -rf $HOME/google-cloud-sdk
+                            curl https://sdk.cloud.google.com | bash
+                        fi
+
+                        source $HOME/google-cloud-sdk/path.bash.inc
+                        gcloud components install alpha
+                        gcloud components install kubectl
+
                         curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.12.1-linux-amd64.tar.gz \
                             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-
-                        echo 'deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main' | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-                        curl https://packages.cloud.google.com/apt/doc/apt-key.gpg \
-                            | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
-                        sudo apt-get update
-                        sudo apt-get -y install kubectl google-cloud-sdk
-
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
-                        minikube start --force --vm-driver=virtualbox --dns-domain=percona.com --memory=4096 --cpus=3 --kubernetes-version ${KUBER_VERSION}
+                        export CHANGE_MINIKUBE_NONE_USER=true
+                        sudo -E /usr/local/bin/minikube start --vm-driver=none --kubernetes-version ${KUBER_VERSION}
+                        sudo mv /root/.kube /root/.minikube $HOME
+                        sudo chown -R $USER $HOME/.kube $HOME/.minikube
+                        sed -i s:/root:$HOME:g $HOME/.kube/config
                     '''
                     
                     unstash "sourceFILES"
