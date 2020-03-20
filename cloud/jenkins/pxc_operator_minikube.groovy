@@ -37,7 +37,7 @@ void runTest(String TEST_NAME) {
 
         popArtifactFile("$FILE_NAME")
         sh """
-            if [ -f "FILE_NAME" ]; then
+            if [ -f "$FILE_NAME" ]; then
                 echo Skip $TEST_NAME test
             else
                 cd ./source
