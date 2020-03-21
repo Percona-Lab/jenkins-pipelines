@@ -53,6 +53,7 @@ void runTest(String TEST_NAME) {
                 if [ -n "${IMAGE_MONGOD}" ]; then
                     export IMAGE_MONGOD=${IMAGE_MONGOD}
                 fi
+
                 if [ -n "${IMAGE_BACKUP}" ]; then
                     export IMAGE_BACKUP=${IMAGE_BACKUP}
                 fi
@@ -214,6 +215,16 @@ pipeline {
                     runTest('demand-backup')
                     runTest('liveness')
                     runTest('security-context')
+            }
+            post {
+                always {
+                    sh '''
+                        /usr/local/bin/minikube delete || true
+                        sudo rm -rf $HOME/google-cloud-sdk
+                        sudo rm -rf ./*
+                    '''
+                    deleteDir()
+                }
             }
         }
         stage('Make report') {
