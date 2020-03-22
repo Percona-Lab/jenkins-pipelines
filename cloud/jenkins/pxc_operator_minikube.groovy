@@ -211,7 +211,6 @@ pipeline {
                     
                     unstash "sourceFILES"
                     installRpms()
-                    unstash "sourceFILES"
                     runTest('limits')
                     runTest('scaling')
                     runTest('affinity')
@@ -219,6 +218,16 @@ pipeline {
                     runTest('upgrade-consistency')
                     runTest('self-healing-advanced')
                     runTest('operator-self-healing')
+            }
+            post {
+                always {
+                    sh '''
+                        /usr/local/bin/minikube delete || true
+                        sudo rm -rf $HOME/google-cloud-sdk
+                        sudo rm -rf ./*
+                    '''
+                    deleteDir()
+                }
             }
         }
         stage('Make report') {
