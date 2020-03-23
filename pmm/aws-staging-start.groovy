@@ -43,9 +43,9 @@ pipeline {
             choices: ['10.8', '11', '9.6'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
-        string(
-            defaultValue: '10.2',
-            description: 'MariaDB Server version',
+        choice(
+            choices: ['10.4', '10.3', '10.2'],
+            description: "MariaDB Server version",
             name: 'MD_VERSION')
         choice(
             choices: ['4.0', '3.6'],
@@ -269,7 +269,7 @@ pipeline {
                             sudo yum -y update --security
                             sudo yum -y install https://repo.percona.com/yum/percona-release-0.1-7.noarch.rpm
                             sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
-                            sudo yum -y install svn docker sysbench mysql57-server git
+                            sudo yum -y install svn docker sysbench mysql57-server git php php-mysql php-pdo
                             sudo service mysqld start
                             sudo yum -y install bats --enablerepo=epel
                             sudo usermod -aG docker ec2-user
@@ -279,6 +279,10 @@ pipeline {
                                 sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                                 sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
                                 sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
+                                cd pmm-tests/
+                                sudo svn export https://github.com/puneet0191/pmm-workloads.git/trunk/mysql/schema_table_query.php
+                                sudo chmod 755 schema_table_query.php
+                                cd ../
                                 sudo chmod 755 get_download_link.sh
                             popd
 
@@ -402,6 +406,11 @@ pipeline {
                                     sudo yum clean all
                                     sudo yum -y install pmm2-client
                                     sudo yum -y update
+                            elif [[ \$CLIENT_VERSION = pmm2-latest ]]; then
+                                sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                                sudo yum clean all
+                                sudo yum -y install pmm2-client
+                                sudo yum -y update
                             elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then
                                 sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                                 sudo percona-release disable all
@@ -441,9 +450,9 @@ pipeline {
                                     source ~/.bash_profile
                                     pmm-admin --version
                                     if [[ \$CLIENT_INSTANCE == yes ]]; then
-                                        pmm-agent setup --config-file=$PWD/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin --trace \$IP
+                                        pmm-agent setup --config-file=$PWD/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
                                     else
-                                        pmm-agent setup --config-file=$PWD/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin --trace \$IP
+                                        pmm-agent setup --config-file=$PWD/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
                                     fi
                                     sleep 10
                                     JENKINS_NODE_COOKIE=dontKillMe nohup bash -c 'pmm-agent --config-file=$PWD/pmm2-client/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
@@ -454,12 +463,12 @@ pipeline {
                             fi
                             export PATH=\$PATH:/usr/sbin:/sbin
                             if [[ \$PMM_VERSION == pmm2 ]]; then
-                                if [[ \$CLIENT_VERSION == dev-latest ]]; then
+                                if [[ \$CLIENT_VERSION == dev-latest ]] || [[ \$CLIENT_VERSION == pmm2-latest ]]; then
                                     pmm-admin --version
                                     if [[ \$CLIENT_INSTANCE == yes ]]; then
-                                        sudo pmm-agent setup --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin --trace \$IP
+                                        sudo pmm-agent setup --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
                                     else
-                                        sudo pmm-agent setup --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin --trace \$IP
+                                        sudo pmm-agent setup --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
                                     fi
                                     sleep 10
                                     sudo cat /var/log/pmm-agent.log
@@ -496,6 +505,7 @@ pipeline {
                                     --mo-version  ${MO_VERSION} \
                                     --ps-version  ${PS_VERSION} \
                                     --modb-version ${MODB_VERSION} \
+                                    --md-version  ${MD_VERSION} \
                                     --pgsql-version ${PGSQL_VERSION} \
                                     --pxc-version ${PXC_VERSION} \
                                     --download \
