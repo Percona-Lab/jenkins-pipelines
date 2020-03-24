@@ -107,6 +107,16 @@ pipeline {
         }
         stage('Set Tags') {
             steps {
+                withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
+                    withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                        sh """
+                            gpgconf --launch gpg-agent
+                            export GPG_AGENT_INFO=\${HOME}/.gnupg/S.gpg-agent
+                            echo \"${SIGN_PASSWORD}\" \
+                            | gpg --passphrase-fd 0 --import ${KEY_PATH}
+                        """"
+                    }
+                }
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                      unstash 'copy'
                      sh """
@@ -163,6 +173,9 @@ pipeline {
                                  popd >/dev/null
                              fi
                          done
+                      '''
+                      sh '''
+                          gpgconf --kill gpg-agent
                       '''
                     }
                 }
