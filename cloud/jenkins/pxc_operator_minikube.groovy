@@ -97,7 +97,7 @@ EOF
 
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 jq kubectl || true
+        sudo yum install -y percona-xtrabackup-80 jq kubectl socat || true
     '''
 }
 pipeline {
@@ -210,6 +210,12 @@ pipeline {
                     '''
                     
                     unstash "sourceFILES"
+                    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+                        sh '''
+                           cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
+                        '''
+                    }
+
                     installRpms()
                     runTest('limits')
                     runTest('scaling')
