@@ -34,14 +34,17 @@ pipeline {
         label 'large-amazon'
     }
     environment {
-        REMOTE_MYSQL_HOST=credentials('mysql-remote-host')
-        REMOTE_MYSQL_USER=credentials('mysql-remote-user')
-        REMOTE_MYSQL_PASSWORD=credentials('mysql-remote-password')
+        MYSQL_HOST=credentials('mysql-remote-host')
+        MYSQL_USER=credentials('mysql-remote-user')
+        MYSQL_PASSWORD=credentials('mysql-remote-password')
+        AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
+        AWS_MYSQL_PASSWORD=credentials('pmm-dev-remote-password')
+        AWS_MYSQL57_HOST=credentials('pmm-dev-mysql57-remote-host')
     }
     parameters {
         string(
-            defaultValue: 'master',
-            description: 'Tag/Branch for pmm-qa repository',
+            defaultValue: 'PMM-2.0',
+            description: 'Tag/Branch for grafana-dashboard repository',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '',
@@ -74,7 +77,6 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
-        disableConcurrentBuilds()
     }
     triggers {
         upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
@@ -84,21 +86,35 @@ pipeline {
             steps {
                 // clean up workspace and fetch pmm-qa repository
                 deleteDir()
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
+                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/grafana-dashboards.git'
 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
 
                 sh '''
                     sudo yum -y update --security
-                    sudo yum -y install docker
+                    sudo yum -y install docker jq svn
                     sudo usermod -aG docker ec2-user
                     sudo service docker start
                     sudo docker stop selenoid || true && sudo docker rm selenoid || true
-                    sudo curl -s https://aerokube.com/cm/bash | bash \
-                    && sudo ./cm selenoid start --vnc --tmpfs 1000 --browsers chrome
+                    sudo docker pull selenoid/vnc_chrome:80.0
+                    sudo docker pull selenoid/video-recorder:latest-release
+                    sudo docker pull aerokube/selenoid-ui
+                    sudo curl -L https://github.com/docker/compose/releases/download/1.21.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/local/bin/docker-compose > /dev/null
+                    sudo chmod +x /usr/local/bin/docker-compose
+                    sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+                    sudo docker-compose --version
+                    echo PWD=${PWD} > .env
+                    rm docker-compose.yml
+                    sudo svn export https://github.com/percona/pmm-qa.git/trunk/docker-compose.yml
+                    sudo svn export https://github.com/percona/pmm-qa.git/trunk/browsers.json
+                    sudo svn export https://github.com/percona/pmm-qa.git/trunk/prepare_artifacts_pmm_app.sh
+                    sudo chmod 755 docker-compose.yml
+                    sudo chmod 755 browsers.json
+                    sudo chmod 755 prepare_artifacts_pmm_app.sh
+                    sudo docker-compose up -d
                     sleep 20
                     sudo docker ps
-                    sudo docker logs selenoid
+                    sudo docker-compose logs
                 '''
             }
         }
@@ -112,7 +128,7 @@ pipeline {
         }
         stage('Start staging') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=mo,2 --with-replica  --addclient=pgsql,1 --addclient=pxc,1 --with-proxysql --pmm2 --setup-alertmanager', CLIENT_INSTANCE, SERVER_IP)
+                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=ms,1 --addclient=md,1 --addclient=mo,2 --with-replica  --addclient=pgsql,1 --addclient=pxc,1 --with-proxysql --pmm2 --setup-alertmanager --disable-tablestats', CLIENT_INSTANCE, SERVER_IP)
             }
         }
         stage('Sanity check') {
@@ -122,7 +138,7 @@ pipeline {
         }
         stage('Sleep') {
             steps {
-                sleep 60
+                sleep 300
             }
         }
         stage('Setup Node') {
@@ -133,9 +149,11 @@ pipeline {
                     nvm install 10.6.0
                     sudo rm -f /usr/bin/node
                     sudo ln -s ~/.nvm/versions/node/v10.6.0/bin/node /usr/bin/node
+                    pushd pmm-app
                     npm install
                     node -v
                     npm -v
+                    popd
                 """
             }
         }
@@ -160,13 +178,12 @@ pipeline {
                 expression { env.AMI_TEST == "no" }
             }
             steps {
-                sauce('SauceLabsKey') {
-                    sauceconnect(options: '', sauceConnectPath: '') {
-                        sh """
-                            sed -i 's/{SAUCE_USER_KEY}/${SAUCE_ACCESS_KEY}/g' codecept.json
-                            ./node_modules/.bin/codeceptjs run-multiple parallel --steps --debug --reporter mocha-multi -o '{ "helpers": {"WebDriver": {"url": "${PMM_UI_URL}"}}}' --grep '(?=.*)^(?!.*@visual-test)'
-                        """
-                    }
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        pushd pmm-app/
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --steps --debug --reporter mocha-multi -o '{ "helpers": {"WebDriver": {"url": "${PMM_UI_URL}"}}}' -c local.codecept.json --grep '(?=.*)^(?!.*@visual-test)'
+                        popd
+                    """
                 }
             }
         }
@@ -176,29 +193,34 @@ pipeline {
             // stop staging
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip
+                sudo bash -x ./prepare_artifacts_pmm_app.sh
+                sudo docker-compose down || true
                 sudo docker stop selenoid || true && sudo docker rm selenoid || true
             '''
             destroyStaging(VM_NAME)
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     saucePublisher()
-                    junit 'tests/output/parallel_chunk*/chrome_report.xml'
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'parallel_chunk1_*/result.html, parallel_chunk2_*/result.html, parallel_chunk3_*/result.html', reportName: 'HTML Report', reportTitles: ''])
+                    junit 'pmm-app/tests/output/parallel_chunk*/chrome_report.xml'
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'parallel_chunk1_*/result.html, parallel_chunk2_*/result.html, parallel_chunk3_*/result.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
-                    archiveArtifacts artifacts: 'tests/output/parallel_chunk*/result.html'
+                    archiveArtifacts artifacts: 'pmm-app/tests/output/parallel_chunk*/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
                     saucePublisher()
-                    junit 'tests/output/parallel_chunk*/chrome_report.xml'
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'parallel_chunk1_*/result.html, parallel_chunk2_*/result.html, parallel_chunk3_*/result.html', reportName: 'HTML Report', reportTitles: ''])
+                    junit 'pmm-app/tests/output/parallel_chunk*/chrome_report.xml'
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'parallel_chunk1_*/result.html, parallel_chunk2_*/result.html, parallel_chunk3_*/result.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/parallel_chunk*/result.html'
+                    archiveArtifacts artifacts: 'pmm-app/tests/output/parallel_chunk*/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
+                    archiveArtifacts artifacts: 'pmm-app/tests/output/parallel_chunk*/*.png'
+                    archiveArtifacts artifacts: 'pmm-app/tests/output/video/*.mp4'
                 }
             }
             sh '''
-                sudo rm -r node_modules/
+                sudo rm -r pmm-app/node_modules/
+                sudo rm -r video/
+                sudo rm -r pmm-app/tests/output
             '''
             deleteDir()
         }
