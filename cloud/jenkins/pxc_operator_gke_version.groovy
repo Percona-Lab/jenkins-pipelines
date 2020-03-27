@@ -1,5 +1,5 @@
 void CreateCluster(String CLUSTER_PREFIX) {
-    if ( "${params.GKE_VERSION}" == "1.15" ) {
+    if ( "${params.IS_GKE_ALPHA}" == "YES" ) {
         runGKEclusterAlpha(CLUSTER_PREFIX)
     } else {
        runGKEcluster(CLUSTER_PREFIX)
@@ -139,9 +139,13 @@ pipeline {
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.14',
+            defaultValue: '1.15',
             description: 'GKE version',
             name: 'GKE_VERSION')
+        choice(
+            choices: 'NO\nYES',
+            description: 'GKE alpha/stable',
+            name: 'IS_GKE_ALPHA')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-xtradb-cluster-operator:master',
