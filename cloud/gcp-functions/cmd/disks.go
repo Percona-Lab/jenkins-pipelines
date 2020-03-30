@@ -36,7 +36,7 @@ func CleanDisks(http.ResponseWriter, *http.Request) {
 				}
 				return nil
 			}); err != nil {
-				return fmt.Errorf("Get disk list: %v", err)
+				return fmt.Errorf("get disk list: %v", err)
 			}
 		}
 		return nil
