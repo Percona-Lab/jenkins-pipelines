@@ -41,6 +41,6 @@ func CleanDisks(http.ResponseWriter, *http.Request) {
 		}
 		return nil
 	}); err != nil {
-		log.Fatal("Error:", err)
+		log.Fatal("Error: ", err)
 	}
 }
