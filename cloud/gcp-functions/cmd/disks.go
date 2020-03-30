@@ -28,7 +28,7 @@ func CleanDisks(http.ResponseWriter, *http.Request) {
 					if disk.Users == nil {
 						resp, err := computeService.Disks.Delete(project, zone.Name, disk.Name).Context(ctx).Do()
 						if err != nil {
-							return fmt.Errorf("Delete disk: %v", err)
+							return fmt.Errorf("delete disk: %v", err)
 						}
 						fmt.Printf("%s\n", resp.Status)
 						fmt.Printf("disk: %s in zone %s was deleted\n", disk.Name, zone.Name)
