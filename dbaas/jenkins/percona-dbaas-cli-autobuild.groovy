@@ -97,6 +97,7 @@ pipeline {
                 sh 'sg docker -c "./build/bin/build-dbaas-deb debian:stretch"'
                 sh 'sg docker -c "./build/bin/build-dbaas-deb ubuntu:bionic"'
                 sh 'sg docker -c "./build/bin/build-dbaas-deb ubuntu:xenial"'
+                sh 'sg docker -c "./build/bin/build-dbaas-deb ubuntu:focal"'
                 stash includes: 'results/deb/*.deb', name: 'debs'
                 uploadDEB()
             }
