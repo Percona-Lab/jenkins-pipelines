@@ -28,7 +28,7 @@ install_software() {
 
     yum -y update --security
     amazon-linux-extras install -y nginx1.12
-    yum -y install java-1.8.0-openjdk jenkins-2.204.2 git yum-cron aws-cli xfsprogs
+    yum -y install java-1.8.0-openjdk jenkins-2.222.1 git yum-cron aws-cli xfsprogs
 
     sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
     sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
