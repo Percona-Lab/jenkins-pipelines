@@ -8,7 +8,7 @@ pipeline {
             description: 'Tag/Branch for build',
             name: 'BRANCH_NAME')
         choice(
-            choices: ['new.percona.com', 'www.percona.com'], 
+            choices: ['test.percona.com', 'percona.com'],
             description: 'Publish to test or production server', 
             name: 'PUBLISH_TARGET')
     }
@@ -47,17 +47,11 @@ pipeline {
             }
             steps{
                 unstash "html-files"
-                withCredentials([sshUserPrivateKey(credentialsId: 'publish-doc-percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                withCredentials([sshUserPrivateKey(credentialsId: jenkins-deploy', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
-                        if [ "\${PUBLISH_TARGET}" = "www.percona.com" ]; then
-                          # production
-                          export HOST_IP="10.10.9.210"
-                        else
-                          # test
-                          export HOST_IP="10.10.9.250"
-                        fi
                         echo BRANCH=${BRANCH_NAME}
-                        rsync --delete-before -avzr -O -e "ssh -i \${KEY_PATH}"  build/html/ \${USER}@${HOST_IP}:/www/percona.com/htdocs/doc/percona-monitoring-and-management/2.x/
+                        DEST_HOST='docs-rsync-endpoint.int.percona.com'
+                        rsync --delete-before -avzr -O -e "ssh -p2222 -i \${KEY_PATH}"  build/html/ \${USER}@\${DEST_HOST}:/data/websites_data/\${PUBLISH_TARGET}/doc/percona-monitoring-and-management/2.0/
                     '''
                 }
             }

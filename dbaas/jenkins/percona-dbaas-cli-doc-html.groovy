@@ -12,7 +12,7 @@ pipeline {
             description: 'Tag/Branch for percona-dbaas-cli repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: 'test.percona.com\npercona.com',
+            choices: ['test.percona.com', 'percona.com'],
             description: 'Publish to test or production server',
             name: 'PUBLISH_TARGET')
         }
@@ -40,7 +40,7 @@ pipeline {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
-                        DEST_HOST='jenkins-deploy.jenkins-deploy.web.r.int.percona.com'
+                        DEST_HOST='docs-rsync-endpoint.int.percona.com'
                         rsync --delete-before -avzr -O -e "ssh -o StrictHostKeyChecking=no -p2222 -i ${KEY_PATH}"  build/html/ ${USER}@\${DEST_HOST}:/data/websites_data/\${PUBLISH_TARGET}/doc/dbaas-cli
                     '''
                 }
