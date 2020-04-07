@@ -47,10 +47,11 @@ pipeline {
             }
             steps{
                 unstash "html-files"
-                withCredentials([sshUserPrivateKey(credentialsId: jenkins-deploy', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
                         echo BRANCH=${BRANCH_NAME}
                         DEST_HOST='docs-rsync-endpoint.int.percona.com'
+                        
                         rsync --delete-before -avzr -O -e "ssh -o StrictHostKeyChecking=no -p2222 -i \${KEY_PATH}"  build/html/ \${USER}@\${DEST_HOST}:/data/websites_data/\${PUBLISH_TARGET}/doc/percona-monitoring-and-management/2.x/
                     '''
                 }

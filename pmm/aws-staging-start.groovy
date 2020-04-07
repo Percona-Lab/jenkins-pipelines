@@ -27,8 +27,8 @@ pipeline {
             choices: '1\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
-        string(
-            defaultValue: '5.7',
+        choice(
+            choices: ['5.7', '8.0'],
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
         choice(
@@ -108,7 +108,7 @@ pipeline {
                             | python -c "import sys, json; print json.load(sys.stdin)['actions'][1]['causes'][0]['userId']" \
                             | sed -e 's/@percona.com//' \
                             > OWNER
-                        echo "pmm-\$(cat OWNER | cut -d . -f 1)-\$(date -u '+%Y%m%d%H%M%S')" \
+                        echo "pmm-\$(cat OWNER | cut -d . -f 1)-\$(date -u '+%Y%m%d%H%M%S')-${BUILD_NUMBER}" \
                             > VM_NAME
                     """
                 }
@@ -512,6 +512,7 @@ pipeline {
                                     ${CLIENTS} \
                                     --pmm2 \
                                     --dbdeployer \
+                                    --run-load-pmm2 \
                                     --query-source=${QUERY_SOURCE} \
                                     --pmm2-server-ip=\$SERVER_IP
                             fi
