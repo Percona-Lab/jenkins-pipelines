@@ -28,7 +28,7 @@ pipeline {
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
         choice(
-            choices: ['8.0', '5.7'],
+            choices: ['5.7', '8.0'],
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
         choice(
@@ -108,7 +108,7 @@ pipeline {
                             | python -c "import sys, json; print json.load(sys.stdin)['actions'][1]['causes'][0]['userId']" \
                             | sed -e 's/@percona.com//' \
                             > OWNER
-                        echo "pmm-\$(cat OWNER | cut -d . -f 1)-\$(date -u '+%Y%m%d%H%M%S')" \
+                        echo "pmm-\$(cat OWNER | cut -d . -f 1)-\$(date -u '+%Y%m%d%H%M%S')-${BUILD_NUMBER}" \
                             > VM_NAME
                     """
                 }
