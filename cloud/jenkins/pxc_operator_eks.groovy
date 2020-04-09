@@ -256,8 +256,10 @@ EOF
         stage('E2E Backups') {
             steps {
                 runTest('recreate')
+                runTest('restore-to-encrypted-cluster')
                 runTest('demand-backup')
                 runTest('scheduled-backup')
+                runTest('backup-encrypted-with-tls)
             }
         }
         stage('E2E BigData') {
