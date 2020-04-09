@@ -280,8 +280,10 @@ pipeline {
                     steps {
                         CreateCluster('backups')
                         runTest('recreate', 'backups')
+                        runTest('restore-to-encrypted-cluster', 'backups')
                         runTest('demand-backup', 'backups')
                         runTest('scheduled-backup', 'backups')
+                        runTest('backup-encrypted-with-tls', 'backups')
                         ShutdownCluster('backups')
                     }
                 }
