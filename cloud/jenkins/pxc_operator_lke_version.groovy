@@ -271,8 +271,8 @@ pipeline {
                         runTest('recreate', 'backups')
                         runTest('restore-to-encrypted-cluster', 'backups')
                         runTest('demand-backup', 'backups')
+                        runTest('demand-backup-encrypted-with-tls', 'backups')
                         runTest('scheduled-backup', 'backups')
-                        runTest('backup-encrypted-with-tls', 'backups')
                         ShutdownCluster('backups')
                     }
                 }
