@@ -157,10 +157,10 @@ pipeline {
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
                     /usr/local/bin/helm init --client-only
 
-                    VERSION=$(curl --silent 'https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/release.txt' | grep 'Version:' | awk '{print $2}')
-                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux-$VERSION.tar.gz \
+                    VERSION=$(curl --silent 'https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/release.txt' | grep 'Version:' | awk '{print $2}')
+                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux-$VERSION.tar.gz \
                         | sudo tar -C /usr/local/bin --wildcards -zxvpf -
-                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-install-linux-$VERSION.tar.gz \
+                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-install-linux-$VERSION.tar.gz \
                         | sudo tar -C /usr/local/bin  --wildcards -zxvpf -
                 '''
 
