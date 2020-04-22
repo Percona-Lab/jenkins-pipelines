@@ -33,7 +33,7 @@ imageMap['min-buster-x64'] = 'ami-0f5d8e2951e3f83a5'
 imageMap['min-trusty-x64'] = 'ami-4218403a'
 imageMap['min-cosmic-x64'] = 'ami-077b0a677133eb06a'
 imageMap['min-xenial-x64'] = 'ami-0f2016003e1759f35'
-imageMap['min-disco-x64'] = 'ami-01c49c7b462fed159'
+imageMap['min-focal-x64'] = 'ami-01be5da48a0a651a1'
 imageMap['psmdb'] = imageMap['min-xenial-x64']
 
 priceMap = [:]
@@ -59,7 +59,7 @@ userMap['min-stretch-x64'] = 'admin'
 userMap['min-buster-x64'] = 'admin'
 userMap['min-trusty-x64'] = 'ubuntu'
 userMap['min-cosmic-x64'] = 'ubuntu'
-userMap['min-disco-x64'] = 'ubuntu'
+userMap['min-focal-x64'] = 'ubuntu'
 userMap['min-xenial-x64'] = 'ubuntu'
 userMap['psmdb'] = userMap['min-xenial-x64']
 
@@ -179,7 +179,7 @@ initMap['min-bionic-x64'] = initMap['min-artful-x64']
 initMap['min-stretch-x64'] = initMap['min-artful-x64']
 initMap['min-xenial-x64'] = initMap['min-artful-x64']
 initMap['min-cosmic-x64'] = initMap['min-artful-x64']
-initMap['min-disco-x64'] = initMap['min-artful-x64']
+initMap['min-focal-x64'] = initMap['min-artful-x64']
 initMap['psmdb'] = initMap['min-xenial-x64']
 initMap['min-jessie-x64'] = '''
     set -o xtrace
@@ -244,7 +244,7 @@ typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-cosmic-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-disco-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-focal-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32'] = 'm1.medium'
 typeMap['min-centos-6-x64'] = 'm4.xlarge'
 typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
@@ -270,7 +270,7 @@ execMap['min-stretch-x64'] = '1'
 execMap['min-buster-x64'] = '1'
 execMap['min-trusty-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
-execMap['min-disco-x64'] = '1'
+execMap['min-focal-x64'] = '1'
 execMap['psmdb'] = '1'
 
 devMap = [:]
@@ -279,7 +279,7 @@ devMap['docker-32gb'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
 devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-bionic-x64'] = devMap['min-artful-x64']
-devMap['min-disco-x64'] = devMap['min-artful-x64']
+devMap['min-focal-x64'] = devMap['min-artful-x64']
 devMap['min-cosmic-x64'] = devMap['min-artful-x64']
 devMap['min-centos-6-x64'] = devMap['min-artful-x64']
 devMap['min-centos-7-x64'] = devMap['min-artful-x64']
@@ -299,7 +299,7 @@ labelMap['micro-amazon'] = 'master'
 labelMap['min-artful-x64'] = ''
 labelMap['min-bionic-x64'] = 'asan'
 labelMap['min-cosmic-x64'] = ''
-labelMap['min-disco-x64'] = ''
+labelMap['min-focal-x64'] = ''
 labelMap['min-centos-6-x32'] = ''
 labelMap['min-centos-6-x64'] = ''
 labelMap['min-centos-7-x64'] = ''
@@ -384,7 +384,7 @@ String region = 'us-west-2'
             getTemplate('min-artful-x64', "${region}${it}"),
             getTemplate('min-bionic-x64', "${region}${it}"),
             getTemplate('min-cosmic-x64', "${region}${it}"),
-            getTemplate('min-disco-x64', "${region}${it}"),
+            getTemplate('min-focal-x64', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
        '',
        ''
