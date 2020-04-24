@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+DOCKER_DIR=$(dirname $0)
+
+build_docker() {
+    local SOURCE_IMAGE=$1
+
+    sed -e "s^FROM .*^FROM ${SOURCE_IMAGE}^" \
+        ${DOCKER_DIR}/Dockerfile.inc \
+        > ${DOCKER_DIR}/Dockerfile-${SOURCE_IMAGE//[:\/]/-}
+
+    docker build \
+        --squash \
+        --no-cache \
+        -t perconalab/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+        --file ${DOCKER_DIR}/Dockerfile-${SOURCE_IMAGE//[:\/]/-} \
+        $DOCKER_DIR
+
+    rm ${DOCKER_DIR}/Dockerfile-${SOURCE_IMAGE//[:\/]/-}
+}
+
+build_docker ${1:-centos:7}
