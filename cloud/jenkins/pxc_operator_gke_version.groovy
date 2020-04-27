@@ -238,60 +238,24 @@ pipeline {
                 CLOUDSDK_CORE_DISABLE_PROMPTS = 1
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                 VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
-                CLUSTER_NAME = sh(script: "echo jenkins-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                CLUSTER_NAME = sh(script: "echo jenkinss-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
             }
             parallel {
                 stage('E2E Basic Tests') {
                     steps {
                         CreateCluster('basic')
                         runTest('init-deploy', 'basic')
-                        runTest('limits', 'basic')
-                        runTest('monitoring', 'basic')
-                        runTest('monitoring-2-0', 'basic')
-                        runTest('affinity', 'basic')
-                        runTest('one-pod', 'basic')
-                        runTest('auto-tuning', 'basic')
-                        runTest('proxysql-sidecar-res-limits', 'basic')
                         ShutdownCluster('basic')
                    }
-                }
-                stage('E2E Scaling') {
-                    steps {
-                        CreateCluster('scaling')
-                        runTest('scaling', 'scaling')
-                        runTest('scaling-proxysql', 'scaling')
-                        runTest('upgrade', 'scaling')
-                        runTest('upgrade-consistency', 'scaling')
-                        runTest('security-context', 'scaling')
-                        ShutdownCluster('scaling')
-                    }
-                }
-                stage('E2E SelfHealing') {
-                    steps {
-                        CreateCluster('selfhealing')
-                        runTest('storage', 'selfhealing')
-                        runTest('self-healing', 'selfhealing')
-                        runTest('self-healing-advanced', 'selfhealing')
-                        runTest('operator-self-healing', 'selfhealing')
-                        ShutdownCluster('selfhealing')
-                    }
                 }
                 stage('E2E Backups') {
                     steps {
                         CreateCluster('backups')
-                        runTest('recreate', 'backups')
-                        runTest('restore-to-encrypted-cluster', 'backups')
-                        runTest('demand-backup', 'backups')
+                        sh '''
+                            sleep 30000
+                        '''
                         runTest('demand-backup-encrypted-with-tls', 'backups')
-                        runTest('scheduled-backup', 'backups')
                         ShutdownCluster('backups')
-                    }
-                }
-                stage('E2E BigData') {
-                    steps {
-                        CreateCluster('bigdata')
-                        runTest('big-data', 'bigdata')
-                        ShutdownCluster('bigdata')
                     }
                 }
             }
@@ -302,11 +266,11 @@ pipeline {
             setTestsresults()
             withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                 sh '''
-                    export CLUSTER_NAME=$(echo jenkins-pxc-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+                    export CLUSTER_NAME=$(echo jenkinss-pxc-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
                     gcloud config set project $GCP_PROJECT
-                    gcloud alpha container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups $CLUSTER_NAME-bigdata | true
+                    gcloud alpha container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-backups | true
                 '''
             }
             sh '''

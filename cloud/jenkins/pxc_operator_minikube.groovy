@@ -147,7 +147,7 @@ pipeline {
         stage('Prepare') {
             agent { label 'docker' }
             steps {
-                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                git branch: 'K8SPXC-264-test-update', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
@@ -217,6 +217,9 @@ pipeline {
                     }
 
                     installRpms()
+                    sh '''
+                        sleep 30000
+                    '''
                     runTest('limits')
                     runTest('scaling')
                     runTest('affinity')
