@@ -133,6 +133,7 @@ pipeline {
                 sh 'sg docker -c "./build/bin/build-client-deb debian:stretch"'
                 sh 'sg docker -c "./build/bin/build-client-deb ubuntu:bionic"'
                 sh 'sg docker -c "./build/bin/build-client-deb ubuntu:xenial"'
+                sh 'sg docker -c "./build/bin/build-client-deb ubuntu:focal"'
                 stash includes: 'results/deb/*.deb', name: 'debs'
                 uploadDEB()
             }
