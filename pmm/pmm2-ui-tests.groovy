@@ -92,9 +92,8 @@ pipeline {
 
                 sh '''
                     sudo yum -y update --security
-                    sudo yum -y install docker jq svn
-                    sudo usermod -aG docker ec2-user
-                    sudo service docker start
+                    installDocker()
+                    sudo yum -y install jq svn
                 '''
             }
         }
