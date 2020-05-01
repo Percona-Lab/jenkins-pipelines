@@ -13,12 +13,12 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE,
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
         env.PMM_URL = "http://admin:admin@${SERVER_IP}"
-        env.PMM_UI_URL = "https://${SERVER_IP}"
+        env.PMM_UI_URL = "http://${SERVER_IP}"
     }
     else
     {
         env.PMM_URL = "http://admin:admin@${VM_IP}"
-        env.PMM_UI_URL = "https://${VM_IP}"
+        env.PMM_UI_URL = "http://${VM_IP}"
     }
 }
 
@@ -95,26 +95,6 @@ pipeline {
                     sudo yum -y install docker jq svn
                     sudo usermod -aG docker ec2-user
                     sudo service docker start
-                    sudo docker stop selenoid || true && sudo docker rm selenoid || true
-                    sudo docker pull selenoid/vnc_chrome:80.0
-                    sudo docker pull selenoid/video-recorder:latest-release
-                    sudo docker pull aerokube/selenoid-ui
-                    sudo curl -L https://github.com/docker/compose/releases/download/1.21.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/local/bin/docker-compose > /dev/null
-                    sudo chmod +x /usr/local/bin/docker-compose
-                    sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
-                    sudo docker-compose --version
-                    echo PWD=${PWD} > .env
-                    rm docker-compose.yml
-                    sudo svn export https://github.com/percona/pmm-qa.git/trunk/docker-compose.yml
-                    sudo svn export https://github.com/percona/pmm-qa.git/trunk/browsers.json
-                    sudo svn export https://github.com/percona/pmm-qa.git/trunk/prepare_artifacts_pmm_app.sh
-                    sudo chmod 755 docker-compose.yml
-                    sudo chmod 755 browsers.json
-                    sudo chmod 755 prepare_artifacts_pmm_app.sh
-                    sudo docker-compose up -d
-                    sleep 20
-                    sudo docker ps
-                    sudo docker-compose logs
                 '''
             }
         }
@@ -128,7 +108,7 @@ pipeline {
         }
         stage('Start staging') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=ms,1 --addclient=md,1 --addclient=mo,2 --with-replica  --addclient=pgsql,1 --addclient=pxc,1 --with-proxysql --pmm2 --setup-alertmanager --disable-tablestats', CLIENT_INSTANCE, SERVER_IP)
+                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=mo,2 --with-replica  --addclient=pgsql,1 --addclient=pxc,1 --with-proxysql --pmm2 --setup-alertmanager --disable-tablestats', CLIENT_INSTANCE, SERVER_IP)
             }
         }
         stage('Sanity check') {
@@ -136,25 +116,25 @@ pipeline {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
-        stage('Sleep') {
-            steps {
-                sleep 300
-            }
-        }
         stage('Setup Node') {
             steps {
                 sh """
                     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
                     . ~/.nvm/nvm.sh
-                    nvm install 10.6.0
+                    nvm install 12.14.1
                     sudo rm -f /usr/bin/node
-                    sudo ln -s ~/.nvm/versions/node/v10.6.0/bin/node /usr/bin/node
-                    pushd pmm-app
+                    sudo ln -s ~/.nvm/versions/node/v12.14.1/bin/node /usr/bin/node
+                    pushd pmm-app/
                     npm install
                     node -v
                     npm -v
                     popd
                 """
+            }
+        }
+        stage('Sleep') {
+            steps {
+                sleep 300
             }
         }
         stage('Run AMI Setup & UI Tests') {
@@ -165,9 +145,11 @@ pipeline {
                 sauce('SauceLabsKey') {
                     sauceconnect(options: '', sauceConnectPath: '') {
                         sh """
-                            sed -i 's/{SAUCE_USER_KEY}/${SAUCE_ACCESS_KEY}/g' codecept.json
+                            pushp pmm-app
+                            sed -i 's+{PMM_URL_HERE}+${PMM_UI_URL}/+g' local.codecept.json
                             ./node_modules/.bin/codeceptjs run-multiple parallel --steps --debug --reporter mocha-multi -o '{ "helpers": {"WebDriver": {"url": "${PMM_UI_URL}"}}}' --grep @pmm-ami
                             ./node_modules/.bin/codeceptjs run-multiple parallel --steps --debug --reporter mocha-multi -o '{ "helpers": {"WebDriver": {"url": "${PMM_UI_URL}"}}}' --grep '(?=.*)^(?!.*@visual-test)'
+                            popd
                         """
                     }
                 }
@@ -181,7 +163,9 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         pushd pmm-app/
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --steps --debug --reporter mocha-multi -o '{ "helpers": {"WebDriver": {"url": "${PMM_UI_URL}"}}}' -c local.codecept.json --grep '(?=.*)^(?!.*@visual-test)'
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        export PWD=\$(pwd);
+                        sudo docker run --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env AWS_MYSQL_USER=${AWS_MYSQL_USER} --env AWS_MYSQL_PASSWORD=${AWS_MYSQL_PASSWORD} --net=host -v \$PWD:/tests codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@visual-test)'
                         popd
                     """
                 }
@@ -193,25 +177,23 @@ pipeline {
             // stop staging
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip
-                sudo bash -x ./prepare_artifacts_pmm_app.sh
-                sudo docker-compose down || true
-                sudo docker stop selenoid || true && sudo docker rm selenoid || true
+                sudo chmod 777 -R pmm-app/tests/output
+                ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/parallel_chunk*/*.json > pmm-app/tests/output/combine_results.json
+                ./pmm-app/node_modules/.bin/marge pmm-app/tests/output/combine_results.json --reportDir pmm-app/tests/output/ --inline --cdn --charts
             '''
             destroyStaging(VM_NAME)
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    saucePublisher()
-                    junit 'pmm-app/tests/output/parallel_chunk*/chrome_report.xml'
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'parallel_chunk1_*/result.html, parallel_chunk2_*/result.html, parallel_chunk3_*/result.html', reportName: 'HTML Report', reportTitles: ''])
+                    junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
-                    archiveArtifacts artifacts: 'pmm-app/tests/output/parallel_chunk*/result.html'
+                    archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
-                    saucePublisher()
-                    junit 'pmm-app/tests/output/parallel_chunk*/chrome_report.xml'
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'parallel_chunk1_*/result.html, parallel_chunk2_*/result.html, parallel_chunk3_*/result.html', reportName: 'HTML Report', reportTitles: ''])
+                    junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'pmm-app/tests/output/parallel_chunk*/result.html'
+                    archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-app/tests/output/parallel_chunk*/*.png'
                     archiveArtifacts artifacts: 'pmm-app/tests/output/video/*.mp4'
@@ -219,7 +201,6 @@ pipeline {
             }
             sh '''
                 sudo rm -r pmm-app/node_modules/
-                sudo rm -r video/
                 sudo rm -r pmm-app/tests/output
             '''
             deleteDir()
