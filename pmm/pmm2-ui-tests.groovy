@@ -145,7 +145,7 @@ pipeline {
                 sauce('SauceLabsKey') {
                     sauceconnect(options: '', sauceConnectPath: '') {
                         sh """
-                            pushd pmm-app
+                            pushd pmm-app/
                             sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                             export PWD=\$(pwd);
                             sudo docker run --env --net=host -v \$PWD:/tests codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep @pmm-ami
