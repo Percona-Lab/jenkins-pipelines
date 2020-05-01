@@ -145,10 +145,11 @@ pipeline {
                 sauce('SauceLabsKey') {
                     sauceconnect(options: '', sauceConnectPath: '') {
                         sh """
-                            pushp pmm-app
-                            sed -i 's+{PMM_URL_HERE}+${PMM_UI_URL}/+g' local.codecept.json
-                            ./node_modules/.bin/codeceptjs run-multiple parallel --steps --debug --reporter mocha-multi -o '{ "helpers": {"WebDriver": {"url": "${PMM_UI_URL}"}}}' --grep @pmm-ami
-                            ./node_modules/.bin/codeceptjs run-multiple parallel --steps --debug --reporter mocha-multi -o '{ "helpers": {"WebDriver": {"url": "${PMM_UI_URL}"}}}' --grep '(?=.*)^(?!.*@visual-test)'
+                            pushd pmm-app
+                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                            export PWD=\$(pwd);
+                            sudo docker run --env --net=host -v \$PWD:/tests codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep @pmm-ami
+                            sudo docker run --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env AWS_MYSQL_USER=${AWS_MYSQL_USER} --env AWS_MYSQL_PASSWORD=${AWS_MYSQL_PASSWORD} --net=host -v \$PWD:/tests codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@visual-test)'
                             popd
                         """
                     }
