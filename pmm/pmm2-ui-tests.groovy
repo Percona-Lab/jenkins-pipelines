@@ -1,3 +1,8 @@
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+]) _
+
 void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
@@ -89,9 +94,10 @@ pipeline {
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/grafana-dashboards.git'
 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                installDocker()
                 sh '''
                     sudo yum -y update --security
-                    sudo yum -y install jq svn docker
+                    sudo yum -y install jq svn
                     sudo usermod -aG docker ec2-user
                     sudo service docker start
                     sudo curl -L https://github.com/docker/compose/releases/download/1.21.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/local/bin/docker-compose > /dev/null
