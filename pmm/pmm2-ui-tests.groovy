@@ -34,12 +34,12 @@ pipeline {
         label 'large-amazon'
     }
     environment {
-        MYSQL_HOST=credentials('mysql-remote-host')
-        MYSQL_USER=credentials('mysql-remote-user')
-        MYSQL_PASSWORD=credentials('mysql-remote-password')
-        AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
-        AWS_MYSQL_PASSWORD=credentials('pmm-dev-remote-password')
-        AWS_MYSQL57_HOST=credentials('pmm-dev-mysql57-remote-host')
+        REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
+        REMOTE_AWS_MYSQL_PASSWORD=credentials('pmm-dev-remote-password')
+        REMOTE_AWS_MYSQL57_HOST=credentials('pmm-dev-mysql57-remote-host')
+        REMOTE_MYSQL_HOST=credentials('mysql-remote-host')
+        REMOTE_MYSQL_USER=credentials('mysql-remote-user')
+        REMOTE_MYSQL_PASSWORD=credentials('mysql-remote-password')
     }
     parameters {
         string(
@@ -170,7 +170,7 @@ pipeline {
                         pushd pmm-app/
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
-                        sudo docker run --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env AWS_MYSQL_USER=${AWS_MYSQL_USER} --env AWS_MYSQL_PASSWORD=${AWS_MYSQL_PASSWORD} --net=host -v \$PWD:/tests codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@visual-test)'
+                        sudo docker run --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env REMOTE_AWS_MYSQL_USER=${REMOTE_AWS_MYSQL_USER} --env REMOTE_AWS_MYSQL_PASSWORD=${REMOTE_AWS_MYSQL_PASSWORD} --env REMOTE_MYSQL_HOST=${REMOTE_MYSQL_HOST} --env REMOTE_MYSQL_USER=${REMOTE_MYSQL_USER} --env REMOTE_MYSQL_PASSWORD=${REMOTE_MYSQL_PASSWORD} --net=host -v \$PWD:/tests codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@visual-test)'
                         popd
                     """
                 }
