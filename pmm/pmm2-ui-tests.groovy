@@ -89,10 +89,9 @@ pipeline {
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/grafana-dashboards.git'
 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-
+                installDocker()
                 sh '''
                     sudo yum -y update --security
-                    installDocker()
                     sudo yum -y install jq svn
                 '''
             }
