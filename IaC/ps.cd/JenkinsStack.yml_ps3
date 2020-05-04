@@ -752,8 +752,8 @@ Resources:
 
                           PATH_TO_ALLOW_LIST="\$PATH_TO_BUILDS/\$lastSuccessfulBuildID/archive"
                           if [ -n "\$PATH_TO_ALLOW_LIST/nginx-white-list.conf" ]; then
-                              isChenged=\$(rsync -aHv \$PATH_TO_ALLOW_LIST/nginx-white-list.conf /mnt/$JENKINS_HOST/ssl/ | grep nginx-white-list.conf)
-                              if [ -n "\$isChenged" ]; then
+                              isChanged=\$(rsync -aHv \$PATH_TO_ALLOW_LIST/nginx-white-list.conf /mnt/$JENKINS_HOST/ssl/ | grep nginx-white-list.conf)
+                              if [ -n "\$isChanged" ]; then
                                   openresty -s reload
                               fi
                           fi
