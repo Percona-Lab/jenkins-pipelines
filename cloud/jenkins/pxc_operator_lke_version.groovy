@@ -16,7 +16,7 @@ void CreateCluster(String CLUSTER_PREFIX) {
             done
         }
 
-        CLUSTER_ID="$(linode-cli lke cluster-create --version \$LKE_VERSION --label \$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' --region us-central --node_pools.count 3 --tags jenkins,\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' --node_pools.type g6-standard-6 --json | jq '.[].id')"
+        CLUSTER_ID="$(linode-cli lke cluster-create --k8s_version \$LKE_VERSION --label \$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' --region us-central --node_pools.count 3 --tags jenkins,\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' --node_pools.type g6-standard-6 --json | jq '.[].id')"
         if [[ x\$CLUSTER_ID == "x" ]]; then
            echo "No cluster created. Exiting."
            exit 1

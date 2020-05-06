@@ -133,7 +133,7 @@ pipeline {
             }
         }
 
-        stage('Build PSMDBO operator docker image') {
+        stage('Build PSMDB operator docker image') {
             steps {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
