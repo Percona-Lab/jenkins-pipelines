@@ -60,6 +60,13 @@ pipeline {
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
         text(
+            defaultValue: '-e METRICS_RETENTION=192h',
+            description: '''
+            Passing Env Variables to PMM Server Docker Container, supported only for pmm2.x
+            An Example: -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PMM_DEBUG=1
+            ''',
+            name: 'DOCKER_ENV_VARIABLE')
+        text(
             defaultValue: '--addclient=ps,1',
             description: '''
             Configure PMM Clients
@@ -335,6 +342,7 @@ pipeline {
                                         --volumes-from \${VM_NAME}-data \
                                         --name \${VM_NAME}-server \
                                         --restart always \
+                                        ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
                                     sleep 10
                                     docker logs \${VM_NAME}-server
