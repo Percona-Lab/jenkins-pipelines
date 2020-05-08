@@ -1,5 +1,5 @@
 - job:
-    name: manage-nginx-allow-lists
+    name: manage-nginx-allow-list
     project-type: pipeline
     description: |
         Do not edit this job through the web!
