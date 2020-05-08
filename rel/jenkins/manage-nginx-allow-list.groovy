@@ -58,7 +58,7 @@ pipeline {
                         error('IP is not valid')
                     }
                 }
-                copyArtifacts projectName: "${JOB_NAME}", selector: lastSuccessful()
+                copyArtifacts projectName: "${JOB_NAME}", optional: true, selector: lastSuccessful()
 
                 sh """
                     if [ -f 'nginx-white-list.conf' ]; then
@@ -72,6 +72,10 @@ pipeline {
                                 grep -v 'allow     ${IP};      #' nginx-white-list.conf > nginx-white-list.conf.tmp || true
                                 mv nginx-white-list.conf.tmp nginx-white-list.conf
                             fi
+                        fi
+                    else
+                        if [ $ACTION == 'Add' ]; then
+                            echo 'allow     ${IP};      # was added by ${USER_NAME}' >> nginx-white-list.conf
                         fi
                     fi
                 """
