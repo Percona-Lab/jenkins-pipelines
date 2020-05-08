@@ -85,11 +85,13 @@
             sudo -E apt-get -y purge eatmydata || true
             #
             DIST=$(lsb_release -sc)
-            #
-            echo "deb http://jenkins.percona.com/apt-repo/ ${DIST} main" | sudo tee /etc/apt/sources.list.d/percona-dev.list
-            wget -q -O - http://jenkins.percona.com/apt-repo/8507EFA5.pub | sudo apt-key add -
-            wget -q -O - http://jenkins.percona.com/apt-repo/CD2EFD2A.pub | sudo apt-key add -
-            #
+
+            if [[ "$DIST" != 'focal' ]]; then
+                echo "deb http://jenkins.percona.com/apt-repo/ ${DIST} main" | sudo tee /etc/apt/sources.list.d/percona-dev.list
+                wget -q -O - http://jenkins.percona.com/apt-repo/8507EFA5.pub | sudo apt-key add -
+                wget -q -O - http://jenkins.percona.com/apt-repo/CD2EFD2A.pub | sudo apt-key add -
+            fi
+
             until sudo -E apt-get update; do
                 sleep 1
                 echo "waiting"
@@ -97,8 +99,14 @@
             #
             PKGLIST="bison pkg-config cmake devscripts debconf debhelper automake bison ca-certificates libcurl4-openssl-dev"
             PKGLIST="${PKGLIST} cmake debhelper libaio-dev libncurses-dev libssl-dev libtool libz-dev"
-            PKGLIST="${PKGLIST} libgcrypt-dev libev-dev lsb-release python-sphinx python-docutils"
+            PKGLIST="${PKGLIST} libgcrypt-dev libev-dev lsb-release python-docutils"
             PKGLIST="${PKGLIST} build-essential rsync libdbd-mysql-perl libnuma1 socat librtmp-dev libtinfo5"
+            if [[ "$DIST" == 'focal' ]]; then
+                PKGLIST="${PKGLIST} python3-sphinx"
+            else
+                PKGLIST="${PKGLIST} python-sphinx"
+            fi
+
             if [[ "$Host" == *"asan" ]] ; then
                 PKGLIST="${PKGLIST} libasan4"
             fi
