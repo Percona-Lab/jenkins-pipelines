@@ -2,6 +2,8 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
+        string(name: 'PS_VERSION', value: '5.6'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PERCONA_TEST_CHECKS_INTERVAL=10s'),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
@@ -69,7 +71,7 @@ pipeline {
         }
         stage('Start staging') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, ' ')
+                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1')
             }
         }
         stage('Setup Step') {
