@@ -31,6 +31,7 @@ void CreateCluster(String CLUSTER_PREFIX) {
 void ShutdownCluster(String CLUSTER_PREFIX) {
     sh '''
         linode-cli lke cluster-delete $(linode-cli lke clusters-list --json | jq '.[] | select(.label == "'"${CLUSTER_NAME}-''' + CLUSTER_PREFIX + '''"'").id' )
+        linode-cli volumes list --json | jq '.[] | select( (.label | startswith("pvc")) and .linode_id == null) | .id' | xargs -I {} linode-cli volumes delete {}
     '''
 }
 void pushArtifactFile(String FILE_NAME) {
