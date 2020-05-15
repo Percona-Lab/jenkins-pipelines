@@ -25,6 +25,14 @@ void CreateCluster(String CLUSTER_PREFIX) {
         retry 10 60 linode-cli lke kubeconfig-view \$CLUSTER_ID --json > /dev/null 2>&1
         linode-cli lke kubeconfig-view \$CLUSTER_ID --json | jq -r '.[].kubeconfig' | base64 -d > /tmp/\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' 
         export KUBECONFIG=/tmp/\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' 
+        sleep 120
+        until [[ \$(kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\\n"}{end}' | wc -l) -eq 3 ]]; do
+            sleep 5
+        done
+
+        for i in \$(kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\\n"}{end}'); do
+            kubectl wait --for=condition=Ready --timeout=600s node/\$i;
+        done
     '''
 }
 
