@@ -5,6 +5,7 @@ import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
 import hudson.plugins.ec2.ConnectionStrategy
+import hudson.plugins.ec2.HostKeyVerificationStrategyEnum
 import hudson.plugins.ec2.UnixData
 import java.util.logging.Logger
 import jenkins.model.Jenkins
@@ -235,6 +236,8 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
             new EC2Tag('iit-billing-tag', 'jenkins-pt-slave')
         ],                                          // List<EC2Tag> tags
         '3',                                        // String idleTerminationMinutes
+        0,                                          // Init minimumNumberOfInstances
+        0,                                          // minimumNumberOfSpareInstances
         capMap[typeMap[OSType]],                    // String instanceCapStr
         'arn:aws:iam::119175775298:instance-profile/jenkins-pt-slave', // String iamInstanceProfile
         true,                                       // boolean deleteRootOnTermination
@@ -248,6 +251,8 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         false,                                      // boolean t2Unlimited
         ConnectionStrategy.PUBLIC_DNS,              // connectionStrategy
         -1,                                         // int maxTotalUses
+        null,
+        HostKeyVerificationStrategyEnum.OFF,
     )
 }
 
@@ -267,7 +272,7 @@ String region = 'us-west-2'
         '',                                     // String credentialsId
         region,                                 // String region
         privateKey,                             // String privateKey
-        '240',                                  // String instanceCapStr
+        '240',                                   // String instanceCapStr
         [
             getTemplate('docker', "${region}${it}"),
         ],
