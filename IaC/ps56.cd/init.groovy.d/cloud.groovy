@@ -5,6 +5,7 @@ import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
 import hudson.plugins.ec2.ConnectionStrategy
+import hudson.plugins.ec2.HostKeyVerificationStrategyEnum
 import hudson.plugins.ec2.UnixData
 import java.util.logging.Logger
 import jenkins.model.Jenkins
@@ -21,8 +22,8 @@ netMap['us-west-1c'] = 'subnet-08c73ba89640dfa60'
 
 imageMap = [:]
 imageMap['us-west-1a.docker']            = 'ami-0b2d8d1abb76a53d8'
-imageMap['us-west-1a.docker-32gb']       = imageMap['us-west-1a.docker']
-imageMap['us-west-1a.micro-amazon']      = imageMap['us-west-1a.docker']
+imageMap['us-west-1a.docker-32gb']       = 'ami-0b2d8d1abb76a53d8'
+imageMap['us-west-1a.micro-amazon']      = 'ami-0b2d8d1abb76a53d8'
 imageMap['us-west-1a.min-centos-7-x64']  = 'ami-4826c22b'
 imageMap['us-west-1a.fips-centos-7-x64'] = 'ami-0f472ecc4a3e9620c'
 imageMap['us-west-1a.min-centos-6-x64']  = 'ami-8adb3fe9'
@@ -330,6 +331,8 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
             new EC2Tag('iit-billing-tag', 'jenkins-ps56-worker')
         ],                                          // List<EC2Tag> tags
         '3',                                        // String idleTerminationMinutes
+        0,                                          // Init minimumNumberOfInstances
+        0,                                          // minimumNumberOfSpareInstances
         capMap[typeMap[OSType]],                    // String instanceCapStr
         'arn:aws:iam::119175775298:instance-profile/jenkins-ps56-worker', // String iamInstanceProfile
         true,                                       // boolean deleteRootOnTermination
@@ -343,6 +346,8 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         false,                                      // boolean t2Unlimited
         ConnectionStrategy.PUBLIC_DNS,              // connectionStrategy
         -1,                                         // int maxTotalUses
+        null,
+        HostKeyVerificationStrategyEnum.OFF,
     )
 }
 

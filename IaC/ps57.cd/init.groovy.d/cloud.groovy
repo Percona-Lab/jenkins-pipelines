@@ -5,6 +5,7 @@ import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
 import hudson.plugins.ec2.ConnectionStrategy
+import hudson.plugins.ec2.HostKeyVerificationStrategyEnum
 import hudson.plugins.ec2.UnixData
 import java.util.logging.Logger
 import jenkins.model.Jenkins
@@ -277,7 +278,7 @@ execMap['min-buster-x64']    = '1'
 execMap['psmdb']             = '1'
 
 devMap = [:]
-devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:100:true:gp2'
 devMap['docker2']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb']       = devMap['docker']
 devMap['micro-amazon']      = devMap['docker']
@@ -339,6 +340,8 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
             new EC2Tag('iit-billing-tag', 'jenkins-ps57-worker')
         ],                                          // List<EC2Tag> tags
         '3',                                        // String idleTerminationMinutes
+        0,                                          // Init minimumNumberOfInstances
+        0,                                          // minimumNumberOfSpareInstances
         capMap[typeMap[OSType]],                    // String instanceCapStr
         'arn:aws:iam::119175775298:instance-profile/jenkins-ps57-worker', // String iamInstanceProfile
         true,                                       // boolean deleteRootOnTermination
@@ -352,6 +355,8 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         false,                                      // boolean t2Unlimited
         ConnectionStrategy.PUBLIC_DNS,              // connectionStrategy
         -1,                                         // int maxTotalUses
+        null,
+        HostKeyVerificationStrategyEnum.OFF,
     )
 }
 

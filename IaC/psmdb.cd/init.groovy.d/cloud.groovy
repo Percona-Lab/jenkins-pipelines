@@ -5,6 +5,7 @@ import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
 import hudson.plugins.ec2.ConnectionStrategy
+import hudson.plugins.ec2.HostKeyVerificationStrategyEnum
 import hudson.plugins.ec2.UnixData
 import java.util.logging.Logger
 import jenkins.model.Jenkins
@@ -261,7 +262,7 @@ capMap['m4.2xlarge'] = '10'
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.small'
 typeMap['docker']            = 'c4.xlarge'
-typeMap['docker-32gb']       = 'm5.2xlarge'
+typeMap['docker-32gb']       = 'm4.2xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
 typeMap['fips-centos-7-x64'] = typeMap['docker-32gb']
 typeMap['min-artful-x64']    = typeMap['docker-32gb']
@@ -353,6 +354,8 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
             new EC2Tag('iit-billing-tag', 'jenkins-psmdb-slave')
         ],                                          // List<EC2Tag> tags
         '3',                                        // String idleTerminationMinutes
+        0,                                          // Init minimumNumberOfInstances
+        0,                                          // minimumNumberOfSpareInstances
         capMap[typeMap[OSType]],                    // String instanceCapStr
         'arn:aws:iam::119175775298:instance-profile/jenkins-psmdb-slave', // String iamInstanceProfile
         true,                                       // boolean deleteRootOnTermination
@@ -366,6 +369,8 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         false,                                      // boolean t2Unlimited
         ConnectionStrategy.PUBLIC_DNS,              // connectionStrategy
         -1,                                         // int maxTotalUses
+        null,
+        HostKeyVerificationStrategyEnum.OFF,
     )
 }
 

@@ -5,6 +5,7 @@ import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
 import hudson.plugins.ec2.ConnectionStrategy
+import hudson.plugins.ec2.HostKeyVerificationStrategyEnum
 import hudson.plugins.ec2.UnixData
 import java.util.logging.Logger
 import jenkins.model.Jenkins
@@ -28,7 +29,7 @@ imageMap['us-west-2a.min-centos-7-x64']  = 'ami-01ed306a12b7d1c96'
 imageMap['us-west-2a.fips-centos-7-x64'] = 'ami-036d2cdf95d86d256'
 imageMap['us-west-2a.min-centos-6-x64']  = 'ami-0362922178e02e9f3'
 imageMap['us-west-2a.min-buster-x64']    = 'ami-0f5d8e2951e3f83a5'
-imageMap['us-west-2a.min-bionic-x64']    = 'ami-0438319fc572e1a20'
+imageMap['us-west-2a.min-bionic-x64']    = 'ami-12cdeb6a'
 imageMap['us-west-2a.min-stretch-x64']   = 'ami-0b9cb6198bfca486d'
 imageMap['us-west-2a.min-xenial-x64']    = 'ami-ba602bc2'
 
@@ -56,6 +57,17 @@ imageMap['us-west-2c.min-bionic-x64']    = imageMap['us-west-2a.min-bionic-x64']
 imageMap['us-west-2c.min-stretch-x64']   = imageMap['us-west-2a.min-stretch-x64']
 imageMap['us-west-2c.min-xenial-x64']    = imageMap['us-west-2a.min-xenial-x64']
 
+imageMap['us-west-2d.docker']            = imageMap['us-west-2a.docker']
+imageMap['us-west-2d.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
+imageMap['us-west-2d.docker2']           = imageMap['us-west-2a.docker2']
+imageMap['us-west-2d.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
+imageMap['us-west-2d.min-centos-7-x64']  = imageMap['us-west-2a.min-centos-7-x64']
+imageMap['us-west-2d.fips-centos-7-x64'] = imageMap['us-west-2a.fips-centos-7-x64']
+imageMap['us-west-2d.min-centos-6-x64']  = imageMap['us-west-2a.min-centos-6-x64']
+imageMap['us-west-2d.min-buster-x64']    = imageMap['us-west-2a.min-buster-x64']
+imageMap['us-west-2d.min-bionic-x64']    = imageMap['us-west-2a.min-bionic-x64']
+imageMap['us-west-2d.min-stretch-x64']   = imageMap['us-west-2a.min-stretch-x64']
+imageMap['us-west-2d.min-xenial-x64']    = imageMap['us-west-2a.min-xenial-x64']
 /*
 imageMap['min-artful-x64'] = 'ami-db2919be'
 imageMap['min-centos-6-x64'] = 'ami-ff48629a'
@@ -68,8 +80,8 @@ imageMap['min-xenial-x64'] = 'ami-e82a1a8d'
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
 priceMap['m1.medium'] = '0.05'
-priceMap['c4.xlarge'] = '0.10'
-priceMap['c3.xlarge'] = '0.10'
+priceMap['c4.xlarge'] = '0.14'
+priceMap['c3.xlarge'] = '0.14'
 priceMap['m4.xlarge'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
 priceMap['r4.4xlarge'] = '0.38'
@@ -94,6 +106,23 @@ userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
 
 userMap['psmdb'] = userMap['min-xenial-x64']
+
+modeMap = [:]
+modeMap['docker']            = 'Node.Mode.NORMAL'
+modeMap['docker-32gb']       = modeMap['docker']
+modeMap['docker2']           = modeMap['docker']
+modeMap['micro-amazon']      = modeMap['docker']
+modeMap['min-artful-x64']    = 'Node.Mode.EXCLUSIVE'
+modeMap['min-bionic-x64']    = modeMap['min-artful-x64']
+modeMap['min-trusty-x64']    = modeMap['min-artful-x64']
+modeMap['min-xenial-x64']    = modeMap['min-artful-x64']
+modeMap['min-centos-6-x32']  = modeMap['min-artful-x64']
+modeMap['min-centos-6-x64']  = modeMap['min-artful-x64']
+modeMap['min-centos-7-x64']  = modeMap['min-artful-x64']
+modeMap['fips-centos-7-x64'] = modeMap['min-artful-x64']
+modeMap['min-jessie-x64']    = modeMap['min-artful-x64']
+modeMap['min-stretch-x64']   = modeMap['min-artful-x64']
+modeMap['min-buster-x64']    = modeMap['min-artful-x64']
 
 initMap = [:]
 initMap['docker'] = '''
@@ -324,7 +353,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type
         ( typeMap[OSType].startsWith("c4") || typeMap[OSType].startsWith("m4") || typeMap[OSType].startsWith("c5") || typeMap[OSType].startsWith("m5") ), // boolean ebsOptimized
         OSType + ' ' + labelMap[OSType],            // String labelString
-        Node.Mode.NORMAL,                            // Node.Mode mode
+        Node.Mode.NORMAL,                           // Node.Mode mode
         OSType,                                     // String description
         initMap[OSType],                            // String initScript
         '',                                         // String tmpDir
@@ -340,6 +369,8 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
             new EC2Tag('iit-billing-tag', 'jenkins-ps80-worker')
         ],                                          // List<EC2Tag> tags
         '3',                                        // String idleTerminationMinutes
+        0,                                          // Init minimumNumberOfInstances
+        0,                                          // minimumNumberOfSpareInstances
         capMap[typeMap[OSType]],                    // String instanceCapStr
         'arn:aws:iam::119175775298:instance-profile/jenkins-ps80-worker', // String iamInstanceProfile
         true,                                       // boolean deleteRootOnTermination
@@ -353,6 +384,8 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         false,                                      // boolean t2Unlimited
         ConnectionStrategy.PUBLIC_DNS,              // connectionStrategy
         -1,                                         // int maxTotalUses
+        null,
+        HostKeyVerificationStrategyEnum.OFF,
     )
 }
 
