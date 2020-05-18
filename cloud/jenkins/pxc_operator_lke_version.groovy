@@ -238,6 +238,9 @@ pipeline {
                 VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
                 CLUSTER_NAME = sh(script: "echo jenkins-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
             }
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             parallel {
                 stage('E2E Basic Tests') {
                     steps {
