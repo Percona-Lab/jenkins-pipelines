@@ -49,7 +49,7 @@ pipeline {
             steps{
                 script {
                     moleculeParallelTest(pdmdbOperatingSystems(), moleculeDir)
-      }
+                }
     }
   }
   }
