@@ -40,24 +40,24 @@ pipeline {
         }
         stage ('Prepare') {
           steps {
-            script {
-            installMolecule()
-            }
-          }
+                script {
+                   installMolecule()
+             }
+           }
         }
         stage('Test') {
-            steps{
+            steps {
                 script {
                     moleculeParallelTest(pdmdbOperatingSystems(), moleculeDir)
                 }
-    }
-  }
+            }
+         }
   }
     post {
     always {
       script {
-       moleculeParallelPostDestroy(pdmdbOperatingSystems(), moleculeDir)
+          moleculeParallelPostDestroy(pdmdbOperatingSystems(), moleculeDir)
+         }
       }
-    }
-  }
+   }
 }

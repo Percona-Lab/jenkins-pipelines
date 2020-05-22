@@ -46,53 +46,53 @@ pipeline {
             }
         }
     stage('Checkout') {
-        steps {
+      steps {
             deleteDir()
             git poll: false, branch: 'master', url: 'https://github.com/Percona-QA/package-testing.git'
         }
     }
     stage ('Prepare') {
       steps {
-            script {
-            installMolecule()
+          script {
+              installMolecule()
             }
-      }
+        }
     }
     stage ('Create virtual machines') {
       steps {
           script{
-          moleculeExecuteActionWithScenario(moleculeDir, "create", env.PLATFORM)
+              moleculeExecuteActionWithScenario(moleculeDir, "create", env.PLATFORM)
+            }
         }
-      }
     }
     stage ('Run playbook for test') {
       steps {
           script{
-          moleculeExecuteActionWithScenario(moleculeDir, "converge", env.PLATFORM)
+              moleculeExecuteActionWithScenario(moleculeDir, "converge", env.PLATFORM)
+            }
         }
-      }
     }
     stage ('Start testinfra tests') {
       steps {
             script{
-                moleculeExecuteActionWithScenario(moleculeDir, "verify", env.PLATFORM)
+              moleculeExecuteActionWithScenario(moleculeDir, "verify", env.PLATFORM)
             }
             junit "molecule/pdmdb/molecule/${PLATFORM}/report.xml"
-      }
+        }
     }
       stage ('Start Cleanup ') {
       steps {
-          script{
-          moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.PLATFORM)
+          script {
+              moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.PLATFORM)
+            }
         }
-      }
     }
-   }
+  }
   post {
     always {
-        script {
-           moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.PLATFORM)
-     }
+          script {
+             moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.PLATFORM)
+        }
     }
   }
 }
