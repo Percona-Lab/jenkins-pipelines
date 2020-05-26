@@ -120,12 +120,7 @@ pipeline {
                         export DOCKER_MID="$TOP_VER.$MID_VER"
                         declare -A repo=(
                             ["percona-dashboards"]="percona/grafana-dashboards"
-                            ["pmm"]="percona/pmm"
-                            ["pmm-admin"]="percona/pmm-admin"
-                            ["pmm-agent"]="percona/pmm-agent"
                             ["pmm-server"]="percona/pmm-server"
-                            ["pmm-server-packaging"]="percona/pmm-server-packaging"
-                            ["percona-qan-app"]="percona/qan-app"
                             ["percona-qan-api2"]="percona/qan-api2"
                             ["pmm-update"]="percona/pmm-update"
                             ["pmm-managed"]="percona/pmm-managed"
