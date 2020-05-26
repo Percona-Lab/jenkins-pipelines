@@ -196,17 +196,17 @@ pipeline {
         }
         stage('Create AWS Infrastructure') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
                      sh """
                          mkdir openshift
                          cp $OPENSHIFT_CONF_FILE ./openshift/install-config.yaml
                      """
-                     sshagent(['aws-openshift-41-key']) {
+                    sshagent(['aws-openshift-41-key']) {
                          sh """
                              /usr/local/bin/openshift-install create cluster --dir=./openshift/
                          """
                     }
-               }
+                }
 
             }
         }
