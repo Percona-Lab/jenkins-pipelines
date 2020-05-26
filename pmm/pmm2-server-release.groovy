@@ -111,56 +111,53 @@ pipeline {
         stage('Set Tags') {
             steps {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                    sshagent(['jenkins-github']) {
-                        unstash 'copy'
-                        sh """
-                            echo ${GITHUB_API_TOKEN} > GITHUB_API_TOKEN
-                            echo ${VERSION} > VERSION
-                        """
-                        sh '''
-                            export GPG_AGENT_INFO=${HOME}/.gnupg/S.gpg-agent
-                            export VERSION=$(cat VERSION)
-                            export TOP_VER=$(cat VERSION | cut -d. -f1)
-                            export MID_VER=$(cat VERSION | cut -d. -f2)
-                            export DOCKER_MID="$TOP_VER.$MID_VER"
-                            declare -A repo=(
-                                ["percona-dashboards"]="percona/grafana-dashboards"
-                                ["pmm"]="percona/pmm"
-                                ["pmm-admin"]="percona/pmm-admin"
-                                ["pmm-agent"]="percona/pmm-agent"
-                                ["pmm-server"]="percona/pmm-server"
-                                ["pmm-server-packaging"]="percona/pmm-server-packaging"
-                                ["percona-qan-app"]="percona/qan-app"
-                                ["percona-qan-api2"]="percona/qan-api2"
-                                ["pmm-update"]="percona/pmm-update"
-                                ["pmm-managed"]="percona/pmm-managed"
+                    unstash 'copy'
+                    sh """
+                        echo ${GITHUB_API_TOKEN} > GITHUB_API_TOKEN
+                        echo ${VERSION} > VERSION
+                    """
+                    sh '''
+                        export VERSION=$(cat VERSION)
+                        export TOP_VER=$(cat VERSION | cut -d. -f1)
+                        export MID_VER=$(cat VERSION | cut -d. -f2)
+                        export DOCKER_MID="$TOP_VER.$MID_VER"
+                        declare -A repo=(
+                            ["percona-dashboards"]="percona/grafana-dashboards"
+                            ["pmm"]="percona/pmm"
+                            ["pmm-admin"]="percona/pmm-admin"
+                            ["pmm-agent"]="percona/pmm-agent"
+                            ["pmm-server"]="percona/pmm-server"
+                            ["pmm-server-packaging"]="percona/pmm-server-packaging"
+                            ["percona-qan-app"]="percona/qan-app"
+                            ["percona-qan-api2"]="percona/qan-api2"
+                            ["pmm-update"]="percona/pmm-update"
+                            ["pmm-managed"]="percona/pmm-managed"
+                        )
+
+                        for package in "${!repo[@]}"; do
+                            SHA=$(
+                                grep "^$package-$VERSION-" copy.list \
+                                    | perl -p -e 's/.*[.]\\d{10}[.]([0-9a-f]{7})[.]el7.*/$1/'
                             )
+                            if [[ -n "$package" ]] && [[ -n "$SHA" ]]; then
+                                rm -fr $package
+                                mkdir $package
+                                pushd $package >/dev/null
+                                    git clone --recursive git@github.com:${repo["$package"]} ./
+                                    git checkout $SHA
+                                    git update submodules
+                                    git tag -s v$VERSION \
+                                            -m "Version $VERSION"
+                                    git push --tags
 
-                            for package in "${!repo[@]}"; do
-                                SHA=$(
-                                    grep "^$package-$VERSION-" copy.list \
-                                        | perl -p -e 's/.*[.]\\d{10}[.]([0-9a-f]{7})[.]el7.*/$1/'
-                                )
-                                if [[ -n "$package" ]] && [[ -n "$SHA" ]]; then
-                                    rm -fr $package
-                                    mkdir $package
-                                    pushd $package >/dev/null
-                                        git clone --recursive git@github.com:${repo["$package"]} ./
-                                        git checkout $SHA
-                                        git update submodules
-                                        git tag -s v$VERSION \
-                                                -m "Version $VERSION"
-                                        git push --tags
+                                    FULL_SHA=$(git rev-parse HEAD)
 
-                                        FULL_SHA=$(git rev-parse HEAD)
-
-                                        echo "$FULL_SHA"
-                                        echo "$VERSION"
-                                    popd >/dev/null
-                                fi
-                            done
-                        '''
-                    }
+                                    echo "$FULL_SHA"
+                                    echo "$VERSION"
+                                popd >/dev/null
+                            fi
+                        done
+                    '''
                 }
                 stash includes: 'VERSION', name: 'version_file'
             }
