@@ -131,7 +131,6 @@ pipeline {
                                 ["percona-qan-api2"]="percona/qan-api2"
                                 ["pmm-update"]="percona/pmm-update"
                                 ["pmm-managed"]="percona/pmm-managed"
-                                ["pmm-qa"]="percona/pmm-qa"
                             )
 
                             for package in "${!repo[@]}"; do
