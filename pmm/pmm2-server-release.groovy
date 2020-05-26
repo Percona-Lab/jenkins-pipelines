@@ -35,9 +35,6 @@ pipeline {
             defaultValue: '2.0.0',
             description: 'PMM2 Server version',
             name: 'VERSION')
-        string(
-            description: 'Password for PGP key',
-            name: 'PGP_KEY_PASS')
     }
     stages {
         stage('Get Docker RPMs') {
@@ -143,13 +140,8 @@ pipeline {
                                 rm -fr $package
                                 mkdir $package
                                 pushd $package >/dev/null
-                                    git clone --recursive git@github.com:${repo["$package"]} ./
+                                    git clone https://github.com/${repo["$package"]} ./
                                     git checkout $SHA
-                                    git update submodules
-                                    git tag -s v$VERSION \
-                                            -m "Version $VERSION"
-                                    git push --tags
-
                                     FULL_SHA=$(git rev-parse HEAD)
 
                                     echo "$FULL_SHA"
