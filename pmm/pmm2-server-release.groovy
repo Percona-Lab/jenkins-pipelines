@@ -114,7 +114,7 @@ pipeline {
                      """"
                      sh """
                          echo "/usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh
-                         chmod 755 github-ssh.sh
+                         chimod 755 github-ssh.sh
                          git config --global user.email "dev-services@percona.com"
                          git config --global user.name "PMM Jenkins"
 
