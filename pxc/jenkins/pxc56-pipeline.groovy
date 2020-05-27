@@ -112,7 +112,7 @@ pipeline {
                             sudo git reset --hard
                             sudo git clean -xdf
                             sudo rm -rf sources
-                            ./pxc/local/checkout PXB24
+                            ./pxc/local/checkout56 PXB24
                         '''
                         echo 'Build PXB24'
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -147,7 +147,7 @@ pipeline {
                             sudo git reset --hard
                             sudo git clean -xdf
                             sudo rm -rf sources
-                            ./pxc/local/checkout GALERA3
+                            ./pxc/local/checkout56 GALERA3
                         '''
                         echo 'Build GALERA3'
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -187,7 +187,7 @@ pipeline {
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf sources
-                        ./pxc/local/checkout PXC56
+                        ./pxc/local/checkout56 PXC56
                     '''
 
                     echo 'Build PXC56'

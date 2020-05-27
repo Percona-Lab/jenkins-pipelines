@@ -5,14 +5,10 @@
 #      BRANCH
 #      PXC_GALERA_REPO
 #      PXC_GALERA_BRANCH
-#      PXC56_GALERA_REPO
-#      PXC56_GALERA_BRANCH
 #      PXB80_REPO
 #      PXB80_BRANCH
 #      PXB24_REPO
 #      PXB24_BRANCH
-#      GALERA3_REPO
-#      GALERA3_BRANCH
 #      WSREP_LIB_REPO
 #      WSREP_LIB_BRANCH
 
@@ -100,40 +96,6 @@ if [ "$SOURCE_NAME" == 'PXC80' -o "$SOURCE_NAME" == 'ALL' ]; then
     popd
 fi
 
-# ==================== PXC56 ====================
-
-if [ "$SOURCE_NAME" == 'PXC56' -o "$SOURCE_NAME" == 'ALL' ]; then
-    PXC_ROOT_DIR="${ROOT_DIR}/pxc"
-
-    sudo rm -rf ${PXC_ROOT_DIR}
-
-    git clone "${GIT_REPO:-https://github.com/percona/percona-xtradb-cluster}" "${PXC_ROOT_DIR}"
-
-    pushd $PXC_ROOT_DIR
-        if [ -n "${GIT_REPO}" ]; then
-            git remote set-url origin "${GIT_REPO}"
-            git fetch --all
-        fi
-         
-        git reset --hard
-        git clean -xdf
-
-        mkdir ./target
-
-        if [ -n "${BRANCH}" ]; then
-            git checkout "${BRANCH}"
-        fi
-        if [ -n "${GIT_REPO}" -a -n "${BRANCH}" ]; then
-            git pull origin ${BRANCH}
-        fi
-		
-		git submodule deinit -f --all . || true
-		git submodule init wsrep/src || true
-		git submodule update wsrep/src || true
-
-    popd
-fi
-
 
 # ==================== PXB80 ====================
 
@@ -185,34 +147,6 @@ if [ "$SOURCE_NAME" == 'PXB24' -o "$SOURCE_NAME" == 'ALL' ]; then
         fi
         if [ -n "${PXB24_REPO}" -a -n "${PXB24_BRANCH}" ]; then
             git pull origin ${PXB24_BRANCH}
-        fi
-    popd
-fi
-
-
-# ==================== GALERA3 ====================
-
-if [ "$SOURCE_NAME" == 'GALERA3' -o "$SOURCE_NAME" == 'ALL' ]; then
-    GALERA3_ROOT_DIR="${ROOT_DIR}/galera3"
- 
-    sudo rm -rf ${GALERA3_ROOT_DIR}
-
-    git clone "${GALERA_REPO:-https://github.com/percona/galera}" "${GALERA3_ROOT_DIR}"
-
-    pushd $GALERA3_ROOT_DIR
-        if [ -n "${GALERA3_REPO}" ]; then
-            git remote set-url origin "${GALERA3}"
-            git fetch --all
-        fi
-
-        git reset --hard
-        git clean -xdf
-
-        if [ -n "${GALERA3_BRANCH}" ]; then
-            git checkout "${GALERA3_BRANCH}" -b "tag-${GALERA3_BRANCH}"
-        fi
-        if [ -n "${GALERA3_REPO}" -a -n "${GALERA3_BRANCH}" ]; then
-            git pull origin ${GALERA3_BRANCH}
         fi
     popd
 fi
