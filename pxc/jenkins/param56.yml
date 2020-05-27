@@ -37,7 +37,7 @@
         description: URL to GALERA3 repository
     - string:
         name: GALERA3_BRANCH
-        default: 3.x
+        default: pxc_5.6.47-28.40
         description: Tag/Branch for GALERA repository
     - choice:
         name: JOB_CMAKE

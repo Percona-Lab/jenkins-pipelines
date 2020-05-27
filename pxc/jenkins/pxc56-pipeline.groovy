@@ -28,7 +28,7 @@ pipeline {
 	        name: 'GALERA3_REPO',
 	        trim: true)
 	    string(
-	        defaultValue: '3.x',
+	        defaultValue: 'pxc_5.6.47-28.40',
 	        description: 'Tag/Branch for GALERA3 repository',
 	        name: 'GALERA3_BRANCH',
 	        trim: true)
