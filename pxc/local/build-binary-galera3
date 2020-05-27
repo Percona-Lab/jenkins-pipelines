@@ -28,7 +28,7 @@ WORKDIR=$(cd ${1:-./build}; pwd -P)
 INSTALL_DIR=${WORKDIR}/DESTDIR
 DOWNLOAD_DIR=${WORKDIR}/source_downloads
 mkdir -p ${INSTALL_DIR} ${DOWNLOAD_DIR}
-SOURCEDIR=$(cd ${2:-$(dirname $0)/../sources/galera3; pwd -P)
+SOURCEDIR=$(cd ${2:-$(dirname $0)/../sources/galera3}; pwd -P)
 
 
 # ------------------------------------------------------------------------------
@@ -55,7 +55,6 @@ fi
 # ------------------------------------------------------------------------------
 
 pushd ${WORKDIR}
-    bash -x ./scripts/build.sh -s -c -o -j 4
-	cp garbd/garbd .
+    scons
 popd
 
