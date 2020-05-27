@@ -107,5 +107,7 @@ if [ "$SOURCE_NAME" == 'GALERA3' -o "$SOURCE_NAME" == 'ALL' ]; then
         if [ -n "${GALERA3_REPO}" -a -n "${GALERA3_BRANCH}" ]; then
             git pull origin ${GALERA3_BRANCH}
         fi
+        git submodule init
+        git submodule update
     popd
 fi
