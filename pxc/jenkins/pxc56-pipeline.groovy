@@ -99,43 +99,8 @@ pipeline {
                 '''
             }
         }
-        stage('Check out and Build PXB') {
+        stage('Check out and Build Galera/PXB') {
             parallel {
-                stage('Build PXB24') {
-                    agent { label 'docker' }
-                    steps {
-                        git branch: 'PXC-3285-add-pipeline-jobs', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                        echo 'Checkout PXB24 sources'
-                        sh '''
-                            # sudo is needed for better node recovery after compilation failure
-                            # if building failed on compilation stage directory will have files owned by docker user
-                            sudo git reset --hard
-                            sudo git clean -xdf
-                            sudo rm -rf sources
-                            ./pxc/local/checkout56 PXB24
-                        '''
-                        echo 'Build PXB24'
-                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            sh '''
-                                sg docker -c "
-                                    if [ \$(docker ps -q | wc -l) -ne 0 ]; then
-                                        docker ps -q | xargs docker stop --time 1 || :
-                                    fi
-                                    ./pxc/docker/run-build-pxb24 ${DOCKER_OS}
-                                " 2>&1 | tee build.log
-                             
-                                if [[ -f \$(ls pxc/sources/pxb24/results/*.tar.gz | head -1) ]]; then
-                                    until aws s3 cp --no-progress --acl public-read pxc/sources/pxb24/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxb24.tar.gz; do
-                                        sleep 5
-                                    done
-                                else
-                                    echo cannot find compiled archive
-                                    exit 1
-                                fi
-                            '''
-                        }
-                    }
-                }
                 stage('Build Galera library') {
                     agent { label 'docker' }
                     steps {
@@ -164,6 +129,41 @@ pipeline {
                                         sleep 5
                                     done
                                     until aws s3 cp --no-progress --acl public-read pxc/sources/galera3/results/garbd s3://pxc-build-cache/${BUILD_TAG}/garbd; do
+                                        sleep 5
+                                    done
+                                else
+                                    echo cannot find compiled archive
+                                    exit 1
+                                fi
+                            '''
+                        }
+                    }
+                }
+                stage('Build PXB24') {
+                    agent { label 'docker' }
+                    steps {
+                        git branch: 'PXC-3285-add-pipeline-jobs', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        echo 'Checkout PXB24 sources'
+                        sh '''
+                            # sudo is needed for better node recovery after compilation failure
+                            # if building failed on compilation stage directory will have files owned by docker user
+                            sudo git reset --hard
+                            sudo git clean -xdf
+                            sudo rm -rf sources
+                            ./pxc/local/checkout56 PXB24
+                        '''
+                        echo 'Build PXB24'
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''
+                                sg docker -c "
+                                    if [ \$(docker ps -q | wc -l) -ne 0 ]; then
+                                        docker ps -q | xargs docker stop --time 1 || :
+                                    fi
+                                    ./pxc/docker/run-build-pxb24 ${DOCKER_OS}
+                                " 2>&1 | tee build.log
+                             
+                                if [[ -f \$(ls pxc/sources/pxb24/results/*.tar.gz | head -1) ]]; then
+                                    until aws s3 cp --no-progress --acl public-read pxc/sources/pxb24/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxb24.tar.gz; do
                                         sleep 5
                                     done
                                 else

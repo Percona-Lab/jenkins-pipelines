@@ -93,7 +93,8 @@ if [ "$SOURCE_NAME" == 'GALERA3' -o "$SOURCE_NAME" == 'ALL' ]; then
 
     pushd $GALERA3_ROOT_DIR
         if [ -n "${GALERA3_REPO}" ]; then
-            git remote set-url origin "${GALERA3}"
+			ls 
+            git remote set-url origin "${GALERA3_REPO}"
             git fetch --all
         fi
 
