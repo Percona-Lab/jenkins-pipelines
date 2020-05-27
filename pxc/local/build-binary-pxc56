@@ -41,12 +41,12 @@ mv $SOURCEDIR/target/$(ls $SOURCEDIR/target | grep percona-xtrabackup-2) $SOURCE
 echo '..................'
 ls -la $GALERA3_WORKDIR
 echo '..................'
-ls -la $SOURCEDIR
+ls -la $SOURCEDIR/target
 echo '********************'
 whoami
 
-mv $GALERA3_WORKDIR/libgalera_smm.so $SOURCEDIR/target/libgalera_smm.so
-mv $GALERA3_WORKDIR/garbd $SOURCEDIR/target/garbd
+sudo mv $GALERA3_WORKDIR/libgalera_smm.so $SOURCEDIR/target/libgalera_smm.so
+sudo mv $GALERA3_WORKDIR/garbd $SOURCEDIR/target/garbd
 
 # ------------------------------------------------------------------------------
 # download external libs
