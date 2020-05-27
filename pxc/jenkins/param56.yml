@@ -66,7 +66,7 @@
         description: Run mysql-test-run.pl --suite tokudb_backup
     - string:
         name: MTR_ARGS
-        default: --unit-tests-report --suite=galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars
+        default: --unit-tests-report --suite=galera,galera_3nodes,sys_vars
         description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
     - string:
         name: MTR_REPEAT
@@ -83,13 +83,12 @@
          type: user-defined
          name: DOCKER_OS
          values:
+          - centos:6
           - centos:7
-          - centos:8
           - ubuntu:xenial
           - ubuntu:bionic
-          - ubuntu:focal
+          - debian:jessie
           - debian:stretch
-          - debian:buster
     builders:
     - trigger-builds:
       - project: pxc-5.6-pipeline

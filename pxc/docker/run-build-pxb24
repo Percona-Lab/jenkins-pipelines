@@ -34,5 +34,5 @@ docker run --rm \
     sudo rm -rf /tmp/pxb24/results
     sudo mkdir /tmp/pxb24/results
     sudo mv /tmp/results/*.tar.gz /tmp/pxb24/results/
-    sudo chown -R $(id -u):$(id -g) /tmp/pxb24/results /tmp/pxb80/storage/innobase/xtrabackup/src /tmp/pxb80/mysql-test
+    sudo chown -R $(id -u):$(id -g) /tmp/pxb24/results /tmp/pxb24/storage/innobase/xtrabackup/src /tmp/pxb24/mysql-test
 "
