@@ -31,7 +31,7 @@ SOURCEDIR=$(cd ${2:-$(dirname $0)/../sources/pxc}; pwd -P)
 
 # extract pxb-2.4 and galera binaries
 PXB24_WORKDIR=$(cd ${2:-./build/pxb24}; pwd -P)
-GALERA3_WORKDIR=$(cd ${2:-./build/galera3; pwd -P)
+GALERA3_WORKDIR=$(cd ${2:-./build/galera3}; pwd -P)
 
 PXB24_TAR=$(ls $PXB24_WORKDIR/{percona-xtrabackup-2.*.tar.gz,pxb24.tar.gz}  | awk -F'/' '{print $NF}')
 
