@@ -239,7 +239,7 @@ pipeline {
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                     docker ps -q | xargs docker stop --time 1 || :
                                 fi
-                                ./pxc/docker/run-test ${DOCKER_OS}
+                                ./pxc/docker/run-test56 ${DOCKER_OS}
                             "
                         '''
                     }

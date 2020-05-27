@@ -1,0 +1,111 @@
+#!/bin/bash
+#
+# Execute this tool to test binary releases
+#
+#  possible jenkins vars:
+#      CMAKE_BUILD_TYPE = (RelWithDebInfo Debug)
+#      DEFAULT_TESTING = (yes no)
+#      MTR_ARGS
+#      MTR_REPEAT
+
+set -o errexit
+set -o xtrace
+
+WORKDIR_ABS=$(cd ${1:-./build/pxc}; pwd -P)
+rm -fr ${WORKDIR_ABS}/PXC
+mkdir -p ${WORKDIR_ABS}/PXC/sql
+tar -C ${WORKDIR_ABS}/PXC --strip-components=1 -zxpf $(ls $WORKDIR_ABS/*.tar.gz | head -1)
+
+export WSREP_PROVIDER=${WORKDIR_ABS}/PXC/lib/libgalera_smm.so
+cd ${WORKDIR_ABS}/PXC/mysql-test
+TESTCASE_TIMEOUT=30
+PARALLEL=$(grep -c ^processor /proc/cpuinfo)
+# CentOS 6 & 7
+if [[ -f /opt/rh/devtoolset-7/enable ]]; then
+    source /opt/rh/devtoolset-7/enable
+fi
+
+JEMALLOC=$(find /lib* /usr/lib* /usr/local/lib* -type f -name 'libjemalloc.so*' | head -n1)
+EATMYDATA=$(find /lib* /usr/lib* /usr/local/lib* -type f -name '*eatmyda*.so*' | head -n1)
+
+if [[ -z "${EATMYDATA}" ]]; then
+  echo "No libeatmydata.so lib found"
+  exit 1
+fi
+
+if [[ -z "${JEMALLOC}" ]]; then
+  echo "No jemalloc lib found"
+  exit 1
+fi
+MTR_ARGS+="  --big-test "
+
+function process_mtr_output {
+# parameters are:
+  local TESTSUITE=${1}
+  local INFILE=${2}
+  local OUTFILE=${3}
+
+  export LC_ALL=C
+  egrep -a -o '[[:alpha:]]+(_[[:alnum:]]+)?(\.\/)?.*\[ .* \].*$' ${INFILE} \
+    | awk '{ if ($3 == "disabled" || $3 == "skipped") { print $1 " " $3 } else { print $1 " " $4 " " $6 } }' \
+    | sort \
+    | awk 'prev && ($1 != prev) {print seen[prev]} {seen[$1] = $0; prev = $1} END {print seen[$1]}' \
+    | gawk 'BEGIN     { print "<testsuite name=\"@@TESTSUITE@@\" tests=\"@@PASSED@@\" failures=\"@@FAILURES@@\" disabled=\"@@DISABLED@@\" skipped=\"@@SKIPPED@@\">" }
+      $2 ~ /pass/     { printf "\t<testcase name=\"%s\" time=\"%.3f\"></testcase>\n", $1, $NF/1000.0 }
+      $2 ~ /disabled/ { printf "\t<testcase name=\"%s\"><skipped/></testcase>\n", $1 }
+      $2 ~ /sipped/   { printf "\t<testcase name=\"%s\"><skipped/></testcase>\n", $1 }
+      $2 ~ /fail/     { printf "\t<testcase name=\"%s\"><failure/></testcase>\n", $1 }
+      END { print "</testsuite>" }'  > ${OUTFILE}.tmp
+
+  gawk '!seen[$0]++' < ${OUTFILE}.tmp > ${OUTFILE}
+  rm -f ${OUTFILE}.tmp
+#
+  PASSED=$(grep -c 'time=' ${OUTFILE} ||:)
+  FAILURES=$(grep -c '<failure/>' ${OUTFILE} ||:)
+  DISABLED=$(grep -c '\[ disabled \]' ${INFILE} ||:)
+  SKIPPED=$(grep -c '\[ skipped \]' ${INFILE} ||:)
+#
+  sed -i.bak -e "s:@@TESTSUITE@@:${TESTSUITE}:g" ${OUTFILE}
+  sed -i.bak -e "s:@@PASSED@@:${PASSED}:g" ${OUTFILE}
+  sed -i.bak -e "s:@@FAILURES@@:${FAILURES}:g" ${OUTFILE}
+  sed -i.bak -e "s:@@DISABLED@@:${DISABLED}:g" ${OUTFILE}
+  sed -i.bak -e "s:@@SKIPPED@@:${SKIPPED}:g" ${OUTFILE}
+  sed -i.bak -e "s: \[::g" ${OUTFILE}
+}
+
+if [[ -n "${MTR_REPEAT}" ]]; then
+  MTR_ARGS+=" --repeat=${MTR_REPEAT}"
+fi
+
+if [[ "${MTR_ARGS}" == *"--suite=max_parts"* ]]; then
+    TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 3))
+fi
+
+if [[ $MTR_ARGS == *"--big-test"* ]] || [[ $MTR_ARGS == *"--only-big-test"* ]]; then
+    TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 2))
+fi
+
+status=0
+#
+# Running MTR test cases
+if [[ "${DEFAULT_TESTING}" != "no" ]]; then
+
+    if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
+        MYSQLD_ENV="${ADD_TO_LD_PRELOAD:-}${EATMYDATA}"
+    else
+        MYSQLD_ENV="${ADD_TO_LD_PRELOAD:-}${JEMALLOC}:${EATMYDATA}"
+    fi
+
+  MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
+        --parallel=${PARALLEL} \
+        --result-file \
+        ${MTR_ARGS} \
+        --force \
+        --max-test-fail=0 \
+        --suite-timeout=9999 \
+        --testcase-timeout=${TESTCASE_TIMEOUT} \
+        | tee ${WORKDIR_ABS}/mtr.output || status=$?
+    process_mtr_output PXC "${WORKDIR_ABS}/mtr.output" "${WORKDIR_ABS}/junit.xml"
+fi
+
+exit $status

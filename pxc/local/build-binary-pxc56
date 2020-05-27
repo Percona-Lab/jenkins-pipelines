@@ -38,6 +38,13 @@ PXB24_TAR=$(ls $PXB24_WORKDIR/{percona-xtrabackup-2.*.tar.gz,pxb24.tar.gz}  | aw
 tar -xzf $PXB24_WORKDIR/$PXB24_TAR --exclude='man' --exclude='*-test' -C $SOURCEDIR/target
 
 mv $SOURCEDIR/target/$(ls $SOURCEDIR/target | grep percona-xtrabackup-2) $SOURCEDIR/target/pxb-2.4
+echo '..................'
+ls -la $GALERA3_WORKDIR
+echo '..................'
+ls -la $SOURCEDIR
+echo '********************'
+whoami
+
 mv $GALERA3_WORKDIR/libgalera_smm.so $SOURCEDIR/target/libgalera_smm.so
 mv $GALERA3_WORKDIR/garbd $SOURCEDIR/target/garbd
 
