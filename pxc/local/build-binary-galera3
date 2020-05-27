@@ -54,7 +54,7 @@ fi
 # Finaly, compile!
 # ------------------------------------------------------------------------------
 
-pushd ${WORKDIR}
+pushd ${SOURCEDIR}
     scons
 popd
 
