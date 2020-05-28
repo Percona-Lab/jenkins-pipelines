@@ -57,7 +57,7 @@ fi
 # ==================== PXB23 ====================
 
 if [ "$SOURCE_NAME" == 'PXB23' -o "$SOURCE_NAME" == 'ALL' ]; then
-    PXB24_ROOT_DIR="${ROOT_DIR}/pxb24"
+    PXB23_ROOT_DIR="${ROOT_DIR}/pxb23"
  
     sudo rm -rf ${PXB23_ROOT_DIR}
 
