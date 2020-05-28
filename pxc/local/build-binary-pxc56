@@ -177,12 +177,11 @@ pushd ${WORKDIR}
     make DESTDIR=${INSTALL_DIR} install > make_install.log
 popd
 
-ls -la /tmp/results/runtime_output_directory/
 
 # Copy all needed data for unit tests
-if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
-   cp -v /tmp/results/runtime_output_directory/mysqld-debug $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/mysqld
-fi
+#if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
+#   cp -v /tmp/results/runtime_output_directory/mysqld-debug $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/mysqld
+#fi
 
 cp -r ${SOURCEDIR}/percona-xtradb-cluster-tests $INSTALL_DIR/usr/local/$PRODUCT_FULL/
 
