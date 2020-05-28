@@ -46,16 +46,16 @@ wget_loop() {
     fi
 }
 
-BOOST_VERSION=$(grep 'SET(BOOST_PACKAGE_NAME' ${SOURCEDIR}/cmake/boost.cmake | sed -re 's/.*([0-9]+_[0-9]+_[0-9]+).*/\1/')
-wget_loop "boost_${BOOST_VERSION}.tar.gz" "http://downloads.sourceforge.net/boost/boost/${BOOST_VERSION//_/.}/boost_${BOOST_VERSION}.tar.gz"
-
-if [ -f "${SOURCEDIR}/cmake/googletest.cmake" ]; then
-    GMOCK_VERSION=$(grep 'SET(GMOCK_PACKAGE_NAME' ${SOURCEDIR}/cmake/googletest.cmake | sed -re 's/.*([0-9]+[.][0-9]+[.][0-9]+).*/\1/')
-else
-    GMOCK_VERSION=$(grep 'SET(GMOCK_PACKAGE_NAME' ${SOURCEDIR}/unittest/gunit/CMakeLists.txt | sed -re 's/.*([0-9]+[.][0-9]+[.][0-9]+).*/\1/')
-fi
-
-wget_loop "googletest-release-${GMOCK_VERSION}.zip" "https://github.com/google/googletest/archive/release-${GMOCK_VERSION}.zip"
+#BOOST_VERSION=$(grep 'SET(BOOST_PACKAGE_NAME' ${SOURCEDIR}/cmake/boost.cmake | sed -re 's/.*([0-9]+_[0-9]+_[0-9]+).*/\1/')
+#wget_loop "boost_${BOOST_VERSION}.tar.gz" "http://downloads.sourceforge.net/boost/boost/${BOOST_VERSION//_/.}/boost_${BOOST_VERSION}.tar.gz"
+#
+#if [ -f "${SOURCEDIR}/cmake/googletest.cmake" ]; then
+#    GMOCK_VERSION=$(grep 'SET(GMOCK_PACKAGE_NAME' ${SOURCEDIR}/cmake/googletest.cmake | sed -re 's/.*([0-9]+[.][0-9]+[.][0-9]+).*/\1/')
+#else
+#    GMOCK_VERSION=$(grep 'SET(GMOCK_PACKAGE_NAME' ${SOURCEDIR}/unittest/gunit/CMakeLists.txt | sed -re 's/.*([0-9]+[.][0-9]+[.][0-9]+).*/\1/')
+#fi
+#
+#wget_loop "googletest-release-${GMOCK_VERSION}.zip" "https://github.com/google/googletest/archive/release-${GMOCK_VERSION}.zip"
 
 
 # ------------------------------------------------------------------------------
