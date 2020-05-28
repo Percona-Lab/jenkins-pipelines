@@ -28,16 +28,7 @@ if [[ -f /opt/rh/devtoolset-7/enable ]]; then
     source /opt/rh/devtoolset-7/enable
 fi
 
-echo ".........."
-echo $PATH
-echo ".........."
-
-export PATH=$PATH:${WORKDIR_ABS}/PXB/bin
-
-echo ".........."
-echo $PATH
-echo ".........."
-
+sudo cp ${WORKDIR_ABS}/PXB/bin/* /usr/bin/
 
 JEMALLOC=$(find /lib* /usr/lib* /usr/local/lib* -type f -name 'libjemalloc.so*' | head -n1)
 EATMYDATA=$(find /lib* /usr/lib* /usr/local/lib* -type f -name '*eatmyda*.so*' | head -n1)
