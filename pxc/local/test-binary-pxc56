@@ -14,23 +14,10 @@ set -o xtrace
 WORKDIR_ABS=$(cd ${1:-./build/pxc}; pwd -P)
 rm -fr ${WORKDIR_ABS}/PXC
 mkdir -p ${WORKDIR_ABS}/PXC/sql
-tar -C ${WORKDIR_ABS}/PXC --strip-components=1 -zxpf $(ls $WORKDIR_ABS/*.tar.gz | head -1)
-
-echo "List files from ${WORKDIR_ABS}"
-ls -la ${WORKDIR_ABS}/PXC
-
-echo "List files from PXC"
-ls -la ${WORKDIR_ABS}/PXC
-
-echo "List files from PXC/lib"
-ls -la ${WORKDIR_ABS}/PXC/lib
-
-echo "List files from PXC/mysql-test"
-ls -la ${WORKDIR_ABS}/PXC/mysql-test
-
-
-echo "List files from PXC/bin"
-ls -la ${WORKDIR_ABS}/PXC/bin
+rm -fr ${WORKDIR_ABS}/PXB
+mkdir -p ${WORKDIR_ABS}/PXB
+tar -C ${WORKDIR_ABS}/PXC --strip-components=1 -zxpf $(ls $WORKDIR_ABS/pxc56.tar.gz | head -1)
+tar -C ${WORKDIR_ABS}/PXB --strip-components=1 -zxpf $(ls $WORKDIR_ABS/pxb24.tar.gz | head -1)
 
 export WSREP_PROVIDER=${WORKDIR_ABS}/PXC/lib/libgalera_smm.so
 cd ${WORKDIR_ABS}/PXC/mysql-test
@@ -40,6 +27,17 @@ PARALLEL=$(grep -c ^processor /proc/cpuinfo)
 if [[ -f /opt/rh/devtoolset-7/enable ]]; then
     source /opt/rh/devtoolset-7/enable
 fi
+
+echo ".........."
+echo $PATH
+echo ".........."
+
+export PATH=$PATH:${WORKDIR_ABS}/PXB/bin
+
+echo ".........."
+echo $PATH
+echo ".........."
+
 
 JEMALLOC=$(find /lib* /usr/lib* /usr/local/lib* -type f -name 'libjemalloc.so*' | head -n1)
 EATMYDATA=$(find /lib* /usr/lib* /usr/local/lib* -type f -name '*eatmyda*.so*' | head -n1)
