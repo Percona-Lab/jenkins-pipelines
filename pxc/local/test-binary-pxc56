@@ -16,6 +16,22 @@ rm -fr ${WORKDIR_ABS}/PXC
 mkdir -p ${WORKDIR_ABS}/PXC/sql
 tar -C ${WORKDIR_ABS}/PXC --strip-components=1 -zxpf $(ls $WORKDIR_ABS/*.tar.gz | head -1)
 
+echo "List files from ${WORKDIR_ABS}"
+ls -la ${WORKDIR_ABS}/PXC
+
+echo "List files from PXC"
+ls -la ${WORKDIR_ABS}/PXC
+
+echo "List files from PXC/lib"
+ls -la ${WORKDIR_ABS}/PXC/lib
+
+echo "List files from PXC/mysql-test"
+ls -la ${WORKDIR_ABS}/PXC/mysql-test
+
+
+echo "List files from PXC/bin"
+ls -la ${WORKDIR_ABS}/PXC/bin
+
 export WSREP_PROVIDER=${WORKDIR_ABS}/PXC/lib/libgalera_smm.so
 cd ${WORKDIR_ABS}/PXC/mysql-test
 TESTCASE_TIMEOUT=30
