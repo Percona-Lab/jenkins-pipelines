@@ -30,7 +30,7 @@ pipeline {
         )
   }
   options {
-          withCredentials(operatingSystems)
+          withCredentials(moleculeDistributionJenkinsCreds())
           disableConcurrentBuilds()
   }
   stages {
