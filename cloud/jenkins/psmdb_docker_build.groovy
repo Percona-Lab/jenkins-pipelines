@@ -3,6 +3,7 @@ void build(String IMAGE_PREFIX){
         cd ./source/
         DOCKER_FILE_PREFIX=\$(echo ${IMAGE_PREFIX} | tr -d '.' | tr -d 'mongod')
         docker build --no-cache --squash -t perconalab/percona-server-mongodb-operator:master-${IMAGE_PREFIX} -f percona-server-mongodb.\$DOCKER_FILE_PREFIX/Dockerfile.k8s percona-server-mongodb.\$DOCKER_FILE_PREFIX
+        docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-server-mongodb-operator:master-${IMAGE_PREFIX}-debug -f percona-server-mongodb.\$DOCKER_FILE_PREFIX/Dockerfile.k8s percona-server-mongodb.\$DOCKER_FILE_PREFIX
     """
 }
 void checkImageForDocker(String IMAGE_PREFIX){
@@ -174,16 +175,22 @@ pipeline {
         stage('Push PSMDB images to Docker registry') {
             steps {
                 pushImageToDocker('mongod3.6')
+                pushImageToDocker('mongod3.6-debug')
                 pushImageToDocker('mongod4.0')
+                pushImageToDocker('mongod4.0-debug')
                 pushImageToDocker('mongod4.2')
+                pushImageToDocker('mongod4.2-debug')
             }
         }
 
         stage('Push PSMDB images to RHEL registry') {
             steps {
                 pushImageToRhel('mongod3.6')
+                pushImageToRhel('mongod3.6-debug')
                 pushImageToRhel('mongod4.0')
+                pushImageToRhel('mongod4.0-debug')
                 pushImageToRhel('mongod4.2')
+                pushImageToRhel('mongod4.2-debug')
                 pushImageToRhelOperator()
             }
         }
@@ -191,8 +198,11 @@ pipeline {
             steps {
                 checkImageForDocker('master')
                 checkImageForDocker('master-mongod3.6')
+                checkImageForDocker('master-mongod3.6-debug')
                 checkImageForDocker('master-mongod4.0')
+                checkImageForDocker('master-mongod4.0-debug')
                 checkImageForDocker('master-mongod4.2')
+                checkImageForDocker('master-mongod4.2-debug')
                 sh '''
                    CRITICAL=$(ls trivy-critical-*) || true
                    if [ -n "$CRITICAL" ]; then
