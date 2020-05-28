@@ -32,7 +32,7 @@ docker run --rm \
     rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/PXC/mysql-test/var /tmp/results/log
     sudo tar -C /tmp/results/log -czf "pxc56-test-mtr_logs.tar.gz" var
 
-    sudo mv ./pxc80-test-mtr_logs.tar.gz /tmp/pxc/results/
+    sudo mv ./pxc56-test-mtr_logs.tar.gz /tmp/pxc/results/
     sudo mv /tmp/results/*.xml /tmp/results/*.output  /tmp/pxc/results/
     sudo chown $(id -u):$(id -g) /tmp/pxc/results/*.xml /tmp/pxc/results/*.output
 "
