@@ -30,17 +30,23 @@ mkdir -p ${INSTALL_DIR} ${DOWNLOAD_DIR}
 SOURCEDIR=$(cd ${2:-$(dirname $0)/../sources/pxc}; pwd -P)
 
 # extract pxb-2.4 and galera binaries
-PXB24_WORKDIR=$(cd ${2:-./build/pxb24}; pwd -P)
+#PXB24_WORKDIR=$(cd ${2:-./build/pxb24}; pwd -P)
 GALERA3_WORKDIR=$(cd ${2:-./build/galera3}; pwd -P)
 
-PXB24_TAR=$(ls $PXB24_WORKDIR/{percona-xtrabackup-2.*.tar.gz,pxb24.tar.gz}  | awk -F'/' '{print $NF}')
+#PXB24_TAR=$(ls $PXB24_WORKDIR/{percona-xtrabackup-2.*.tar.gz,pxb24.tar.gz}  | awk -F'/' '{print $NF}')
 
-tar -xzf $PXB24_WORKDIR/$PXB24_TAR --exclude='man' --exclude='*-test' -C $SOURCEDIR/target
+#tar -xzf $PXB24_WORKDIR/$PXB24_TAR --exclude='man' --exclude='*-test' -C $SOURCEDIR/target
 
-mv $SOURCEDIR/target/$(ls $SOURCEDIR/target | grep percona-xtrabackup-2) $SOURCEDIR/target/pxb-2.4
+#mv $SOURCEDIR/target/$(ls $SOURCEDIR/target | grep percona-xtrabackup-2) $SOURCEDIR/target/pxb-2.4
 
-sudo mv $GALERA3_WORKDIR/libgalera_smm.so $SOURCEDIR/target/libgalera_smm.so
-sudo mv $GALERA3_WORKDIR/garbd $SOURCEDIR/target/garbd
+sudo cp $GALERA3_WORKDIR/libgalera_smm.so $SOURCEDIR/target/libgalera_smm.so
+sudo cp $GALERA3_WORKDIR/garbd $SOURCEDIR/target/garbd
+
+ls ${WORKDIR}
+
+sudo cp $GALERA3_WORKDIR/libgalera_smm.so ${WORKDIR}/target/libgalera_smm.so
+sudo cp $GALERA3_WORKDIR/garbd ${WORKDIR}/target/garbd
+
 
 # ------------------------------------------------------------------------------
 # download external libs
