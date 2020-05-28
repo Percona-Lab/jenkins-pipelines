@@ -39,13 +39,8 @@ GALERA3_WORKDIR=$(cd ${2:-./build/galera3}; pwd -P)
 
 #mv $SOURCEDIR/target/$(ls $SOURCEDIR/target | grep percona-xtrabackup-2) $SOURCEDIR/target/pxb-2.4
 
-sudo cp $GALERA3_WORKDIR/libgalera_smm.so $SOURCEDIR/target/libgalera_smm.so
-sudo cp $GALERA3_WORKDIR/garbd $SOURCEDIR/target/garbd
-
-ls ${WORKDIR}
-
-sudo cp $GALERA3_WORKDIR/libgalera_smm.so ${WORKDIR}/target/libgalera_smm.so
-sudo cp $GALERA3_WORKDIR/garbd ${WORKDIR}/target/garbd
+sudo mv $GALERA3_WORKDIR/libgalera_smm.so $SOURCEDIR/target/libgalera_smm.so
+sudo mv $GALERA3_WORKDIR/garbd $SOURCEDIR/target/garbd
 
 
 # ------------------------------------------------------------------------------
@@ -151,6 +146,7 @@ fi
 # Finaly, compile!
 # ------------------------------------------------------------------------------
 pushd ${WORKDIR}
+    echo "$PWD ........."
     ${JOB_CMAKE} \
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
         -DWITHOUT_ROCKSDB=ON \
@@ -169,6 +165,7 @@ pushd ${WORKDIR}
         -DMYSQL_SERVER_SUFFIX="" \
         -DWITH_PAM=ON \
         -DWITH_NUMA=ON \
+		-DWITH_WSREP=ON \
         -DFORCE_INSOURCE_BUILD=1 \
         -DWITH_INNODB_MEMCACHED=ON \
         -DDOWNLOAD_BOOST=1 \
