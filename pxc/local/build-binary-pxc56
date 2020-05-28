@@ -188,6 +188,12 @@ popd
 
 cp -r ${SOURCEDIR}/percona-xtradb-cluster-tests $INSTALL_DIR/usr/local/$PRODUCT_FULL/
 
+ls -la $INSTALL_DIR/usr/local/$PRODUCT_FULL/
+
+ls -la $INSTALL_DIR/usr/local/$PRODUCT_FULL/lib
+
+ls -la $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin
+
 #mkdir -p $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/pxc_extra/pxb-2.4
 #cp -v -r ${SOURCEDIR}/target/pxb-2.4/{bin,lib} $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/pxc_extra/pxb-2.4
 #cp -v -r ${SOURCEDIR}/target/pxb-8.0/{bin,lib} $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/pxc_extra/pxb-8.0
