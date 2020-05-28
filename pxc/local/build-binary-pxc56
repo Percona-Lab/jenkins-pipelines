@@ -39,8 +39,8 @@ GALERA3_WORKDIR=$(cd ${2:-./build/galera3}; pwd -P)
 
 #mv $SOURCEDIR/target/$(ls $SOURCEDIR/target | grep percona-xtrabackup-2) $SOURCEDIR/target/pxb-2.4
 
-sudo mv $GALERA3_WORKDIR/libgalera_smm.so $SOURCEDIR/target/libgalera_smm.so
-sudo mv $GALERA3_WORKDIR/garbd $SOURCEDIR/target/garbd
+sudo cp $GALERA3_WORKDIR/libgalera_smm.so $SOURCEDIR/target/libgalera_smm.so
+sudo cp $GALERA3_WORKDIR/garbd $SOURCEDIR/target/garbd
 
 
 # ------------------------------------------------------------------------------
@@ -188,11 +188,8 @@ popd
 
 cp -r ${SOURCEDIR}/percona-xtradb-cluster-tests $INSTALL_DIR/usr/local/$PRODUCT_FULL/
 
-ls -la $INSTALL_DIR/usr/local/$PRODUCT_FULL/
-
-ls -la $INSTALL_DIR/usr/local/$PRODUCT_FULL/lib
-
-ls -la $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin
+sudo cp $GALERA3_WORKDIR/libgalera_smm.so $INSTALL_DIR/usr/local/$PRODUCT_FULL/lib/libgalera_smm.so
+sudo cp $GALERA3_WORKDIR/garbd $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/garbd
 
 #mkdir -p $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/pxc_extra/pxb-2.4
 #cp -v -r ${SOURCEDIR}/target/pxb-2.4/{bin,lib} $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/pxc_extra/pxb-2.4
