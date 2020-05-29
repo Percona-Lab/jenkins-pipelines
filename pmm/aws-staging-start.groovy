@@ -194,7 +194,7 @@ pipeline {
                                 ],
                                 "EbsOptimized": false,
                                 "ImageId": "ami-15e9c770",
-                                "InstanceType": "m5.large",
+                                "InstanceType": "m4.large",
                                 "KeyName": "jenkins",
                                 "Monitoring": {
                                     "Enabled": false
