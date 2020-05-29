@@ -107,7 +107,8 @@ export CC=${CC:-gcc}
 export CXX=${CXX:-g++}
 
 PROCESSORS=$(grep -c ^processor /proc/cpuinfo)
-COMMON_FLAGS="-DPERCONA_INNODB_VERSION=$PERCONA_SERVER_EXTENSION"
+#COMMON_FLAGS="-DPERCONA_INNODB_VERSION=$PERCONA_SERVER_EXTENSION"
+COMMON_FLAGS=""
 export CFLAGS=" $COMMON_FLAGS -static-libgcc $MACHINE_SPECS_CFLAGS ${CFLAGS:-}"
 export CXXFLAGS=" $COMMON_FLAGS $MACHINE_SPECS_CFLAGS ${CXXFLAGS:-}"
 export MAKE_JFLAG="${MAKE_JFLAG:--j$PROCESSORS}"
@@ -145,39 +146,12 @@ fi
 # ------------------------------------------------------------------------------
 # Finaly, compile!
 # ------------------------------------------------------------------------------
-pushd ${WORKDIR}
-    echo "$PWD ........."
-    ${JOB_CMAKE} \
-        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
-        -DWITHOUT_ROCKSDB=ON \
-        -DWITHOUT_TOKUDB=ON \
-        -DWITH_SYSTEM_LIBS=ON \
-        -DWITH_PROTOBUF=bundled \
-        -DWITH_RAPIDJSON=bundled \
-        -DWITH_ICU=bundled \
-        -DWITH_LZ4=bundled \
-        -DWITH_RE2=bundled \
-        -DWITH_LIBEVENT=bundled \
-        -DWITH_EDITLINE=bundled \
-        -DWITH_ZSTD=bundled \
-        -DBUILD_CONFIG=mysql_release \
-        -DFEATURE_SET=community \
-        -DMYSQL_SERVER_SUFFIX="" \
-        -DWITH_PAM=ON \
-        -DWITH_NUMA=ON \
-		-DWITH_WSREP=ON \
-        -DFORCE_INSOURCE_BUILD=1 \
-        -DWITH_INNODB_MEMCACHED=ON \
-        -DDOWNLOAD_BOOST=1 \
-        -DWITH_BOOST=${DOWNLOAD_DIR} \
-        -DCMAKE_INSTALL_PREFIX=/usr/local/$PRODUCT_FULL \
-        -DMYSQL_DATADIR=/usr/local/$PRODUCT_FULL/data \
-        -DCOMPILATION_COMMENT="$COMMENT" \
-        ${TARGET_CFLAGS:+-DCMAKE_C_FLAGS="${TARGET_CFLAGS}" -DCMAKE_CXX_FLAGS="${TARGET_CFLAGS}"} \
-        ${CMAKE_OPTS} \
-        ${SOURCEDIR}
-    make ${MAKE_OPTS}
-    make DESTDIR=${INSTALL_DIR} install > make_install.log
+pushd ${SOURCEDIR}
+    if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
+        bash -x ./build-ps/build-binary.sh -G -d ./target
+    else
+        bash -x ./build-ps/build-binary.sh -G ./target
+    fi
 popd
 
 
@@ -186,13 +160,14 @@ popd
 #   cp -v /tmp/results/runtime_output_directory/mysqld-debug $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/mysqld
 #fi
 
-cp -r ${SOURCEDIR}/percona-xtradb-cluster-tests $INSTALL_DIR/usr/local/$PRODUCT_FULL/
+#cp -r ${SOURCEDIR}/percona-xtradb-cluster-tests $INSTALL_DIR/usr/local/$PRODUCT_FULL/
 
-sudo cp $GALERA3_WORKDIR/libgalera_smm.so $INSTALL_DIR/usr/local/$PRODUCT_FULL/lib/libgalera_smm.so
-sudo cp $GALERA3_WORKDIR/garbd $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/garbd
+#sudo cp $GALERA3_WORKDIR/libgalera_smm.so $INSTALL_DIR/usr/local/$PRODUCT_FULL/lib/libgalera_smm.so
+#sudo cp $GALERA3_WORKDIR/garbd $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/garbd
 
 #mkdir -p $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/pxc_extra/pxb-2.3
 #cp -v -r ${SOURCEDIR}/target/pxb-2.3/{bin,lib} $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/pxc_extra/pxb-2.3
 #cp -v -r ${SOURCEDIR}/target/pxb-8.0/{bin,lib} $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/pxc_extra/pxb-8.0
 
-tar -C ${INSTALL_DIR}/usr/local --owner=0 --group=0 -czf "${WORKDIR}/${PRODUCT_FULL}.tar.gz" ${PRODUCT_FULL}
+cp ${SOURCEDIR}/target/*.tar.gz ${WORKDIR}/${PRODUCT_FULL}.tar.gz
+#tar -C ${INSTALL_DIR}/usr/local --owner=0 --group=0 -czf "${WORKDIR}/${PRODUCT_FULL}.tar.gz" ${PRODUCT_FULL}
