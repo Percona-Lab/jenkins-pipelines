@@ -30,7 +30,7 @@ docker run --rm \
    
     cp -r /tmp/source_downloads /tmp/results/source_downloads
     sudo chown -R mysql:mysql /tmp/pxc/wsrep /tmp/pxc/mysql-test /tmp/pxc/target || :
-    bash -x /tmp/scripts/build-binary-pxc56 /tmp/results /tmp/pxc
+    bash -x /tmp/scripts/build-binary-pxc57 /tmp/results /tmp/pxc
 
     sudo rm -rf /tmp/pxc/results
     sudo mkdir /tmp/pxc/results
