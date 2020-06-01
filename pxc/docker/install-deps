@@ -59,7 +59,7 @@ if [ -f /usr/bin/yum ]; then
     perl-JSON MySQL-python perl-Digest perl-Digest-MD5 \
     numactl-devel git which make rpm-build ccache libtool redhat-lsb-core sudo libasan lz4-devel \
     libzstd-devel tzdata check-devel scons libgcrypt-devel libev-devel zlib-devel asio-devel libaio-devel \
-    ncurses-devel readline-devel pam-devel socat vim-common openssl perl-CPAN rsync \
+    ncurses-devel readline-devel pam-devel socat vim-common openssl perl-CPAN rsync libcurl-devel \
     "
 
     if [[ ${RHVER} -eq 8 ]]; then
@@ -69,15 +69,15 @@ if [ -f /usr/bin/yum ]; then
 # Percona-Server
     if [[ ${RHVER} -eq 6 ]]; then
         wget -O /etc/yum.repos.d/slc6-devtoolset.repo http://linuxsoft.cern.ch/cern/devtoolset/slc6-devtoolset.repo
-        wget -O /etc/pki/rpm-gpg/RPM-GPG-KEY-cern https://raw.githubusercontent.com/cms-sw/cms-docker/master/slc6-vanilla/RPM-GPG-KEY-cern
+        wget -O /etc/pki/rpm-gpg/RPM-GPG-KEY-cern https://raw.githubusercontent.com/cms-sw/cms-docker/master/slc6-installer/RPM-GPG-KEY-cern
         PKGLIST+=" devtoolset-2-gcc-c++ devtoolset-2-binutils"
         PKGLIST+=" devtoolset-2-libasan-devel"
         PKGLIST+=" devtoolset-2-valgrind devtoolset-2-valgrind-devel"
-        PKGLIST+=" libevent2-devel"
+        PKGLIST+=" libevent2-devel python34 python34-pip"
     fi
 
     if [[ ${RHVER} -gt 6 ]]; then
-        PKGLIST+=" libevent-devel libcurl-devel"
+        PKGLIST+=" libevent-devel"
     fi
 
 #   Percona-Server 8.0
@@ -194,8 +194,8 @@ if [ ! -f /usr/local/lib/libeatmydata.so ]; then
     popd
     rm -rf /tmp/libeatmydata
 fi
-    
-pip3 install --upgrade sphinx===1.4
+
+pip3 install --upgrade sphinx==1.4
 
 export PERL_MM_USE_DEFAULT=1
 sudo -E cpan -T Memcached::libmemcached
