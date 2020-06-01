@@ -1,0 +1,173 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+
+# ------------------------------------------------------------------------------
+# Declare all input variables
+# ------------------------------------------------------------------------------
+JOB_CMAKE=${JOB_CMAKE:-cmake}
+COMPILER=${COMPILER:-default}
+CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-RelWithDebInfo}
+MAKE_OPTS=${MAKE_OPTS:--j$(grep -c ^processor /proc/cpuinfo)}
+CMAKE_OPTS=${CMAKE_OPTS:-}
+BUILD_COMMENT=${BUILD_COMMENT:-}
+TAG=${TAG:-}
+DIST_NAME=${DIST_NAME:-}
+SSL_VER=${SSL_VER:-}
+TARGET_CFLAGS=${TARGET_CFLAGS:-}
+
+
+# ------------------------------------------------------------------------------
+# set working dir
+# ------------------------------------------------------------------------------
+mkdir -p ${1:-./build}
+WORKDIR=$(cd ${1:-./build}; pwd -P)
+INSTALL_DIR=${WORKDIR}/DESTDIR
+DOWNLOAD_DIR=${WORKDIR}/source_downloads
+mkdir -p ${INSTALL_DIR} ${DOWNLOAD_DIR}
+SOURCEDIR=$(cd ${2:-$(dirname $0)/../sources/pxc}; pwd -P)
+
+# extract pxb-2.4 and galera binaries
+#PXB24_WORKDIR=$(cd ${2:-./build/pxb24}; pwd -P)
+GALERA3_WORKDIR=$(cd ${2:-./build/galera3}; pwd -P)
+
+#PXB24_TAR=$(ls $PXB24_WORKDIR/{percona-xtrabackup-2.*.tar.gz,pxb24.tar.gz}  | awk -F'/' '{print $NF}')
+
+#tar -xzf $PXB24_WORKDIR/$PXB24_TAR --exclude='man' --exclude='*-test' -C $SOURCEDIR/target
+
+#mv $SOURCEDIR/target/$(ls $SOURCEDIR/target | grep percona-xtrabackup-2) $SOURCEDIR/target/pxb-2.4
+
+sudo cp $GALERA3_WORKDIR/libgalera_smm.so $SOURCEDIR/target/libgalera_smm.so
+sudo cp $GALERA3_WORKDIR/garbd $SOURCEDIR/target/garbd
+
+
+# ------------------------------------------------------------------------------
+# download external libs
+# ------------------------------------------------------------------------------
+wget_loop() {
+    local FILE="$1"
+    local URL="$2"
+
+    if [[ ! -f "${DOWNLOAD_DIR}/${FILE}" ]]; then
+        until wget --progress=dot:giga -O "${DOWNLOAD_DIR}/${FILE}" "${URL}"; do
+            echo "sleep before retry"
+            sleep 1
+        done
+    fi
+}
+
+#BOOST_VERSION=$(grep 'SET(BOOST_PACKAGE_NAME' ${SOURCEDIR}/cmake/boost.cmake | sed -re 's/.*([0-9]+_[0-9]+_[0-9]+).*/\1/')
+#wget_loop "boost_${BOOST_VERSION}.tar.gz" "http://downloads.sourceforge.net/boost/boost/${BOOST_VERSION//_/.}/boost_${BOOST_VERSION}.tar.gz"
+#GMOCK_VERSION=$(grep 'SET(GMOCK_PACKAGE_NAME' ${SOURCEDIR}/cmake/googletest.cmake | sed -re 's/.*([0-9]+[.][0-9]+[.][0-9]+).*/\1/')
+#wget_loop "googletest-release-${GMOCK_VERSION}.zip" "https://github.com/google/googletest/archive/release-${GMOCK_VERSION}.zip"
+
+
+# ------------------------------------------------------------------------------
+# Set OS/Arch flags
+# ------------------------------------------------------------------------------
+TARGET_ARCH="$(uname -m)"
+
+# ------------------------------------------------------------------------------
+# Set Debug options
+# ------------------------------------------------------------------------------
+if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
+    BUILD_COMMENT+="-debug"
+    CMAKE_OPTS+=" -DDEBUG_EXTNAME=ON -DWITH_DEBUG=ON"
+    SCONS_ARGS+=' debug=0'
+fi
+if [[ "${ANALYZER_OPTS}" = *WITH_VALGRIND=ON* ]]; then
+    BUILD_COMMENT+="-valgrind"
+fi
+
+OS_VERSION=$(lsb_release -d -s)
+
+# ------------------------------------------------------------------------------
+# set version
+# ------------------------------------------------------------------------------
+source "$SOURCEDIR/VERSION"
+if [[ -n "$(which git)" ]] && [[ -d "$SOURCEDIR/.git" ]]; then
+    REVISION="$(cd "$SOURCEDIR"; git rev-parse --short HEAD)"
+fi
+MYSQL_VERSION="$MYSQL_VERSION_MAJOR.$MYSQL_VERSION_MINOR.$MYSQL_VERSION_PATCH"
+PERCONA_SERVER_VERSION="$(echo $MYSQL_VERSION_EXTRA | sed 's/^-//')"
+PRODUCT="Percona-XtraDB-Cluster_$MYSQL_VERSION-$PERCONA_SERVER_VERSION"
+TOKUDB_BACKUP_VERSION="${MYSQL_VERSION}${MYSQL_VERSION_EXTRA}"
+PRODUCT_FULL="Percona-XtraDB-Cluster_${MYSQL_VERSION}-${PERCONA_SERVER_VERSION}${BUILD_COMMENT}-${TAG}$(uname -s)${DIST_NAME}.${TARGET_ARCH}${SSL_VER}"
+COMMENT="Percona XtraDB Cluster binar  (GPL), Release ${MYSQL_VERSION_EXTRA#-}, Revision ${REVISION:-}${BUILD_COMMENT}"
+#GALERA_REVISION=$(cat "$SOURCEDIR/percona-xtradb-cluster-galera/GALERA-REVISION")
+PERCONA_SERVER_EXTENSION="$(echo $MYSQL_VERSION_EXTRA | sed 's/^-/./')"
+
+if [[ "${OS_VERSION}" = *"CentOS release 6."* ]] || [[ "${OS_VERSION}" = *"CentOS Linux release 7."* ]]; then
+    JOB_CMAKE='cmake3'
+fi
+
+export CC=${CC:-gcc}
+export CXX=${CXX:-g++}
+
+PROCESSORS=$(grep -c ^processor /proc/cpuinfo)
+#COMMON_FLAGS="-DPERCONA_INNODB_VERSION=$PERCONA_SERVER_EXTENSION"
+COMMON_FLAGS=""
+export CFLAGS=" $COMMON_FLAGS -static-libgcc $MACHINE_SPECS_CFLAGS ${CFLAGS:-}"
+export CXXFLAGS=" $COMMON_FLAGS $MACHINE_SPECS_CFLAGS ${CXXFLAGS:-}"
+export MAKE_JFLAG="${MAKE_JFLAG:--j$PROCESSORS}"
+
+# ------------------------------------------------------------------------------
+# Set compile options
+# ------------------------------------------------------------------------------
+if [[ "$COMPILER" != "default" ]]; then
+    export CC=${COMPILER}
+    export CXX=$(echo ${COMPILER} | sed -e 's/gcc/g++/; s/clang/clang++/')
+fi
+
+# CentOS 6 and 7
+if [[ -f /opt/rh/devtoolset-7/enable ]]; then
+    source /opt/rh/devtoolset-7/enable
+fi
+
+
+
+#pushd $SOURCEDIR/percona-xtradb-cluster-galera
+#        scons $MAKE_JFLAG psi=1 --config=force revno="$GALERA_REVISION" ${SCONS_ARGS} \
+#            libgalera_smm.so
+#        scons $MAKE_JFLAG --config=force revno="$GALERA_REVISION" ${SCONS_ARGS} \
+#            garb/garbd
+
+#    mkdir -p "$INSTALL_DIR/usr/local/$PRODUCT_FULL/bin" \
+#             "$INSTALL_DIR/usr/local/$PRODUCT_FULL/lib"
+#    cp garb/garbd "$INSTALL_DIR/usr/local/$PRODUCT_FULL/bin"
+#    cp libgalera_smm.so "$INSTALL_DIR/usr/local/$PRODUCT_FULL/lib"
+#popd
+
+#mkdir "$INSTALL_DIR/bld"
+#cd "$INSTALL_DIR/bld"
+#echo "$(pwd)"
+# ------------------------------------------------------------------------------
+# Finaly, compile!
+# ------------------------------------------------------------------------------
+pushd ${SOURCEDIR}
+    if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
+        bash -x ./build-ps/build-binary.sh -G -d ./target
+    else
+        bash -x ./build-ps/build-binary.sh -G ./target
+    fi
+popd
+
+
+# Copy all needed data for unit tests
+#if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
+#   cp -v /tmp/results/runtime_output_directory/mysqld-debug $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/mysqld
+#fi
+
+#cp -r ${SOURCEDIR}/percona-xtradb-cluster-tests $INSTALL_DIR/usr/local/$PRODUCT_FULL/
+
+#sudo cp $GALERA3_WORKDIR/libgalera_smm.so $INSTALL_DIR/usr/local/$PRODUCT_FULL/lib/libgalera_smm.so
+#sudo cp $GALERA3_WORKDIR/garbd $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/garbd
+
+#mkdir -p $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/pxc_extra/pxb-2.4
+#cp -v -r ${SOURCEDIR}/target/pxb-2.4/{bin,lib} $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/pxc_extra/pxb-2.4
+#cp -v -r ${SOURCEDIR}/target/pxb-8.0/{bin,lib} $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/pxc_extra/pxb-8.0
+
+cp ${SOURCEDIR}/target/*.tar.gz ${WORKDIR}/${PRODUCT_FULL}.tar.gz
+#tar -C ${INSTALL_DIR}/usr/local --owner=0 --group=0 -czf "${WORKDIR}/${PRODUCT_FULL}.tar.gz" ${PRODUCT_FULL}
