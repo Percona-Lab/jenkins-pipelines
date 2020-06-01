@@ -307,20 +307,20 @@ execMap['min-buster-x64']    = '1'
 execMap['psmdb']             = '1'
 
 devMap = [:]
-devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['docker2']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb']       = devMap['docker']
 devMap['micro-amazon']      = devMap['docker']
-devMap['min-artful-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-artful-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:120:true:gp2'
 devMap['min-bionic-x64']    = devMap['min-artful-x64']
 devMap['min-centos-6-x64']  = devMap['min-artful-x64']
 devMap['min-centos-7-x64']  = devMap['min-artful-x64']
 devMap['fips-centos-7-x64'] = devMap['min-artful-x64']
 devMap['min-jessie-x64']    = devMap['micro-amazon']
-devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
+devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:120:true:gp2'
 devMap['min-trusty-x64']    = devMap['min-artful-x64']
 devMap['min-xenial-x64']    = devMap['min-artful-x64']
-devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:120:true:gp2'
 devMap['min-buster-x64']    = devMap['min-stretch-x64']
 devMap['psmdb']             = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 
