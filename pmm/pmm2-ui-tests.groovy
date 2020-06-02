@@ -46,6 +46,15 @@ pipeline {
         REMOTE_MYSQL_HOST=credentials('mysql-remote-host')
         REMOTE_MYSQL_USER=credentials('mysql-remote-user')
         REMOTE_MYSQL_PASSWORD=credentials('mysql-remote-password')
+        REMOTE_MONGODB_HOST=credentials('qa-remote-mongodb-host')
+        REMOTE_MONGODB_USER=credentials('qa-remote-mongodb-user')
+        REMOTE_MONGODB_PASSWORD=credentials('qa-remote-mongodb-password')
+        REMOTE_POSTGRESQL_HOST=credentials('qa-remote-pgsql-host')
+        REMOTE_POSTGRESQL_USER=credentials('qa-remote-pgsql-user')
+        REMOTE_POSTGRESSQL_PASSWORD=credentials('qa-remote-pgsql-password')
+        REMOTE_PROXYSQL_HOST=credentials('qa-remote-proxysql-host')
+        REMOTE_PROXYSQL_USER=credentials('qa-remote-proxysql-user')
+        REMOTE_PROXYSQL_PASSWORD=credentials('qa-remote-proxysql-password')
     }
     parameters {
         string(
@@ -138,6 +147,8 @@ pipeline {
                     npm install
                     node -v
                     npm -v
+                    sudo yum install -y gettext
+                    envsubst < env.list > env.generated.list
                     popd
                 """
             }
@@ -179,7 +190,7 @@ pipeline {
                         pushd pmm-app/
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
-                        sudo docker run --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env REMOTE_AWS_MYSQL_USER=${REMOTE_AWS_MYSQL_USER} --env REMOTE_AWS_MYSQL_PASSWORD=${REMOTE_AWS_MYSQL_PASSWORD} --env REMOTE_MYSQL_HOST=${REMOTE_MYSQL_HOST} --env REMOTE_MYSQL_USER=${REMOTE_MYSQL_USER} --env REMOTE_MYSQL_PASSWORD=${REMOTE_MYSQL_PASSWORD} --net=host -v \$PWD:/tests codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@visual-test)'
+                        sudo docker run --env VM_IP=${VM_IP} --env-file env.generated.list --net=host -v \$PWD:/tests codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@visual-test)'
                         popd
                     """
                 }
