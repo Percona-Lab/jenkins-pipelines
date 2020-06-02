@@ -33,6 +33,8 @@ void CreateCluster(String CLUSTER_PREFIX) {
         for i in \$(kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\\n"}{end}'); do
             kubectl wait --for=condition=Ready --timeout=600s node/\$i;
         done
+        kubectl patch storageclass linode-block-storage-retain -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
+        kubectl patch storageclass linode-block-storage -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
     '''
 }
 
