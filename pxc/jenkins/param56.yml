@@ -110,9 +110,6 @@
         do-not-fingerprint: true
     - shell: |
         echo "${TRIGGERED_BUILD_NUMBERS_pxc_5_6_pipeline}" > PIPELINE_BUILD_NUMBER
-        if [[ -f build.log.gz ]]; then
-          gunzip build.log.gz
-        fi
     publishers:
     - junit:
         results: "**/*.xml"
