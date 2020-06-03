@@ -30,34 +30,6 @@ DOWNLOAD_DIR=${WORKDIR}/source_downloads
 mkdir -p ${INSTALL_DIR} ${DOWNLOAD_DIR}
 SOURCEDIR=$(cd ${2:-$(dirname $0)/../sources/pxb24}; pwd -P)
 
-
-# ------------------------------------------------------------------------------
-# download external libs
-# ------------------------------------------------------------------------------
-wget_loop() {
-    local FILE="$1"
-    local URL="$2"
-
-    if [[ ! -f "${DOWNLOAD_DIR}/${FILE}" ]]; then
-        until wget --progress=dot:giga -O "${DOWNLOAD_DIR}/${FILE}" "${URL}"; do
-            echo "sleep before retry"
-            sleep 1
-        done
-    fi
-}
-
-#BOOST_VERSION=$(grep 'SET(BOOST_PACKAGE_NAME' ${SOURCEDIR}/cmake/boost.cmake | sed -re 's/.*([0-9]+_[0-9]+_[0-9]+).*/\1/')
-#wget_loop "boost_${BOOST_VERSION}.tar.gz" "http://downloads.sourceforge.net/boost/boost/${BOOST_VERSION//_/.}/boost_${BOOST_VERSION}.tar.gz"
-#
-#if [ -f "${SOURCEDIR}/cmake/googletest.cmake" ]; then
-#    GMOCK_VERSION=$(grep 'SET(GMOCK_PACKAGE_NAME' ${SOURCEDIR}/cmake/googletest.cmake | sed -re 's/.*([0-9]+[.][0-9]+[.][0-9]+).*/\1/')
-#else
-#    GMOCK_VERSION=$(grep 'SET(GMOCK_PACKAGE_NAME' ${SOURCEDIR}/unittest/gunit/CMakeLists.txt | sed -re 's/.*([0-9]+[.][0-9]+[.][0-9]+).*/\1/')
-#fi
-#
-#wget_loop "googletest-release-${GMOCK_VERSION}.zip" "https://github.com/google/googletest/archive/release-${GMOCK_VERSION}.zip"
-
-
 # ------------------------------------------------------------------------------
 # Set OS/Arch flags
 # ------------------------------------------------------------------------------

@@ -29,40 +29,11 @@ DOWNLOAD_DIR=${WORKDIR}/source_downloads
 mkdir -p ${INSTALL_DIR} ${DOWNLOAD_DIR}
 SOURCEDIR=$(cd ${2:-$(dirname $0)/../sources/pxc}; pwd -P)
 
-# extract pxb-2.3 and galera binaries
-#PXB23_WORKDIR=$(cd ${2:-./build/pxb23}; pwd -P)
+# extract garbd and galera binaries
 GALERA3_WORKDIR=$(cd ${2:-./build/galera3}; pwd -P)
-
-#PXB23_TAR=$(ls $PXB23_WORKDIR/{percona-xtrabackup-2.*.tar.gz,pxb23.tar.gz}  | awk -F'/' '{print $NF}')
-
-#tar -xzf $PXB23_WORKDIR/$PXB23_TAR --exclude='man' --exclude='*-test' -C $SOURCEDIR/target
-
-#mv $SOURCEDIR/target/$(ls $SOURCEDIR/target | grep percona-xtrabackup-2) $SOURCEDIR/target/pxb-2.3
 
 sudo cp $GALERA3_WORKDIR/libgalera_smm.so $SOURCEDIR/target/libgalera_smm.so
 sudo cp $GALERA3_WORKDIR/garbd $SOURCEDIR/target/garbd
-
-
-# ------------------------------------------------------------------------------
-# download external libs
-# ------------------------------------------------------------------------------
-wget_loop() {
-    local FILE="$1"
-    local URL="$2"
-
-    if [[ ! -f "${DOWNLOAD_DIR}/${FILE}" ]]; then
-        until wget --progress=dot:giga -O "${DOWNLOAD_DIR}/${FILE}" "${URL}"; do
-            echo "sleep before retry"
-            sleep 1
-        done
-    fi
-}
-
-#BOOST_VERSION=$(grep 'SET(BOOST_PACKAGE_NAME' ${SOURCEDIR}/cmake/boost.cmake | sed -re 's/.*([0-9]+_[0-9]+_[0-9]+).*/\1/')
-#wget_loop "boost_${BOOST_VERSION}.tar.gz" "http://downloads.sourceforge.net/boost/boost/${BOOST_VERSION//_/.}/boost_${BOOST_VERSION}.tar.gz"
-#GMOCK_VERSION=$(grep 'SET(GMOCK_PACKAGE_NAME' ${SOURCEDIR}/cmake/googletest.cmake | sed -re 's/.*([0-9]+[.][0-9]+[.][0-9]+).*/\1/')
-#wget_loop "googletest-release-${GMOCK_VERSION}.zip" "https://github.com/google/googletest/archive/release-${GMOCK_VERSION}.zip"
-
 
 # ------------------------------------------------------------------------------
 # Set OS/Arch flags
@@ -126,23 +97,6 @@ if [[ -f /opt/rh/devtoolset-7/enable ]]; then
     source /opt/rh/devtoolset-7/enable
 fi
 
-
-
-#pushd $SOURCEDIR/percona-xtradb-cluster-galera
-#        scons $MAKE_JFLAG psi=1 --config=force revno="$GALERA_REVISION" ${SCONS_ARGS} \
-#            libgalera_smm.so
-#        scons $MAKE_JFLAG --config=force revno="$GALERA_REVISION" ${SCONS_ARGS} \
-#            garb/garbd
-
-#    mkdir -p "$INSTALL_DIR/usr/local/$PRODUCT_FULL/bin" \
-#             "$INSTALL_DIR/usr/local/$PRODUCT_FULL/lib"
-#    cp garb/garbd "$INSTALL_DIR/usr/local/$PRODUCT_FULL/bin"
-#    cp libgalera_smm.so "$INSTALL_DIR/usr/local/$PRODUCT_FULL/lib"
-#popd
-
-#mkdir "$INSTALL_DIR/bld"
-#cd "$INSTALL_DIR/bld"
-#echo "$(pwd)"
 # ------------------------------------------------------------------------------
 # Finaly, compile!
 # ------------------------------------------------------------------------------
@@ -154,20 +108,4 @@ pushd ${SOURCEDIR}
     fi
 popd
 
-
-# Copy all needed data for unit tests
-#if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
-#   cp -v /tmp/results/runtime_output_directory/mysqld-debug $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/mysqld
-#fi
-
-#cp -r ${SOURCEDIR}/percona-xtradb-cluster-tests $INSTALL_DIR/usr/local/$PRODUCT_FULL/
-
-#sudo cp $GALERA3_WORKDIR/libgalera_smm.so $INSTALL_DIR/usr/local/$PRODUCT_FULL/lib/libgalera_smm.so
-#sudo cp $GALERA3_WORKDIR/garbd $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/garbd
-
-#mkdir -p $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/pxc_extra/pxb-2.3
-#cp -v -r ${SOURCEDIR}/target/pxb-2.3/{bin,lib} $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/pxc_extra/pxb-2.3
-#cp -v -r ${SOURCEDIR}/target/pxb-8.0/{bin,lib} $INSTALL_DIR/usr/local/$PRODUCT_FULL/bin/pxc_extra/pxb-8.0
-
 cp ${SOURCEDIR}/target/*.tar.gz ${WORKDIR}/${PRODUCT_FULL}.tar.gz
-#tar -C ${INSTALL_DIR}/usr/local --owner=0 --group=0 -czf "${WORKDIR}/${PRODUCT_FULL}.tar.gz" ${PRODUCT_FULL}
