@@ -111,7 +111,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdDBaas('experimental')
+                sync2ProdDBaas('laboratory')
             }
         }
     }
