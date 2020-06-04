@@ -29,8 +29,7 @@ DOWNLOAD_DIR=${WORKDIR}/source_downloads
 mkdir -p ${INSTALL_DIR} ${DOWNLOAD_DIR}
 SOURCEDIR=$(cd ${2:-$(dirname $0)/../sources/pxc}; pwd -P)
 
-# extract pxb-2.4 and galera binaries
-#PXB24_WORKDIR=$(cd ${2:-./build/pxb24}; pwd -P)
+# extract garbd and galera binaries
 GALERA3_WORKDIR=$(cd ${2:-./build/galera3}; pwd -P)
 
 sudo cp $GALERA3_WORKDIR/libgalera_smm.so $SOURCEDIR/target/libgalera_smm.so
@@ -114,10 +113,6 @@ if [[ -f /opt/rh/devtoolset-7/enable ]]; then
     source /opt/rh/devtoolset-7/enable
 fi
 
-
-#mkdir "$INSTALL_DIR/bld"
-#cd "$INSTALL_DIR/bld"
-#echo "$(pwd)"
 # ------------------------------------------------------------------------------
 # Finaly, compile!
 # ------------------------------------------------------------------------------
@@ -130,4 +125,3 @@ pushd ${SOURCEDIR}
 popd
 
 cp ${SOURCEDIR}/target/*.tar.gz ${WORKDIR}/${PRODUCT_FULL}.tar.gz
-#tar -C ${INSTALL_DIR}/usr/local --owner=0 --group=0 -czf "${WORKDIR}/${PRODUCT_FULL}.tar.gz" ${PRODUCT_FULL}
