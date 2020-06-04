@@ -210,38 +210,16 @@ pipeline {
 
             }
         }
-        stage('E2E Basic Tests') {
-            steps {
-                runTest('init-deploy')
-                runTest('limits')
-                runTest('monitoring')
-                runTest('affinity')
-                runTest('one-pod')
-                runTest('auto-tuning')
-                runTest('proxysql-sidecar-res-limits')
-            }
-        }
-        stage('E2E Scaling') {
-            steps {
-                runTest('scaling')
-                runTest('scaling-proxysql')
-                runTest('upgrade')
-                runTest('upgrade-consistency')
-                runTest('security-context')
-            }
-        }
         stage('E2E Backups') {
             steps {
+                sh '''
+                   sleep 30000
+                '''
                 runTest('recreate')
                 runTest('restore-to-encrypted-cluster')
                 runTest('demand-backup')
                 runTest('demand-backup-encrypted-with-tls')
                 runTest('scheduled-backup')
-            }
-        }
-        stage('E2E BigData') {
-            steps {
-                runTest('big-data')
             }
         }
         stage('Make report') {
