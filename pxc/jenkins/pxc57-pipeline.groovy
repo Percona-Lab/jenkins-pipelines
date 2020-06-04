@@ -193,10 +193,6 @@ pipeline {
                     echo 'Build PXC57'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
-                            #until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxb24.tar.gz ./pxc/sources/pxc/pxb24.tar.gz; do
-                            #    sleep 5
-                            #done
-
                             until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/libgalera_smm.so ./pxc/sources/pxc/libgalera_smm.so; do
                                 sleep 5
                             done
