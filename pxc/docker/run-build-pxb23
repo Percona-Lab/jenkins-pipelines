@@ -3,13 +3,13 @@
 set -o errexit
 set -o xtrace
 
-ROOT_DIR=$(cd $(dirname $0)/../sources/pxb24; pwd -P)
+ROOT_DIR=$(cd $(dirname $0)/../sources/pxb23; pwd -P)
 SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
 SOURCE_IMAGE=${1:-centos:7}
 
 docker run --rm \
     --cap-add SYS_PTRACE \
-    --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxb24 \
+    --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxb23 \
     --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
     perconalab/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
     sh -c "
@@ -28,11 +28,11 @@ docker run --rm \
 
     mkdir /tmp/results
     cp -r /tmp/source_downloads /tmp/results/source_downloads
-    sudo chown -R mysql:mysql /tmp/pxb24/storage/innobase/xtrabackup/src /tmp/pxb24/mysql-test || :
-    bash -x /tmp/scripts/build-binary-pxb24 /tmp/results /tmp/pxb24
+    sudo chown -R mysql:mysql /tmp/pxb23/storage/innobase/xtrabackup/src /tmp/pxb23/mysql-test || :
+    bash -x /tmp/scripts/build-binary-pxb23 /tmp/results /tmp/pxb23
 
-    sudo rm -rf /tmp/pxb24/results
-    sudo mkdir /tmp/pxb24/results
-    sudo mv /tmp/results/*.tar.gz /tmp/pxb24/results/
-    sudo chown -R $(id -u):$(id -g) /tmp/pxb24/results /tmp/pxb24/storage/innobase/xtrabackup/src /tmp/pxb24/mysql-test
+    sudo rm -rf /tmp/pxb23/results
+    sudo mkdir /tmp/pxb23/results
+    sudo mv /tmp/results/*.tar.gz /tmp/pxb23/results/
+    sudo chown -R $(id -u):$(id -g) /tmp/pxb23/results /tmp/pxb23/storage/innobase/xtrabackup/src /tmp/pxb23/mysql-test
 "

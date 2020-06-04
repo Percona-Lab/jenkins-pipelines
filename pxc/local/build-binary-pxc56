@@ -1,0 +1,111 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+
+# ------------------------------------------------------------------------------
+# Declare all input variables
+# ------------------------------------------------------------------------------
+JOB_CMAKE=${JOB_CMAKE:-cmake}
+COMPILER=${COMPILER:-default}
+CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-RelWithDebInfo}
+MAKE_OPTS=${MAKE_OPTS:--j$(grep -c ^processor /proc/cpuinfo)}
+CMAKE_OPTS=${CMAKE_OPTS:-}
+BUILD_COMMENT=${BUILD_COMMENT:-}
+TAG=${TAG:-}
+DIST_NAME=${DIST_NAME:-}
+SSL_VER=${SSL_VER:-}
+TARGET_CFLAGS=${TARGET_CFLAGS:-}
+
+
+# ------------------------------------------------------------------------------
+# set working dir
+# ------------------------------------------------------------------------------
+mkdir -p ${1:-./build}
+WORKDIR=$(cd ${1:-./build}; pwd -P)
+INSTALL_DIR=${WORKDIR}/DESTDIR
+DOWNLOAD_DIR=${WORKDIR}/source_downloads
+mkdir -p ${INSTALL_DIR} ${DOWNLOAD_DIR}
+SOURCEDIR=$(cd ${2:-$(dirname $0)/../sources/pxc}; pwd -P)
+
+# extract garbd and galera binaries
+GALERA3_WORKDIR=$(cd ${2:-./build/galera3}; pwd -P)
+
+sudo cp $GALERA3_WORKDIR/libgalera_smm.so $SOURCEDIR/target/libgalera_smm.so
+sudo cp $GALERA3_WORKDIR/garbd $SOURCEDIR/target/garbd
+
+# ------------------------------------------------------------------------------
+# Set OS/Arch flags
+# ------------------------------------------------------------------------------
+TARGET_ARCH="$(uname -m)"
+
+# ------------------------------------------------------------------------------
+# Set Debug options
+# ------------------------------------------------------------------------------
+if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
+    BUILD_COMMENT+="-debug"
+    CMAKE_OPTS+=" -DDEBUG_EXTNAME=ON -DWITH_DEBUG=ON"
+    SCONS_ARGS+=' debug=0'
+fi
+if [[ "${ANALYZER_OPTS}" = *WITH_VALGRIND=ON* ]]; then
+    BUILD_COMMENT+="-valgrind"
+fi
+
+OS_VERSION=$(lsb_release -d -s)
+
+# ------------------------------------------------------------------------------
+# set version
+# ------------------------------------------------------------------------------
+source "$SOURCEDIR/VERSION"
+if [[ -n "$(which git)" ]] && [[ -d "$SOURCEDIR/.git" ]]; then
+    REVISION="$(cd "$SOURCEDIR"; git rev-parse --short HEAD)"
+fi
+MYSQL_VERSION="$MYSQL_VERSION_MAJOR.$MYSQL_VERSION_MINOR.$MYSQL_VERSION_PATCH"
+PERCONA_SERVER_VERSION="$(echo $MYSQL_VERSION_EXTRA | sed 's/^-//')"
+PRODUCT="Percona-XtraDB-Cluster_$MYSQL_VERSION-$PERCONA_SERVER_VERSION"
+TOKUDB_BACKUP_VERSION="${MYSQL_VERSION}${MYSQL_VERSION_EXTRA}"
+PRODUCT_FULL="Percona-XtraDB-Cluster_${MYSQL_VERSION}-${PERCONA_SERVER_VERSION}${BUILD_COMMENT}-${TAG}$(uname -s)${DIST_NAME}.${TARGET_ARCH}${SSL_VER}"
+COMMENT="Percona XtraDB Cluster binar  (GPL), Release ${MYSQL_VERSION_EXTRA#-}, Revision ${REVISION:-}${BUILD_COMMENT}"
+#GALERA_REVISION=$(cat "$SOURCEDIR/percona-xtradb-cluster-galera/GALERA-REVISION")
+PERCONA_SERVER_EXTENSION="$(echo $MYSQL_VERSION_EXTRA | sed 's/^-/./')"
+
+if [[ "${OS_VERSION}" = *"CentOS release 6."* ]] || [[ "${OS_VERSION}" = *"CentOS Linux release 7."* ]]; then
+    JOB_CMAKE='cmake3'
+fi
+
+export CC=${CC:-gcc}
+export CXX=${CXX:-g++}
+
+PROCESSORS=$(grep -c ^processor /proc/cpuinfo)
+#COMMON_FLAGS="-DPERCONA_INNODB_VERSION=$PERCONA_SERVER_EXTENSION"
+COMMON_FLAGS=""
+export CFLAGS=" $COMMON_FLAGS -static-libgcc $MACHINE_SPECS_CFLAGS ${CFLAGS:-}"
+export CXXFLAGS=" $COMMON_FLAGS $MACHINE_SPECS_CFLAGS ${CXXFLAGS:-}"
+export MAKE_JFLAG="${MAKE_JFLAG:--j$PROCESSORS}"
+
+# ------------------------------------------------------------------------------
+# Set compile options
+# ------------------------------------------------------------------------------
+if [[ "$COMPILER" != "default" ]]; then
+    export CC=${COMPILER}
+    export CXX=$(echo ${COMPILER} | sed -e 's/gcc/g++/; s/clang/clang++/')
+fi
+
+# CentOS 6 and 7
+if [[ -f /opt/rh/devtoolset-7/enable ]]; then
+    source /opt/rh/devtoolset-7/enable
+fi
+
+# ------------------------------------------------------------------------------
+# Finaly, compile!
+# ------------------------------------------------------------------------------
+pushd ${SOURCEDIR}
+    if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
+        bash -x ./build-ps/build-binary.sh -G -d ./target
+    else
+        bash -x ./build-ps/build-binary.sh -G ./target
+    fi
+popd
+
+cp ${SOURCEDIR}/target/*.tar.gz ${WORKDIR}/${PRODUCT_FULL}.tar.gz
