@@ -1,0 +1,38 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+ROOT_DIR=$(cd $(dirname $0)/../sources/pxc; pwd -P)
+SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
+SOURCE_IMAGE=${1:-centos:7}
+
+docker run --rm \
+    --security-opt seccomp=unconfined \
+    --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxc \
+    --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
+    perconalab/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+    sh -c "
+    set -o errexit
+    set -o xtrace
+
+    export CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'
+    export ANALYZER_OPTS='${ANALYZER_OPTS}'
+    export DEFAULT_TESTING='${DEFAULT_TESTING}'
+    export MTR_ARGS='${MTR_ARGS}'
+    export MTR_REPEAT='${MTR_REPEAT}'
+    export MTR_VAULT_TOKEN='${MTR_VAULT_TOKEN}'
+
+    mkdir /tmp/results
+    cp /tmp/pxc/results/*.tar.gz /tmp/results
+
+    bash -x /tmp/scripts/test-binary-pxc57 /tmp/results
+
+    mkdir /tmp/results/log
+    rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/PXC/mysql-test/var /tmp/results/log
+    sudo tar -C /tmp/results/log -czf "pxc57-test-mtr_logs.tar.gz" var
+
+    sudo mv ./pxc57-test-mtr_logs.tar.gz /tmp/pxc/results/
+    sudo mv /tmp/results/*.xml /tmp/results/*.output  /tmp/pxc/results/
+    sudo chown $(id -u):$(id -g) /tmp/pxc/results/*.xml /tmp/pxc/results/*.output
+"
