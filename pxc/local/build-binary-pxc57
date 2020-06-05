@@ -109,9 +109,9 @@ fi
 # ------------------------------------------------------------------------------
 pushd ${SOURCEDIR}
     if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
-        bash -x ./build-ps/build-binary.sh -G -d ./target
+        bash -x ./build-ps/build-binary.sh -d ./target
     else
-        bash -x ./build-ps/build-binary.sh -G ./target
+        bash -x ./build-ps/build-binary.sh ./target
     fi
 popd
 
