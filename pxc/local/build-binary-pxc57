@@ -109,10 +109,10 @@ fi
 # ------------------------------------------------------------------------------
 pushd ${SOURCEDIR}
     if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
-        bash -x ./build-ps/build-binary.sh -d ./target
+        sudo bash -x ./build-ps/build-binary.sh -d ./target
     else
-        bash -x ./build-ps/build-binary.sh ./target
+        sudo bash -x ./build-ps/build-binary.sh ./target
     fi
 popd
 
-cp ${SOURCEDIR}/target/*.tar.gz ${WORKDIR}/${PRODUCT_FULL}.tar.gz
+sudo cp ${SOURCEDIR}/target/*.tar.gz ${WORKDIR}/${PRODUCT_FULL}.tar.gz
