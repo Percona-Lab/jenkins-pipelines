@@ -29,13 +29,6 @@ DOWNLOAD_DIR=${WORKDIR}/source_downloads
 mkdir -p ${INSTALL_DIR} ${DOWNLOAD_DIR}
 SOURCEDIR=$(cd ${2:-$(dirname $0)/../sources/pxc}; pwd -P)
 
-# extract garbd and galera binaries
-GALERA3_WORKDIR=$(cd ${2:-./build/galera3}; pwd -P)
-
-sudo cp $GALERA3_WORKDIR/libgalera_smm.so $SOURCEDIR/target/libgalera_smm.so
-sudo cp $GALERA3_WORKDIR/garbd $SOURCEDIR/target/garbd
-
-
 # ------------------------------------------------------------------------------
 # download external libs
 # ------------------------------------------------------------------------------
