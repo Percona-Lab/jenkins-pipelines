@@ -22,16 +22,6 @@ pipeline {
             description: 'Tag/Branch for PXC repository',
             name: 'PXB24_BRANCH',
             trim: true)
-	    string(
-	        defaultValue: 'https://github.com/percona/galera',
-	        description: 'URL to GALERA3 repository',
-	        name: 'GALERA3_REPO',
-	        trim: true)
-	    string(
-	        defaultValue: '3.x-5.7',
-	        description: 'Tag/Branch for GALERA3 repository',
-	        name: 'GALERA3_BRANCH',
-	        trim: true)
         choice(
             choices: 'centos:6\ncentos:7\ncentos:8\nubuntu:xenial\nubuntu:bionic\nubuntu:focal\ndebian:jessie\ndebian:stretch\ndebian:buster',
             description: 'OS version for compilation',
