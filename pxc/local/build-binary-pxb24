@@ -61,6 +61,16 @@ wget_loop "googletest-release-${GMOCK_VERSION}.zip" "https://github.com/google/g
 # ------------------------------------------------------------------------------
 # Set OS/Arch flags
 # ------------------------------------------------------------------------------
+
+if [ -f /usr/bin/yum ]; then
+    RHVER="$(rpm --eval %rhel)"
+    if [[ ${RHVER} -eq 6 ]]; then
+        if [[ -f /opt/rh/devtoolset-2/enable ]]; then
+            source /opt/rh/devtoolset-2/enable
+        fi
+    fi
+fi
+
 TARGET_ARCH="$(uname -m)"
 
 export CC=${CC:-gcc}
