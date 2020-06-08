@@ -22,16 +22,6 @@ pipeline {
             description: 'Tag/Branch for PXC repository',
             name: 'PXB24_BRANCH',
             trim: true)
-	    string(
-	        defaultValue: 'https://github.com/percona/galera',
-	        description: 'URL to GALERA3 repository',
-	        name: 'GALERA3_REPO',
-	        trim: true)
-	    string(
-	        defaultValue: '3.x-5.7',
-	        description: 'Tag/Branch for GALERA3 repository',
-	        name: 'GALERA3_BRANCH',
-	        trim: true)
         choice(
             choices: 'centos:6\ncentos:7\ncentos:8\nubuntu:xenial\nubuntu:bionic\nubuntu:focal\ndebian:jessie\ndebian:stretch\ndebian:buster',
             description: 'OS version for compilation',
@@ -99,46 +89,8 @@ pipeline {
                 '''
             }
         }
-        stage('Check out and Build Galera/PXB') {
+        stage('Check out and Build PXB') {
             parallel {
-                stage('Build Galera library') {
-                    agent { label 'docker' }
-                    steps {
-                        git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                        echo 'Checkout Galera library'
-                        sh '''
-                            # sudo is needed for better node recovery after compilation failure
-                            # if building failed on compilation stage directory will have files owned by docker user
-                            sudo git reset --hard
-                            sudo git clean -xdf
-                            sudo rm -rf sources
-                            ./pxc/local/checkout57 GALERA3
-                        '''
-                        echo 'Build GALERA3'
-                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            sh '''
-                                sg docker -c "
-                                    if [ \$(docker ps -q | wc -l) -ne 0 ]; then
-                                        docker ps -q | xargs docker stop --time 1 || :
-                                    fi
-                                    ./pxc/docker/run-build-galera3 ${DOCKER_OS}
-                                " 2>&1 | tee build.log
-                             
-                                if [[ -f \$(ls pxc/sources/galera3/results/libgalera_smm.so | head -1) ]]; then
-                                    until aws s3 cp --no-progress --acl public-read pxc/sources/galera3/results/libgalera_smm.so s3://pxc-build-cache/${BUILD_TAG}/libgalera_smm.so; do
-                                        sleep 5
-                                    done
-                                    until aws s3 cp --no-progress --acl public-read pxc/sources/galera3/results/garbd s3://pxc-build-cache/${BUILD_TAG}/garbd; do
-                                        sleep 5
-                                    done
-                                else
-                                    echo cannot find compiled archive
-                                    exit 1
-                                fi
-                            '''
-                        }
-                    }
-                }
                 stage('Build PXB24') {
                     agent { label 'docker' }
                     steps {
@@ -192,15 +144,7 @@ pipeline {
 
                     echo 'Build PXC57'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                        sh '''
-                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/libgalera_smm.so ./pxc/sources/pxc/libgalera_smm.so; do
-                                sleep 5
-                            done
-
-                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/garbd ./pxc/sources/pxc/garbd; do
-                                sleep 5
-                            done
-							
+                        sh '''							
                             sg docker -c "
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                     docker ps -q | xargs docker stop --time 1 || :

@@ -29,13 +29,6 @@ DOWNLOAD_DIR=${WORKDIR}/source_downloads
 mkdir -p ${INSTALL_DIR} ${DOWNLOAD_DIR}
 SOURCEDIR=$(cd ${2:-$(dirname $0)/../sources/pxc}; pwd -P)
 
-# extract garbd and galera binaries
-GALERA3_WORKDIR=$(cd ${2:-./build/galera3}; pwd -P)
-
-sudo cp $GALERA3_WORKDIR/libgalera_smm.so $SOURCEDIR/target/libgalera_smm.so
-sudo cp $GALERA3_WORKDIR/garbd $SOURCEDIR/target/garbd
-
-
 # ------------------------------------------------------------------------------
 # download external libs
 # ------------------------------------------------------------------------------
@@ -116,10 +109,10 @@ fi
 # ------------------------------------------------------------------------------
 pushd ${SOURCEDIR}
     if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
-        bash -x ./build-ps/build-binary.sh -G -d ./target
+        sudo bash -x ./build-ps/build-binary.sh -d ./target
     else
-        bash -x ./build-ps/build-binary.sh -G ./target
+        sudo bash -x ./build-ps/build-binary.sh ./target
     fi
 popd
 
-cp ${SOURCEDIR}/target/*.tar.gz ${WORKDIR}/${PRODUCT_FULL}.tar.gz
+sudo cp ${SOURCEDIR}/target/*.tar.gz ${WORKDIR}/${PRODUCT_FULL}.tar.gz

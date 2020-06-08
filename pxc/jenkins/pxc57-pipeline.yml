@@ -13,4 +13,3 @@
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pxc/jenkins/pxc57-pipeline.groovy
-

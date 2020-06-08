@@ -31,14 +31,6 @@
         name: PXB24_BRANCH
         default: percona-xtrabackup-2.4.20
         description: Tag/Branch for PXC repository
-    - string:
-        name: GALERA3_REPO
-        default: https://github.com/percona/galera
-        description: URL to GALERA3 repository
-    - string:
-        name: GALERA3_BRANCH
-        default: 3.x-5.7
-        description: Tag/Branch for GALERA repository
     - choice:
         name: JOB_CMAKE
         choices:
