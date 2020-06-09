@@ -37,7 +37,8 @@ void pushImageToDocker(String IMAGE_PREFIX){
             IMAGE_PREFIX=${IMAGE_PREFIX}
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                docker push perconalab/percona-server-mongodb-operator:master-${IMAGE_PREFIX}
+                export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
+                docker trust sign perconalab/percona-server-mongodb-operator-${IMAGE_PREFIX}
                 docker logout
             "
         """
@@ -104,6 +105,9 @@ pipeline {
     agent {
          label 'docker' 
     }
+    environment {
+        DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
+    }
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
@@ -142,7 +146,25 @@ pipeline {
                         cd ./source/
                         sg docker -c "
                             docker login -u '${USER}' -p '${PASS}'
-                            ./e2e-tests/build
+                            RHEL=1 ./e2e-tests/build
+                            docker logout
+                        "
+                    '''
+                }
+            }
+        }
+
+        stage('Push docker image to dockerhub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
+                    sh '''
+                        sg docker -c "
+                            mkdir -p /home/ec2-user/.docker/trust/private
+                            cp "${docker_key}" ~/.docker/trust/private/
+
+                            docker login -u '${USER}' -p '${PASS}'
+                            export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
+                            docker trust sign perconalab/percona-server-mongodb-operator:master
                             docker logout
                         "
                     '''
