@@ -1,0 +1,111 @@
+library changelog: false, identifier: "lib@master", retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+])
+
+def moleculeDir = "molecule/ppg/pg-12-minor-upgrade"
+
+pipeline {
+  agent {
+  label 'micro-amazon'
+  }
+  environment {
+      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+  }
+  parameters {
+        choice(
+            name: 'FROM_REPO',
+            description: 'From this repo will be upgraded PPG',
+            choices: [
+                'testing',
+                'experimental',
+                'release'
+            ]
+        )
+        choice(
+            name: 'TO_REPO',
+            description: 'Repo for testing',
+            choices: [
+                'testing',
+                'experimental',
+                'release'
+            ]
+        )
+        choice(
+            name: 'FROM_VERSION',
+            description: 'From this version PPG will be updated',
+            choices: [
+                'ppg-12.2'
+            ]
+        )
+        choice(
+            name: 'VERSION',
+            description: 'To this version PPG will be updated',
+            choices: [
+                'ppg-12.3'
+            ]
+        )
+  }
+  options {
+          withCredentials(moleculeDistributionJenkinsCreds())
+          disableConcurrentBuilds()
+  }
+  stages {
+    stage('Set build name'){
+      steps {
+                script {
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}"
+                }
+            }
+        }
+    stage('Checkout') {
+      steps {
+            deleteDir()
+            git poll: false, branch: 'master', url: 'https://github.com/Percona-QA/package-testing.git'
+        }
+    }
+    stage ('Prepare') {
+      steps {
+          script {
+              installMolecule()
+            }
+        }
+    }
+    stage ('Create virtual machines') {
+      steps {
+          script{
+              moleculeExecuteActionWithScenario(moleculeDir, "create", env.PLATFORM)
+            }
+        }
+    }
+    stage ('Run playbook for test') {
+      steps {
+          script{
+              moleculeExecuteActionWithScenario(moleculeDir, "converge", env.PLATFORM)
+            }
+        }
+    }
+    stage ('Start testinfra tests') {
+      steps {
+            script{
+              moleculeExecuteActionWithScenario(moleculeDir, "verify", env.PLATFORM)
+            }
+            junit "molecule/ppg/pg-12-minor-upgrade/molecule/${PLATFORM}/report.xml"
+        }
+    }
+      stage ('Start Cleanup ') {
+        steps {
+             script {
+               moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.PLATFORM)
+            }
+        }
+    }
+  }
+  post {
+    always {
+          script {
+             moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.PLATFORM)
+        }
+    }
+  }
+}
