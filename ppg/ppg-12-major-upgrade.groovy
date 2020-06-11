@@ -3,11 +3,11 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "molecule/ppg/pg-12-minor-upgrade"
+def moleculeDir = "molecule/ppg/pg-12-major-upgrade"
 
 pipeline {
   agent {
-  label 'micro-amazon'
+     label 'micro-amazon'
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
@@ -40,13 +40,17 @@ pipeline {
             name: 'FROM_VERSION',
             description: 'From this version PPG will be updated',
             choices: [
-                'ppg-12.2'
+                'ppg-11.5',
+                'ppg-11.6',
+                'ppg-11.7',
+                'ppg-11.8'
             ]
         )
         choice(
             name: 'VERSION',
             description: 'To this version PPG will be updated',
             choices: [
+                'ppg-12.2',
                 'ppg-12.3'
             ]
         )
@@ -95,7 +99,7 @@ pipeline {
             script{
               moleculeExecuteActionWithScenario(moleculeDir, "verify", env.PLATFORM)
             }
-            junit "molecule/ppg/pg-12-minor-upgrade/molecule/${PLATFORM}/report.xml"
+            junit "molecule/ppg/pg-12-major-upgrade/molecule/${PLATFORM}/report.xml"
         }
     }
       stage ('Start Cleanup ') {
