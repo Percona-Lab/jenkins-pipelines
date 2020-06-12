@@ -53,7 +53,7 @@ pipeline {
     post {
        always {
           script {
-              moleculeParallelPostDestroy(operatingSystems, moleculeDir)
+              runMoleculeCommandParallel(operatingSystems, moleculeDir, "destroy")
          }
       }
    }

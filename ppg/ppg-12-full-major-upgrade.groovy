@@ -3,11 +3,11 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "molecule/ppg/pg-11"
+def moleculeDir = "molecule/ppg/pg-12-full-major-upgrade"
 
 pipeline {
   agent {
-  label 'micro-amazon'
+     label 'micro-amazon'
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
@@ -28,9 +28,14 @@ pipeline {
             ]
         )
         choice(
-            name: 'VERSION',
-            description: 'PG version for test',
+            name: 'FROM_VERSION',
+            description: 'From this version PPG will be updated',
             choices: ppg11Versions()
+        )
+        choice(
+            name: 'VERSION',
+            description: 'To this version PPG will be updated',
+            choices: ppg12Versions()
         )
   }
   options {
@@ -65,19 +70,41 @@ pipeline {
             }
         }
     }
-    stage ('Run playbook for test') {
+    stage ('Prepare VM for test') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(moleculeDir, "converge", env.PLATFORM)
+              moleculeExecuteActionWithScenario(moleculeDir, "prepare", env.PLATFORM)
             }
         }
     }
-    stage ('Start testinfra tests') {
+    stage ('Run playbook for test with old version') {
+      steps {
+          script{
+              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "converge", env.PLATFORM, "VERSION", env.FROM_VERSION)
+            }
+        }
+    }
+    stage ('Start testinfra tests for old version') {
       steps {
             script{
-              moleculeExecuteActionWithScenario(moleculeDir, "verify", env.PLATFORM)
+              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "verify", env.PLATFORM, "VERSION", env.FROM_VERSION)
             }
-            junit "molecule/ppg/pg-11/molecule/${PLATFORM}/report.xml"
+            junit "molecule/ppg/pg-12-full-major-upgrade/molecule/${PLATFORM}/report.xml"
+        }
+    }
+    stage ('Run playbook for test with new version') {
+      steps {
+          script{
+              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "side-effect", env.PLATFORM, "VERSION", env.VERSION)
+            }
+        }
+    }
+    stage ('Start testinfra tests for new version') {
+      steps {
+            script{
+              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "verify", env.PLATFORM, "VERSION", env.VERSION)
+            }
+            junit "molecule/ppg/pg-12-full-major-upgrade/molecule/${PLATFORM}/report.xml"
         }
     }
       stage ('Start Cleanup ') {

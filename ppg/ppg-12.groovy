@@ -30,10 +30,7 @@ pipeline {
         choice(
             name: 'VERSION',
             description: 'PG version for test',
-            choices: [
-                'ppg-12.2',
-                'ppg-12.3'
-            ]
+            choices: ppg12Versions()
         )
   }
   options {
