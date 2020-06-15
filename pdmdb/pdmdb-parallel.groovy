@@ -55,7 +55,7 @@ pipeline {
     post {
     always {
       script {
-          moleculeParallelPostDestroy(pdmdbOperatingSystems(), moleculeDir)
+          runMoleculeCommandParallel(pdmdbOperatingSystems(), moleculeDir, "destroy")
          }
       }
    }

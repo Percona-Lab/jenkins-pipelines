@@ -34,16 +34,12 @@ pipeline {
         choice(
             name: 'FROM_VERSION',
             description: 'From this version PPG will be updated',
-            choices: [
-                'ppg-12.2'
-            ]
+            choices: ppg12Versions()
         )
         choice(
             name: 'VERSION',
             description: 'To this version PPG will be updated',
-            choices: [
-                'ppg-12.3'
-            ]
+            choices: ppg12Versions()
         )
   }
   options {
@@ -75,7 +71,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(ppgOperatingSystems(), moleculeDir)
+              runMoleculeCommandParallel(ppgOperatingSystems(), moleculeDir, "destroy")
          }
       }
    }
