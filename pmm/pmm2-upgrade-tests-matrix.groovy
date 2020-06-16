@@ -29,6 +29,7 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
+    triggers { cron('0 0 * * SAT') }
     stages {
         stage('Run Upgrade Matrix-1') {
             parallel {
