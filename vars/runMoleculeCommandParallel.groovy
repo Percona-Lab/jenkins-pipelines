@@ -3,7 +3,7 @@ def call(operatingSystems, moleculeDir, action) {
   operatingSystems.each { os ->
    tests["${os}"] =  {
         stage("${os}") {
-            moleculeExecuteActionWithScenario(${moleculeDir}, ${action}  ${os})
+            moleculeExecuteActionWithScenario(${moleculeDir}, ${action}, ${os})
         }
       }
     }

@@ -1,5 +1,5 @@
 - job:
-    name: pxb
+    name: pxc
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pdmysql/pxb.groovy
+      script-path: pdpxc/pxc.groovy

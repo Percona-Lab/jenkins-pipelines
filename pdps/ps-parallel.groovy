@@ -3,7 +3,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "molecule/pdmysql/pxb"
+def moleculeDir = "molecule/pdmysql/pdps"
 pipeline {
   agent {
       label 'micro-amazon'

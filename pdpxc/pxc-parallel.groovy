@@ -3,7 +3,9 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "molecule/pdmysql/ps"
+def moleculeDir = "molecule/pdmysql/pdpxc"
+def operatingSystems = ['centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
+
 pipeline {
   agent {
       label 'micro-amazon'
@@ -34,16 +36,16 @@ pipeline {
             }
         }
         stage ('Prepare') {
-          steps {
+            steps {
                 script {
                    installMolecule()
              }
            }
         }
         stage('Test') {
-          steps {
+            steps {
                 script {
-                    moleculeParallelTest(pdmdbOperatingSystems(), moleculeDir)
+                    moleculeParallelTest(operatingSystems, moleculeDir)
                 }
             }
          }
@@ -51,7 +53,7 @@ pipeline {
     post {
         always {
           script {
-              runMoleculeCommandParallel(pdmdbOperatingSystems(), moleculeDir, "destroy")
+              runMoleculeCommandParallel(operatingSystems, moleculeDir, "destroy")
          }
       }
    }
