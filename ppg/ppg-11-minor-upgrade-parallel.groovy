@@ -69,7 +69,7 @@ pipeline {
     post {
         always {
           script {
-              runMoleculeCommandParallel(ppgOperatingSystems(), moleculeDir, "destroy")
+              moleculeParallelPostDestroy(ppgOperatingSystems(), moleculeDir)
          }
       }
    }
