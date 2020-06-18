@@ -3,7 +3,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "molecule/pdmysql/orchestrator"
+def moleculeDir = "molecule/pdmysql/pdpxc"
 def operatingSystems = ['centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
 
 pipeline {
@@ -76,7 +76,7 @@ pipeline {
             junit "${moleculeDir}/molecule/${PLATFORM}/report.xml"
         }
     }
-      stage ('Start Cleanup ') {
+    stage ('Start Cleanup ') {
       steps {
           script {
               moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.PLATFORM)

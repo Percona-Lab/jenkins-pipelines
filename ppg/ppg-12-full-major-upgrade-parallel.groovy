@@ -68,28 +68,28 @@ pipeline {
         stage('Install old version') {
           steps {
                 script {
-                    runMoleculeCommandIParallelWithVariable(ppgOperatingSystems(), moleculeDir, "converge", "VERSION", env.FROM_VERSION)
+                    runMoleculeCommandParallelWithVariable(ppgOperatingSystems(), moleculeDir, "converge", "VERSION", env.FROM_VERSION)
                 }
             }
          }
         stage('Test old version') {
           steps {
                 script {
-                    runMoleculeCommandIParallelWithVariable(ppgOperatingSystems(), moleculeDir, "verify", "VERSION", env.FROM_VERSION)
+                    runMoleculeCommandParallelWithVariable(ppgOperatingSystems(), moleculeDir, "verify", "VERSION", env.FROM_VERSION)
                 }
             }
          }
         stage('Install new version') {
           steps {
                 script {
-                    runMoleculeCommandIParallelWithVariable(ppgOperatingSystems(), moleculeDir, "side-effect", "VERSION", env.VERSION)
+                    runMoleculeCommandParallelWithVariable(ppgOperatingSystems(), moleculeDir, "side-effect", "VERSION", env.VERSION)
                 }
             }
          }
         stage('Test new version') {
           steps {
                 script {
-                    runMoleculeCommandIParallelWithVariable(ppgOperatingSystems(), moleculeDir, "verify", "VERSION", env.VERSION)
+                    runMoleculeCommandParallelWithVariable(ppgOperatingSystems(), moleculeDir, "verify", "VERSION", env.VERSION)
                 }
             }
          }
@@ -104,7 +104,7 @@ pipeline {
     post {
         always {
           script {
-              runMoleculeCommandParallel(ppgOperatingSystems(), moleculeDir, "destroy")
+              moleculeParallelPostDestroy(ppgOperatingSystems(), moleculeDir)
          }
       }
    }

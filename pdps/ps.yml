@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pdmysql/ps.groovy
+      script-path: pdps/ps.groovy
