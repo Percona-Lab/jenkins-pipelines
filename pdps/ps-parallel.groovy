@@ -4,6 +4,8 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def moleculeDir = "molecule/pdmysql/pdps"
+def operatingSystems = ['centos-6', 'centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
+
 pipeline {
   agent {
       label 'micro-amazon'
@@ -43,7 +45,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(pdmdbOperatingSystems(), moleculeDir)
+                    moleculeParallelTest(operatingSystems, moleculeDir)
                 }
             }
          }
@@ -51,7 +53,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(pdmdbOperatingSystems(), moleculeDir)
+              moleculeParallelPostDestroy(operatingSystems, moleculeDir)
          }
       }
    }

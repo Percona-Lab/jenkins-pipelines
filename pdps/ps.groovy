@@ -4,6 +4,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def moleculeDir = "molecule/pdmysql/pdps"
+def operatingSystems = ['centos-6', 'centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
 
 pipeline {
   agent {
@@ -16,7 +17,7 @@ pipeline {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: pdmysqlOperatingSystems()
+            choices: operatingSystems
         )
         choice(
             name: 'REPO',
