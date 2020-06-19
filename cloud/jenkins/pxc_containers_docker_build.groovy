@@ -53,6 +53,7 @@ void pushImageToDocker(String IMAGE_PREFIX){
                 docker login -u '${USER}' -p '${PASS}'
                 export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
                 docker trust sign perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX}
+                docker push perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX}
                 docker logout
             "
         """

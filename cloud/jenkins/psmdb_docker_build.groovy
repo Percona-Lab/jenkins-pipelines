@@ -39,6 +39,7 @@ void pushImageToDocker(String IMAGE_PREFIX){
                 docker login -u '${USER}' -p '${PASS}'
                 export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
                 docker trust sign perconalab/percona-server-mongodb-operator-${IMAGE_PREFIX}
+                docker push perconalab/percona-server-mongodb-operator-${IMAGE_PREFIX}
                 docker logout
             "
         """
@@ -165,6 +166,7 @@ pipeline {
                             docker login -u '${USER}' -p '${PASS}'
                             export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
                             docker trust sign perconalab/percona-server-mongodb-operator:master
+                            docker push perconalab/percona-server-mongodb-operator:master
                             docker logout
                         "
                     '''
