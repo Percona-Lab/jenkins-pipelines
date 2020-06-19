@@ -67,6 +67,7 @@ pipeline {
                             docker login -u '${USER}' -p '${PASS}'
                             export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
                             docker trust sign perconalab/percona-xtradb-cluster-operator:master
+                            docker push perconalab/percona-xtradb-cluster-operator:master
                             docker logout
                         "
                     '''
