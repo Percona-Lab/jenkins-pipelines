@@ -5,8 +5,7 @@
 #  possible jenkins vars:
 #      CMAKE_BUILD_TYPE = (RelWithDebInfo Debug)
 #      DEFAULT_TESTING = (yes no)
-#      MTR_ARGS
-#      MTR_REPEAT
+#      QA_ARGS
 
 set -o errexit
 set -o xtrace
@@ -37,6 +36,10 @@ sudo pip3 install mysql-connector
 cd ${WORKDIR_ABS}/pxc-qa
 status=0
 #
+
+if [[ -z "${QA_ARGS}" ]]; then
+  QA_ARGS="--suite=replication"
+fi
 # Running Replication QA job
 export PYTHONIOENCODING=utf-8
 python3 ${WORKDIR_ABS}/pxc-qa/qa_framework.py ${QA_ARGS} | tee ${WORKDIR_ABS}/qa_framework.output || status=$?

@@ -19,9 +19,7 @@ docker run --rm \
     export CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'
     export ANALYZER_OPTS='${ANALYZER_OPTS}'
     export DEFAULT_TESTING='${DEFAULT_TESTING}'
-    export MTR_ARGS='${MTR_ARGS}'
-    export MTR_REPEAT='${MTR_REPEAT}'
-    export MTR_VAULT_TOKEN='${MTR_VAULT_TOKEN}'
+    export QA_ARGS='${QA_ARGS}'
 
     mkdir /tmp/results
     cp /tmp/pxc/results/*.tar.gz /tmp/results
