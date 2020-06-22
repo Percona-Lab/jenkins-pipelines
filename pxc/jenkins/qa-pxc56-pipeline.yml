@@ -12,5 +12,5 @@
             - 'PXC-3309-add-PXC56-QA-pipeline-jobs'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pxc/jenkins/pxc56-pipeline.groovy
+      script-path: pxc/jenkins/qa-pxc56-pipeline.groovy
 
