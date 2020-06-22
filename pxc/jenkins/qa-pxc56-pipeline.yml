@@ -1,5 +1,5 @@
 - job:
-    name: pxc-5.6-pipeline
+    name: qa-pxc-5.6-pipeline
     project-type: pipeline
     description: |
         Do not edit this job through the web!

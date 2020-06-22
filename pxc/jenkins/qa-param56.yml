@@ -1,5 +1,5 @@
 - job:
-    name: pxc-5.6-param
+    name: qa-pxc-5.6-param
     project-type: matrix
     defaults: global
     description: |
@@ -71,7 +71,7 @@
           - ubuntu:xenial
     builders:
     - trigger-builds:
-      - project: pxc-5.6-pipeline
+      - project: qa-pxc-5.6-pipeline
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${DOCKER_OS}
