@@ -145,7 +145,7 @@ pipeline {
         choice(
             choices: 'NO\nYES',
             description: 'GKE alpha/stable',
-            name: 'RELEASE CHANNELK')
+            name: 'IS_GKE_ALPHA')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-xtradb-cluster-operator:master',
