@@ -1,0 +1,16 @@
+- job:
+    name: pxc-5.6-pipeline
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: true
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'PXC-3309-add-PXC56-QA-pipeline-jobs'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pxc/jenkins/pxc56-pipeline.groovy
+
