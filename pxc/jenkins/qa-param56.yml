@@ -68,7 +68,7 @@
          name: DOCKER_OS
          values:
           - centos:7
-          - ubuntu:xenial
+          - ubuntu:bionic
     builders:
     - trigger-builds:
       - project: qa-pxc-5.6-pipeline
