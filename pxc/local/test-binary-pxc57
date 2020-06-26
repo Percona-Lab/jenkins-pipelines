@@ -53,7 +53,7 @@ function process_mtr_output {
 
   export LC_ALL=C
   egrep -a -o '[[:alpha:]]+(_[[:alnum:]]+)?(\.\/)?.*\[ .* \].*$' ${INFILE} \
-    | awk '{ if ($3 == "disabled" || $3 == "skipped") { print $1 " " $3 } else if (match($2, /^w[0-9]/)) { print $1 " " $4 " " $6 } else { print $1 " " $5 " " $7 } }' \
+    | awk '{ if ($3 == "disabled" || $3 == "skipped") { print $1 " " $3 } else if (match($2, /^w[0-9]/)) { print $1 " " $4 " " $6 } else { print $1 " " "-" substr($2,2,length($2)-2) $5 " " $7 } }' \
     | sort \
     | awk 'prev && ($1 != prev) {print seen[prev]} {seen[$1] = $0; prev = $1} END {print seen[$1]}' \
     | gawk 'BEGIN     { print "<testsuite name=\"@@TESTSUITE@@\" tests=\"@@PASSED@@\" failures=\"@@FAILURES@@\" disabled=\"@@DISABLED@@\" skipped=\"@@SKIPPED@@\">" }
