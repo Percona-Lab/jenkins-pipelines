@@ -9,7 +9,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'PXC-3309-add-PXC56-QA-pipeline-jobs'
+            - 'master'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pxc/jenkins/qa-pxc56-pipeline.groovy
