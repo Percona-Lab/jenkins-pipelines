@@ -137,7 +137,7 @@ if [ -f /usr/bin/apt-get ]; then
         debconf debhelper fakeroot po-debconf psmisc ccache libtool sudo liblz4-dev liblz4-tool libedit-dev libssl-dev \
         tzdata check scons libreadline-dev libgcrypt-dev libev-dev zlib1g-dev libasio-dev ncurses-dev \
         libpam-dev socat vim-common openssl python3-pip libboost-all-dev rsync \
-        python3 sysbench perl-DBD-mysql \
+        python3 sysbench libdbd-mysql-perl \
     "
     
     if [[ ${DIST} != 'focal' ]]; then

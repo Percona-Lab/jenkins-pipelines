@@ -52,11 +52,7 @@ sudo cp ${WORKDIR_ABS}/PXB/bin/* /usr/bin/
 #cd ${WORKDIR_ABS}/PXC/mysql-test
 TESTCASE_TIMEOUT=30
 PARALLEL=$(grep -c ^processor /proc/cpuinfo)
-which python
-# CentOS 6 & 7
-sudo yum list | grep python3
-sudo yum install -y python3 sysbench perl-DBD-mysql
-sudo pip3 install mysql-connector
+
 cd ${WORKDIR_ABS}/pxc-qa
 status=0
 #
