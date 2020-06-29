@@ -20,6 +20,10 @@ pipeline {
             choices: 'NO\nYES',
             description: 'Is this build for release?',
             name: 'RELEASE_BUILD')
+        choice(
+            choices: 'laboratory\ntesting\nexperimental\nrelease',
+            description: 'Repo component to push packages to',
+            name: 'COMPONENT')
     }
     options {
         skipDefaultCheckout()
@@ -111,7 +115,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdDBaas('laboratory')
+                sync2ProdDBaas(COMPONENT)
             }
         }
     }
