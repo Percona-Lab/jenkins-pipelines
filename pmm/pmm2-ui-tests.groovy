@@ -35,6 +35,14 @@ void destroyStaging(IP) {
     ]
 }
 
+void uploadAllureArtifacts() {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            scp -r -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+                pmm-app/tests/output/allure aws-jenkins@${MONITORING_HOST}:/home/aws-jenkins/allure-reports
+        """
+    }
+}
 pipeline {
     agent {
         label 'large-amazon'
@@ -55,6 +63,11 @@ pipeline {
         REMOTE_PROXYSQL_HOST=credentials('qa-remote-proxysql-host')
         REMOTE_PROXYSQL_USER=credentials('qa-remote-proxysql-user')
         REMOTE_PROXYSQL_PASSWORD=credentials('qa-remote-proxysql-password')
+        INFLUXDB_ADMIN_USER=credentials('influxdb-admin-user')
+        INFLUXDB_ADMIN_PASSWORD=credentials('influxdb-admin-password')
+        INFLUXDB_USER=credentials('influxdb-user')
+        INFLUXDB_USER_PASSWORD=credentials('influxdb-user-password')
+        MONITORING_HOST=credentials('monitoring-host')
     }
     parameters {
         string(
@@ -203,10 +216,12 @@ pipeline {
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip
                 sudo chmod 777 -R pmm-app/tests/output
+                ls -la pmm-app/tests/output/allure
                 ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/parallel_chunk*/*.json > pmm-app/tests/output/combine_results.json
                 ./pmm-app/node_modules/.bin/marge pmm-app/tests/output/combine_results.json --reportDir pmm-app/tests/output/ --inline --cdn --charts
             '''
             destroyStaging(VM_NAME)
+            uploadAllureArtifacts()
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
