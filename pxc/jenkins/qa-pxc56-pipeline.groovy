@@ -234,12 +234,12 @@ pipeline {
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                     docker ps -q | xargs docker stop --time 1 || :
                                 fi
-                                ./pxc/docker/run-qa-framework-pxc56 ${DOCKER_OS}
+                                ./pxc/docker/run-qa-framework-pxc ${DOCKER_OS}
                             "
                         '''
                     }
                     step([$class: 'JUnitResultArchiver', testResults: 'pxc/sources/pxc/results/*.xml', healthScaleFactor: 1.0])
-                    archiveArtifacts 'pxc/sources/pxc/results/*.xml,pxc/sources/pxc/results/pxc56-qa-framework-run_logs.tar.gz'
+                    archiveArtifacts 'pxc/sources/pxc/results/*.xml,pxc/sources/pxc/results/pxc-qa-framework-run_logs.tar.gz'
                 }
         }
     }

@@ -23,7 +23,7 @@ pipeline {
             name: 'PXB24_BRANCH',
             trim: true)
         choice(
-            choices: 'centos:6\ncentos:7\ncentos:8\nubuntu:xenial\nubuntu:bionic\nubuntu:focal\ndebian:jessie\ndebian:stretch\ndebian:buster',
+            choices: 'centos:7\nubuntu:bionic',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -42,18 +42,10 @@ pipeline {
             defaultValue: '',
             description: 'make options, like VERBOSE=1',
             name: 'MAKE_OPTS')
-        choice(
-            choices: 'yes\nno',
-            description: 'Run mysql-test-run.pl',
-            name: 'DEFAULT_TESTING')
-        string(
-            defaultValue: '--unit-tests-report --suite=galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars',
-            description: 'mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report',
-            name: 'MTR_ARGS')
-        string(
-            defaultValue: '1',
-            description: 'Run each test N number of times, --repeat=N',
-            name: 'MTR_REPEAT')
+	    string(
+	        defaultValue: '--suite replication correctness',
+	        description: 'qa_framework.py options, for options like: --suite --encryption --debug',
+	        name: 'QA_ARGS')
     }
     agent {
         label 'micro-amazon'
@@ -94,7 +86,7 @@ pipeline {
                 stage('Build PXB24') {
                     agent { label 'docker' }
                     steps {
-                        git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        git branch: 'PXC-3309-Add-PXCQA-pipeline-jobs', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                         echo 'Checkout PXB24 sources'
                         sh '''
                             # sudo is needed for better node recovery after compilation failure
@@ -131,7 +123,7 @@ pipeline {
         stage('Build PXC57') {
                 agent { label 'docker-32gb' }
                 steps {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'PXC-3309-Add-PXCQA-pipeline-jobs', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Checkout PXC57 sources'
                     sh '''
                         # sudo is needed for better node recovery after compilation failure
@@ -167,7 +159,7 @@ pipeline {
         stage('Test PXC57') {
                 agent { label 'docker-32gb' }
                 steps {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'PXC-3309-Add-PXCQA-pipeline-jobs', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Test PXC57'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
@@ -182,12 +174,12 @@ pipeline {
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                     docker ps -q | xargs docker stop --time 1 || :
                                 fi
-                                ./pxc/docker/run-test57 ${DOCKER_OS}
+                                ./pxc/docker/run-qa-framework-pxc ${DOCKER_OS}
                             "
                         '''
                     }
                     step([$class: 'JUnitResultArchiver', testResults: 'pxc/sources/pxc/results/*.xml', healthScaleFactor: 1.0])
-                    archiveArtifacts 'pxc/sources/pxc/results/*.xml,pxc/sources/pxc/results/pxc57-test-mtr_logs.tar.gz'
+                    archiveArtifacts 'pxc/sources/pxc/results/*.xml,pxc/sources/pxc/results/pxc-qa-framework-run_logs.tar.gz'
                 }
         }
     }
