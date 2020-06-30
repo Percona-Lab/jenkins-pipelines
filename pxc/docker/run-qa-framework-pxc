@@ -24,11 +24,11 @@ docker run --rm \
     mkdir /tmp/results
     cp /tmp/pxc/results/*.tar.gz /tmp/results
 	
-    bash -x /tmp/scripts/test-qa-framework-pxc56 /tmp/results
+    bash -x /tmp/scripts/test-qa-framework-pxc /tmp/results
     rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/log
-    sudo tar -czf "pxc56-qa-framework-run_logs.tar.gz" /tmp/results/log 
+    sudo tar -czf "pxc-qa-framework-run_logs.tar.gz" /tmp/results/log 
 
-    sudo mv ./pxc56-qa-framework-run_logs.tar.gz /tmp/pxc/results/
-    sudo mv /tmp/results/*.output  /tmp/pxc/results/
-    sudo chown $(id -u):$(id -g) /tmp/pxc/results/*.output
+    sudo mv ./pxc-qa-framework-run_logs.tar.gz /tmp/pxc/results/
+    sudo mv /tmp/results/*.output /tmp/results/*.xml  /tmp/results/pxc-qa/*.out /tmp/pxc/results/
+    sudo chown $(id -u):$(id -g) /tmp/pxc/results/*.output /tmp/pxc/results/*.out /tmp/pxc/results/*.xml
 "
