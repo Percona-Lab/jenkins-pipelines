@@ -16,6 +16,14 @@
         artifact-num-to-keep: 50
     parameters:
     - string:
+        name: PXC57_REPO
+        default: "https://github.com/percona/percona-xtradb-cluster"
+        description: URL to PXC repository
+    - string:
+        name: PXC57_BRANCH
+        default: "5.7"
+        description: Tag/Branch for PXC repository
+    - string:
         name: GIT_REPO
         default: "https://github.com/percona/percona-xtradb-cluster"
         description: URL to PXC repository
