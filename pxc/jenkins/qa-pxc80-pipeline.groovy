@@ -4,12 +4,12 @@ pipeline {
     parameters {
         string(
             defaultValue: 'https://github.com/percona/percona-xtradb-cluster',
-            description: 'URL to PXC repository',
+            description: 'URL to PXC57 repository',
             name: 'PXC57_REPO',
             trim: true)
 	    string(
 	        defaultValue: '5.7',
-	        description: 'Tag/Branch for PXC repository',
+	        description: 'Tag/Branch for PXC57 repository',
 	        name: 'PXC57_BRANCH',
 	        trim: true)
 	    string(
@@ -89,7 +89,7 @@ pipeline {
                     MY_BRANCH_BASE_MAJOR=5
                     MY_BRANCH_BASE_MINOR=7
                     RAW_VERSION_LINK=$(echo ${PXC57_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
-                    wget ${RAW_VERSION_LINK}/${BRANCH}/VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+                    wget ${RAW_VERSION_LINK}/${PXC57_BRANCH}/VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
                     source ${WORKSPACE}/VERSION-${BUILD_NUMBER}
                     if [[ ${MYSQL_VERSION_MAJOR} -lt ${MY_BRANCH_BASE_MAJOR} ]] ; then
                         echo "Are you trying to build wrong branch?"
