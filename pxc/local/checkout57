@@ -20,14 +20,14 @@ fi
 # ==================== PXC ====================
 
 if [ "$SOURCE_NAME" == 'PXC57' -o "$SOURCE_NAME" == 'ALL' ]; then
-    PXC_ROOT_DIR="${ROOT_DIR}/pxc"
+    PXC_ROOT_DIR="${ROOT_DIR}/pxc57"
 
     sudo rm -rf ${PXC_ROOT_DIR}
 
     git clone "${PXC57_REPO:-https://github.com/percona/percona-xtradb-cluster}" "${PXC_ROOT_DIR}"
 
     pushd $PXC_ROOT_DIR
-        if [ -n "${GIT_REPO}" ]; then
+        if [ -n "${PXC57_REPO}" ]; then
             git remote set-url origin "${PXC57_REPO}"
             git fetch --all
         fi
