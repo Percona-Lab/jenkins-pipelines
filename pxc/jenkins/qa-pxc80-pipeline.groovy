@@ -5,8 +5,18 @@ pipeline {
         string(
             defaultValue: 'https://github.com/percona/percona-xtradb-cluster',
             description: 'URL to PXC repository',
-            name: 'GIT_REPO',
+            name: 'PXC57_REPO',
             trim: true)
+	    string(
+	        defaultValue: '5.7',
+	        description: 'Tag/Branch for PXC repository',
+	        name: 'PXC57_BRANCH',
+	        trim: true)
+	    string(
+	        defaultValue: 'https://github.com/percona/percona-xtradb-cluster',
+	        description: 'URL to PXC repository',
+	        name: 'GIT_REPO',
+	        trim: true)
         string(
             defaultValue: '8.0',
             description: 'Tag/Branch for PXC repository',
@@ -67,7 +77,31 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '200', artifactNumToKeepStr: '200'))
     }
     stages {
-        stage('Prepare') {
+        stage('Prepare PXC57') {
+            steps {
+                script {
+                    currentBuild.displayName = "${BUILD_NUMBER} ${CMAKE_BUILD_TYPE}/${DOCKER_OS}"
+                }
+
+                sh 'echo Prepare: \$(date -u "+%s")'
+                echo 'Checking PXC branch version'
+                sh '''
+                    MY_BRANCH_BASE_MAJOR=5
+                    MY_BRANCH_BASE_MINOR=7
+                    RAW_VERSION_LINK=$(echo ${PXC57_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
+                    wget ${RAW_VERSION_LINK}/${BRANCH}/VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+                    source ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+                    if [[ ${MYSQL_VERSION_MAJOR} -lt ${MY_BRANCH_BASE_MAJOR} ]] ; then
+                        echo "Are you trying to build wrong branch?"
+                        echo "You are trying to build ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR} instead of ${MY_BRANCH_BASE_MAJOR}.${MY_BRANCH_BASE_MINOR}!"
+                        rm -f ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+                        exit 1
+                    fi
+                    rm -f ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+                '''
+            }
+        }
+        stage('Prepare PXC80') {
             steps {
                 script {
                     currentBuild.displayName = "${BUILD_NUMBER} ${CMAKE_BUILD_TYPE}/${DOCKER_OS}"
@@ -163,43 +197,43 @@ pipeline {
                        }
                     }
                 }
-                stage('Build PXC57') {
-                    agent { label 'docker-32gb' }
-                    steps {
-                        git branch: 'PXC-3309-Add-PXC-80-QA-pipeline-jobs', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                        echo 'Checkout PXC80 sources'
-                        sh '''
-                            # sudo is needed for better node recovery after compilation failure
-                            # if building failed on compilation stage directory will have files owned by docker user
-                            sudo git reset --hard
-                            sudo git clean -xdf
-                            sudo rm -rf sources
-                            ./pxc/local/checkout57 PXC57
-                        '''
-    
-                        echo 'Build PXC80'
-                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            sh '''    
-                                sg docker -c "
-                                    if [ \$(docker ps -q | wc -l) -ne 0 ]; then
-                                        docker ps -q | xargs docker stop --time 1 || :
-                                    fi
-                                    ./pxc/docker/run-build-pxc57 ${DOCKER_OS}
-                                " 2>&1 | tee build.log
-                              
-                                if [[ -f \$(ls pxc/sources/pxc/results/*.tar.gz | head -1) ]]; then
-                                    until aws s3 cp --no-progress --acl public-read pxc/sources/pxc/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc57.tar.gz; do
-                                        sleep 5
-                                    done
-                                else
-                                    echo cannot find compiled archive
-                                    exit 1
-                                fi
-                            '''
-                       }
-                    }
-    			}
             }
+        }
+        stage('Build PXC57') {
+                agent { label 'docker-32gb' }
+                steps {
+                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    echo 'Checkout PXC57 sources'
+                    sh '''
+                        # sudo is needed for better node recovery after compilation failure
+                        # if building failed on compilation stage directory will have files owned by docker user
+                        sudo git reset --hard
+                        sudo git clean -xdf
+                        sudo rm -rf sources
+                        ./pxc/local/checkout57 PXC57
+                    '''
+
+                    echo 'Build PXC57'
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        sh '''							
+                            sg docker -c "
+                                if [ \$(docker ps -q | wc -l) -ne 0 ]; then
+                                    docker ps -q | xargs docker stop --time 1 || :
+                                fi
+                                ./pxc/docker/run-build-pxc57 ${DOCKER_OS}
+                            " 2>&1 | tee build.log
+                          
+                            if [[ -f \$(ls pxc/sources/pxc/results/*.tar.gz | head -1) ]]; then
+                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxc/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc57.tar.gz; do
+                                    sleep 5
+                                done
+                            else
+                                echo cannot find compiled archive
+                                exit 1
+                            fi
+                        '''
+                   }
+                }
         }
         stage('Build PXC80') {
             agent { label 'docker-32gb' }
