@@ -165,49 +165,89 @@ pipeline {
                 }
             }
         }
-        stage('Build PXC80') {
-                agent { label 'docker-32gb' }
-                steps {
-                    git branch: 'PXC-3309-Add-PXC-80-QA-pipeline-jobs', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                    echo 'Checkout PXC80 sources'
-                    sh '''
-                        # sudo is needed for better node recovery after compilation failure
-                        # if building failed on compilation stage directory will have files owned by docker user
-                        sudo git reset --hard
-                        sudo git clean -xdf
-                        sudo rm -rf sources
-                        ./pxc/local/checkout PXC80
-                    '''
-
-                    echo 'Build PXC80'
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        stage('Checkout and Build PXC') {
+            parallel {
+                stage('Build PXC57') {
+                    agent { label 'docker-32gb' }
+                    steps {
+                        git branch: 'PXC-3309-Add-PXC-80-QA-pipeline-jobs', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        echo 'Checkout PXC80 sources'
                         sh '''
-                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxb24.tar.gz ./pxc/sources/pxc/pxb24.tar.gz; do
-                                sleep 5
-                            done
-
-                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxb80.tar.gz ./pxc/sources/pxc/pxb80.tar.gz; do
-                                sleep 5
-                            done
-
-                            sg docker -c "
-                                if [ \$(docker ps -q | wc -l) -ne 0 ]; then
-                                    docker ps -q | xargs docker stop --time 1 || :
+                            # sudo is needed for better node recovery after compilation failure
+                            # if building failed on compilation stage directory will have files owned by docker user
+                            sudo git reset --hard
+                            sudo git clean -xdf
+                            sudo rm -rf sources
+                            ./pxc/local/checkout57 PXC57
+                        '''
+    
+                        echo 'Build PXC80'
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''    
+                                sg docker -c "
+                                    if [ \$(docker ps -q | wc -l) -ne 0 ]; then
+                                        docker ps -q | xargs docker stop --time 1 || :
+                                    fi
+                                    ./pxc/docker/run-build-pxc57 ${DOCKER_OS}
+                                " 2>&1 | tee build.log
+                              
+                                if [[ -f \$(ls pxc/sources/pxc/results/*.tar.gz | head -1) ]]; then
+                                    until aws s3 cp --no-progress --acl public-read pxc/sources/pxc/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc57.tar.gz; do
+                                        sleep 5
+                                    done
+                                else
+                                    echo cannot find compiled archive
+                                    exit 1
                                 fi
-                                ./pxc/docker/run-build-pxc ${DOCKER_OS}
-                            " 2>&1 | tee build.log
-                          
-                            if [[ -f \$(ls pxc/sources/pxc/results/*.tar.gz | head -1) ]]; then
-                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxc/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc80.tar.gz; do
+                            '''
+                       }
+                    }
+    			}
+                stage('Build PXC80') {
+                    agent { label 'docker-32gb' }
+                    steps {
+                        git branch: 'PXC-3309-Add-PXC-80-QA-pipeline-jobs', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        echo 'Checkout PXC80 sources'
+                        sh '''
+                            # sudo is needed for better node recovery after compilation failure
+                            # if building failed on compilation stage directory will have files owned by docker user
+                            sudo git reset --hard
+                            sudo git clean -xdf
+                            sudo rm -rf sources
+                            ./pxc/local/checkout PXC80
+                        '''
+    
+                        echo 'Build PXC80'
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''
+                                until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxb24.tar.gz ./pxc/sources/pxc/pxb24.tar.gz; do
                                     sleep 5
                                 done
-                            else
-                                echo cannot find compiled archive
-                                exit 1
-                            fi
-                        '''
-                   }
-                }
+    
+                                until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxb80.tar.gz ./pxc/sources/pxc/pxb80.tar.gz; do
+                                    sleep 5
+                                done
+    
+                                sg docker -c "
+                                    if [ \$(docker ps -q | wc -l) -ne 0 ]; then
+                                        docker ps -q | xargs docker stop --time 1 || :
+                                    fi
+                                    ./pxc/docker/run-build-pxc ${DOCKER_OS}
+                                " 2>&1 | tee build.log
+                              
+                                if [[ -f \$(ls pxc/sources/pxc/results/*.tar.gz | head -1) ]]; then
+                                    until aws s3 cp --no-progress --acl public-read pxc/sources/pxc/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc80.tar.gz; do
+                                        sleep 5
+                                    done
+                                else
+                                    echo cannot find compiled archive
+                                    exit 1
+                                fi
+                            '''
+                       }
+                    }
+    			}
+			}
         }
         stage('Test PXC80') {
                 agent { label 'docker-32gb' }
@@ -216,15 +256,22 @@ pipeline {
                     echo 'Test PXC80'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
+                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxb24.tar.gz ./pxc/sources/pxc/results/pxb24.tar.gz; do
+                                sleep 5
+                            done
                             until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxc80.tar.gz ./pxc/sources/pxc/results/pxc80.tar.gz; do
                                 sleep 5
                             done
 
+                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxc57.tar.gz ./pxc/sources/pxc/results/pxc57.tar.gz; do
+                                sleep 5
+                            done
+							
                             sg docker -c "
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                     docker ps -q | xargs docker stop --time 1 || :
                                 fi
-                                ./pxc/docker/run-test ${DOCKER_OS}
+                                ./pxc/docker/run-qa-framework-pxc ${DOCKER_OS}
                             "
                         '''
                     }
