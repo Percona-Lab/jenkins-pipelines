@@ -1,12 +1,12 @@
 - job:
-    name: qa-pxc-5.7-param
+    name: qa-pxc-8.0-param
     project-type: matrix
     defaults: global
     description: |
         Do not edit this job through the web!
     disabled: false
     concurrent: true
-    auth-token: pxc57testframework
+    auth-token: pxc80testmtr
     node: micro-amazon
     properties:
     - build-discarder:
@@ -21,15 +21,23 @@
         description: URL to PXC repository
     - string:
         name: BRANCH
-        default: "5.7"
+        default: "8.0"
         description: Tag/Branch for PXC repository
+    - string:
+        name: PXB80_REPO
+        default: https://github.com/percona/percona-xtrabackup
+        description: URL to PXB80 repository
+    - string:
+        name: PXB80_BRANCH
+        default: percona-xtrabackup-8.0.9
+        description: Tag/Branch for PXB80 repository
     - string:
         name: PXB24_REPO
         default: https://github.com/percona/percona-xtrabackup
         description: URL to PXB24 repository
     - string:
         name: PXB24_BRANCH
-        default: percona-xtrabackup-2.4.20
+        default: percona-xtrabackup-2.4.18
         description: Tag/Branch for PXC repository
     - choice:
         name: JOB_CMAKE
@@ -61,11 +69,11 @@
          values:
           - centos:7
           - centos:8
-          - ubuntu:bionic 
+          - ubuntu:bionic
           - ubuntu:focal
     builders:
     - trigger-builds:
-      - project: qa-pxc-5.7-pipeline
+      - project: qa-pxc-8.0-pipeline
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${DOCKER_OS}
@@ -78,12 +86,13 @@
     - shell: |
         sudo find . -name "*.xml" -o -name "*.log" -delete
     - copyartifact:
-        project: qa-pxc-5.7-pipeline
+        project: qa-pxc-8.0-pipeline
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_qa_pxc_5_7_pipeline}"
+        build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_8_0_pipeline}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_qa_pxc_5_7_pipeline}" > PIPELINE_BUILD_NUMBER
+        echo "${TRIGGERED_BUILD_NUMBERS_pxc_8_0_pipeline}" > PIPELINE_BUILD_NUMBER
+        gunzip build.log.gz
     publishers:
     - junit:
         results: "**/*.xml"
