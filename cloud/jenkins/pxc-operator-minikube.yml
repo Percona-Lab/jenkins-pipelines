@@ -36,4 +36,8 @@
         name: IMAGE_PROXY
         default:
         description: PXC proxy image
+    - string:
+        name: IMAGE_HAPROXY
+        default:
+        description: PXC haproxy image
 
