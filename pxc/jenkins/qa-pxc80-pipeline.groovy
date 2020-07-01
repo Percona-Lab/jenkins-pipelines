@@ -202,7 +202,7 @@ pipeline {
         stage('Build PXC57') {
                 agent { label 'docker-32gb' }
                 steps {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'PXC-3309-Add-PXC-80-QA-pipeline-jobs', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Checkout PXC57 sources'
                     sh '''
                         # sudo is needed for better node recovery after compilation failure
