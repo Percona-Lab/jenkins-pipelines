@@ -13,6 +13,8 @@ void build(String IMAGE_PREFIX){
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-57-backup/Dockerfile pxc-57-backup
         elif [ ${IMAGE_PREFIX} = pxc8.0-backup ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-80-backup/Dockerfile pxc-80-backup
+        elif [ ${IMAGE_PREFIX} = haproxy ]; then
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f haproxy/Dockerfile haproxy
         fi
     """
 }
@@ -144,6 +146,9 @@ pipeline {
                 retry(3) {
                     build('pxc8.0')
                 }
+                retry(3) {
+                    build('haproxy')
+                }
             }
         }
         stage('Push Images to Docker registry') {
@@ -155,6 +160,7 @@ pipeline {
                 pushImageToDocker('proxysql')
                 pushImageToDocker('pxc5.7-backup')
                 pushImageToDocker('pxc8.0-backup')
+                pushImageToDocker('haproxy')
             }
         }
         stage('Push Images to RHEL registry') {
@@ -166,6 +172,7 @@ pipeline {
                 pushImageToRhel('proxysql')
                 pushImageToRhel('pxc5.7-backup')
                 pushImageToRhel('pxc8.0-backup')
+                pushImageToRhel('haproxy')
             }
         }
         stage('Check Docker images') {
@@ -177,6 +184,7 @@ pipeline {
                 checkImageForDocker('proxysql')
                 checkImageForDocker('pxc5.7-backup')
                 checkImageForDocker('pxc8.0-backup')
+                checkImageForDocker('haproxy')
                 sh '''
                    CRITICAL=$(ls trivy-critical-*) || true
                    if [ -n "$CRITICAL" ]; then
