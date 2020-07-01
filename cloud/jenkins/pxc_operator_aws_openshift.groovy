@@ -60,6 +60,9 @@ void runTest(String TEST_NAME) {
                     export IMAGE_PROXY=${IMAGE_PROXY}
                 fi
 
+                if [ -n "${IMAGE_HAPROXY}" ]; then
+                    export IMAGE_HAPROXY=${IMAGE_HAPROXY}
+                fi
                 if [ -n "${IMAGE_BACKUP}" ]; then
                     export IMAGE_BACKUP=${IMAGE_BACKUP}
                 fi
@@ -110,6 +113,10 @@ pipeline {
             defaultValue: '',
             description: 'PXC proxy image: perconalab/percona-xtradb-cluster-operator:master-proxysql',
             name: 'IMAGE_PROXY')
+        string(
+            defaultValue: '',
+            description: 'PXC haproxy image: perconalab/percona-xtradb-cluster-operator:master-haproxy2.1',
+            name: 'IMAGE_HAPROXY')
         string(
             defaultValue: '',
             description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-pxc5.7-backup',
