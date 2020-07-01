@@ -144,8 +144,8 @@ pipeline {
                                 ./pxc/docker/run-build-pxc57 ${DOCKER_OS}
                             " 2>&1 | tee build.log
                           
-                            if [[ -f \$(ls pxc/sources/pxc/results/*.tar.gz | head -1) ]]; then
-                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxc/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc57.tar.gz; do
+                            if [[ -f \$(ls pxc/sources/pxc57/results/*.tar.gz | head -1) ]]; then
+                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxc57/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc57.tar.gz; do
                                     sleep 5
                                 done
                             else
