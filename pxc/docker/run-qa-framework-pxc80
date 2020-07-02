@@ -25,8 +25,8 @@ docker run --rm \
     cp /tmp/pxc/results/*.tar.gz /tmp/results
 	
     bash -x /tmp/scripts/test-qa-framework-pxc80 /tmp/results
-    rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/log
-    sudo tar -czf "pxc-qa-framework-run_logs.tar.gz" /tmp/results/log 
+    rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/failed_logs
+    sudo tar czfP "pxc-qa-framework-run_logs.tar.gz" /tmp/results/failed_logs 
 
     sudo mv ./pxc-qa-framework-run_logs.tar.gz /tmp/pxc/results/
     sudo mv /tmp/results/*.output /tmp/results/*.xml  /tmp/results/pxc-qa/*.out /tmp/pxc/results/
