@@ -43,7 +43,7 @@ void runTest(String TEST_NAME) {
         popArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG")
 
         sh """
-            if [ -f "$VERSION-$TEST_NAME-$IMAGE_PXC" ]; then
+            if [ -f "$VERSION-$TEST_NAME-$PXC_TAG" ]; then
                 echo Skip $TEST_NAME test
             else
                 cd ./source
@@ -76,7 +76,7 @@ void runTest(String TEST_NAME) {
                 ./e2e-tests/$TEST_NAME/run
             fi
         """
-        pushArtifactFile("$VERSION-$TEST_NAME-$IMAGE_PXC")
+        pushArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG")
         testsReportMap[TEST_NAME] = 'passed'
     }
     catch (exc) {
