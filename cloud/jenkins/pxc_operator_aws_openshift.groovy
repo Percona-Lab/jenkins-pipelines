@@ -40,7 +40,7 @@ void runTest(String TEST_NAME) {
         VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
         testsReportMap[TEST_NAME] = 'failure'
 
-        popArtifactFile("$VERSION-$TEST_NAME-$IMAGE_PXC")
+        popArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG")
 
         sh """
             if [ -f "$VERSION-$TEST_NAME-$IMAGE_PXC" ]; then
