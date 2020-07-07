@@ -63,7 +63,7 @@ pipeline {
             description: 'make options, like VERBOSE=1',
             name: 'MAKE_OPTS')
 		string(
-		    defaultValue: '--suite replication correctness',
+		    defaultValue: '--suite upgrade replication correctness galera_sr sysbench_run ssl',
 		    description: 'qa_framework.py options, for options like: --suite --encryption --debug',
 		    name: 'QA_ARGS')
     }
