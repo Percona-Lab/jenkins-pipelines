@@ -23,6 +23,7 @@ tar -C ${WORKDIR_ABS}/PXB --strip-components=1 -zxpf $(ls $WORKDIR_ABS/pxb*.tar.
 
 #export WSREP_PROVIDER=${WORKDIR_ABS}/PXC/lib/libgalera_smm.so
 git clone https://github.com/Percona-QA/pxc-qa -b dev-branch ${WORKDIR_ABS}/pxc-qa
+chmod 755 ${WORKDIR_ABS}/pxc-qa/suite/*/*.py
 sed -i "s|^[ \t]*basedir[ \t]*=.*$|basedir = ${WORKDIR_ABS}/PXC80|" ${WORKDIR_ABS}/pxc-qa/config.ini
 sed -i "s|^[ \t]*pxc_lower_base[ \t]*=.*$|pxc_lower_base = ${WORKDIR_ABS}/PXC57|" ${WORKDIR_ABS}/pxc-qa/config.ini
 sed -i "s|^[ \t]*pxc_upper_base[ \t]*=.*$|pxc_upper_base = ${WORKDIR_ABS}/PXC80|" ${WORKDIR_ABS}/pxc-qa/config.ini
