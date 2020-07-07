@@ -115,4 +115,5 @@ pushd ${SOURCEDIR}
     fi
 popd
 
-sudo cp ${SOURCEDIR}/target/*.tar.gz ${WORKDIR}/${PRODUCT_FULL}.tar.gz
+PXC_TAR_FILE=$(ls ${SOURCEDIR}/target/*.tar.gz | grep -v minimal)
+sudo cp ${PXC_TAR_FILE} ${WORKDIR}/${PRODUCT_FULL}.tar.gz
