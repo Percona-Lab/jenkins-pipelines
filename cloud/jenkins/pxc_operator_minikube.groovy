@@ -34,8 +34,9 @@ void runTest(String TEST_NAME) {
         echo "The $TEST_NAME test was started!"
 
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
         VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-        FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.KUBER_VERSION}"
+        FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.KUBER_VERSION}-$PXC_TAG"
         testsReportMap[TEST_NAME] = 'failure'
 
         popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")

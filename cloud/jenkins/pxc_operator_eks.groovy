@@ -36,14 +36,15 @@ void runTest(String TEST_NAME) {
         echo "The $TEST_NAME test was started!"
 
         GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
+        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
         VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
         testsReportMap[TEST_NAME] = 'failure'
 
-        popArtifactFile("$VERSION-$TEST_NAME")
+        popArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG")
 
         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
             sh """
-                if [ -f "$VERSION-$TEST_NAME" ]; then
+                if [ -f "$VERSION-$TEST_NAME-$PXC_TAG" ]; then
                     echo Skip $TEST_NAME test
                 else
                     cd ./source
@@ -81,7 +82,7 @@ void runTest(String TEST_NAME) {
                 fi
               """
         }
-        pushArtifactFile("$VERSION-$TEST_NAME")
+        pushArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG")
         testsReportMap[TEST_NAME] = 'passed'
     }
     catch (exc) {
