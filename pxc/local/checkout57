@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #  possible vars:
-#      GIT_REPO
-#      BRANCH
+#      PXC57_REPO
+#      PXC57_BRANCH
 #      PXB24_REPO
 #      PXB24_BRANCH
 
@@ -20,15 +20,15 @@ fi
 # ==================== PXC ====================
 
 if [ "$SOURCE_NAME" == 'PXC57' -o "$SOURCE_NAME" == 'ALL' ]; then
-    PXC_ROOT_DIR="${ROOT_DIR}/pxc"
+    PXC_ROOT_DIR="${ROOT_DIR}/pxc57"
 
     sudo rm -rf ${PXC_ROOT_DIR}
 
-    git clone "${GIT_REPO:-https://github.com/percona/percona-xtradb-cluster}" "${PXC_ROOT_DIR}"
+    git clone "${PXC57_REPO:-https://github.com/percona/percona-xtradb-cluster}" "${PXC_ROOT_DIR}"
 
     pushd $PXC_ROOT_DIR
-        if [ -n "${GIT_REPO}" ]; then
-            git remote set-url origin "${GIT_REPO}"
+        if [ -n "${PXC57_REPO}" ]; then
+            git remote set-url origin "${PXC57_REPO}"
             git fetch --all
         fi
          
@@ -37,11 +37,11 @@ if [ "$SOURCE_NAME" == 'PXC57' -o "$SOURCE_NAME" == 'ALL' ]; then
 
         mkdir ./target
 
-        if [ -n "${BRANCH}" ]; then
-            git checkout "${BRANCH}"
+        if [ -n "${PXC57_BRANCH}" ]; then
+            git checkout "${PXC57_BRANCH}"
         fi
-        if [ -n "${GIT_REPO}" -a -n "${BRANCH}" ]; then
-            git pull origin ${BRANCH}
+        if [ -n "${PXC57_REPO}" -a -n "${PXC57_BRANCH}" ]; then
+            git pull origin ${PXC57_BRANCH}
         fi
 		
 		rm -rf percona-xtradb-cluster-galera || true
