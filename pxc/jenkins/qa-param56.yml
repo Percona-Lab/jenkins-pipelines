@@ -84,7 +84,7 @@
     - shell: |
         sudo find . -name "*.xml" -o -name "*.log" -delete
     - copyartifact:
-        project: pxc-5.6-pipeline
+        project: qa-pxc-5.6-pipeline
         which-build: specific-build
         build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_5_6_pipeline}"
         do-not-fingerprint: true

@@ -5,12 +5,12 @@ pipeline {
         string(
             defaultValue: 'https://github.com/percona/percona-xtradb-cluster',
             description: 'URL to PXC repository',
-            name: 'GIT_REPO',
+            name: 'PXC57_REPO',
             trim: true)
         string(
             defaultValue: '5.7',
             description: 'Tag/Branch for PXC repository',
-            name: 'BRANCH',
+            name: 'PXC57_BRANCH',
             trim: true)
         string(
             defaultValue: 'https://github.com/percona/percona-xtrabackup',
@@ -75,8 +75,8 @@ pipeline {
                 echo 'Checking PXC branch version'
                 sh '''
                     MY_BRANCH_BASE_MAJOR=5
-                    MY_BRANCH_BASE_MINOR=6
-                    RAW_VERSION_LINK=$(echo ${GIT_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
+                    MY_BRANCH_BASE_MINOR=7
+                    RAW_VERSION_LINK=$(echo ${PXC57_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
                     wget ${RAW_VERSION_LINK}/${BRANCH}/VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
                     source ${WORKSPACE}/VERSION-${BUILD_NUMBER}
                     if [[ ${MYSQL_VERSION_MAJOR} -lt ${MY_BRANCH_BASE_MAJOR} ]] ; then
@@ -152,8 +152,8 @@ pipeline {
                                 ./pxc/docker/run-build-pxc57 ${DOCKER_OS}
                             " 2>&1 | tee build.log
                           
-                            if [[ -f \$(ls pxc/sources/pxc/results/*.tar.gz | head -1) ]]; then
-                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxc/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc57.tar.gz; do
+                            if [[ -f \$(ls pxc/sources/pxc57/results/*.tar.gz | head -1) ]]; then
+                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxc57/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc57.tar.gz; do
                                     sleep 5
                                 done
                             else

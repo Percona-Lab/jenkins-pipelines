@@ -16,11 +16,11 @@
         artifact-num-to-keep: 50
     parameters:
     - string:
-        name: GIT_REPO
+        name: PXC57_REPO
         default: "https://github.com/percona/percona-xtradb-cluster"
         description: URL to PXC repository
     - string:
-        name: BRANCH
+        name: PXC57_BRANCH
         default: "5.7"
         description: Tag/Branch for PXC repository
     - string:
@@ -60,7 +60,9 @@
          name: DOCKER_OS
          values:
           - centos:7
-          - ubuntu:bionic
+          - centos:8
+          - ubuntu:bionic 
+          - ubuntu:focal
     builders:
     - trigger-builds:
       - project: qa-pxc-5.7-pipeline
