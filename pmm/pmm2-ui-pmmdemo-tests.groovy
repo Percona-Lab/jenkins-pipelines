@@ -2,40 +2,15 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
-void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
-    stagingJob = build job: 'aws-staging-start', parameters: [
-        string(name: 'DOCKER_VERSION', value: "percona/pmm-server:${DOCKER_VERSION}"),
-        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e DISABLE_TELEMETRY=true -e DATA_RETENTION=48h'),
-        string(name: 'CLIENTS', value: CLIENTS),
-        string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1')
-    ]
-    env.VM_IP = stagingJob.buildVariables.IP
-    env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "http://admin:admin@${VM_IP}"
-    env.PMM_UI_URL = "http://${VM_IP}"
-}
 
-void destroyStaging(IP) {
-    build job: 'aws-staging-stop', parameters: [
-        string(name: 'VM', value: IP),
-    ]
-}
-
-void checkUpgrade(String PMM_VERSION) {
+void uploadAllureArtifacts() {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
-                export PMM_VERSION=${PMM_VERSION}
-                echo "Checking";
-                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
-                bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh ${PMM_VERSION}
-            '
+            scp -r -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+                pmm-app/tests/output/allure aws-jenkins@${MONITORING_HOST}:/home/aws-jenkins/allure-reports
         """
     }
 }
-
 pipeline {
     agent {
         label 'large-amazon'
@@ -61,28 +36,22 @@ pipeline {
         INFLUXDB_USER=credentials('influxdb-user')
         INFLUXDB_USER_PASSWORD=credentials('influxdb-user-password')
         MONITORING_HOST=credentials('monitoring-host')
+        PMM_UI_URL='https://pmmdemo.percona.com/'
     }
     parameters {
         string(
             defaultValue: 'PMM-2.0',
-            description: 'Tag/Branch for grafana-dashboards repository',
+            description: 'Tag/Branch for grafana-dashboard repository',
             name: 'GIT_BRANCH')
-        choice(
-            choices: ['2.3.0', '2.4.0', '2.5.0', '2.6.0', '2.6.1', '2.7.0'],
-            description: 'PMM Server Version to test for Upgrade',
-            name: 'DOCKER_VERSION')
-        choice(
-            choices: ['2.3.0', '2.4.0', '2.5.0', '2.6.0', '2.6.1', '2.7.0'],
-            description: 'PMM Client Version to test for Upgrade',
-            name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.7.1',
-            description: 'dev-latest PMM Server Version',
-            name: 'PMM_SERVER_LATEST')
+            defaultValue: '',
+            description: 'Commit hash for the branch',
+            name: 'GIT_COMMIT_HASH')
     }
     options {
         skipDefaultCheckout()
     }
+    triggers { cron('0 0 * * *') }
     stages {
         stage('Prepare') {
             steps {
@@ -104,64 +73,52 @@ pipeline {
                 '''
             }
         }
-        stage('Start staging') {
+        stage('Checkout Commit') {
+             when {
+                expression { env.GIT_COMMIT_HASH.length()>0 }
+            }
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1')
+                sh 'git checkout ' + env.GIT_COMMIT_HASH
             }
         }
-        stage('Sanity check') {
+        stage('Setup Node') {
             steps {
-                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+                sh """
+                    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
+                    . ~/.nvm/nvm.sh
+                    nvm install 12.14.1
+                    sudo rm -f /usr/bin/node
+                    sudo ln -s ~/.nvm/versions/node/v12.14.1/bin/node /usr/bin/node
+                    pushd pmm-app/
+                    npm install
+                    node -v
+                    npm -v
+                    sudo yum install -y gettext
+                    envsubst < env.list > env.generated.list
+                    popd
+                """
             }
         }
-        stage('Sleep') {
-            steps {
-                sleep 60
+        stage('Run UI Tests') {
+            options {
+                timeout(time: 10, unit: "MINUTES")
             }
-        }
-        stage('Check Packages before Upgrade') {
-            steps {
-                checkUpgrade(DOCKER_VERSION);
-            }
-        }
-        stage('Run Upgrade Tests & Remote Instances Tests') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
-                        . ~/.nvm/nvm.sh
-                        nvm install 12.14.1
-                        sudo rm -f /usr/bin/node
-                        sudo ln -s ~/.nvm/versions/node/v12.14.1/bin/node /usr/bin/node
-                        pushd pmm-app/
-                        npm install
-                        node -v
-                        npm -v
-                        sudo yum install -y gettext
-                        envsubst < env.list > env.generated.list
-                        popd
                         pushd pmm-app/
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
-                        sudo docker run -e PMM_SERVER_LATEST=${PMM_SERVER_LATEST} -e DOCKER_VERSION=${DOCKER_VERSION}  --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env-file env.generated.list --net=host -v \$PWD:/tests codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
+                        sudo docker run --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env-file env.generated.list --net=host -v \$PWD:/tests -v \$PWD/node_modules:/node_modules  codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-demo'
                         popd
                     """
-                    }
                 }
-        }
-        stage('Check Packages after Upgrade') {
-            steps {
-                checkUpgrade(PMM_SERVER_LATEST);
             }
         }
     }
     post {
         always {
             // stop staging
-            sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip
-            '''
-            destroyStaging(VM_NAME)
             sh '''
                 sudo chmod 777 -R pmm-app/tests/output
                 ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/parallel_chunk*/*.json > pmm-app/tests/output/combine_results.json
@@ -171,17 +128,14 @@ pipeline {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}  & View Tests Run Report - http://${MONITORING_HOST}:9093/latest-report/"
                     archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
-                    archiveArtifacts artifacts: 'logs.zip'
                 } else {
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL} & View Tests Run Report - http://${MONITORING_HOST}:9093/latest-report/"
                     archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
-                    archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-app/tests/output/parallel_chunk*/*.png'
-                    archiveArtifacts artifacts: 'pmm-app/tests/output/video/*.mp4'
                 }
             }
             sh '''
