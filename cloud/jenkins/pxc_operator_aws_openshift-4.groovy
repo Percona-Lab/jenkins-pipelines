@@ -112,7 +112,7 @@ pipeline {
             name: 'PXC_OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc5.7',
+            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc8.0',
             name: 'IMAGE_PXC')
         string(
             defaultValue: '',
@@ -124,7 +124,7 @@ pipeline {
             name: 'IMAGE_HAPROXY')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-pxc5.7-backup',
+            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-pxc8.0-backup',
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
@@ -219,6 +219,9 @@ pipeline {
             }
         }
         stage('E2E Basic Tests') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             steps {
                 runTest('init-deploy')
                 runTest('limits')
@@ -227,9 +230,13 @@ pipeline {
                 runTest('one-pod')
                 runTest('auto-tuning')
                 runTest('proxysql-sidecar-res-limits')
+                runTest('users')
             }
         }
         stage('E2E Scaling') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             steps {
                 runTest('scaling')
                 runTest('scaling-proxysql')
@@ -239,6 +246,9 @@ pipeline {
             }
         }
         stage('E2E Backups') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             steps {
                 runTest('recreate')
                 runTest('restore-to-encrypted-cluster')
@@ -248,6 +258,9 @@ pipeline {
             }
         }
         stage('E2E BigData') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             steps {
                 runTest('big-data')
             }

@@ -164,7 +164,7 @@ pipeline {
             name: 'PXC_OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc',
+            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc8.0',
             name: 'IMAGE_PXC')
         string(
             defaultValue: '',
@@ -176,7 +176,7 @@ pipeline {
             name: 'IMAGE_HAPROXY')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-pxc5.7-backup',
+            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-pxc8.0-backup',
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
@@ -264,6 +264,7 @@ pipeline {
                         runTest('one-pod', 'basic')
                         runTest('auto-tuning', 'basic')
                         runTest('proxysql-sidecar-res-limits', 'basic')
+                        runTest('users', 'basic')
                         ShutdownCluster('basic')
                    }
                 }
