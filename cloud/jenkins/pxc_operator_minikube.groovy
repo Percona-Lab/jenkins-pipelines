@@ -197,9 +197,6 @@ pipeline {
         stage('Tests') {
             agent { label 'docker-32gb' }
                 steps {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
-                    }
                     sh '''
                         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                             rm -rf $HOME/google-cloud-sdk
@@ -229,14 +226,7 @@ pipeline {
                     }
 
                     installRpms()
-                    runTest('limits')
                     runTest('scaling')
-                    runTest('affinity')
-                    runTest('one-pod')
-                    runTest('upgrade-consistency')
-                    runTest('self-healing-advanced')
-                    runTest('operator-self-healing')
-                    runTest('users')
             }
             post {
                 always {
