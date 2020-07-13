@@ -2,17 +2,17 @@ void build(String IMAGE_PREFIX){
     sh """
         cd ./source/
         if [ ${IMAGE_PREFIX} = pxc5.7 ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-57/Dockerfile.k8s pxc-57
-            docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX}-debug -f pxc-57/Dockerfile.k8s pxc-57
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f percona-xtradb-cluster-5.7/Dockerfile.k8s percona-xtradb-cluster-5.7
+            docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX}-debug -f percona-xtradb-cluster-5.7/Dockerfile.k8s percona-xtradb-cluster-5.7
         elif [ ${IMAGE_PREFIX} = pxc8.0 ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-80/Dockerfile.k8s pxc-80
-            docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX}-debug -f pxc-80/Dockerfile.k8s pxc-80
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.0/Dockerfile.k8s percona-xtradb-cluster-8.0
+            docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX}-debug -f pxc-80/Dockerfile.k8s percona-xtradb-cluster-8.0
         elif [ ${IMAGE_PREFIX} = proxysql ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f proxysql/Dockerfile.k8s proxysql
         elif [ ${IMAGE_PREFIX} = pxc5.7-backup ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-57-backup/Dockerfile pxc-57-backup
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f percona-xtradb-cluster-5.7-backup/Dockerfile percona-xtradb-cluster-5.7-backup
         elif [ ${IMAGE_PREFIX} = pxc8.0-backup ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f pxc-80-backup/Dockerfile pxc-80-backup
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.0-backup/Dockerfile percona-xtradb-cluster-8.0-backup
         elif [ ${IMAGE_PREFIX} = haproxy ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f haproxy/Dockerfile haproxy
         fi
