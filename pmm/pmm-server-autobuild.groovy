@@ -103,6 +103,7 @@ pipeline {
                             build-server-rpm percona-qan-app qan-app
                             build-server-rpm pmm-server
                             build-server-rpm pmm-update
+                            build-server-rpm dbaas-controller
 
                             # 3rd-party
                             build-server-rpm consul
