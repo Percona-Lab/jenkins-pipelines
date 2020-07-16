@@ -195,11 +195,11 @@ pipeline {
             }
         }
         stage('Tests') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             agent { label 'docker-32gb' }
                 steps {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
-                    }
                     sh '''
                         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                             rm -rf $HOME/google-cloud-sdk
