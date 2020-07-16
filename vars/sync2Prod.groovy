@@ -63,7 +63,7 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                             10.10.9.209:/www/repo.percona.com/htdocs/apt/
 
                         # Clean CDN cache for repo.percona.com
-                        bash +x /usr/local/bin/clear_cdn_cache.sh
+                        bash -x /usr/local/bin/clear_cdn_cache.sh
                     '
                 """
             }
