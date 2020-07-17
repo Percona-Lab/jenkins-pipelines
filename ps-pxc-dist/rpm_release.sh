@@ -14,19 +14,19 @@ if [[ -z "${DIRECTORIES}" ]]; then
     exit 1
 fi
 #
-REPOCOMP=$(echo "${COMPONENT}" | tr '[:upper:]' '[:lower:]')
-REPOPATH=${REPOSITORY}
+REPOCOMP="$(echo ${COMPONENT} | tr '[:upper:]' '[:lower:]')"
+REPOPATH="${REPOSITORY}"
 #
-if [[ ${REPOSITORY} == "PDPXC" ]]; then
+if [[ "${REPOSITORY}" == "PDPXC" ]]; then
   REPOPATH_TMP="repo-copy/pdpxc-${REPOSITORY_VERSION}/yum"
-  if [ $REPOSITORY_VERSION_MAJOR == true ]; then
+  if [[ "${REPOSITORY_VERSION_MAJOR}" == "true" ]]; then
     REPOPATH_TMP+=" repo-copy/pdpxc-$(echo ${REPOSITORY_VERSION} | awk -F"." 'BEGIN { OFS = "." }{ print $1, $2}' | sed 's/\.$//')/yum"
   fi
 fi
 #
-if [[ ${REPOSITORY} == "PDPS" ]]; then
+if [[ "${REPOSITORY}" == "PDPS" ]]; then
   REPOPATH_TMP="repo-copy/pdps-${REPOSITORY_VERSION}/yum"
-  if [ $REPOSITORY_VERSION_MAJOR == true ]; then
+  if [[ "${REPOSITORY_VERSION_MAJOR}" == "true" ]]; then
     REPOPATH_TMP+=" repo-copy/pdps-$(echo ${REPOSITORY_VERSION} | awk -F"." 'BEGIN { OFS = "." }{ print $1, $2}' | sed 's/\.$//')/yum"
   fi
 fi

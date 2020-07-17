@@ -14,27 +14,25 @@ if [[ -z "${DIRECTORIES}" ]]; then
     exit 1
 fi
 #
-REPOCOMP=$(echo "${COMPONENT}" | tr '[:upper:]' '[:lower:]')
+REPOCOMP="$(echo ${COMPONENT} | tr '[:upper:]' '[:lower:]')"
 REPOPUSH_ARGS=""
 
-#if [[ ${REMOVE_BEFORE_PUSH} = true ]] || [[ ${COMPONENT} != RELEASE ]]; then
-if [[ ${REMOVE_BEFORE_PUSH} = true ]]; then
+if [[ "${REMOVE_BEFORE_PUSH}" == "true" ]] || [[ "${COMPONENT}" != "RELEASE" ]]; then
     REPOPUSH_ARGS+=" --remove-package"
 fi
-#fi
 #
 #
-if [[ ${REPOSITORY} == "PDPXC" ]]; then
+if [[ "${REPOSITORY}" == "PDPXC" ]]; then
   REPOPATH_TMP="/srv/repo-copy/pdpxc-${REPOSITORY_VERSION}/apt"
-  if [ $REPOSITORY_VERSION_MAJOR == true ]; then
+  if [[ "${REPOSITORY_VERSION_MAJOR}" == "true" ]]; then
     REPOPATH_TMP+=" /srv/repo-copy/pdpxc-$(echo ${REPOSITORY_VERSION} | awk -F"." 'BEGIN { OFS = "." }{ print $1, $2}' | sed 's/\.$//')/apt"
   fi
   export PATH="/usr/local/reprepro5/bin:${PATH}"
 fi
 
-if [[ ${REPOSITORY} == "PDPS" ]]; then
+if [[ "${REPOSITORY}" == "PDPS" ]]; then
   REPOPATH_TMP="/srv/repo-copy/pdps-${REPOSITORY_VERSION}/apt"
-  if [ $REPOSITORY_VERSION_MAJOR == true ]; then
+  if [[ "${REPOSITORY_VERSION_MAJOR}" == "true" ]]; then
     REPOPATH_TMP+=" /srv/repo-copy/pdps-$(echo ${REPOSITORY_VERSION} | awk -F"." 'BEGIN { OFS = "." }{ print $1, $2}' | sed 's/\.$//')/apt"
   fi
   export PATH="/usr/local/reprepro5/bin:${PATH}"
@@ -47,23 +45,23 @@ for REPOPATH in $REPOPATH_TMP; do
         echo "<*> reprepro binary is $(which reprepro)"
         pushd /srv/UPLOAD/$dir/binary/debian
         echo "Looking for Debian build directories..."
-        if [[ ${COMPONENT} != RELEASE ]]; then
+        if [[ "${COMPONENT}" != "RELEASE" ]]; then
             CODENAMES=$(ls -1)
         fi
 
-        echo Distributions are: ${CODENAMES}
+        echo Distributions are: "${CODENAMES}"
         popd
         #
         #######################################
         # source pushing, it's a bit specific #
         #######################################
         #
-        if [[ ${REMOVE_LOCKFILE} == true ]]; then
+        if [[ "${REMOVE_LOCKFILE}" == "true" ]]; then
             echo "Removing lock file as requested..."
             sudo rm -vf ${REPOPATH}/db/lockfile
         fi
         #
-        if [[ ${REPOCOMP} == release ]]; then
+        if [[ "${REPOCOMP}" == "release" ]]; then
             export REPOCOMP=main
         # pushing sources
             if [ -d /srv/UPLOAD/$dir/source/debian ]; then
