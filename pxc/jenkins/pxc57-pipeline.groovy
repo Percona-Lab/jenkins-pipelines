@@ -77,7 +77,7 @@ pipeline {
                     MY_BRANCH_BASE_MAJOR=5
                     MY_BRANCH_BASE_MINOR=7
                     RAW_VERSION_LINK=$(echo ${PXC57_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
-                    wget ${RAW_VERSION_LINK}/${BRANCH}/VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+                    wget ${RAW_VERSION_LINK}/${PXC57_BRANCH}/VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
                     source ${WORKSPACE}/VERSION-${BUILD_NUMBER}
                     if [[ ${MYSQL_VERSION_MAJOR} -lt ${MY_BRANCH_BASE_MAJOR} ]] ; then
                         echo "Are you trying to build wrong branch?"
