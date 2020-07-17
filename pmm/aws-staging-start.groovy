@@ -44,7 +44,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['10.4', '10.3', '10.2'],
+            choices: ['10.5', '10.4', '10.3', '10.2'],
             description: "MariaDB Server version",
             name: 'MD_VERSION')
         choice(
