@@ -59,7 +59,7 @@ def call(String DESTINATION) {
                             10.10.9.209:/www/repo.percona.com/htdocs/tools/apt/
 
                         # Clean CDN cache for repo.percona.com
-                        bash +x /usr/local/bin/clear_cdn_cache.sh
+                        bash -xe /usr/local/bin/clear_cdn_cache.sh
                     '
                 """
             }
