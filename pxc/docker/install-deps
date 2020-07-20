@@ -19,6 +19,9 @@ if [ -f /usr/bin/yum ]; then
   RHVER="$(rpm --eval %rhel)"
   rpm --eval %_arch > /etc/yum/vars/basearch
 
+  yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+  percona-release enable tools testing
+
   until yum -y update; do
     yum clean all
     echo "waiting"
@@ -61,6 +64,7 @@ if [ -f /usr/bin/yum ]; then
     libzstd-devel tzdata check-devel scons libgcrypt-devel libev-devel zlib-devel asio-devel libaio-devel \
     ncurses-devel readline-devel pam-devel socat vim-common openssl perl-CPAN rsync libcurl-devel \
     python3 sysbench perl-DBD-mysql \
+    patchelf \
     "
 
     if [[ ${RHVER} -eq 8 ]]; then
@@ -117,6 +121,9 @@ if [ -f /usr/bin/apt-get ]; then
         echo "waiting"
     done
 
+    wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb && dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb && rm percona-release_latest.$(lsb_release -sc)_all.deb
+    percona-release enable tools testing
+
     DIST=$(lsb_release -sc)
     if [[ ${DIST} != 'focal' ]]; then
         echo "deb http://jenkins.percona.com/apt-repo/ ${DIST} main" > /etc/apt/sources.list.d/percona-dev.list
@@ -138,6 +145,7 @@ if [ -f /usr/bin/apt-get ]; then
         tzdata check scons libreadline-dev libgcrypt-dev libev-dev zlib1g-dev libasio-dev ncurses-dev \
         libpam-dev socat vim-common openssl python3-pip libboost-all-dev rsync \
         python3 sysbench libdbd-mysql-perl \
+        patchelf \
     "
     
     if [[ ${DIST} != 'focal' ]]; then
