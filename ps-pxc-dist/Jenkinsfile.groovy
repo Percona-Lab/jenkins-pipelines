@@ -202,7 +202,7 @@ pipeline {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com ' \
+                        ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
                             bash +x /usr/local/bin/clear_cdn_cache.sh
                         "  
                     """
