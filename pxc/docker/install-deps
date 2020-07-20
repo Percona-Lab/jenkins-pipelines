@@ -37,8 +37,7 @@ if [ -f /usr/bin/yum ]; then
         sleep 1
       done
 
-      dnf config-manager --set-enabled PowerTools epel-playground
-      yum -y module --enablerepo=PowerTools enable mariadb-devel:10.3
+      dnf config-manager --set-enabled PowerTools
       PKGLIST+=" libedit-devel python3-docutils"
   fi
 
@@ -52,7 +51,7 @@ if [ -f /usr/bin/yum ]; then
 
   if [[ ${RHVER} -eq 8 ]]; then
       wget -O /etc/yum.repos.d/percona-dev.repo https://jenkins.percona.com/yum-repo/percona-dev.repo
-      dnf config-manager --set-enabled PowerTools epel-playground
+      dnf config-manager --set-enabled PowerTools
   fi
 
   PKGLIST=" \
@@ -61,7 +60,7 @@ if [ -f /usr/bin/yum ]; then
     perl-Time-HiRes openldap-devel perl-Env perl-Data-Dumper libicu-devel perl-Sys-MemInfo \
     perl-JSON MySQL-python perl-Digest perl-Digest-MD5 \
     numactl-devel git which make rpm-build ccache libtool redhat-lsb-core sudo libasan lz4-devel \
-    libzstd-devel tzdata check-devel scons libgcrypt-devel libev-devel zlib-devel asio-devel libaio-devel \
+    libzstd-devel tzdata check-devel scons libgcrypt-devel libev-devel zlib-devel libaio-devel \
     ncurses-devel readline-devel pam-devel socat vim-common openssl perl-CPAN rsync libcurl-devel \
     python3 sysbench perl-DBD-mysql \
     patchelf \
@@ -69,6 +68,8 @@ if [ -f /usr/bin/yum ]; then
 
     if [[ ${RHVER} -eq 8 ]]; then
         PKGLIST+=" lz4 perl-Memoize perl-open valgrind-devel libubsan rpcgen libtirpc-devel"
+    else
+        PKGLIST+=" asio-devel"
     fi
 
 # Percona-Server
