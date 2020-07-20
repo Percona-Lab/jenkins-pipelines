@@ -75,9 +75,10 @@ void setTestsresults() {
 void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     try {
         echo "The $TEST_NAME test was started!"
-        popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}")
+        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
+        popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG")
         sh """
-            if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}" ]; then
+            if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG" ]; then
                 echo Skip $TEST_NAME test
             else
                 cd ./source
@@ -95,6 +96,10 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                     export IMAGE_PROXY=${IMAGE_PROXY}
                 fi
 
+                if [ -n "${IMAGE_HAPROXY}" ]; then
+                    export IMAGE_HAPROXY=${IMAGE_HAPROXY}
+                fi
+
                 if [ -n "${IMAGE_BACKUP}" ]; then
                     export IMAGE_BACKUP=${IMAGE_BACKUP}
                 fi
@@ -108,7 +113,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                 ./e2e-tests/$TEST_NAME/run
             fi
         """
-        pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}")
+        pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG")
         testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}"] = 'passed'
     }
     catch (exc) {
@@ -152,7 +157,7 @@ pipeline {
             name: 'PXC_OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc5.7',
+            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc8.0',
             name: 'IMAGE_PXC')
         string(
             defaultValue: '',
@@ -160,7 +165,11 @@ pipeline {
             name: 'IMAGE_PROXY')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-pxc5.7-backup',
+            description: 'PXC haproxy image: perconalab/percona-xtradb-cluster-operator:master-haproxy2.1',
+            name: 'IMAGE_HAPROXY')
+        string(
+            defaultValue: '',
+            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-pxc8.0-backup',
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
@@ -252,6 +261,7 @@ pipeline {
                         runTest('one-pod', 'basic')
                         runTest('auto-tuning', 'basic')
                         runTest('proxysql-sidecar-res-limits', 'basic')
+                        runTest('users', 'basic')
                         ShutdownCluster('basic')
                    }
                 }

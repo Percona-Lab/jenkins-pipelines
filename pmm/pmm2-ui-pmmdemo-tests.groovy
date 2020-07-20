@@ -3,38 +3,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP) {
-    stagingJob = build job: 'aws-staging-start', parameters: [
-        string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
-        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
-        string(name: 'CLIENTS', value: CLIENTS),
-        string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PERCONA_TEST_AUTH_HOST=check-dev.percona.com:443 -e PERCONA_TEST_CHECKS_HOST=check-dev.percona.com:443 -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX'),
-        string(name: 'SERVER_IP', value: SERVER_IP),
-        string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1')
-    ]
-    env.VM_IP = stagingJob.buildVariables.IP
-    env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    def clientInstance = "yes";
-    if ( CLIENT_INSTANCE == clientInstance ) {
-        env.PMM_URL = "http://admin:admin@${SERVER_IP}"
-        env.PMM_UI_URL = "http://${SERVER_IP}"
-    }
-    else
-    {
-        env.PMM_URL = "http://admin:admin@${VM_IP}"
-        env.PMM_UI_URL = "http://${VM_IP}"
-    }
-}
-
-
-void destroyStaging(IP) {
-    build job: 'aws-staging-stop', parameters: [
-        string(name: 'VM', value: IP),
-    ]
-}
-
 void uploadAllureArtifacts() {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
@@ -68,6 +36,7 @@ pipeline {
         INFLUXDB_USER=credentials('influxdb-user')
         INFLUXDB_USER_PASSWORD=credentials('influxdb-user-password')
         MONITORING_HOST=credentials('monitoring-host')
+        PMM_UI_URL='https://pmmdemo.percona.com/'
     }
     parameters {
         string(
@@ -78,37 +47,11 @@ pipeline {
             defaultValue: '',
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
-        string(
-            defaultValue: 'perconalab/pmm-server:dev-latest',
-            description: 'PMM Server docker container version (image-name:version-tag)',
-            name: 'DOCKER_VERSION')
-        string(
-            defaultValue: 'dev-latest',
-            description: 'PMM Client version',
-            name: 'CLIENT_VERSION')
-        choice(
-            choices: ['no', 'yes'],
-            description: "Use this instance only as a client host",
-            name: 'CLIENT_INSTANCE')
-        choice(
-            choices: ['no', 'yes'],
-            description: "Run AMI Setup Wizard for AMI UI tests",
-            name: 'AMI_TEST')
-        string(
-            defaultValue: '',
-            description: 'AMI Instance ID',
-            name: 'AMI_INSTANCE_ID')
-        string (
-            defaultValue: '',
-            description: 'Value for Server Public IP, to use this instance just as client',
-            name: 'SERVER_IP')
     }
     options {
         skipDefaultCheckout()
     }
-    triggers {
-        upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
-    }
+    triggers { cron('0 0 * * *') }
     stages {
         stage('Prepare') {
             steps {
@@ -138,16 +81,6 @@ pipeline {
                 sh 'git checkout ' + env.GIT_COMMIT_HASH
             }
         }
-        stage('Start staging') {
-            steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=mo,2 --with-replica --addclient=pgsql,1 --addclient=pxc,1 --with-proxysql --pmm2 --setup-alertmanager --add-annotation', CLIENT_INSTANCE, SERVER_IP)
-            }
-        }
-        stage('Sanity check') {
-            steps {
-                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
-            }
-        }
         stage('Setup Node') {
             steps {
                 sh """
@@ -166,43 +99,9 @@ pipeline {
                 """
             }
         }
-        stage('Sleep') {
-            steps {
-                sh """
-                curl --data '{"enable_stt": true, "enable_telemetry": true}' -u admin:admin -X POST ${PMM_UI_URL}/v1/Settings/Change
-                curl -u admin:admin -X POST ${PMM_UI_URL}/v1/management/SecurityChecks/Start
-                """
-                sleep 300
-                sh """
-                curl --data '{"disable_stt": true, "enable_telemetry": true}' -u admin:admin -X POST ${PMM_UI_URL}/v1/Settings/Change
-                """
-            }
-        }
-        stage('Run AMI Setup & UI Tests') {
-            when {
-                expression { env.AMI_TEST == "yes" }
-            }
-            steps {
-                sauce('SauceLabsKey') {
-                    sauceconnect(options: '', sauceConnectPath: '') {
-                        sh """
-                            pushd pmm-app/
-                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                            export PWD=\$(pwd);
-                            sudo docker run --env --net=host -v \$PWD:/tests codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep @pmm-ami
-                            sudo docker run --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env-file env.generated.list --net=host -v \$PWD:/tests codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@visual-test)'
-                            popd
-                        """
-                    }
-                }
-            }
-        }
         stage('Run UI Tests') {
             options {
                 timeout(time: 10, unit: "MINUTES")
-            }
-            when {
-                expression { env.AMI_TEST == "no" }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -210,7 +109,7 @@ pipeline {
                         pushd pmm-app/
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
-                        sudo docker run --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env-file env.generated.list --net=host -v \$PWD:/tests -v \$PWD/node_modules:/node_modules  codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@visual-test)'
+                        sudo docker run --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env-file env.generated.list --net=host -v \$PWD:/tests -v \$PWD/node_modules:/node_modules  codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-demo'
                         popd
                     """
                 }
@@ -221,28 +120,22 @@ pipeline {
         always {
             // stop staging
             sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip
                 sudo chmod 777 -R pmm-app/tests/output
                 ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/parallel_chunk*/*.json > pmm-app/tests/output/combine_results.json
                 ./pmm-app/node_modules/.bin/marge pmm-app/tests/output/combine_results.json --reportDir pmm-app/tests/output/ --inline --cdn --charts
             '''
-            destroyStaging(VM_NAME)
-            uploadAllureArtifacts()
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}  & View Tests Run Report - http://${MONITORING_HOST}:9093/latest-report/"
                     archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
-                    archiveArtifacts artifacts: 'logs.zip'
                 } else {
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL} & View Tests Run Report - http://${MONITORING_HOST}:9093/latest-report/"
                     archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
-                    archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-app/tests/output/parallel_chunk*/*.png'
-                    archiveArtifacts artifacts: 'pmm-app/tests/output/video/*.mp4'
                 }
             }
             sh '''

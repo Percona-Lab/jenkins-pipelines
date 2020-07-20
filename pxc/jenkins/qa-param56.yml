@@ -1,12 +1,12 @@
 - job:
-    name: pxc-5.7-param
+    name: qa-pxc-5.6-param
     project-type: matrix
     defaults: global
     description: |
         Do not edit this job through the web!
     disabled: false
     concurrent: true
-    auth-token: pxc57testmtr
+    auth-token: pxc56testmtr
     node: micro-amazon
     properties:
     - build-discarder:
@@ -16,21 +16,29 @@
         artifact-num-to-keep: 50
     parameters:
     - string:
-        name: PXC57_REPO
+        name: GIT_REPO
         default: "https://github.com/percona/percona-xtradb-cluster"
         description: URL to PXC repository
     - string:
-        name: PXC57_BRANCH
-        default: "5.7"
+        name: BRANCH
+        default: "5.6"
         description: Tag/Branch for PXC repository
     - string:
-        name: PXB24_REPO
+        name: PXB23_REPO
         default: https://github.com/percona/percona-xtrabackup
-        description: URL to PXB24 repository
+        description: URL to PXB23 repository
     - string:
-        name: PXB24_BRANCH
-        default: percona-xtrabackup-2.4.20
+        name: PXB23_BRANCH
+        default: percona-xtrabackup-2.3.10
         description: Tag/Branch for PXC repository
+    - string:
+        name: GALERA3_REPO
+        default: https://github.com/percona/galera
+        description: URL to GALERA3 repository
+    - string:
+        name: GALERA3_BRANCH
+        default: 3.x
+        description: Tag/Branch for GALERA repository
     - choice:
         name: JOB_CMAKE
         choices:
@@ -44,26 +52,10 @@
         name: MAKE_OPTS
         default:
         description: make options, like VERBOSE=1
-    - choice:
-        name: DEFAULT_TESTING
-        choices:
-        - "yes"
-        - "no"
-        description: Run mysql-test-run.pl
-    - choice:
-        name: HOTBACKUP_TESTING
-        choices:
-        - "yes"
-        - "no"
-        description: Run mysql-test-run.pl --suite tokudb_backup
     - string:
-        name: MTR_ARGS
-        default: --unit-tests-report --suite=galera,galera_3nodes,sys_vars
-        description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
-    - string:
-        name: MTR_REPEAT
-        default: "1"
-        description: Run each test N number of times, --repeat=N
+        name: QA_ARGS
+        default: --suite replication correctness 
+        description: "qa_framework.py options, for options like: --suite --encryption --debug"
     axes:
       - axis:
          type: user-defined
@@ -75,18 +67,11 @@
          type: user-defined
          name: DOCKER_OS
          values:
-          - centos:6
           - centos:7
-          - centos:8
-          - ubuntu:xenial
           - ubuntu:bionic
-          - ubuntu:focal
-          - debian:jessie
-          - debian:stretch
-          - debian:buster
     builders:
     - trigger-builds:
-      - project: pxc-5.7-pipeline
+      - project: qa-pxc-5.6-pipeline
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${DOCKER_OS}
@@ -99,12 +84,12 @@
     - shell: |
         sudo find . -name "*.xml" -o -name "*.log" -delete
     - copyartifact:
-        project: pxc-5.7-pipeline
+        project: qa-pxc-5.6-pipeline
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_5_7_pipeline}"
+        build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_5_6_pipeline}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_pxc_5_7_pipeline}" > PIPELINE_BUILD_NUMBER
+        echo "${TRIGGERED_BUILD_NUMBERS_pxc_5_6_pipeline}" > PIPELINE_BUILD_NUMBER
     publishers:
     - junit:
         results: "**/*.xml"

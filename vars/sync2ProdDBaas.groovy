@@ -32,7 +32,10 @@ def call(String DESTINATION) {
                                 fi
                                 createrepo --update \${rpm_dest_path}/SRPMS
                             done
-                             
+
+                            if [ "x${DESTINATION}" == "xrelease" ]; then
+                                DESTINATION=main
+                            fi
                             for dist in `ls -1 debian`; do
                                 for deb in `find debian/\${dist} -name '*.deb'`; do
                                  env PATH=/usr/local/reprepro5/bin:${PATH} repopush --remove-package --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/tools/apt
@@ -45,6 +48,9 @@ def call(String DESTINATION) {
                             done
                         popd
 
+                        if [ "x${DESTINATION}" == "xmain" ]; then
+                            DESTINATION=release
+                        fi
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/tools/yum/${DESTINATION}/ \
                             10.10.9.209:/www/repo.percona.com/htdocs/tools/yum/${DESTINATION}/
@@ -53,7 +59,7 @@ def call(String DESTINATION) {
                             10.10.9.209:/www/repo.percona.com/htdocs/tools/apt/
 
                         # Clean CDN cache for repo.percona.com
-                        bash +x /usr/local/bin/clear_cdn_cache.sh
+                        bash -xe /usr/local/bin/clear_cdn_cache.sh
                     '
                 """
             }

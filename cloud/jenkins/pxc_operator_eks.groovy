@@ -36,14 +36,15 @@ void runTest(String TEST_NAME) {
         echo "The $TEST_NAME test was started!"
 
         GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
+        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
         VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
         testsReportMap[TEST_NAME] = 'failure'
 
-        popArtifactFile("$VERSION-$TEST_NAME")
+        popArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG")
 
         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
             sh """
-                if [ -f "$VERSION-$TEST_NAME" ]; then
+                if [ -f "$VERSION-$TEST_NAME-$PXC_TAG" ]; then
                     echo Skip $TEST_NAME test
                 else
                     cd ./source
@@ -59,6 +60,10 @@ void runTest(String TEST_NAME) {
 
                     if [ -n "${IMAGE_PROXY}" ]; then
                           export IMAGE_PROXY=${IMAGE_PROXY}
+                    fi
+
+                    if [ -n "${IMAGE_HAPROXY}" ]; then
+                          export IMAGE_HAPROXY=${IMAGE_HAPROXY}
                     fi
 
                     if [ -n "${IMAGE_BACKUP}" ]; then
@@ -77,7 +82,7 @@ void runTest(String TEST_NAME) {
                 fi
               """
         }
-        pushArtifactFile("$VERSION-$TEST_NAME")
+        pushArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG")
         testsReportMap[TEST_NAME] = 'passed'
     }
     catch (exc) {
@@ -109,7 +114,7 @@ pipeline {
             name: 'PXC_OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc5.7',
+            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc8.0',
             name: 'IMAGE_PXC')
         string(
             defaultValue: '',
@@ -117,7 +122,11 @@ pipeline {
             name: 'IMAGE_PROXY')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-pxc5.7-backup',
+            description: 'PXC haproxy image: perconalab/percona-xtradb-cluster-operator:master-haproxy2.1',
+            name: 'IMAGE_HAPROXY')
+        string(
+            defaultValue: '',
+            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-pxc8.0-backup',
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
@@ -224,6 +233,9 @@ EOF
             }
         }
         stage('E2E Basic Tests') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             steps {
                 runTest('init-deploy')
                 runTest('limits')
@@ -233,9 +245,13 @@ EOF
                 runTest('one-pod')
                 runTest('auto-tuning')
                 runTest('proxysql-sidecar-res-limits')
+                runTest('users')
             }
         }
         stage('E2E Scaling') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             steps {
                 runTest('scaling')
                 runTest('scaling-proxysql')
@@ -245,6 +261,9 @@ EOF
             }
         }
         stage('E2E SelfHealing') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             steps {
                 runTest('storage')
                 runTest('self-healing')
@@ -253,6 +272,9 @@ EOF
             }
         }
         stage('E2E Backups') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             steps {
                 runTest('recreate')
                 runTest('restore-to-encrypted-cluster')
@@ -262,6 +284,9 @@ EOF
             }
         }
         stage('E2E BigData') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             steps {
                 runTest('big-data')
             }

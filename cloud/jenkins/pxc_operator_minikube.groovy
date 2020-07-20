@@ -34,8 +34,9 @@ void runTest(String TEST_NAME) {
         echo "The $TEST_NAME test was started!"
 
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
         VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-        FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.KUBER_VERSION}"
+        FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.KUBER_VERSION}-$PXC_TAG"
         testsReportMap[TEST_NAME] = 'failure'
 
         popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
@@ -56,6 +57,10 @@ void runTest(String TEST_NAME) {
 
                 if [ -n "${IMAGE_PROXY}" ]; then
                     export IMAGE_PROXY=${IMAGE_PROXY}
+                fi
+
+                if [ -n "${IMAGE_HAPROXY}" ]; then
+                    export IMAGE_HAPROXY=${IMAGE_HAPROXY}
                 fi
 
                 if [ -n "${IMAGE_BACKUP}" ]; then
@@ -124,6 +129,10 @@ pipeline {
             name: 'IMAGE_PROXY')
         string(
             defaultValue: '',
+            description: 'PXC haproxy image: perconalab/percona-xtradb-cluster-operator:master-haproxy2.1',
+            name: 'IMAGE_HAPROXY')
+        string(
+            defaultValue: '',
             description: 'Backup image: perconalab/percona-server-mongodb-operator:master-pxc5.7-backup',
             name: 'IMAGE_BACKUP')
         string(
@@ -186,6 +195,9 @@ pipeline {
             }
         }
         stage('Tests') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             agent { label 'docker-32gb' }
                 steps {
                     sh '''
@@ -224,6 +236,7 @@ pipeline {
                     runTest('upgrade-consistency')
                     runTest('self-healing-advanced')
                     runTest('operator-self-healing')
+                    runTest('users')
             }
             post {
                 always {

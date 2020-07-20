@@ -1,12 +1,12 @@
 - job:
-    name: pxc-5.7-param
+    name: qa-pxc-5.7-param
     project-type: matrix
     defaults: global
     description: |
         Do not edit this job through the web!
     disabled: false
     concurrent: true
-    auth-token: pxc57testmtr
+    auth-token: pxc57testframework
     node: micro-amazon
     properties:
     - build-discarder:
@@ -44,26 +44,10 @@
         name: MAKE_OPTS
         default:
         description: make options, like VERBOSE=1
-    - choice:
-        name: DEFAULT_TESTING
-        choices:
-        - "yes"
-        - "no"
-        description: Run mysql-test-run.pl
-    - choice:
-        name: HOTBACKUP_TESTING
-        choices:
-        - "yes"
-        - "no"
-        description: Run mysql-test-run.pl --suite tokudb_backup
     - string:
-        name: MTR_ARGS
-        default: --unit-tests-report --suite=galera,galera_3nodes,sys_vars
-        description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
-    - string:
-        name: MTR_REPEAT
-        default: "1"
-        description: Run each test N number of times, --repeat=N
+        name: QA_ARGS
+        default: --suite replication correctness 
+        description: "qa_framework.py options, for options like: --suite --encryption --debug"
     axes:
       - axis:
          type: user-defined
@@ -75,18 +59,13 @@
          type: user-defined
          name: DOCKER_OS
          values:
-          - centos:6
           - centos:7
           - centos:8
-          - ubuntu:xenial
-          - ubuntu:bionic
+          - ubuntu:bionic 
           - ubuntu:focal
-          - debian:jessie
-          - debian:stretch
-          - debian:buster
     builders:
     - trigger-builds:
-      - project: pxc-5.7-pipeline
+      - project: qa-pxc-5.7-pipeline
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${DOCKER_OS}
@@ -99,12 +78,12 @@
     - shell: |
         sudo find . -name "*.xml" -o -name "*.log" -delete
     - copyartifact:
-        project: pxc-5.7-pipeline
+        project: qa-pxc-5.7-pipeline
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_5_7_pipeline}"
+        build-number: "${TRIGGERED_BUILD_NUMBERS_qa_pxc_5_7_pipeline}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_pxc_5_7_pipeline}" > PIPELINE_BUILD_NUMBER
+        echo "${TRIGGERED_BUILD_NUMBERS_qa_pxc_5_7_pipeline}" > PIPELINE_BUILD_NUMBER
     publishers:
     - junit:
         results: "**/*.xml"

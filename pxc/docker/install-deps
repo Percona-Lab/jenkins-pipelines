@@ -19,6 +19,9 @@ if [ -f /usr/bin/yum ]; then
   RHVER="$(rpm --eval %rhel)"
   rpm --eval %_arch > /etc/yum/vars/basearch
 
+  yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+  percona-release enable tools testing
+
   until yum -y update; do
     yum clean all
     echo "waiting"
@@ -34,8 +37,7 @@ if [ -f /usr/bin/yum ]; then
         sleep 1
       done
 
-      dnf config-manager --set-enabled PowerTools epel-playground
-      yum -y module --enablerepo=PowerTools enable mariadb-devel:10.3
+      dnf config-manager --set-enabled PowerTools
       PKGLIST+=" libedit-devel python3-docutils"
   fi
 
@@ -49,7 +51,7 @@ if [ -f /usr/bin/yum ]; then
 
   if [[ ${RHVER} -eq 8 ]]; then
       wget -O /etc/yum.repos.d/percona-dev.repo https://jenkins.percona.com/yum-repo/percona-dev.repo
-      dnf config-manager --set-enabled PowerTools epel-playground
+      dnf config-manager --set-enabled PowerTools
   fi
 
   PKGLIST=" \
@@ -58,12 +60,16 @@ if [ -f /usr/bin/yum ]; then
     perl-Time-HiRes openldap-devel perl-Env perl-Data-Dumper libicu-devel perl-Sys-MemInfo \
     perl-JSON MySQL-python perl-Digest perl-Digest-MD5 \
     numactl-devel git which make rpm-build ccache libtool redhat-lsb-core sudo libasan lz4-devel \
-    libzstd-devel tzdata check-devel scons libgcrypt-devel libev-devel zlib-devel asio-devel libaio-devel \
+    libzstd-devel tzdata check-devel scons libgcrypt-devel libev-devel zlib-devel libaio-devel \
     ncurses-devel readline-devel pam-devel socat vim-common openssl perl-CPAN rsync libcurl-devel \
+    python3 sysbench perl-DBD-mysql \
+    patchelf \
     "
 
     if [[ ${RHVER} -eq 8 ]]; then
         PKGLIST+=" lz4 perl-Memoize perl-open valgrind-devel libubsan rpcgen libtirpc-devel"
+    else
+        PKGLIST+=" asio-devel"
     fi
 
 # Percona-Server
@@ -95,11 +101,12 @@ if [ -f /usr/bin/yum ]; then
         sleep 1
     done
 
-
 #   this is workaround for https://bugs.mysql.com/bug.php?id=95222 as soon as the issue is fixed we need to remove it 
     if [ -f '/anaconda-post.log' ]; then
         rm /anaconda-post.log
     fi
+#   Install mysql-connector for QA framework run
+    pip3 install mysql-connector
 fi
 
 if [ -f /usr/bin/apt-get ]; then
@@ -114,6 +121,9 @@ if [ -f /usr/bin/apt-get ]; then
         sleep 1
         echo "waiting"
     done
+
+    wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb && dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb && rm percona-release_latest.$(lsb_release -sc)_all.deb
+    percona-release enable tools testing
 
     DIST=$(lsb_release -sc)
     if [[ ${DIST} != 'focal' ]]; then
@@ -135,6 +145,8 @@ if [ -f /usr/bin/apt-get ]; then
         debconf debhelper fakeroot po-debconf psmisc ccache libtool sudo liblz4-dev liblz4-tool libedit-dev libssl-dev \
         tzdata check scons libreadline-dev libgcrypt-dev libev-dev zlib1g-dev libasio-dev ncurses-dev \
         libpam-dev socat vim-common openssl python3-pip libboost-all-dev rsync \
+        python3 sysbench libdbd-mysql-perl \
+        patchelf \
     "
     
     if [[ ${DIST} != 'focal' ]]; then
@@ -181,6 +193,8 @@ if [ -f /usr/bin/apt-get ]; then
         sleep 1
     done
 
+	#   Install mysql-connector for QA framework run
+	pip3 install mysql-connector
     apt-get -y clean
 fi
 

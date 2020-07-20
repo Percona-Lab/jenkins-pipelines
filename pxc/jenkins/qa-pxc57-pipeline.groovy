@@ -23,7 +23,7 @@ pipeline {
             name: 'PXB24_BRANCH',
             trim: true)
         choice(
-            choices: 'centos:6\ncentos:7\ncentos:8\nubuntu:xenial\nubuntu:bionic\nubuntu:focal\ndebian:jessie\ndebian:stretch\ndebian:buster',
+            choices: 'centos:7\ncentos:8\nubuntu:bionic\nubuntu:focal',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -42,18 +42,10 @@ pipeline {
             defaultValue: '',
             description: 'make options, like VERBOSE=1',
             name: 'MAKE_OPTS')
-        choice(
-            choices: 'yes\nno',
-            description: 'Run mysql-test-run.pl',
-            name: 'DEFAULT_TESTING')
-        string(
-            defaultValue: '--unit-tests-report --suite=galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars',
-            description: 'mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report',
-            name: 'MTR_ARGS')
-        string(
-            defaultValue: '1',
-            description: 'Run each test N number of times, --repeat=N',
-            name: 'MTR_REPEAT')
+	    string(
+	        defaultValue: '--suite replication correctness',
+	        description: 'qa_framework.py options, for options like: --suite --encryption --debug',
+	        name: 'QA_ARGS')
     }
     agent {
         label 'micro-amazon'
@@ -182,12 +174,12 @@ pipeline {
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                     docker ps -q | xargs docker stop --time 1 || :
                                 fi
-                                ./pxc/docker/run-test57 ${DOCKER_OS}
+                                ./pxc/docker/run-qa-framework-pxc ${DOCKER_OS}
                             "
                         '''
                     }
                     step([$class: 'JUnitResultArchiver', testResults: 'pxc/sources/pxc/results/*.xml', healthScaleFactor: 1.0])
-                    archiveArtifacts 'pxc/sources/pxc/results/*.xml,pxc/sources/pxc/results/pxc57-test-mtr_logs.tar.gz'
+                    archiveArtifacts 'pxc/sources/pxc/results/*.xml,pxc/sources/pxc/results/pxc-qa-framework-run_logs.tar.gz'
                 }
         }
     }
