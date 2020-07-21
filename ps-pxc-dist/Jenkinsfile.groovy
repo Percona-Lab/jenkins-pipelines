@@ -238,7 +238,6 @@ pipeline {
         stage('refresh-downloads-area') {
             when {
                 expression { params.SKIP_PRODUCTION_REFRESH == false }
-
             }
             steps {
                 sh """
@@ -255,6 +254,12 @@ pipeline {
     }
 
     post {
+        success {
+            slackSend channel: '#releases-ci', color: '#00FF00', message: "[${specName}]: job finished"
+        }
+        failure {
+            slackSend channel: '#releases-ci', color: '#FF0000', message: "[${specName}]: job failed"
+        }
         always {
             deleteDir()
         }
