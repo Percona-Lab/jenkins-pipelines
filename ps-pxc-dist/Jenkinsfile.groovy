@@ -131,7 +131,7 @@ pipeline {
                             echo "REMOVE_LOCKFILE=\${REMOVE_LOCKFILE}" >> args_pipeline
                             echo "REMOVE_BEFORE_PUSH=\${REMOVE_BEFORE_PUSH}" >> args_pipeline
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
-                            rsync -av -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
+                            rsync -aHv --delete -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
                                 bash -x /tmp/args_pipeline
                                 wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/ps-pxc-dist/rpm_release.sh -O rpm_release.sh
@@ -162,7 +162,7 @@ pipeline {
                             echo "REMOVE_LOCKFILE=\${REMOVE_LOCKFILE}" >> args_pipeline
                             echo "REMOVE_BEFORE_PUSH=\${REMOVE_BEFORE_PUSH}" >> args_pipeline
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
-                            rsync -av -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
+                            rsync -aHv --delete -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
                                 export SIGN_PASSWORD=\${SIGN_PASSWORD}
                                 bash -x /tmp/args_pipeline
@@ -182,13 +182,13 @@ pipeline {
                     sh """
                             echo "REPOSITORY=\${REPOSITORY}" >> args_pipeline
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
-                            rsync -av -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
+                            rsync -aHv --delete -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
                                 bash -x /tmp/args_pipeline
 
                                 cd /srv/repo-copy
-                                REPO=\$(echo \${REPOSITORY} | tr '[:upper:]' '[:lower:]' )
-                                RSYNC_TRANSFER_OPTS="-avt  --delete --delete-excluded --delete-after --progress"
+                                export REPO=\$(echo \${REPOSITORY} | tr '[:upper:]' '[:lower:]' )
+                                export RSYNC_TRANSFER_OPTS="-avt  --delete --delete-excluded --delete-after --progress"
                                 rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.10.9.209:/www/repo.percona.com/htdocs/\${REPO}/
                         "
                 """
@@ -203,7 +203,7 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
-                            bash +x /usr/local/bin/clear_cdn_cache.sh
+                            bash -x /usr/local/bin/clear_cdn_cache.sh
                         "  
                     """
                 }
@@ -224,7 +224,7 @@ pipeline {
                             echo "REPOSITORY_VERSION=\${REPOSITORY_VERSION}" >> args_pipeline
                             echo "COMPONENT=\${COMPONENT}" >> args_pipeline
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
-                            rsync -av -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
+                            rsync -aHv --delete -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
                                 bash -x /tmp/args_pipeline
                                 wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/ps-pxc-dist/downloads_release.sh -O downloads_release.sh
@@ -246,7 +246,7 @@ pipeline {
                         sudo apt-get update
                         sudo apt-get -y install curl
                         if [[ "\${COMPONENT}" == "RELEASE" ]]; then
-                            wget https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory
+                            wget https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory -O crawl_directory
                         fi
                     fi
                 """

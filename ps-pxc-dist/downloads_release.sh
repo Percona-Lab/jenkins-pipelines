@@ -1,3 +1,4 @@
+source /tmp/args_pipeline
 if [[ "${COMPONENT}" == RELEASE ]]; then
 
 # Create list of packages to push:
