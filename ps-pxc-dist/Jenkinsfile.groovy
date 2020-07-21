@@ -254,10 +254,10 @@ pipeline {
 
     post {
         success {
-            slackSend channel: '#releases-ci', color: '#00FF00', message: "[${specName}]: job finished"
+            slackSend channel: '#releases-ci', color: '#00FF00', message: "${REPOSITORY} distribution: job finished"
         }
         failure {
-            slackSend channel: '#releases-ci', color: '#FF0000', message: "[${specName}]: job failed"
+            slackSend channel: '#releases-ci', color: '#FF0000', message: "${REPOSITORY} distribution: job failed"
         }
         always {
             deleteDir()
