@@ -1,5 +1,5 @@
 - job:
-    name: pxc-5.7-pipeline
+    name: test-pxc-5.7-pipeline
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -9,7 +9,86 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+            - 'PXC-3364-Add-MTR-params'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pxc/jenkins/pxc57-pipeline.groovy
+    parameters:
+    - string:
+        name: PXC57_REPO
+        default: "https://github.com/percona/percona-xtradb-cluster"
+        description: URL to PXC repository
+    - string:
+        name: PXC57_BRANCH
+        default: "5.7"
+        description: Tag/Branch for PXC repository
+    - string:
+        name: PXB24_REPO
+        default: https://github.com/percona/percona-xtrabackup
+        description: URL to PXB24 repository
+    - string:
+        name: PXB24_BRANCH
+        default: percona-xtrabackup-2.4.20
+        description: Tag/Branch for PXC repository
+    - choice:
+        name: JOB_CMAKE
+        choices:
+        - /usr/bin/cmake
+        description: path to cmake binary
+    - string:
+        name: CMAKE_OPTS
+        default:
+        description: cmake options
+    - string:
+        name: MAKE_OPTS
+        default:
+        description: make options, like VERBOSE=1
+    - choice:
+        name: DEFAULT_TESTING
+        choices:
+        - "yes"
+        - "no"
+        description: Run mysql-test-run.pl
+    - choice:
+        name: HOTBACKUP_TESTING
+        choices:
+        - "yes"
+        - "no"
+        description: Run mysql-test-run.pl --suite tokudb_backup
+    - string:
+        name: PARALLEL_RUN
+        default: "4"
+        description: "(sys_vars test suite) mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the sys_vars test suite."
+    - string:
+        name: GALERA_PARALLEL_RUN
+        default: "2"
+        description: "[galera and galera_3nodes test suite mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism [beyond CPU power] will have less effect. This value is used for the galera and galera_3nodes test suite."
+    - string:
+        name: FULL_MTR
+        default: "1"
+        description: If empty, only galera and sys_vars suites will be run. Otherwise the full mtr will be perfomed.
+    - string:
+        name: MTR_SUITES
+        default: galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars
+        description: "mysql-test-run.pl suite names"
+    - string:
+        name: MTR_ARGS
+        default: --unit-tests-report --suite=galera,galera_3nodes,sys_vars
+        description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
+    - string:
+        name: MTR_REPEAT
+        default: "1"
+        description: Run each test N number of times, --repeat=N
+    axes:
+      - axis:
+         type: user-defined
+         name: CMAKE_BUILD_TYPE
+         values:
+          - RelWithDebInfo
+          - Debug
+      - axis:
+         type: user-defined
+         name: DOCKER_OS
+         values:
+          - centos:7
+          - ubuntu:bionic

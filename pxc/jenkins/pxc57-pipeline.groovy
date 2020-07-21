@@ -23,7 +23,7 @@ pipeline {
             name: 'PXB24_BRANCH',
             trim: true)
         choice(
-            choices: 'centos:6\ncentos:7\ncentos:8\nubuntu:xenial\nubuntu:bionic\nubuntu:focal\ndebian:jessie\ndebian:stretch\ndebian:buster',
+            choices: 'centos:7\nubuntu:bionic',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -46,8 +46,24 @@ pipeline {
             choices: 'yes\nno',
             description: 'Run mysql-test-run.pl',
             name: 'DEFAULT_TESTING')
+		string(
+		    defaultValue: '4',
+		    description: '(sys_vars test suite) mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the sys_vars test suite.',
+		    name: 'PARALLEL_RUN')
+		string(
+			defaultValue: '4',
+			description: '(galera and galera_3nodes test suite) mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the galera and galera_3nodes test suite.',
+			name: 'GALERA_PARALLEL_RUN')
+	    string(
+	        defaultValue: '1',
+	        description: 'If empty, only galera and sys_vars suites will be run. Otherwise the full mtr will be perfomed.',
+	        name: 'FULL_MTR')
+	    string(
+	        defaultValue: 'galera,galera_3nodes,sys_vars',
+	        description: 'mysql-test-run.pl suite names',
+	        name: 'MTR_SUITES')
         string(
-            defaultValue: '--unit-tests-report --suite=galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars',
+            defaultValue: '--unit-tests-report --big-test',
             description: 'mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report',
             name: 'MTR_ARGS')
         string(
@@ -94,7 +110,7 @@ pipeline {
                 stage('Build PXB24') {
                     agent { label 'docker' }
                     steps {
-                        git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        git branch: 'PXC-3364-Add-MTR-params', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                         echo 'Checkout PXB24 sources'
                         sh '''
                             # sudo is needed for better node recovery after compilation failure
@@ -131,7 +147,7 @@ pipeline {
         stage('Build PXC57') {
                 agent { label 'docker-32gb' }
                 steps {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'PXC-3364-Add-MTR-params', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Checkout PXC57 sources'
                     sh '''
                         # sudo is needed for better node recovery after compilation failure
@@ -167,7 +183,7 @@ pipeline {
         stage('Test PXC57') {
                 agent { label 'docker-32gb' }
                 steps {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'PXC-3364-Add-MTR-params', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Test PXC57'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''

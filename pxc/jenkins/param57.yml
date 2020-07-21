@@ -1,5 +1,5 @@
 - job:
-    name: pxc-5.7-param
+    name: test-pxc-5.7-param
     project-type: matrix
     defaults: global
     description: |
@@ -57,6 +57,22 @@
         - "no"
         description: Run mysql-test-run.pl --suite tokudb_backup
     - string:
+        name: PARALLEL_RUN
+        default: "4"
+        description: "(sys_vars test suite) mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the sys_vars test suite."
+    - string:
+        name: GALERA_PARALLEL_RUN
+        default: "2"
+        description: "(galera and galera_3nodes test suite) mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the galera and galera_3nodes test suite."
+    - string:
+        name: FULL_MTR
+        default: "1"
+        description: If empty, only galera and sys_vars suites will be run. Otherwise the full mtr will be perfomed.
+    - string:
+        name: MTR_SUITES
+        default: galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars
+        description: "mysql-test-run.pl suite names"
+    - string:
         name: MTR_ARGS
         default: --unit-tests-report --suite=galera,galera_3nodes,sys_vars
         description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
@@ -75,18 +91,11 @@
          type: user-defined
          name: DOCKER_OS
          values:
-          - centos:6
           - centos:7
-          - centos:8
-          - ubuntu:xenial
           - ubuntu:bionic
-          - ubuntu:focal
-          - debian:jessie
-          - debian:stretch
-          - debian:buster
     builders:
     - trigger-builds:
-      - project: pxc-5.7-pipeline
+      - project: test-pxc-5.7-pipeline
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${DOCKER_OS}
@@ -99,7 +108,7 @@
     - shell: |
         sudo find . -name "*.xml" -o -name "*.log" -delete
     - copyartifact:
-        project: pxc-5.7-pipeline
+        project: test-pxc-5.7-pipeline
         which-build: specific-build
         build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_5_7_pipeline}"
         do-not-fingerprint: true
