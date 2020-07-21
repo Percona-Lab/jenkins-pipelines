@@ -181,15 +181,14 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                             echo "REPOSITORY=\${REPOSITORY}" >> args_pipeline
+                            echo "REPOSITORY_VERSION=\${REPOSITORY_VERSION}" >> args_pipeline
+                            echo "REPOSITORY_VERSION_MAJOR=\${REPOSITORY_VERSION_MAJOR}" >> args_pipeline
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
                             rsync -aHv --delete -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
                                 bash -x /tmp/args_pipeline
-
-                                cd /srv/repo-copy
-                                export REPO=\$(echo \${REPOSITORY} | tr '[:upper:]' '[:lower:]' )
-                                export RSYNC_TRANSFER_OPTS="-avt  --delete --delete-excluded --delete-after --progress"
-                                rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.10.9.209:/www/repo.percona.com/htdocs/\${REPO}/
+                                wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/ps-pxc-dist/sync_repos_prod.sh -O sync_repos_prod.sh
+                                bash -xe sync_repos_prod.sh
                         "
                 """
                 }
