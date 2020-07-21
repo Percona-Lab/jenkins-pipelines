@@ -22,6 +22,10 @@ docker run --rm \
     export MTR_ARGS='${MTR_ARGS}'
     export MTR_REPEAT='${MTR_REPEAT}'
     export MTR_VAULT_TOKEN='${MTR_VAULT_TOKEN}'
+	export FULL_MTR='${FULL_MTR}'
+	export GALERA_PARALLEL_RUN='${GALERA_PARALLEL_RUN}'
+	export MTR_SUITES='${MTR_SUITES}'
+	export PARALLEL_RUN='${PARALLEL_RUN}'
 
     mkdir /tmp/results
     cp /tmp/pxc/results/*.tar.gz /tmp/results
