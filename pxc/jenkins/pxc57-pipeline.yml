@@ -90,5 +90,5 @@
          type: user-defined
          name: DOCKER_OS
          values:
-          - centos:7
-          - ubuntu:bionic
+          - centos:8
+          - ubuntu:focal

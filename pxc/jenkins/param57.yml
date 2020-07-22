@@ -70,11 +70,11 @@
         description: If empty, only galera and sys_vars suites will be run. Otherwise the full mtr will be perfomed.
     - string:
         name: MTR_SUITES
-        default: galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars
+        default: galera,galera_3nodes,sys_vars
         description: "mysql-test-run.pl suite names"
     - string:
         name: MTR_ARGS
-        default: --unit-tests-report --suite=galera,galera_3nodes,sys_vars
+        default: --unit-tests-report
         description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
     - string:
         name: MTR_REPEAT
@@ -91,8 +91,8 @@
          type: user-defined
          name: DOCKER_OS
          values:
-          - centos:7
-          - ubuntu:bionic
+          - centos:8
+          - ubuntu:focal
     builders:
     - trigger-builds:
       - project: test-pxc-5.7-pipeline
