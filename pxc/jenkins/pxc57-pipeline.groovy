@@ -54,9 +54,9 @@ pipeline {
 			defaultValue: '4',
 			description: '(galera and galera_3nodes test suite) mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the galera and galera_3nodes test suite.',
 			name: 'GALERA_PARALLEL_RUN')
-	    string(
-	        defaultValue: '1',
-	        description: 'If empty, only galera and sys_vars suites will be run. Otherwise the full mtr will be perfomed.',
+	    choice(
+	        choices: 'no\nyes',
+	        description: 'Run mtr suites based on variable MTR_SUITES if the value is `no`. Otherwise the full mtr will be perfomed.',
 	        name: 'FULL_MTR')
 	    string(
 	        defaultValue: 'galera,galera_3nodes,sys_vars',
