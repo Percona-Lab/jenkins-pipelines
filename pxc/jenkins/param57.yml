@@ -110,10 +110,10 @@
     - copyartifact:
         project: test-pxc-5.7-pipeline
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_5_7_pipeline}"
+        build-number: "${TRIGGERED_BUILD_NUMBERS_test_pxc_5_7_pipeline}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_pxc_5_7_pipeline}" > PIPELINE_BUILD_NUMBER
+        echo "${TRIGGERED_BUILD_NUMBERS_test_pxc_5_7_pipeline}" > PIPELINE_BUILD_NUMBER
     publishers:
     - junit:
         results: "**/*.xml"
