@@ -67,7 +67,7 @@ if [ -f /usr/bin/yum ]; then
     "
 
     if [[ ${RHVER} -eq 8 ]]; then
-        PKGLIST+=" lz4 perl-Memoize perl-open valgrind-devel libubsan rpcgen libtirpc-devel"
+        PKGLIST+=" lz4 perl-Memoize perl-open valgrind-devel libubsan rpcgen libtirpc-devel boost-devel"
     else
         PKGLIST+=" asio-devel"
     fi
