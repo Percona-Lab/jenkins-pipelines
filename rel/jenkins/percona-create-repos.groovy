@@ -46,6 +46,11 @@ pipeline {
                 createRepo(REPO_NAME, 'apt', COMPONENTS, CENTOS_VERSIONS, DEB_CODE_NAMES, LIMIT)
             }
         }
+        stage('Sync repo to production') {
+            steps {
+                syncRepo(REPO_NAME)
+            }
+        }
 
     }
 }
