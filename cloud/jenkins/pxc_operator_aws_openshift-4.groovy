@@ -212,6 +212,7 @@ pipeline {
                     sshagent(['aws-openshift-41-key']) {
                          sh """
                              /usr/local/bin/openshift-install create cluster --dir=./openshift/
+                             sleep 3600
                          """
                     }
                 }
