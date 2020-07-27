@@ -121,7 +121,7 @@ pipeline {
 
         stage('Build client source deb') {
             steps {
-                sh 'sg docker -c "./build/bin/build-client-sdeb debian:jessie"'
+                sh 'sg docker -c "./build/bin/build-client-sdeb debian:stretch"'
                 stash includes: 'results/source_deb/*', name: 'debs'
                 uploadDEB()
             }
@@ -129,7 +129,6 @@ pipeline {
         stage('Build client binary debs') {
             steps {
                 sh 'sg docker -c "./build/bin/build-client-deb debian:buster"'
-                sh 'sg docker -c "./build/bin/build-client-deb debian:jessie"'
                 sh 'sg docker -c "./build/bin/build-client-deb debian:stretch"'
                 sh 'sg docker -c "./build/bin/build-client-deb ubuntu:bionic"'
                 sh 'sg docker -c "./build/bin/build-client-deb ubuntu:xenial"'
