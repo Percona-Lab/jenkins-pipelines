@@ -1,0 +1,269 @@
+- job:
+    block-downstream: false
+    block-upstream: false
+    builders:
+    - shell: echo "###DESCRIPTION###${DESCRIPTION}###"
+    - description-setter:
+        regexp: "^###DESCRIPTION###(.*)###$"
+    - shell: |-
+        #!/bin/bash
+
+        # we need to setup the instance first
+        # disable THP
+        echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" > disable-thp.sh
+        echo "echo never > /sys/kernel/mm/transparent_hugepage/defrag" >> disable-thp.sh
+        sudo cat /etc/security/limits.conf
+        ulimit -a
+
+        ulimit -u 64000
+        ulimit -n 64000
+        chmod +x disable-thp.sh
+        sudo -n ./disable-thp.sh
+        rm -f disable-thp.sh
+
+        echo "----------------"
+        echo "HOST INFO:"
+        echo "HOSTNAME: $(hostname)"
+        echo "OPENSTACK_PUBLIC_IP: ${OPENSTACK_PUBLIC_IP}"
+        echo "USER: $(id)"
+        echo "DISK SPACE"
+        df -h
+        echo "MEMORY"
+        free -m
+        echo "LIMITS"
+        ulimit -a
+        echo "NETWORK"
+        ip addr show
+        echo "Transparent huge pages status:"
+        cat /sys/kernel/mm/transparent_hugepage/enabled
+        echo "----------------"
+        #
+        if [ $(grep -c $(hostname) /etc/hosts) -eq 0 ]; then
+            sudo sed -i "s/localhost/$(hostname) localhost/" /etc/hosts
+            echo "### HOSTS FILE AFTER ADDING HOSTNAME ###"
+            cat /etc/hosts
+        fi
+        #
+        sudo rm -rf /mnt/data /data
+        sudo mkdir /mnt/data
+        sudo chmod 777 /mnt/data
+        sudo ln -s /mnt/data /data
+    - shell: |-
+        # clean workspace
+        if [ "${RELEASE_TEST}" = "true" ]; then
+            rm -rf ${WORKSPACE}/*
+        fi
+
+        #cleanup
+        killall -9 mongos || true
+        killall -9 mongod || true
+        pkill -f killer.sh || true
+    - shell: |
+        #!/bin/bash
+
+        set -x
+
+        if [ -f /usr/bin/apt-get ]; then
+            sudo apt-get -y install wget
+        else
+            sudo yum -y install wget redhat-lsb-core
+        fi
+
+        wget https://raw.githubusercontent.com/percona/percona-server-mongodb/v4.4/percona-packaging/scripts/psmdb_builder.sh
+        chmod +x psmdb_builder.sh
+        mkdir test
+
+        sudo bash -x psmdb_builder.sh --builddir=$(pwd)/test --repo=${PSM_REPO} --branch=${PSM_BRANCH} --install_deps=1
+         
+        sudo percona-server-mongodb/support-files/ldap-sasl/deploy_ldap_and_sasl.sh
+        # https://docs.mongodb.com/manual/tutorial/configure-ldap-sasl-openldap/#test-the-saslauthd-configuration
+        sudo chmod 755 /var/run/saslauthd
+        sudo percona-server-mongodb/support-files/ldap-sasl/check_saslauthd.sh
+   
+        sudo rm -rf test/*
+    - shell: |-
+        rm -rf psmdb-misc-scripts
+        git clone ${MISC_SCRIPTS_REPO} --branch ${MISC_SCRIPTS_BRANCH} --depth 1
+
+        bash -x psmdb_builder.sh --builddir=$(pwd)/test --repo=${PSM_REPO} --branch=${PSM_BRANCH} --jenkins_mode=1 --get_sources=1
+    - shell: |-
+        if [ "${RELEASE_TEST}" != "true" ]; then
+            # build binaries
+
+            if [ -n "${CUSTOM_SUITE}" ]; then
+                UNITTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^unittests" || true)
+                DBTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^dbtest" || true)
+                INTEGRATIONTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^integration_tests" || true)
+                BENCHMARKTESTS=$(echo "${CUSTOM_SUITE}" | grep -c "^benchmarks" || true)
+            else
+                UNITTESTS=$(grep -c "^unittests" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
+                DBTESTS=$(grep -c "^dbtest" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
+                INTEGRATIONTESTS=$(grep -c "^integration_tests" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
+                BENCHMARKTESTS=$(grep -c "^benchmarks" psmdb-misc-scripts/suite_sets/${SUITE}.txt || true)
+            fi
+
+            OPT_TARGETS=" "
+            if [ ${UNITTESTS} -gt 0 ]; then
+                OPT_TARGETS="${OPT_TARGETS} unittests"
+            fi
+
+            if [ "${DBTESTS}" -gt 0 ]; then
+                OPT_TARGETS="${OPT_TARGETS} dbtest"
+            fi
+
+            if [ ${INTEGRATIONTESTS} -gt 0 ]; then
+                OPT_TARGETS="${OPT_TARGETS} integration_tests"
+            fi
+
+            if [ "${BENCHMARKTESTS}" -gt 0 ]; then
+                OPT_TARGETS="${OPT_TARGETS} benchmarks"
+            fi
+
+            PSM_TARGETS=$(echo ${OPT_TARGETS} | xargs)
+            TARBALL_SUFFIX=""
+            if [ -f /etc/debian_version ]; then
+                export OS_RELEASE="$(lsb_release -sc)"
+            fi
+
+            if [ -f /etc/redhat-release ]; then
+                export OS_RELEASE="centos$(lsb_release -sr | awk -F'.' '{print $1}')"
+                RHEL=$(rpm --eval %rhel)
+            fi
+
+            ARCH=$(uname -m 2>/dev/null||true)
+            PSMDIR=percona-server-mongodb
+            PSMDIR_ABS=${WORKSPACE}/percona-server-mongodb
+            TOOLSDIR=${PSMDIR}/mongo-tools
+            TOOLSDIR_ABS=${WORKSPACE}/${TOOLSDIR}
+            TOOLS_TAGS="ssl sasl"
+
+            NJOBS=$(grep -c processor /proc/cpuinfo)
+
+            # link PSM dir to /tmp to avoid "argument list too long error"
+            rm -fr /tmp/${PSMDIR}
+            ln -fs ${PSMDIR_ABS} /tmp/${PSMDIR}
+            cd /tmp
+
+            export CFLAGS="${CFLAGS:-} -fno-omit-frame-pointer"
+            export CXXFLAGS="${CFLAGS}"
+            export INSTALLDIR=${WORKSPACE}/install
+            source $WORKSPACE/test/percona-server-mongodb-44.properties
+            if [ "${BUILD_TYPE}" = "debug" ]; then
+                bash -x $WORKSPACE/psmdb_builder.sh --builddir=$WORKSPACE/test --repo=${PSM_REPO} --branch=${PSM_BRANCH} --psm_ver=${VERSION} --psm_release=${RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} --jemalloc_tag=${JEMALLOC_TAG} --rocksdb_tag=${MONGO_TOOLS_TAG} --debug=1 --special_targets="$PSM_TARGETS"
+            else
+                bash -x $WORKSPACE/psmdb_builder.sh --builddir=$WORKSPACE/test --repo=${PSM_REPO} --branch=${PSM_BRANCH} --psm_ver=${VERSION} --psm_release=${RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} --jemalloc_tag=${JEMALLOC_TAG} --rocksdb_tag=${MONGO_TOOLS_TAG} --build_tarball=1 --special_targets="$PSM_TARGETS"
+            fi
+
+            cd ${WORKSPACE}
+        fi
+    - shell: |-
+        # run tests
+
+        if [ -f /usr/bin/yum ]; then
+            ulimit -u 64000
+            ulimit -n 64000
+        fi
+
+        cd ${WORKSPACE}
+        PSMDIR="percona-server-mongodb"
+        PSMDIR_ABS=${WORKSPACE}/${PSMDIR}
+        DISTRIBUTION="xenial"
+
+        if [ "${BUILD_TYPE}" = "debug" ]; then
+            TARBALL='debug'
+        else
+            TARBALL='tarball'
+        fi
+
+        SOURSE_TAR_MDB=$(basename $(find $WORKSPACE/test/source_tarball -name 'percona-server-mongodb*.tar.gz' | sort | tail -n1))
+        cd $WORKSPACE/test/source_tarball/
+        tar -xzf $SOURSE_TAR_MDB
+        rm -rf $SOURSE_TAR_MDB
+
+
+        SOURS_DIR=$(ls)
+        cd $(ls)
+        mv ./jstests ../
+        mv ./buildscripts ../
+
+        mv $WORKSPACE/test/$SOURS_DIR/build ../
+        mv $WORKSPACE/test/$SOURS_DIR/src  ../
+
+        cd ${WORKSPACE}
+        TAR_MDB=$(basename $(find $WORKSPACE/test/$TARBALL -name 'percona-server-mongodb*.tar.gz' | sort | tail -n1))
+        cd $WORKSPACE/test/$TARBALL
+        tar -xzf $TAR_MDB
+        rm -rf $TAR_MDB
+
+        MONGO_DB_DIR=$(ls)
+        mv ./$MONGO_DB_DIR ./percona-server-mongodb
+        cd ./percona-server-mongodb
+        mv $WORKSPACE/test/source_tarball/jstests ./bin/
+        mv $WORKSPACE/test/source_tarball/buildscripts ./bin/
+        mv $WORKSPACE/test/source_tarball/build ./bin/
+        mv $WORKSPACE/test/source_tarball/src ./bin/
+
+        PSMDIR=$(basename $(pwd))
+        PSMDIR_ABS=$PWD
+
+        DISTRIBUTION="xenial"
+
+
+        if [ "$JOBS" != "auto" ]; then
+            sed -i "s/^RESMOKE_JOBS=.*$/RESMOKE_JOBS=${JOBS}/" $WORKSPACE/psmdb-misc-scripts/run_resmoke_psmdb_3.2.sh
+        fi
+
+        if [ -n "${CUSTOM_SUITE}" ]; then
+            echo "${CUSTOM_SUITE}" > $WORKSPACE/psmdb-misc-scripts/suite_sets/custom.txt
+            TEST_SUITE_FILE="custom.txt"
+        else
+            TEST_SUITE_FILE="${SUITE}.txt"
+        fi
+
+        cd ${PSMDIR_ABS}/bin/
+        find build/opt -type f -name '*.a' -delete || true
+        find build/opt -type f -name '*.o' -delete || true
+        touch killer.log
+
+        if [ "${ENABLE_KILLER}" = "true" ]; then
+            $WORKSPACE/psmdb-misc-scripts/killer.sh &
+        fi
+
+
+        for trial in `seq 1 ${NUM_TRIALS}`; do
+            ../../../../psmdb-misc-scripts/run_resmoke_psmdb_3.2.sh ${trial} ${TEST_SUITE_FILE}
+        done
+
+        $WORKSPACE/psmdb-misc-scripts/resmoke2junit.py
+
+        tar czf resmoke_logs.tar.gz  *.log *.json *.xml
+
+        #cleanup
+        killall -9 mongos  || true
+        killall -9 mongod  || true
+        pkill -f killer.sh || true
+    concurrent: false
+    description: null
+    disabled: true
+    name: !!python/unicode 'percona-server-for-mongodb-4.4-template'
+    project-type: freestyle
+    properties:
+      - disk-usage
+    publishers:
+    - warnings:
+        console-log-parsers:
+          - GNU Make + GNU C Compiler (gcc)
+    - archive:
+        artifacts: '**/**/percona-server-mongodb/bin/resmoke_summary*.log, **/**/percona-server-mongodb/bin/resmoke_summary*.log, **/**/percona-server-mongodb/bin/killer.log, **/**/percona-server-mongodb/bin/resmoke_logs.tar.gz, **/**/percona-server-mongodb/bin/perf.json, **/**/percona-server-mongodb/bin/perf_sharding.json'
+        allow-empty: false
+        fingerprint: false
+        default-excludes: true
+        only-if-success: false
+        case-sensitive: true
+    - junit:
+        results: '**/**/percona-server-mongodb/bin/junit.xml'
+        keep-long-stdio: false
+        health-scale-factor: 1.0
+        allow-empty-results: false
+    triggers: []
+    wrappers: []
