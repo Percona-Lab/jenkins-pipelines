@@ -213,12 +213,18 @@ pipeline {
                          sh """
                             pushd ./aws-openshift-automation
                                 make openshift
-                                sleep 120
-                                oc login \$(terraform output master-url) --insecure-skip-tls-verify=true -u=real-admin -p=123
                             popd
                          """
                     }
-               }
+                    retry(3) {
+                         sh """
+                            pushd ./aws-openshift-automation
+                                sleep 120
+                                oc login \$(terraform output master-url) --insecure-skip-tls-verify=true -u=real-admin -p=123
+                            popd
+                        """
+                    }
+                }
             }
         }
         stage('E2E Scaling') {
