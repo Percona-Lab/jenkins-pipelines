@@ -18,7 +18,7 @@ pipeline {
             name: 'PXB80_REPO',
             trim: true)
         string(
-            defaultValue: 'percona-xtrabackup-8.0.11',
+            defaultValue: 'percona-xtrabackup-8.0.12',
             description: 'Tag/Branch for PXB80 repository',
             name: 'PXB80_BRANCH',
             trim: true)
@@ -33,7 +33,7 @@ pipeline {
             name: 'PXB24_BRANCH',
             trim: true)
         choice(
-            choices: 'centos:7\ncentos:8\nubuntu:xenial\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster',
+            choices: 'centos:8\nubuntu:focal',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -57,7 +57,23 @@ pipeline {
             description: 'Run mysql-test-run.pl',
             name: 'DEFAULT_TESTING')
         string(
-            defaultValue: '--unit-tests-report --suite=galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars',
+            defaultValue: '4',
+            description: '(sys_vars test suite) mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the sys_vars test suite.',
+            name: 'PARALLEL_RUN')
+        string(
+        	defaultValue: '4',
+        	description: '(galera and galera_3nodes test suite) mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the galera and galera_3nodes test suite.',
+        	name: 'GALERA_PARALLEL_RUN')
+        choice(
+            choices: 'no\nyes',
+            description: 'Run mtr suites based on variable MTR_SUITES if the value is `no`. Otherwise the full mtr will be perfomed.',
+            name: 'FULL_MTR')
+        string(
+            defaultValue: 'galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars',
+            description: 'mysql-test-run.pl suite names',
+            name: 'MTR_SUITES')
+        string(
+            defaultValue: '--unit-tests-report',
             description: 'mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report',
             name: 'MTR_ARGS')
         string(
@@ -104,7 +120,7 @@ pipeline {
                 stage('Build PXB24') {
                     agent { label 'docker' }
                     steps {
-                        git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        git branch: 'PXC-3364-Add-MTR-params', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                         echo 'Checkout PXB24 sources'
                         sh '''
                             # sudo is needed for better node recovery after compilation failure
@@ -139,7 +155,7 @@ pipeline {
                 stage('Build PXB80') {
                     agent { label 'docker-32gb' }
                     steps {
-                        git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        git branch: 'PXC-3364-Add-MTR-params', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                         echo 'Checkout PXB80 sources'
                         sh '''
                             # sudo is needed for better node recovery after compilation failure
@@ -176,7 +192,7 @@ pipeline {
         stage('Build PXC80') {
                 agent { label 'docker-32gb' }
                 steps {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'PXC-3364-Add-MTR-params', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Checkout PXC80 sources'
                     sh '''
                         # sudo is needed for better node recovery after compilation failure
@@ -220,7 +236,7 @@ pipeline {
         stage('Test PXC80') {
                 agent { label 'docker-32gb' }
                 steps {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'PXC-3364-Add-MTR-params', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Test PXC80'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''

@@ -22,6 +22,10 @@ docker run --rm \
     export MTR_ARGS='${MTR_ARGS}'
     export MTR_REPEAT='${MTR_REPEAT}'
     export MTR_VAULT_TOKEN='${MTR_VAULT_TOKEN}'
+	export FULL_MTR='${FULL_MTR}'
+	export GALERA_PARALLEL_RUN='${GALERA_PARALLEL_RUN}'
+	export MTR_SUITES='${MTR_SUITES}'
+	export PARALLEL_RUN='${PARALLEL_RUN}'
 
     mkdir /tmp/results
     cp /tmp/pxc/results/*.tar.gz /tmp/results
@@ -29,8 +33,8 @@ docker run --rm \
     bash -x /tmp/scripts/test-binary-pxc /tmp/results
 
     mkdir /tmp/results/log
-    rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/PXC/mysql-test/var /tmp/results/log
-    sudo tar -C /tmp/results/log -czf "pxc80-test-mtr_logs.tar.gz" var
+    rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/PXC/mysql-test/var* /tmp/results/log
+    sudo tar -C /tmp/results/log -czf "pxc80-test-mtr_logs.tar.gz" var1 var2 var3
 
     sudo mv ./pxc80-test-mtr_logs.tar.gz /tmp/pxc/results/
     sudo mv /tmp/results/*.xml /tmp/results/*.output  /tmp/pxc/results/

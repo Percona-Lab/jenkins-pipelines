@@ -50,12 +50,6 @@
         - "yes"
         - "no"
         description: Run mysql-test-run.pl
-    - choice:
-        name: HOTBACKUP_TESTING
-        choices:
-        - "yes"
-        - "no"
-        description: Run mysql-test-run.pl --suite tokudb_backup
     - string:
         name: PARALLEL_RUN
         default: "4"
