@@ -3,6 +3,7 @@
     project-type: pipeline
     description: |
         Do not edit this job through the web!
+    concurrent: true
     pipeline-scm:
       scm:
         - git:
