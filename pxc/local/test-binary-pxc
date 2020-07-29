@@ -123,7 +123,7 @@ if [[ "${DEFAULT_TESTING}" != "no" ]]; then
         fi
     
         # galera_3nodes suite
-        if echo "$MTR_SUITES" | grep -Eq "galera_3nodes"; then
+        if echo "$MTR_SUITES" | grep -Eq "galera_3nodes[ ,]"; then
            mkdir var2
            MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
               --result-file --suite=galera_3nodes \
@@ -143,7 +143,51 @@ if [[ "${DEFAULT_TESTING}" != "no" ]]; then
 		    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/galera3_mtr1.tmp >  ${WORKDIR_ABS}/galera3_junit.xml
 		    rm -f ${WORKDIR_ABS}/galera3_mtr*.tmp ${WORKDIR_ABS}/galera3_mtr.xml
         fi
+
+        # galera_sr suite
+        if echo "$MTR_SUITES" | grep -Eq "galera_sr[ ,]"; then
+           mkdir var1
+           MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
+              --result-file --suite=galera_sr \
+              ${MTR_ARGS} \
+              --force --xml-report=${WORKDIR_ABS}/galera_sr_mtr.xml \
+              --max-test-fail=0 \
+              --suite-timeout=9999 --parallel $GALERA_PARALLEL_RUN \
+              --port-group-size=20 --vardir=var3 \
+              --testcase-timeout=${TESTCASE_TIMEOUT} \
+              | tee ${WORKDIR_ABS}/galera_sr_mtr.output || status=$?
     
+            killall -9 mysqld || true
+		    sed -i '1d' ${WORKDIR_ABS}/galera_sr_mtr.xml
+		    sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/galera_sr_mtr.xml
+		    sed -r 's/comment=.*.\/>/\/>/' ${WORKDIR_ABS}/galera_sr_mtr.xml > ${WORKDIR_ABS}/galera_sr_mtr.tmp
+		    sed -r 's/status=\"skipped\".*.\/>/ > <skipped \/> <\/testcase>/' ${WORKDIR_ABS}/galera_sr_mtr.tmp >  ${WORKDIR_ABS}/galera_sr_mtr1.tmp
+		    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/galera_sr_mtr1.tmp >  ${WORKDIR_ABS}/galera_sr_junit.xml
+		    rm -f ${WORKDIR_ABS}/galera_sr_mtr*.tmp ${WORKDIR_ABS}/galera_sr_mtr.xml
+        fi
+		
+        # galera_3nodes_sr suite
+        if echo "$MTR_SUITES" | grep -Eq "galera_3nodes_sr[ ,]"; then
+           mkdir var2
+           MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
+              --result-file --suite=galera_3nodes_sr \
+              ${MTR_ARGS} \
+              --force --xml-report=${WORKDIR_ABS}/galera3_sr_mtr.xml \
+              --max-test-fail=0 \
+              --suite-timeout=9999 --parallel $GALERA_PARALLEL_RUN \
+              --port-group-size=20 --vardir=var4 \
+              --testcase-timeout=${TESTCASE_TIMEOUT} \
+              | tee ${WORKDIR_ABS}/galera3_sr_mtr.output || status=$?
+    
+            killall -9 mysqld || true
+		    sed -i '1d' ${WORKDIR_ABS}/galera3_sr_mtr.xml
+		    sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/galera3_sr_mtr.xml
+		    sed -r 's/comment=.*.\/>/\/>/' ${WORKDIR_ABS}/galera3_sr_mtr.xml > ${WORKDIR_ABS}/galera3_sr_mtr.tmp
+		    sed -r 's/status=\"skipped\".*.\/>/ > <skipped \/> <\/testcase>/' ${WORKDIR_ABS}/galera3_sr_mtr.tmp >  ${WORKDIR_ABS}/galera3_sr_mtr1.tmp
+		    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/galera3_sr_mtr1.tmp >  ${WORKDIR_ABS}/galera3_sr_junit.xml
+		    rm -f ${WORKDIR_ABS}/galera3_sr_mtr*.tmp ${WORKDIR_ABS}/galera3_sr_mtr.xml
+        fi
+		
         # sys_vars suite
         if echo "$MTR_SUITES" | grep -Eq "sys_vars"; then
            mkdir var3
@@ -153,7 +197,7 @@ if [[ "${DEFAULT_TESTING}" != "no" ]]; then
               --force --xml-report=${WORKDIR_ABS}/sys_vars.xml \
               --max-test-fail=0 \
               --suite-timeout=9999 --parallel $PARALLEL_RUN \
-              --port-group-size=20 --vardir=var3 \
+              --port-group-size=20 --vardir=var5 \
               --testcase-timeout=${TESTCASE_TIMEOUT} \
               | tee ${WORKDIR_ABS}/sys_vars.output || status=$?
     		  
