@@ -183,7 +183,7 @@ if [[ "${DEFAULT_TESTING}" != "no" ]]; then
            ${MTR_ARGS} \
            --force --xml-report=${WORKDIR_ABS}/mtr.xml \
            --max-test-fail=0 \
-           --suite-timeout=9999 --parallel $GALERA_PARALLEL_RUN \
+           --suite-timeout=9999 --parallel $PARALLEL_RUN \
            --port-group-size=20 --vardir=var1 \
            --testcase-timeout=${TESTCASE_TIMEOUT} \
            | tee ${WORKDIR_ABS}/mtr.output || status=$?

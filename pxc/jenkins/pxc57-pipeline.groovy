@@ -48,11 +48,11 @@ pipeline {
             name: 'DEFAULT_TESTING')
 		string(
 		    defaultValue: '4',
-		    description: '(sys_vars test suite) mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the sys_vars test suite.',
+		    description: 'mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for all test suites except Galera specific suites.',
 		    name: 'PARALLEL_RUN')
 		string(
 			defaultValue: '2',
-			description: '(galera and galera_3nodes test suite) mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the galera and galera_3nodes test suite.',
+			description: 'mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the Galera specific test suites.',
 			name: 'GALERA_PARALLEL_RUN')
 	    choice(
 	        choices: 'no\nyes',
