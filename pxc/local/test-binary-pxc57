@@ -72,7 +72,7 @@ if [[ "${DEFAULT_TESTING}" != "no" ]]; then
     fi
     if [ ${FULL_MTR} == "no" ]; then
         # galera suite
-        if echo "$MTR_SUITES" | grep -Eq "galera[ ,]"; then
+        if echo "$MTR_SUITES" | grep -Ewq "galera"; then
            mkdir var1
            MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
               --result-file --suite=galera \
@@ -94,7 +94,7 @@ if [[ "${DEFAULT_TESTING}" != "no" ]]; then
         fi
     
         # galera_3nodes suite
-        if echo "$MTR_SUITES" | grep -Eq "galera_3nodes"; then
+        if echo "$MTR_SUITES" | grep -Ewq "galera_3nodes"; then
            mkdir var2
            MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
               --result-file --suite=galera_3nodes \
@@ -116,7 +116,7 @@ if [[ "${DEFAULT_TESTING}" != "no" ]]; then
         fi
     
         # sys_vars suite
-        if echo "$MTR_SUITES" | grep -Eq "sys_vars"; then
+        if echo "$MTR_SUITES" | grep -Ewq "sys_vars"; then
            mkdir var3
            MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
               --result-file --suite=sys_vars \

@@ -118,6 +118,8 @@
         do-not-fingerprint: true
     - shell: |
         echo "${TRIGGERED_BUILD_NUMBERS_test_pxc_8_0_pipeline}" > PIPELINE_BUILD_NUMBER
+        ls -l
+        ls -l ../
     publishers:
     - junit:
         results: "**/*.xml"
