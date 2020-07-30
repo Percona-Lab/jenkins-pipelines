@@ -1,5 +1,5 @@
 - job:
-    name: test-pxc-5.7-param
+    name: pxc-5.7-param
     project-type: matrix
     defaults: global
     description: |
@@ -87,11 +87,17 @@
          type: user-defined
          name: DOCKER_OS
          values:
+          - centos:6
+          - centos:7
           - centos:8
+          - ubuntu:xenial
+          - ubuntu:bionic
           - ubuntu:focal
+          - debian:stretch
+          - debian:buster
     builders:
     - trigger-builds:
-      - project: test-pxc-5.7-pipeline
+      - project: pxc-5.7-pipeline
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${DOCKER_OS}
@@ -104,12 +110,12 @@
     - shell: |
         sudo find . -name "*.xml" -o -name "*.log" -delete
     - copyartifact:
-        project: test-pxc-5.7-pipeline
+        project: pxc-5.7-pipeline
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_test_pxc_5_7_pipeline}"
+        build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_5_7_pipeline}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_test_pxc_5_7_pipeline}" > PIPELINE_BUILD_NUMBER
+        echo "${TRIGGERED_BUILD_NUMBERS_pxc_5_7_pipeline}" > PIPELINE_BUILD_NUMBER
     publishers:
     - junit:
         results: "**/*.xml"
