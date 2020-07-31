@@ -1,7 +1,7 @@
 void build(String IMAGE_PREFIX){
     sh """
         cd ./source/
-        DOCKER_FILE_PREFIX=\$(echo ${IMAGE_PREFIX} | tr -d '.' | tr -d 'mongod')
+        DOCKER_FILE_PREFIX=\$(echo ${IMAGE_PREFIX} | tr -d 'mongod')
         docker build --no-cache --squash -t perconalab/percona-server-mongodb-operator:master-${IMAGE_PREFIX} -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile.k8s percona-server-mongodb-\$DOCKER_FILE_PREFIX
         docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-server-mongodb-operator:master-${IMAGE_PREFIX}-debug -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile.k8s percona-server-mongodb-\$DOCKER_FILE_PREFIX
     """
