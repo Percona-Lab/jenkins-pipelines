@@ -28,9 +28,11 @@
         if [ -f /usr/bin/yum ]; then
             sudo yum clean all
             sudo yum -y install epel-release
+            sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+            sudo percona-release enable tools testing
             sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel wget libcurl-devel
             sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel scons
-            sudo yum -y install pkgconfig python-pip python2-pip redhat-lsb-core
+            sudo yum -y install pkgconfig python-pip python2-pip redhat-lsb-core patchelf
 
             CENTOS_VER=$(lsb_release -sr | awk -F'.' '{print $1}')
             if [[ ${CENTOS_VER} = '6' ]]; then
@@ -53,10 +55,14 @@
                 sudo mv -vf sources.list /etc/apt/sources.list
             fi
             sudo DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install wget gnupg2 lsb-release
+            wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb && sudo dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb
+            sudo percona-release enable tools testing
+            sudo DEBIAN_FRONTEND=noninteractive apt-get update
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev libcurl4-openssl-dev
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install pkg-config pkg-config python3-pip
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install pkg-config pkg-config python3-pip patchelf
 
             sudo pip3 install awscli
             sudo pip3 install --upgrade awscli
