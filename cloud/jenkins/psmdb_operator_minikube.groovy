@@ -36,9 +36,10 @@ void runTest(String TEST_NAME) {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
         FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.KUBER_VERSION}"
+        MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
         testsReportMap[TEST_NAME] = 'failure'
 
-        popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
+        popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG")
         sh """
             if [ -f "$FILE_NAME" ]; then
                 echo Skip $TEST_NAME test
@@ -65,7 +66,7 @@ void runTest(String TEST_NAME) {
                 ./e2e-tests/$TEST_NAME/run
             fi
         """
-        pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
+        pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG")
         testsReportMap[TEST_NAME] = 'passed'
     }
     catch (exc) {
