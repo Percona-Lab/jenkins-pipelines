@@ -48,7 +48,7 @@ pipeline {
             name: 'PAT_TAG',
             trim: true)
        choice(
-            choices: 'centos:6\ncentos:7\ncentos:8\nubuntu:xenial\nubuntu:bionic\nubuntu:focal\ndebian:jessie\ndebian:stretch\ndebian:buster',
+            choices: 'centos:6\ncentos:7\ncentos:8\nubuntu:xenial\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
