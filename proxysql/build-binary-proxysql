@@ -1,0 +1,18 @@
+#!/bin/bash
+#
+# Execute this tool to test binary releases
+#
+#  possible jenkins vars:
+#      CMAKE_BUILD_TYPE = (RelWithDebInfo Debug)
+#      PAT_TAG
+
+set -o errexit
+set -o xtrace
+
+WORKDIR_ABS=$(cd ${1:-./build/proxysql}; pwd -P)
+SOURCE_DIR=$(cd ${2:-./build/proxysql}; pwd -P)
+
+status=0
+sudo sed -i "4 a PAT_TAG=${PAT_TAG}" ${SOURCE_DIR}/proxysql-packaging/scripts/build_binary.sh
+sudo bash -x ${SOURCE_DIR}/proxysql-packaging/scripts/build_binary.sh ${WORKDIR_ABS} || status=$?
+exit $status

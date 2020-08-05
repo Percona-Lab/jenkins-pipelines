@@ -1,0 +1,113 @@
+- job:
+    name: qa-proxysql2-param
+    project-type: matrix
+    defaults: global
+    description: |
+        Do not edit this job through the web!
+    disabled: false
+    concurrent: true
+    auth-token: proxysql2param
+    node: micro-amazon
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 50
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 50
+    parameters:
+    - string:
+        name: GIT_REPO
+        default: https://github.com/sysown/proxysql
+        description: URL to ProxySQL repository
+    - string:
+        name: BRANCH
+        default: "v2.0.13"
+        description: Tag/Branch for ProxySQL repository
+    - string:
+        name: PROXYSQL_PACKAGE_REPO
+        default: https://github.com/percona/proxysql-packaging
+        description: URL to ProxySQL pacakge repository
+    - string:
+        name: PROXYSQL_PACKAGE_BRANCH
+        default: v2
+        description: Tag/Branch for ProxySQL pacakge repository
+    - string:
+        name: PXC57_REPO
+        default: "https://github.com/percona/percona-xtradb-cluster"
+        description: URL to PXC repository
+    - string:
+        name: PXC57_BRANCH
+        default: "5.7"
+        description: Tag/Branch for PXC repository
+    - string:
+        name: PXB24_REPO
+        default: https://github.com/percona/percona-xtrabackup
+        description: URL to PXB24 repository
+    - string:
+        name: PXB24_BRANCH
+        default: percona-xtrabackup-2.4.20
+        description: Tag/Branch for PXC repository
+    - string:
+        name: PAT_TAG
+        default: v2.0.13-dev
+        description: Tag/Branch for ProxySQL-admin-tool repository
+    - choice:
+        name: JOB_CMAKE
+        choices:
+        - /usr/bin/cmake
+        description: path to cmake binary
+    - string:
+        name: CMAKE_OPTS
+        default:
+        description: cmake options
+    - string:
+        name: MAKE_OPTS
+        default:
+        description: make options, like VERBOSE=1
+    axes:
+      - axis:
+         type: user-defined
+         name: CMAKE_BUILD_TYPE
+         values:
+          - RelWithDebInfo
+          - Debug
+      - axis:
+         type: user-defined
+         name: DOCKER_OS
+         values:
+          - centos:6
+          - centos:7
+          - centos:8
+          - ubuntu:xenial
+          - ubuntu:bionic
+          - ubuntu:focal
+          - debian:jessie
+          - debian:stretch
+          - debian:buster
+    builders:
+    - trigger-builds:
+      - project: qa-proxysql2-pipeline
+        current-parameters: true
+        predefined-parameters: |
+          DOCKER_OS=${DOCKER_OS}
+          CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        block: true
+        block-thresholds:
+          build-step-failure-threshold: FAILURE
+          unstable-threshold: never
+          failure-threshold: FAILURE
+    - shell: |
+        sudo find . -name "*.xml" -o -name "*.log" -delete
+    - copyartifact:
+        project: qa-proxysql2-pipeline
+        which-build: specific-build
+        build-number: "${TRIGGERED_BUILD_NUMBERS_qa_proxysql2_pipeline}"
+        do-not-fingerprint: true
+    - shell: |
+        echo "${TRIGGERED_BUILD_NUMBERS_qa_proxysql2_pipeline}" > PIPELINE_BUILD_NUMBER
+    publishers:
+    - junit:
+        results: "**/*.xml"
+        keep-long-stdio: true
+    - archive:
+        artifacts: 'proxysql/sources/proxysql/results/*.tar.gz'

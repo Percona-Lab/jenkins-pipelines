@@ -1,0 +1,71 @@
+#!/bin/bash
+
+#  possible vars:
+#      GIT_REPO
+#      BRANCH
+#      PROXYSQL_PACKAGE_REPO
+#      PROXYSQL_PACKAGE_BRANCH
+
+
+set -o errexit
+set -o xtrace
+
+SOURCE_NAME=${1:-'ALL'}
+
+ROOT_DIR=$(cd $(dirname $0); pwd -P)/sources
+
+if [ ! -d "${ROOT_DIR}" ]; then
+    mkdir -p ${ROOT_DIR}
+fi
+
+# ==================== PROXYSQL ====================
+
+if [ "$SOURCE_NAME" == 'PROXYSQL' -o "$SOURCE_NAME" == 'ALL' ]; then
+    PROXYSQL_ROOT_DIR="${ROOT_DIR}/proxysql"
+
+    sudo rm -rf ${PROXYSQL_ROOT_DIR}
+
+    git clone "${GIT_REPO:-https://github.com/sysown/proxysql}" "${PROXYSQL_ROOT_DIR}"
+
+    pushd $PROXYSQL_ROOT_DIR
+        if [ -n "${GIT_REPO}" ]; then
+            git remote set-url origin "${GIT_REPO}"
+            git fetch --all
+        fi
+         
+        git reset --hard
+        git clean -xdf
+
+        if [ -n "${BRANCH}" ]; then
+            git checkout "${BRANCH}"
+        fi
+        if [ -n "${GIT_REPO}" -a -n "${BRANCH}" ]; then
+            git pull origin ${BRANCH}
+        fi
+        ###starting from 2.0.10 we need to patch 2 Makefiles
+        sed -i 's/shell cat.*/shell rpm --eval \%rhel)/' deps/Makefile
+        sed -i 's:6.7:6:' deps/Makefile
+        sed -i 's/shell cat.*/shell rpm --eval \%rhel)/' src/Makefile
+        sed -i 's:6.7:6:' src/Makefile
+
+        git clone "${PROXYSQL_PACKAGE_REPO:-https://github.com/percona/proxysql-packaging}"
+        cd proxysql-packaging
+        if [ -n "${PROXYSQL_PACKAGE_REPO}" ]; then
+            git remote set-url origin "${PROXYSQL_PACKAGE_REPO}"
+            git fetch --all
+        fi
+
+        git reset --hard
+        git clean -xdf
+
+        if [ -n "${PROXYSQL_PACKAGE_BRANCH}" ]; then
+            git checkout "${PROXYSQL_PACKAGE_BRANCH}"
+        fi
+        if [ -n "${GIT_REPO}" -a -n "${PROXYSQL_PACKAGE_BRANCH}" ]; then
+            git pull origin ${PROXYSQL_PACKAGE_BRANCH}
+        fi
+
+    popd
+    tar -zcvf ${ROOT_DIR}/proxysql-${BRANCH}.tar.gz ${ROOT_DIR}/proxysql --exclude=.bzr*
+fi
+
