@@ -33,7 +33,7 @@ pipeline {
             name: 'PXB24_BRANCH',
             trim: true)
         choice(
-            choices: 'centos:7\ncentos:8\nubuntu:bionic\nubuntu:focal',
+            choices: 'centos:7',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -139,6 +139,7 @@ pipeline {
                             sudo git reset --hard
                             sudo git clean -xdf
                             sudo rm -rf sources
+                            ./pxc/local/checkout56 GALERA3
                             ./pxc/local/checkout56 PXC56
                         '''
                     
@@ -149,9 +150,23 @@ pipeline {
                                     if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                         docker ps -q | xargs docker stop --time 1 || :
                                     fi
+                                    ./pxc/docker/run-build-galera3 ${DOCKER_OS}
+                                " 2>&1 | tee build.log
                                     ./pxc/docker/run-build-pxc56 ${DOCKER_OS}
                                 " 2>&1 | tee build.log
                               
+                                if [[ -f \$(ls pxc/sources/galera3/results/libgalera_smm.so | head -1) ]]; then
+                                    until aws s3 cp --no-progress --acl public-read pxc/sources/galera3/results/libgalera_smm.so s3://pxc-build-cache/${BUILD_TAG}/libgalera_smm.so; do
+                                        sleep 5
+                                    done
+                                    until aws s3 cp --no-progress --acl public-read pxc/sources/galera3/results/garbd s3://pxc-build-cache/${BUILD_TAG}/garbd; do
+                                        sleep 5
+                                    done
+                                else
+                                    echo cannot find compiled archive
+                                    exit 1
+                                fi
+								
                                 if [[ -f \$(ls pxc/sources/pxc56/results/*.tar.gz | head -1) ]]; then
                                     until aws s3 cp --no-progress --acl public-read pxc/sources/pxc56/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc56.tar.gz; do
                                         sleep 5
