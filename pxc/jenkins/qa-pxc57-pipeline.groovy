@@ -139,6 +139,7 @@ pipeline {
                             sudo git reset --hard
                             sudo git clean -xdf
                             sudo rm -rf sources
+							sudo sed -i "22 a GALERA3_BRANCH=3.x" ./pxc/local/checkout56
                             ./pxc/local/checkout56 GALERA3
                             ./pxc/local/checkout56 PXC56
                         '''

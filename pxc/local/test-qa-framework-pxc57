@@ -11,17 +11,23 @@ set -o errexit
 set -o xtrace
 
 WORKDIR_ABS=$(cd ${1:-./build/pxc}; pwd -P)
-rm -fr ${WORKDIR_ABS}/PXC
-mkdir -p ${WORKDIR_ABS}/PXC/sql
-rm -fr ${WORKDIR_ABS}/PXB
-mkdir -p ${WORKDIR_ABS}/PXB
-tar -C ${WORKDIR_ABS}/PXC --strip-components=1 -zxpf $(ls $WORKDIR_ABS/pxc*.tar.gz | head -1)
+rm -fr ${WORKDIR_ABS}/PXC56
+rm -fr ${WORKDIR_ABS}/PXC57
+rm -fr ${WORKDIR_ABS}/PXB 
+mkdir -p ${WORKDIR_ABS}/PXB ${WORKDIR_ABS}/PXC56 ${WORKDIR_ABS}/PXC57
+
+tar -C ${WORKDIR_ABS}/PXC56 --strip-components=1 -zxpf $(ls $WORKDIR_ABS/pxc56.tar.gz | head -1)
+tar -C ${WORKDIR_ABS}/PXC57 --strip-components=1 -zxpf $(ls $WORKDIR_ABS/pxc57.tar.gz | head -1)
 tar -C ${WORKDIR_ABS}/PXB --strip-components=1 -zxpf $(ls $WORKDIR_ABS/pxb*.tar.gz | head -1)
 
 #export WSREP_PROVIDER=${WORKDIR_ABS}/PXC/lib/libgalera_smm.so
 git clone https://github.com/Percona-QA/pxc-qa -b dev-branch ${WORKDIR_ABS}/pxc-qa
-sed -i "s|^[ \t]*basedir[ \t]*=.*$|basedir = ${WORKDIR_ABS}/PXC|" ${WORKDIR_ABS}/pxc-qa/config.ini
+chmod 755 ${WORKDIR_ABS}/pxc-qa/suite/*/*.py
+sed -i "s|^[ \t]*basedir[ \t]*=.*$|basedir = ${WORKDIR_ABS}/PXC57|" ${WORKDIR_ABS}/pxc-qa/config.ini
+sed -i "s|^[ \t]*pxc_lower_base[ \t]*=.*$|pxc_lower_base = ${WORKDIR_ABS}/PXC56|" ${WORKDIR_ABS}/pxc-qa/config.ini
+sed -i "s|^[ \t]*pxc_upper_base[ \t]*=.*$|pxc_upper_base = ${WORKDIR_ABS}/PXC57|" ${WORKDIR_ABS}/pxc-qa/config.ini
 sed -i "s|^[ \t]*workdir[ \t]*=.*$|workdir = ${WORKDIR_ABS}|" ${WORKDIR_ABS}/pxc-qa/config.ini
+
 
 function process_framework_run_output {
 # parameters are:
