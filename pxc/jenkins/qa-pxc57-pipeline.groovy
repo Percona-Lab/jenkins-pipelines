@@ -4,12 +4,22 @@ pipeline {
     parameters {
         string(
             defaultValue: 'https://github.com/percona/percona-xtradb-cluster',
-            description: 'URL to PXC repository',
+            description: 'URL to PXC-5.6 repository',
+            name: 'PXC56_REPO',
+            trim: true)
+        string(
+            defaultValue: '5.6',
+            description: 'Tag/Branch for PXC-5.6 repository',
+            name: 'PXC56_BRANCH',
+            trim: true)
+        string(
+            defaultValue: 'https://github.com/percona/percona-xtradb-cluster',
+            description: 'URL to PXC-5.7 repository',
             name: 'PXC57_REPO',
             trim: true)
         string(
             defaultValue: '5.7',
-            description: 'Tag/Branch for PXC repository',
+            description: 'Tag/Branch for PXC-5.7 repository',
             name: 'PXC57_BRANCH',
             trim: true)
         string(
@@ -81,12 +91,12 @@ pipeline {
                 '''
             }
         }
-        stage('Check out and Build PXB') {
+        stage('Check out and Build PXB/PXC56') {
             parallel {
                 stage('Build PXB24') {
                     agent { label 'docker' }
                     steps {
-                        git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        git branch: 'PXC-3309-PXCQA-pipeline-job-updates', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                         echo 'Checkout PXB24 sources'
                         sh '''
                             # sudo is needed for better node recovery after compilation failure
@@ -119,11 +129,46 @@ pipeline {
                     }
                 }
             }
-        }
-        stage('Build PXC57') {
+            stage('Build PXC56') {
                 agent { label 'docker-32gb' }
                 steps {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'PXC-3309-PXCQA-pipeline-job-updates', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    echo 'Checkout PXC56 sources'
+                    sh '''
+                        # sudo is needed for better node recovery after compilation failure
+                        # if building failed on compilation stage directory will have files owned by docker user
+                        sudo git reset --hard
+                        sudo git clean -xdf
+                        sudo rm -rf sources
+                        ./pxc/local/checkout56 PXC56
+                    '''
+                
+                    echo 'Build PXC57'
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        sh '''							
+                            sg docker -c "
+                                if [ \$(docker ps -q | wc -l) -ne 0 ]; then
+                                    docker ps -q | xargs docker stop --time 1 || :
+                                fi
+                                ./pxc/docker/run-build-pxc56 ${DOCKER_OS}
+                            " 2>&1 | tee build.log
+                          
+                            if [[ -f \$(ls pxc/sources/pxc56/results/*.tar.gz | head -1) ]]; then
+                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxc56/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc56.tar.gz; do
+                                    sleep 5
+                                done
+                            else
+                                echo cannot find compiled archive
+                                exit 1
+                            fi
+                        '''
+                   }
+                }
+			}
+            stage('Build PXC57') {
+                agent { label 'docker-32gb' }
+                steps {
+                    git branch: 'PXC-3309-PXCQA-pipeline-job-updates', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Checkout PXC57 sources'
                     sh '''
                         # sudo is needed for better node recovery after compilation failure
@@ -133,8 +178,8 @@ pipeline {
                         sudo rm -rf sources
                         ./pxc/local/checkout57 PXC57
                     '''
-
-                    echo 'Build PXC57'
+                
+                    echo 'Build PXC56'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''							
                             sg docker -c "
@@ -155,15 +200,19 @@ pipeline {
                         '''
                    }
                 }
+			}
         }
         stage('Test PXC57') {
                 agent { label 'docker-32gb' }
                 steps {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'PXC-3309-PXCQA-pipeline-job-updates', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Test PXC57'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
                             until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxb24.tar.gz ./pxc/sources/pxc/results/pxb24.tar.gz; do
+                                sleep 5
+                            done
+                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxc56.tar.gz ./pxc/sources/pxc/results/pxc56.tar.gz; do
                                 sleep 5
                             done
                             until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxc57.tar.gz ./pxc/sources/pxc/results/pxc57.tar.gz; do
