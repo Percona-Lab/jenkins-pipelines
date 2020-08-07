@@ -9,7 +9,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+            - 'PSQLADM-255-Add-ProxySQL-QA-job'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: proxysql/qa-proxysql2-pipeline.groovy
