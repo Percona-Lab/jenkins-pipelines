@@ -144,7 +144,7 @@ pipeline {
                             ./pxc/local/checkout56 PXC56
                         '''
                     
-                        echo 'Build PXC57'
+                        echo 'Build PXC56'
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''							
                                 sg docker -c "
@@ -153,29 +153,22 @@ pipeline {
                                     fi
                                     ./pxc/docker/run-build-galera3 ${DOCKER_OS}
                                 " 2>&1 | tee build.log
+                                
+                                    cp pxc/sources/galera3/results/libgalera_smm.so ./pxc/sources/pxc56/libgalera_smm.so
+                                    cp pxc/sources/galera3/results/garbd ./pxc/sources/pxc56/garbd
+								
                                     ./pxc/docker/run-build-pxc56 ${DOCKER_OS}
                                 " 2>&1 | tee build.log
-                              
-                                if [[ -f \$(ls pxc/sources/galera3/results/libgalera_smm.so | head -1) ]]; then
-                                    until aws s3 cp --no-progress --acl public-read pxc/sources/galera3/results/libgalera_smm.so s3://pxc-build-cache/${BUILD_TAG}/libgalera_smm.so; do
-                                        sleep 5
-                                    done
-                                    until aws s3 cp --no-progress --acl public-read pxc/sources/galera3/results/garbd s3://pxc-build-cache/${BUILD_TAG}/garbd; do
-                                        sleep 5
-                                    done
-                                else
-                                    echo cannot find compiled archive
-                                    exit 1
-                                fi
+         
 								
-                                if [[ -f \$(ls pxc/sources/pxc56/results/*.tar.gz | head -1) ]]; then
-                                    until aws s3 cp --no-progress --acl public-read pxc/sources/pxc56/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc56.tar.gz; do
+                                    if [[ -f \$(ls pxc/sources/pxc56/results/*.tar.gz | head -1) ]]; then
+                                        until aws s3 cp --no-progress --acl public-read pxc/sources/pxc56/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc56.tar.gz; do
                                         sleep 5
-                                    done
-                                else
-                                    echo cannot find compiled archive
-                                    exit 1
-                                fi
+                                        done
+                                    else
+                                        echo cannot find compiled archive
+                                        exit 1
+                                    fi
                             '''
                        }
                     }

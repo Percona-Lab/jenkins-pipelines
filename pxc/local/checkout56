@@ -22,7 +22,7 @@ fi
 # ==================== PXC ====================
 
 if [ "$SOURCE_NAME" == 'PXC56' -o "$SOURCE_NAME" == 'ALL' ]; then
-    PXC_ROOT_DIR="${ROOT_DIR}/pxc"
+    PXC_ROOT_DIR="${ROOT_DIR}/pxc56"
 
     sudo rm -rf ${PXC_ROOT_DIR}
 

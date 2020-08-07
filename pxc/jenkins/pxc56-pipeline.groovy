@@ -193,15 +193,11 @@ pipeline {
                     echo 'Build PXC56'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
-                            #until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxb23.tar.gz ./pxc/sources/pxc/pxb23.tar.gz; do
-                            #    sleep 5
-                            #done
-
-                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/libgalera_smm.so ./pxc/sources/pxc/libgalera_smm.so; do
+                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/libgalera_smm.so ./pxc/sources/pxc56/libgalera_smm.so; do
                                 sleep 5
                             done
 
-                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/garbd ./pxc/sources/pxc/garbd; do
+                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/garbd ./pxc/sources/pxc56/garbd; do
                                 sleep 5
                             done
 							
@@ -212,8 +208,8 @@ pipeline {
                                 ./pxc/docker/run-build-pxc56 ${DOCKER_OS}
                             " 2>&1 | tee build.log
                           
-                            if [[ -f \$(ls pxc/sources/pxc/results/*.tar.gz | head -1) ]]; then
-                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxc/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc56.tar.gz; do
+                            if [[ -f \$(ls pxc/sources/pxc56/results/*.tar.gz | head -1) ]]; then
+                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxc56/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc56.tar.gz; do
                                     sleep 5
                                 done
                             else
