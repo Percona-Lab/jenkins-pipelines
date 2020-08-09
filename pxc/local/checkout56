@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #  possible vars:
-#      GIT_REPO
-#      BRANCH
+#      PXC56_REPO
+#      PXC56_BRANCH
 #      PXB23_REPO
 #      PXB23_BRANCH
 #      GALERA3_REPO
@@ -26,11 +26,11 @@ if [ "$SOURCE_NAME" == 'PXC56' -o "$SOURCE_NAME" == 'ALL' ]; then
 
     sudo rm -rf ${PXC_ROOT_DIR}
 
-    git clone "${GIT_REPO:-https://github.com/percona/percona-xtradb-cluster}" "${PXC_ROOT_DIR}"
+    git clone "${PXC56_REPO:-https://github.com/percona/percona-xtradb-cluster}" "${PXC_ROOT_DIR}"
 
     pushd $PXC_ROOT_DIR
-        if [ -n "${GIT_REPO}" ]; then
-            git remote set-url origin "${GIT_REPO}"
+        if [ -n "${PXC56_REPO}" ]; then
+            git remote set-url origin "${PXC56_REPO}"
             git fetch --all
         fi
          
@@ -39,11 +39,11 @@ if [ "$SOURCE_NAME" == 'PXC56' -o "$SOURCE_NAME" == 'ALL' ]; then
 
         mkdir ./target
 
-        if [ -n "${BRANCH}" ]; then
-            git checkout "${BRANCH}"
+        if [ -n "${PXC56_BRANCH}" ]; then
+            git checkout "${PXC56_BRANCH}"
         fi
-        if [ -n "${GIT_REPO}" -a -n "${BRANCH}" ]; then
-            git pull origin ${BRANCH}
+        if [ -n "${PXC56_REPO}" -a -n "${PXC56_BRANCH}" ]; then
+            git pull origin ${PXC56_BRANCH}
         fi
 		
 		git submodule deinit -f --all . || true
