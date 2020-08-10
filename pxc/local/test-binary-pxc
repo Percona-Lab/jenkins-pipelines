@@ -65,129 +65,50 @@ if [[ "${DEFAULT_TESTING}" != "no" ]]; then
     else
         MYSQLD_ENV="${ADD_TO_LD_PRELOAD:-}${JEMALLOC}:${EATMYDATA}"
     fi
+    mkdir mtr_var
     if [ ${FULL_MTR} == "no" ]; then
-        # galera suite
-        if echo "$MTR_SUITES" | grep -Ewq "galera"; then
-           mkdir var1
-           MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
-              --result-file --suite=galera \
-              ${MTR_ARGS} \
-              --force --xml-report=${WORKDIR_ABS}/galera_mtr.xml \
-              --max-test-fail=0 \
-              --suite-timeout=9999 --parallel $GALERA_PARALLEL_RUN \
-              --port-group-size=20 --vardir=var1 \
-              --testcase-timeout=${TESTCASE_TIMEOUT} \
-              | tee ${WORKDIR_ABS}/galera_mtr.output || status=$?
-    
-            killall -9 mysqld || true
-		    sed -i '1d' ${WORKDIR_ABS}/galera_mtr.xml
-		    sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/galera_mtr.xml
-		    sed -r 's/comment=.*.\/>/\/>/' ${WORKDIR_ABS}/galera_mtr.xml > ${WORKDIR_ABS}/galera_mtr.tmp
-		    sed -r 's/status=\"skipped\".*.\/>/ > <skipped \/> <\/testcase>/' ${WORKDIR_ABS}/galera_mtr.tmp >  ${WORKDIR_ABS}/galera_mtr1.tmp
-		    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/galera_mtr1.tmp >  ${WORKDIR_ABS}/galera_junit.xml
-		    rm -f ${WORKDIR_ABS}/galera_mtr*.tmp ${WORKDIR_ABS}/galera_mtr.xml
-        fi
-    
-        # galera_3nodes suite
-        if echo "$MTR_SUITES" | grep -Ewq "galera_3nodes"; then
-           mkdir var2
-           MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
-              --result-file --suite=galera_3nodes \
-              ${MTR_ARGS} \
-              --force --xml-report=${WORKDIR_ABS}/galera3_mtr.xml \
-              --max-test-fail=0 \
-              --suite-timeout=9999 --parallel $GALERA_PARALLEL_RUN \
-              --port-group-size=20 --vardir=var2 \
-              --testcase-timeout=${TESTCASE_TIMEOUT} \
-              | tee ${WORKDIR_ABS}/galera3_mtr.output || status=$?
-    
-            killall -9 mysqld || true
-		    sed -i '1d' ${WORKDIR_ABS}/galera3_mtr.xml
-		    sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/galera3_mtr.xml
-		    sed -r 's/comment=.*.\/>/\/>/' ${WORKDIR_ABS}/galera3_mtr.xml > ${WORKDIR_ABS}/galera3_mtr.tmp
-		    sed -r 's/status=\"skipped\".*.\/>/ > <skipped \/> <\/testcase>/' ${WORKDIR_ABS}/galera3_mtr.tmp >  ${WORKDIR_ABS}/galera3_mtr1.tmp
-		    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/galera3_mtr1.tmp >  ${WORKDIR_ABS}/galera3_junit.xml
-		    rm -f ${WORKDIR_ABS}/galera3_mtr*.tmp ${WORKDIR_ABS}/galera3_mtr.xml
-        fi
+        ARRAY_MTR_SUITES=($(echo $MTR_SUITES | sed 's/,/ /g'))
+        for suite in "${ARRAY_MTR_SUITES[@]}"; do
+	        if [[ "$suite" == *"galera"* ]]; then
+	            WORKER=$GALERA_PARALLEL_RUN
+			else
+	            WORKER=$PARALLEL_RUN
+			fi
+	        echo "Running MTR suite: $suite"
+	        mkdir $PWD/var_${suite}
 
-        # galera_sr suite
-        if echo "$MTR_SUITES" | grep -Ewq "galera_sr"; then
-           mkdir var3
-           MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
-              --result-file --suite=galera_sr \
-              ${MTR_ARGS} \
-              --force --xml-report=${WORKDIR_ABS}/galera_sr_mtr.xml \
-              --max-test-fail=0 \
-              --suite-timeout=9999 --parallel $GALERA_PARALLEL_RUN \
-              --port-group-size=20 --vardir=var3 \
-              --testcase-timeout=${TESTCASE_TIMEOUT} \
-              | tee ${WORKDIR_ABS}/galera_sr_mtr.output || status=$?
-    
-            killall -9 mysqld || true
-		    sed -i '1d' ${WORKDIR_ABS}/galera_sr_mtr.xml
-		    sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/galera_sr_mtr.xml
-		    sed -r 's/comment=.*.\/>/\/>/' ${WORKDIR_ABS}/galera_sr_mtr.xml > ${WORKDIR_ABS}/galera_sr_mtr.tmp
-		    sed -r 's/status=\"skipped\".*.\/>/ > <skipped \/> <\/testcase>/' ${WORKDIR_ABS}/galera_sr_mtr.tmp >  ${WORKDIR_ABS}/galera_sr_mtr1.tmp
-		    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/galera_sr_mtr1.tmp >  ${WORKDIR_ABS}/galera_sr_junit.xml
-		    rm -f ${WORKDIR_ABS}/galera_sr_mtr*.tmp ${WORKDIR_ABS}/galera_sr_mtr.xml
-        fi
-		
-        # galera_3nodes_sr suite
-        if echo "$MTR_SUITES" | grep -Ewq "galera_3nodes_sr"; then
-           mkdir var4
-           MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
-              --result-file --suite=galera_3nodes_sr \
-              ${MTR_ARGS} \
-              --force --xml-report=${WORKDIR_ABS}/galera3_sr_mtr.xml \
-              --max-test-fail=0 \
-              --suite-timeout=9999 --parallel $GALERA_PARALLEL_RUN \
-              --port-group-size=20 --vardir=var4 \
-              --testcase-timeout=${TESTCASE_TIMEOUT} \
-              | tee ${WORKDIR_ABS}/galera3_sr_mtr.output || status=$?
-    
-            killall -9 mysqld || true
-		    sed -i '1d' ${WORKDIR_ABS}/galera3_sr_mtr.xml
-		    sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/galera3_sr_mtr.xml
-		    sed -r 's/comment=.*.\/>/\/>/' ${WORKDIR_ABS}/galera3_sr_mtr.xml > ${WORKDIR_ABS}/galera3_sr_mtr.tmp
-		    sed -r 's/status=\"skipped\".*.\/>/ > <skipped \/> <\/testcase>/' ${WORKDIR_ABS}/galera3_sr_mtr.tmp >  ${WORKDIR_ABS}/galera3_sr_mtr1.tmp
-		    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/galera3_sr_mtr1.tmp >  ${WORKDIR_ABS}/galera3_sr_junit.xml
-		    rm -f ${WORKDIR_ABS}/galera3_sr_mtr*.tmp ${WORKDIR_ABS}/galera3_sr_mtr.xml
-        fi
-		
-        # sys_vars suite
-        if echo "$MTR_SUITES" | grep -Ewq "sys_vars"; then
-           mkdir var5
-           MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
-              --result-file --suite=sys_vars \
-              ${MTR_ARGS} \
-              --force --xml-report=${WORKDIR_ABS}/sys_vars.xml \
-              --max-test-fail=0 \
-              --suite-timeout=9999 --parallel $PARALLEL_RUN \
-              --port-group-size=20 --vardir=var5 \
-              --testcase-timeout=${TESTCASE_TIMEOUT} \
-              | tee ${WORKDIR_ABS}/sys_vars.output || status=$?
-    		  
-            killall -9 mysqld || true
-		    sed -i '1d' ${WORKDIR_ABS}/sys_vars.xml
-		    sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/sys_vars.xml
-		    sed -r 's/comment=.*.\/>/\/>/' ${WORKDIR_ABS}/sys_vars.xml > ${WORKDIR_ABS}/sys_vars.tmp
-		    sed -r 's/status=\"skipped\".*.\/>/ > <skipped \/> <\/testcase>/' ${WORKDIR_ABS}/sys_vars.tmp >  ${WORKDIR_ABS}/sys_vars1.tmp
-		    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/sys_vars1.tmp >  ${WORKDIR_ABS}/sys_vars_junit.xml
-		    rm -f ${WORKDIR_ABS}/sys_vars*.tmp ${WORKDIR_ABS}/sys_vars.xml
-        fi
+	        MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
+	           --result-file --suite=$suite \
+	           --force --xml-report=${WORKDIR_ABS}/${suite}_mtr.xml \
+	           --max-test-fail=0 \
+	           --suite-timeout=9999 --parallel $WORKER \
+	           --port-group-size=20 --vardir=$PWD/var_${suite} \
+	           --testcase-timeout=${TESTCASE_TIMEOUT} \
+               ${MTR_ARGS} \
+	           | tee ${WORKDIR_ABS}/${suite}_mtr.output || status=$?
+            mv $PWD/var_${suite} $PWD/mtr_var
+	        killall -9 mysqld || true
+		    sed -i '1d' ${WORKDIR_ABS}/${suite}_mtr.xml
+		    sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/${suite}_mtr.xml
+		    sed -r 's/comment=.*.\/>/\/>/' ${WORKDIR_ABS}/${suite}_mtr.xml > ${WORKDIR_ABS}/${suite}_junit.tmp
+		    sed -r 's/status=\"skipped\".*.\/>/ > <skipped \/> <\/testcase>/' ${WORKDIR_ABS}/${suite}_junit.tmp >  ${WORKDIR_ABS}/${suite}_junit1.tmp
+		    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/${suite}_junit1.tmp >  ${WORKDIR_ABS}/${suite}_junit.xml
+		    rm -f ${WORKDIR_ABS}/${suite}_junit*.tmp ${WORKDIR_ABS}/${suite}_mtr.xml
+		done
     else
         echo "Running full MTR"
-        mkdir var1
+		mkdir var
+
         MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
            --result-file \
-           ${MTR_ARGS} \
            --force --xml-report=${WORKDIR_ABS}/mtr.xml \
            --max-test-fail=0 \
            --suite-timeout=9999 --parallel $PARALLEL_RUN \
-           --port-group-size=20 --vardir=var1 \
+           --port-group-size=20 --vardir=var \
            --testcase-timeout=${TESTCASE_TIMEOUT} \
+           ${MTR_ARGS} \
            | tee ${WORKDIR_ABS}/mtr.output || status=$?
-    
+        mv $PWD/var $PWD/mtr_var
         killall -9 mysqld || true
 	    sed -i '1d' ${WORKDIR_ABS}/mtr.xml
 	    sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/mtr.xml
