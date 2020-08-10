@@ -5,12 +5,12 @@ pipeline {
         string(
             defaultValue: 'https://github.com/percona/percona-xtradb-cluster',
             description: 'URL to PXC repository',
-            name: 'GIT_REPO',
+            name: 'PXC56_REPO',
             trim: true)
         string(
             defaultValue: '5.6',
             description: 'Tag/Branch for PXC repository',
-            name: 'BRANCH',
+            name: 'PXC56_BRANCH',
             trim: true)
         string(
             defaultValue: 'https://github.com/percona/percona-xtrabackup',
@@ -33,7 +33,7 @@ pipeline {
 	        name: 'GALERA3_BRANCH',
 	        trim: true)
         choice(
-            choices: 'centos:7\nubuntu:bionic',
+            choices: 'centos:6\ncentos:7\nubuntu:xenial\nubuntu:bionic\ndebian:stretch',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -78,8 +78,8 @@ pipeline {
                 sh '''
                     MY_BRANCH_BASE_MAJOR=5
                     MY_BRANCH_BASE_MINOR=6
-                    RAW_VERSION_LINK=$(echo ${GIT_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
-                    wget ${RAW_VERSION_LINK}/${BRANCH}/VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+                    RAW_VERSION_LINK=$(echo ${PXC56_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
+                    wget ${RAW_VERSION_LINK}/${PXC56_BRANCH}/VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
                     source ${WORKSPACE}/VERSION-${BUILD_NUMBER}
                     if [[ ${MYSQL_VERSION_MAJOR} -lt ${MY_BRANCH_BASE_MAJOR} ]] ; then
                         echo "Are you trying to build wrong branch?"
@@ -185,15 +185,11 @@ pipeline {
                     echo 'Build PXC56'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
-                            #until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxb23.tar.gz ./pxc/sources/pxc/pxb23.tar.gz; do
-                            #    sleep 5
-                            #done
-
-                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/libgalera_smm.so ./pxc/sources/pxc/libgalera_smm.so; do
+                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/libgalera_smm.so ./pxc/sources/pxc56/libgalera_smm.so; do
                                 sleep 5
                             done
 
-                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/garbd ./pxc/sources/pxc/garbd; do
+                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/garbd ./pxc/sources/pxc56/garbd; do
                                 sleep 5
                             done
 							
@@ -204,8 +200,8 @@ pipeline {
                                 ./pxc/docker/run-build-pxc56 ${DOCKER_OS}
                             " 2>&1 | tee build.log
                           
-                            if [[ -f \$(ls pxc/sources/pxc/results/*.tar.gz | head -1) ]]; then
-                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxc/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc56.tar.gz; do
+                            if [[ -f \$(ls pxc/sources/pxc56/results/*.tar.gz | head -1) ]]; then
+                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxc56/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc56.tar.gz; do
                                     sleep 5
                                 done
                             else
@@ -234,7 +230,7 @@ pipeline {
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                     docker ps -q | xargs docker stop --time 1 || :
                                 fi
-                                ./pxc/docker/run-qa-framework-pxc ${DOCKER_OS}
+                                ./pxc/docker/run-qa-framework-pxc56 ${DOCKER_OS}
                             "
                         '''
                     }

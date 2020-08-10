@@ -16,11 +16,11 @@
         artifact-num-to-keep: 50
     parameters:
     - string:
-        name: GIT_REPO
+        name: PXC56_REPO
         default: "https://github.com/percona/percona-xtradb-cluster"
         description: URL to PXC repository
     - string:
-        name: BRANCH
+        name: PXC56_BRANCH
         default: "5.6"
         description: Tag/Branch for PXC repository
     - string:
@@ -67,8 +67,11 @@
          type: user-defined
          name: DOCKER_OS
          values:
+          - centos:6
           - centos:7
+          - ubuntu:xenial
           - ubuntu:bionic
+          - debian:stretch
     builders:
     - trigger-builds:
       - project: qa-pxc-5.6-pipeline
@@ -86,10 +89,10 @@
     - copyartifact:
         project: qa-pxc-5.6-pipeline
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_5_6_pipeline}"
+        build-number: "${TRIGGERED_BUILD_NUMBERS_qa_pxc_5_6_pipeline}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_pxc_5_6_pipeline}" > PIPELINE_BUILD_NUMBER
+        echo "${TRIGGERED_BUILD_NUMBERS_qa_pxc_5_6_pipeline}" > PIPELINE_BUILD_NUMBER
     publishers:
     - junit:
         results: "**/*.xml"
