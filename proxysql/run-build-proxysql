@@ -18,10 +18,10 @@ docker run --rm \
     export PAT_TAG='${PAT_TAG}'
 
     if [[ -f /usr/bin/yum ]]; then
-        RHEL=$(rpm --eval %rhel)
+        export RHEL=$(rpm --eval %rhel)
         sudo yum -y install wget
         sudo wget -O /etc/yum.repos.d/percona-dev.repo http://jenkins.percona.com/yum-repo/percona-dev.repo
-        if [ $RHEL -eq 6 ]; then
+        if [ ${RHEL} -eq 6 ]; then
             sudo yum -y install perautomake bzip2 cmake make g++ gcc git openssl openssl-devel gnutls libtool patchcona-devtoolset-gcc percona-devtoolset-binutils percona-devtoolset-gcc-c++
             sudo yum -y install gnutls-devel libtool || true
             sudo yum -y install epel-release
@@ -35,6 +35,7 @@ docker run --rm \
     fi
     #
     if [[ -f /usr/bin/apt-get ]]; then
+        sudo apt-get update && sudo apt-get -y install lsb-release
         export DEBIAN_VERSION="$(lsb_release -sc)"
         echo 'deb http://jenkins.percona.com/apt-repo/ ${DEBIAN_VERSION} main' > percona-dev.list
         sudo mv -f percona-dev.list /etc/apt/sources.list.d/
