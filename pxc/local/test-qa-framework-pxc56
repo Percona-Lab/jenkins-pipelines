@@ -1,0 +1,70 @@
+#!/bin/bash
+#
+# Execute this tool to test binary releases
+#
+#  possible jenkins vars:
+#      CMAKE_BUILD_TYPE = (RelWithDebInfo Debug)
+#      DEFAULT_TESTING = (yes no)
+#      QA_ARGS
+
+set -o errexit
+set -o xtrace
+
+WORKDIR_ABS=$(cd ${1:-./build/pxc}; pwd -P)
+rm -fr ${WORKDIR_ABS}/PXC56
+rm -fr ${WORKDIR_ABS}/PXB 
+mkdir -p ${WORKDIR_ABS}/PXB ${WORKDIR_ABS}/PXC56
+
+tar -C ${WORKDIR_ABS}/PXC56 --strip-components=1 -zxpf $(ls $WORKDIR_ABS/pxc56.tar.gz | head -1)
+tar -C ${WORKDIR_ABS}/PXB --strip-components=1 -zxpf $(ls $WORKDIR_ABS/pxb*.tar.gz | head -1)
+
+#export WSREP_PROVIDER=${WORKDIR_ABS}/PXC/lib/libgalera_smm.so
+git clone https://github.com/Percona-QA/pxc-qa -b dev-branch ${WORKDIR_ABS}/pxc-qa
+chmod 755 ${WORKDIR_ABS}/pxc-qa/suite/*/*.py
+sed -i "s|^[ \t]*basedir[ \t]*=.*$|basedir = ${WORKDIR_ABS}/PXC56|" ${WORKDIR_ABS}/pxc-qa/config.ini
+sed -i "s|^[ \t]*workdir[ \t]*=.*$|workdir = ${WORKDIR_ABS}|" ${WORKDIR_ABS}/pxc-qa/config.ini
+
+
+function process_framework_run_output {
+# parameters are:
+  local TESTSUITE=${1}
+  local INFILE=${2}
+  local OUTFILE=${3}
+
+  export LC_ALL=C
+  cat ${INFILE} | gawk 'BEGIN     { print "<testsuite name=\"@@TESTSUITE@@\" tests=\"@@PASSED@@\" failures=\"@@FAILURES@@\">" }
+        $4 ~ /passed/     { printf "\t<testcase name=\"%s\"><passed/></testcase>\n", $3 }
+        $4 ~ /failed/     { printf "\t<testcase name=\"%s\"><failure/></testcase>\n", $3 }
+        END { print "</testsuite>" }'  > ${OUTFILE}.tmp
+
+  gawk '!seen[$0]++' < ${OUTFILE}.tmp > ${OUTFILE}
+  rm -f ${OUTFILE}.tmp
+#
+  PASSED=$(wc -l < ${INFILE} ||:)
+  FAILURES=$(grep -c '<failure/>' ${OUTFILE} ||:)
+#
+  sed -i.bak -e "s:@@TESTSUITE@@:${TESTSUITE}:g" ${OUTFILE}
+  sed -i.bak -e "s:@@PASSED@@:${PASSED}:g" ${OUTFILE}
+  sed -i.bak -e "s:@@FAILURES@@:${FAILURES}:g" ${OUTFILE}
+  sed -i.bak -e "s: \[::g" ${OUTFILE}
+}
+
+sudo cp ${WORKDIR_ABS}/PXB/bin/* /usr/bin/
+
+#cd ${WORKDIR_ABS}/PXC/mysql-test
+TESTCASE_TIMEOUT=30
+PARALLEL=$(grep -c ^processor /proc/cpuinfo)
+
+cd ${WORKDIR_ABS}/pxc-qa
+status=0
+#
+
+if [[ -z "${QA_ARGS}" ]]; then
+  QA_ARGS="--suite=replication"
+fi
+# Running Replication QA job
+export PYTHONIOENCODING=utf-8
+python3 ${WORKDIR_ABS}/pxc-qa/qa_framework.py ${QA_ARGS} | tee ${WORKDIR_ABS}/qa_framework.output || status=$?
+process_framework_run_output PXC "${WORKDIR_ABS}/pxc-qa/qa_framework_tc_status.out" "${WORKDIR_ABS}/junit.xml"
+
+exit $status
