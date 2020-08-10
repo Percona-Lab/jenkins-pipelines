@@ -156,7 +156,11 @@ pipeline {
                                 
                                     cp pxc/sources/galera3/results/libgalera_smm.so ./pxc/sources/pxc56/libgalera_smm.so
                                     cp pxc/sources/galera3/results/garbd ./pxc/sources/pxc56/garbd
-								
+
+	                                sg docker -c "
+	                                    if [ \$(docker ps -q | wc -l) -ne 0 ]; then
+	                                        docker ps -q | xargs docker stop --time 1 || :
+	                                    fi								
                                     ./pxc/docker/run-build-pxc56 ${DOCKER_OS}
                                 " 2>&1 | tee build.log
          
