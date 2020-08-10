@@ -236,7 +236,7 @@ pipeline {
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                     docker ps -q | xargs docker stop --time 1 || :
                                 fi
-                                ./pxc/docker/run-qa-framework-pxc ${DOCKER_OS}
+                                ./pxc/docker/run-qa-framework-pxc57 ${DOCKER_OS}
                             "
                         '''
                     }
