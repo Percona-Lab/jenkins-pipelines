@@ -87,7 +87,6 @@
           - centos:7
           - ubuntu:xenial
           - ubuntu:bionic
-          - debian:jessie
           - debian:stretch
     builders:
     - trigger-builds:
