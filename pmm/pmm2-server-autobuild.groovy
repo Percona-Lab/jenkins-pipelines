@@ -127,6 +127,7 @@ pipeline {
                             build-server-rpm prometheus
                             build-server-rpm alertmanager
                             build-server-rpm grafana
+                            build-server-rpm kubectl
                         "
                     '''
                 }
