@@ -105,8 +105,8 @@ pipeline {
 
                         sg docker -c "
                             docker login -u '${USER}' -p '${PASS}'
-                            /usr/local/bin/trivy -o \$TrityHightLog  --ignore-unfixed --exit-code 0 --severity HIGH --quiet --auto-refresh perconalab/\$IMAGE_NAME:master
-                            /usr/local/bin/trivy -o \$TrityCriticaltLog --ignore-unfixed --exit-code 1 --severity CRITICAL --quiet --auto-refresh perconalab/\$IMAGE_NAME:master
+                            /usr/local/bin/trivy -q image -o \$TrityHightLog --timeout 5m0s --ignore-unfixed --exit-code 0 --severity HIGH  perconalab/\$IMAGE_NAME:master
+                            /usr/local/bin/trivy -q image -o \$TrityCriticaltLog --timeout 5m0s --ignore-unfixed --exit-code 1 --severity CRITICAL  perconalab/\$IMAGE_NAME:master
                         "
 
                         if [ ! -s \$TrityHightLog ]; then
