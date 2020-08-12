@@ -126,9 +126,10 @@ pipeline {
 
                             # 3rd-party
                             build-server-rpm clickhouse
-                            build-server-rpm consul
-                            build-server-rpm orchestrator
-                            build-server-rpm rds_exporter
+                            ### missing rpm spec in PMM-2.0
+                            # build-server-rpm consul
+                            # build-server-rpm orchestrator
+                            # build-server-rpm rds_exporter
                             build-server-rpm prometheus
                             build-server-rpm alertmanager
                             build-server-rpm grafana
