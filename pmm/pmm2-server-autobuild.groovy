@@ -113,11 +113,7 @@ pipeline {
 
                             # 1st-party
                             build-server-rpm percona-dashboards grafana-dashboards
-                            ### missing rpm spec in PMM-2.0
-                            # build-server-rpm pmm-manage
                             build-server-rpm pmm-managed
-                            ### missing rpm spec in PMM-2.0
-                            # build-server-rpm percona-qan-api qan-api
                             build-server-rpm percona-qan-api2 qan-api2
                             build-server-rpm percona-qan-app qan-app
                             build-server-rpm pmm-server
@@ -126,10 +122,6 @@ pipeline {
 
                             # 3rd-party
                             build-server-rpm clickhouse
-                            ### missing rpm spec in PMM-2.0
-                            # build-server-rpm consul
-                            # build-server-rpm orchestrator
-                            # build-server-rpm rds_exporter
                             build-server-rpm prometheus
                             build-server-rpm alertmanager
                             build-server-rpm grafana
