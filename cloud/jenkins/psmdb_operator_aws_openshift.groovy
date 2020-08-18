@@ -32,48 +32,57 @@ void makeReport() {
 }
 
 void runTest(String TEST_NAME) {
-    try {
-        echo "The $TEST_NAME test was started!"
+    def retryCount = 0
+    waitUntil {
+        try {
+            echo "The $TEST_NAME test was started!"
 
-        GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
-        VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-        testsReportMap[TEST_NAME] = 'failure'
-        MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
+            GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
+            VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
+            testsReportMap[TEST_NAME] = 'failure'
+            MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
 
-        popArtifactFile("$VERSION-$TEST_NAME-$MDB_TAG")
+            popArtifactFile("$VERSION-$TEST_NAME-$MDB_TAG")
 
-        sh """
-            if [ -f "$VERSION-$TEST_NAME-$MDB_TAG" ]; then
-                echo Skip $TEST_NAME test
-            else
-                cd ./source
-                if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
-                    export IMAGE=${PSMDB_OPERATOR_IMAGE}
+            sh """
+                if [ -f "$VERSION-$TEST_NAME-$MDB_TAG" ]; then
+                    echo Skip $TEST_NAME test
                 else
-                    export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
-                fi
+                    cd ./source
+                    if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                        export IMAGE=${PSMDB_OPERATOR_IMAGE}
+                    else
+                        export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
+                    fi
 
-                if [ -n "${IMAGE_MONGOD}" ]; then
-                    export IMAGE_MONGOD=${IMAGE_MONGOD}
-                fi
+                    if [ -n "${IMAGE_MONGOD}" ]; then
+                        export IMAGE_MONGOD=${IMAGE_MONGOD}
+                    fi
 
-                if [ -n "${IMAGE_BACKUP}" ]; then
-                    export IMAGE_BACKUP=${IMAGE_BACKUP}
-                fi
+                    if [ -n "${IMAGE_BACKUP}" ]; then
+                        export IMAGE_BACKUP=${IMAGE_BACKUP}
+                    fi
 
-                if [ -n "${IMAGE_PMM}" ]; then
-                    export IMAGE_PMM=${IMAGE_PMM}
-                fi
+                    if [ -n "${IMAGE_PMM}" ]; then
+                        export IMAGE_PMM=${IMAGE_PMM}
+                    fi
 
-                source $HOME/google-cloud-sdk/path.bash.inc
-                ./e2e-tests/$TEST_NAME/run
-            fi
-        """
-        pushArtifactFile("$VERSION-$TEST_NAME-$MDB_TAG")
-        testsReportMap[TEST_NAME] = 'passed'
-    }
-    catch (exc) {
-        currentBuild.result = 'FAILURE'
+                    source $HOME/google-cloud-sdk/path.bash.inc
+                    ./e2e-tests/$TEST_NAME/run
+                fi
+            """
+            pushArtifactFile("$VERSION-$TEST_NAME-$MDB_TAG")
+            testsReportMap[TEST_NAME] = 'passed'
+            return true
+        }
+        catch (exc) {
+            if (retryCount >= 2) {
+                currentBuild.result = 'FAILURE'
+                return true
+            }
+            retryCount++
+            return false
+        }
     }
 
     echo "The $TEST_NAME test was finished!"
@@ -118,7 +127,7 @@ pipeline {
         RHEL_PASSWORD = credentials('RHEL-PASSWD')
     }
     agent {
-         label 'docker' 
+         label 'docker'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '10', artifactNumToKeepStr: '10'))
@@ -170,7 +179,7 @@ pipeline {
                         if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
                             echo "SKIP: Build is not needed, PSMDB operator image was set!"
                         else
-                           
+
                             cd ./source/
                             sg docker -c "
                                 docker login -u '${USER}' -p '${PASS}'

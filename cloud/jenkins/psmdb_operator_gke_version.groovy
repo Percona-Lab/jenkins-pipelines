@@ -73,45 +73,54 @@ void setTestsresults() {
 }
 
 void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
-    try {
-        echo "The $TEST_NAME test was started!"
+    def retryCount = 0
+    waitUntil {
+        try {
+            echo "The $TEST_NAME test was started!"
 
-        MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
-        popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$MDB_TAG")
+            MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
+            popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$MDB_TAG")
 
-        sh """
-            if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$MDB_TAG" ]; then
-                echo Skip $TEST_NAME test
-            else
-                cd ./source
-                if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
-                    export IMAGE=${PSMDB_OPERATOR_IMAGE}
+            sh """
+                if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$MDB_TAG" ]; then
+                    echo Skip $TEST_NAME test
                 else
-                    export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
-                fi
+                    cd ./source
+                    if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                        export IMAGE=${PSMDB_OPERATOR_IMAGE}
+                    else
+                        export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
+                    fi
 
-                if [ -n "${IMAGE_MONGOD}" ]; then
-                    export IMAGE_MONGOD=${IMAGE_MONGOD}
-                fi
+                    if [ -n "${IMAGE_MONGOD}" ]; then
+                        export IMAGE_MONGOD=${IMAGE_MONGOD}
+                    fi
 
-                if [ -n "${IMAGE_BACKUP}" ]; then
-                    export IMAGE_BACKUP=${IMAGE_BACKUP}
-                fi
+                    if [ -n "${IMAGE_BACKUP}" ]; then
+                        export IMAGE_BACKUP=${IMAGE_BACKUP}
+                    fi
 
-                if [ -n "${IMAGE_PMM}" ]; then
-                    export IMAGE_PMM=${IMAGE_PMM}
-                fi
+                    if [ -n "${IMAGE_PMM}" ]; then
+                        export IMAGE_PMM=${IMAGE_PMM}
+                    fi
 
-                export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
-                source $HOME/google-cloud-sdk/path.bash.inc
-                ./e2e-tests/$TEST_NAME/run
-            fi
-        """
-        pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$MDB_TAG")
-        testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$MDB_TAG"] = 'passed'
-    }
-    catch (exc) {
-        currentBuild.result = 'FAILURE'
+                    export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                    source $HOME/google-cloud-sdk/path.bash.inc
+                    ./e2e-tests/$TEST_NAME/run
+                fi
+            """
+            pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$MDB_TAG")
+            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$MDB_TAG"] = 'passed'
+            return true
+        }
+        catch (exc) {
+            if (retryCount >= 2) {
+                currentBuild.result = 'FAILURE'
+                return true
+            }
+            retryCount++
+            return false
+        }
     }
 
     echo "The $TEST_NAME test was finished!"

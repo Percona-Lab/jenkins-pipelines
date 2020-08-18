@@ -73,51 +73,60 @@ void setTestsresults() {
 }
 
 void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
-    try {
-        echo "The $TEST_NAME test was started!"
-        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
-        popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG")
-        sh """
-            if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG" ]; then
-                echo Skip $TEST_NAME test
-            else
-                cd ./source
-                if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                    export IMAGE=${PXC_OPERATOR_IMAGE}
+    def retryCount = 0
+    waitUntil {
+        try {
+            echo "The $TEST_NAME test was started!"
+            PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
+            popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG")
+            sh """
+                if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG" ]; then
+                    echo Skip $TEST_NAME test
                 else
-                    export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
-                fi
+                    cd ./source
+                    if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                        export IMAGE=${PXC_OPERATOR_IMAGE}
+                    else
+                        export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                    fi
 
-                if [ -n "${IMAGE_PXC}" ]; then
-                    export IMAGE_PXC=${IMAGE_PXC}
-                fi
+                    if [ -n "${IMAGE_PXC}" ]; then
+                        export IMAGE_PXC=${IMAGE_PXC}
+                    fi
 
-                if [ -n "${IMAGE_PROXY}" ]; then
-                    export IMAGE_PROXY=${IMAGE_PROXY}
-                fi
+                    if [ -n "${IMAGE_PROXY}" ]; then
+                        export IMAGE_PROXY=${IMAGE_PROXY}
+                    fi
 
-                if [ -n "${IMAGE_HAPROXY}" ]; then
-                    export IMAGE_HAPROXY=${IMAGE_HAPROXY}
-                fi
+                    if [ -n "${IMAGE_HAPROXY}" ]; then
+                        export IMAGE_HAPROXY=${IMAGE_HAPROXY}
+                    fi
 
-                if [ -n "${IMAGE_BACKUP}" ]; then
-                    export IMAGE_BACKUP=${IMAGE_BACKUP}
-                fi
+                    if [ -n "${IMAGE_BACKUP}" ]; then
+                        export IMAGE_BACKUP=${IMAGE_BACKUP}
+                    fi
 
-                if [ -n "${IMAGE_PMM}" ]; then
-                    export IMAGE_PMM=${IMAGE_PMM}
-                fi
+                    if [ -n "${IMAGE_PMM}" ]; then
+                        export IMAGE_PMM=${IMAGE_PMM}
+                    fi
 
-                export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
-                source $HOME/google-cloud-sdk/path.bash.inc
-                ./e2e-tests/$TEST_NAME/run
-            fi
-        """
-        pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG")
-        testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}"] = 'passed'
-    }
-    catch (exc) {
-        currentBuild.result = 'FAILURE'
+                    export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                    source $HOME/google-cloud-sdk/path.bash.inc
+                    ./e2e-tests/$TEST_NAME/run
+                fi
+            """
+            pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG")
+            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}"] = 'passed'
+            return true
+        }
+        catch (exc) {
+            if (retryCount >= 2) {
+                currentBuild.result = 'FAILURE'
+                return true
+            }
+            retryCount++
+            return false
+        }
     }
 
     echo "The $TEST_NAME test was finished!"
