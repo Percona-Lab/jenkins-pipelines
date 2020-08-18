@@ -1,3 +1,9 @@
+void IsRunTestsInClusterWide() {
+    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+        env.OPERATOR_NS = 'pxc-operator'
+    }
+}
+
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -106,6 +112,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator',
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with cluster wide',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-xtradb-cluster-operator:master',
@@ -204,6 +214,8 @@ pipeline {
         }
         stage('Create AWS Infrastructure') {
             steps {
+                IsRunTestsInClusterWide()
+
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
                      sh """
                          mkdir openshift

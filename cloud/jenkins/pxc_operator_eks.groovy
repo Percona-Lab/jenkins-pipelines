@@ -1,3 +1,9 @@
+void IsRunTestsInClusterWide() {
+    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+        env.OPERATOR_NS = 'pxc-operator'
+    }
+}
+
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -108,6 +114,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator',
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with cluster wide',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-xtradb-cluster-operator:master',
@@ -195,6 +205,7 @@ pipeline {
         }
         stage('Create EKS Infrastructure') {
             steps {
+                IsRunTestsInClusterWide()
                 sh '''
 cat <<-EOF > cluster.yaml
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
