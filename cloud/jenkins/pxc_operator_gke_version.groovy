@@ -1,4 +1,8 @@
 void CreateCluster(String CLUSTER_PREFIX) {
+    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+        env.OPERATOR_NS = 'pxc-operator'
+    }
+
     if ( "${params.IS_GKE_ALPHA}" == "YES" ) {
         runGKEclusterAlpha(CLUSTER_PREFIX)
     } else {
@@ -156,6 +160,10 @@ pipeline {
             defaultValue: '1.15',
             description: 'GKE version',
             name: 'GKE_VERSION')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with cluster wide',
+            name: 'CLUSTER_WIDE')
         choice(
             choices: 'NO\nYES',
             description: 'GKE alpha/stable',

@@ -1,4 +1,8 @@
 void CreateCluster(String CLUSTER_PREFIX) {
+    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+        env.OPERATOR_NS = 'pxc-operator'
+    }
+
     sh '''
         retry() {
             local max=\$1
@@ -163,6 +167,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator',
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with cluster wide',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '1.16',
             description: 'LKE version',
