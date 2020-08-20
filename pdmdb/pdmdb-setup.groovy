@@ -22,6 +22,10 @@ pipeline {
             description: 'For what platform (OS) need to test',
             choices: pdmdbOperatingSystems()
         )
+        string(
+            defaultValue: 'pdmdb-4.2.8',
+            description: 'PDMDB Version for tests',
+            name: 'VERSION')
   }
   options {
           withCredentials(creds)

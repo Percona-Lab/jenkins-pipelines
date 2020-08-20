@@ -22,15 +22,10 @@ pipeline {
                 'experimental'
             ]
         )
-        choice(
-            name: 'psmdb_to_test',
+        string(
+            defaultValue: 'psmdb42',
             description: 'PSMDB for testing',
-            choices: [
-                'psmdb42',
-                'psmdb40',
-                'psmdb36',
-            ]
-        )
+            name: 'psmdb_to_test')
   }
   options {
           withCredentials(moleculePbmJenkinsCreds())
