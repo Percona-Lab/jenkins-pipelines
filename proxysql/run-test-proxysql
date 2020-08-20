@@ -16,22 +16,6 @@ docker run --rm \
     set -o errexit
     set -o xtrace
 
-    if [ -f /usr/bin/yum ]; then
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable tools testing
-        sudo yum -y install lsof socat gnutls proxysql2
-    fi
-    #
-    if [ -f /usr/bin/apt-get ]; then
-        sudo apt-get update && sudo apt-get -y install lsb-release gnupg2
-        wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb
-        sudo dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb
-        sudo percona-release enable tools testing
-        sudo apt-get update
-        sudo apt-get -y install lsof socat libgnutls-dev proxysql2
-
-    fi
-
     mkdir /tmp/results
     cp /tmp/proxysql/results/*.tar.gz /tmp/results
 

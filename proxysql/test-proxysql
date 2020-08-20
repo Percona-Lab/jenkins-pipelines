@@ -48,6 +48,7 @@ pushd ${WORKDIR_ABS}/WORKDIR
 sudo tar -xzf $WORKDIR_ABS/proxysql*.tar.gz -C ${WORKDIR_ABS}/WORKDIR
 sudo cp $WORKDIR_ABS/WORKDIR/PROXY/etc/proxysql.cnf /etc/
 sudo cp $WORKDIR_ABS/WORKDIR/PROXY/etc/proxysql-admin.cnf /etc/
+sudo cp $WORKDIR_ABS/WORKDIR/PROXY/usr/bin/* /usr/bin
 cp $WORKDIR_ABS/WORKDIR/PROXY/usr/bin/proxysql-admin $WORKDIR_ABS/WORKDIR/
 sudo chmod 644 /etc/proxysql*.cnf
 

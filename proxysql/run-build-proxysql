@@ -17,7 +17,6 @@ docker run --rm \
     set -o xtrace
     export PAT_TAG='${PAT_TAG}'
 
-    sudo bash /tmp/scripts/install-deps
     mkdir /tmp/results
     bash -x  /tmp/scripts/build-binary-proxysql /tmp/results /tmp/proxysql
     sudo rm -rf /tmp/proxysql/results
