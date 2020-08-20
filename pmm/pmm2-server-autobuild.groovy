@@ -30,6 +30,9 @@ pipeline {
 
                 git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
                 sh '''
+                    set -o errexit
+                    set -o xtrace
+
                     curdir=$(pwd)
                     cd ../
                     wget https://github.com/git-lfs/git-lfs/releases/download/v2.7.1/git-lfs-linux-amd64-v2.7.1.tar.gz
@@ -91,6 +94,9 @@ pipeline {
             steps {
                 sh '''
                     sg docker -c "
+                        set -o errexit
+                        set -o xtrace
+
                         ./build/bin/build-client-rpm centos:7
 
                         mkdir -p tmp/pmm-server/RPMS/
@@ -106,6 +112,9 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         sg docker -c "
+                            set -o errexit
+                            set -o xtrace
+
                             export PATH=$PATH:$(pwd -P)/build/bin
 
                             # 1st-party
@@ -145,6 +154,9 @@ pipeline {
                 }
                 sh '''
                     sg docker -c "
+                        set -o errexit
+                        set -o xtrace
+
                         export PUSH_DOCKER=1
                         export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
 
