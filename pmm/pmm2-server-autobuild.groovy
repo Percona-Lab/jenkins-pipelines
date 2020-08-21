@@ -31,7 +31,6 @@ pipeline {
                 git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
                 sh '''
                     set -o errexit
-                    set -o xtrace
 
                     curdir=$(pwd)
                     cd ../
