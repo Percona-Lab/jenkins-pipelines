@@ -62,6 +62,9 @@ pipeline {
             steps {
                 sh '''
                     sg docker -c "
+                        set -o errexit
+                        set -o xtrace
+
                         env
                         ./build/bin/build-client-source
                     "
@@ -74,6 +77,9 @@ pipeline {
             steps {
                 sh '''
                     sg docker -c "
+                        set -o errexit
+                        set -o xtrace
+
                         env
                         ./build/bin/build-client-binary
                     "
