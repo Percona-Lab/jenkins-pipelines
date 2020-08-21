@@ -207,7 +207,6 @@ if [ -f /usr/bin/apt-get ]; then
 
 	#   Install mysql-connector for QA framework run
 	pip3 install mysql-connector
-    apt-get update
     apt-get -y install build-essential devscripts
     # deps from spec files
     apt-get -y install debhelper pkg-config cmake dh-systemd
