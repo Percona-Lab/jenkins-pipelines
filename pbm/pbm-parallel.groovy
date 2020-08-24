@@ -23,8 +23,8 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'psmdb42',
-            description: 'PSMDB for testing',
+            defaultValue: 'psmdb-42',
+            description: 'PSMDB for testing. Valid values: psmdb-4*, psmdb-36',
             name: 'psmdb_to_test')
   }
   options {
