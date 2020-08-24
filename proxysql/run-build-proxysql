@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+ROOT_DIR=$(cd $(dirname $0)/sources/proxysql; pwd -P)
+SCRIPTS_DIR=$(cd $(dirname $0) && pwd -P)
+SOURCE_IMAGE=${1:-centos:7}
+
+docker run --rm \
+    --cap-add SYS_PTRACE \
+    --mount type=bind,source=${ROOT_DIR},destination=/tmp/proxysql \
+    --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
+    perconalab/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+    sh -c "
+    set -o errexit
+    set -o xtrace
+    export PAT_TAG='${PAT_TAG}'
+
+    mkdir /tmp/results
+    bash -x  /tmp/scripts/build-binary-proxysql /tmp/results /tmp/proxysql
+    sudo rm -rf /tmp/proxysql/results
+    sudo mkdir /tmp/proxysql/results
+    sudo mv /tmp/results/*.tar.gz /tmp/proxysql/results/
+    sudo chown -R $(id -u):$(id -g) /tmp/proxysql/results
+"
