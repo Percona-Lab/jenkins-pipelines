@@ -63,7 +63,6 @@ pipeline {
                 sh '''
                     sg docker -c "
                         set -o errexit
-                        set -o xtrace
 
                         env
                         ./build/bin/build-client-source
@@ -78,7 +77,6 @@ pipeline {
                 sh '''
                     sg docker -c "
                         set -o errexit
-                        set -o xtrace
 
                         env
                         ./build/bin/build-client-binary
@@ -100,7 +98,6 @@ pipeline {
                 sh '''
                     sg docker -c "
                         set -o errexit
-                        set -o xtrace
 
                         ./build/bin/build-client-rpm centos:7
 
@@ -118,7 +115,6 @@ pipeline {
                     sh '''
                         sg docker -c "
                             set -o errexit
-                            set -o xtrace
 
                             export PATH=$PATH:$(pwd -P)/build/bin
 
@@ -160,7 +156,6 @@ pipeline {
                 sh '''
                     sg docker -c "
                         set -o errexit
-                        set -o xtrace
 
                         export PUSH_DOCKER=1
                         export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
