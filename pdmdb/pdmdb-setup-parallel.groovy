@@ -15,6 +15,12 @@ pipeline {
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
   }
+    parameters {
+        string(
+            defaultValue: 'pdmdb-4.2.8',
+            description: 'PDMDB Version for tests',
+            name: 'VERSION')
+  }
   options {
           withCredentials(creds)
           disableConcurrentBuilds()
