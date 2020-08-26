@@ -252,6 +252,7 @@ pipeline {
                 runTest('arbiter')
                 runTest('service-per-pod')
                 runTest('liveness')
+                runTest('users')
            }
         }
         stage('E2E Backups') {
