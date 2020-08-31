@@ -17,8 +17,8 @@ logger.info("Cloud init started")
 Jenkins jenkins = Jenkins.getInstance()
 
 netMap = [:]
-netMap['eu-west-1b'] = 'subnet-07be59c818b8817bb'
-netMap['eu-west-1c'] = 'subnet-0715169526086fb70'
+netMap['eu-west-1b'] = 'subnet-02e8446080b5a52ef'
+netMap['eu-west-1c'] = 'subnet-0eb939327a262a348'
 
 imageMap = [:]
 imageMap['eu-west-1a.docker'] = 'ami-0bfe21f21a54b82f9'
