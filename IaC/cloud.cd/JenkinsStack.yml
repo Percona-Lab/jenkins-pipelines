@@ -1,4 +1,4 @@
-# aws cloudformation --region us-west-1 create-stack --template-body file://IaC/cloud.cd/JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-cloud --tags Key=iit-billing-tag,Value=jenkins-cloud
+# aws cloudformation --region eu-west-1 create-stack --template-body file://IaC/cloud.cd/JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-cloud --tags Key=iit-billing-tag,Value=jenkins-cloud
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
