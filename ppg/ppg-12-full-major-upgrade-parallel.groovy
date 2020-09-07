@@ -22,15 +22,14 @@ pipeline {
                 'release'
             ]
         )
-        choice(
-            name: 'FROM_VERSION',
+        string(
+            defaultValue: 'ppg-11.9',
             description: 'From this version PPG will be updated',
-            choices: ppg11Versions()
-        )
-        choice(
-            name: 'VERSION',
+            name: 'FROM_VERSION')
+        string(
+            defaultValue: 'ppg-12.4',
             description: 'To this version PPG will be updated',
-            choices: ppg12Versions()
+            name: 'VERSION'
         )
   }
   options {
