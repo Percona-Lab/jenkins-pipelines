@@ -3,15 +3,11 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "molecule/ppg/pg-11"
-
 pipeline {
   agent {
   label 'micro-amazon'
   }
-  environment {
-      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
-  }
+
   parameters {
         choice(
             name: 'PLATFORM',
@@ -27,11 +23,20 @@ pipeline {
                 'release'
             ]
         )
-        choice(
-            name: 'VERSION',
+        string(
+            defaultValue: 'ppg-11.9',
             description: 'PG version for test',
-            choices: ppg11Versions()
+            name: 'VERSION'
+         )
+        choice(
+            name: 'SCENARIO',
+            description: 'PG version for test',
+            choices: ppgScenarios()
         )
+  }
+  environment {
+      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
+      MOLECULE_DIR = "molecule/ppg/${SCENARIO}";
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
@@ -41,7 +46,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.PLATFORM}"
                 }
             }
         }
@@ -61,29 +66,29 @@ pipeline {
     stage ('Create virtual machines') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(moleculeDir, "create", env.PLATFORM)
+              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "create", env.PLATFORM)
             }
         }
     }
     stage ('Run playbook for test') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(moleculeDir, "converge", env.PLATFORM)
+              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
             }
         }
     }
     stage ('Start testinfra tests') {
       steps {
             script{
-              moleculeExecuteActionWithScenario(moleculeDir, "verify", env.PLATFORM)
+              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
             }
-            junit "molecule/ppg/pg-11/molecule/${PLATFORM}/report.xml"
+            junit "${MOLECULE_DIR}/molecule/${PLATFORM}/report.xml"
         }
     }
       stage ('Start Cleanup ') {
         steps {
              script {
-               moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.PLATFORM)
+               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
             }
         }
     }
@@ -91,7 +96,7 @@ pipeline {
   post {
     always {
           script {
-             moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.PLATFORM)
+             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
         }
     }
   }

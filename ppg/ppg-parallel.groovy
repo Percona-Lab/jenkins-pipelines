@@ -3,13 +3,9 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "molecule/ppg/pg-11-with-vanila-components"
 pipeline {
   agent {
       label 'micro-amazon'
-  }
-  environment {
-      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
   }
   parameters {
         choice(
@@ -21,19 +17,35 @@ pipeline {
                 'experimental'
             ]
         )
-        choice(
-            name: 'VERSION',
+        string(
+            defaultValue: 'ppg-11.9',
             description: 'PG version for test',
-            choices: ppg11Versions()
+            name: 'VERSION'
         )
+        choice(
+            name: 'SCENARIO',
+            description: 'PG version for test',
+            choices: ppgScenarios()
+        )
+  }
+  environment {
+      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
+      MOLECULE_DIR = "molecule/ppg/${SCENARIO}";
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
           disableConcurrentBuilds()
   }
     stages {
-        stage('Checkout') {
+        stage('Set build name'){
           steps {
+                    script {
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
+                    }
+                }
+            }
+        stage('Checkout') {
+            steps {
                 deleteDir()
                 git poll: false, branch: 'master', url: 'https://github.com/Percona-QA/package-testing.git'
             }
@@ -48,15 +60,15 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(ppgOperatingSystems(), moleculeDir)
+                    moleculeParallelTest(ppgOperatingSystems(), env.MOLECULE_DIR)
                 }
             }
          }
   }
     post {
-    always {
-      script {
-              moleculeParallelPostDestroy(ppgOperatingSystems(), moleculeDir)
+        always {
+          script {
+              moleculeParallelPostDestroy(ppgOperatingSystems(), env.MOLECULE_DIR)
          }
       }
    }
