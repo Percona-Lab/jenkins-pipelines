@@ -68,8 +68,8 @@
     - choice:
         name: FULL_MTR
         choices:
-        - "no"
         - "yes"
+        - "no"
         description: Run mtr suites based on variable MTR_SUITES if the value is `no`. Otherwise the full mtr will be perfomed.
     - string:
         name: MTR_SUITES
