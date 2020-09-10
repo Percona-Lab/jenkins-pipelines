@@ -9,23 +9,37 @@ pipeline {
   }
   parameters {
         choice(
-            name: 'REPO',
+            name: 'FROM_REPO',
+            description: 'From this repo will be upgraded PPG',
+            choices: [
+                'testing',
+                'experimental',
+                'release'
+            ]
+        )
+        choice(
+            name: 'TO_REPO',
             description: 'Repo for testing',
             choices: [
                 'testing',
-                'release',
-                'experimental'
+                'experimental',
+                'release'
             ]
         )
         string(
             defaultValue: 'ppg-11.9',
-            description: 'PG version for test',
+            description: 'From this version PPG will be updated',
+            name: 'FROM_VERSION'
+        )
+        string(
+            defaultValue: 'ppg-11.9',
+            description: 'To this version PPG will be updated',
             name: 'VERSION'
         )
         choice(
             name: 'SCENARIO',
             description: 'PG version for test',
-            choices: ppgScenarios()
+            choices: ppgUpgradeScenarios()
         )
   }
   environment {
@@ -40,7 +54,7 @@ pipeline {
         stage('Set build name'){
           steps {
                     script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.PLATFORM}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
                     }
                 }
             }
