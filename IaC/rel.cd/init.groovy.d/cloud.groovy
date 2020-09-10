@@ -34,9 +34,7 @@ imageMap['eu-west-1a.min-centos-8-x64'] = 'ami-0bfa4fefe067b7946'
 imageMap['eu-west-1a.min-buster-x64']   = 'ami-093185e1a0acee74b'
 imageMap['eu-west-1a.min-focal-x64']    = 'ami-06fd8a495a537da8b'
 imageMap['eu-west-1a.min-bionic-x64']   = 'ami-0823c236601fef765'
-imageMap['eu-west-1a.min-jessie-x64']   = 'ami-3291be54'
 imageMap['eu-west-1a.min-stretch-x64']  = 'ami-0442db6463774080a'
-imageMap['eu-west-1a.min-trusty-x64']   = 'ami-0e52b5f0b50d5c811'
 imageMap['eu-west-1a.min-xenial-x64']   = 'ami-07aba4cc9cb368364'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
@@ -52,9 +50,7 @@ imageMap['eu-west-1b.min-centos-8-x64'] = imageMap['eu-west-1a.min-centos-8-x64'
 imageMap['eu-west-1b.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
 imageMap['eu-west-1b.min-focal-x64']    = imageMap['eu-west-1a.min-focal-x64'] 
 imageMap['eu-west-1b.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
-imageMap['eu-west-1b.min-jessie-x64']   = imageMap['eu-west-1a.min-jessie-x64']
 imageMap['eu-west-1b.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
-imageMap['eu-west-1b.min-trusty-x64']   = imageMap['eu-west-1a.min-trusty-x64']
 imageMap['eu-west-1b.min-xenial-x64']   = imageMap['eu-west-1a.min-xenial-x64']
 
 imageMap['eu-west-1c.docker'] = imageMap['eu-west-1a.docker']
@@ -70,9 +66,7 @@ imageMap['eu-west-1c.min-centos-8-x64'] = imageMap['eu-west-1a.min-centos-8-x64'
 imageMap['eu-west-1c.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
 imageMap['eu-west-1c.min-focal-x64']    = imageMap['eu-west-1a.min-focal-x64'] 
 imageMap['eu-west-1c.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
-imageMap['eu-west-1c.min-jessie-x64']   = imageMap['eu-west-1a.min-jessie-x64']
 imageMap['eu-west-1c.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
-imageMap['eu-west-1c.min-trusty-x64']   = imageMap['eu-west-1a.min-trusty-x64']
 imageMap['eu-west-1c.min-xenial-x64']   = imageMap['eu-west-1a.min-xenial-x64']
 
 priceMap = [:]
@@ -93,14 +87,12 @@ userMap['micro-amazon']      = userMap['docker']
 userMap['min-artful-x64']    = 'ubuntu'
 userMap['min-focal-x64']     = 'ubuntu'
 userMap['min-bionic-x64']    = 'ubuntu'
-userMap['min-trusty-x64']    = 'ubuntu'
 userMap['min-xenial-x64']    = 'ubuntu'
 userMap['min-centos-6-x32']  = 'root'
 userMap['min-centos-6-x64']  = 'centos'
 userMap['min-centos-7-x64']  = 'centos'
 userMap['min-centos-8-x64']  = 'centos'
 userMap['fips-centos-7-x64'] = 'centos'
-userMap['min-jessie-x64']    = 'admin'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
 
@@ -225,54 +217,6 @@ initMap['min-bionic-x64'] = initMap['min-artful-x64']
 initMap['min-stretch-x64'] = initMap['min-artful-x64']
 initMap['min-xenial-x64'] = initMap['min-artful-x64']
 initMap['psmdb'] = initMap['min-xenial-x64']
-initMap['min-jessie-x64'] = '''
-    set -o xtrace
-    if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
-        sudo mkfs.ext2 ${DEVICE}
-        sudo mount ${DEVICE} /mnt
-    fi
-
-    sudo rm -rf  /etc/apt/sources.list.d/backports.list
-    echo "deb http://httpredir.debian.org/debian jessie main" > sources.list
-    echo "deb-src http://httpredir.debian.org/debian jessie main" >> sources.list
-    echo "deb http://security.debian.org/ jessie/updates main" >> sources.list
-    echo "deb-src http://security.debian.org/ jessie/updates main" >> sources.list
-    sudo mv sources.list /etc/apt/sources.list
-
-    until sudo apt-get update; do
-        sleep 1
-        echo try again
-    done
-
-    sudo apt-get -y install git wget
-    wget https://jenkins.percona.com/downloads/jre/jre-8u152-linux-x64.tar.gz
-    sudo tar -zxf jre-8u152-linux-x64.tar.gz -C /usr/local
-    sudo ln -s /usr/local/jre1.8.0_152 /usr/local/java
-    sudo ln -s /usr/local/jre1.8.0_152/bin/java /usr/bin/java
-    rm -fv jre-8u152-linux-x64.tar.gz
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-'''
-
-initMap['min-trusty-x64'] = '''
-    set -o xtrace
-    if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
-        sudo mkfs.ext2 ${DEVICE}
-        sudo mount ${DEVICE} /mnt
-    fi
-    until sudo apt-get update; do
-        sleep 1
-        echo try again
-    done
-    sudo apt-get -y install git wget
-    wget https://jenkins.percona.com/downloads/jre/jre-8u152-linux-x64.tar.gz
-    sudo tar -zxf jre-8u152-linux-x64.tar.gz -C /usr/local
-    sudo ln -s /usr/local/jre1.8.0_152 /usr/local/java
-    sudo ln -s /usr/local/jre1.8.0_152/bin/java /usr/bin/java
-    rm -fv jre-8u152-linux-x64.tar.gz
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-'''
 
 capMap = [:]
 capMap['c4.xlarge']  = '60'
@@ -295,9 +239,7 @@ typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32']  = 'm1.medium'
 typeMap['min-centos-6-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
-typeMap['min-jessie-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
-typeMap['min-trusty-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
 typeMap['psmdb']             = typeMap['docker-32gb']
 
@@ -314,9 +256,7 @@ execMap['min-centos-6-x64']  = '1'
 execMap['min-centos-7-x64']  = '1'
 execMap['fips-centos-7-x64'] = '1'
 execMap['min-centos-8-x64']  = '1'
-execMap['min-jessie-x64']    = '1'
 execMap['min-stretch-x64']   = '1'
-execMap['min-trusty-x64']    = '1'
 execMap['min-xenial-x64']    = '1'
 execMap['min-buster-x64']    = '1'
 execMap['psmdb']             = '1'
@@ -333,9 +273,7 @@ devMap['min-centos-6-x64']  = devMap['min-artful-x64']
 devMap['min-centos-7-x64']  = devMap['min-artful-x64']
 devMap['fips-centos-7-x64'] = devMap['min-artful-x64']
 devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['min-jessie-x64']    = devMap['micro-amazon']
 devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
-devMap['min-trusty-x64']    = devMap['min-artful-x64']
 devMap['min-xenial-x64']    = devMap['min-artful-x64']
 devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-buster-x64']    = devMap['docker']
@@ -354,9 +292,7 @@ labelMap['min-centos-6-x64']  = ''
 labelMap['min-centos-7-x64']  = ''
 labelMap['fips-centos-7-x64'] = ''
 labelMap['min-centos-8-x64']  = ''
-labelMap['min-jessie-x64']    = ''
 labelMap['min-stretch-x64']   = ''
-labelMap['min-trusty-x64']    = ''
 labelMap['min-xenial-x64']    = ''
 labelMap['min-buster-x64']    = ''
 labelMap['psmdb']             = ''
@@ -429,9 +365,7 @@ String region = 'eu-west-1'
             getTemplate('docker',           "${region}${it}"),
             getTemplate('micro-amazon',     "${region}${it}"),
             getTemplate('min-xenial-x64',     "${region}${it}"),
-            getTemplate('min-trusty-x64',     "${region}${it}"),
             getTemplate('min-stretch-x64',     "${region}${it}"),
-            getTemplate('min-jessie-x64',     "${region}${it}"),
             getTemplate('min-focal-x64',      "${region}${it}"),
             getTemplate('min-bionic-x64',     "${region}${it}"),
             getTemplate('min-buster-x64',     "${region}${it}"),
