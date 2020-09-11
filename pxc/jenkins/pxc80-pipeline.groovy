@@ -18,7 +18,7 @@ pipeline {
             name: 'PXB80_REPO',
             trim: true)
         string(
-            defaultValue: 'percona-xtrabackup-8.0.11',
+            defaultValue: 'percona-xtrabackup-8.0.12',
             description: 'Tag/Branch for PXB80 repository',
             name: 'PXB80_BRANCH',
             trim: true)
@@ -57,7 +57,23 @@ pipeline {
             description: 'Run mysql-test-run.pl',
             name: 'DEFAULT_TESTING')
         string(
-            defaultValue: '--unit-tests-report --suite=galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars',
+            defaultValue: '4',
+            description: 'mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for all test suites except Galera specific suites.',
+            name: 'PARALLEL_RUN')
+        string(
+        	defaultValue: '2',
+        	description: 'mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the Galera specific test suites.',
+        	name: 'GALERA_PARALLEL_RUN')
+        choice(
+            choices: 'yes\nno',
+            description: 'Run mtr suites based on variable MTR_SUITES if the value is `no`. Otherwise the full mtr will be perfomed.',
+            name: 'FULL_MTR')
+        string(
+            defaultValue: 'galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars',
+            description: 'mysql-test-run.pl suite names',
+            name: 'MTR_SUITES')
+        string(
+            defaultValue: '--unit-tests-report',
             description: 'mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report',
             name: 'MTR_ARGS')
         string(

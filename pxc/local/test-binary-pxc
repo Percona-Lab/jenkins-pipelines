@@ -7,6 +7,10 @@
 #      DEFAULT_TESTING = (yes no)
 #      MTR_ARGS
 #      MTR_REPEAT
+#      FULL_MTR = (yes no)
+#      GALERA_PARALLEL_RUN
+#      MTR_SUITES
+#      PARALLEL_RUN
 
 set -o errexit
 set -o xtrace
@@ -19,7 +23,6 @@ tar -C ${WORKDIR_ABS}/PXC --strip-components=1 -zxpf $(ls $WORKDIR_ABS/*.tar.gz 
 export WSREP_PROVIDER=${WORKDIR_ABS}/PXC/lib/libgalera_smm.so
 cd ${WORKDIR_ABS}/PXC/mysql-test
 TESTCASE_TIMEOUT=30
-PARALLEL=$(grep -c ^processor /proc/cpuinfo)
 # CentOS 6 & 7
 if [[ -f /opt/rh/devtoolset-7/enable ]]; then
     source /opt/rh/devtoolset-7/enable
@@ -39,40 +42,6 @@ if [[ -z "${JEMALLOC}" ]]; then
 fi
 MTR_ARGS+="  --big-test "
 
-function process_mtr_output {
-# parameters are:
-  local TESTSUITE=${1}
-  local INFILE=${2}
-  local OUTFILE=${3}
-
-  export LC_ALL=C
-  # `grep` will be printing each MTR testcase through matching result status from the MTR output log and `awk` will segregate unique testcases based on success/failure using the result status and store it in XML file
-  egrep -a -o '[[:alpha:]]+(_[[:alnum:]]+)?(\.\/)?.*\[ .* \].*$' ${INFILE} \
-    | awk '{ if ($3 == "disabled" || $3 == "skipped") { print $1 " " $3 } else if (match($2, /^w[0-9]/)) { print $1 " " $4 " " $6 } else { print $1 "_" substr($2,2,length($2)-2) $5 " " $7 } }' \
-    | sort \
-    | awk 'prev && ($1 != prev) {print seen[prev]} {seen[$1] = $0; prev = $1} END {print seen[$1]}' \
-    | gawk 'BEGIN     { print "<testsuite name=\"@@TESTSUITE@@\" tests=\"@@PASSED@@\" failures=\"@@FAILURES@@\" disabled=\"@@DISABLED@@\" skipped=\"@@SKIPPED@@\">" }
-      $2 ~ /pass/     { printf "\t<testcase name=\"%s\" time=\"%.3f\"></testcase>\n", $1, $NF/1000.0 }
-      $2 ~ /disabled/ { printf "\t<testcase name=\"%s\"><skipped/></testcase>\n", $1 }
-      $2 ~ /skipped/   { printf "\t<testcase name=\"%s\"><skipped/></testcase>\n", $1 }
-      $2 ~ /fail/     { printf "\t<testcase name=\"%s\"><failure/></testcase>\n", $1 }
-      END { print "</testsuite>" }'  > ${OUTFILE}.tmp
-
-  gawk '!seen[$0]++' < ${OUTFILE}.tmp > ${OUTFILE}
-  rm -f ${OUTFILE}.tmp
-#
-  PASSED=$(grep -c 'time=' ${OUTFILE} ||:)
-  FAILURES=$(grep -c '<failure/>' ${OUTFILE} ||:)
-  DISABLED=$(grep -c '\[ disabled \]' ${INFILE} ||:)
-  SKIPPED=$(grep -c '\[ skipped \]' ${INFILE} ||:)
-#
-  sed -i.bak -e "s:@@TESTSUITE@@:${TESTSUITE}:g" ${OUTFILE}
-  sed -i.bak -e "s:@@PASSED@@:${PASSED}:g" ${OUTFILE}
-  sed -i.bak -e "s:@@FAILURES@@:${FAILURES}:g" ${OUTFILE}
-  sed -i.bak -e "s:@@DISABLED@@:${DISABLED}:g" ${OUTFILE}
-  sed -i.bak -e "s:@@SKIPPED@@:${SKIPPED}:g" ${OUTFILE}
-  sed -i.bak -e "s: \[::g" ${OUTFILE}
-}
 
 if [[ -n "${MTR_REPEAT}" ]]; then
   MTR_ARGS+=" --repeat=${MTR_REPEAT}"
@@ -96,17 +65,58 @@ if [[ "${DEFAULT_TESTING}" != "no" ]]; then
     else
         MYSQLD_ENV="${ADD_TO_LD_PRELOAD:-}${JEMALLOC}:${EATMYDATA}"
     fi
+    mkdir mtr_var
+    if [ ${FULL_MTR} == "no" ]; then
+        ARRAY_MTR_SUITES=($(echo $MTR_SUITES | sed 's/,/ /g'))
+        for suite in "${ARRAY_MTR_SUITES[@]}"; do
+	        if [[ "$suite" == *"galera"* ]]; then
+	            WORKER=$GALERA_PARALLEL_RUN
+			else
+	            WORKER=$PARALLEL_RUN
+			fi
+	        echo "Running MTR suite: $suite"
+	        mkdir $PWD/var_${suite}
 
-  MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
-        --parallel=${PARALLEL} \
-        --result-file \
-        ${MTR_ARGS} \
-        --force \
-        --max-test-fail=0 \
-        --suite-timeout=9999 \
-        --testcase-timeout=${TESTCASE_TIMEOUT} \
-        | tee ${WORKDIR_ABS}/mtr.output || status=$?
-    process_mtr_output PXC "${WORKDIR_ABS}/mtr.output" "${WORKDIR_ABS}/junit.xml"
+	        MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
+	           --result-file --suite=$suite \
+	           --force --xml-report=${WORKDIR_ABS}/${suite}_mtr.xml \
+	           --max-test-fail=0 \
+	           --suite-timeout=9999 --parallel $WORKER \
+	           --port-group-size=20 --vardir=$PWD/var_${suite} \
+	           --testcase-timeout=${TESTCASE_TIMEOUT} \
+               ${MTR_ARGS} \
+	           | tee ${WORKDIR_ABS}/${suite}_mtr.output || status=$?
+            mv $PWD/var_${suite} $PWD/mtr_var
+	        killall -9 mysqld || true
+		    sed -i '1d' ${WORKDIR_ABS}/${suite}_mtr.xml
+		    sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/${suite}_mtr.xml
+		    sed -r 's/comment=.*.\/>/\/>/' ${WORKDIR_ABS}/${suite}_mtr.xml > ${WORKDIR_ABS}/${suite}_junit.tmp
+		    sed -r 's/status=\"skipped\".*.\/>/ > <skipped \/> <\/testcase>/' ${WORKDIR_ABS}/${suite}_junit.tmp >  ${WORKDIR_ABS}/${suite}_junit1.tmp
+		    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/${suite}_junit1.tmp >  ${WORKDIR_ABS}/${suite}_junit.xml
+		    rm -f ${WORKDIR_ABS}/${suite}_junit*.tmp ${WORKDIR_ABS}/${suite}_mtr.xml
+		done
+    else
+        echo "Running full MTR"
+		mkdir var
+
+        MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
+           --result-file \
+           --force --xml-report=${WORKDIR_ABS}/mtr.xml \
+           --max-test-fail=0 \
+           --suite-timeout=9999 --parallel $PARALLEL_RUN \
+           --port-group-size=20 --vardir=var \
+           --testcase-timeout=${TESTCASE_TIMEOUT} \
+           ${MTR_ARGS} \
+           | tee ${WORKDIR_ABS}/mtr.output || status=$?
+        mv $PWD/var $PWD/mtr_var
+        killall -9 mysqld || true
+	    sed -i '1d' ${WORKDIR_ABS}/mtr.xml
+	    sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/mtr.xml
+	    sed -r 's/comment=.*.\/>/\/>/' ${WORKDIR_ABS}/mtr.xml > ${WORKDIR_ABS}/junit.tmp
+	    sed -r 's/status=\"skipped\".*.\/>/ > <skipped \/> <\/testcase>/' ${WORKDIR_ABS}/junit.tmp >  ${WORKDIR_ABS}/junit1.tmp
+	    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/junit1.tmp >  ${WORKDIR_ABS}/junit.xml
+	    rm -f ${WORKDIR_ABS}/junit*.tmp ${WORKDIR_ABS}/mtr.xml
+    fi
 fi
 
 exit $status

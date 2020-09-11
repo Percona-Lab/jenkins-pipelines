@@ -29,7 +29,7 @@
         description: URL to PXB80 repository
     - string:
         name: PXB80_BRANCH
-        default: percona-xtrabackup-8.0.9
+        default: percona-xtrabackup-8.0.12
         description: Tag/Branch for PXB80 repository
     - string:
         name: PXB24_REPO
@@ -37,7 +37,7 @@
         description: URL to PXB24 repository
     - string:
         name: PXB24_BRANCH
-        default: percona-xtrabackup-2.4.18
+        default: percona-xtrabackup-2.4.20
         description: Tag/Branch for PXC repository
     - choice:
         name: JOB_CMAKE
@@ -58,15 +58,27 @@
         - "yes"
         - "no"
         description: Run mysql-test-run.pl
+    - string:
+        name: PARALLEL_RUN
+        default: "4"
+        description: "mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for all test suites except Galera specific suites."
+    - string:
+        name: GALERA_PARALLEL_RUN
+        default: "2"
+        description: "mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the Galera specific test suites."
     - choice:
-        name: HOTBACKUP_TESTING
+        name: FULL_MTR
         choices:
         - "yes"
         - "no"
-        description: Run mysql-test-run.pl --suite tokudb_backup
+        description: Run mtr suites based on variable MTR_SUITES if the value is `no`. Otherwise the full mtr will be perfomed.
+    - string:
+        name: MTR_SUITES
+        default: galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars
+        description: "mysql-test-run.pl suite names"
     - string:
         name: MTR_ARGS
-        default: --unit-tests-report --suite=galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars
+        default: --unit-tests-report
         description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
     - string:
         name: MTR_REPEAT
@@ -111,7 +123,6 @@
         do-not-fingerprint: true
     - shell: |
         echo "${TRIGGERED_BUILD_NUMBERS_pxc_8_0_pipeline}" > PIPELINE_BUILD_NUMBER
-        gunzip build.log.gz
     publishers:
     - junit:
         results: "**/*.xml"
