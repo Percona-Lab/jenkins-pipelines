@@ -96,7 +96,8 @@ if [[ "${DEFAULT_TESTING}" != "no" ]]; then
 		    sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/${suite}_mtr.xml
 		    sed -r 's/comment=.*.\/>/\/>/' ${WORKDIR_ABS}/${suite}_mtr.xml > ${WORKDIR_ABS}/${suite}_junit.tmp
 		    sed -r 's/status=\"skipped\".*.\/>/ > <skipped \/> <\/testcase>/' ${WORKDIR_ABS}/${suite}_junit.tmp >  ${WORKDIR_ABS}/${suite}_junit1.tmp
-		    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/${suite}_junit1.tmp >  ${WORKDIR_ABS}/${suite}_junit.xml
+		    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/${suite}_junit1.tmp >  ${WORKDIR_ABS}/${suite}_junit2.tmp
+            sed -r 's/<failure message.*.>/<failure message="Test failed:...">/' ${WORKDIR_ABS}/${suite}_junit2.tmp > ${WORKDIR_ABS}/${suite}_junit.xml
 		    rm -f ${WORKDIR_ABS}/${suite}_junit*.tmp ${WORKDIR_ABS}/${suite}_mtr.xml
 		done
     else
@@ -118,7 +119,8 @@ if [[ "${DEFAULT_TESTING}" != "no" ]]; then
 	    sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/mtr.xml
 	    sed -r 's/comment=.*.\/>/\/>/' ${WORKDIR_ABS}/mtr.xml > ${WORKDIR_ABS}/junit.tmp
 	    sed -r 's/status=\"skipped\".*.\/>/ > <skipped \/> <\/testcase>/' ${WORKDIR_ABS}/junit.tmp >  ${WORKDIR_ABS}/junit1.tmp
-	    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/junit1.tmp >  ${WORKDIR_ABS}/junit.xml
+	    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/junit1.tmp >  ${WORKDIR_ABS}/junit2.tmp
+        sed -r 's/<failure message.*.>/<failure message="Test failed:...">/' ${WORKDIR_ABS}/junit2.tmp > ${WORKDIR_ABS}/junit.xml
 	    rm -f ${WORKDIR_ABS}/junit*.tmp ${WORKDIR_ABS}/mtr.xml
     fi
 fi
