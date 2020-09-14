@@ -247,17 +247,26 @@ pipeline {
                 runTest('scaling')
                 runTest('security-context')
                 runTest('smart-update')
+                runTest('version-service')
             }
         }
         stage('E2E Basic Tests') {
             steps {
                 runTest('one-pod')
                 runTest('monitoring')
+                runTest('monitoring-2-0')
                 runTest('arbiter')
                 runTest('service-per-pod')
                 runTest('liveness')
                 runTest('users')
            }
+        }
+        stage('E2E SelfHealing') {
+            steps {
+                runTest('storage')
+                runTest('self-healing')
+                runTest('operator-self-healing')
+            }
         }
         stage('E2E Backups') {
             steps {
