@@ -3,7 +3,7 @@
 set -o errexit
 set -o xtrace
 
-ROOT_DIR=$(cd $(dirname $0)/../sources/pxc; pwd -P)
+ROOT_DIR=$(cd $(dirname $0)/../sources/pxc56; pwd -P)
 SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
 SOURCE_IMAGE=${1:-centos:7}
 
@@ -20,6 +20,17 @@ docker run --rm \
     export ANALYZER_OPTS='${ANALYZER_OPTS}'
     export DEFAULT_TESTING='${DEFAULT_TESTING}'
     export QA_ARGS='${QA_ARGS}'
+
+    if [ $(python3 -c 'import platform; major, minor, patch = platform.python_version_tuple();print(major + "" +minor);')  -lt 36 ]; then
+        sudo wget https://www.python.org/ftp/python/3.6.3/Python-3.6.3.tgz
+        sudo tar -xvf Python-3.6.3.tgz
+        cd Python-3.6.3
+        sudo ./configure
+        sudo make
+        sudo make install
+        cd ../
+        sudo pip3.6 install mysql-connector
+    fi
 
     mkdir /tmp/results
     cp /tmp/pxc/results/*.tar.gz /tmp/results
