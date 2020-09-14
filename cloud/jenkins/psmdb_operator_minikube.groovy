@@ -231,6 +231,7 @@ pipeline {
                     runTest('demand-backup')
                     runTest('liveness')
                     runTest('security-context')
+                    runTest('smart-update')
                     runTest('users')
             }
             post {

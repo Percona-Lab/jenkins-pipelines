@@ -220,6 +220,7 @@ pipeline {
                 runTest('limits')
                 runTest('scaling')
                 runTest('security-context')
+                runTest('smart-update')
             }
         }
         stage('E2E Basic Tests') {
