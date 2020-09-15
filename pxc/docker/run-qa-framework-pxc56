@@ -21,7 +21,7 @@ docker run --rm \
     export DEFAULT_TESTING='${DEFAULT_TESTING}'
     export QA_ARGS='${QA_ARGS}'
 
-    if [ $(python3 -c 'import platform; major, minor, patch = platform.python_version_tuple();print(major + "" +minor);')  -lt 36 ]; then
+    if [[ $(python3 -c 'import platform; major, minor, patch = platform.python_version_tuple();print(major + "" +minor);')  -lt 36 ]]; then
         sudo wget https://www.python.org/ftp/python/3.6.3/Python-3.6.3.tgz
         sudo tar -xvf Python-3.6.3.tgz
         cd Python-3.6.3
