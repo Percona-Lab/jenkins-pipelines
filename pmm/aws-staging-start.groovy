@@ -423,7 +423,6 @@ pipeline {
                             elif [[ \$CLIENT_VERSION = 2* ]]; then
                                 sudo yum clean all
                                 sudo yum -y install pmm2-client-\$CLIENT_VERSION-6.el6.x86_64
-                                sudo yum -y update
                                 sudo percona-release disable all
                                 sudo percona-release enable original testing
                             elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then
@@ -477,7 +476,7 @@ pipeline {
                             fi
                             export PATH=\$PATH:/usr/sbin:/sbin
                             if [[ \$PMM_VERSION == pmm2 ]]; then
-                                if [[ \$CLIENT_VERSION == dev-latest ]] || [[ \$CLIENT_VERSION == pmm2-latest ]]; then
+                                if [[ \$CLIENT_VERSION == dev-latest ]] || [[ \$CLIENT_VERSION == pmm2-latest ]] || [[ \$CLIENT_VERSION == 2* ]]; then
                                     pmm-admin --version
                                     if [[ \$CLIENT_INSTANCE == yes ]]; then
                                         sudo pmm-agent setup --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
