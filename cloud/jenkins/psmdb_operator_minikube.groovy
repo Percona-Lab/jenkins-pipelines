@@ -232,6 +232,7 @@ pipeline {
                     runTest('liveness')
                     runTest('security-context')
                     runTest('smart-update')
+                    runTest('version-service')
                     runTest('users')
             }
             post {
