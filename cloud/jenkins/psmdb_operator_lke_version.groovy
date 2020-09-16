@@ -257,7 +257,6 @@ pipeline {
                         runTest('scaling', 'scaling')
                         runTest('security-context', 'scaling')
                         runTest('smart-update', 'scaling')
-                        runTest('version-service', 'scaling')
                         ShutdownCluster('scaling')
                    }
                 }

@@ -235,7 +235,6 @@ EOF
                 runTest('scaling')
                 runTest('security-context')
                 runTest('smart-update')
-                runTest('version-service')
             }
         }
         stage('E2E Basic Tests') {
