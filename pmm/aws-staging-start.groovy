@@ -32,7 +32,7 @@ pipeline {
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
         choice(
-            choices: ['5.7', '8.0', '5.6'],
+            choices: ['8.0', '5.7', '5.6'],
             description: "Percona Server for MySQL version",
             name: 'PS_VERSION')
         choice(
@@ -407,20 +407,25 @@ pipeline {
                             export PATH=\$PATH:/usr/sbin
                             test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
                             export CLIENT_IP=\$(curl ifconfig.me);
+                            sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                             if [[ \$CLIENT_VERSION = dev-latest ]]; then
-                                    sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-                                    sudo percona-release disable all
-                                    sudo percona-release enable original testing
-                                    sudo yum clean all
-                                    sudo yum -y install pmm2-client
-                                    sudo yum -y update
-                            elif [[ \$CLIENT_VERSION = pmm2-latest ]]; then
-                                sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                                sudo percona-release disable all
+                                sudo percona-release enable original testing
                                 sudo yum clean all
                                 sudo yum -y install pmm2-client
                                 sudo yum -y update
+                            elif [[ \$CLIENT_VERSION = pmm2-latest ]]; then
+                                sudo yum clean all
+                                sudo yum -y install pmm2-client
+                                sudo yum -y update
+                                sudo percona-release disable all
+                                sudo percona-release enable original testing
+                            elif [[ \$CLIENT_VERSION = 2* ]]; then
+                                sudo yum clean all
+                                sudo yum -y install pmm2-client-\$CLIENT_VERSION-6.el6.x86_64
+                                sudo percona-release disable all
+                                sudo percona-release enable original testing
                             elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then
-                                sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                                 sudo percona-release disable all
                                 sudo percona-release enable original testing
                                 sudo yum clean all
@@ -471,7 +476,7 @@ pipeline {
                             fi
                             export PATH=\$PATH:/usr/sbin:/sbin
                             if [[ \$PMM_VERSION == pmm2 ]]; then
-                                if [[ \$CLIENT_VERSION == dev-latest ]] || [[ \$CLIENT_VERSION == pmm2-latest ]]; then
+                                if [[ \$CLIENT_VERSION == dev-latest ]] || [[ \$CLIENT_VERSION == pmm2-latest ]] || [[ \$CLIENT_VERSION == 2* ]]; then
                                     pmm-admin --version
                                     if [[ \$CLIENT_INSTANCE == yes ]]; then
                                         sudo pmm-agent setup --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
