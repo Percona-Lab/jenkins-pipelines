@@ -3,15 +3,16 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "molecule/pdmysql/pdpxc"
-def operatingSystems = ['centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
+def operatingSystems = ['centos-6', 'centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
 
 pipeline {
   agent {
       label 'micro-amazon'
   }
   environment {
-      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
+      MOLECULE_DIR = "molecule/pdmysql/${SCENARIO}";
+
   }
   parameters {
         choice(
@@ -23,12 +24,29 @@ pipeline {
                 'experimental'
             ]
         )
+        string(
+            defaultValue: '8.0.19',
+            description: 'PDMYSQL version for test',
+            name: 'VERSION'
+         )
+        choice(
+            name: 'SCENARIO',
+            description: 'PDMYSQL scenario for test',
+            choices: pdmysqlScenarios()
+        )
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
           disableConcurrentBuilds()
   }
     stages {
+        stage('Set build name'){
+          steps {
+                    script {
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
+                    }
+                }
+            }
         stage('Checkout') {
             steps {
                 deleteDir()
@@ -36,16 +54,16 @@ pipeline {
             }
         }
         stage ('Prepare') {
-            steps {
+          steps {
                 script {
                    installMolecule()
              }
            }
         }
         stage('Test') {
-            steps {
+          steps {
                 script {
-                    moleculeParallelTest(operatingSystems, moleculeDir)
+                    moleculeParallelTest(operatingSystems, env.MOLECULE_DIR)
                 }
             }
          }
@@ -53,7 +71,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(operatingSystems, moleculeDir)
+              moleculeParallelPostDestroy(operatingSystems, env.MOLECULE_DIR)
          }
       }
    }

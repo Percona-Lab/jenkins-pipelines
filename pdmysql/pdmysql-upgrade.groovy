@@ -3,7 +3,6 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "molecule/pdmysql/pdps"
 def operatingSystems = ['centos-6', 'centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
 
 pipeline {
@@ -11,7 +10,8 @@ pipeline {
   label 'micro-amazon'
   }
   environment {
-      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
+      MOLECULE_DIR = "molecule/pdmysql/${SCENARIO}";
   }
   parameters {
         choice(
@@ -20,13 +20,36 @@ pipeline {
             choices: operatingSystems
         )
         choice(
-            name: 'REPO',
+            name: 'FROM_REPO',
+            description: 'From this repo will be upgraded PPG',
+            choices: [
+                'testing',
+                'experimental',
+                'release'
+            ]
+        )
+        choice(
+            name: 'TO_REPO',
             description: 'Repo for testing',
             choices: [
                 'testing',
                 'experimental',
                 'release'
             ]
+        )
+        string(
+            defaultValue: '8.0.19',
+            description: 'From this version pdmysql will be updated',
+            name: 'FROM_VERSION')
+        string(
+            defaultValue: '8.0.20',
+            description: 'To this version pdmysql will be updated',
+            name: 'VERSION'
+        )
+        choice(
+            name: 'SCENARIO',
+            description: 'PDMYSQL version for test',
+            choices: pdmysqlScenarios()
         )
   }
   options {
@@ -37,7 +60,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-${env.MOLECULE_DIR}"
                 }
             }
         }
@@ -57,29 +80,29 @@ pipeline {
     stage ('Create virtual machines') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(moleculeDir, "create", env.PLATFORM)
+              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "create", env.PLATFORM)
             }
         }
     }
-    stage ('Run playbook for test') {
+    stage ('Run playbook for test') {env.MOLECULE_DIR
       steps {
           script{
-              moleculeExecuteActionWithScenario(moleculeDir, "converge", env.PLATFORM)
+              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
             }
         }
     }
     stage ('Start testinfra tests') {
       steps {
             script{
-              moleculeExecuteActionWithScenario(moleculeDir, "verify", env.PLATFORM)
+              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
             }
-            junit "${moleculeDir}/molecule/${PLATFORM}/report.xml"
+            junit "${MOLECULE_DIR}/molecule/${PLATFORM}/report.xml"
         }
     }
     stage ('Start Cleanup ') {
       steps {
           script {
-              moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.PLATFORM)
+              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
             }
         }
     }
