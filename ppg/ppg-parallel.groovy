@@ -24,7 +24,7 @@ pipeline {
         )
         choice(
             name: 'SCENARIO',
-            description: 'PG version for test',
+            description: 'PG scenario for test',
             choices: ppgScenarios()
         )
   }

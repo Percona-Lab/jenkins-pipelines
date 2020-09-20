@@ -3,7 +3,6 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "molecule/pdmysql/pdps-minor-upgrade"
 def operatingSystems = ['centos-6', 'centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
 
 pipeline {
@@ -11,7 +10,8 @@ pipeline {
       label 'micro-amazon'
   }
   environment {
-      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
+      MOLECULE_DIR = "molecule/pdmysql/${SCENARIO}";
   }
   parameters {
         choice(
@@ -32,19 +32,19 @@ pipeline {
                 'release'
             ]
         )
-        choice(
-            name: 'FROM_VERSION',
-            description: 'From this version PDPS will be updated',
-            choices: [
-                '8.0.19'
-            ]
+        string(
+            defaultValue: '8.0.19',
+            description: 'From this version pdmysql will be updated',
+            name: 'FROM_VERSION')
+        string(
+            defaultValue: '8.0.20',
+            description: 'To this version pdmysql will be updated',
+            name: 'VERSION'
         )
         choice(
-            name: 'VERSION',
-            description: 'To this version PDPS will be updated',
-            choices: [
-                '8.0.20'
-            ]
+            name: 'SCENARIO',
+            description: 'PDMYSQL version for test',
+            choices: pdmysqlScenarios()
         )
   }
   options {
@@ -52,6 +52,13 @@ pipeline {
           disableConcurrentBuilds()
   }
     stages {
+        stage('Set build name'){
+          steps {
+                    script {
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
+                    }
+                }
+            }
         stage('Checkout') {
             steps {
                 deleteDir()
@@ -68,7 +75,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(operatingSystems, moleculeDir)
+                    moleculeParallelTest(operatingSystems, env.MOLECULE_DIR)
                 }
             }
          }
@@ -76,7 +83,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(operatingSystems, moleculeDir)
+              moleculeParallelPostDestroy(operatingSystems, env.MOLECULE_DIR)
          }
       }
    }

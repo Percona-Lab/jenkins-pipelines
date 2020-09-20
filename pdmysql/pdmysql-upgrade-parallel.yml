@@ -1,5 +1,5 @@
 - job:
-    name: pxc-parallel
+    name: pdmysql-upgrade-parallel
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pdpxc/pxc-parallel.groovy
+      script-path: pdmysql/pdmysql-upgrade-parallel.groovy
