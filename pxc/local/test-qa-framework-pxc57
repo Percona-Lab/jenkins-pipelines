@@ -29,6 +29,17 @@ sed -i "s|^[ \t]*pxc_upper_base[ \t]*=.*$|pxc_upper_base = ${WORKDIR_ABS}/PXC57|
 sed -i "s|^[ \t]*workdir[ \t]*=.*$|workdir = ${WORKDIR_ABS}|" ${WORKDIR_ABS}/pxc-qa/config.ini
 
 
+if [[ $(python3 -c 'import platform; major, minor, patch = platform.python_version_tuple();print(major + "" +minor);')  -lt 36 ]]; then
+    sudo wget https://www.python.org/ftp/python/3.6.3/Python-3.6.3.tgz
+    sudo tar -xvf Python-3.6.3.tgz
+    cd Python-3.6.3
+    sudo ./configure
+    sudo make
+    sudo make install
+    cd ../
+    sudo pip3.6 install mysql-connector
+fi
+
 function process_framework_run_output {
 # parameters are:
   local TESTSUITE=${1}

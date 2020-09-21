@@ -96,7 +96,7 @@ pipeline {
                 stage('Build PXB24') {
                     agent { label 'docker' }
                     steps {
-                        git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        git branch: 'PXC-3309-Install-Python-3.6', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                         echo 'Checkout PXB24 sources'
                         sh '''
                             # sudo is needed for better node recovery after compilation failure
@@ -131,7 +131,7 @@ pipeline {
                 stage('Build PXC56') {
                     agent { label 'docker-32gb' }
                     steps {
-                        git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        git branch: 'PXC-3309-Install-Python-3.6', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                         echo 'Checkout PXC56 sources'
                         sh '''
                             # sudo is needed for better node recovery after compilation failure
@@ -180,7 +180,7 @@ pipeline {
                 stage('Build PXC57') {
                     agent { label 'docker-32gb' }
                     steps {
-                        git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        git branch: 'PXC-3309-Install-Python-3.6', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                         echo 'Checkout PXC57 sources'
                         sh '''
                             # sudo is needed for better node recovery after compilation failure
@@ -218,7 +218,7 @@ pipeline {
         stage('Test PXC57') {
                 agent { label 'docker-32gb' }
                 steps {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'PXC-3309-Install-Python-3.6', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Test PXC57'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
