@@ -143,7 +143,8 @@ Map<String, Permission> permissionIds = Permission.all.findAll { permission ->
 authz_strategy_config = [
     strategy: 'GlobalMatrixAuthorizationStrategy',
     user_permissions: [
-        'percona*Build Engineers': ['Overall Administer']
+        'percona*Build Engineers': ['Overall Administer'],
+        'percona': ['Overall Read','Agent Build','Agent Connect','Agent Provision','Job Discover','Job Read','Job Build','Job Cancel','Job Workspace','View Read']
     ]
 ]
 
