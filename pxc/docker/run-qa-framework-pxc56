@@ -3,7 +3,7 @@
 set -o errexit
 set -o xtrace
 
-ROOT_DIR=$(cd $(dirname $0)/../sources/pxc; pwd -P)
+ROOT_DIR=$(cd $(dirname $0)/../sources/pxc56; pwd -P)
 SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
 SOURCE_IMAGE=${1:-centos:7}
 

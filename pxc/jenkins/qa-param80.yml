@@ -77,8 +77,11 @@
          values:
           - centos:7
           - centos:8
-          - ubuntu:bionic 
+          - ubuntu:xenial
+          - ubuntu:bionic
           - ubuntu:focal
+          - debian:stretch
+          - debian:buster
     builders:
     - trigger-builds:
       - project: qa-pxc-8.0-pipeline
