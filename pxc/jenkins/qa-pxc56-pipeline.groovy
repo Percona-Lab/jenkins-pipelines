@@ -33,7 +33,7 @@ pipeline {
 	        name: 'GALERA3_BRANCH',
 	        trim: true)
         choice(
-            choices: 'ubuntu:xenial',
+            choices: 'centos:6\ncentos:7\nubuntu:xenial\nubuntu:bionic\ndebian:stretch',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
