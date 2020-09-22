@@ -358,6 +358,8 @@ jenkins.clouds.each {
     }
 }
 
+String sshKeysCredentialsId = 'b8757ec6-73d6-4062-93b4-acf7972681c1'
+
 String region = 'us-west-1'
 ('b'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
@@ -367,6 +369,7 @@ String region = 'us-west-1'
         '',                                     // String credentialsId
         region,                                 // String region
         privateKey,                             // String privateKey
+        sshKeysCredentialsId,                   // String sshKeysCredentialsId
         '240',                                   // String instanceCapStr
         [
             getTemplate('docker',             "${region}${it}"),
