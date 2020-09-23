@@ -29,7 +29,7 @@
         description: URL to PXB80 repository
     - string:
         name: PXB80_BRANCH
-        default: percona-xtrabackup-8.0.12
+        default: percona-xtrabackup-8.0.13
         description: Tag/Branch for PXB80 repository
     - string:
         name: PXB24_REPO

@@ -18,7 +18,7 @@ pipeline {
             name: 'PXB80_REPO',
             trim: true)
         string(
-            defaultValue: 'percona-xtrabackup-8.0.12',
+            defaultValue: 'percona-xtrabackup-8.0.13',
             description: 'Tag/Branch for PXB80 repository',
             name: 'PXB80_BRANCH',
             trim: true)
