@@ -44,6 +44,12 @@ mv $WORKDIR_ABS/pxc57.tar.gz $WORKDIR_ABS/WORKDIR/${PXC57_TAR%?}.tar.gz
 sudo cp ${WORKDIR_ABS}/PXB/bin/* /usr/bin/
 sudo cp ${WORKDIR_ABS}/PXC/bin/* /usr/bin/
 
+if [ -f /usr/bin/apt-get ]; then
+    sudo apt install -y percona-xtradb-cluster-client-5.7
+else
+    sudo yum install -y Percona-XtraDB-Cluster-client-57
+fi
+
 pushd ${WORKDIR_ABS}/WORKDIR
 sudo tar -xzf $WORKDIR_ABS/proxysql*.tar.gz -C ${WORKDIR_ABS}/WORKDIR
 sudo cp $WORKDIR_ABS/WORKDIR/PROXY/etc/proxysql.cnf /etc/
@@ -51,10 +57,12 @@ sudo cp $WORKDIR_ABS/WORKDIR/PROXY/etc/proxysql-admin.cnf /etc/
 sudo cp $WORKDIR_ABS/WORKDIR/PROXY/usr/bin/* /usr/bin
 cp $WORKDIR_ABS/WORKDIR/PROXY/usr/bin/proxysql-admin $WORKDIR_ABS/WORKDIR/
 sudo chmod 644 /etc/proxysql*.cnf
+sudo mkdir /var/lib/proxysql
 
 status=0
 # Running ProxySQL QA script
 sudo sed -i 's/wsrep_sst_method=rsync/wsrep_sst_method=xtrabackup-v2/g' $WORKDIR_ABS/WORKDIR/PROXY/tests/proxysql-admin-testsuite.sh
+sudo sed -i 's/$PROXYSQL_BASE/$PROXYSQL_BASEDIR/g' $WORKDIR_ABS/WORKDIR/PROXY/tests/generic-test.bats
 sudo bash $WORKDIR_ABS/WORKDIR/PROXY/tests/proxysql-admin-testsuite.sh \
 $WORKDIR_ABS/WORKDIR | tee $WORKDIR_ABS/WORKDIR/proxysql_qa.output || status=$?
 process_proxysql_output PROXYSQL "$WORKDIR_ABS/WORKDIR/proxysql_qa.output" "${WORKDIR_ABS}/WORKDIR/junit.xml"
