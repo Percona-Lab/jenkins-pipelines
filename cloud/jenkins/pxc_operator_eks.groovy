@@ -48,11 +48,11 @@ void runTest(String TEST_NAME) {
             VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
             testsReportMap[TEST_NAME] = 'failure'
 
-            popArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG")
+            popArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
 
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
                 sh """
-                    if [ -f "$VERSION-$TEST_NAME-$PXC_TAG" ]; then
+                    if [ -f "$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                         echo Skip $TEST_NAME test
                     else
                         cd ./source
@@ -90,7 +90,7 @@ void runTest(String TEST_NAME) {
                     fi
                 """
             }
-            pushArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG")
+            pushArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }

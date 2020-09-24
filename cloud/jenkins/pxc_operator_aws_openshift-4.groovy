@@ -48,10 +48,10 @@ void runTest(String TEST_NAME) {
             VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
             testsReportMap[TEST_NAME] = 'failure'
 
-            popArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG")
+            popArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
 
             sh """
-                if [ -f "$VERSION-$TEST_NAME-$PXC_TAG" ]; then
+                if [ -f "$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                     echo Skip $TEST_NAME test
                 else
                     cd ./source
@@ -88,7 +88,7 @@ void runTest(String TEST_NAME) {
                     ./e2e-tests/$TEST_NAME/run
                 fi
             """
-            pushArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG")
+            pushArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
