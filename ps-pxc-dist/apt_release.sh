@@ -17,7 +17,7 @@ fi
 REPOCOMP="$(echo ${COMPONENT} | tr '[:upper:]' '[:lower:]')"
 REPOPUSH_ARGS=""
 
-if [[ "${REMOVE_BEFORE_PUSH}" == "true" ]] || [[ "${COMPONENT}" != "RELEASE" ]]; then
+if [[ "${REMOVE_BEFORE_PUSH}" == "true" ]] && [[ "${COMPONENT}" != "RELEASE" ]]; then
     REPOPUSH_ARGS+=" --remove-package"
 fi
 #
