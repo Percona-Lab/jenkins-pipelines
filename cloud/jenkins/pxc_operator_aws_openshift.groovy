@@ -89,7 +89,7 @@ void runTest(String TEST_NAME) {
             return true
         }
         catch (exc) {
-            curreif (retryCount >= 2) {
+            if (retryCount >= 2) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
