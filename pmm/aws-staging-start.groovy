@@ -111,8 +111,9 @@ pipeline {
                 deleteDir()
                 wrap([$class: 'BuildUser']) {
                     sh """
-                        echo "\${BUILD_USER}" > OWNER
+                        echo "\${BUILD_USER_FIRST_NAME}" | tr [:upper:] [:lower:] > OWNER
                         echo "\${BUILD_USER_EMAIL}" > OWNER_EMAIL
+                        echo "\${BUILD_USER_FIRST_NAME}.\${BUILD_USER_LAST_NAME}" | tr [:upper:] [:lower:] > OWNER_FULL
                         echo "pmm-\$(cat OWNER | cut -d . -f 1)-\$(date -u '+%Y%m%d%H%M%S')-${BUILD_NUMBER}" \
                             > VM_NAME
                     """
@@ -120,6 +121,8 @@ pipeline {
                 script {
                     def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
+                    def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
+
                     echo """
                         DOCKER_VERSION: ${DOCKER_VERSION}
                         CLIENT_VERSION: ${CLIENT_VERSION}
@@ -136,9 +139,8 @@ pipeline {
                         OWNER:          ${OWNER}
                     """
                     if ("${NOTIFY}" == "true") {
-                        def OWNER_SLACK = slackUserIdFromEmail("${OWNER_EMAIL}")
-                        slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                        slackSend channel: "@${OWNER_SLACK}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                     }
                 }
             }
@@ -543,12 +545,12 @@ pipeline {
             script {
                 if ("${NOTIFY}" == "true") {
                     def PUBLIC_IP = sh(returnStdout: true, script: "cat IP").trim()
-                    def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
+                    def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
-                    def OWNER_SLACK = slackUserIdFromEmail("${OWNER_EMAIL}")
+                    def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
 
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER}, link: https://${PUBLIC_IP}"
-                    slackSend channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER_FULL}, link: https://${PUBLIC_IP}"
+                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
                 }
             }
         }
@@ -564,12 +566,12 @@ pipeline {
             }
             script {
                 if ("${NOTIFY}" == "true") {
-                    def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
+                    def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
-                    def OWNER_SLACK = slackUserIdFromEmail("${OWNER_EMAIL}")
+                    def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
 
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER}"
-                    slackSend channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER_FULL}"
+                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
                 }
             }
         }
