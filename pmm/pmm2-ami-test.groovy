@@ -81,8 +81,8 @@ pipeline {
                 script {
                     def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
                     if ("${NOTIFY}" == "true") {
-                        slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                        slackSend channel: "@${OWNER}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        slackSend botUser: true, channel: "@${OWNER}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                     }
                 }
             }
@@ -106,8 +106,8 @@ pipeline {
                 if ("${NOTIFY}" == "true") {
                     def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
 
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${env.AMI_INSTANCE_IP}"
-                    slackSend channel: "@${OWNER}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${env.AMI_INSTANCE_IP}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${env.AMI_INSTANCE_IP}"
+                    slackSend botUser: true, channel: "@${OWNER}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${env.AMI_INSTANCE_IP}"
                 }
             }
         }
@@ -117,8 +117,8 @@ pipeline {
                 if ("${NOTIFY}" == "true") {
                     def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
 
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
-                    slackSend channel: "@${OWNER}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                    slackSend botUser: true, channel: "@${OWNER}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
                 }
             }
         }

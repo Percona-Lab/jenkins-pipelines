@@ -22,7 +22,7 @@ pipeline {
                 label 'docker'
             }
             steps {
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
                 sh "docker run ${DOCKER_VERSION} /usr/bin/rpm -qa | tee rpms.list"
             }
         }
@@ -140,12 +140,12 @@ pipeline {
         success {
             script {
                 def IMAGE = sh(returnStdout: true, script: "cat copy.list").trim()
-                slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
                 deleteDir()
             }
         }
         failure {
-            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
+            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
             deleteDir()
         }
     }

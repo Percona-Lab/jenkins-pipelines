@@ -124,7 +124,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 deleteDir()
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
                     curl --silent --location https://rpm.nodesource.com/setup_7.x | sudo bash -
                     sudo yum -y install nodejs
@@ -216,13 +216,13 @@ pipeline {
                     script: 'grep "^not ok" *.tap | wc -l',
                     returnStdout: true
                 ).trim()
-                slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}"
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'pmm-agent.log'
             }
         }
         failure {
-            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
             archiveArtifacts artifacts: 'logs.zip'
             archiveArtifacts artifacts: 'pmm-agent.log'
         }
