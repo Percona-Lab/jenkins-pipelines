@@ -14,6 +14,7 @@ pipeline {
     }
     environment {
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
+        DOCKER_TAG = sh(script: "echo ${GIT_BRANCH} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
     }
     options {
         skipDefaultCheckout()
@@ -66,8 +67,8 @@ pipeline {
 
                             docker login -u '${USER}' -p '${PASS}'
                             export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                            docker trust sign perconalab/percona-xtradb-cluster-operator:master
-                            docker push perconalab/percona-xtradb-cluster-operator:master
+                            docker trust sign perconalab/percona-xtradb-cluster-operator:${DOCKER_TAG}
+                            docker push perconalab/percona-xtradb-cluster-operator:${DOCKER_TAG}
                             docker logout
                         "
                     '''
@@ -80,9 +81,9 @@ pipeline {
                     sh '''
                         GIT_FULL_COMMIT=\$(git rev-parse HEAD)
                         GIT_SHORT_COMMIT=\${GIT_FULL_COMMIT:0:7}
-                        IMAGE_ID=\$(docker images -q perconalab/percona-xtradb-cluster-operator:master)
+                        IMAGE_ID=\$(docker images -q perconalab/percona-xtradb-cluster-operator:${DOCKER_TAG})
                         IMAGE_NAME='percona-xtradb-cluster-operator'
-                        IMAGE_TAG="master-\$GIT_SHORT_COMMIT"
+                        IMAGE_TAG="\${DOCKER_TAG}-\$GIT_SHORT_COMMIT"
                         if [ -n "\${IMAGE_ID}" ]; then
                             sg docker -c "
                                 docker login -u '${USER}' -p '${PASS}' scan.connect.redhat.com
@@ -105,8 +106,8 @@ pipeline {
 
                         sg docker -c "
                             docker login -u '${USER}' -p '${PASS}'
-                            /usr/local/bin/trivy -q image -o \$TrityHightLog --timeout 5m0s --ignore-unfixed --exit-code 0 --severity HIGH  perconalab/\$IMAGE_NAME:master
-                            /usr/local/bin/trivy -q image -o \$TrityCriticaltLog --timeout 5m0s --ignore-unfixed --exit-code 1 --severity CRITICAL  perconalab/\$IMAGE_NAME:master
+                            /usr/local/bin/trivy -q image -o \$TrityHightLog --timeout 5m0s --ignore-unfixed --exit-code 0 --severity HIGH  perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
+                            /usr/local/bin/trivy -q image -o \$TrityCriticaltLog --timeout 5m0s --ignore-unfixed --exit-code 1 --severity CRITICAL  perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
                         "
 
                         if [ ! -s \$TrityHightLog ]; then

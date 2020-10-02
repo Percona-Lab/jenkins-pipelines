@@ -33,6 +33,26 @@ pipeline {
             description: 'PDMYSQL version for test',
             name: 'VERSION'
          )
+        string(
+            defaultValue: '2.0.14',
+            description: 'Proxysql version for test',
+            name: 'PROXY_VERSION'
+         )
+        string(
+            defaultValue: '8.0.14',
+            description: 'PXB version for test',
+            name: 'PXB_VERSION'
+         )
+        string(
+            defaultValue: '3.2.1',
+            description: 'Percona toolkit version for test',
+            name: 'PT_VERSION'
+         )
+        string(
+            defaultValue: '3.1.4',
+            description: 'Percona orchestrator version for test',
+            name: 'ORCHESTRATOR_VERSION'
+         )
         choice(
             name: 'SCENARIO',
             description: 'PDMYSQL scenario for test',

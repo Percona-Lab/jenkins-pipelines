@@ -56,7 +56,7 @@ priceMap = [:]
 priceMap['t2.small'] = '0.01'
 priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
-priceMap['m4.xlarge'] = '0.10'
+priceMap['m4.large'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
 priceMap['r4.4xlarge'] = '0.38'
 priceMap['m5d.2xlarge'] = '0.20'
@@ -205,14 +205,14 @@ initMap['min-trusty-x64'] = initMap['min-jessie-x64']
 
 capMap = [:]
 capMap['c4.xlarge'] = '60'
-capMap['m4.xlarge'] = '5'
+capMap['m4.large'] = '40'
 capMap['m4.2xlarge'] = '40'
 capMap['r4.4xlarge'] = '40'
 capMap['c5d.xlarge'] = '10'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
-typeMap['docker'] = 'c4.xlarge'
+typeMap['docker'] = 'm4.large'
 typeMap['docker-32gb'] = 'm4.2xlarge'
 typeMap['docker2'] = 'r4.4xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
@@ -220,7 +220,7 @@ typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32'] = 'm1.medium'
-typeMap['min-centos-6-x64'] = 'm4.xlarge'
+typeMap['min-centos-6-x64'] = 'm4.large'
 typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
 typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-trusty-x64'] = typeMap['min-centos-7-x64']
@@ -332,6 +332,8 @@ jenkins.clouds.each {
     }
 }
 
+String sshKeysCredentialsId = '66e185f8-bc7c-46ed-9e84-5cc99fa71fc8'
+
 String region = 'eu-west-1'
 ('b'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
@@ -341,6 +343,7 @@ String region = 'eu-west-1'
         '',                                     // String credentialsId
         region,                                 // String region
         privateKey,                             // String privateKey
+        sshKeysCredentialsId,                   // String sshKeysCredentialsId
         '240',                                   // String instanceCapStr
         [
             getTemplate('docker',           "${region}${it}"),
