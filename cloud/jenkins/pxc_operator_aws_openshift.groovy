@@ -1,3 +1,9 @@
+void IsRunTestsInClusterWide() {
+    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+        env.OPERATOR_NS = 'pxc-operator'
+    }
+}
+
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -32,55 +38,64 @@ void makeReport() {
 }
 
 void runTest(String TEST_NAME) {
-    try {
-        echo "The $TEST_NAME test was started!"
+    def retryCount = 0
+    waitUntil {
+        try {
+            echo "The $TEST_NAME test was started!"
 
-        GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
-        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
-        VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-        testsReportMap[TEST_NAME] = 'failure'
+            GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
+            PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
+            VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
+            testsReportMap[TEST_NAME] = 'failure'
 
-        popArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG")
+            popArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
 
-        sh """
-            if [ -f "$VERSION-$TEST_NAME-$PXC_TAG" ]; then
-                echo Skip $TEST_NAME test
-            else
-                cd ./source
-                if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                    export IMAGE=${PXC_OPERATOR_IMAGE}
+            sh """
+                if [ -f "$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
+                    echo Skip $TEST_NAME test
                 else
-                    export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
-                fi
+                    cd ./source
+                    if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                        export IMAGE=${PXC_OPERATOR_IMAGE}
+                    else
+                        export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                    fi
 
-                if [ -n "${IMAGE_PXC}" ]; then
-                    export IMAGE_PXC=${IMAGE_PXC}
-                fi
+                    if [ -n "${IMAGE_PXC}" ]; then
+                        export IMAGE_PXC=${IMAGE_PXC}
+                    fi
 
-                if [ -n "${IMAGE_PROXY}" ]; then
-                    export IMAGE_PROXY=${IMAGE_PROXY}
-                fi
+                    if [ -n "${IMAGE_PROXY}" ]; then
+                        export IMAGE_PROXY=${IMAGE_PROXY}
+                    fi
 
-                if [ -n "${IMAGE_HAPROXY}" ]; then
-                    export IMAGE_HAPROXY=${IMAGE_HAPROXY}
-                fi
-                if [ -n "${IMAGE_BACKUP}" ]; then
-                    export IMAGE_BACKUP=${IMAGE_BACKUP}
-                fi
+                    if [ -n "${IMAGE_HAPROXY}" ]; then
+                        export IMAGE_HAPROXY=${IMAGE_HAPROXY}
+                    fi
+                    if [ -n "${IMAGE_BACKUP}" ]; then
+                        export IMAGE_BACKUP=${IMAGE_BACKUP}
+                    fi
 
-                if [ -n "${IMAGE_PMM}" ]; then
-                    export IMAGE_PMM=${IMAGE_PMM}
-                fi
+                    if [ -n "${IMAGE_PMM}" ]; then
+                        export IMAGE_PMM=${IMAGE_PMM}
+                    fi
 
-                source $HOME/google-cloud-sdk/path.bash.inc
-                ./e2e-tests/$TEST_NAME/run
-            fi
-        """
-        pushArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG")
-        testsReportMap[TEST_NAME] = 'passed'
-    }
-    catch (exc) {
-        currentBuild.result = 'FAILURE'
+                    source $HOME/google-cloud-sdk/path.bash.inc
+                    ./e2e-tests/$TEST_NAME/run
+                fi
+            """
+            pushArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+            testsReportMap[TEST_NAME] = 'passed'
+            return true
+        }
+        catch (exc) {
+            if (retryCount >= 2) {
+                currentBuild.result = 'FAILURE'
+                return true
+            }
+            retryCount++
+            return false
+        }
     }
 
     echo "The $TEST_NAME test was finished!"
@@ -102,6 +117,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator',
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with cluster wide',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-xtradb-cluster-operator:master',
@@ -133,7 +152,7 @@ pipeline {
         RHEL_PASSWORD = credentials('RHEL-PASSWD')
     }
     agent {
-         label 'docker' 
+         label 'docker'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '10', artifactNumToKeepStr: '10'))
@@ -159,6 +178,9 @@ pipeline {
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud components update kubectl
                     gcloud version
+
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo chmod +x /usr/local/bin/yq
 
                     curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
@@ -200,6 +222,7 @@ pipeline {
         }
         stage('Create AWS Infrastructure') {
             steps {
+                IsRunTestsInClusterWide()
                 git branch: 'master', url: 'https://github.com/Percona-Lab/k8s-lab'
                     sh """
                         # sudo is needed for better node recovery after compilation failure
@@ -228,12 +251,18 @@ pipeline {
                          sh """
                             pushd ./aws-openshift-automation
                                 make openshift
-                                sleep 120
-                                oc login \$(terraform output master-url) --insecure-skip-tls-verify=true -u=real-admin -p=123
                             popd
                          """
                     }
-               }
+                    retry(3) {
+                        sh """
+                            pushd ./aws-openshift-automation
+                                sleep 120
+                                oc login \$(terraform output master-url) --insecure-skip-tls-verify=true -u=real-admin -p=123
+                            popd
+                        """
+                    }
+                }
             }
         }
         stage('E2E Basic Tests') {
@@ -249,6 +278,7 @@ pipeline {
                 runTest('auto-tuning')
                 runTest('proxysql-sidecar-res-limits')
                 runTest('users')
+                runTest('haproxy')
             }
         }
         stage('E2E Scaling') {

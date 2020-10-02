@@ -9,7 +9,7 @@ def call(String REPO_NAME, String REPO_TYPE, String REPO_COMPONENTS, String CENT
                     set -o xtrace
 
                     pushd /srv/repo-copy
-                        wget https://raw.githubusercontent.com/vorsel/aux/master/scripts/create-repos/create_repo.sh -O ./create_repo.sh
+                        wget https://raw.githubusercontent.com/Percona-Lab/release-aux/main/scripts/create-repos/create_repo.sh -O ./create_repo.sh
                         chmod u+x ./create_repo.sh
                         ./create_repo.sh ${REPO_NAME} ${REPO_TYPE} ${REPO_COMPONENTS} ${CENTOS_VERSIONS} ${DEB_CODE_NAMES} ${LIMIT}
                         rm -f ./create_repo.sh

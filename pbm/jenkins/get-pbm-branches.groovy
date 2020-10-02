@@ -3,22 +3,6 @@ library changelog: false, identifier: 'lib@pbmjen', retriever: modernSCM([
     remote: 'https://github.com/vorsel/jenkins-pipelines.git'
 ]) _
 
-void checkBranches(String GIT_REPO) {
-    sh """
-        set -o xtrace
-        mkdir test
-        pwd -P
-        ls -laR
-        git -c 'versionsort.suffix=-' ls-remote --tags --sort='v:refname' $GIT_REPO
-    """
-}
-
-void cleanUpWS() {
-    sh """
-        sudo rm -rf ./*
-    """
-}
-
 pipeline {
     agent {
         label 'docker'
@@ -28,22 +12,6 @@ pipeline {
             defaultValue: 'https://github.com/vorsel/percona-backup-mongodb.git',
             description: 'URL for percona-mongodb-backup repository',
             name: 'GIT_REPO')
-        string(
-            defaultValue: 'master',
-            description: 'Tag/Branch for percona-mongodb-backup repository',
-            name: 'GIT_BRANCH')
-        string(
-            defaultValue: '1',
-            description: 'RPM release value',
-            name: 'RPM_RELEASE')
-        string(
-            defaultValue: '1',
-            description: 'DEB release value',
-            name: 'DEB_RELEASE')
-        string(
-            defaultValue: '1.3.0',
-            description: 'VERSION value',
-            name: 'VERSION')
     }
     options {
         skipDefaultCheckout()
@@ -56,18 +24,17 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AWS_STASH', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        pwd
                         EC=0
                         aws s3 ls s3://percona-jenkins-artifactory/percona-backup-mongodb/branch_commit_id.properties || EC=\$?
-
-                        ls -la .
 
 			if [ \${EC} = 1 ]; then
 			  LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release\\* | tail -1)
 			  BRANCH_NAME=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d "/" -f 3)
 			  COMMIT_ID=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d " " -f 1)
+
 			  echo "BRANCH_NAME=\${BRANCH_NAME}" > branch_commit_id.properties
 			  echo "COMMIT_ID=\${COMMIT_ID}" >> branch_commit_id.properties
+
 			  aws s3 cp branch_commit_id.properties s3://percona-jenkins-artifactory/percona-backup-mongodb/
 			else
                           aws s3 cp s3://percona-jenkins-artifactory/percona-backup-mongodb/branch_commit_id.properties .
@@ -87,13 +54,12 @@ pipeline {
 			  echo "COMMIT_ID=\${LATEST_COMMIT_ID}" >> branch_commit_id.properties
                           aws s3 cp branch_commit_id.properties s3://percona-jenkins-artifactory/percona-backup-mongodb/
                         fi
-
-			ls -la .
-
                     """
                 }
                 script {
                     START_NEW_BUILD = sh(returnStdout: true, script: "source startBuild; echo \${START_NEW_BUILD}").trim()
+                    BRANCH_NAME = sh(returnStdout: true, script: "source branch_commit_id.properties; echo \${BRANCH_NAME}").trim()
+                    VERSION = sh(returnStdout: true, script: "source branch_commit_id.properties; echo \${BRANCH_NAME} | sed s:release\\-::").trim()
                 }
 
             }
@@ -109,7 +75,8 @@ pipeline {
                         echo ${START_NEW_BUILD}: build required
                     """
                 }
-                build job: 'pbm-test-RELEASE'
+                build job: 'pbm-test-RELEASE', parameters: [string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'VERSION', value: VERSION)]
+
             }
         }
         stage('Build skipped') {

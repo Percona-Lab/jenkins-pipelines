@@ -50,15 +50,27 @@
         - "yes"
         - "no"
         description: Run mysql-test-run.pl
+    - string:
+        name: PARALLEL_RUN
+        default: "4"
+        description: "mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for all test suites except Galera specific suites."
+    - string:
+        name: GALERA_PARALLEL_RUN
+        default: "2"
+        description: "mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the Galera specific test suites."
     - choice:
-        name: HOTBACKUP_TESTING
+        name: FULL_MTR
         choices:
         - "yes"
         - "no"
-        description: Run mysql-test-run.pl --suite tokudb_backup
+        description: Run mtr suites based on variable MTR_SUITES if the value is `no`. Otherwise the full mtr will be perfomed.
+    - string:
+        name: MTR_SUITES
+        default: galera,galera_3nodes,sys_vars
+        description: "mysql-test-run.pl suite names"
     - string:
         name: MTR_ARGS
-        default: --unit-tests-report --suite=galera,galera_3nodes,sys_vars
+        default: --unit-tests-report
         description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
     - string:
         name: MTR_REPEAT
@@ -81,7 +93,6 @@
           - ubuntu:xenial
           - ubuntu:bionic
           - ubuntu:focal
-          - debian:jessie
           - debian:stretch
           - debian:buster
     builders:

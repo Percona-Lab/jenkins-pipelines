@@ -3,13 +3,13 @@
 set -o errexit
 set -o xtrace
 
-ROOT_DIR=$(cd $(dirname $0)/../sources/pxc; pwd -P)
+ROOT_DIR=$(cd $(dirname $0)/../sources/pxc56; pwd -P)
 SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
 SOURCE_IMAGE=${1:-centos:7}
 
 docker run --rm \
     --cap-add SYS_PTRACE \
-    --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxc \
+    --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxc56 \
     --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
     perconalab/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
     sh -c "
@@ -29,11 +29,11 @@ docker run --rm \
     mkdir /tmp/results
    
     cp -r /tmp/source_downloads /tmp/results/source_downloads
-    sudo chown -R mysql:mysql /tmp/pxc/wsrep /tmp/pxc/mysql-test /tmp/pxc/target || :
-    bash -x /tmp/scripts/build-binary-pxc56 /tmp/results /tmp/pxc
+    sudo chown -R mysql:mysql /tmp/pxc56/wsrep /tmp/pxc56/mysql-test /tmp/pxc56/target || :
+    bash -x /tmp/scripts/build-binary-pxc56 /tmp/results /tmp/pxc56
 
-    sudo rm -rf /tmp/pxc/results
-    sudo mkdir /tmp/pxc/results
-    sudo mv /tmp/results/*.tar.gz /tmp/pxc/results/
-    sudo chown -R $(id -u):$(id -g) /tmp/pxc/results /tmp/pxc/wsrep /tmp/pxc/mysql-test /tmp/pxc/target
+    sudo rm -rf /tmp/pxc56/results
+    sudo mkdir /tmp/pxc56/results
+    sudo mv /tmp/results/*.tar.gz /tmp/pxc56/results/
+    sudo chown -R $(id -u):$(id -g) /tmp/pxc56/results /tmp/pxc56/wsrep /tmp/pxc56/mysql-test /tmp/pxc56/target
 "

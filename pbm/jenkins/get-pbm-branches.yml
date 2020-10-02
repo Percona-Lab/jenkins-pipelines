@@ -1,0 +1,17 @@
+- job:
+    name: pbm-autobuild
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+        Check PBM repo for new release branches to build packages
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/vorsel/jenkins-pipelines.git
+            branches:
+            - 'pbmjen'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pbm/jenkins/get-pbm-branches.groovy
+    triggers:
+      - timed: "H/15 * * * *"

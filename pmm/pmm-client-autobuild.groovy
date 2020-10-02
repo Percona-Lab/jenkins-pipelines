@@ -111,7 +111,7 @@ pipeline {
                         export pmm_version=$(cat VERSION)
                         ./build/bin/build-client-rpm centos:6
                         ./build/bin/build-client-rpm centos:7
-                        ./build/bin/build-client-rpm registry.access.redhat.com/ubi8
+                        ./build/bin/build-client-rpm centos:8
                     "
                 '''
                 stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
@@ -121,7 +121,7 @@ pipeline {
 
         stage('Build client source deb') {
             steps {
-                sh 'sg docker -c "./build/bin/build-client-sdeb debian:jessie"'
+                sh 'sg docker -c "./build/bin/build-client-sdeb ubuntu:xenial"'
                 stash includes: 'results/source_deb/*', name: 'debs'
                 uploadDEB()
             }
@@ -129,7 +129,6 @@ pipeline {
         stage('Build client binary debs') {
             steps {
                 sh 'sg docker -c "./build/bin/build-client-deb debian:buster"'
-                sh 'sg docker -c "./build/bin/build-client-deb debian:jessie"'
                 sh 'sg docker -c "./build/bin/build-client-deb debian:stretch"'
                 sh 'sg docker -c "./build/bin/build-client-deb ubuntu:bionic"'
                 sh 'sg docker -c "./build/bin/build-client-deb ubuntu:xenial"'

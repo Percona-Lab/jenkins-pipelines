@@ -23,8 +23,8 @@ void CreateCluster(String CLUSTER_PREFIX) {
            exit 1
         fi
         retry 10 60 linode-cli lke kubeconfig-view \$CLUSTER_ID --json > /dev/null 2>&1
-        linode-cli lke kubeconfig-view \$CLUSTER_ID --json | jq -r '.[].kubeconfig' | base64 -d > /tmp/\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' 
-        export KUBECONFIG=/tmp/\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' 
+        linode-cli lke kubeconfig-view \$CLUSTER_ID --json | jq -r '.[].kubeconfig' | base64 -d > /tmp/\$CLUSTER_NAME-''' + CLUSTER_PREFIX + '''
+        export KUBECONFIG=/tmp/\$CLUSTER_NAME-''' + CLUSTER_PREFIX + '''
         sleep 120
         until [[ \$(kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\\n"}{end}' | wc -l) -eq 3 ]]; do
             sleep 5
@@ -77,43 +77,53 @@ void setTestsresults() {
 }
 
 void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
-    try {
-        echo "The $TEST_NAME test was started!"
+    def retryCount = 0
+    waitUntil {
+        try {
+            echo "The $TEST_NAME test was started!"
 
-        popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}")
+            MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
+            popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}")
 
-        sh """
-            if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}" ]; then
-                echo Skip $TEST_NAME test
-            else
-                cd ./source
-                if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
-                    export IMAGE=${PSMDB_OPERATOR_IMAGE}
+            sh """
+                if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$MDB_TAG" ]; then
+                    echo Skip $TEST_NAME test
                 else
-                    export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
-                fi
+                    cd ./source
+                    if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                        export IMAGE=${PSMDB_OPERATOR_IMAGE}
+                    else
+                        export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
+                    fi
 
-                if [ -n "${IMAGE_MONGOD}" ]; then
-                    export IMAGE_MONGOD=${IMAGE_MONGOD}
-                fi
+                    if [ -n "${IMAGE_MONGOD}" ]; then
+                        export IMAGE_MONGOD=${IMAGE_MONGOD}
+                    fi
 
-                if [ -n "${IMAGE_BACKUP}" ]; then
-                    export IMAGE_BACKUP=${IMAGE_BACKUP}
-                fi
+                    if [ -n "${IMAGE_BACKUP}" ]; then
+                        export IMAGE_BACKUP=${IMAGE_BACKUP}
+                    fi
 
-                if [ -n "${IMAGE_PMM}" ]; then
-                    export IMAGE_PMM=${IMAGE_PMM}
-                fi
+                    if [ -n "${IMAGE_PMM}" ]; then
+                        export IMAGE_PMM=${IMAGE_PMM}
+                    fi
 
-                export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
-                ./e2e-tests/$TEST_NAME/run
-            fi
-        """
-        pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}")
-        testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}"] = 'passed'
-    }
-    catch (exc) {
-        currentBuild.result = 'FAILURE'
+                    export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                    ./e2e-tests/$TEST_NAME/run
+                fi
+            """
+            pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$MDB_TAG")
+            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$MDB_TAG"] = 'passed'
+            return true
+        }
+        catch (exc) {
+            if (retryCount >= 2) {
+                currentBuild.result = 'FAILURE'
+                return true
+            }
+            retryCount++
+            return false
+        }
     }
 
     echo "The $TEST_NAME test was finished!"
@@ -194,6 +204,9 @@ pipeline {
 
                     curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo chmod +x /usr/local/bin/yq
                 '''
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'LINODE-CONFIG', variable: 'LKE_CLIENT_FILE')]) {
                     sh '''
@@ -255,6 +268,7 @@ pipeline {
                         runTest('arbiter', 'basic')
                         runTest('service-per-pod', 'basic')
                         runTest('liveness', 'basic')
+                        runTest('users', 'basic')
                         ShutdownCluster('basic')
                     }
                 }

@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+ROOT_DIR=$(cd $(dirname $0)/sources/proxysql; pwd -P)
+SCRIPTS_DIR=$(cd $(dirname $0) && pwd -P)
+SOURCE_IMAGE=${1:-centos:7}
+
+docker run --rm \
+    --security-opt seccomp=unconfined \
+    --mount type=bind,source=${ROOT_DIR},destination=/tmp/proxysql \
+    --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
+    perconalab/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+    sh -c "
+    set -o errexit
+    set -o xtrace
+
+    mkdir /tmp/results
+    cp /tmp/proxysql/results/*.tar.gz /tmp/results
+
+    bash -x /tmp/scripts/test-proxysql /tmp/results
+    rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/WORKDIR/logs
+    sudo tar -czf "qa_proxysql_logs.tar.gz" /tmp/results/WORKDIR/logs
+    sudo mv ./qa_proxysql_logs.tar.gz /tmp/proxysql/results/
+    sudo mv /tmp/results/WORKDIR/*.output  /tmp/results/WORKDIR/*.xml /tmp/proxysql/results/
+    sudo chown $(id -u):$(id -g) /tmp/proxysql/results/*.output /tmp/proxysql/results/*.xml
+"

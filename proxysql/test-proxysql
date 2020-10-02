@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+# Execute this tool to test binary releases
+#
+#  possible jenkins vars:
+#      CMAKE_BUILD_TYPE = (RelWithDebInfo Debug)
+#      DEFAULT_TESTING = (yes no)
+#      QA_ARGS
+
+set -o errexit
+set -o xtrace
+
+function process_proxysql_output {
+# parameters are:
+  local TESTSUITE=${1}
+  local INFILE=${2}
+  local OUTFILE=${3}
+
+  export LC_ALL=C
+  cat proxysql_qa.output | grep 'ok \|not ok' | gawk 'BEGIN     { print "<testsuite name=\"@@TESTSUITE@@\" tests=\"@@PASSED@@\" failures=\"@@FAILURES@@\">" }
+      $1 ~ /ok/     { printf "\t<testcase name=\"%s\"><passed/></testcase>\n", $0}
+      $1 ~ /not/    { printf "\t<testcase name=\"%s\"><failure/></testcase>\n", $0}
+      END { print "</testsuite>" }' > ${OUTFILE}
+
+  PASSED=$(grep -c 'name=\"ok' ${OUTFILE} ||:)
+  FAILURES=$(grep -c '<failure/>' ${OUTFILE} ||:)
+
+  sed -i.bak -e "s:@@TESTSUITE@@:${TESTSUITE}:g" ${OUTFILE}
+  sed -i.bak -e "s:@@PASSED@@:${PASSED}:g" ${OUTFILE}
+  sed -i.bak -e "s:@@FAILURES@@:${FAILURES}:g" ${OUTFILE}
+}
+
+WORKDIR_ABS=$(cd ${1:-./build/proxysql}; pwd -P)
+rm -fr ${WORKDIR_ABS}/WORKDIR ${WORKDIR_ABS}/PXB ${WORKDIR_ABS}/PXC
+mkdir -p ${WORKDIR_ABS}/WORKDIR/PROXY ${WORKDIR_ABS}/PXB ${WORKDIR_ABS}/PXC
+
+tar -C ${WORKDIR_ABS}/PXB --strip-components=1 -zxpf $(ls $WORKDIR_ABS/pxb24.tar.gz | head -1)
+tar -C ${WORKDIR_ABS}/PXC --strip-components=1 -zxpf $(ls $WORKDIR_ABS/pxc57.tar.gz | head -1)
+tar -C ${WORKDIR_ABS}/WORKDIR/PROXY  --strip-components=1 -zxpf $(ls $WORKDIR_ABS/proxysql*.tar.gz | head -1)
+
+PXC57_TAR=$(tar --exclude="*/*" -ztf $WORKDIR_ABS/pxc57.tar.gz)
+mv $WORKDIR_ABS/pxc57.tar.gz $WORKDIR_ABS/WORKDIR/${PXC57_TAR%?}.tar.gz
+
+sudo cp ${WORKDIR_ABS}/PXB/bin/* /usr/bin/
+sudo cp ${WORKDIR_ABS}/PXC/bin/* /usr/bin/
+
+pushd ${WORKDIR_ABS}/WORKDIR
+sudo tar -xzf $WORKDIR_ABS/proxysql*.tar.gz -C ${WORKDIR_ABS}/WORKDIR
+sudo cp $WORKDIR_ABS/WORKDIR/PROXY/etc/proxysql.cnf /etc/
+sudo cp $WORKDIR_ABS/WORKDIR/PROXY/etc/proxysql-admin.cnf /etc/
+sudo cp $WORKDIR_ABS/WORKDIR/PROXY/usr/bin/* /usr/bin
+cp $WORKDIR_ABS/WORKDIR/PROXY/usr/bin/proxysql-admin $WORKDIR_ABS/WORKDIR/
+sudo chmod 644 /etc/proxysql*.cnf
+
+status=0
+# Running ProxySQL QA script
+sudo sed -i 's/wsrep_sst_method=rsync/wsrep_sst_method=xtrabackup-v2/g' $WORKDIR_ABS/WORKDIR/PROXY/tests/proxysql-admin-testsuite.sh
+sudo bash $WORKDIR_ABS/WORKDIR/PROXY/tests/proxysql-admin-testsuite.sh \
+$WORKDIR_ABS/WORKDIR | tee $WORKDIR_ABS/WORKDIR/proxysql_qa.output || status=$?
+process_proxysql_output PROXYSQL "$WORKDIR_ABS/WORKDIR/proxysql_qa.output" "${WORKDIR_ABS}/WORKDIR/junit.xml"
+popd
+
+exit $status

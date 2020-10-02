@@ -30,6 +30,8 @@ pipeline {
 
                 git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
                 sh '''
+                    set -o errexit
+
                     curdir=$(pwd)
                     cd ../
                     wget https://github.com/git-lfs/git-lfs/releases/download/v2.7.1/git-lfs-linux-amd64-v2.7.1.tar.gz
@@ -60,6 +62,8 @@ pipeline {
             steps {
                 sh '''
                     sg docker -c "
+                        set -o errexit
+
                         env
                         ./build/bin/build-client-source
                     "
@@ -72,6 +76,8 @@ pipeline {
             steps {
                 sh '''
                     sg docker -c "
+                        set -o errexit
+
                         env
                         ./build/bin/build-client-binary
                     "
@@ -91,6 +97,8 @@ pipeline {
             steps {
                 sh '''
                     sg docker -c "
+                        set -o errexit
+
                         ./build/bin/build-client-rpm centos:7
 
                         mkdir -p tmp/pmm-server/RPMS/
@@ -106,24 +114,24 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         sg docker -c "
+                            set -o errexit
+
                             export PATH=$PATH:$(pwd -P)/build/bin
 
                             # 1st-party
                             build-server-rpm percona-dashboards grafana-dashboards
-                            build-server-rpm pmm-manage
                             build-server-rpm pmm-managed
-                            build-server-rpm percona-qan-api qan-api
                             build-server-rpm percona-qan-api2 qan-api2
                             build-server-rpm percona-qan-app qan-app
                             build-server-rpm pmm-server
                             build-server-rpm pmm-update
+                            build-server-rpm dbaas-controller
+                            build-server-rpm dbaas-tools
 
                             # 3rd-party
                             build-server-rpm clickhouse
-                            build-server-rpm consul
-                            build-server-rpm orchestrator
-                            build-server-rpm rds_exporter
                             build-server-rpm prometheus
+                            build-server-rpm victoriametrics
                             build-server-rpm alertmanager
                             build-server-rpm grafana
                         "
@@ -144,6 +152,8 @@ pipeline {
                 }
                 sh '''
                     sg docker -c "
+                        set -o errexit
+
                         export PUSH_DOCKER=1
                         export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
 

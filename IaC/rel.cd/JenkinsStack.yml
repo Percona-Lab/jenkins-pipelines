@@ -1,4 +1,4 @@
-# aws cloudformation --region us-west-1 create-stack --template-body file://IaC/cloud.cd/JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-rel --tags Key=iit-billing-tag,Value=jenkins-rel
+# aws cloudformation --region eu-west-1 create-stack --template-body file://IaC/cloud.cd/JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-rel --tags Key=iit-billing-tag,Value=jenkins-rel
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
@@ -54,10 +54,10 @@ Mappings:
 
 Resources:
 
-  JVPC: # separate virtual network for jenkins instances
+  JRELVPC: # separate virtual network for jenkins instances
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 10.177.0.0/22
+      CidrBlock: 10.199.0.0/22
       EnableDnsSupport: true
       EnableDnsHostnames: true
       InstanceTenancy: default
@@ -67,7 +67,7 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JInternetGateway: # Internet Gateway for jenkins VPC
+  JRELInternetGateway: # Internet Gateway for jenkins VPC
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
@@ -76,17 +76,17 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JVPCGatewayAttachment: # Attach Gateway to VPC
+  JRELGatewayAttachment: # Attach Gateway to VPC
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      VpcId: !Ref JVPC
-      InternetGatewayId: !Ref JInternetGateway
+      VpcId: !Ref JRELVPC
+      InternetGatewayId: !Ref JRELInternetGateway
 
-  JSubnetB: # create subnet in AZ
+  JRELSubnetB: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref JVPC
-      CidrBlock: 10.177.1.0/24
+      VpcId: !Ref JRELVPC
+      CidrBlock: 10.199.1.0/24
       MapPublicIpOnLaunch: true
       AvailabilityZone:
         Fn::Select: [ 1, !GetAZs '' ]
@@ -96,11 +96,11 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JSubnetC: # create subnet in AZ
+  JRELSubnetC: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref JVPC
-      CidrBlock: 10.177.2.0/24
+      VpcId: !Ref JRELVPC
+      CidrBlock: 10.199.2.0/24
       MapPublicIpOnLaunch: true
       AvailabilityZone:
         Fn::Select: [ 2, !GetAZs '' ]
@@ -110,34 +110,34 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JRouteTable: # create route table for VPC
+  JRELRouteTable: # create route table for VPC
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref JVPC
+      VpcId: !Ref JRELVPC
       Tags:
       - Key: Name
         Value: !Ref JShortName
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JInternetRoute: # add default route
+  JRELInternetRoute: # add default route
     Type: AWS::EC2::Route
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref JInternetGateway
-      RouteTableId: !Ref JRouteTable
+      GatewayId: !Ref JRELInternetGateway
+      RouteTableId: !Ref JRELRouteTable
 
-  SubnetBRouteTable: # add subnet route
+  SubnetRELBRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref JRouteTable
-      SubnetId: !Ref JSubnetB
+      RouteTableId: !Ref JRELRouteTable
+      SubnetId: !Ref JRELSubnetB
 
-  SubnetCRouteTable: # add subnet route
+  SubnetRELCRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref JRouteTable
-      SubnetId: !Ref JSubnetC
+      RouteTableId: !Ref JRELRouteTable
+      SubnetId: !Ref JRELSubnetC
 
   S3Endpoint: # route S3 traffic over private network
     Type: AWS::EC2::VPCEndpoint
@@ -158,13 +158,13 @@ Resources:
             Resource:
             - '*'
       RouteTableIds:
-        - !Ref JRouteTable
+        - !Ref JRELRouteTable
       ServiceName: !Join
         - ''
         - - com.amazonaws.
           - !Ref 'AWS::Region'
           - .s3
-      VpcId: !Ref JVPC
+      VpcId: !Ref JRELVPC
 
   TerminationQueue: # queue for termination notifications
     Type: AWS::SQS::Queue
@@ -205,12 +205,12 @@ Resources:
         - Arn: !GetAtt TerminationQueue.Arn
           Id: !GetAtt TerminationQueue.QueueName
 
-  SSHSecurityGroup: # allow ssh access (assign when needed)
+  SSHRELSecurityGroup: # allow ssh access (assign when needed)
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: SSH
+      GroupName: SSH_REL
       GroupDescription: SSH traffic in
-      VpcId: !Ref JVPC
+      VpcId: !Ref JRELVPC
       SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: 22
@@ -220,12 +220,12 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  HTTPSecurityGroup: # allow http and https access to jenkins master
+  HTTPRELSecurityGroup: # allow http and https access to jenkins master
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: HTTP
+      GroupName: HTTP_REL
       GroupDescription: HTTP and HTTPS traffic in
-      VpcId: !Ref JVPC
+      VpcId: !Ref JRELVPC
       SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: 80
@@ -387,7 +387,7 @@ Resources:
 
   MasterIP: # create public IP for jenkins master
     Type: AWS::EC2::EIP
-    DependsOn: JVPC
+    DependsOn: JRELVPC
     Properties:
       Domain: vpc
 
@@ -457,11 +457,11 @@ Resources:
       LaunchTemplateData:
         NetworkInterfaces:
         - DeviceIndex: 0
-          SubnetId: !Ref JSubnetB
+          SubnetId: !Ref JRELSubnetB
           Groups:
-          - !GetAtt JVPC.DefaultSecurityGroup
-          - !GetAtt HTTPSecurityGroup.GroupId
-          - !GetAtt SSHSecurityGroup.GroupId
+          - !GetAtt JRELVPC.DefaultSecurityGroup
+          - !GetAtt HTTPRELSecurityGroup.GroupId
+          - !GetAtt SSHRELSecurityGroup.GroupId
         TagSpecifications:
         - ResourceType: instance
           Tags:
@@ -537,7 +537,7 @@ Resources:
                   wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                   yum -y update --security
-                  yum -y install java-1.8.0-openjdk-1.8.0.191.b12 jenkins-2.222.3 git yum-cron aws-cli xfsprogs openresty
+                  yum -y install java-1.8.0-openjdk-1.8.0.191.b12 jenkins-2.249.1 git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf

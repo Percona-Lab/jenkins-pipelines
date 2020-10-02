@@ -5,6 +5,7 @@ import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
 import hudson.plugins.ec2.ConnectionStrategy
+import hudson.plugins.ec2.HostKeyVerificationStrategyEnum
 import hudson.plugins.ec2.UnixData
 import java.util.logging.Logger
 import jenkins.model.Jenkins
@@ -340,6 +341,8 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
             new EC2Tag('iit-billing-tag', 'jenkins-ps3-worker')
         ],                                          // List<EC2Tag> tags
         '3',                                        // String idleTerminationMinutes
+        0,                                          // Init minimumNumberOfInstances
+        0,                                          // minimumNumberOfSpareInstances
         capMap[typeMap[OSType]],                    // String instanceCapStr
         'arn:aws:iam::119175775298:instance-profile/jenkins-ps3-worker', // String iamInstanceProfile
         true,                                       // boolean deleteRootOnTermination
@@ -353,6 +356,8 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         false,                                      // boolean t2Unlimited
         ConnectionStrategy.PUBLIC_DNS,              // connectionStrategy
         -1,                                         // int maxTotalUses
+        null,
+        HostKeyVerificationStrategyEnum.OFF,
     )
 }
 
@@ -363,6 +368,8 @@ jenkins.clouds.each {
     }
 }
 
+String sshKeysCredentialsId = '2ab73cff-5575-4ca2-be48-17761b165103'
+
 String region = 'eu-west-1'
 ('b'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
@@ -372,6 +379,7 @@ String region = 'eu-west-1'
         '',                                     // String credentialsId
         region,                                 // String region
         privateKey,                             // String privateKey
+        sshKeysCredentialsId,                   // String sshKeysCredentialsId
         '240',                                   // String instanceCapStr
         [
             getTemplate('docker',             "${region}${it}"),

@@ -52,6 +52,10 @@ pipeline {
             defaultValue: '1.3.0',
             description: 'VERSION value',
             name: 'VERSION')
+        choice(
+            choices: 'laboratory\ntesting\nexperimental\nrelease',
+            description: 'Repo component to push packages to',
+            name: 'COMPONENT')
     }
     options {
         skipDefaultCheckout()
@@ -299,6 +303,12 @@ pipeline {
             steps {
                 signRPM()
                 signDEB()
+            }
+        }
+        stage('Push to public repository') {
+            steps {
+                // sync packages
+                sync2ProdAutoBuild(COMPONENT)
             }
         }
 

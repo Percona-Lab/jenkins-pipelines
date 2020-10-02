@@ -7,6 +7,10 @@
 #      DEFAULT_TESTING = (yes no)
 #      MTR_ARGS
 #      MTR_REPEAT
+#      FULL_MTR = (yes no)
+#      GALERA_PARALLEL_RUN
+#      MTR_SUITES
+#      PARALLEL_RUN
 
 set -o errexit
 set -o xtrace
@@ -23,7 +27,6 @@ export WSREP_PROVIDER=${WORKDIR_ABS}/PXC/lib/libgalera_smm.so
 export XB_PLUGIN_DIR=${WORKDIR_ABS}/PXB/lib/plugin
 cd ${WORKDIR_ABS}/PXC/mysql-test
 TESTCASE_TIMEOUT=30
-PARALLEL=$(grep -c ^processor /proc/cpuinfo)
 # CentOS 6 & 7
 if [[ -f /opt/rh/devtoolset-7/enable ]]; then
     source /opt/rh/devtoolset-7/enable
@@ -61,29 +64,65 @@ status=0
 #
 # Running MTR test cases
 if [[ "${DEFAULT_TESTING}" != "no" ]]; then
-
     if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
         MYSQLD_ENV="${ADD_TO_LD_PRELOAD:-}${EATMYDATA}"
     else
         MYSQLD_ENV="${ADD_TO_LD_PRELOAD:-}${JEMALLOC}:${EATMYDATA}"
     fi
+    mkdir mtr_var
+    if [ ${FULL_MTR} == "no" ]; then
+        ARRAY_MTR_SUITES=($(echo $MTR_SUITES | sed 's/,/ /g'))
+        for suite in "${ARRAY_MTR_SUITES[@]}"; do
+	        if [[ "$suite" == *"galera"* ]]; then
+	            WORKER=$GALERA_PARALLEL_RUN
+			else
+	            WORKER=$PARALLEL_RUN
+			fi
+	        echo "Running MTR suite: $suite"
+	        mkdir $PWD/var_${suite}
+	        MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
+	           --result-file --suite=$suite \
+	           --force --xml-report=${WORKDIR_ABS}/${suite}_mtr.xml \
+	           --max-test-fail=0 \
+	           --suite-timeout=9999 --parallel $WORKER \
+	           --port-group-size=20 --vardir=$PWD/var_${suite} \
+	           --testcase-timeout=${TESTCASE_TIMEOUT} \
+               ${MTR_ARGS} \
+	           | tee ${WORKDIR_ABS}/${suite}_mtr.output || status=$?
 
-  MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
-        --parallel=${PARALLEL} \
-        --result-file \
-        ${MTR_ARGS} \
-        --force --xml-report=${WORKDIR_ABS}/mtr.xml \
-        --max-test-fail=0 \
-        --suite-timeout=9999 \
-        --testcase-timeout=${TESTCASE_TIMEOUT} \
-        | tee ${WORKDIR_ABS}/mtr.output || status=$?
-  
-  sed -i '1d' ${WORKDIR_ABS}/mtr.xml
-  sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/mtr.xml
-  sed -r 's/comment=.*.\/>/\/>/' ${WORKDIR_ABS}/mtr.xml > ${WORKDIR_ABS}/junit.tmp
-  sed -r 's/status=\"skipped\".*.\/>/ > <skipped \/> <\/testcase>/' ${WORKDIR_ABS}/junit.tmp >  ${WORKDIR_ABS}/junit1.tmp
-  sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/junit1.tmp >  ${WORKDIR_ABS}/junit.xml
-  rm -f ${WORKDIR_ABS}/junit*.tmp ${WORKDIR_ABS}/mtr.xml
+            mv $PWD/var_${suite} $PWD/mtr_var    
+	        killall -9 mysqld || true
+		    sed -i '1d' ${WORKDIR_ABS}/${suite}_mtr.xml
+		    sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/${suite}_mtr.xml
+		    sed -r 's/comment=.*.\/>/\/>/' ${WORKDIR_ABS}/${suite}_mtr.xml > ${WORKDIR_ABS}/${suite}_junit.tmp
+		    sed -r 's/status=\"skipped\".*.\/>/ > <skipped \/> <\/testcase>/' ${WORKDIR_ABS}/${suite}_junit.tmp >  ${WORKDIR_ABS}/${suite}_junit1.tmp
+		    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/${suite}_junit1.tmp >  ${WORKDIR_ABS}/${suite}_junit2.tmp
+            sed -r 's/<failure message.*.>/<failure message="Test failed:...">/' ${WORKDIR_ABS}/${suite}_junit2.tmp > ${WORKDIR_ABS}/${suite}_junit.xml
+		    rm -f ${WORKDIR_ABS}/${suite}_junit*.tmp ${WORKDIR_ABS}/${suite}_mtr.xml
+		done
+    else
+        echo "Running full MTR"
+        mkdir var
+        MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
+           --result-file \
+           --force --xml-report=${WORKDIR_ABS}/mtr.xml \
+           --max-test-fail=0 \
+           --suite-timeout=9999 --parallel $PARALLEL_RUN \
+           --port-group-size=20 --vardir=var \
+           --testcase-timeout=${TESTCASE_TIMEOUT} \
+           ${MTR_ARGS} \
+           | tee ${WORKDIR_ABS}/mtr.output || status=$?
+
+        mv $PWD/var $PWD/mtr_var
+        killall -9 mysqld || true
+	    sed -i '1d' ${WORKDIR_ABS}/mtr.xml
+	    sed -i '/<!\[CDATA/,/]]>/d' ${WORKDIR_ABS}/mtr.xml
+	    sed -r 's/comment=.*.\/>/\/>/' ${WORKDIR_ABS}/mtr.xml > ${WORKDIR_ABS}/junit.tmp
+	    sed -r 's/status=\"skipped\".*.\/>/ > <skipped \/> <\/testcase>/' ${WORKDIR_ABS}/junit.tmp >  ${WORKDIR_ABS}/junit1.tmp
+	    sed -r 's/status=\"disabled\".*.\/>/ > <disabled \/> <\/testcase>/' ${WORKDIR_ABS}/junit1.tmp >  ${WORKDIR_ABS}/junit2.tmp
+        sed -r 's/<failure message.*.>/<failure message="Test failed:...">/' ${WORKDIR_ABS}/junit2.tmp > ${WORKDIR_ABS}/junit.xml
+	    rm -f ${WORKDIR_ABS}/junit*.tmp ${WORKDIR_ABS}/mtr.xml
+    fi
 fi
 
 exit $status

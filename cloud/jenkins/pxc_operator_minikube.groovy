@@ -1,3 +1,9 @@
+void IsRunTestsInClusterWide() {
+    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+        env.OPERATOR_NS = 'pxc-operator'
+    }
+}
+
 void pushArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -30,55 +36,64 @@ void makeReport() {
 }
 
 void runTest(String TEST_NAME) {
-    try {
-        echo "The $TEST_NAME test was started!"
+    def retryCount = 0
+    waitUntil {
+        try {
+            echo "The $TEST_NAME test was started!"
 
-        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
-        VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-        FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.KUBER_VERSION}-$PXC_TAG"
-        testsReportMap[TEST_NAME] = 'failure'
+            GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+            PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
+            VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
+            FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.KUBER_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"
+            testsReportMap[TEST_NAME] = 'failure'
 
-        popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
-        sh """
-            if [ -f "$FILE_NAME" ]; then
-                echo Skip $TEST_NAME test
-            else
-                cd ./source
-                if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                    export IMAGE=${PXC_OPERATOR_IMAGE}
+            popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
+            sh """
+                if [ -f "$FILE_NAME" ]; then
+                    echo Skip $TEST_NAME test
                 else
-                    export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
-                fi
+                    cd ./source
+                    if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                        export IMAGE=${PXC_OPERATOR_IMAGE}
+                    else
+                        export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                    fi
 
-                if [ -n "${IMAGE_PXC}" ]; then
-                    export IMAGE_PXC=${IMAGE_PXC}
-                fi
+                    if [ -n "${IMAGE_PXC}" ]; then
+                        export IMAGE_PXC=${IMAGE_PXC}
+                    fi
 
-                if [ -n "${IMAGE_PROXY}" ]; then
-                    export IMAGE_PROXY=${IMAGE_PROXY}
-                fi
+                    if [ -n "${IMAGE_PROXY}" ]; then
+                        export IMAGE_PROXY=${IMAGE_PROXY}
+                    fi
 
-                if [ -n "${IMAGE_HAPROXY}" ]; then
-                    export IMAGE_HAPROXY=${IMAGE_HAPROXY}
-                fi
+                    if [ -n "${IMAGE_HAPROXY}" ]; then
+                        export IMAGE_HAPROXY=${IMAGE_HAPROXY}
+                    fi
 
-                if [ -n "${IMAGE_BACKUP}" ]; then
-                    export IMAGE_BACKUP=${IMAGE_BACKUP}
-                fi
+                    if [ -n "${IMAGE_BACKUP}" ]; then
+                        export IMAGE_BACKUP=${IMAGE_BACKUP}
+                    fi
 
-                if [ -n "${IMAGE_PMM}" ]; then
-                    export IMAGE_PMM=${IMAGE_PMM}
-                fi
+                    if [ -n "${IMAGE_PMM}" ]; then
+                        export IMAGE_PMM=${IMAGE_PMM}
+                    fi
 
-                ./e2e-tests/$TEST_NAME/run
-            fi
-        """
-        pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
-        testsReportMap[TEST_NAME] = 'passed'
-    }
-    catch (exc) {
-        currentBuild.result = 'FAILURE'
+                    ./e2e-tests/$TEST_NAME/run
+                fi
+            """
+            pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
+            testsReportMap[TEST_NAME] = 'passed'
+            return true
+        }
+        catch (exc) {
+            if (retryCount >= 2) {
+                currentBuild.result = 'FAILURE'
+                return true
+            }
+            retryCount++
+            return false
+        }
     }
 
     sh """
@@ -102,7 +117,8 @@ EOF
 
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 jq kubectl socat || true
+        sudo yum clean all || true
+        sudo yum install -y percona-xtrabackup-80 jq kubectl socat
     '''
 }
 pipeline {
@@ -115,6 +131,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator',
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with cluster wide',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-xtradb-cluster-operator:master',
@@ -146,7 +166,7 @@ pipeline {
             trim: true)
     }
     agent {
-         label 'micro-amazon' 
+         label 'micro-amazon'
     }
     options {
         skipDefaultCheckout()
@@ -168,7 +188,7 @@ pipeline {
                 stash includes: "source/**", name: "sourceFILES", useDefaultExcludes: false
             }
         }
-        
+
         stage('Build docker image') {
             agent { label 'docker' }
             steps {
@@ -200,7 +220,10 @@ pipeline {
             }
             agent { label 'docker-32gb' }
                 steps {
+                    IsRunTestsInClusterWide()
+
                     sh '''
+                        sudo yum install -y conntrack
                         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                             rm -rf $HOME/google-cloud-sdk
                             curl https://sdk.cloud.google.com | bash
@@ -212,6 +235,8 @@ pipeline {
 
                         curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
                             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                        sudo chmod +x /usr/local/bin/yq
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
                         export CHANGE_MINIKUBE_NONE_USER=true
@@ -220,7 +245,7 @@ pipeline {
                         sudo chown -R $USER $HOME/.kube $HOME/.minikube
                         sed -i s:/root:$HOME:g $HOME/.kube/config
                     '''
-                    
+
                     unstash "sourceFILES"
                     withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
                         sh '''
@@ -236,7 +261,6 @@ pipeline {
                     runTest('upgrade-consistency')
                     runTest('self-healing-advanced')
                     runTest('operator-self-healing')
-                    runTest('users')
             }
             post {
                 always {

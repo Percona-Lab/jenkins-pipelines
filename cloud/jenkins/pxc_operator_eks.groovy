@@ -1,3 +1,9 @@
+void IsRunTestsInClusterWide() {
+    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+        env.OPERATOR_NS = 'pxc-operator'
+    }
+}
+
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -32,61 +38,70 @@ void makeReport() {
 }
 
 void runTest(String TEST_NAME) {
-    try {
-        echo "The $TEST_NAME test was started!"
+    def retryCount = 0
+    waitUntil {
+        try {
+            echo "The $TEST_NAME test was started!"
 
-        GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
-        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
-        VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-        testsReportMap[TEST_NAME] = 'failure'
+            GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
+            PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
+            VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
+            testsReportMap[TEST_NAME] = 'failure'
 
-        popArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG")
+            popArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
 
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
-            sh """
-                if [ -f "$VERSION-$TEST_NAME-$PXC_TAG" ]; then
-                    echo Skip $TEST_NAME test
-                else
-                    cd ./source
-                    if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                        export IMAGE=${PXC_OPERATOR_IMAGE}
+            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
+                sh """
+                    if [ -f "$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
+                        echo Skip $TEST_NAME test
                     else
-                        export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                        cd ./source
+                        if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                            export IMAGE=${PXC_OPERATOR_IMAGE}
+                        else
+                            export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                        fi
+
+                        if [ -n "${IMAGE_PXC}" ]; then
+                            export IMAGE_PXC=${IMAGE_PXC}
+                        fi
+
+                        if [ -n "${IMAGE_PROXY}" ]; then
+                            export IMAGE_PROXY=${IMAGE_PROXY}
+                        fi
+
+                        if [ -n "${IMAGE_HAPROXY}" ]; then
+                            export IMAGE_HAPROXY=${IMAGE_HAPROXY}
+                        fi
+
+                        if [ -n "${IMAGE_BACKUP}" ]; then
+                            export IMAGE_BACKUP=${IMAGE_BACKUP}
+                        fi
+
+                        if [ -n "${IMAGE_PMM}" ]; then
+                            export IMAGE_PMM=${IMAGE_PMM}
+                        fi
+
+                        export PATH=/home/ec2-user/.local/bin:$PATH
+                        source $HOME/google-cloud-sdk/path.bash.inc
+                        export KUBECONFIG=~/.kube/config
+
+                        ./e2e-tests/$TEST_NAME/run
                     fi
-
-                    if [ -n "${IMAGE_PXC}" ]; then
-                        export IMAGE_PXC=${IMAGE_PXC}
-                    fi
-
-                    if [ -n "${IMAGE_PROXY}" ]; then
-                          export IMAGE_PROXY=${IMAGE_PROXY}
-                    fi
-
-                    if [ -n "${IMAGE_HAPROXY}" ]; then
-                          export IMAGE_HAPROXY=${IMAGE_HAPROXY}
-                    fi
-
-                    if [ -n "${IMAGE_BACKUP}" ]; then
-                        export IMAGE_BACKUP=${IMAGE_BACKUP}
-                    fi
-
-                    if [ -n "${IMAGE_PMM}" ]; then
-                        export IMAGE_PMM=${IMAGE_PMM}
-                    fi
-
-                    export PATH=/home/ec2-user/.local/bin:$PATH
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    export KUBECONFIG=~/.kube/config
-
-                    ./e2e-tests/$TEST_NAME/run
-                fi
-              """
+                """
+            }
+            pushArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+            testsReportMap[TEST_NAME] = 'passed'
+            return true
         }
-        pushArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG")
-        testsReportMap[TEST_NAME] = 'passed'
-    }
-    catch (exc) {
-        currentBuild.result = 'FAILURE'
+        catch (exc) {
+            if (retryCount >= 2) {
+                currentBuild.result = 'FAILURE'
+                return true
+            }
+            retryCount++
+            return false
+        }
     }
 
     echo "The $TEST_NAME test was finished!"
@@ -108,6 +123,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator',
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with cluster wide',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-xtradb-cluster-operator:master',
@@ -134,7 +153,7 @@ pipeline {
             name: 'IMAGE_PMM')
     }
     agent {
-         label 'docker' 
+         label 'docker'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '10', artifactNumToKeepStr: '10'))
@@ -158,6 +177,9 @@ pipeline {
 
                     curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo chmod +x /usr/local/bin/yq
 
                     curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/latest_release/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
                     sudo mv -v /tmp/eksctl /usr/local/bin
@@ -195,6 +217,7 @@ pipeline {
         }
         stage('Create EKS Infrastructure') {
             steps {
+                IsRunTestsInClusterWide()
                 sh '''
 cat <<-EOF > cluster.yaml
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
@@ -246,6 +269,7 @@ EOF
                 runTest('auto-tuning')
                 runTest('proxysql-sidecar-res-limits')
                 runTest('users')
+                runTest('haproxy')
             }
         }
         stage('E2E Scaling') {
@@ -311,7 +335,7 @@ EOF
                         eksctl delete cluster -f cluster.yaml --wait
                     """
                 }
-            
+
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf $HOME/google-cloud-sdk

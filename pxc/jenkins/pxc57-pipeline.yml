@@ -13,3 +13,84 @@
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pxc/jenkins/pxc57-pipeline.groovy
+    parameters:
+    - string:
+        name: PXC57_REPO
+        default: "https://github.com/percona/percona-xtradb-cluster"
+        description: URL to PXC repository
+    - string:
+        name: PXC57_BRANCH
+        default: "5.7"
+        description: Tag/Branch for PXC repository
+    - string:
+        name: PXB24_REPO
+        default: https://github.com/percona/percona-xtrabackup
+        description: URL to PXB24 repository
+    - string:
+        name: PXB24_BRANCH
+        default: percona-xtrabackup-2.4.20
+        description: Tag/Branch for PXC repository
+    - choice:
+        name: JOB_CMAKE
+        choices:
+        - /usr/bin/cmake
+        description: path to cmake binary
+    - string:
+        name: CMAKE_OPTS
+        default:
+        description: cmake options
+    - string:
+        name: MAKE_OPTS
+        default:
+        description: make options, like VERBOSE=1
+    - choice:
+        name: DEFAULT_TESTING
+        choices:
+        - "yes"
+        - "no"
+        description: Run mysql-test-run.pl
+    - string:
+        name: PARALLEL_RUN
+        default: "4"
+        description: "mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for all test suites except Galera specific suites."
+    - string:
+        name: GALERA_PARALLEL_RUN
+        default: "2"
+        description: "mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the Galera specific test suites."
+    - choice:
+        name: FULL_MTR
+        choices:
+        - "yes"
+        - "no"
+        description: Run mtr suites based on variable MTR_SUITES if the value is `no`. Otherwise the full mtr will be perfomed.
+    - string:
+        name: MTR_SUITES
+        default: galera,galera_3nodes,sys_vars
+        description: "mysql-test-run.pl suite names"
+    - string:
+        name: MTR_ARGS
+        default: --unit-tests-report
+        description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
+    - string:
+        name: MTR_REPEAT
+        default: "1"
+        description: Run each test N number of times, --repeat=N
+    axes:
+      - axis:
+         type: user-defined
+         name: CMAKE_BUILD_TYPE
+         values:
+          - RelWithDebInfo
+          - Debug
+      - axis:
+         type: user-defined
+         name: DOCKER_OS
+         values:
+          - centos:6
+          - centos:7
+          - centos:8
+          - ubuntu:xenial
+          - ubuntu:bionic
+          - ubuntu:focal
+          - debian:stretch
+          - debian:buster

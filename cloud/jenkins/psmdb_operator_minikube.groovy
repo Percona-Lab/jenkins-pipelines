@@ -30,48 +30,57 @@ void makeReport() {
 }
 
 void runTest(String TEST_NAME) {
-    try {
-        echo "The $TEST_NAME test was started!"
+    def retryCount = 0
+    waitUntil {
+        try {
+            echo "The $TEST_NAME test was started!"
 
-        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-        VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-        FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.KUBER_VERSION}"
-        testsReportMap[TEST_NAME] = 'failure'
+            GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+            VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
+            FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.KUBER_VERSION}"
+            MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
+            testsReportMap[TEST_NAME] = 'failure'
 
-        popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
-        sh """
-            if [ -f "$FILE_NAME" ]; then
-                echo Skip $TEST_NAME test
-            else
-                cd ./source
-                if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
-                    export IMAGE=${PSMDB_OPERATOR_IMAGE}
+            popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG")
+            sh """
+                if [ -f "$FILE_NAME" ]; then
+                    echo Skip $TEST_NAME test
                 else
-                    export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
-                fi
+                    cd ./source
+                    if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                        export IMAGE=${PSMDB_OPERATOR_IMAGE}
+                    else
+                        export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
+                    fi
 
-                if [ -n "${IMAGE_MONGOD}" ]; then
-                    export IMAGE_MONGOD=${IMAGE_MONGOD}
-                fi
+                    if [ -n "${IMAGE_MONGOD}" ]; then
+                        export IMAGE_MONGOD=${IMAGE_MONGOD}
+                    fi
 
-                if [ -n "${IMAGE_BACKUP}" ]; then
-                    export IMAGE_BACKUP=${IMAGE_BACKUP}
-                fi
+                    if [ -n "${IMAGE_BACKUP}" ]; then
+                        export IMAGE_BACKUP=${IMAGE_BACKUP}
+                    fi
 
-                if [ -n "${IMAGE_PMM}" ]; then
-                    export IMAGE_PMM=${IMAGE_PMM}
-                fi
+                    if [ -n "${IMAGE_PMM}" ]; then
+                        export IMAGE_PMM=${IMAGE_PMM}
+                    fi
 
-                ./e2e-tests/$TEST_NAME/run
-            fi
-        """
-        pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
-        testsReportMap[TEST_NAME] = 'passed'
+                    ./e2e-tests/$TEST_NAME/run
+                fi
+            """
+            pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG")
+            testsReportMap[TEST_NAME] = 'passed'
+            return true
+        }
+        catch (exc) {
+            if (retryCount >= 2) {
+                currentBuild.result = 'FAILURE'
+                return true
+            }
+            retryCount++
+            return false
+        }
     }
-    catch (exc) {
-        currentBuild.result = 'FAILURE'
-    }
-
     sh """
         rm -rf $FILE_NAME
     """
@@ -93,7 +102,8 @@ EOF
 
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 jq kubectl socat || true
+        sudo yum clean all || true
+        sudo yum install -y percona-xtrabackup-80 jq kubectl socat
     '''
 }
 pipeline {
@@ -129,7 +139,7 @@ pipeline {
             trim: true)
     }
     agent {
-         label 'micro-amazon' 
+         label 'micro-amazon'
     }
     options {
         skipDefaultCheckout()
@@ -151,7 +161,7 @@ pipeline {
                 stash includes: "source/**", name: "sourceFILES", useDefaultExcludes: false
             }
         }
-        
+
         stage('Build docker image') {
             agent { label 'docker' }
             steps {
@@ -181,6 +191,7 @@ pipeline {
             agent { label 'docker-32gb' }
                 steps {
                     sh '''
+                        sudo yum install -y conntrack
                         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                             rm -rf $HOME/google-cloud-sdk
                             curl https://sdk.cloud.google.com | bash
@@ -199,8 +210,11 @@ pipeline {
                         sudo mv /root/.kube /root/.minikube $HOME
                         sudo chown -R $USER $HOME/.kube $HOME/.minikube
                         sed -i s:/root:$HOME:g $HOME/.kube/config
+
+                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                        sudo chmod +x /usr/local/bin/yq
                     '''
-                    
+
                     unstash "sourceFILES"
                     withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
                         sh '''
@@ -217,6 +231,7 @@ pipeline {
                     runTest('demand-backup')
                     runTest('liveness')
                     runTest('security-context')
+                    runTest('users')
             }
             post {
                 always {
