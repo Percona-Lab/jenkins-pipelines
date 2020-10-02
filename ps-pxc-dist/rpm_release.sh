@@ -60,7 +60,11 @@ for REPOPATH in $REPOPATH_TMP; do
         #
     done
     #
-    createrepo --update /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS
-    createrepo --update /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}/
+    for rhel in ${RHVERS}; do
+        for arch in $(ls -1 redhat/${rhel}); do
+            createrepo --update /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS
+            createrepo --update /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}/
+        done
+    done
     #
 done
