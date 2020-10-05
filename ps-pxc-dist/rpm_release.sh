@@ -45,6 +45,7 @@ for REPOPATH in $REPOPATH_TMP; do
           for rhel in ${RHVERS}; do 
               mkdir -p /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS
               cp -v ${SRCRPM} /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS
+              createrepo --update /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS
           done
         fi
         #
@@ -55,16 +56,10 @@ for REPOPATH in $REPOPATH_TMP; do
             for arch in $(ls -1 redhat/${rhel}); do
                 mkdir -p /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}
                 cp -av redhat/${rhel}/${arch}/*.rpm /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}/
+                createrepo --update /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}/
             done
         done
         #
-    done
-    #
-    for rhel in ${RHVERS}; do
-        for arch in $(ls -1 redhat/${rhel}); do
-            createrepo --update /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS
-            createrepo --update /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}/
-        done
     done
     #
 done
