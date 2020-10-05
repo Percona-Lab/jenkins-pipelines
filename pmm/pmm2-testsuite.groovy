@@ -239,7 +239,7 @@ pipeline {
             }
         }
         failure {
-            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, Build URL: ${BUILD_URL}"
             archiveArtifacts artifacts: 'logs.zip'
             archiveArtifacts artifacts: 'pmm-agent.log'
         }
