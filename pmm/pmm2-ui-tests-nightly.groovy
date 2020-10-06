@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP) {
+void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -16,6 +16,30 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE,
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
+    def clientInstance = "yes";
+    if ( CLIENT_INSTANCE == clientInstance ) {
+        env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+        env.PMM_UI_URL = "http://${SERVER_IP}"
+    }
+    else
+    {
+        env.PMM_URL = "http://admin:admin@${VM_IP}"
+        env.PMM_UI_URL = "http://${VM_IP}"
+    }
+}
+
+void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP) {
+    stagingJob = build job: 'aws-staging-start', parameters: [
+        string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
+        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
+        string(name: 'CLIENTS', value: CLIENTS),
+        string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
+        string(name: 'SERVER_IP', value: SERVER_IP),
+        string(name: 'NOTIFY', value: 'false'),
+        string(name: 'DAYS', value: '1')
+    ]
+    env.VM_CLIENT_IP = stagingJob.buildVariables.IP
+    env.VM_CLIENT_NAME = stagingJob.buildVariables.VM_NAME
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
         env.PMM_URL = "http://admin:admin@${SERVER_IP}"
@@ -136,9 +160,14 @@ pipeline {
                 sh 'git checkout ' + env.GIT_COMMIT_HASH
             }
         }
-        stage('Start staging') {
+        stage('Start Server') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=mo,2 --with-replica --addclient=pgsql,1 --addclient=pxc,1 --with-proxysql --pmm2 --setup-alertmanager --add-annotation', CLIENT_INSTANCE, SERVER_IP)
+                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '', CLIENT_INSTANCE, SERVER_IP)
+            }
+        }
+        stage('Start Client Instance') {
+            steps {
+                runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=mo,2 --with-replica --addclient=pgsql,1 --addclient=pxc,3 --with-proxysql --pmm2 --setup-alertmanager --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP)
             }
         }
         stage('Sanity check') {
@@ -170,7 +199,7 @@ pipeline {
                 curl --data '{"enable_stt": true, "enable_telemetry": true}' -u admin:admin -X POST ${PMM_UI_URL}/v1/Settings/Change
                 curl -u admin:admin -X POST ${PMM_UI_URL}/v1/management/SecurityChecks/Start
                 """
-                sleep 600
+                sleep 300
                 sh """
                 curl --data '{"disable_stt": true, "enable_telemetry": true}' -u admin:admin -X POST ${PMM_UI_URL}/v1/Settings/Change
                 """
@@ -197,7 +226,7 @@ pipeline {
         }
         stage('Run UI - QAN Tests') {
             options {
-                timeout(time: 10, unit: "MINUTES")
+                timeout(time: 30, unit: "MINUTES")
             }
             when {
                 expression { env.AMI_TEST == "no" }
@@ -208,7 +237,7 @@ pipeline {
                         pushd pmm-app/
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
-                        sudo docker run --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env-file env.generated.list --net=host -v \$PWD:/tests -v \$PWD/node_modules:/node_modules  codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan'
+                        sudo docker run --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env-file env.generated.list --net=host -v \$PWD:/tests -v \$PWD/node_modules:/node_modules  codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly'
                         popd
                     """
                 }
@@ -224,7 +253,16 @@ pipeline {
                 ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/parallel_chunk*/*.json > pmm-app/tests/output/combine_results.json
                 ./pmm-app/node_modules/.bin/marge pmm-app/tests/output/combine_results.json --reportDir pmm-app/tests/output/ --inline --cdn --charts
             '''
-            destroyStaging(VM_NAME)
+            script {
+                if(env.VM_NAME)
+                {
+                    destroyStaging(VM_NAME)
+                }
+                if(env.VM_CLIENT_NAME)
+                {
+                    destroyStaging(VM_CLIENT_NAME)
+                }
+            }
             uploadAllureArtifacts()
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
