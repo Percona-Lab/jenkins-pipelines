@@ -111,6 +111,10 @@ pipeline {
             defaultValue: '',
             description: 'Commit hash for pmm-qa branch',
             name: 'PMM_QA_GIT_COMMIT_HASH')
+        string (
+            defaultValue: '',
+            description: 'Value for Server Public IP, to use this instance just as client',
+            name: 'SERVER_IP')
     }
     options {
         skipDefaultCheckout()
@@ -134,7 +138,16 @@ pipeline {
         }
         stage('Start staging') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2', PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH)
+                script{
+                    if(!env.SERVER_IP) {
+                        runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2', PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH)
+                    }
+                    else
+                    {
+                        env.VM_IP = env.SERVER_IP
+                        env.PMM_URL = "http://admin:admin@${env.SERVER_IP}"
+                    }
+                }
             }
         }
         stage('Sanity check') {
@@ -199,7 +212,11 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip
             '''
             fetchAgentLog(CLIENT_VERSION)
-            destroyStaging(VM_NAME)
+            script {
+                if(env.VM_NAME) {
+                    destroyStaging(VM_NAME)
+                }
+            }
         }
         success {
             junit '*.xml'
@@ -222,7 +239,7 @@ pipeline {
             }
         }
         failure {
-            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, Build URL: ${BUILD_URL}"
             archiveArtifacts artifacts: 'logs.zip'
             archiveArtifacts artifacts: 'pmm-agent.log'
         }
