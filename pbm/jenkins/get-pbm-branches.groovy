@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@pbmjen', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/vorsel/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 pipeline {
@@ -9,7 +9,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'https://github.com/vorsel/percona-backup-mongodb.git',
+            defaultValue: 'https://github.com/percona/percona-backup-mongodb.git',
             description: 'URL for percona-mongodb-backup repository',
             name: 'GIT_REPO')
     }
@@ -75,7 +75,7 @@ pipeline {
                         echo ${START_NEW_BUILD}: build required
                     """
                 }
-                build job: 'pbm-test-RELEASE', parameters: [string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'VERSION', value: VERSION)]
+                build job: 'pbm-autobuild-RELEASE', parameters: [string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'VERSION', value: VERSION), string(name: 'COMPONENT', value: 'testing')]
 
             }
         }

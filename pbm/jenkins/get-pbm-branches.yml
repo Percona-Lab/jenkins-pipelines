@@ -7,9 +7,9 @@
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/vorsel/jenkins-pipelines.git
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'pbmjen'
+            - 'master'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pbm/jenkins/get-pbm-branches.groovy
