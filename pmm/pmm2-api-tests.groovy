@@ -44,6 +44,10 @@ pipeline {
             defaultValue: '',
             description: 'Author of recent Commit to pmm-managed',
             name: 'OWNER')
+        string (
+            defaultValue: '',
+            description: 'Value for Server Public IP, to use this instance just as client',
+            name: 'SERVER_IP')
     }
     options {
         skipDefaultCheckout()
@@ -62,7 +66,7 @@ pipeline {
             }
         }
         stage('Checkout Commit') {
-             when {
+            when {
                 expression { env.GIT_COMMIT_HASH.length()>0 }
             }
             steps {
@@ -71,7 +75,16 @@ pipeline {
         }
         stage('Start staging') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1')
+                script {
+                    if (!env.SERVER_IP) {
+                        runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1')
+                    }
+                    else
+                    {
+                        env.VM_IP = env.SERVER_IP
+                        env.PMM_URL = "http://admin:admin@${env.VM_IP}"
+                    }
+                }
             }
         }
         stage('Setup Step') {
@@ -119,9 +132,13 @@ pipeline {
                 } else {
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, owner: @${OWNER}"
                 }
+                // stop staging
+                if(env.VM_NAME)
+                {
+                    destroyStaging(VM_NAME)
+                }
             }
-            // stop staging
-            destroyStaging(VM_NAME)
+
             deleteDir()
         }
     }
