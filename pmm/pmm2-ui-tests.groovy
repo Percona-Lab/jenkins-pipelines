@@ -166,7 +166,7 @@ pipeline {
                 sh 'git checkout ' + env.GIT_COMMIT_HASH
             }
         }
-        stage('Start PMM Server') {
+        stage('Start PMM Server Instance') {
             when {
                 expression { env.CLIENT_INSTANCE == "no" }
             }
