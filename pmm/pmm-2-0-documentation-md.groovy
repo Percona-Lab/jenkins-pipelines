@@ -34,10 +34,13 @@ pipeline {
                         sg docker -c "
                             docker pull perconalab/pmm-doc-md:latest
                             docker run -i -v `pwd`:/docs -e USER_ID=$UID -e UMASK=0777 perconalab/pmm-doc-md
+                            docker run -i -v `pwd`:/docs -e USER_ID=$UID -e UMASK=0777 perconalab/pmm-doc-md mkdocs build -f mkdocs-pdf.yml
                         "
                     '''
                 }
                 stash name: 'html-files', includes: 'site/**/*.*'
+                stash name: 'pdf', includes: 'site_pdf/_pdf/*.pdf'
+                archiveArtifacts 'site_pdf/_pdf/*.pdf'
             }
         }
         stage('Doc Publish') {
