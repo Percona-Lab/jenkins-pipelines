@@ -38,12 +38,12 @@ def call(String DESTINATION) {
                             fi
                             for dist in `ls -1 debian`; do
                                 for deb in `find debian/\${dist} -name '*.deb'`; do
-                                 env PATH=/usr/local/reprepro5/bin:${PATH} repopush --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/pbm/apt
+                                 env PATH=/usr/local/reprepro5/bin:${PATH} repopush --remove-package --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/pbm/apt
                                 done
 
                                 # source deb
                                 #for dsc in `find ../source -name '*.dsc'`; do
-                                # env PATH=/usr/local/reprepro5/bin:${PATH} repopush --gpg-pass ${SIGN_PASSWORD} --package \${dsc} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/pbm/apt
+                                # env PATH=/usr/local/reprepro5/bin:${PATH} repopush --remove-package --gpg-pass ${SIGN_PASSWORD} --package \${dsc} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/pbm/apt
                                 #done
                             done
                         popd
