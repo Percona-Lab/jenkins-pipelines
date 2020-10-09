@@ -212,7 +212,7 @@
                 -O ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}/Percona-XtraDB-Cluster-$(uname -m).tar.gz \
                 https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.22-29.26/binary/tarball/Percona-XtraDB-Cluster-5.7.22-rel22-29.26.1.Linux.$(uname -m).ssl${SSL_VER}.tar.gz
         else
-            ./bootstrap.sh ${xtrabackuptarget}
+            ./bootstrap.sh --type=${xtrabackuptarget}
         fi
     - shell: |-
         #!/bin/bash -x
