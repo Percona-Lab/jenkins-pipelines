@@ -412,6 +412,7 @@ pipeline {
                                 sudo percona-release disable all
                                 sudo percona-release enable original testing
                                 sudo yum clean all
+                                sudo yum makecache
                                 sudo yum -y install pmm2-client
                                 sudo yum -y update
                             elif [[ \$CLIENT_VERSION = pmm2-latest ]]; then
