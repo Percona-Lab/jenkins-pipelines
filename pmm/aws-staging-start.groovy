@@ -44,6 +44,10 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
+            choices: ['12','11'],
+            description: 'Percona Distribution for PostgreSQL',
+            name: 'PDPGSQL_VERSION')
+        choice(
             choices: ['10.5', '10.4', '10.3', '10.2'],
             description: "MariaDB Server version",
             name: 'MD_VERSION')
@@ -77,6 +81,7 @@ pipeline {
             mo - Percona Server for MongoDB(ex. --addclient=mo,1),
             modb - Official MongoDB version from MongoDB Inc (ex. --addclient=modb,1),
             pgsql - Postgre SQL Server (ex. --addclient=pgsql,1)
+            pdpgsql - Percona Distribution for PostgreSQL (ex. --addclient=pdpgsql,1)
             An example: --addclient=ps,1 --addclient=mo,1 --addclient=md,1 --addclient=pgsql,2 --addclient=modb,2
             ''',
             name: 'CLIENTS')
@@ -132,6 +137,7 @@ pipeline {
                         MO_VERSION:     ${MO_VERSION}
                         MODB_VERSION:   ${MODB_VERSION}
                         PGSQL_VERSION:  ${PGSQL_VERSION}
+                        PDPGSQL_VERSION: ${PDPGSQL_VERSION}
                         QUERY_SOURCE:   ${QUERY_SOURCE}
                         CLIENTS:        ${CLIENTS}
                         OWNER:          ${OWNER}
@@ -523,6 +529,7 @@ pipeline {
                                     --md-version  ${MD_VERSION} \
                                     --pgsql-version ${PGSQL_VERSION} \
                                     --pxc-version ${PXC_VERSION} \
+                                    --pdpgsql-version ${PDPGSQL_VERSION} \
                                     --download \
                                     ${CLIENTS} \
                                     --pmm2 \
