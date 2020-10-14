@@ -216,7 +216,7 @@ pipeline {
                                 ],
                                 "SubnetId": "subnet-id"
                             },
-                            "SpotPrice": "0.035",
+                            "SpotPrice": "0.040",
                             "Type": "persistent"
                         }' \
                             | sed -e "s/subnet-id/\${SUBNET}/" \
