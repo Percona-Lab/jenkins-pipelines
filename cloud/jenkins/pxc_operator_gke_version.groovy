@@ -72,12 +72,13 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
-testsResultsMap = [:]
-
-void setTestsresults() {
-    testsResultsMap.each { file ->
-        pushArtifactFile("${file.key}")
+TestsReport = '<testsuite  name=\\"PXC\\">\n'
+testsReportMap = [:]
+void makeReport() {
+    for ( test in testsReportMap ) {
+        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
     }
+    TestsReport = TestsReport + '</testsuite>\n'
 }
 
 void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
@@ -86,7 +87,10 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
         try {
             echo "The $TEST_NAME test was started!"
             PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
+            testsReportMap[TEST_NAME] = 'failure'
+
             popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+
             sh """
                 if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                     echo Skip $TEST_NAME test
@@ -124,7 +128,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                 fi
             """
             pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
-            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"] = 'passed'
+            testsReportMap[TEST_NAME] = 'passed'
             return true
         }
         catch (exc) {
@@ -333,7 +337,13 @@ pipeline {
     }
     post {
         always {
-            setTestsresults()
+            makeReport()
+            sh """
+                echo "${TestsReport}" > TestsReport.xml
+            """
+            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            archiveArtifacts '*.xml'
+
             withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                 sh '''
                     export CLUSTER_NAME=$(echo jenkins-pxc-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
