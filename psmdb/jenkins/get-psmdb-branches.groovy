@@ -77,7 +77,7 @@ pipeline {
                         echo ${START_NEW_BUILD}: build required
                     """
                 }
-                build job: 'psmdb36-autobuild-RELEASE', parameters: [string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'PSMDB_VERSION', value: VERSION), string(name: 'PSMDB_RELEASE', value: RELEASE), string(name: 'COMPONENT', value: 'laboratory')]
+                build job: 'psmdb36-autobuild-RELEASE', parameters: [string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'PSMDB_VERSION', value: VERSION), string(name: 'PSMDB_RELEASE', value: RELEASE), string(name: 'COMPONENT', value: 'testing')]
 
             }
         }
