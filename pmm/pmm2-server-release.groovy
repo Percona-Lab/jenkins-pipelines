@@ -43,7 +43,7 @@ pipeline {
             }
             steps {
                 installDocker()
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
                 sh "sg docker -c 'docker run ${DOCKER_VERSION} /usr/bin/rpm -qa' > rpms.list"
                 stash includes: 'rpms.list', name: 'rpms'
             }
@@ -375,11 +375,11 @@ pipeline {
             unstash 'copy'
             script {
                 def IMAGE = sh(returnStdout: true, script: "cat copy.list").trim()
-                slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
             }
         }
         failure {
-            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
+            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
         }
     }
 }

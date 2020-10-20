@@ -46,7 +46,7 @@ pipeline {
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
 
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
 
                 // run any preparation steps on pmm-qa repo
                 sh 'ls -la'
@@ -113,13 +113,13 @@ pipeline {
 
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
 
                     // proccess test result
                     archiveArtifacts '*.tap'
                     step([$class: "TapPublisher", testResults: '*.tap'])
                 } else {
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
                 }
             }
             deleteDir()

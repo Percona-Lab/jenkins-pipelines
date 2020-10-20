@@ -58,7 +58,7 @@ pipeline {
                 deleteDir()
                 runStaging(OVA_VERSION, CLIENT_VERSION, '--addclient=mo,2 --with-replica  --addclient=pgsql,1')
 
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
         stage('Prepare'){
@@ -111,9 +111,9 @@ pipeline {
             destroyStaging(VM_IP)
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
                 } else {
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
                 }
             }
             deleteDir()

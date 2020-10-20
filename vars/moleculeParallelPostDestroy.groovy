@@ -3,6 +3,7 @@ def call(operatingSystems, moleculeDir) {
     operatingSystems.each { os ->
      posts["${os}"] = {
         sh """
+            . virtenv/bin/activate
             cd ${moleculeDir}
             molecule destroy -s ${os}
         """

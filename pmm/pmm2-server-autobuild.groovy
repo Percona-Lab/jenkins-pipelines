@@ -55,7 +55,7 @@ pipeline {
                 archiveArtifacts 'uploadPath'
                 stash includes: 'uploadPath', name: 'uploadPath'
                 archiveArtifacts 'shortCommit'
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
         stage('Build client source') {
@@ -187,10 +187,10 @@ pipeline {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     unstash 'IMAGE'
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
-                    slackSend channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
+                    slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
                 } else {
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
                 }
             }
             sh 'sudo make clean'

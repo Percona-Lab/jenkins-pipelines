@@ -70,11 +70,11 @@ pipeline {
         always {
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build successful"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build successful"
                 } else if (currentBuild.result == 'UNSTABLE') {
                     echo 'everything up to date'
                 } else {
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
                 }
             }
         }

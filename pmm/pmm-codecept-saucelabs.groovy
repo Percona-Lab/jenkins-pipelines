@@ -47,7 +47,7 @@ pipeline {
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/pmm-qa.git'
 
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
 
                 sh '''
                     curl --silent --location https://rpm.nodesource.com/setup_8.x | sudo bash -
@@ -99,9 +99,9 @@ pipeline {
                     saucePublisher()
                     junit 'tests/output/parallel_chunk*/chrome_report.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'parallel_chunk1__browser_chrome__1/result.html, parallel_chunk2__browser_chrome__2/result.html', reportName: 'HTML Report', reportTitles: ''])
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
                 } else {
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
                 }
             }
             sh '''

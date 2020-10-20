@@ -62,6 +62,26 @@
         description: Additional arguments to pass to run.sh for running the test suite
         name: more_test_arguments
         trim: false
+    - string:
+        default: '5.7.31'
+        description: Version of MySQL InnoDB57 which will be used for bootstrap.sh script
+        name: innodb57_version
+        trim: false
+    - string:
+        default: '5.6.49'
+        description: Version of MySQL InnoDB56 which will be used for bootstrap.sh script
+        name: innodb56_version
+        trim: false
+    - string:
+        default: '5.7.31-34'
+        description: Version of Percona XtraDB57 which will be used for bootstrap.sh script
+        name: xtradb57_version
+        trim: false
+    - string:
+        default: '5.6.49-89.0'
+        description: Version of Percona XtraDB56 which will be used for bootstrap.sh script
+        name: xtradb56_version
+        trim: false
     project-type: matrix
     properties:
     - build-discarder:

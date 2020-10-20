@@ -32,7 +32,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 installDocker()
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-server.git'
                 sh """
                     export IMAGE="${TAG}:\$(date -u '+%Y%m%d%H%M')"
@@ -84,12 +84,12 @@ pipeline {
             script {
                 unstash 'IMAGE'
                 def IMAGE = sh(returnStdout: true, script: "cat IMAGE").trim()
-                slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
-                slackSend channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
+                slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
             }
         }
         failure {
-            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
+            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
         }
     }
 }
