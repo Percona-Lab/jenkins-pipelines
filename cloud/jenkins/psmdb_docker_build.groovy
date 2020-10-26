@@ -95,7 +95,7 @@ pipeline {
             description: 'percona/percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-docker repository',
             name: 'GIT_PD_BRANCH')
         string(
