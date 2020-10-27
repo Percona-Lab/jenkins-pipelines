@@ -35,5 +35,5 @@
         description: percona/percona-docker repository
     - string:
         name: GIT_PD_BRANCH
-        default: master
+        default: main
         description: Tag/Branch for percona/percona-docker repository
