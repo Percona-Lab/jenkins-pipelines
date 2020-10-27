@@ -1,0 +1,77 @@
+- job:
+    name: pxb24-single-platform-run
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: true
+    parameters:
+    - string:
+        name: PXB24_REPO
+        default: https://github.com/percona/percona-xtrabackup
+        description: URL to PXB24 repository
+    - string:
+        name: PXB24_BRANCH
+        default: percona-xtrabackup-2.4.20
+        description: Tag/Branch for PXC repository
+    - choice:
+        name: JOB_CMAKE
+        choices:
+        - /usr/bin/cmake
+        description: path to cmake binary
+    - string:
+        name: CMAKE_OPTS
+        default:
+        description: cmake options
+    - string:
+        name: MAKE_OPTS
+        default:
+        description: make options, like VERBOSE=1
+    - string:
+        name: XBTR_ARGS
+        default: "-j 2"
+        description: "./run.sh options, for options like: -j N Run tests in N parallel processes, -T seconds, -x options  Extra options to pass to xtrabackup"
+    - choice:
+        name: DOCKER_OS
+        choices:
+        - "centos:8"
+        - "centos:7"
+        - "centos:6"
+        - "ubuntu:xenial"
+        - "ubuntu:bionic"
+        - "ubuntu:focal"
+        - "debian:stretch"
+        - "debian:buster"
+        description: Choose OS platform to run the test.
+    - choice:
+        name: XTRABACKUP_TARGET
+        choices:
+        - "innodb55"
+        - "innodb56"
+        - "innodb57"
+        - "xtradb55"
+        - "xtradb56"
+        - "xtradb57"
+        - "galera56"
+        - "galera57"
+        description: Choose MySQL version to run the test.
+    - string:
+          default: '5.7.31-34'
+          description: Version of MS/PS/PXC Server which will be used for bootstrap.sh script
+          name: XTRABACKUP_TARGET_VERSION
+          trim: false
+    axes:
+      - axis:
+         type: user-defined
+         name: CMAKE_BUILD_TYPE
+         values:
+          - RelWithDebInfo
+          - Debug
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'master'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pxb/docker/pxb24-single-platform-run.groovy
