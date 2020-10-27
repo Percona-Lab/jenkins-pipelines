@@ -116,15 +116,14 @@ pipeline {
                 deleteDir()
                 wrap([$class: 'BuildUser']) {
                     sh """
-                        echo "\${BUILD_USER_FIRST_NAME}" | tr [:upper:] [:lower:] > OWNER
                         echo "\${BUILD_USER_EMAIL}" > OWNER_EMAIL
-                        echo "\${BUILD_USER_FIRST_NAME}.\${BUILD_USER_LAST_NAME}" | tr [:upper:] [:lower:] > OWNER_FULL
-                        echo "pmm-\$(cat OWNER | cut -d . -f 1)-\$(date -u '+%Y%m%d%H%M%S')-${BUILD_NUMBER}" \
+                        echo "\${BUILD_USER_EMAIL}" | awk -F '@' '{print \$1}' > OWNER_FULL
+                        echo "pmm-\$(cat OWNER_FULL | cut -d . -f 1)-\$(date -u '+%Y%m%d%H%M%S')-${BUILD_NUMBER}" \
                             > VM_NAME
                     """
                 }
                 script {
-                    def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
+                    def OWNER = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
 
@@ -157,7 +156,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         export VM_NAME=\$(cat VM_NAME)
-                        export OWNER=\$(cat OWNER)
+                        export OWNER=\$(cat OWNER_FULL)
                         export SUBNET=\$(
                             aws ec2 describe-subnets \
                                 --region us-east-2 \
