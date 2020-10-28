@@ -221,7 +221,7 @@ setup_nginx_allow_list() {
                 if [ -n "\$PATH_TO_ALLOW_LIST/nginx-white-list.conf" ]; then
                     isChanged=\$(rsync -aHv \$PATH_TO_ALLOW_LIST/nginx-white-list.conf /mnt/$JENKINS_HOST/ssl/ | grep nginx-white-list.conf)
                     if [ -n "\$isChanged" ]; then
-                        openresty -s reload
+                        nginx -s reload
                     fi
                 fi
             fi
