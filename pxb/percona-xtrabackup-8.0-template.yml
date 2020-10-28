@@ -198,6 +198,12 @@
             cd ${WORKSPACE}/storage/innobase/xtrabackup/test
         fi
 
+        if [[ ! -z ${bootstrap_url} ]]; then
+            rm -f bootstrap.sh
+            wget -O bootstrap.sh ${bootstrap_url}
+            chmod +x bootstrap.sh
+        fi
+
         SSL_VER=$(ls -la {/,/usr/}{lib64,lib,lib/x86_64-linux-gnu}/libssl.so.1.* | sed 's/.*[.]so//; s/[^0-9]//g' | head -1)
         if [[ ${xtrabackuptarget} == "galera56" ]]
         then

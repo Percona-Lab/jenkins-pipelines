@@ -62,6 +62,11 @@
         description: Additional arguments to pass to run.sh for running the test suite
         name: more_test_arguments
         trim: false
+    - string: 
+        default: ''
+        description: 'Pass an URL for downloading bootstrap.sh, If empty will use from repository you specified in GIT_REPO'
+        name: bootstrap_url
+        trim: false
     - string:
         default: '5.7.31'
         description: Version of MySQL InnoDB57 which will be used for bootstrap.sh script
