@@ -166,8 +166,8 @@ setup_nginx() {
 		  ssl_certificate_key /etc/nginx/ssl/certificate.key;
 		  ssl_trusted_certificate /etc/nginx/ssl/ca-certs.pem;
 		  ssl_dhparam     /etc/nginx/ssl/dhparam.pem;
-          include         /etc/nginx/conf.d/*-list.conf;
-          satisfy         any;
+                 include         /etc/nginx/conf.d/*-list.conf;
+                 satisfy         any;
 
 		  location / {
 		    proxy_set_header        Host \$host:\$server_port;
