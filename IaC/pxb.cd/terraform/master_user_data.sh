@@ -166,8 +166,8 @@ setup_nginx() {
 		  ssl_certificate_key /etc/nginx/ssl/certificate.key;
 		  ssl_trusted_certificate /etc/nginx/ssl/ca-certs.pem;
 		  ssl_dhparam     /etc/nginx/ssl/dhparam.pem;
-                  include         /mnt/$JENKINS_HOST/ssl/*-list.conf;
-                  satisfy         any;
+          include         /etc/nginx/conf.d/*-list.conf;
+          satisfy         any;
 
 		  location / {
 		    proxy_set_header        Host \$host:\$server_port;
@@ -219,7 +219,7 @@ setup_nginx_allow_list() {
 
                 PATH_TO_ALLOW_LIST="\$PATH_TO_BUILDS/\$lastSuccessfulBuildID/archive"
                 if [ -n "\$PATH_TO_ALLOW_LIST/nginx-white-list.conf" ]; then
-                    isChanged=\$(rsync -aHv \$PATH_TO_ALLOW_LIST/nginx-white-list.conf /mnt/$JENKINS_HOST/ssl/ | grep nginx-white-list.conf)
+                    isChanged=\$(rsync -aHv \$PATH_TO_ALLOW_LIST/nginx-white-list.conf /etc/nginx/conf.d | grep nginx-white-list.conf)
                     if [ -n "\$isChanged" ]; then
                         nginx -s reload
                     fi
