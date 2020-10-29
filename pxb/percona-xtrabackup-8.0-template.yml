@@ -35,10 +35,6 @@
         #!/bin/bash -x
 
         if [ -f /usr/bin/yum ]; then
-        #
-            sudo -E yum -y erase percona-release || true
-            sudo find /etc/yum.repos.d/ -iname 'percona*' -delete
-        #
             until sudo -E yum -y install epel-release centos-release-scl; do
                 sudo yum clean all
                 sleep 1
@@ -49,6 +45,9 @@
                 sleep 1
                 echo "waiting"
             done
+            sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+            sudo percona-release disable all
+            sudo percona-release enable tools release
         #
             PKGLIST+=" devtoolset-7-gcc-c++ devtoolset-7-binutils"
             PKGLIST+=" devtoolset-7-libasan-devel devtoolset-7-libubsan-devel"
@@ -61,7 +60,7 @@
             PKGLIST="wget libcurl-devel cmake cmake3 make gcc gcc-c++ libev-devel openssl-devel"
             PKGLIST="${PKGLIST} libaio-devel perl-DBD-MySQL vim-common ncurses-devel readline-devel"
             PKGLIST="${PKGLIST} zlib-devel python-sphinx python-docutils libgcrypt-devel bison perl-Digest-MD5"
-            PKGLIST="${PKGLIST} socat numactl-libs numactl"
+            PKGLIST="${PKGLIST} socat numactl-libs numactl qpress"
             until sudo -E yum -y install ${PKGLIST}; do
                 echo "waiting"
                 sleep 1
@@ -70,17 +69,26 @@
         #
         if [ -f /usr/bin/apt-get ]; then
 
-            sudo rm -f /etc/apt/sources.list.d/percona-dev.list
+            sudo rm -f /etc/apt/sources.list.d/percona-dev.list        
             #
             until sudo -E apt-get update; do
                 sleep 1
                 echo "waiting"
             done
             #
-            until sudo -E apt-get -y install lsb-release; do
+            until sudo -E apt-get -y install lsb-release gnupg2 curl wget; do
                 sleep 1
                 echo "waiting"
             done
+            #
+            wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb
+            sudo dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb && rm percona-release_latest.$(lsb_release -sc)_all.deb
+            sudo percona-release disable all
+            sudo percona-release enable tools release
+            until sudo -E apt-get update; do
+                sleep 1
+                echo "waiting"
+            done   
             #
             sudo -E apt-get -y purge eatmydata || true
             #
@@ -100,7 +108,7 @@
             PKGLIST="bison pkg-config cmake devscripts debconf debhelper automake bison ca-certificates libcurl4-openssl-dev"
             PKGLIST="${PKGLIST} cmake debhelper libaio-dev libncurses-dev libssl-dev libtool libz-dev"
             PKGLIST="${PKGLIST} libgcrypt-dev libev-dev lsb-release python-docutils"
-            PKGLIST="${PKGLIST} build-essential rsync libdbd-mysql-perl libnuma1 socat librtmp-dev libtinfo5"
+            PKGLIST="${PKGLIST} build-essential rsync libdbd-mysql-perl libnuma1 socat librtmp-dev libtinfo5 qpress"
             if [[ "$DIST" == 'focal' ]]; then
                 PKGLIST="${PKGLIST} python3-sphinx"
             else
