@@ -76,7 +76,7 @@
                 echo "waiting"
             done
             #
-            until sudo -E apt-get -y install lsb-release gnupg2 curl wget; do
+            until sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install lsb-release gnupg2 curl wget; do
                 sleep 1
                 echo "waiting"
             done
