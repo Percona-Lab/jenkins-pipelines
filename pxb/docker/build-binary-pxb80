@@ -75,6 +75,17 @@ if [[ "$COMPILER" != "default" ]]; then
     export CXX=$(echo ${COMPILER} | sed -e 's/gcc/g++/; s/clang/clang++/')
 fi
 
+OS_VERSION=$(lsb_release -d -s)
+if [[ "${OS_VERSION}" = *"CentOS release 6."* ]] || [[ "${OS_VERSION}" = *"CentOS Linux release 7."* ]]; then
+    JOB_CMAKE='cmake3'
+fi
+
+# CentOS 6 and 7
+if [[ -f /opt/rh/devtoolset-7/enable ]]; then
+    source /opt/rh/devtoolset-7/enable
+fi
+
+
 # ------------------------------------------------------------------------------
 # set version
 # ------------------------------------------------------------------------------
