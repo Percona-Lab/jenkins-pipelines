@@ -21,6 +21,7 @@ docker run --rm \
     export XBTR_ARGS='${XBTR_ARGS}'
     export XTRABACKUP_TARGET='${XTRABACKUP_TARGET}'
     export XTRABACKUP_TARGET_VERSION='${XTRABACKUP_TARGET_VERSION}'
+    export BOOTSTRAP_URL='${BOOTSTRAP_URL}'
 
     mkdir /tmp/results
     cp /tmp/pxb24/results/*.tar.gz /tmp/results

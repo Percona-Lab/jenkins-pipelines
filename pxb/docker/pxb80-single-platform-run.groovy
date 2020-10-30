@@ -25,6 +25,11 @@ pipeline {
             description: 'Version of MS/PS/PXC Server which will be used for bootstrap.sh script',
             name: 'XTRABACKUP_TARGET_VERSION',
             trim: true)
+        string(
+            defaultValue: '',
+            description: 'Pass an URL for downloading bootstrap.sh, If empty will use from repository you specified in PXB80_REPO',
+            name: 'BOOTSTRAP_URL',
+            trim: true)
         choice(
             choices: '/usr/bin/cmake',
             description: 'path to cmake binary',

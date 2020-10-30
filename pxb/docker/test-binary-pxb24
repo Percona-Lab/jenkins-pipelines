@@ -8,6 +8,7 @@
 #      XBTR_ARGS
 #      XTRABACKUP_TARGET
 #      XTRABACKUP_TARGET_VERSION
+#      BOOTSTRAP_URL
 
 set -o errexit
 set -o xtrace
@@ -62,9 +63,11 @@ elif [[ ${XTRABACKUP_TARGET} == "galera56" ]]; then
     tar xfz server-tarball/${XTRABACKUP_TARGET}/Percona-XtraDB-Cluster-$(uname -m).tar.gz -C server
     mv server/*/* server/
 else
-    sudo rm -rf bootstrap.sh
-    sudo wget https://raw.githubusercontent.com/percona/percona-xtrabackup/2.4/storage/innobase/xtrabackup/test/bootstrap.sh
-    sudo chmod 755 bootstrap.sh
+    if [[ -n ${BOOTSTRAP_URL} ]]; then
+      sudo rm -f bootstrap.sh
+      sudo wget -O bootstrap.sh ${BOOTSTRAP_URL}
+      sudo chmod +x bootstrap.sh
+    fi
     ./bootstrap.sh --type=${XTRABACKUP_TARGET} --version=${XTRABACKUP_TARGET_VERSION}
 fi
 

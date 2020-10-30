@@ -59,6 +59,11 @@
           description: Version of MS/PS/PXC Server which will be used for bootstrap.sh script
           name: XTRABACKUP_TARGET_VERSION
           trim: false
+    - string:
+        default: ''
+        description: 'Pass an URL for downloading bootstrap.sh, If empty will use from repository you specified in PXB24_REPO'
+        name: BOOTSTRAP_URL
+        trim: false
     axes:
       - axis:
          type: user-defined
