@@ -99,7 +99,7 @@ initMap['docker'] = '''
     sudo mkdir -p /etc/docker
     echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json
     sudo systemctl status docker || sudo systemctl start docker
-    echo sudo service docker status || sudo service docker start
+    sudo service docker status || sudo service docker start
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 initMap['docker-32gb'] = initMap['docker']
@@ -380,6 +380,7 @@ String region = 'us-west-2'
         sshKeysCredentialsId,                   // String sshKeysCredentialsId
         '240',                                   // String instanceCapStr
         [
+            getTemplate('docker', "${region}${it}"),
             getTemplate('micro-amazon', "${region}${it}"),
             getTemplate('min-centos-6-x32', "${region}${it}"),
             getTemplate('min-centos-6-x64', "${region}${it}"),
