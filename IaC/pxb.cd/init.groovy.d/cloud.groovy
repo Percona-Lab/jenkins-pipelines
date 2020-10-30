@@ -22,6 +22,7 @@ netMap['us-west-2b'] = 'subnet-011f09cf273aeef73'
 netMap['us-west-2c'] = 'subnet-00b0d1d8bd8af5c07'
 
 imageMap = [:]
+imageMap['docker'] = 'ami-020f88cb17f8dbdea'
 imageMap['micro-amazon'] = 'ami-0ad99772'
 imageMap['min-artful-x64'] = 'ami-96dd93ee'
 imageMap['min-centos-6-x32'] = 'ami-cb1382fb'
@@ -99,7 +100,7 @@ initMap['docker'] = '''
     sudo mkdir -p /etc/docker
     echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json
     sudo systemctl status docker || sudo systemctl start docker
-    echo sudo service docker status || sudo service docker start
+    sudo service docker status || sudo service docker start
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 initMap['docker-32gb'] = initMap['docker']
@@ -380,6 +381,7 @@ String region = 'us-west-2'
         sshKeysCredentialsId,                   // String sshKeysCredentialsId
         '240',                                   // String instanceCapStr
         [
+            getTemplate('docker', "${region}${it}"),
             getTemplate('micro-amazon', "${region}${it}"),
             getTemplate('min-centos-6-x32', "${region}${it}"),
             getTemplate('min-centos-6-x64', "${region}${it}"),
