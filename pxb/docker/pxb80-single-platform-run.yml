@@ -70,7 +70,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+            - 'PXB-2261-Add-PXB-QA-job'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pxb/docker/pxb80-single-platform-run.groovy

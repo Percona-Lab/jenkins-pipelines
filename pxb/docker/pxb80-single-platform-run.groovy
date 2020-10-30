@@ -66,7 +66,7 @@ pipeline {
                 stage('Build PXB80') {
                     agent { label 'docker' }
                     steps {
-                        git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        git branch: 'PXB-2261-Add-PXB-QA-job', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                         echo 'Checkout PXB80 sources'
                         sh '''
                             # sudo is needed for better node recovery after compilation failure
@@ -87,7 +87,7 @@ pipeline {
                                 " 2>&1 | tee build.log
 
                                 if [[ -f \$(ls pxb/sources/pxb80/results/*.tar.gz | head -1) ]]; then
-                                    until aws s3 cp --no-progress --acl public-read pxb/sources/pxb80/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxb80.tar.gz; do
+                                    until aws s3 cp --no-progress --acl public-read pxb/sources/pxb80/results/*.tar.gz s3://pxb-build-cache/${BUILD_TAG}/pxb80.tar.gz; do
                                         sleep 5
                                     done
                                 else
@@ -103,11 +103,11 @@ pipeline {
         stage('Test PXB80') {
                 agent { label 'docker' }
                 steps {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'PXB-2261-Add-PXB-QA-job', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Test PXB80'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
-                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxb80.tar.gz ./pxb/sources/pxb80/results/pxb80.tar.gz; do
+                            until aws s3 cp --no-progress s3://pxb-build-cache/${BUILD_TAG}/pxb80.tar.gz ./pxb/sources/pxb80/results/pxb80.tar.gz; do
                                 sleep 5
                             done
                             sg docker -c "

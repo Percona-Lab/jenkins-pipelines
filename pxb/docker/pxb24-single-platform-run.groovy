@@ -87,7 +87,7 @@ pipeline {
                                 " 2>&1 | tee build.log
 
                                 if [[ -f \$(ls pxb/sources/pxb24/results/*.tar.gz | head -1) ]]; then
-                                    until aws s3 cp --no-progress --acl public-read pxb/sources/pxb24/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxb24.tar.gz; do
+                                    until aws s3 cp --no-progress --acl public-read pxb/sources/pxb24/results/*.tar.gz s3://pxb-build-cache/${BUILD_TAG}/pxb24.tar.gz; do
                                         sleep 5
                                     done
                                 else
@@ -107,7 +107,7 @@ pipeline {
                     echo 'Test PXB24'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
-                            until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxb24.tar.gz ./pxb/sources/pxb24/results/pxb24.tar.gz; do
+                            until aws s3 cp --no-progress s3://pxb-build-cache/${BUILD_TAG}/pxb24.tar.gz ./pxb/sources/pxb24/results/pxb24.tar.gz; do
                                 sleep 5
                             done
                             sg docker -c "
