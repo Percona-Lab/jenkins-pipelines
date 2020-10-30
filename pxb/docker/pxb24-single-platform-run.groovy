@@ -101,7 +101,7 @@ pipeline {
             }
         }
         stage('Test PXB24') {
-                agent { label 'docker-32gb' }
+                agent { label 'docker' }
                 steps {
                     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Test PXB24'
