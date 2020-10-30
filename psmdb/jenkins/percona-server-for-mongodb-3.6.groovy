@@ -241,8 +241,8 @@ pipeline {
             }
         }
         stage('Build PSMDB binaries') {
-//            parallel {
-//                stage('Centos 6 tarball') {
+            parallel {
+                stage('Centos 6 tarball') {
                     agent {
                         label 'docker'
                     }
@@ -254,8 +254,21 @@ pipeline {
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
-//                }
-//            }
+                }
+                stage('Centos 7 tarball') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("centos:7", "--build_tarball=1")
+
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+            }
         }
 
         stage('Sign packages') {
