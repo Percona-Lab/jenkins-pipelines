@@ -16,6 +16,9 @@ void build(String IMAGE_PREFIX){
         elif [ ${IMAGE_PREFIX} = haproxy ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f haproxy/Dockerfile haproxy
         fi
+        elif [ ${IMAGE_PREFIX} = logcollector ]; then
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f haproxy/Dockerfile fluentbit
+        fi
     """
 }
 void checkImageForDocker(String IMAGE_PREFIX){
@@ -84,7 +87,7 @@ void pushImageToRhel(String IMAGE_PREFIX){
 pipeline {
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-docker repository',
             name: 'GIT_PD_BRANCH')
         string(
@@ -149,6 +152,9 @@ pipeline {
                 retry(3) {
                     build('haproxy')
                 }
+                retry(3) {
+                    build('logcollector')
+                }
             }
         }
         stage('Push Images to Docker registry') {
@@ -161,6 +167,7 @@ pipeline {
                 pushImageToDocker('pxc5.7-backup')
                 pushImageToDocker('pxc8.0-backup')
                 pushImageToDocker('haproxy')
+                pushImageToDocker('logcollector')
             }
         }
         stage('Push Images to RHEL registry') {
@@ -173,6 +180,7 @@ pipeline {
                 pushImageToRhel('pxc5.7-backup')
                 pushImageToRhel('pxc8.0-backup')
                 pushImageToRhel('haproxy')
+                pushImageToRhel('logcollector')
             }
         }
         stage('Check Docker images') {
@@ -185,6 +193,7 @@ pipeline {
                 checkImageForDocker('pxc5.7-backup')
                 checkImageForDocker('pxc8.0-backup')
                 checkImageForDocker('haproxy')
+                checkImageForDocker('logcollector')
                 sh '''
                    CRITICAL=$(ls trivy-critical-*) || true
                    if [ -n "$CRITICAL" ]; then

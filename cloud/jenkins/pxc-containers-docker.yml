@@ -21,18 +21,10 @@
       script-path: cloud/jenkins/pxc_containers_docker_build.groovy
     parameters:
     - string:
-        name: GIT_REPO
-        default: https://github.com/Percona-Lab/percona-openshift
-        description: Percona-Lab/percona-openshift repository
-    - string:
-        name: GIT_BRANCH
-        default: master
-        description: Tag/Branch for Percona-Lab/percona-openshift repository
-    - string:
         name: GIT_PD_REPO
         default: https://github.com/percona/percona-docker
         description: percona/percona-docker repository
     - string:
         name: GIT_PD_BRANCH
-        default: master
+        default: main
         description: Tag/Branch for percona/percona-docker repository
