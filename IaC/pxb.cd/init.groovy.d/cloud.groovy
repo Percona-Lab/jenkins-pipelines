@@ -22,6 +22,7 @@ netMap['us-west-2b'] = 'subnet-011f09cf273aeef73'
 netMap['us-west-2c'] = 'subnet-00b0d1d8bd8af5c07'
 
 imageMap = [:]
+imageMap['docker'] = 'ami-020f88cb17f8dbdea'
 imageMap['micro-amazon'] = 'ami-0ad99772'
 imageMap['min-artful-x64'] = 'ami-96dd93ee'
 imageMap['min-centos-6-x32'] = 'ami-cb1382fb'
