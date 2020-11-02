@@ -166,6 +166,8 @@ setup_nginx() {
 		  ssl_certificate_key /etc/nginx/ssl/certificate.key;
 		  ssl_trusted_certificate /etc/nginx/ssl/ca-certs.pem;
 		  ssl_dhparam     /etc/nginx/ssl/dhparam.pem;
+                 include         /etc/nginx/conf.d/*-list.conf;
+                 satisfy         any;
 
 		  location / {
 		    proxy_set_header        Host \$host:\$server_port;
@@ -206,6 +208,29 @@ setup_dhparam() {
     service nginx restart
 }
 
+setup_nginx_allow_list() {
+    if [ ! -f /home/ec2-user/copy-nginx-allow-list.sh ]; then
+        cat <<-EOF | tee /home/ec2-user/copy-nginx-allow-list.sh
+            #!/bin/bash
+
+            PATH_TO_BUILDS="/mnt/$JENKINS_HOST/jobs/manage-nginx-allow-list/builds"
+            if [ -d "\$PATH_TO_BUILDS" ]; then
+                lastSuccessfulBuildID=\$(grep 'lastSuccessfulBuild' \$PATH_TO_BUILDS/permalinks | awk '{print \$2}')
+
+                PATH_TO_ALLOW_LIST="\$PATH_TO_BUILDS/\$lastSuccessfulBuildID/archive"
+                if [ -n "\$PATH_TO_ALLOW_LIST/nginx-white-list.conf" ]; then
+                    isChanged=\$(rsync -aHv \$PATH_TO_ALLOW_LIST/nginx-white-list.conf /etc/nginx/conf.d | grep nginx-white-list.conf)
+                    if [ -n "\$isChanged" ]; then
+                        nginx -s reload
+                    fi
+                fi
+            fi
+EOF
+        chmod 755 /home/ec2-user/copy-nginx-allow-list.sh
+        echo '* * * * * root sleep 30; /home/ec2-user/copy-nginx-allow-list.sh' > /etc/cron.d/sync-nginx-allow-list
+    fi
+}
+
 main() {
     setup_aws
     install_software
@@ -215,6 +240,7 @@ main() {
     start_jenkins
     setup_dhparam
     setup_letsencrypt
+    setup_nginx_allow_list
 }
 
 main
