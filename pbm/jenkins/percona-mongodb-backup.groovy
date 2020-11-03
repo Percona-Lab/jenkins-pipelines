@@ -52,6 +52,10 @@ pipeline {
             defaultValue: '1.3.2',
             description: 'VERSION value',
             name: 'VERSION')
+        string(
+            defaultValue: 'pbm',
+            description: 'PBM repo name',
+            name: 'PBM_REPO')
         choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
             description: 'Repo component to push packages to',
@@ -81,7 +85,6 @@ pipeline {
                 }
                 stash includes: 'uploadPath', name: 'uploadPath'
                 pushArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                archiveArtifacts 'source_tarball/*.tar.*,test/*.properties'
                 uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
@@ -97,7 +100,6 @@ pipeline {
                         buildStage("centos:6", "--build_src_rpm=1")
 
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
-                        archiveArtifacts 'srpm/*.src.*'
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
                 }
@@ -111,7 +113,6 @@ pipeline {
                         buildStage("debian:stretch", "--build_src_deb=1")
 
                         pushArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        archiveArtifacts 'source_deb/*'
                         uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
                     }
                 }
@@ -129,7 +130,6 @@ pipeline {
                         buildStage("centos:6", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        archiveArtifacts 'rpm/*.rpm'
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
@@ -143,7 +143,6 @@ pipeline {
                         buildStage("centos:7", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        archiveArtifacts 'rpm/*.rpm'
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
@@ -157,7 +156,6 @@ pipeline {
                         buildStage("centos:8", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        archiveArtifacts 'rpm/*.rpm'
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
@@ -176,7 +174,6 @@ pipeline {
                         buildStage("ubuntu:xenial", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        archiveArtifacts 'deb/*.deb'
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
@@ -190,7 +187,6 @@ pipeline {
                         buildStage("ubuntu:bionic", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        archiveArtifacts 'deb/*.deb'
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
@@ -204,7 +200,6 @@ pipeline {
                         buildStage("ubuntu:focal", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        archiveArtifacts 'deb/*.deb'
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
@@ -218,7 +213,6 @@ pipeline {
                         buildStage("debian:jessie", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        archiveArtifacts 'deb/*.deb'
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
@@ -232,7 +226,6 @@ pipeline {
                         buildStage("debian:stretch", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        archiveArtifacts 'deb/*.deb'
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
@@ -246,7 +239,6 @@ pipeline {
                         buildStage("debian:buster", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        archiveArtifacts 'deb/*.deb'
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
@@ -264,7 +256,6 @@ pipeline {
                         buildStage("centos:6", "--build_tarball=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        archiveArtifacts 'tarball/*.tar.*'
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
 //                }
@@ -280,7 +271,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(COMPONENT)
+                sync2ProdAutoBuild(PBM_REPO, COMPONENT)
             }
         }
 
