@@ -272,6 +272,16 @@ pipeline {
                 timeout(time: 3, unit: 'HOURS')
             }
             parallel {
+                stage('E2E Upgrade') {
+                    steps {
+                        CreateCluster('upgrade')
+                        runTest('upgrade-haproxy', 'upgrade')
+                        runTest('upgrade-proxysql', 'upgrade')
+                        runTest('smart-update', 'upgrade')
+                        runTest('upgrade-consistency', 'upgrade')
+                        ShutdownCluster('upgrade')
+                    }
+                }
                 stage('E2E Basic Tests') {
                     steps {
                         CreateCluster('basic')
@@ -293,8 +303,6 @@ pipeline {
                         CreateCluster('scaling')
                         runTest('scaling', 'scaling')
                         runTest('scaling-proxysql', 'scaling')
-                        runTest('upgrade', 'scaling')
-                        runTest('upgrade-consistency', 'scaling')
                         runTest('security-context', 'scaling')
                         ShutdownCluster('scaling')
                     }

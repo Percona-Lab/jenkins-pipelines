@@ -277,6 +277,16 @@ pipeline {
                 CLUSTER_NAME = sh(script: "echo jenkins-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
             }
             parallel {
+                stage('E2E Upgrade') {
+                    steps {
+                        CreateCluster('upgrade')
+                        runTest('upgrade-haproxy', 'upgrade')
+                        runTest('upgrade-proxysql', 'upgrade')
+                        runTest('smart-update', 'upgrade')
+                        runTest('upgrade-consistency', 'upgrade')
+                        ShutdownCluster('upgrade')
+                    }
+                }
                 stage('E2E Basic Tests') {
                     steps {
                         CreateCluster('basic')
@@ -298,8 +308,6 @@ pipeline {
                         CreateCluster('scaling')
                         runTest('scaling', 'scaling')
                         runTest('scaling-proxysql', 'scaling')
-                        runTest('upgrade', 'scaling')
-                        runTest('upgrade-consistency', 'scaling')
                         runTest('security-context', 'scaling')
                         ShutdownCluster('scaling')
                     }
@@ -350,7 +358,7 @@ pipeline {
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
                     gcloud config set project $GCP_PROJECT
-                    gcloud alpha container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups $CLUSTER_NAME-bigdata | true
+                    gcloud alpha container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups $CLUSTER_NAME-bigdata $CLUSTER_NAME-upgrade | true
                 '''
             }
             sh '''

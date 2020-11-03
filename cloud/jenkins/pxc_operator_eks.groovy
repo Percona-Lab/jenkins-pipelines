@@ -255,6 +255,19 @@ EOF
 
             }
         }
+        stage('E2E Upgrade') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
+            steps {
+                CreateCluster('upgrade')
+                runTest('upgrade-haproxy', 'upgrade')
+                runTest('upgrade-proxysql', 'upgrade')
+                runTest('smart-update', 'upgrade')
+                runTest('upgrade-consistency', 'upgrade')
+                ShutdownCluster('upgrade')
+            }
+        }
         stage('E2E Basic Tests') {
             options {
                 timeout(time: 3, unit: 'HOURS')
@@ -279,8 +292,6 @@ EOF
             steps {
                 runTest('scaling')
                 runTest('scaling-proxysql')
-                runTest('upgrade')
-                runTest('upgrade-consistency')
                 runTest('security-context')
             }
         }
