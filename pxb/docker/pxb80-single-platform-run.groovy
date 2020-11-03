@@ -77,7 +77,7 @@ pipeline {
                             ./pxb/docker/checkout PXB80
                         '''
                         echo 'Build PXB80'
-                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '24e68886-c552-4033-8503-ed85bbaa31f3', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''
                                 sg docker -c "
                                     if [ \$(docker ps -q | wc -l) -ne 0 ]; then
@@ -105,7 +105,7 @@ pipeline {
                 steps {
                     git branch: 'PXB-2261-Add-PXB-QA-job', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Test PXB80'
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '24e68886-c552-4033-8503-ed85bbaa31f3', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
                             until aws s3 cp --no-progress s3://pxb-build-cache/${BUILD_TAG}/pxb80.tar.gz ./pxb/sources/pxb80/results/pxb80.tar.gz; do
                                 sleep 5
