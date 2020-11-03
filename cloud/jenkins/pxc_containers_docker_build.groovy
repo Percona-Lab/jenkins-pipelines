@@ -15,9 +15,8 @@ void build(String IMAGE_PREFIX){
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.0-backup/Dockerfile percona-xtradb-cluster-8.0-backup
         elif [ ${IMAGE_PREFIX} = haproxy ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f haproxy/Dockerfile haproxy
-        fi
         elif [ ${IMAGE_PREFIX} = logcollector ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f haproxy/Dockerfile fluentbit
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:master-${IMAGE_PREFIX} -f fluentbit/Dockerfile fluentbit
         fi
     """
 }
