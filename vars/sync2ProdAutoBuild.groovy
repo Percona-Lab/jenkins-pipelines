@@ -6,6 +6,10 @@ def call(String REPO_NAME, String DESTINATION) {
         withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
             withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                 sh """
+                    cat /etc/hosts > ./hosts
+                    echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
+                    sudo cp ./hosts /etc/
+
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com ' \
                         set -o errexit
                         set -o xtrace
@@ -39,7 +43,8 @@ def call(String REPO_NAME, String DESTINATION) {
                             for dist in `ls -1 debian`; do
                                 for deb in `find debian/\${dist} -name '*.deb'`; do
                                  pkg_fname=\$(basename \${deb})
-                                 /usr/local/reprepro5/bin/reprepro --list-format '\${package}_\${version}_\${architecture}.deb\n' -Vb /srv/repo-copy/${REPO_NAME}/apt -C ${DESTINATION} list \${dist} | grep \${pkg_fname} > /dev/null; EC=\$?
+                                 EC=0
+                                 /usr/local/reprepro5/bin/reprepro --list-format '"'"'\${package}_\${version}_\${architecture}.deb\\n'"'"' -Vb /srv/repo-copy/${REPO_NAME}/apt -C ${DESTINATION} list \${dist} | grep \${pkg_fname} > /dev/null || EC=\$?
                                  REPOPUSH_ARGS=""
                                  if [ \${EC} -eq 0 ]; then
                                      REPOPUSH_ARGS=" --remove-package "
