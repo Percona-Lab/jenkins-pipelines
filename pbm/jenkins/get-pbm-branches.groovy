@@ -36,6 +36,7 @@ pipeline {
 			  echo "COMMIT_ID=\${COMMIT_ID}" >> branch_commit_id.properties
 
 			  aws s3 cp branch_commit_id.properties s3://percona-jenkins-artifactory/percona-backup-mongodb/
+			  echo "START_NEW_BUILD=NO" > startBuild
 			else
                           aws s3 cp s3://percona-jenkins-artifactory/percona-backup-mongodb/branch_commit_id.properties .
 			  source branch_commit_id.properties
