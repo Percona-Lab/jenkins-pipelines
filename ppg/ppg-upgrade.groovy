@@ -8,7 +8,8 @@ pipeline {
   label 'micro-amazon'
   }
   environment {
-      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
+      MOLECULE_DIR = "molecule/ppg/${SCENARIO}";
   }
   parameters {
         choice(
@@ -65,7 +66,7 @@ pipeline {
     stage('Checkout') {
       steps {
             deleteDir()
-            git poll: false, branch: 'master', url: 'https://github.com/Percona-QA/package-testing.git'
+            git poll: false, branch: 'master', url: 'https://github.com/Percona-QA/ppg-testing.git'
         }
     }
     stage ('Prepare') {
