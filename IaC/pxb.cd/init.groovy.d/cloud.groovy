@@ -24,16 +24,13 @@ netMap['us-west-2c'] = 'subnet-00b0d1d8bd8af5c07'
 imageMap = [:]
 imageMap['docker'] = 'ami-020f88cb17f8dbdea'
 imageMap['micro-amazon'] = 'ami-0ad99772'
-imageMap['min-artful-x64'] = 'ami-96dd93ee'
 imageMap['min-centos-6-x32'] = 'ami-cb1382fb'
 imageMap['min-centos-6-x64'] = 'ami-6fcc8f17'
 imageMap['min-centos-7-x64'] = 'ami-3ecc8f46'
+imageMap['min-centos-8-x64'] = ' ami-0157b1e4eefd91fd7'
 imageMap['min-bionic-x64'] = 'ami-12cdeb6a'
-imageMap['min-jessie-x64'] = 'ami-fde96b9d'
 imageMap['min-stretch-x64'] = 'ami-76f6ab0e'
 imageMap['min-buster-x64'] = 'ami-0f5d8e2951e3f83a5'
-imageMap['min-trusty-x64'] = 'ami-4218403a'
-imageMap['min-cosmic-x64'] = 'ami-077b0a677133eb06a'
 imageMap['min-xenial-x64'] = 'ami-0f2016003e1759f35'
 imageMap['min-focal-x64'] = 'ami-09dd2e08d601bff67'
 imageMap['psmdb'] = imageMap['min-xenial-x64']
@@ -50,17 +47,14 @@ userMap = [:]
 userMap['docker'] = 'ec2-user'
 userMap['docker-32gb'] = userMap['docker']
 userMap['micro-amazon'] = userMap['docker']
-userMap['min-artful-x64'] = 'ubuntu'
 userMap['min-bionic-x64'] = 'ubuntu'
 userMap['min-centos-6-x32'] = 'root'
 userMap['min-centos-6-x64'] = 'centos'
 userMap['min-centos-7-x64'] = 'centos'
 userMap['fips-centos-7-x64'] = 'centos'
-userMap['min-jessie-x64'] = 'admin'
+userMap['min-centos-8-x64'] = 'centos'
 userMap['min-stretch-x64'] = 'admin'
 userMap['min-buster-x64'] = 'admin'
-userMap['min-trusty-x64'] = 'ubuntu'
-userMap['min-cosmic-x64'] = 'ubuntu'
 userMap['min-focal-x64'] = 'ubuntu'
 userMap['min-xenial-x64'] = 'ubuntu'
 userMap['psmdb'] = userMap['min-xenial-x64']
@@ -122,6 +116,7 @@ initMap['micro-amazon'] = '''
 initMap['min-centos-6-x64'] = initMap['micro-amazon']
 initMap['min-centos-7-x64'] = initMap['micro-amazon']
 initMap['fips-centos-7-x64'] = initMap['micro-amazon']
+initMap['min-centos-8-x64'] = initMap['micro-amazon']
 initMap['min-centos-6-x32'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -163,7 +158,7 @@ initMap['min-buster-x64'] = '''
     sudo apt-get -y install openjdk-11-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-artful-x64'] = '''
+initMap['min-bionic-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
         DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
@@ -177,11 +172,9 @@ initMap['min-artful-x64'] = '''
     sudo apt-get -y install openjdk-8-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-bionic-x64'] = initMap['min-artful-x64']
-initMap['min-stretch-x64'] = initMap['min-artful-x64']
-initMap['min-xenial-x64'] = initMap['min-artful-x64']
-initMap['min-cosmic-x64'] = initMap['min-artful-x64']
-initMap['min-focal-x64'] = initMap['min-artful-x64']
+initMap['min-stretch-x64'] = initMap['min-bionic-x64']
+initMap['min-xenial-x64'] = initMap['min-bionic-x64']
+initMap['min-focal-x64'] = initMap['min-bionic-x64']
 initMap['psmdb'] = initMap['min-xenial-x64']
 initMap['min-jessie-x64'] = '''
     set -o xtrace
@@ -211,26 +204,6 @@ initMap['min-jessie-x64'] = '''
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 
-initMap['min-trusty-x64'] = '''
-    set -o xtrace
-    if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
-        sudo mkfs.ext2 ${DEVICE}
-        sudo mount ${DEVICE} /mnt
-    fi
-    until sudo apt-get update; do
-        sleep 1
-        echo try again
-    done
-    sudo apt-get -y install git wget
-    wget https://jenkins.percona.com/downloads/jre/jre-8u152-linux-x64.tar.gz
-    sudo tar -zxf jre-8u152-linux-x64.tar.gz -C /usr/local
-    sudo ln -s /usr/local/jre1.8.0_152 /usr/local/java
-    sudo ln -s /usr/local/jre1.8.0_152/bin/java /usr/bin/java
-    rm -fv jre-8u152-linux-x64.tar.gz
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-'''
-
 capMap = [:]
 capMap['c4.xlarge'] = '10'
 capMap['m4.xlarge'] = '10'
@@ -243,16 +216,14 @@ typeMap['docker'] = 'c4.xlarge'
 typeMap['docker-32gb'] = 'm4.2xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-centos-8-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-artful-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-cosmic-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32'] = 'm1.medium'
 typeMap['min-centos-6-x64'] = 'm4.xlarge'
-typeMap['min-jessie-x64'] = typeMap['min-centos-6-x64']
 typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-trusty-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
 typeMap['psmdb'] = typeMap['docker-32gb']
 
@@ -260,17 +231,14 @@ execMap = [:]
 execMap['docker'] = '1'
 execMap['docker-32gb'] = execMap['docker']
 execMap['micro-amazon'] = '30'
-execMap['min-artful-x64'] = '1'
 execMap['min-bionic-x64'] = '1'
-execMap['min-cosmic-x64'] = '1'
 execMap['min-centos-6-x32'] = '1'
 execMap['min-centos-6-x64'] = '1'
 execMap['min-centos-7-x64'] = '1'
 execMap['fips-centos-7-x64'] = '1'
-execMap['min-jessie-x64'] = '1'
+execMap['min-centos-8-x64'] = '1'
 execMap['min-stretch-x64'] = '1'
 execMap['min-buster-x64'] = '1'
-execMap['min-trusty-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
 execMap['min-focal-x64'] = '1'
 execMap['psmdb'] = '1'
@@ -279,18 +247,15 @@ devMap = [:]
 devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
-devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['min-bionic-x64'] = devMap['min-artful-x64']
-devMap['min-focal-x64'] = devMap['min-artful-x64']
-devMap['min-cosmic-x64'] = devMap['min-artful-x64']
-devMap['min-centos-6-x64'] = devMap['min-artful-x64']
-devMap['min-centos-7-x64'] = devMap['min-artful-x64']
-devMap['fips-centos-7-x64'] = devMap['min-artful-x64']
-devMap['min-jessie-x64'] = devMap['micro-amazon']
+devMap['min-bionic-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-focal-x64'] = devMap['min-bionic-x64']
+devMap['min-centos-6-x64'] = devMap['min-bionic-x64']
+devMap['min-centos-7-x64'] = devMap['min-bionic-x64']
+devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
+devMap['min-centos-8-x64'] - devMap['min-bionic-x64']
 devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-buster-x64'] = devMap['min-stretch-x64']
-devMap['min-trusty-x64'] = devMap['min-artful-x64']
-devMap['min-xenial-x64'] = devMap['min-artful-x64']
+devMap['min-xenial-x64'] = devMap['min-bionic-x64']
 devMap['min-centos-6-x32'] = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 
@@ -298,18 +263,16 @@ labelMap = [:]
 labelMap['docker'] = ''
 labelMap['docker-32gb'] = ''
 labelMap['micro-amazon'] = 'master'
-labelMap['min-artful-x64'] = ''
 labelMap['min-bionic-x64'] = 'asan'
-labelMap['min-cosmic-x64'] = ''
 labelMap['min-focal-x64'] = ''
 labelMap['min-centos-6-x32'] = ''
 labelMap['min-centos-6-x64'] = ''
 labelMap['min-centos-7-x64'] = ''
 labelMap['fips-centos-7-x64'] = ''
+labelMap['min-centos-8-x64'] = ''
 labelMap['min-jessie-x64'] = ''
 labelMap['min-stretch-x64'] = ''
 labelMap['min-buster-x64'] = ''
-labelMap['min-trusty-x64'] = ''
 labelMap['min-xenial-x64'] = ''
 labelMap['psmdb'] = ''
 
@@ -386,14 +349,11 @@ String region = 'us-west-2'
             getTemplate('min-centos-6-x32', "${region}${it}"),
             getTemplate('min-centos-6-x64', "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
-            getTemplate('min-jessie-x64', "${region}${it}"),
+            getTemplate('min-centos-8-x64', "${region}${it}"),
             getTemplate('min-stretch-x64', "${region}${it}"),
             getTemplate('min-buster-x64', "${region}${it}"),
-            getTemplate('min-trusty-x64', "${region}${it}"),
             getTemplate('min-xenial-x64', "${region}${it}"),
-            getTemplate('min-artful-x64', "${region}${it}"),
             getTemplate('min-bionic-x64', "${region}${it}"),
-            getTemplate('min-cosmic-x64', "${region}${it}"),
             getTemplate('min-focal-x64', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
        '',
