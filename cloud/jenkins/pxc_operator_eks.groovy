@@ -270,6 +270,9 @@ EOF
                 runTest('proxysql-sidecar-res-limits')
                 runTest('users')
                 runTest('haproxy')
+                runTest('tls-issue-self')
+                runTest('tls-issue-cert-manager')
+                runTest('tls-issue-cert-manager-ref')
             }
         }
         stage('E2E Scaling') {

@@ -290,6 +290,9 @@ pipeline {
                         runTest('proxysql-sidecar-res-limits', 'basic')
                         runTest('users', 'basic')
                         runTest('haproxy', 'basic')
+                        runTest('tls-issue-self', 'basic')
+                        runTest('tls-issue-cert-manager', 'basic')
+                        runTest('tls-issue-cert-manager-ref', 'basic')
                         ShutdownCluster('basic')
                    }
                 }
