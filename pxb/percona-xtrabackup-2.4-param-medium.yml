@@ -19,10 +19,8 @@
         name: xtrabackuptarget
         type: user-defined
         values:
-        - innodb55
         - innodb56
         - innodb57
-        - xtradb55
         - xtradb56
         - xtradb57
         - galera56
