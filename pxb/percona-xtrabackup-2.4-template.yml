@@ -25,10 +25,8 @@
         name: xtrabackuptarget
         type: user-defined
         values:
-        - innodb55
         - innodb56
         - innodb57
-        - xtradb55
         - xtradb57
         - galera56
         - galera57
@@ -231,10 +229,8 @@
                 https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.22-29.26/binary/tarball/Percona-XtraDB-Cluster-5.7.22-rel22-29.26.1.Linux.$(uname -m).ssl${SSL_VER}.tar.gz
         else
             case "${xtrabackuptarget}" in
-                xtradb55) ./bootstrap.sh --type=${xtrabackuptarget} ;;
                 xtradb56) ./bootstrap.sh --type=${xtrabackuptarget} --version=${xtradb56_version} ;;
                 xtradb57) ./bootstrap.sh --type=${xtrabackuptarget} --version=${xtradb57_version} ;;
-                innodb55) ./bootstrap.sh --type=${xtrabackuptarget} ;;
                 innodb56) ./bootstrap.sh --type=${xtrabackuptarget} --version=${innodb56_version} ;;
                 innodb57) ./bootstrap.sh --type=${xtrabackuptarget} --version=${innodb57_version} ;;
             esac
