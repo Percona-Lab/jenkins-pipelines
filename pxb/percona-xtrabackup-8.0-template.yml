@@ -182,9 +182,9 @@
 
             if test "x${BUILD_TYPE}" = "xdebug"
             then
-                $cmake_bin -DWITH_DEBUG=ON -DDOWNLOAD_BOOST=1 -DWITH_BOOST=mysql-boost $CMAKE_EXTRA_OPTIONS .
+                $cmake_bin -DWITH_DEBUG=ON -DDOWNLOAD_BOOST=1 -DWITH_BOOST=mysql-boost -DWITH_ZLIB=bundled -DWITH_ZSTD=bundled $CMAKE_EXTRA_OPTIONS .
             else
-                $cmake_bin -DBUILD_CONFIG=xtrabackup_release -DDOWNLOAD_BOOST=1 -DWITH_BOOST=mysql-boost -DWITH_MAN_PAGES=OFF $CMAKE_EXTRA_OPTIONS .
+                $cmake_bin -DBUILD_CONFIG=xtrabackup_release -DDOWNLOAD_BOOST=1 -DWITH_BOOST=mysql-boost -DWITH_MAN_PAGES=OFF -DWITH_ZLIB=bundled -DWITH_ZSTD=bundled $CMAKE_EXTRA_OPTIONS .
             fi
 
             make -k -j${THREADS}
