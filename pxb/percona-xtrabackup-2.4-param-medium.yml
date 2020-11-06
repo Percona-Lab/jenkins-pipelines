@@ -12,8 +12,9 @@
         name: Host
         type: label-expression
         values:
-        - min-centos-6-x32
-        - min-centos-7-x64
+        - min-centos-8-x64
+        - min-focal-x64
+        - min-buster-x64
         - asan
     - axis:
         name: xtrabackuptarget
