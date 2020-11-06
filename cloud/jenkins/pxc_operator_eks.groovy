@@ -261,10 +261,10 @@ EOF
             }
             steps {
                 CreateCluster('upgrade')
-                runTest('upgrade-haproxy', 'upgrade')
-                runTest('upgrade-proxysql', 'upgrade')
-                runTest('smart-update', 'upgrade')
-                runTest('upgrade-consistency', 'upgrade')
+                runTest('upgrade-haproxy')
+                runTest('upgrade-proxysql')
+                runTest('smart-update')
+                runTest('upgrade-consistency')
                 ShutdownCluster('upgrade')
             }
         }
