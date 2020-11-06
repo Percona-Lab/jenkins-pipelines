@@ -66,7 +66,7 @@ pipeline {
                 stage('Build PXB80') {
                     agent { label 'docker' }
                     steps {
-                        git branch: 'PXB-2261-Add-PXB-QA-job', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                         echo 'Checkout PXB80 sources'
                         sh '''
                             # sudo is needed for better node recovery after compilation failure
@@ -103,7 +103,7 @@ pipeline {
         stage('Test PXB80') {
                 agent { label 'docker' }
                 steps {
-                    git branch: 'PXB-2261-Add-PXB-QA-job', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Test PXB80'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '24e68886-c552-4033-8503-ed85bbaa31f3', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
