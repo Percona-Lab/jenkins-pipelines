@@ -1,0 +1,70 @@
+#!/bin/bash
+#
+# Execute this tool to test binary releases
+#
+#  possible jenkins vars:
+#      CMAKE_BUILD_TYPE = (RelWithDebInfo Debug)
+#      DEFAULT_TESTING = (yes no)
+#      XBTR_ARGS
+#      XTRABACKUP_TARGET
+#      XTRABACKUP_TARGET_VERSION
+#      BOOTSTRAP_URL
+
+set -o errexit
+set -o xtrace
+WORKSPACE=$(
+  cd ${1:-./build/pxb80}
+  pwd -P
+)
+
+rm -fr ${WORKSPACE}/PXB
+mkdir -p ${WORKSPACE}/PXB
+tar -C ${WORKSPACE}/PXB --strip-components=1 -zxpf $(ls $WORKSPACE/pxb80.tar.gz | head -1)
+
+# CentOS 6 & 7
+if [[ -f /opt/rh/devtoolset-7/enable ]]; then
+  source /opt/rh/devtoolset-7/enable
+fi
+
+if [[ -f /usr/bin/apt-get ]]; then
+    DIST=$(lsb_release -sc)
+    if [[ "$DIST" == 'focal' ]]; then
+        sudo apt install -y python3-sphinx
+    else
+        sudo apt install -y python-sphinx
+    fi
+fi
+
+XBTR_ARGS+=" "
+
+status=0
+#
+# Running XBTR test cases
+SSL_VER=$(ls -la {/,/usr/}{lib64,lib,lib/x86_64-linux-gnu}/libssl.so.1.* | sed 's/.*[.]so//; s/[^0-9]//g' | head -1)
+echo "Running XBTR suite: $suite"
+TEST_DIR=$(dirname "$(find ${WORKSPACE}/PXB -name bootstrap.sh)")
+cd ${TEST_DIR}
+
+mkdir -p server-tarball/${XTRABACKUP_TARGET}
+if [[ ${XTRABACKUP_TARGET} == "galera80" ]]; then
+    wget --progress=dot:giga \
+    -O server-tarball/${XTRABACKUP_TARGET}/Percona-XtraDB-Cluster_8.0.20-11.3_Linux.x86_64.glibc2.12-minimal.tar.gz \
+    https://www.percona.com/downloads/Percona-XtraDB-Cluster-LATEST/Percona-XtraDB-Cluster-8.0.20-11.3/binary/tarball/Percona-XtraDB-Cluster_8.0.20-11.3_Linux.x86_64.glibc2.12-minimal.tar.gz
+    rm -rf server
+    mkdir server
+    tar xfz server-tarball/${XTRABACKUP_TARGET}/Percona-XtraDB-Cluster_8.0.20-11.3_Linux.x86_64.glibc2.12-minimal.tar.gz -C server
+    mv server/*/* server/
+else
+    if [[ -n ${BOOTSTRAP_URL} ]]; then
+      sudo rm -f bootstrap.sh
+      sudo wget -O bootstrap.sh ${BOOTSTRAP_URL}
+      sudo chmod +x bootstrap.sh
+    fi
+    ./bootstrap.sh --type=${XTRABACKUP_TARGET} --version=${XTRABACKUP_TARGET_VERSION}
+fi
+
+./run.sh $XTRABACKUP_TARGET ${XBTR_ARGS} -f | tee ${WORKSPACE}/xbtr.output
+sudo cp -r ${TEST_DIR}/results /tmp/pxb80/results/
+cp test_results.subunit ${WORKSPACE}
+cat test_results.subunit | PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml > ${WORKSPACE}/junit.xml || true
+exit $status

@@ -1,0 +1,36 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+ROOT_DIR=$(cd $(dirname $0)/../sources/pxb80; pwd -P)
+SCRIPTS_DIR=$(cd $(dirname $0)/../docker; pwd -P)
+SOURCE_IMAGE=${1:-centos:7}
+
+docker run --rm \
+    --security-opt seccomp=unconfined \
+    --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxb80 \
+    --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
+    perconalab/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+    sh -c "
+    set -o errexit
+    set -o xtrace
+
+    export CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'
+    export ANALYZER_OPTS='${ANALYZER_OPTS}'
+    export XBTR_ARGS='${XBTR_ARGS}'
+    export XTRABACKUP_TARGET='${XTRABACKUP_TARGET}'
+    export XTRABACKUP_TARGET_VERSION='${XTRABACKUP_TARGET_VERSION}'
+    export BOOTSTRAP_URL='${BOOTSTRAP_URL}'
+
+    mkdir /tmp/results
+    cp /tmp/pxb80/results/*.tar.gz /tmp/results
+    bash -x /tmp/scripts/test-binary-pxb80 /tmp/results
+
+    mkdir /tmp/results/log
+    rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/log
+    sudo tar -C /tmp/results/log -czf "pxb80-test-xbtr_logs.tar.gz" /tmp/pxb80/results/results
+    sudo mv ./pxb80-test-xbtr_logs.tar.gz /tmp/pxb80/results/
+    sudo mv /tmp/results/*.xml /tmp/results/*.output  /tmp/pxb80/results/
+    sudo chown $(id -u):$(id -g) /tmp/pxb80/results/*.xml /tmp/pxb80/results/*.output
+"
