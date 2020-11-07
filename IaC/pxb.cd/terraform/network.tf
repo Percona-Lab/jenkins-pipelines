@@ -75,6 +75,7 @@ resource "aws_security_group" "jenkins-SSH" {
       "176.37.55.60/32",    # mykola home
       "178.214.223.112/32", # mykola coworking
       "213.159.239.48/32",     # illia kiev home
+      "37.46.255.109/32", # illia rivne home
     ] 
   }
 
