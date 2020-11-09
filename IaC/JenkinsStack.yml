@@ -554,6 +554,11 @@ Resources:
                       | tee -a /etc/hosts
                   echo JENKINS_HOME=/mnt/$JENKINS_HOST \
                       | tee -a /etc/sysconfig/jenkins
+                  JAVA_HOME=$(alternatives --display java | grep current | sed 's/link currently points to //' | sed 's|/bin/java||' | xargs)
+                  echo "$JAVA_HOME" > /etc/profile.d/java.sh
+                  echo JENKINS_JAVA_CMD=$JAVA_HOME/bin/java \
+                      | tee -a /etc/sysconfig/jenkins
+                  systemctl daemon-reload
                   chkconfig jenkins on
                   service jenkins start
 
