@@ -48,7 +48,7 @@ pipeline {
             name: 'PAT_TAG',
             trim: true)
        choice(
-            choices: 'centos:6\ncentos:7\ncentos:8\nubuntu:xenial\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster',
+            choices: 'centos:7\nubuntu:xenial',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -56,7 +56,7 @@ pipeline {
             description: 'path to cmake binary',
             name: 'JOB_CMAKE')
         choice(
-            choices: 'RelWithDebInfo\nDebug',
+            choices: 'RelWithDebInfo',
             description: 'Type of build to produce',
             name: 'CMAKE_BUILD_TYPE')
         string(
