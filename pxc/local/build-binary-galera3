@@ -56,9 +56,9 @@ fi
 
 pushd ${SOURCEDIR}
     if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
-       scons debug=0
+       scons debug=0 --config=force
     else
-       scons
+       scons --config=force
     fi
 popd
 
