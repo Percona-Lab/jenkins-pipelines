@@ -35,11 +35,20 @@
         #!/bin/bash -x
 
         if [ -f /usr/bin/yum ]; then
-            until sudo -E yum -y install epel-release centos-release-scl; do
-                sudo yum clean all
-                sleep 1
-                echo "waiting"
-            done
+            RHEL=$(rpm --eval %rhel)
+            if [[ ${RHEL} == 8 ]]; then
+                until sudo -E yum -y install epel-release; do
+                    sudo yum clean all
+                    sleep 1
+                    echo "waiting"
+                done
+            else
+                until sudo -E yum -y install epel-release centos-release-scl; do
+                    sudo yum clean all
+                    sleep 1
+                    echo "waiting"
+                done
+            fi
             until sudo -E yum -y makecache; do
                 sudo yum clean all
                 sleep 1
@@ -49,13 +58,15 @@
             sudo percona-release disable all
             sudo percona-release enable tools release
         #
-            PKGLIST+=" devtoolset-7-gcc-c++ devtoolset-7-binutils"
-            PKGLIST+=" devtoolset-7-libasan-devel devtoolset-7-libubsan-devel"
-            PKGLIST+=" devtoolset-7-valgrind devtoolset-7-valgrind-devel"
-            until sudo -E yum -y install ${PKGLIST}; do
-                echo "waiting"
-                sleep 1
-            done
+            if [[ ${RHEL} != 8 ]]; then
+                PKGLIST+=" devtoolset-7-gcc-c++ devtoolset-7-binutils"
+                PKGLIST+=" devtoolset-7-libasan-devel devtoolset-7-libubsan-devel"
+                PKGLIST+=" devtoolset-7-valgrind devtoolset-7-valgrind-devel"
+                until sudo -E yum -y install ${PKGLIST}; do
+                    echo "waiting"
+                    sleep 1
+                done
+            fi
         #
             PKGLIST="wget libcurl-devel cmake cmake3 make gcc gcc-c++ libev-devel openssl-devel"
             PKGLIST="${PKGLIST} libaio-devel perl-DBD-MySQL vim-common ncurses-devel readline-devel"
