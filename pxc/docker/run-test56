@@ -29,7 +29,7 @@ docker run --rm \
     bash -x /tmp/scripts/test-binary-pxc56 /tmp/results
 
     mkdir /tmp/results/log
-    rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/PXC/mysql-test/var /tmp/results/log
+    sudo rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/PXC/mysql-test/var /tmp/results/log
     sudo tar -C /tmp/results/log -czf "pxc56-test-mtr_logs.tar.gz" var
 
     sudo mv ./pxc56-test-mtr_logs.tar.gz /tmp/pxc/results/
