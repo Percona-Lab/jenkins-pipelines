@@ -437,9 +437,6 @@ Resources:
           - InstanceType: m4.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c4.large
-            AvailabilityZone:
-              Fn::Select: [ 1, !GetAZs '' ]
           - InstanceType: m5.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]

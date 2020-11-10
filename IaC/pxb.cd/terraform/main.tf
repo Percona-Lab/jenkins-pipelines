@@ -57,7 +57,7 @@ resource "aws_spot_fleet_request" "jenkins" {
   valid_until                         = "2099-01-01T00:00:00Z"
 
   launch_specification {
-    instance_type = "c4.large"
+    instance_type = "m4.large"
     ami           = "${data.aws_ami.amazon-linux-2.id}"
     subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
 
@@ -81,7 +81,7 @@ resource "aws_spot_fleet_request" "jenkins" {
   }
 
   launch_specification {
-    instance_type = "r4.large"
+    instance_type = "m5.large"
     ami           = "${data.aws_ami.amazon-linux-2.id}"
     subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
 
@@ -105,7 +105,31 @@ resource "aws_spot_fleet_request" "jenkins" {
   }
 
   launch_specification {
-    instance_type = "c4.xlarge"
+    instance_type = "c5.large"
+    ami           = "${data.aws_ami.amazon-linux-2.id}"
+    subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
+
+    vpc_security_group_ids = [
+      "${aws_vpc.jenkins.default_security_group_id}",
+      "${aws_security_group.jenkins-SSH.id}",
+      "${aws_security_group.jenkins-HTTP.id}",
+    ]
+
+    iam_instance_profile_arn    = "${aws_iam_instance_profile.jenkins-master.arn}"
+    ebs_optimized               = "true"
+    key_name                    = "${var.key_name}"
+    monitoring                  = "false"
+    user_data                   = "${data.template_file.master_user_data.rendered}"
+    associate_public_ip_address = "true"
+
+    tags {
+      Name            = "${var.cloud_name}"
+      iit-billing-tag = "${var.cloud_name}"
+    }
+  }
+
+  launch_specification {
+    instance_type = "c5d.large"
     ami           = "${data.aws_ami.amazon-linux-2.id}"
     subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
 
