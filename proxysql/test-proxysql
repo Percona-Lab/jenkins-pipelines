@@ -49,11 +49,14 @@ sudo tar -xzf $WORKDIR_ABS/proxysql*.tar.gz -C ${WORKDIR_ABS}/WORKDIR
 sudo cp $WORKDIR_ABS/WORKDIR/PROXY/etc/proxysql.cnf /etc/
 sudo cp $WORKDIR_ABS/WORKDIR/PROXY/etc/proxysql-admin.cnf /etc/
 sudo cp $WORKDIR_ABS/WORKDIR/PROXY/usr/bin/* /usr/bin
-cp $WORKDIR_ABS/WORKDIR/PROXY/usr/bin/proxysql-admin $WORKDIR_ABS/WORKDIR/
+cp $WORKDIR_ABS/WORKDIR/PROXY/usr/bin/proxysql-admin* $WORKDIR_ABS/WORKDIR/
 sudo chmod 644 /etc/proxysql*.cnf
 
 status=0
 # Running ProxySQL QA script
+if [ -f /usr/bin/yum ]; then
+  sudo sed -i 's/::1*.*localhost /::1 /' /etc/hosts
+fi
 sudo sed -i 's/wsrep_sst_method=rsync/wsrep_sst_method=xtrabackup-v2/g' $WORKDIR_ABS/WORKDIR/PROXY/tests/proxysql-admin-testsuite.sh
 sudo bash $WORKDIR_ABS/WORKDIR/PROXY/tests/proxysql-admin-testsuite.sh \
 $WORKDIR_ABS/WORKDIR | tee $WORKDIR_ABS/WORKDIR/proxysql_qa.output || status=$?
