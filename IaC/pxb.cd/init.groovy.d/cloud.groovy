@@ -170,6 +170,11 @@ initMap['min-bionic-x64'] = '''
         echo try again
     done
     sudo apt-get -y install openjdk-8-jre-headless git
+
+    if [[ $(lsb_release -sc) == focal ]]; then
+        ln -fs /usr/bin/python3 /usr/bin/python
+    fi
+
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 initMap['min-stretch-x64'] = initMap['min-bionic-x64']
