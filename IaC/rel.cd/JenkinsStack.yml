@@ -168,6 +168,7 @@ Resources:
 
   TerminationQueue: # queue for termination notifications
     Type: AWS::SQS::Queue
+    DependsOn: TerminationSNS
     Properties:
       QueueName: !Join [ '-', [ !Ref JShortName, 'termination' ]]
 
@@ -189,7 +190,30 @@ Resources:
             - !GetAtt TerminationQueue.Arn
             Condition:
               ArnEquals:
-                aws:SourceArn: !GetAtt TerminationRule1.Arn
+                aws:SourceArn: !Ref TerminationSNS
+
+  TerminationSNS:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+      - Endpoint: "illia.pshonkin@percona.com"
+        Protocol: email
+      - Endpoint: "mykola.marzhan@percona.com"
+        Protocol: email
+      - Endpoint: "slava.sarzhan@percona.com"
+        Protocol: email
+      - Endpoint: "evgeniy.patlan@percona.com"
+        Protocol: email
+
+  DashboardSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint:
+        Fn::GetAtt:
+          - TerminationQueue
+          - Arn
+      Protocol: "sqs"
+      TopicArn: !Ref TerminationSNS
 
   TerminationRule1: # notify about instance interruption from aws side
     Type: AWS::Events::Rule
