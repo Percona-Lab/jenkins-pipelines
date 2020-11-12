@@ -20,7 +20,7 @@
             if [[ \$(echo \$(awk '{print \$1}' /proc/uptime) / 60 | bc) -lt 15 ]]; then
                 echo alert > status
             else
-              echo ok > status
+                echo ok > status
             fi
           """
           script {
