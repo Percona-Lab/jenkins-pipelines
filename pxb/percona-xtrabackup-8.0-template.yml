@@ -36,29 +36,31 @@
 
         if [ -f /usr/bin/yum ]; then
             RHEL=$(rpm --eval %rhel)
-            if [[ ${RHEL} == 8 ]]; then
-                until sudo -E yum -y install epel-release; do
-                    sudo yum clean all
-                    sleep 1
+            if [[ "${RHEL}" -eq 8 ]]; then         
+                PKGLIST+=" binutils-devel python3-pip python3-setuptools python3-wheel"
+                PKGLIST+=" libcurl-devel cmake libaio-devel zlib-devel libev-devel bison make gcc"
+                PKGLIST+=" rpm-build libgcrypt-devel ncurses-devel readline-devel openssl-devel gcc-c++"
+                PKGLIST+=" vim-common rpmlint wget"
+                until yum -y install ${PKGLIST}; do
                     echo "waiting"
+                    sleep 1
                 done
+                sudo /usr/bin/pip3 install sphinx
             else
                 until sudo -E yum -y install epel-release centos-release-scl; do
                     sudo yum clean all
                     sleep 1
                     echo "waiting"
                 done
-            fi
-            until sudo -E yum -y makecache; do
-                sudo yum clean all
-                sleep 1
-                echo "waiting"
-            done
-            sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-            sudo percona-release disable all
-            sudo percona-release enable tools release
-        #
-            if [[ ${RHEL} != 8 ]]; then
+                until sudo -E yum -y makecache; do
+                    sudo yum clean all
+                    sleep 1
+                    echo "waiting"
+                done
+                sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                sudo percona-release disable all
+                sudo percona-release enable tools release
+            #
                 PKGLIST+=" devtoolset-7-gcc-c++ devtoolset-7-binutils"
                 PKGLIST+=" devtoolset-7-libasan-devel devtoolset-7-libubsan-devel"
                 PKGLIST+=" devtoolset-7-valgrind devtoolset-7-valgrind-devel"
@@ -66,16 +68,16 @@
                     echo "waiting"
                     sleep 1
                 done
+            #
+                PKGLIST="wget libcurl-devel cmake cmake3 make gcc gcc-c++ libev-devel openssl-devel"
+                PKGLIST="${PKGLIST} libaio-devel perl-DBD-MySQL vim-common ncurses-devel readline-devel"
+                PKGLIST="${PKGLIST} zlib-devel python-sphinx python-docutils libgcrypt-devel bison perl-Digest-MD5"
+                PKGLIST="${PKGLIST} socat numactl-libs numactl qpress"
+                until sudo -E yum -y install ${PKGLIST}; do
+                    echo "waiting"
+                    sleep 1
+                done
             fi
-        #
-            PKGLIST="wget libcurl-devel cmake cmake3 make gcc gcc-c++ libev-devel openssl-devel"
-            PKGLIST="${PKGLIST} libaio-devel perl-DBD-MySQL vim-common ncurses-devel readline-devel"
-            PKGLIST="${PKGLIST} zlib-devel python-sphinx python-docutils libgcrypt-devel bison perl-Digest-MD5"
-            PKGLIST="${PKGLIST} socat numactl-libs numactl qpress"
-            until sudo -E yum -y install ${PKGLIST}; do
-                echo "waiting"
-                sleep 1
-            done
         fi
         #
         if [ -f /usr/bin/apt-get ]; then
@@ -146,6 +148,12 @@
         if [[ -f /opt/rh/devtoolset-7/enable ]]; then
             source /opt/rh/devtoolset-7/enable
         fi
+
+        RHEL=$(rpm --eval %rhel)
+        if [[ "${RHEL}" -eq 8 ]]; then   
+            export PATH="/usr/local/bin:$PATH"
+        fi
+
         echo BRANCH = ${BRANCH}
         echo "Building in: " `pwd`
 
