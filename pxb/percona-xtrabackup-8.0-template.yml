@@ -144,6 +144,10 @@
                 sudo ln -s /lib/x86_64-linux-gnu/libreadline.so.7 /lib/x86_64-linux-gnu/libreadline.so.6
             fi
 
+            if [[ ${DIST} == 'focal' ]]; then
+                sudo ln -sf /usr/bin/python3 /usr/bin/python
+            fi
+
         fi
     - shell: |-
         #!/bin/bash -x
@@ -222,6 +226,11 @@
             if [[ ${RHEL} -eq 8 ]]; then
                 sudo rm /bin/python
                 sudo ln -sf /bin/python2 /bin/python
+            fi
+        elif [ -f /usr/bin/apt-get ]; then
+            if [ $(lsb_release -sc) == 'focal' ]; then
+                sudo rm /usr/bin/python
+                sudo ln -sf /usr/bin/python2 /usr/bin/python
             fi
         fi
         if [ -d ${WORKSPACE}/xtrabackup ]
