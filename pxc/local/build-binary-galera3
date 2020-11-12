@@ -56,9 +56,9 @@ fi
 
 pushd ${SOURCEDIR}
     if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
-       scons debug=0 --config=force
+       scons debug=0 --config=force libgalera_smm.so garb/garbd
     else
-       scons --config=force
+       scons --config=force libgalera_smm.so garb/garbd
     fi
 popd
 
