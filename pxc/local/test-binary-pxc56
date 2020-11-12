@@ -103,8 +103,12 @@ if [[ "${DEFAULT_TESTING}" != "no" ]]; then
     fi
     chmod 755 ${WORKDIR_ABS}/PXC/bin/garbd
     export MTR_BUILD_THREAD=auto
-    sudo ./mysql-test-run.pl \
-        --parallel=${PARALLEL} \
+    if [ -f /usr/bin/yum ]; then
+      MTR_RUN='sudo ./mysql-test-run.pl'
+    else
+      MTR_RUN='sudo -E ./mysql-test-run.pl'
+    fi
+    $MTR_RUN --parallel=${PARALLEL} \
         --result-file \
         ${MTR_ARGS} \
         --force \
