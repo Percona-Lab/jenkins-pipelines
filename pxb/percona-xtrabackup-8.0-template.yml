@@ -40,7 +40,7 @@
                 PKGLIST+=" binutils-devel python3-pip python3-setuptools python3-wheel"
                 PKGLIST+=" libcurl-devel cmake libaio-devel zlib-devel libev-devel bison make gcc"
                 PKGLIST+=" rpm-build libgcrypt-devel ncurses-devel readline-devel openssl-devel gcc-c++"
-                PKGLIST+=" vim-common rpmlint wget ncurses-compat-libs"
+                PKGLIST+=" vim-common rpmlint wget ncurses-compat-libs python2 python2-setuptools python2-wheel"
                 until yum -y install ${PKGLIST}; do
                     echo "waiting"
                     sleep 1
@@ -216,6 +216,13 @@
         # CentOS 6 and 7
         if [[ -f /opt/rh/devtoolset-7/enable ]]; then
             source /opt/rh/devtoolset-7/enable
+        fi
+        if [ -f /usr/bin/yum ]; then
+            RHEL=$(rpm --eval %rhel)
+            if [[ ${RHEL} -eq 8 ]]; then
+                sudo rm /bin/python
+                sudo ln -sf /bin/python2 /bin/python
+            fi
         fi
         if [ -d ${WORKSPACE}/xtrabackup ]
         then
