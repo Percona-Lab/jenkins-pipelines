@@ -40,13 +40,11 @@
                 PKGLIST+=" binutils-devel python3-pip python3-setuptools python3-wheel"
                 PKGLIST+=" libcurl-devel cmake libaio-devel zlib-devel libev-devel bison make gcc"
                 PKGLIST+=" rpm-build libgcrypt-devel ncurses-devel readline-devel openssl-devel gcc-c++"
-                PKGLIST+=" vim-common rpmlint wget"
+                PKGLIST+=" vim-common rpmlint wget ncurses-compat-libs"
                 until yum -y install ${PKGLIST}; do
                     echo "waiting"
                     sleep 1
                 done
-                sudo /usr/bin/pip3 install sphinx
-                sudo ln -sf /bin/python3 /bin/python
             else
                 until sudo -E yum -y install epel-release centos-release-scl; do
                     sudo yum clean all
@@ -78,6 +76,10 @@
                     echo "waiting"
                     sleep 1
                 done
+            fi
+            if [[ ${RHEL} -eq 8 ]]; then
+                sudo /usr/bin/pip3 install sphinx
+                sudo ln -sf /bin/python3 /bin/python
             fi
         fi
         #
