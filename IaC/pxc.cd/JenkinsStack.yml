@@ -184,8 +184,43 @@ Resources:
               ArnEquals:
                 aws:SourceArn: !GetAtt TerminationRule1.Arn
 
+  TerminationSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: SNS Topic for EC2 Spot Instance Interruption Notices
+      Subscription:
+      - Endpoint: "illia.pshonkin@percona.com"
+        Protocol: email
+      - Endpoint: "mykola.marzhan@percona.com"
+        Protocol: email
+      - Endpoint: "slava.sarzhan@percona.com"
+        Protocol: email
+      - Endpoint: "evgeniy.patlan@percona.com"
+        Protocol: email
+
+  TerminationSNSPolicy:
+    Type: AWS::SNS::TopicPolicy
+    DependsOn: TerminationSNSTopic
+    Properties:
+      PolicyDocument:
+        Id:
+          Fn::GetAtt:
+          - TerminationSNSTopic
+          - TopicName
+        Statement:
+        - Action: sns:Publish
+          Effect: Allow
+          Principal:
+            Service:
+            - events.amazonaws.com
+          Resource: !Ref TerminationSNSTopic
+        Version: '2012-10-17'
+      Topics:
+      - !Ref TerminationSNSTopic
+
   TerminationRule1: # notify about instance interruption from aws side
     Type: AWS::Events::Rule
+    DependsOn: "TerminationSNSTopic"
     Properties:
       Description: EC2 Spot Instance Interruption Warning
       EventPattern:
@@ -197,6 +232,11 @@ Resources:
       Targets:
         - Arn: !GetAtt TerminationQueue.Arn
           Id: !GetAtt TerminationQueue.QueueName
+        - Arn: !Ref TerminationSNSTopic
+          Id: 
+            Fn::GetAtt:
+            - TerminationSNSTopic
+            - TopicName
 
   SSHSecurityGroup: # allow ssh access (assign when needed)
     Type: AWS::EC2::SecurityGroup
@@ -770,3 +810,6 @@ Outputs:
   JMasterInstance:
     Description: Master Spot Fleet
     Value: !Ref JMasterInstance
+  TerminationSNSTopic:
+    Description: SNS topic ARN
+    Value: !Ref TerminationSNSTopic
