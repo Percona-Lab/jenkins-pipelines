@@ -128,7 +128,8 @@ initMap['min-centos-6-x32'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git aws-cli || :
+    sudo yum -y install java-1.8.0-openjdk git || :
+    sudo yum -y install aws-cli || :
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 

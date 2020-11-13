@@ -52,14 +52,20 @@
                 echo "waiting"
             done
         #
+            RHEL=$(rpm --eval %rhel)
             sudo yum -y install wget
             PKGLIST="libcurl-devel cmake make gcc gcc-c++ libev-devel openssl-devel"
             PKGLIST="${PKGLIST} libaio-devel perl-DBD-MySQL vim-common ncurses-devel readline-devel"
-            PKGLIST="${PKGLIST} zlib-devel python-sphinx python-docutils libgcrypt-devel bison perl-Digest-MD5"
+            PKGLIST="${PKGLIST} zlib-devel libgcrypt-devel bison perl-Digest-MD5"
             PKGLIST="${PKGLIST} socat numactl-libs numactl"
 
-            RHVER="$(rpm --eval %rhel)"
-            if [[ ${RHVER} -eq 6 ]]; then
+            if [[ ${RHEL} != 8 ]]; then
+                PKGLIST+=" python-sphinx python-docutils"
+            else
+                PKGLIST+=" python3-pip python3-setuptools python3-wheel wget ncurses-compat-libs"      
+            fi
+
+            if [[ ${RHEL} -eq 6 ]]; then
                 sudo wget -O /etc/yum.repos.d/slc6-devtoolset.repo http://linuxsoft.cern.ch/cern/devtoolset/slc6-devtoolset.repo
                 sudo wget -O /etc/pki/rpm-gpg/RPM-GPG-KEY-cern https://raw.githubusercontent.com/cms-sw/cms-docker/master/slc6/RPM-GPG-KEY-cern
                 PKGLIST+=" devtoolset-2-gcc-c++ devtoolset-2-binutils"
@@ -71,6 +77,11 @@
                 echo "waiting"
                 sleep 1
             done
+
+            if [[ ${RHEL} -eq 8 ]]; then
+                sudo /usr/bin/pip3 install sphinx
+                sudo ln -sf /bin/python3 /bin/python   
+            fi
         fi
         #
         if [ -f /usr/bin/apt-get ]; then
@@ -130,6 +141,10 @@
                 sudo ln -s /lib/x86_64-linux-gnu/libreadline.so /lib/x86_64-linux-gnu/libreadline.so.6
             fi
 
+            if [[ ${DIST} == 'focal' ]]; then
+                sudo ln -sf /usr/bin/python3 /usr/bin/python
+            fi
+
         fi
     - shell: |-
         #!/bin/bash -x
@@ -139,6 +154,10 @@
             if [[ -f /opt/rh/devtoolset-2/enable ]]; then
                 source /opt/rh/devtoolset-2/enable
             fi
+        fi
+
+        if [[ "${RHVER}" -eq 8 ]]; then   
+            export PATH="/usr/local/bin:$PATH"
         fi
 
         echo BRANCH = ${BRANCH}
@@ -194,6 +213,19 @@
         if [[ ${RHVER} -eq 6 ]]; then
             if [[ -f /opt/rh/devtoolset-2/enable ]]; then
                 source /opt/rh/devtoolset-2/enable
+            fi
+        fi
+
+        if [ -f /usr/bin/yum ]; then
+            RHEL=$(rpm --eval %rhel)
+            if [[ ${RHEL} -eq 8 ]]; then
+                sudo rm /bin/python
+                sudo ln -sf /bin/python2 /bin/python
+            fi
+        elif [ -f /usr/bin/apt-get ]; then
+            if [ $(lsb_release -sc) == 'focal' ]; then
+                sudo rm /usr/bin/python
+                sudo ln -sf /usr/bin/python2 /usr/bin/python
             fi
         fi
 

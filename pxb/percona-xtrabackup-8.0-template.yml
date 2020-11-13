@@ -35,36 +35,52 @@
         #!/bin/bash -x
 
         if [ -f /usr/bin/yum ]; then
-            until sudo -E yum -y install epel-release centos-release-scl; do
-                sudo yum clean all
-                sleep 1
-                echo "waiting"
-            done
-            until sudo -E yum -y makecache; do
-                sudo yum clean all
-                sleep 1
-                echo "waiting"
-            done
-            sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-            sudo percona-release disable all
-            sudo percona-release enable tools release
-        #
-            PKGLIST+=" devtoolset-7-gcc-c++ devtoolset-7-binutils"
-            PKGLIST+=" devtoolset-7-libasan-devel devtoolset-7-libubsan-devel"
-            PKGLIST+=" devtoolset-7-valgrind devtoolset-7-valgrind-devel"
-            until sudo -E yum -y install ${PKGLIST}; do
-                echo "waiting"
-                sleep 1
-            done
-        #
-            PKGLIST="wget libcurl-devel cmake cmake3 make gcc gcc-c++ libev-devel openssl-devel"
-            PKGLIST="${PKGLIST} libaio-devel perl-DBD-MySQL vim-common ncurses-devel readline-devel"
-            PKGLIST="${PKGLIST} zlib-devel python-sphinx python-docutils libgcrypt-devel bison perl-Digest-MD5"
-            PKGLIST="${PKGLIST} socat numactl-libs numactl qpress"
-            until sudo -E yum -y install ${PKGLIST}; do
-                echo "waiting"
-                sleep 1
-            done
+            RHEL=$(rpm --eval %rhel)
+            if [[ "${RHEL}" -eq 8 ]]; then         
+                PKGLIST+=" binutils-devel python3-pip python3-setuptools python3-wheel"
+                PKGLIST+=" libcurl-devel cmake libaio-devel zlib-devel libev-devel bison make gcc"
+                PKGLIST+=" rpm-build libgcrypt-devel ncurses-devel readline-devel openssl-devel gcc-c++"
+                PKGLIST+=" vim-common rpmlint wget ncurses-compat-libs python2 python2-setuptools python2-wheel"
+                until yum -y install ${PKGLIST}; do
+                    echo "waiting"
+                    sleep 1
+                done
+            else
+                until sudo -E yum -y install epel-release centos-release-scl; do
+                    sudo yum clean all
+                    sleep 1
+                    echo "waiting"
+                done
+                until sudo -E yum -y makecache; do
+                    sudo yum clean all
+                    sleep 1
+                    echo "waiting"
+                done
+                sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                sudo percona-release disable all
+                sudo percona-release enable tools release
+            #
+                PKGLIST+=" devtoolset-7-gcc-c++ devtoolset-7-binutils"
+                PKGLIST+=" devtoolset-7-libasan-devel devtoolset-7-libubsan-devel"
+                PKGLIST+=" devtoolset-7-valgrind devtoolset-7-valgrind-devel"
+                until sudo -E yum -y install ${PKGLIST}; do
+                    echo "waiting"
+                    sleep 1
+                done
+            #
+                PKGLIST="wget libcurl-devel cmake cmake3 make gcc gcc-c++ libev-devel openssl-devel"
+                PKGLIST="${PKGLIST} libaio-devel perl-DBD-MySQL vim-common ncurses-devel readline-devel"
+                PKGLIST="${PKGLIST} zlib-devel python-sphinx python-docutils libgcrypt-devel bison perl-Digest-MD5"
+                PKGLIST="${PKGLIST} socat numactl-libs numactl qpress"
+                until sudo -E yum -y install ${PKGLIST}; do
+                    echo "waiting"
+                    sleep 1
+                done
+            fi
+            if [[ ${RHEL} -eq 8 ]]; then
+                sudo /usr/bin/pip3 install sphinx
+                sudo ln -sf /bin/python3 /bin/python
+            fi
         fi
         #
         if [ -f /usr/bin/apt-get ]; then
@@ -128,6 +144,10 @@
                 sudo ln -s /lib/x86_64-linux-gnu/libreadline.so.7 /lib/x86_64-linux-gnu/libreadline.so.6
             fi
 
+            if [[ ${DIST} == 'focal' ]]; then
+                sudo ln -sf /usr/bin/python3 /usr/bin/python
+            fi
+
         fi
     - shell: |-
         #!/bin/bash -x
@@ -135,6 +155,12 @@
         if [[ -f /opt/rh/devtoolset-7/enable ]]; then
             source /opt/rh/devtoolset-7/enable
         fi
+
+        RHEL=$(rpm --eval %rhel)
+        if [[ "${RHEL}" -eq 8 ]]; then   
+            export PATH="/usr/local/bin:$PATH"
+        fi
+
         echo BRANCH = ${BRANCH}
         echo "Building in: " `pwd`
 
@@ -194,6 +220,18 @@
         # CentOS 6 and 7
         if [[ -f /opt/rh/devtoolset-7/enable ]]; then
             source /opt/rh/devtoolset-7/enable
+        fi
+        if [ -f /usr/bin/yum ]; then
+            RHEL=$(rpm --eval %rhel)
+            if [[ ${RHEL} -eq 8 ]]; then
+                sudo rm /bin/python
+                sudo ln -sf /bin/python2 /bin/python
+            fi
+        elif [ -f /usr/bin/apt-get ]; then
+            if [ $(lsb_release -sc) == 'focal' ]; then
+                sudo rm /usr/bin/python
+                sudo ln -sf /usr/bin/python2 /usr/bin/python
+            fi
         fi
         if [ -d ${WORKSPACE}/xtrabackup ]
         then
