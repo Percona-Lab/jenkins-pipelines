@@ -193,6 +193,9 @@ pipeline {
                 retry(3) {
                     build('mongod4.2')
                 }
+                retry(3) {
+                    build('mongod4.4')
+                }
             }
         }
 
@@ -204,6 +207,8 @@ pipeline {
                 pushImageToDocker('mongod4.0-debug')
                 pushImageToDocker('mongod4.2')
                 pushImageToDocker('mongod4.2-debug')
+                pushImageToDocker('mongod4.4')
+                pushImageToDocker('mongod4.4-debug')
             }
         }
 
@@ -215,6 +220,8 @@ pipeline {
                 pushImageToRhel('mongod4.0-debug')
                 pushImageToRhel('mongod4.2')
                 pushImageToRhel('mongod4.2-debug')
+                pushImageToRhel('mongod4.4')
+                pushImageToRhel('mongod4.4-debug')
                 pushImageToRhelOperator()
             }
         }
@@ -227,6 +234,8 @@ pipeline {
                 checkImageForDocker('master-mongod4.0-debug')
                 checkImageForDocker('master-mongod4.2')
                 checkImageForDocker('master-mongod4.2-debug')
+                checkImageForDocker('master-mongod4.4')
+                checkImageForDocker('master-mongod4.4-debug')
                 sh '''
                    CRITICAL=$(ls trivy-critical-*) || true
                    if [ -n "$CRITICAL" ]; then
