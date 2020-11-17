@@ -13,7 +13,7 @@
     scm:
     - git:
         branches:
-        - '*/master'
+        - '*/main'
         url: https://github.com/percona/percona-backup-mongodb
     triggers:
     - pollscm:
