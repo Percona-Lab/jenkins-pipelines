@@ -182,17 +182,17 @@ pipeline {
                         docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
 
                         docker pull \${DOCKER_CLIENT_VERSION}
-                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${VERSION}
-                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${DOCKER_MID}
-                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${TOP_VER}
+                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${VERSION}
+                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${DOCKER_MID}
+                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${TOP_VER}
                         if [ \${TOP_VER} = 1 ]; then
                             docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:latest
                             docker push perconalab/pmm-client:latest
                         fi
-                        docker push perconalab/pmm-client:\${VERSION}
-                        docker push perconalab/pmm-client:\${DOCKER_MID}
-                        docker push perconalab/pmm-client:\${TOP_VER}
-                        docker save perconalab/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}.docker
+                        docker push percona/pmm-client:\${VERSION}
+                        docker push percona/pmm-client:\${DOCKER_MID}
+                        docker push percona/pmm-client:\${TOP_VER}
+                        docker save percona/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}.docker
                     "
                 """
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
