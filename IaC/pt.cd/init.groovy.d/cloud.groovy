@@ -35,7 +35,7 @@ imageMap['docker'] = imageMap['micro-amazon']
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
-priceMap['c4.xlarge'] = '0.10'
+priceMap['c5.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
 
@@ -149,13 +149,13 @@ initMap['min-xenial-x64'] = initMap['min-artful-x64']
 initMap['psmdb'] = initMap['min-xenial-x64']
 
 capMap = [:]
-capMap['c4.xlarge'] = '60'
+capMap['c5.xlarge'] = '60'
 capMap['m4.xlarge'] = '60'
 capMap['m4.2xlarge'] = '10'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
-typeMap['docker'] = 'c4.xlarge'
+typeMap['docker'] = 'c5.xlarge'
 typeMap['docker-32gb'] = 'm4.2xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']

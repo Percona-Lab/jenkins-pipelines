@@ -88,7 +88,7 @@ imageMap['min-xenial-x64'] = 'ami-e82a1a8d'
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
 priceMap['m1.medium'] = '0.05'
-priceMap['c4.xlarge'] = '0.14'
+priceMap['c5.xlarge'] = '0.10'
 priceMap['c3.xlarge'] = '0.14'
 priceMap['m4.xlarge'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
@@ -279,7 +279,7 @@ initMap['min-jessie-x64'] = '''
 initMap['min-trusty-x64'] = initMap['min-jessie-x64']
 
 capMap = [:]
-capMap['c4.xlarge'] = '60'
+capMap['c5.xlarge'] = '60'
 capMap['c3.xlarge'] = '60'
 capMap['m4.xlarge'] = '5'
 capMap['m4.2xlarge'] = '40'
@@ -375,7 +375,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         'default',                                  // String securityGroups
         '/mnt/jenkins',                             // String remoteFS
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type
-        ( typeMap[OSType].startsWith("c4") || typeMap[OSType].startsWith("m4") || typeMap[OSType].startsWith("c5") || typeMap[OSType].startsWith("m5") ), // boolean ebsOptimized
+        ( typeMap[OSType].startsWith("c5") || typeMap[OSType].startsWith("m4") || typeMap[OSType].startsWith("c5") || typeMap[OSType].startsWith("m5") ), // boolean ebsOptimized
         OSType + ' ' + labelMap[OSType],            // String labelString
         Node.Mode.NORMAL,                           // Node.Mode mode
         OSType,                                     // String description
