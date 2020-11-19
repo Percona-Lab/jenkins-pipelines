@@ -1,0 +1,42 @@
+- job:
+    name: uptime-report
+    project-type: pipeline
+    description: |
+        report uptime of jenkins master
+        Do not edit this job through the web!
+    disabled: false
+    concurrent: false
+    parallel: false
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 10
+        artifact-days-to-keep: 0
+        artifact-num-to-keep: 0
+    triggers:
+    - timed: '*/5 * * * *'
+    dsl: |
+      pipeline {
+          agent { label "jenkins" }
+          stages {
+              stage('Get status') {
+                  steps {
+                      sh """
+                      if [[ \$(echo \$(awk '{print \$1}' /proc/uptime) / 60 | bc) -lt 15 ]]; then
+                          echo alert > status
+                      else
+                          echo ok > status
+                      fi
+                      """
+                      script {
+                          def STATUS = sh(returnStdout: true, script: "cat status").trim()
+                          def HOST = sh(returnStdout: true, script: "echo ${JENKINS_HOME} | awk -F'/' '{print \$3}'").trim()
+                          if ("${STATUS}" == "alert") { 
+                              slackSend botUser: true, channel: "#releases-ci", color: '#FF0000', message: "Uptime is lower than 15 minutes on ${HOST}"
+                              error "Marking build as failed due to uptime"
+                          }
+                      }
+                  }
+              }
+          }
+      }
