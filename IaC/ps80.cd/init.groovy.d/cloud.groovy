@@ -91,7 +91,7 @@ priceMap['m1.medium'] = '0.05'
 priceMap['c5.xlarge'] = '0.10'
 priceMap['c3.xlarge'] = '0.14'
 priceMap['m4.xlarge'] = '0.10'
-priceMap['m4.2xlarge'] = '0.20'
+priceMap['m5.2xlarge'] = '0.20'
 priceMap['r4.4xlarge'] = '0.38'
 priceMap['m5d.2xlarge'] = '0.20'
 priceMap['c5d.xlarge'] = '0.20'
@@ -282,14 +282,14 @@ capMap = [:]
 capMap['c5.xlarge'] = '60'
 capMap['c3.xlarge'] = '60'
 capMap['m4.xlarge'] = '5'
-capMap['m4.2xlarge'] = '40'
+capMap['m5.2xlarge'] = '40'
 capMap['r4.4xlarge'] = '40'
 capMap['c5d.xlarge'] = '10'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.small'
 typeMap['docker']            = 'c3.xlarge'
-typeMap['docker-32gb']       = 'm4.2xlarge'
+typeMap['docker-32gb']       = 'm5.2xlarge'
 typeMap['docker2']           = 'r4.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['min-centos-8-x64']  = typeMap['docker']
@@ -375,7 +375,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         'default',                                  // String securityGroups
         '/mnt/jenkins',                             // String remoteFS
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type
-        ( typeMap[OSType].startsWith("c5") || typeMap[OSType].startsWith("m4") || typeMap[OSType].startsWith("c5") || typeMap[OSType].startsWith("m5") ), // boolean ebsOptimized
+        ( typeMap[OSType].startsWith("c4") || typeMap[OSType].startsWith("m4") || typeMap[OSType].startsWith("c5") || typeMap[OSType].startsWith("m5") ), // boolean ebsOptimized
         OSType + ' ' + labelMap[OSType],            // String labelString
         Node.Mode.NORMAL,                           // Node.Mode mode
         OSType,                                     // String description
