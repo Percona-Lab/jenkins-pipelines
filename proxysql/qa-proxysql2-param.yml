@@ -74,8 +74,12 @@
          type: user-defined
          name: DOCKER_OS
          values:
-          - centos:8
+          - centos:7
           - ubuntu:xenial
+          - ubuntu:bionic
+          - ubuntu:focal
+          - debian:stretch
+          - debian:buster
     builders:
     - trigger-builds:
       - project: qa-proxysql2-pipeline
