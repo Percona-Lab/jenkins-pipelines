@@ -36,7 +36,7 @@ pipeline {
             description: 'path to cmake binary',
             name: 'JOB_CMAKE')
         choice(
-            choices: 'RelWithDebInfo',
+            choices: 'RelWithDebInfo\nDebug',
             description: 'Type of build to produce',
             name: 'CMAKE_BUILD_TYPE')
         string(

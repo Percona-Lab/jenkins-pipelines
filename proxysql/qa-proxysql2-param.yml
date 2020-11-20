@@ -70,6 +70,7 @@
          name: CMAKE_BUILD_TYPE
          values:
           - RelWithDebInfo
+          - Debug
       - axis:
          type: user-defined
          name: DOCKER_OS
