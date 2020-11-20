@@ -73,7 +73,7 @@ pipeline {
             description: 'mysql-test-run.pl suite names',
             name: 'MTR_SUITES')
         string(
-            defaultValue: '--unit-tests-report',
+            defaultValue: '--unit-tests-report --big-test',
             description: 'mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report',
             name: 'MTR_ARGS')
         string(

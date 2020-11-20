@@ -70,7 +70,7 @@
         description: "mysql-test-run.pl suite names"
     - string:
         name: MTR_ARGS
-        default: --unit-tests-report
+        default: --unit-tests-report --big-test
         description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
     - string:
         name: MTR_REPEAT
