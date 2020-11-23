@@ -52,6 +52,12 @@
         default: v2.0.15-dev
         description: Tag/Branch for ProxySQL-admin-tool repository
     - choice:
+        name: PXC_VERSION
+        choices:
+        - PXC57
+        - PXC80
+        description: PXC version to test proxysql-admin suite
+    - choice:
         name: JOB_CMAKE
         choices:
         - /usr/bin/cmake

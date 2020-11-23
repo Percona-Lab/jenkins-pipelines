@@ -15,7 +15,7 @@ docker run --rm \
     sh -c "
     set -o errexit
     set -o xtrace
-    export PAT_TAG='v2.0.15-dev'
+    export PAT_TAG='${PAT_TAG}'
 
     mkdir /tmp/results
     bash -x  /tmp/scripts/build-binary-proxysql /tmp/results /tmp/proxysql

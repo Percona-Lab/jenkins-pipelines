@@ -28,6 +28,10 @@ pipeline {
             name: 'PAT_TAG',
             trim: true)
        choice(
+            choices: 'PXC57\nPXC80',
+            description: 'PXC version to test proxysql-admin suite',
+            name: 'PXC_VERSION')
+       choice(
             choices: 'centos:8',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
