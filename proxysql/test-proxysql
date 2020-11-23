@@ -10,12 +10,18 @@
 set -o errexit
 set -o xtrace
 
+if [ -f /usr/bin/yum ]; then
+  RHEL=$(rpm --eval %rhel)
+  if [[ $RHEL -eq 8 ]]; then
+     sudo dnf module disable mysql
+  fi
+fi
+
 function process_proxysql_output {
 # parameters are:
   local TESTSUITE=${1}
   local INFILE=${2}
   local OUTFILE=${3}
-
   export LC_ALL=C
   cat proxysql_qa.output | grep 'ok \|not ok' | gawk 'BEGIN     { print "<testsuite name=\"@@TESTSUITE@@\" tests=\"@@PASSED@@\" failures=\"@@FAILURES@@\">" }
       $1 ~ /ok/     { printf "\t<testcase name=\"%s\"><passed/></testcase>\n", $0}

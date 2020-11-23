@@ -15,38 +15,7 @@ docker run --rm \
     sh -c "
     set -o errexit
     set -o xtrace
-    export PAT_TAG='${PAT_TAG}'
-    if [ -f /usr/bin/yum ]; then
-        RHEL=$(rpm --eval %rhel)
-        ARCH=$(echo $(uname -m) | sed -e 's:i686:i386:g')
-        if [[ $RHEL = 8 ]]; then
-            sudo yum -y install python2 gnutls-devel libtool || true
-            sudo ln -s /usr/bin/python2.7 /usr/bin/python
-        fi
-        sudo yum -y install wget
-        #
-        RHEL=$(rpm --eval %rhel)
-        #
-        sudo wget -O /etc/yum.repos.d/percona-dev.repo http://jenkins.percona.com/yum-repo/percona-dev.repo
-        if [[ $RHEL -eq 6 ]]; then
-            sudo yum -y install percona-devtoolset-gcc percona-devtoolset-binutils percona-devtoolset-gcc-c++
-            sudo yum -y install automake bzip2 cmake make g++ gcc git openssl openssl-devel gnutls libtool patch
-            sudo yum -y install gnutls-devel libtool || true
-        	sudo yum -y install epel-release
-        	sudo sed -i "s/mirrorlist=https/mirrorlist=http/" /etc/yum.repos.d/epel.repo
-        	sudo yum -y install http://repo.okay.com.mx/centos/6/x86_64/release/okay-release-1-1.noarch.rpm || true
-        	sudo yum -y upgrade automake autoconf
-        else
-            sudo yum -y install automake bzip2 cmake make gcc-c++ gcc git openssl openssl-devel gnutls gnutls-devel libtool patch
-        fi
-        #
-        sudo yum -y install cmake make gcc gcc-c++ rpm-build perl
-        # missing deps
-        sudo yum -y install openssl-devel
-        if [[ $RHEL = 8 ]]; then
-            sudo ln -s /usr/bin/python2.7 /usr/bin/python
-        fi
-    fi
+    export PAT_TAG='v2.0.15-dev'
 
     mkdir /tmp/results
     bash -x  /tmp/scripts/build-binary-proxysql /tmp/results /tmp/proxysql
