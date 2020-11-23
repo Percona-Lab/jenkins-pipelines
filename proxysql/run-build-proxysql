@@ -40,10 +40,9 @@ docker run --rm \
             sudo yum -y install automake bzip2 cmake make gcc-c++ gcc git openssl openssl-devel gnutls gnutls-devel libtool patch
         fi
         #
-        sudo yum -y upgrade
         sudo yum -y install cmake make gcc gcc-c++ rpm-build perl
         # missing deps
-          sudo yum -y install openssl-devel
+        sudo yum -y install openssl-devel
         if [[ $RHEL = 8 ]]; then
             sudo ln -s /usr/bin/python2.7 /usr/bin/python
         fi
