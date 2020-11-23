@@ -477,9 +477,9 @@ pipeline {
                                     else
                                         pmm-agent setup --config-file=$PWD/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
                                     fi
-                                    sleep 10
+                                    sudo sleep 10
                                     JENKINS_NODE_COOKIE=dontKillMe nohup bash -c 'pmm-agent --config-file=$PWD/pmm2-client/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
-                                    sleep 10
+                                    sudo sleep 10
                                     cat pmm-agent.log
                                     pmm-admin status
                                 fi
@@ -493,7 +493,7 @@ pipeline {
                                     else
                                         sudo pmm-agent setup --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
                                     fi
-                                    sleep 10
+                                    sudo sleep 10
                                     sudo cat /var/log/pmm-agent.log
                                     pmm-admin list
                                 fi
@@ -502,7 +502,7 @@ pipeline {
                             fi
                             [ -z "${CLIENTS}" ] && exit 0 || :
                             if [[ \$PMM_VERSION == pmm1 ]]; then
-                                bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
+                                sudo bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                                     --pxc-version ${PXC_VERSION} \
                                     --ps-version  ${PS_VERSION} \
                                     --ms-version  ${MS_VERSION} \
@@ -523,7 +523,7 @@ pipeline {
                                 if [[ \$CLIENT_INSTANCE == no ]]; then
                                     export SERVER_IP=\$IP;
                                 fi
-                                bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
+                                sudo bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                                     --ms-version  ${MS_VERSION} \
                                     --mo-version  ${MO_VERSION} \
                                     --ps-version  ${PS_VERSION} \
