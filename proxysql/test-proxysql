@@ -53,8 +53,6 @@ fi
 
 tar -C ${WORKDIR_ABS}/WORKDIR/PROXY  --strip-components=1 -zxpf $(ls $WORKDIR_ABS/proxysql*.tar.gz | head -1)
 
-#sudo cp ${WORKDIR_ABS}/WORKDIR/PXC/bin/* /usr/bin/
-
 pushd ${WORKDIR_ABS}/WORKDIR
 sudo tar -xzf $WORKDIR_ABS/proxysql*.tar.gz -C ${WORKDIR_ABS}/WORKDIR
 sudo cp $WORKDIR_ABS/WORKDIR/PROXY/etc/proxysql.cnf /etc/

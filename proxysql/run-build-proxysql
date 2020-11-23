@@ -29,7 +29,7 @@ docker run --rm \
         #
         sudo wget -O /etc/yum.repos.d/percona-dev.repo http://jenkins.percona.com/yum-repo/percona-dev.repo
         if [ $RHEL -eq 6 ]; then
-        	sudo yum -y install percona-devtoolset-gcc percona-devtoolset-binutils percona-devtoolset-gcc-c++
+            sudo yum -y install percona-devtoolset-gcc percona-devtoolset-binutils percona-devtoolset-gcc-c++
             sudo yum -y install automake bzip2 cmake make g++ gcc git openssl openssl-devel gnutls libtool patch
             sudo yum -y install gnutls-devel libtool || true
         	sudo yum -y install epel-release
