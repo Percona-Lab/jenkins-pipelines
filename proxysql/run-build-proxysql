@@ -19,7 +19,7 @@ docker run --rm \
     if [ -f /usr/bin/yum ]; then
         RHEL=$(rpm --eval %rhel)
         ARCH=$(echo $(uname -m) | sed -e 's:i686:i386:g')
-        if [ $RHEL = 8 ]; then
+        if [[ $RHEL = 8 ]]; then
             sudo yum -y install python2 gnutls-devel libtool || true
             sudo ln -s /usr/bin/python2.7 /usr/bin/python
         fi
@@ -28,7 +28,7 @@ docker run --rm \
         RHEL=$(rpm --eval %rhel)
         #
         sudo wget -O /etc/yum.repos.d/percona-dev.repo http://jenkins.percona.com/yum-repo/percona-dev.repo
-        if [ $RHEL -eq 6 ]; then
+        if [[ $RHEL -eq 6 ]]; then
             sudo yum -y install percona-devtoolset-gcc percona-devtoolset-binutils percona-devtoolset-gcc-c++
             sudo yum -y install automake bzip2 cmake make g++ gcc git openssl openssl-devel gnutls libtool patch
             sudo yum -y install gnutls-devel libtool || true
@@ -44,7 +44,7 @@ docker run --rm \
         sudo yum -y install cmake make gcc gcc-c++ rpm-build perl
         # missing deps
           sudo yum -y install openssl-devel
-        if [ $RHEL = 8 ]; then
+        if [[ $RHEL = 8 ]]; then
             sudo ln -s /usr/bin/python2.7 /usr/bin/python
         fi
     fi
