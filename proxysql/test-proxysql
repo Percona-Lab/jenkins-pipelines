@@ -13,7 +13,7 @@ set -o xtrace
 if [ -f /usr/bin/yum ]; then
   RHEL=$(rpm --eval %rhel)
   if [[ $RHEL -eq 8 ]]; then
-     sudo dnf module disable mysql
+     sudo dnf module disable mysql -y
   fi
 fi
 
