@@ -111,14 +111,9 @@ pipeline {
             defaultValue: '',
             description: 'Commit hash for pmm-qa branch',
             name: 'PMM_QA_GIT_COMMIT_HASH')
-        string (
-            defaultValue: '',
-            description: 'Value for Server Public IP, to use this instance just as client',
-            name: 'SERVER_IP')
     }
     options {
         skipDefaultCheckout()
-        disableConcurrentBuilds()
     }
     triggers {
         upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
@@ -130,24 +125,18 @@ pipeline {
                 deleteDir()
                 slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
-                    curl --silent --location https://rpm.nodesource.com/setup_7.x | sudo bash -
-                    sudo yum -y install nodejs
+                    curl -o - https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
+                    . ~/.nvm/nvm.sh
+                    nvm install 12.14.1
+                    sudo rm -f /usr/bin/node
+                    sudo ln -s ~/.nvm/versions/node/v12.14.1/bin/node /usr/bin/node
                     npm install tap-junit
                 '''
             }
         }
         stage('Start staging') {
             steps {
-                script{
-                    if(!env.SERVER_IP) {
-                        runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2', PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH)
-                    }
-                    else
-                    {
-                        env.VM_IP = env.SERVER_IP
-                        env.PMM_URL = "http://admin:admin@${env.SERVER_IP}"
-                    }
-                }
+                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2', PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH)
             }
         }
         stage('Sanity check') {
@@ -200,6 +189,11 @@ pipeline {
                 runTAP("pgsql", "postgresql", "3", "10.6")
             }
         }
+        stage('Test: PD_PGSQL12') {
+            steps {
+                runTAP("pdpgsql", "postgresql", "1", "12")
+            }
+        }
         stage('Test: PXC') {
             steps {
                 runTAP("pxc", "pxc", "1", "5.7")
@@ -212,11 +206,7 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip
             '''
             fetchAgentLog(CLIENT_VERSION)
-            script {
-                if(env.VM_NAME) {
-                    destroyStaging(VM_NAME)
-                }
-            }
+            destroyStaging(VM_NAME)
         }
         success {
             junit '*.xml'
