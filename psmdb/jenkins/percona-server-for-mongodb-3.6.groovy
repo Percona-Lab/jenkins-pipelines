@@ -15,7 +15,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} --jemalloc_tag=${JEMALLOC_TAG} --rocksdb_tag=${ROCKSDB_TAG} ${STAGE_PARAM}"
+            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=r${PSMDB_VERSION} --jemalloc_tag=${JEMALLOC_TAG} --rocksdb_tag=${ROCKSDB_TAG} ${STAGE_PARAM}"
     """
 }
 
@@ -78,10 +78,11 @@ pipeline {
     stages {
         stage('Create PSMDB source tarball') {
             steps {
+                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH}")
                 cleanUpWS()
                 buildStage("centos:6", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-36.properties | cut -d = -f 2 | sed "s:BUILDS/::;s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-36.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
@@ -127,7 +128,7 @@ pipeline {
                 }
             }  //parallel
         } // stage
-        stage('Build PSMDB rpms') {
+        stage('Build PSMDB RPMs/DEBs') {
             parallel {
                 stage('Centos 6') {
                     agent {
@@ -168,11 +169,6 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-            }
-        }
-
-        stage('Build PSMDB debs') {
-            parallel {
                 stage('Ubuntu Xenial(16.04)') {
                     agent {
                         label 'docker'
@@ -268,6 +264,30 @@ pipeline {
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
+                stage('Centos 6 debug tarball') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("centos:6", "--debug=1")
+
+                        pushArtifactFolder("debug/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Centos 7 debug tarball') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("centos:7", "--debug=1")
+
+                        pushArtifactFolder("debug/", AWS_STASH_PATH)
+                    }
+                }
             }
         }
 
@@ -286,6 +306,14 @@ pipeline {
 
     }
     post {
+        success {
+            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH}")
+            deleteDir()
+        }
+        failure {
+            slackNotify("#releases", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH}")
+            deleteDir()
+        }
         always {
             sh '''
                 sudo rm -rf ./*
