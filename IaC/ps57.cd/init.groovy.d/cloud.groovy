@@ -68,7 +68,7 @@ imageMap['min-xenial-x64'] = 'ami-e82a1a8d'
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
-priceMap['m4.large'] = '0.04'
+priceMap['m5.large'] = '0.05'
 priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
@@ -236,13 +236,13 @@ initMap['min-trusty-x64'] = initMap['min-jessie-x64']
 
 capMap = [:]
 capMap['c4.xlarge']  = '60'
-capMap['m4.xlarge']  = '5'
+capMap['m5.xlarge']  = '5'
 capMap['m4.2xlarge'] = '40'
 capMap['r4.4xlarge'] = '40'
 capMap['c5d.xlarge'] = '10'
 
 typeMap = [:]
-typeMap['micro-amazon']      = 'm4.large'
+typeMap['micro-amazon']      = 'm5.large'
 typeMap['docker']            = 'c4.xlarge'
 typeMap['docker-32gb']       = 'm4.2xlarge'
 typeMap['docker2']           = 'r4.4xlarge'
