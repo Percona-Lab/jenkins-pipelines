@@ -49,6 +49,9 @@ elif [[ "${PXC_VERSION}" == "PXC57" ]]; then
     sudo tar -C ${WORKDIR_ABS}/WORKDIR/PXC --strip-components=1 -zxpf $(ls $WORKDIR_ABS/WORKDIR/Percona-XtraDB-Cluster-5.7.31-rel34-45.3.Linux.x86_64.glibc2.12-minimal.tar.gz | head -1)
     if [ -f /usr/bin/yum ]; then
         sudo yum remove -y Percona-Server-shared-56-5.6.49-rel89.0.1.el7.x86_64
+        if [[ $RHEL -eq 8 ]]; then
+            sudo yum remove -y mariadb-connector-c-config-3.0.7-1.el8.noarch
+        fi
         sudo yum install -y percona-xtrabackup-24 Percona-XtraDB-Cluster-57 proxysql2
     else
         sudo apt update -y
