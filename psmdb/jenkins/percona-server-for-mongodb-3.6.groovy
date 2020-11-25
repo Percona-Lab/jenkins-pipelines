@@ -29,7 +29,7 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'docker'
+        label 'micro-amazon'
     }
     parameters {
         string(
@@ -77,6 +77,9 @@ pipeline {
     }
     stages {
         stage('Create PSMDB source tarball') {
+            agent {
+                label 'docker'
+            }
             steps {
                 slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH}")
                 cleanUpWS()
@@ -292,12 +295,18 @@ pipeline {
         }
 
         stage('Sign packages') {
+            agent {
+                label 'docker'
+            }
             steps {
                 signRPM()
                 signDEB()
             }
         }
         stage('Push to public repository') {
+            agent {
+                label 'docker'
+            }
             steps {
                 // sync packages
                 sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)

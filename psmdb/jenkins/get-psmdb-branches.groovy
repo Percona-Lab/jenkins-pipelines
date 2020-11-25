@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'docker'
+        label 'micro-amazon'
     }
     parameters {
         string(
@@ -21,6 +21,9 @@ pipeline {
     }
     stages {
         stage('Get release branches') {
+            agent {
+                label 'micro-amazon'
+            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AWS_STASH', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
@@ -72,6 +75,9 @@ pipeline {
             when {
                 expression { START_NEW_BUILD == 'YES' }
             }
+            agent {
+                label 'micro-amazon'
+            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AWS_STASH', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
@@ -86,6 +92,9 @@ pipeline {
         stage('Build skipped') {
             when {
                 expression { START_NEW_BUILD == 'NO' }
+            }
+            agent {
+                label 'micro-amazon'
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AWS_STASH', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
