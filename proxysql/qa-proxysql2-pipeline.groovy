@@ -32,7 +32,7 @@ pipeline {
             description: 'PXC version to test proxysql-admin suite',
             name: 'PXC_VERSION')
        choice(
-            choices: 'centos:8',
+            choices: 'centos:7\ncentos:8\nubuntu:xenial\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -63,7 +63,7 @@ pipeline {
     }
     stages {
         stage('Build ProxySQL') {
-                agent { label 'docker-32gb' }
+                agent { label 'docker' }
                 steps {
                     git branch: 'PSQLADM-273-Update-Jenkins-job', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Checkout ProxySQL sources'
@@ -99,7 +99,7 @@ pipeline {
                 }
         }
         stage('Test ProxySQL') {
-                agent { label 'docker-32gb' }
+                agent { label 'docker' }
                 steps {
                     git branch: 'PSQLADM-273-Update-Jenkins-job', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Test ProxySQL'
