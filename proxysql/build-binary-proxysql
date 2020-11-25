@@ -16,6 +16,7 @@ if [ -f /usr/bin/yum ]; then
     fi
     sudo yum -y install wget
     if [[ $RHEL -eq 7 ]]; then
+        sudo wget -O /etc/yum.repos.d/percona-dev.repo http://jenkins.percona.com/yum-repo/percona-dev.repo
         sudo yum -y install automake bzip2 cmake make gcc-c++ gcc git openssl openssl-devel gnutls gnutls-devel libtool patch
     fi
 fi
