@@ -86,41 +86,43 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             echo "The $TEST_NAME test was started!"
             PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
             popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
-            sh """
-                if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
-                    echo Skip $TEST_NAME test
-                else
-                    cd ./source
-                    if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                        export IMAGE=${PXC_OPERATOR_IMAGE}
+            timeout(time: 90, unit: 'MINUTES') {
+                sh """
+                    if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
+                        echo Skip $TEST_NAME test
                     else
-                        export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
-                    fi
+                        cd ./source
+                        if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                            export IMAGE=${PXC_OPERATOR_IMAGE}
+                        else
+                            export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                        fi
 
-                    if [ -n "${IMAGE_PXC}" ]; then
-                        export IMAGE_PXC=${IMAGE_PXC}
-                    fi
+                        if [ -n "${IMAGE_PXC}" ]; then
+                            export IMAGE_PXC=${IMAGE_PXC}
+                        fi
 
-                    if [ -n "${IMAGE_PROXY}" ]; then
-                        export IMAGE_PROXY=${IMAGE_PROXY}
-                    fi
+                        if [ -n "${IMAGE_PROXY}" ]; then
+                            export IMAGE_PROXY=${IMAGE_PROXY}
+                        fi
 
-                    if [ -n "${IMAGE_HAPROXY}" ]; then
-                        export IMAGE_HAPROXY=${IMAGE_HAPROXY}
-                    fi
+                        if [ -n "${IMAGE_HAPROXY}" ]; then
+                            export IMAGE_HAPROXY=${IMAGE_HAPROXY}
+                        fi
 
-                    if [ -n "${IMAGE_BACKUP}" ]; then
-                        export IMAGE_BACKUP=${IMAGE_BACKUP}
-                    fi
+                        if [ -n "${IMAGE_BACKUP}" ]; then
+                            export IMAGE_BACKUP=${IMAGE_BACKUP}
+                        fi
 
-                    if [ -n "${IMAGE_PMM}" ]; then
-                        export IMAGE_PMM=${IMAGE_PMM}
-                    fi
+                        if [ -n "${IMAGE_PMM}" ]; then
+                            export IMAGE_PMM=${IMAGE_PMM}
+                        fi
 
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
-                    ./e2e-tests/$TEST_NAME/run
-                fi
-            """
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                        ./e2e-tests/$TEST_NAME/run
+                    fi
+                """
+            }
             pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
             testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"] = 'passed'
             return true
@@ -276,7 +278,11 @@ pipeline {
                     steps {
                         CreateCluster('upgrade')
                         runTest('upgrade-haproxy', 'upgrade')
+                        ShutdownCluster('upgrade')
+                        CreateCluster('upgrade')
                         runTest('upgrade-proxysql', 'upgrade')
+                        ShutdownCluster('upgrade')
+                        CreateCluster('upgrade')
                         runTest('smart-update', 'upgrade')
                         runTest('upgrade-consistency', 'upgrade')
                         ShutdownCluster('upgrade')

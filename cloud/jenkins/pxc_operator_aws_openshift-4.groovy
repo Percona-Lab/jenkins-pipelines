@@ -50,44 +50,46 @@ void runTest(String TEST_NAME) {
 
             popArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
 
-            sh """
-                if [ -f "$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
-                    echo Skip $TEST_NAME test
-                else
-                    cd ./source
-                    if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                        export IMAGE=${PXC_OPERATOR_IMAGE}
+            timeout(time: 90, unit: 'MINUTES') {
+                sh """
+                    if [ -f "$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
+                        echo Skip $TEST_NAME test
                     else
-                        export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                        cd ./source
+                        if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                            export IMAGE=${PXC_OPERATOR_IMAGE}
+                        else
+                            export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                        fi
+
+                        if [ -n "${IMAGE_PXC}" ]; then
+                            export IMAGE_PXC=${IMAGE_PXC}
+                        fi
+
+                        if [ -n "${IMAGE_PROXY}" ]; then
+                            export IMAGE_PROXY=${IMAGE_PROXY}
+                        fi
+
+                        if [ -n "${IMAGE_HAPROXY}" ]; then
+                            export IMAGE_HAPROXY=${IMAGE_HAPROXY}
+                        fi
+
+                        if [ -n "${IMAGE_BACKUP}" ]; then
+                            export IMAGE_BACKUP=${IMAGE_BACKUP}
+                        fi
+
+                        if [ -n "${IMAGE_PMM}" ]; then
+                            export IMAGE_PMM=${IMAGE_PMM}
+                        fi
+
+                        source $HOME/google-cloud-sdk/path.bash.inc
+                        export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
+                        oc whoami
+
+                        ./e2e-tests/$TEST_NAME/run
                     fi
-
-                    if [ -n "${IMAGE_PXC}" ]; then
-                        export IMAGE_PXC=${IMAGE_PXC}
-                    fi
-
-                    if [ -n "${IMAGE_PROXY}" ]; then
-                        export IMAGE_PROXY=${IMAGE_PROXY}
-                    fi
-
-                    if [ -n "${IMAGE_HAPROXY}" ]; then
-                        export IMAGE_HAPROXY=${IMAGE_HAPROXY}
-                    fi
-
-                    if [ -n "${IMAGE_BACKUP}" ]; then
-                        export IMAGE_BACKUP=${IMAGE_BACKUP}
-                    fi
-
-                    if [ -n "${IMAGE_PMM}" ]; then
-                        export IMAGE_PMM=${IMAGE_PMM}
-                    fi
-
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
-                    oc whoami
-
-                    ./e2e-tests/$TEST_NAME/run
-                fi
-            """
+                """
+            }
             pushArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
             testsReportMap[TEST_NAME] = 'passed'
             return true
@@ -246,7 +248,11 @@ pipeline {
             steps {
                 CreateCluster('upgrade')
                 runTest('upgrade-haproxy')
+                ShutdownCluster('upgrade')
+                CreateCluster('upgrade')
                 runTest('upgrade-proxysql')
+                ShutdownCluster('upgrade')
+                CreateCluster('upgrade')
                 runTest('smart-update')
                 runTest('upgrade-consistency')
                 ShutdownCluster('upgrade')
