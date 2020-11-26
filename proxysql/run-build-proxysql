@@ -16,10 +16,7 @@ docker run --rm \
     set -o errexit
     set -o xtrace
     export PAT_TAG='${PAT_TAG}'
-    if [ -f /usr/bin/yum ]; then
-        sudo rm /usr/bin/cmake
-        sudo ln -s /usr/bin/cmake3 /usr/bin/cmake
-    fi
+
     mkdir /tmp/results
     bash -x  /tmp/scripts/build-binary-proxysql /tmp/results /tmp/proxysql
     sudo rm -rf /tmp/proxysql/results

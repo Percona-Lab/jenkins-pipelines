@@ -21,7 +21,7 @@
         description: URL to ProxySQL repository
     - string:
         name: BRANCH
-        default: "v2.0.13"
+        default: "v2.0.15"
         description: Tag/Branch for ProxySQL repository
     - string:
         name: PROXYSQL_PACKAGE_REPO
@@ -49,8 +49,14 @@
         description: Tag/Branch for PXC repository
     - string:
         name: PAT_TAG
-        default: v2.0.13-dev
+        default: v2.0.15-dev
         description: Tag/Branch for ProxySQL-admin-tool repository
+    - choice:
+        name: PXC_VERSION
+        choices:
+        - PXC57
+        - PXC80
+        description: PXC version to test proxysql-admin suite
     - choice:
         name: JOB_CMAKE
         choices:
@@ -75,7 +81,6 @@
          type: user-defined
          name: DOCKER_OS
          values:
-          - centos:6
           - centos:7
           - centos:8
           - ubuntu:xenial

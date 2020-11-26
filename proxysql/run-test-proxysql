@@ -8,13 +8,14 @@ SCRIPTS_DIR=$(cd $(dirname $0) && pwd -P)
 SOURCE_IMAGE=${1:-centos:7}
 
 docker run --rm \
-    --security-opt seccomp=unconfined \
+    --cap-add SYS_PTRACE \
     --mount type=bind,source=${ROOT_DIR},destination=/tmp/proxysql \
     --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
     perconalab/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
     sh -c "
     set -o errexit
     set -o xtrace
+    export PXC_VERSION='${PXC_VERSION}'
 
     mkdir /tmp/results
     cp /tmp/proxysql/results/*.tar.gz /tmp/results

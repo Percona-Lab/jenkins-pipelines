@@ -9,6 +9,18 @@
 set -o errexit
 set -o xtrace
 
+if [ -f /usr/bin/yum ]; then
+    RHEL=$(rpm --eval %rhel)
+    if [[ $RHEL -eq 8 ]]; then
+        sudo yum -y install python2 gnutls-devel libtool || true
+    fi
+    sudo yum -y install wget
+    if [[ $RHEL -eq 7 ]]; then
+        sudo wget -O /etc/yum.repos.d/percona-dev.repo http://jenkins.percona.com/yum-repo/percona-dev.repo
+        sudo yum -y install automake bzip2 cmake make gcc-c++ gcc git openssl openssl-devel gnutls gnutls-devel libtool patch
+    fi
+fi
+
 WORKDIR_ABS=$(cd ${1:-./build/proxysql}; pwd -P)
 SOURCE_DIR=$(cd ${2:-./build/proxysql}; pwd -P)
 
