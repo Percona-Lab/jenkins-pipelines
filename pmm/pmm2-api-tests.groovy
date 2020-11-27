@@ -3,7 +3,7 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'PS_VERSION', value: '5.6'),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_RUN_STT_TESTS=1 -e PMM_RUN_IA_TESTS=1 -e PMM_DEBUG=1 -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com:443 -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PERCONA_TEST_IA=1 -e PERCONA_TEST_DBAAS=0'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com:443 -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PERCONA_TEST_IA=1 -e PERCONA_TEST_DBAAS=0'),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
@@ -111,7 +111,7 @@ pipeline {
         stage('Run API Test') {
             steps {
                 sh '''
-                    sudo docker run -e PMM_SERVER_URL=\${PMM_URL} -e PMM_RUN_UPDATE_TEST=1 --name ${BUILD_TAG} pmm-api-tests
+                    sudo docker run -e PMM_SERVER_URL=\${PMM_URL} -e PMM_RUN_UPDATE_TEST=1 -e PMM_RUN_STT_TESTS=1 -e PMM_RUN_IA_TESTS=1 --name ${BUILD_TAG} pmm-api-tests
                 '''
             }
         }
