@@ -80,7 +80,8 @@ pipeline {
                             aws ec2 describe-subnets \
                                 --region us-east-1 \
                                 --output text \
-                                --query 'Subnets[1].SubnetId'
+                                --query 'Subnets[].SubnetId' \
+                                --filter 'Name=tag-value,Values=pmm2-ami-staging-start'
                         )
 
                         IMAGE_NAME=$(
