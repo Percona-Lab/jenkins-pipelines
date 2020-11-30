@@ -79,7 +79,7 @@
             done
 
             if [[ ${RHEL} -eq 8 ]]; then
-                sudo /usr/bin/pip3 install sphinx
+                sudo /usr/bin/pip3 install sphinx junitxml python-subunit
                 sudo ln -sf /bin/python3 /bin/python   
             fi
         fi
@@ -118,7 +118,7 @@
             PKGLIST="${PKGLIST} libgcrypt-dev libev-dev lsb-release python-docutils"
             PKGLIST="${PKGLIST} build-essential rsync libdbd-mysql-perl libnuma1 socat librtmp-dev"
             if [[ "$DIST" == 'focal' ]]; then
-                PKGLIST="${PKGLIST} python3-sphinx"
+                PKGLIST="${PKGLIST} python3-sphinx python3-pip"
             else
                 PKGLIST="${PKGLIST} python-sphinx"
             fi
@@ -142,12 +142,28 @@
             fi
 
             if [[ ${DIST} == 'focal' ]]; then
+                sudo /usr/bin/pip3 install sphinx junitxml python-subunit
                 sudo ln -sf /usr/bin/python3 /usr/bin/python
             fi
 
         fi
     - shell: |-
         #!/bin/bash -x
+
+        if [[ ${xtrabackuptarget} == "galera56" ]] || [[ ${xtrabackuptarget} == "xtradb56" ]]; then
+            if [ -f /usr/bin/yum ]; then
+                RHEL=$(rpm --eval %rhel)
+                if [[ ${RHEL} -eq 8 ]]; then
+                    echo "${SSL_VER} is not supported for ${xtrabackuptarget} target, this is a stub we decided to implement in PXB-2368"
+                    exit 0
+                fi
+            else
+                if [[ $(lsb_release -sc) == "focal" ]] || [[ $(lsb_release -sc) == "buster" ]]; then
+                    echo "${SSL_VER} is not supported for ${xtrabackuptarget} target, this is a stub we decided to implement in PXB-2368"
+                    exit 0
+                fi
+            fi
+        fi
 
         RHVER="$(rpm --eval %rhel)"
         if [[ ${RHVER} -eq 6 ]]; then
@@ -208,6 +224,21 @@
         fi
     - shell: |-
         #!/bin/bash -x
+
+        if [[ ${xtrabackuptarget} == "galera56" ]] || [[ ${xtrabackuptarget} == "xtradb56" ]]; then
+            if [ -f /usr/bin/yum ]; then
+                RHEL=$(rpm --eval %rhel)
+                if [[ ${RHEL} -eq 8 ]]; then
+                    echo "${SSL_VER} is not supported for ${xtrabackuptarget} target, this is a stub we decided to implement in PXB-2368"
+                    exit 0
+                fi
+            else
+                if [[ $(lsb_release -sc) == "focal" ]] || [[ $(lsb_release -sc) == "buster" ]]; then
+                    echo "${SSL_VER} is not supported for ${xtrabackuptarget} target, this is a stub we decided to implement in PXB-2368"
+                    exit 0
+                fi
+            fi
+        fi
 
         RHVER="$(rpm --eval %rhel)"
         if [[ ${RHVER} -eq 6 ]]; then
@@ -297,6 +328,44 @@
         fi
 
         cd ${XB_TEST_ROOT_DIR}/test
+
+        if [[ ${xtrabackuptarget} == "galera56" ]] || [[ ${xtrabackuptarget} == "xtradb56" ]]; then
+            if [ -f /usr/bin/yum ]; then
+                RHEL=$(rpm --eval %rhel)
+                if [[ ${RHEL} -eq 8 ]]; then
+                    unsupported=true
+                fi
+            else
+                if [[ $(lsb_release -sc) == "focal" ]] || [[ $(lsb_release -sc) == "buster" ]]; then
+                    unsupported=true
+                fi
+            fi
+            if [[ ${unsupported} == true ]]; then
+        cat <<-EOF | tee test_results.subunit
+        time: $(date +%Y-%m-%d) $(date +%H:%M:%S)
+        test: Compilation & Test run for this flavour(${xtrabackuptarget}) is masked as its not supported on selected platform
+        time: $(date +%Y-%m-%d) $(date +%H:%M:%S)
+        success: Compilation & Test run for this flavour(${xtrabackuptarget}) is masked as its not supported on selected platform
+        EOF
+                cp test_results.subunit ${WORKSPACE}
+                cat test_results.subunit | ./subunit2junitxml > ${WORKSPACE}/junit.xml || true
+                echo "${SSL_VER} is not supported for ${xtrabackuptarget} target, this is a stub we decided to implement in PXB-2368"
+                exit 0
+            fi
+        fi
+
+        if [ -f /usr/bin/yum ]; then
+            RHEL=$(rpm --eval %rhel)
+            if [[ ${RHEL} -eq 8 ]]; then
+                sudo rm /bin/python
+                sudo ln -sf /bin/python2 /bin/python
+            fi
+        elif [ -f /usr/bin/apt-get ]; then
+            if [[ $(lsb_release -sc) == "focal" ]] || [[ $(lsb_release -sc) == "buster" ]]; then
+                sudo rm /usr/bin/python
+                sudo ln -sf /usr/bin/python2 /usr/bin/python
+            fi
+        fi
 
         if [ `arch` = "x86_64" ]
         then
