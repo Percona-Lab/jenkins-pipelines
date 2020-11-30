@@ -258,7 +258,7 @@
             mkdir -p ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}
             wget --progress=dot:giga \
                 -O ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}/Percona-XtraDB-Cluster-$(uname -m).tar.gz \
-                https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.22-29.26/binary/tarball/Percona-XtraDB-Cluster-5.7.22-rel22-29.26.1.Linux.$(uname -m).ssl${SSL_VER}.tar.gz
+                https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.31-31.45-3/binary/tarball/Percona-XtraDB-Cluster-5.7.31-rel34-45.3.Linux.x86_64.glibc2.12.tar.gz
         else
             case "${xtrabackuptarget}" in
                 xtradb56) ./bootstrap.sh --type=${xtrabackuptarget} --version=${xtradb56_version} ;;
