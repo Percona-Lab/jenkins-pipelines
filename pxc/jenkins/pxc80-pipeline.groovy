@@ -103,7 +103,12 @@ pipeline {
                     MY_BRANCH_BASE_MAJOR=8
                     MY_BRANCH_BASE_MINOR=0
                     RAW_VERSION_LINK=$(echo ${GIT_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
-                    wget ${RAW_VERSION_LINK}/${BRANCH}/VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+                    REPLY=$(curl -Is ${RAW_VERSION_LINK}/${BRANCH}/MYSQL_VERSION | head -n 1 | awk '{print $2}')
+                    if [[ ${REPLY} != 200 ]]; then
+                        wget ${RAW_VERSION_LINK}/${BRANCH}/VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+                    else
+                        wget ${RAW_VERSION_LINK}/${BRANCH}/MYSQL_VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+                    fi
                     source ${WORKSPACE}/VERSION-${BUILD_NUMBER}
                     if [[ ${MYSQL_VERSION_MAJOR} -lt ${MY_BRANCH_BASE_MAJOR} ]] ; then
                         echo "Are you trying to build wrong branch?"
