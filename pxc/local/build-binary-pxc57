@@ -66,7 +66,14 @@ OS_VERSION=$(lsb_release -d -s)
 # ------------------------------------------------------------------------------
 # set version
 # ------------------------------------------------------------------------------
-source "$SOURCEDIR/VERSION"
+if [ -f $SOURCEDIR/VERSION ]; then
+    source "$SOURCEDIR/VERSION"
+elif [ -f $SOURCEDIR/MYSQL_VERSION ]; then
+    source "$SOURCEDIR/MYSQL_VERSION"
+else
+    echo "NO VERSION file found"
+    exit 1
+fi
 if [[ -n "$(which git)" ]] && [[ -d "$SOURCEDIR/.git" ]]; then
     REVISION="$(cd "$SOURCEDIR"; git rev-parse --short HEAD)"
 fi
