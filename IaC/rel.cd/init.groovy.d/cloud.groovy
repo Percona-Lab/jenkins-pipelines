@@ -36,6 +36,7 @@ imageMap['eu-west-1a.min-focal-x64']    = 'ami-06fd8a495a537da8b'
 imageMap['eu-west-1a.min-bionic-x64']   = 'ami-0823c236601fef765'
 imageMap['eu-west-1a.min-stretch-x64']  = 'ami-0442db6463774080a'
 imageMap['eu-west-1a.min-xenial-x64']   = 'ami-07aba4cc9cb368364'
+imageMap['eu-west-1a.min-xenial-x32']   = 'ami-0d842b54e0120f205'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
@@ -52,6 +53,7 @@ imageMap['eu-west-1b.min-focal-x64']    = imageMap['eu-west-1a.min-focal-x64']
 imageMap['eu-west-1b.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
 imageMap['eu-west-1b.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
 imageMap['eu-west-1b.min-xenial-x64']   = imageMap['eu-west-1a.min-xenial-x64']
+imageMap['eu-west-1b.min-xenial-x32']   = imageMap['eu-west-1a.min-xenial-x32']
 
 imageMap['eu-west-1c.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1c.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
@@ -68,6 +70,7 @@ imageMap['eu-west-1c.min-focal-x64']    = imageMap['eu-west-1a.min-focal-x64']
 imageMap['eu-west-1c.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
 imageMap['eu-west-1c.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
 imageMap['eu-west-1c.min-xenial-x64']   = imageMap['eu-west-1a.min-xenial-x64']
+imageMap['eu-west-1c.min-xenial-x32']   = imageMap['eu-west-1a.min-xenial-x32']
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
@@ -88,6 +91,7 @@ userMap['min-artful-x64']    = 'ubuntu'
 userMap['min-focal-x64']     = 'ubuntu'
 userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-xenial-x64']    = 'ubuntu'
+userMap['min-xenial-x32']    = 'ubuntu'
 userMap['min-centos-6-x32']  = 'root'
 userMap['min-centos-6-x64']  = 'centos'
 userMap['min-centos-7-x64']  = 'centos'
@@ -216,6 +220,7 @@ initMap['min-focal-x64'] = initMap['min-artful-x64']
 initMap['min-bionic-x64'] = initMap['min-artful-x64']
 initMap['min-stretch-x64'] = initMap['min-artful-x64']
 initMap['min-xenial-x64'] = initMap['min-artful-x64']
+initMap['min-xenial-x32'] = initMap['min-artful-x64']
 initMap['psmdb'] = initMap['min-xenial-x64']
 
 capMap = [:]
@@ -241,6 +246,7 @@ typeMap['min-centos-6-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
+typeMap['min-xenial-x32']    = 'm1.medium'
 typeMap['psmdb']             = typeMap['docker-32gb']
 
 execMap = [:]
@@ -258,6 +264,7 @@ execMap['fips-centos-7-x64'] = '1'
 execMap['min-centos-8-x64']  = '1'
 execMap['min-stretch-x64']   = '1'
 execMap['min-xenial-x64']    = '1'
+execMap['min-xenial-x32']    = '1'
 execMap['min-buster-x64']    = '1'
 execMap['psmdb']             = '1'
 
@@ -275,6 +282,7 @@ devMap['fips-centos-7-x64'] = devMap['min-artful-x64']
 devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-artful-x64']
+devMap['min-xenial-x32']    = '/dev/sda1=:10:false:gp2,/dev/sdd=:80:false:gp2'
 devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-buster-x64']    = devMap['docker']
 devMap['psmdb']             = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
@@ -294,6 +302,7 @@ labelMap['fips-centos-7-x64'] = ''
 labelMap['min-centos-8-x64']  = ''
 labelMap['min-stretch-x64']   = ''
 labelMap['min-xenial-x64']    = ''
+labelMap['min-xenial-x32']    = ''
 labelMap['min-buster-x64']    = ''
 labelMap['psmdb']             = ''
 
@@ -368,6 +377,7 @@ String region = 'eu-west-1'
             getTemplate('docker',           "${region}${it}"),
             getTemplate('micro-amazon',     "${region}${it}"),
             getTemplate('min-xenial-x64',     "${region}${it}"),
+            getTemplate('min-xenial-x32',     "${region}${it}"),
             getTemplate('min-stretch-x64',     "${region}${it}"),
             getTemplate('min-focal-x64',      "${region}${it}"),
             getTemplate('min-bionic-x64',     "${region}${it}"),
