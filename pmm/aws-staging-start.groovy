@@ -67,7 +67,7 @@ pipeline {
             defaultValue: '-e METRICS_RETENTION=192h',
             description: '''
             Passing Env Variables to PMM Server Docker Container, supported only for pmm2.x
-            An Example: -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PMM_DEBUG=1
+            Example: -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PMM_DEBUG=1
             ''',
             name: 'DOCKER_ENV_VARIABLE')
         text(
@@ -82,7 +82,7 @@ pipeline {
             modb - Official MongoDB version from MongoDB Inc (ex. --addclient=modb,1),
             pgsql - Postgre SQL Server (ex. --addclient=pgsql,1)
             pdpgsql - Percona Distribution for PostgreSQL (ex. --addclient=pdpgsql,1)
-            An example: --addclient=ps,1 --addclient=mo,1 --addclient=md,1 --addclient=pgsql,2 --addclient=modb,2
+            Example: --addclient=ps,1 --addclient=mo,1 --addclient=md,1 --addclient=pgsql,2 --addclient=modb,2
             ''',
             name: 'CLIENTS')
         string(
@@ -268,7 +268,7 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) date; do
-                            sleep 1
+                            sleep 2
                         done
 
                         if [ -n "$SSH_KEY" ]; then
