@@ -143,10 +143,6 @@ pipeline {
                         CLIENTS:        ${CLIENTS}
                         OWNER:          ${OWNER}
                     """
-                    if ("${NOTIFY}" == "true") {
-                        slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                    }
                 }
             }
         }
@@ -276,32 +272,40 @@ pipeline {
                             echo '$SSH_KEY' | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) 'cat - >> .ssh/authorized_keys'
                         fi
 
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) 'sudo yum -y update --security; sudo yum -y install https://repo.percona.com/yum/percona-release-0.1-7.noarch.rpm; sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY'
+                    """
+                    sh """
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
-                            set -o errexit
-                            set -o xtrace
-
-                            sudo yum -y update --security
-                            sudo yum -y install https://repo.percona.com/yum/percona-release-0.1-7.noarch.rpm
-                            sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                             sudo yum -y install svn docker sysbench mysql57-server git php php-mysql php-pdo
                             sudo service mysqld start
                             sudo yum -y install bats --enablerepo=epel
                             sudo usermod -aG docker ec2-user
                             sudo service docker start
                             sudo mkdir -p /srv/pmm-qa || :
+                        "
+                    """
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
                             pushd /srv/pmm-qa
                                 sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                                 sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
                                 sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
                                 cd pmm-tests/
                                 sudo svn export https://github.com/puneet0191/pmm-workloads.git/trunk/mysql/schema_table_query.php
+                            popd
+                        "
+                    """
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
+                            pushd /srv/pmm-qa
+                                cd pmm-tests/
                                 sudo chmod 755 schema_table_query.php
                                 cd ../
                                 sudo chmod 755 get_download_link.sh
                             popd
-
                         "
                     """
+                        
                 }
                 script {
                     env.IP      = sh(returnStdout: true, script: "cat IP").trim()
@@ -557,8 +561,6 @@ pipeline {
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
 
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER_FULL}, link: https://${PUBLIC_IP}"
-                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
                 }
             }
         }
@@ -577,9 +579,6 @@ pipeline {
                     def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
-
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER_FULL}"
-                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
                 }
             }
         }
