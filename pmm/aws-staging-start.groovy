@@ -327,69 +327,69 @@ pipeline {
                     script {
                         withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                             sh """
-                            export IP=\$(cat IP)
-                            export VM_NAME=\$(cat VM_NAME)
+                                export IP=\$(cat IP)
+                                export VM_NAME=\$(cat VM_NAME)
 
-                            export CLIENT_VERSION=${CLIENT_VERSION}
-                            if [[ \$CLIENT_VERSION = latest ]]; then
-                                CLIENT_VERSION=\$(
-                                    curl -s https://www.percona.com/downloads/pmm/ \
-                                        | egrep -o 'pmm/[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}' \
-                                        | sed -e 's/pmm\\///' \
-                                        | sort -u -V \
-                                        | tail -1
-                                )
-                            fi
+                                export CLIENT_VERSION=${CLIENT_VERSION}
+                                if [[ \$CLIENT_VERSION = latest ]]; then
+                                    CLIENT_VERSION=\$(
+                                        curl -s https://www.percona.com/downloads/pmm/ \
+                                            | egrep -o 'pmm/[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}' \
+                                            | sed -e 's/pmm\\///' \
+                                            | sort -u -V \
+                                            | tail -1
+                                    )
+                                fi
                             """
                             if (PMM_VERSION == "pmm2"){
                                 sh """
-                                ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "                            
-                                    docker create \
-                                        -v /srv \
-                                        --name \${VM_NAME}-data \
-                                        ${DOCKER_VERSION} /bin/true
-                                "
+                                    ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "                            
+                                        docker create \
+                                            -v /srv \
+                                            --name \${VM_NAME}-data \
+                                            ${DOCKER_VERSION} /bin/true
+                                    "
                                 """
                                 sh """
-                                ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
-                                    docker run -d \
-                                        -p 80:80 \
-                                        -p 443:443 \
-                                        --volumes-from \${VM_NAME}-data \
-                                        --name \${VM_NAME}-server \
-                                        --restart always \
-                                        ${DOCKER_ENV_VARIABLE} \
-                                        ${DOCKER_VERSION}
-                                    sleep 10
-                                    docker logs \${VM_NAME}-server
-                                "                            
+                                    ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
+                                        docker run -d \
+                                            -p 80:80 \
+                                            -p 443:443 \
+                                            --volumes-from \${VM_NAME}-data \
+                                            --name \${VM_NAME}-server \
+                                            --restart always \
+                                            ${DOCKER_ENV_VARIABLE} \
+                                            ${DOCKER_VERSION}
+                                        sleep 10
+                                        docker logs \${VM_NAME}-server
+                                    "                            
                                 """
                             }
                             else{
                                 sh """
-                                ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
-                                    docker create \
-                                        -v /opt/prometheus/data \
-                                        -v /opt/consul-data \
-                                        -v /var/lib/mysql \
-                                        -v /var/lib/grafana \
-                                        --name \${VM_NAME}-data \
-                                        ${DOCKER_VERSION} /bin/true
-                                "
+                                    ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
+                                        docker create \
+                                            -v /opt/prometheus/data \
+                                            -v /opt/consul-data \
+                                            -v /var/lib/mysql \
+                                            -v /var/lib/grafana \
+                                            --name \${VM_NAME}-data \
+                                            ${DOCKER_VERSION} /bin/true
+                                    "
                                 """
                                 sh """
-                                ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
-                                    docker run -d \
-                                        -p 80:80 \
-                                        -p 443:443 \
-                                        --volumes-from \${VM_NAME}-data \
-                                        --name \${VM_NAME}-server \
-                                        --restart always \
-                                        -e METRICS_RESOLUTION=5s \
-                                        ${DOCKER_VERSION}
-                                    sleep 10
-                                    docker logs \${VM_NAME}-server
-                                "
+                                    ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
+                                        docker run -d \
+                                            -p 80:80 \
+                                            -p 443:443 \
+                                            --volumes-from \${VM_NAME}-data \
+                                            --name \${VM_NAME}-server \
+                                            --restart always \
+                                            -e METRICS_RESOLUTION=5s \
+                                            ${DOCKER_VERSION}
+                                        sleep 10
+                                        docker logs \${VM_NAME}-server
+                                    "
                                 """
                             }
                         }
