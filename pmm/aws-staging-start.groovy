@@ -145,6 +145,7 @@ pipeline {
                     """
                     if ("${NOTIFY}" == "true") {
                         slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                     }
                 }
             }
@@ -232,7 +233,7 @@ pipeline {
                         echo \$REQUEST_ID > REQUEST_ID
 
                         until [ -s IP ]; do
-                            sleep 1
+                            sleep 10
                             aws ec2 describe-instances \
                                 --filters "Name=spot-instance-request-id,Values=\${REQUEST_ID}" \
                                 --query 'Reservations[].Instances[].PublicIpAddress' \
@@ -268,7 +269,7 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) date; do
-                            sleep 2
+                            sleep 10
                         done
 
                         if [ -n "$SSH_KEY" ]; then
@@ -601,6 +602,7 @@ pipeline {
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
 
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER_FULL}, link: https://${PUBLIC_IP}"
+                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
                 }
             }
         }
@@ -621,6 +623,7 @@ pipeline {
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
 
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER_FULL}"
+                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
                 }
             }
         }
