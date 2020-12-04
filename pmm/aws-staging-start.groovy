@@ -67,7 +67,7 @@ pipeline {
             defaultValue: '-e METRICS_RETENTION=192h',
             description: '''
             Passing Env Variables to PMM Server Docker Container, supported only for pmm2.x
-            An Example: -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PMM_DEBUG=1
+            Example: -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PMM_DEBUG=1
             ''',
             name: 'DOCKER_ENV_VARIABLE')
         text(
@@ -82,7 +82,7 @@ pipeline {
             modb - Official MongoDB version from MongoDB Inc (ex. --addclient=modb,1),
             pgsql - Postgre SQL Server (ex. --addclient=pgsql,1)
             pdpgsql - Percona Distribution for PostgreSQL (ex. --addclient=pdpgsql,1)
-            An example: --addclient=ps,1 --addclient=mo,1 --addclient=md,1 --addclient=pgsql,2 --addclient=modb,2
+            Example: --addclient=ps,1 --addclient=mo,1 --addclient=md,1 --addclient=pgsql,2 --addclient=modb,2
             ''',
             name: 'CLIENTS')
         string(
@@ -269,7 +269,7 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) date; do
-                            sleep 1
+                            sleep 2
                         done
 
                         if [ -n "$SSH_KEY" ]; then
@@ -327,62 +327,71 @@ pipeline {
                     script {
                         withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                             sh """
-                            export IP=\$(cat IP)
-                            export VM_NAME=\$(cat VM_NAME)
+                                export IP=\$(cat IP)
+                                export VM_NAME=\$(cat VM_NAME)
 
-                            export CLIENT_VERSION=${CLIENT_VERSION}
-                            if [[ \$CLIENT_VERSION = latest ]]; then
-                                CLIENT_VERSION=\$(
-                                    curl -s https://www.percona.com/downloads/pmm/ \
-                                        | egrep -o 'pmm/[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}' \
-                                        | sed -e 's/pmm\\///' \
-                                        | sort -u -V \
-                                        | tail -1
-                                )
-                            fi
-
-                            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
-                                set -o errexit
-                                set -o xtrace
-
-                                if [[ \$PMM_VERSION == pmm2 ]]; then
-                                    docker create \
-                                        -v /srv \
-                                        --name \${VM_NAME}-data \
-                                        ${DOCKER_VERSION} /bin/true
-
-                                    docker run -d \
-                                        -p 80:80 \
-                                        -p 443:443 \
-                                        --volumes-from \${VM_NAME}-data \
-                                        --name \${VM_NAME}-server \
-                                        --restart always \
-                                        ${DOCKER_ENV_VARIABLE} \
-                                        ${DOCKER_VERSION}
-                                    sleep 10
-                                    docker logs \${VM_NAME}-server
-                                else
-                                    docker create \
-                                        -v /opt/prometheus/data \
-                                        -v /opt/consul-data \
-                                        -v /var/lib/mysql \
-                                        -v /var/lib/grafana \
-                                        --name \${VM_NAME}-data \
-                                        ${DOCKER_VERSION} /bin/true
-
-                                    docker run -d \
-                                        -p 80:80 \
-                                        -p 443:443 \
-                                        --volumes-from \${VM_NAME}-data \
-                                        --name \${VM_NAME}-server \
-                                        --restart always \
-                                        -e METRICS_RESOLUTION=5s \
-                                        ${DOCKER_VERSION}
-                                    sleep 10
-                                    docker logs \${VM_NAME}-server
+                                export CLIENT_VERSION=${CLIENT_VERSION}
+                                if [[ \$CLIENT_VERSION = latest ]]; then
+                                    CLIENT_VERSION=\$(
+                                        curl -s https://www.percona.com/downloads/pmm/ \
+                                            | egrep -o 'pmm/[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}' \
+                                            | sed -e 's/pmm\\///' \
+                                            | sort -u -V \
+                                            | tail -1
+                                    )
                                 fi
-                            "
-                         """
+                            """
+                            if (PMM_VERSION == "pmm2"){
+                                sh """
+                                    ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "                            
+                                        sudo docker create \
+                                            -v /srv \
+                                            --name \${VM_NAME}-data \
+                                            ${DOCKER_VERSION} /bin/true
+                                    "
+                                """
+                                sh """
+                                    ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
+                                        sudo docker run -d \
+                                            -p 80:80 \
+                                            -p 443:443 \
+                                            --volumes-from \${VM_NAME}-data \
+                                            --name \${VM_NAME}-server \
+                                            --restart always \
+                                            ${DOCKER_ENV_VARIABLE} \
+                                            ${DOCKER_VERSION}
+                                        sleep 10
+                                        docker logs \${VM_NAME}-server
+                                    "
+                                """
+                            }
+                            else{
+                                sh """
+                                    ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
+                                        sudo docker create \
+                                            -v /opt/prometheus/data \
+                                            -v /opt/consul-data \
+                                            -v /var/lib/mysql \
+                                            -v /var/lib/grafana \
+                                            --name \${VM_NAME}-data \
+                                            ${DOCKER_VERSION} /bin/true
+                                    "
+                                """
+                                sh """
+                                    ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) "
+                                        sudo docker run -d \
+                                            -p 80:80 \
+                                            -p 443:443 \
+                                            --volumes-from \${VM_NAME}-data \
+                                            --name \${VM_NAME}-server \
+                                            --restart always \
+                                            -e METRICS_RESOLUTION=5s \
+                                            ${DOCKER_VERSION}
+                                        sleep 10
+                                        docker logs \${VM_NAME}-server
+                                    "
+                                """
+                            }
                         }
                     }
                 }
