@@ -148,7 +148,7 @@ initMap['min-centos-6-x32'] = '''
 initMap['min-buster-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme0n1 | head -1)
         sudo mkfs.ext2 ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
@@ -162,7 +162,7 @@ initMap['min-buster-x64'] = '''
 initMap['min-bionic-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme0n1 | head -1)
         sudo mkfs.ext2 ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
