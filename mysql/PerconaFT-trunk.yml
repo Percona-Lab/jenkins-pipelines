@@ -6,7 +6,7 @@
         Do not edit this job through the web!
     concurrent: false
     auth-token: perconafttrunk
-    node: micro-amazon
+    node: docker
     child-workspace: "${COMBINATION}"
     triggers:
     - timed: H 23 * * 1-5
