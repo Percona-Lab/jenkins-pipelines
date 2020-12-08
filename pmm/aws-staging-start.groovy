@@ -438,8 +438,7 @@ pipeline {
                         elif [[ \$CLIENT_VERSION = 2* ]]; then
                             sudo yum clean all
                             sudo yum -y install pmm2-client-\$CLIENT_VERSION-6.el6.x86_64
-                            sudo percona-release disable all
-                            sudo percona-release enable original testing
+                            sudo percona-release enable-only original testing
                             sleep 15
                         elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then
                             sudo percona-release disable all
