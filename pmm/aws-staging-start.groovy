@@ -425,8 +425,7 @@ pipeline {
                         export CLIENT_IP=\$(curl ifconfig.me);
                         sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                         if [[ \$CLIENT_VERSION = dev-latest ]]; then
-                            sudo percona-release disable all
-                            sudo percona-release enable original testing
+                            sudo percona-release enable-only original testing
                             sudo yum clean all
                             sudo yum makecache
                             sudo yum -y install pmm2-client
