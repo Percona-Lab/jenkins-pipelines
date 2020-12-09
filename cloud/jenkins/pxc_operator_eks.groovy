@@ -281,7 +281,6 @@ EOF
             steps {
                 runTest('init-deploy')
                 runTest('limits')
-                runTest('monitoring')
                 runTest('monitoring-2-0')
                 runTest('affinity')
                 runTest('one-pod')

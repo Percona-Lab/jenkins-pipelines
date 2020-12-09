@@ -293,7 +293,6 @@ pipeline {
                         CreateCluster('basic')
                         runTest('init-deploy', 'basic')
                         runTest('limits', 'basic')
-                        runTest('monitoring', 'basic')
                         runTest('monitoring-2-0', 'basic')
                         runTest('affinity', 'basic')
                         runTest('one-pod', 'basic')

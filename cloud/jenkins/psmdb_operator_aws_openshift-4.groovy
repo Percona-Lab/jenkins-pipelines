@@ -227,7 +227,6 @@ pipeline {
         stage('E2E Basic Tests') {
             steps {
                 runTest('one-pod')
-                runTest('monitoring')
                 runTest('arbiter')
                 runTest('service-per-pod')
                 runTest('liveness')

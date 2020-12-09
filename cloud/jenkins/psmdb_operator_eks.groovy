@@ -241,7 +241,6 @@ EOF
         stage('E2E Basic Tests') {
             steps {
                 runTest('one-pod')
-                runTest('monitoring')
                 runTest('monitoring-2-0')
                 runTest('arbiter')
                 runTest('service-per-pod')
