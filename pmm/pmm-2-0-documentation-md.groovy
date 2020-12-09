@@ -29,7 +29,6 @@ pipeline {
                 git poll: false, branch: BRANCH_NAME, url: 'https://github.com/percona/pmm-doc.git'
             }
         }
-
         stage('Env Prepare') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'publish-doc-percona.com',
@@ -39,7 +38,7 @@ pipeline {
                     sh '''
                         sudo yum -y install docker
                         sudo usermod -aG docker ec2-user
-                        sudo service docker start
+                        sudo service docker status || sudo service docker start
                     '''
                 }
             }
