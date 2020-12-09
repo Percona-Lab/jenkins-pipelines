@@ -265,7 +265,6 @@ pipeline {
             steps {
                 runTest('init-deploy')
                 runTest('limits')
-                runTest('monitoring')
                 runTest('affinity')
                 runTest('one-pod')
                 runTest('auto-tuning')
