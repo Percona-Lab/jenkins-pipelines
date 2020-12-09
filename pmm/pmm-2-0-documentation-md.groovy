@@ -59,24 +59,6 @@ pipeline {
                 stash name: 'html-files', includes: 'site/**/*.*'
             }
         }
-        stage('Doc Build (PDF)') {
-            when {expression { params.BUILD_PDF == true }}
-            steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'publish-doc-percona.com',
-                                                   keyFileVariable: 'KEY_PATH',
-                                                   passphraseVariable: '',
-                                                   usernameVariable: 'USER')]) {
-                    sh '''
-                        sg docker -c "
-                            docker pull perconalab/pmm-doc-md:latest
-                            docker run -i -v `pwd`:/docs -e USER_ID=$UID -e UMASK=0777 perconalab/pmm-doc-md mkdocs build -f mkdocs-pdf.yml
-                        "
-                    '''
-                }
-                stash name: 'pdf', includes: 'site_pdf/_pdf/*.pdf'
-                archiveArtifacts 'site_pdf/_pdf/*.pdf'
-            }
-        }
         stage('Doc Publish') {
             agent {
                 label 'vbox-01.ci.percona.com'
@@ -91,6 +73,23 @@ pipeline {
                         rsync --delete-before -avzr -O -e "ssh -o StrictHostKeyChecking=no -p2222 -i \${KEY_PATH}"  site/ \${USER}@\${DEST_HOST}:/data/websites_data/\${PUBLISH_TARGET}/doc/percona-monitoring-and-management/2.x/
                     '''
                 }
+            }
+        }
+        stage('Doc Build (PDF)') {
+            when {expression { params.BUILD_PDF == true }}
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'publish-doc-percona.com',
+                                                   keyFileVariable: 'KEY_PATH',
+                                                   passphraseVariable: '',
+                                                   usernameVariable: 'USER')]) {
+                    sh '''
+                        sg docker -c "
+                            docker pull perconalab/pmm-doc-md:latest
+                            docker run -i -v `pwd`:/docs -e USER_ID=$UID -e UMASK=0777 perconalab/pmm-doc-md mkdocs build -f mkdocs-pdf.yml
+                        "
+                    '''
+                }
+                archiveArtifacts 'site_pdf/_pdf/*.pdf'
             }
         }
     }
