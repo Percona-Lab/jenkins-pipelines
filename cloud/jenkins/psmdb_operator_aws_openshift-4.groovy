@@ -239,7 +239,9 @@ pipeline {
                 runTest('upgrade')
                 runTest('upgrade-consistency')
                 runTest('demand-backup')
+                runTest('demand-backup-sharded')
                 runTest('scheduled-backup')
+                runTest('upgrade-sharded')
             }
         }
         stage('Make report') {
