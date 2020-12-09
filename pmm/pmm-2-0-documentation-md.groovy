@@ -42,9 +42,6 @@ pipeline {
                         sudo service docker start
                     '''
                 }
-                stash name: 'html-files', includes: 'site/**/*.*'
-                stash name: 'pdf', includes: 'site_pdf/_pdf/*.pdf'
-                archiveArtifacts 'site_pdf/_pdf/*.pdf'
             }
         }
         stage('Doc Build (HTML)') {
