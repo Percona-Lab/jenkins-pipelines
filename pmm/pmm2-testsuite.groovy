@@ -1,5 +1,10 @@
+import hudson.model.Node.Mode
+import hudson.slaves.*
+import jenkins.model.Jenkins
+import hudson.plugins.sshslaves.SSHLauncher
+
 void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH) {
-    stagingJob = build job: 'aws-staging-start', parameters: [
+    stagingJob = build job: 'aws-staging-test-job', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: ''),
@@ -20,41 +25,43 @@ void destroyStaging(IP) {
 }
 
 void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
+    node(env.VM_NAME){
+        sh """
+            set -o errexit
+            set -o xtrace
+
+            test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
+            export PATH=\$PATH:/usr/sbin
+            export instance_t="${TYPE}"
+            export instance_c="${COUNT}"
+            export version="${VERSION}"
+            export pmm_server_ip="${VM_IP}"
+            export stress="1"
+            export table_c="100"
+            export tap="1"
+
+            sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
+            export CLIENT_VERSION=${CLIENT_VERSION}
+            if [[ \$CLIENT_VERSION == http* ]]; then
+                export PATH="$PWD/pmm2-client/bin:$PATH"
+            fi
+            bash /srv/pmm-qa/pmm-tests/pmm-2-0-bats-tests/pmm-testsuite.sh \
+                | tee /tmp/result.output
+
+            perl -ane "
+                if (m/ok \\d+/) {
+                    \\\$i++;
+                    s/(.*ok) \\d+ (.*)/\\\$1 \\\$i \\\$2/;
+                    print;
+                }
+                END { print \\"1..\\\$i\\n\\" }
+            " /tmp/result.output \
+                | sed "/^not ok/a \\\\  ---\\\\n\\\\    operator: fail\\\\n\\\\  ..." \
+                | tee /tmp/result.tap
+        """
+    }
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
-                set -o errexit
-                set -o xtrace
-
-                test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
-                export PATH=\$PATH:/usr/sbin
-                export instance_t="${TYPE}"
-                export instance_c="${COUNT}"
-                export version="${VERSION}"
-                export pmm_server_ip="${VM_IP}"
-                export stress="1"
-                export table_c="100"
-                export tap="1"
-
-                sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
-                export CLIENT_VERSION=${CLIENT_VERSION}
-                if [[ \$CLIENT_VERSION == http* ]]; then
-                    export PATH="$PWD/pmm2-client/bin:$PATH"
-                fi
-                bash /srv/pmm-qa/pmm-tests/pmm-2-0-bats-tests/pmm-testsuite.sh \
-                    | tee /tmp/result.output
-
-                perl -ane "
-                    if (m/ok \\d+/) {
-                        \\\$i++;
-                        s/(.*ok) \\d+ (.*)/\\\$1 \\\$i \\\$2/;
-                        print;
-                    }
-                    END { print \\"1..\\\$i\\n\\" }
-                " /tmp/result.output \
-                    | sed "/^not ok/a \\\\  ---\\\\n\\\\    operator: fail\\\\n\\\\  ..." \
-                    | tee /tmp/result.tap
-            '
             scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                 ${USER}@${VM_IP}:/tmp/result.tap \
                 ${TYPE}.tap
@@ -86,7 +93,6 @@ void fetchAgentLog(String CLIENT_VERSION) {
                 ${USER}@${VM_IP}:pmm-agent.log \
                 pmm-agent.log
         """
-
     }
 }
 
@@ -123,9 +129,9 @@ pipeline {
         stage('Prepare') {
             steps {
                 deleteDir()
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
-                    curl -o - https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
+                   curl -o - https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
                     . ~/.nvm/nvm.sh
                     nvm install 12.14.1
                     sudo rm -f /usr/bin/node
@@ -137,6 +143,14 @@ pipeline {
         stage('Start staging') {
             steps {
                 runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2', PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH)
+                script {
+
+                    SSHLauncher ssh_connection = new SSHLauncher(env.VM_IP, 22, 'aws-jenkins')
+                    DumbSlave node = new DumbSlave(env.VM_NAME, "spot instance job", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
+
+                    Jenkins.instance.addNode(node)
+                }
+    
             }
         }
         stage('Sanity check') {
@@ -206,10 +220,15 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip
             '''
             fetchAgentLog(CLIENT_VERSION)
+            script {
+                def node = Jenkins.instance.getNode(env.VM_NAME)
+                Jenkins.instance.removeNode(node)
+            }
             destroyStaging(VM_NAME)
         }
-        success {
-            junit '*.xml'
+        unstable {
+            //Need to Skip junit xml result because of update on junit plugin, it is causing failure
+            //junit '*.xml'
             script {
                 OK = sh (
                     script: 'grep "^ok" *.tap | grep -v "# skip" | wc -l',
@@ -223,13 +242,32 @@ pipeline {
                     script: 'grep "^not ok" *.tap | wc -l',
                     returnStdout: true
                 ).trim()
-                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}"
+                slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build finished\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}"
+                archiveArtifacts artifacts: 'logs.zip'
+                archiveArtifacts artifacts: 'pmm-agent.log'
+            }
+        }
+        success {
+            script {
+                OK = sh (
+                    script: 'grep "^ok" *.tap | grep -v "# skip" | wc -l',
+                    returnStdout: true
+                ).trim()
+                SKIP = sh (
+                    script: 'grep "# skip" *.tap | wc -l',
+                    returnStdout: true
+                ).trim()
+                FAIL = sh (
+                    script: 'grep "^not ok" *.tap | wc -l',
+                    returnStdout: true
+                ).trim()
+                slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}"
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'pmm-agent.log'
             }
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, Build URL: ${BUILD_URL}"
+            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
             archiveArtifacts artifacts: 'logs.zip'
             archiveArtifacts artifacts: 'pmm-agent.log'
         }
