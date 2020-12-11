@@ -43,7 +43,7 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
             sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
             export CLIENT_VERSION=${CLIENT_VERSION}
             if [[ \$CLIENT_VERSION == http* ]]; then
-                export PATH="$PWD/pmm2-client/bin:$PATH"
+                export PATH="/home/ec2-user/workspace/aws-staging-start/pmm2-client/bin:$PATH"
             fi
             bash /srv/pmm-qa/pmm-tests/pmm-2-0-bats-tests/pmm-testsuite.sh \
                 | tee /tmp/result.output
@@ -67,7 +67,7 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
 }
 
 void fetchAgentLog(String CLIENT_VERSION) {
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                 set -o errexit
@@ -76,14 +76,24 @@ void fetchAgentLog(String CLIENT_VERSION) {
                 if [[ \$CLIENT_VERSION != http* ]]; then
                     sudo chmod 777 /var/log/pmm-agent.log
                 fi
-
                 if [[ -e /var/log/pmm-agent.log ]]; then
                     cp /var/log/pmm-agent.log .
                 fi
             '
-            scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
-                ${USER}@${VM_IP}:pmm-agent.log \
-                pmm-agent.log
+            if [[ \$CLIENT_VERSION != http* ]]; then
+                scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+                    ${USER}@${VM_IP}:pmm-agent.log \
+                    pmm-agent.log
+            fi
+        """
+    }
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            if [[ \$CLIENT_VERSION == http* ]]; then
+                scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+                    ${USER}@${VM_IP}:workspace/aws-staging-start/pmm-agent.log \
+                    pmm-agent.log
+            fi
         """
     }
 }
@@ -142,7 +152,6 @@ pipeline {
 
                     Jenkins.instance.addNode(node)
                 }
-    
             }
         }
         stage('Sanity check') {
@@ -155,14 +164,14 @@ pipeline {
                 runTAP("ps", "ps", "2", "5.7")
             }
         }
-        stage('Test: PS80') {
-            steps {
-                runTAP("ps", "ps", "2", "8.0")
-            }
-        }
         stage('Test: PSMDB_4_0') {
             steps {
                 runTAP("mo", "psmdb", "3", "4.0")
+            }
+        }
+        stage('Test: PS80') {
+            steps {
+                runTAP("ps", "ps", "2", "8.0")
             }
         }
         stage('Test: PSMDB_3_6') {
