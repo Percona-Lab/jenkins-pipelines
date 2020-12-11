@@ -247,7 +247,7 @@ pipeline {
             slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build failed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
         }
         success {
-            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build failed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
+            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build Passed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
         }
         failure {
             slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
