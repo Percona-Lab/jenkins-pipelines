@@ -4,7 +4,7 @@ import jenkins.model.Jenkins
 import hudson.plugins.sshslaves.SSHLauncher
 
 void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH) {
-    stagingJob = build job: 'aws-staging-test-job', parameters: [
+    stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: ''),
