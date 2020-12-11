@@ -231,7 +231,6 @@ pipeline {
         always {
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip
-                ls -la
             '''
             fetchAgentLog(CLIENT_VERSION)
             script {
