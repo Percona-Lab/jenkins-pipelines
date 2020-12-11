@@ -48,27 +48,19 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
             bash /srv/pmm-qa/pmm-tests/pmm-2-0-bats-tests/pmm-testsuite.sh \
                 | tee /tmp/result.output
 
-            perl -ane "
-                if (m/ok \\d+/) {
-                    \\\$i++;
-                    s/(.*ok) \\d+ (.*)/\\\$1 \\\$i \\\$2/;
-                    print;
-                }
-                END { print \\"1..\\\$i\\n\\" }
-            " /tmp/result.output \
-                | sed "/^not ok/a \\\\  ---\\\\n\\\\    operator: fail\\\\n\\\\  ..." \
-                | tee /tmp/result.tap
+            mv /tmp/result.output /tmp/result.tap
         """
     }
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                 ${USER}@${VM_IP}:/tmp/result.tap \
-                ${TYPE}.tap
-            cat ${TYPE}.tap \
+                ${TYPE}_${VERSION}.tap
+            cat ${TYPE}_${VERSION}.tap \
                 | ./node_modules/tap-junit/bin/tap-junit \
-                    --name ${TYPE} \
+                    --name ${TYPE}_${VERSION}.xml \
                     --output ./ \
+                    --pretty \
                     || :
         """
     }
@@ -131,7 +123,7 @@ pipeline {
                 deleteDir()
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
-                   curl -o - https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
+                    curl -o - https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
                     . ~/.nvm/nvm.sh
                     nvm install 12.14.1
                     sudo rm -f /usr/bin/node
@@ -168,16 +160,6 @@ pipeline {
                 runTAP("ps", "ps", "2", "8.0")
             }
         }
-        stage('Test: MS57') {
-            steps {
-                runTAP("ms", "mysql", "2", "5.7")
-            }
-        }
-        stage('Test: MS80') {
-            steps {
-                runTAP("ms", "mysql", "2", "8.0")
-            }
-        }
         stage('Test: PSMDB_4_0') {
             steps {
                 runTAP("mo", "psmdb", "3", "4.0")
@@ -198,6 +180,16 @@ pipeline {
                 runTAP("modb", "modb", "3", "4.0")
             }
         }
+        stage('Test: MS57') {
+            steps {
+                runTAP("ms", "mysql", "2", "5.7")
+            }
+        }
+        stage('Test: MS80') {
+            steps {
+                runTAP("ms", "mysql", "2", "8.0")
+            }
+        }
         stage('Test: PGSQL10') {
             steps {
                 runTAP("pgsql", "postgresql", "3", "10.6")
@@ -213,63 +205,53 @@ pipeline {
                 runTAP("pxc", "pxc", "1", "5.7")
             }
         }
+        stage('Check Results') {
+            steps {
+                script {
+                    OK = sh (
+                        script: 'grep "^ok" *.tap | grep -v "# skip" | wc -l',
+                        returnStdout: true
+                    ).trim()
+                    SKIP = sh (
+                        script: 'grep "# skip" *.tap | wc -l',
+                        returnStdout: true
+                    ).trim()
+                    FAIL = sh (
+                        script: 'grep "^not ok" *.tap | wc -l',
+                        returnStdout: true
+                    ).trim()
+                    if (FAIL.toInteger() > 0) {
+                        sh "exit 1"
+                    }
+                }
+            }
+        }
     }
     post {
         always {
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip
+                ls -la
             '''
             fetchAgentLog(CLIENT_VERSION)
             script {
+                if(env.VM_NAME) {
+                    destroyStaging(VM_NAME)
+                    archiveArtifacts artifacts: 'logs.zip'
+                    archiveArtifacts artifacts: 'pmm-agent.log'
+                }
                 def node = Jenkins.instance.getNode(env.VM_NAME)
                 Jenkins.instance.removeNode(node)
             }
-            destroyStaging(VM_NAME)
         }
         unstable {
-            //Need to Skip junit xml result because of update on junit plugin, it is causing failure
-            //junit '*.xml'
-            script {
-                OK = sh (
-                    script: 'grep "^ok" *.tap | grep -v "# skip" | wc -l',
-                    returnStdout: true
-                ).trim()
-                SKIP = sh (
-                    script: 'grep "# skip" *.tap | wc -l',
-                    returnStdout: true
-                ).trim()
-                FAIL = sh (
-                    script: 'grep "^not ok" *.tap | wc -l',
-                    returnStdout: true
-                ).trim()
-                slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build finished\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}"
-                archiveArtifacts artifacts: 'logs.zip'
-                archiveArtifacts artifacts: 'pmm-agent.log'
-            }
+            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build failed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
         }
         success {
-            script {
-                OK = sh (
-                    script: 'grep "^ok" *.tap | grep -v "# skip" | wc -l',
-                    returnStdout: true
-                ).trim()
-                SKIP = sh (
-                    script: 'grep "# skip" *.tap | wc -l',
-                    returnStdout: true
-                ).trim()
-                FAIL = sh (
-                    script: 'grep "^not ok" *.tap | wc -l',
-                    returnStdout: true
-                ).trim()
-                slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}"
-                archiveArtifacts artifacts: 'logs.zip'
-                archiveArtifacts artifacts: 'pmm-agent.log'
-            }
+            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build failed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
         }
         failure {
-            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
-            archiveArtifacts artifacts: 'logs.zip'
-            archiveArtifacts artifacts: 'pmm-agent.log'
+            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
         }
     }
 }
