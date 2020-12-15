@@ -111,7 +111,7 @@ pipeline {
         stage('Run API Test') {
             steps {
                 sh '''
-                    sudo docker run -e PMM_SERVER_URL=\${PMM_URL} -e PMM_RUN_UPDATE_TEST=1 -e PMM_RUN_STT_TESTS=0 -e PMM_RUN_IA_TESTS=1 --name ${BUILD_TAG} pmm-api-tests
+                    sudo docker run -e PMM_SERVER_URL=\${PMM_URL} -e PMM_RUN_UPDATE_TEST=1 -e PMM_RUN_STT_TESTS=0 --name ${BUILD_TAG} pmm-api-tests
                 '''
             }
         }
