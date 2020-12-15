@@ -29,6 +29,10 @@ pipeline {
             description: 'Enable Testing Repo?',
             name: 'ENABLE_TESTING_REPO')
         choice(
+            choices: ['no', 'yes'],
+            description: 'Enable Push Mode, if you are using this instance as Client Node',
+            name: 'ENABLE_PUSH_MODE')
+        choice(
             choices: '1\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
@@ -482,7 +486,11 @@ pipeline {
                                 source ~/.bash_profile
                                 pmm-admin --version
                                 if [[ \$CLIENT_INSTANCE == yes ]]; then
-                                    pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
+                                    if [[ \$ENABLE_PUSH_MODE == yes ]]; then
+                                        pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin --metrics-mode=push \$IP
+                                    else
+                                        pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
+                                    fi
                                 else
                                     pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
                                 fi
@@ -498,7 +506,11 @@ pipeline {
                             if [[ \$CLIENT_VERSION == dev-latest ]] || [[ \$CLIENT_VERSION == pmm2-latest ]] || [[ \$CLIENT_VERSION == 2* ]]; then
                                 pmm-admin --version
                                 if [[ \$CLIENT_INSTANCE == yes ]]; then
-                                    sudo pmm-agent setup --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
+                                    if [[ \$ENABLE_PUSH_MODE == yes ]]; then
+                                        sudo pmm-agent setup --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin --metrics-mode=push \$IP
+                                    else
+                                        sudo pmm-agent setup --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
+                                    fi
                                 else
                                     sudo pmm-agent setup --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
                                 fi
