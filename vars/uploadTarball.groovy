@@ -5,7 +5,6 @@ def call(String TarballType) {
         unstash 'uploadPath'
         withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
             sh """
-                exit 1
                 export path_to_build=`cat uploadPath`
 
                 ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
