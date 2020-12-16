@@ -5,6 +5,7 @@ def call() {
         unstash 'uploadPath'
         withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
             sh """
+                exit 1
                 export path_to_build=`cat uploadPath`
 
                 dsc=`find . -name '*.dsc'`
