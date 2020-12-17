@@ -4,18 +4,19 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
         def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
 
         withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
-            withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+            withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                 sh """
-                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com ' \
+                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} -t -t ${USER}@repo.ci.percona.com ' bash -s << 'ENDSSH'
                         set -o errexit
                         set -o xtrace
-
                         pushd ${path_to_build}/binary
                             if [ "${SYNC_PMM_CLIENT}" == 'no' ]; then
                                 rsync_exclude=" --exclude pmm2-client-*"
                                 find_exclude="! -name pmm2-client-*"
                             fi
-
+			    pwd
+			    ls -la
+                            exit 1
                             for rhel in `ls -1 redhat`; do
                                 # skip synchronization of el8/el6 repos in case of pmm server rpms sync
                                 if [ "${SYNC_PMM_CLIENT}" == 'no' ] && [ "\${rhel}" -eq '8' -o "\${rhel}" -eq '6' ]; then
@@ -64,7 +65,7 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
 
                         # Clean CDN cache for repo.percona.com
                         bash -xe /usr/local/bin/clear_cdn_cache.sh
-                    '
+ENDSSH'
                 """
             }
         }
