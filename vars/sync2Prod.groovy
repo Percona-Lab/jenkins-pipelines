@@ -6,18 +6,16 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
         withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
             withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                 sh """
-                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} -t -t ${USER}@repo.ci.percona.com ' bash -s << 'ENDSSH'
+                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} -t -t ${USER}@repo.ci.percona.com ' bash -xe << 'ENDSSH' \
                         set -o errexit
                         set -o xtrace
                         pushd ${path_to_build}/binary
-                            if [ "${SYNC_PMM_CLIENT}" == 'no' ]; then
+                            if [ $SYNC_PMM_CLIENT == 'no' ]; then
                                 rsync_exclude=" --exclude pmm2-client-*"
                                 find_exclude="! -name pmm2-client-*"
                             fi
-			    pwd
 			    ls -la
-                            exit 1
-                            for rhel in `ls -1 redhat`; do
+                            for rhel in $(ls -1 \${path_to_build}/binary/redhat); do
                                 # skip synchronization of el8/el6 repos in case of pmm server rpms sync
                                 if [ "${SYNC_PMM_CLIENT}" == 'no' ] && [ "\${rhel}" -eq '8' -o "\${rhel}" -eq '6' ]; then
                                     continue
@@ -27,25 +25,25 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
 
                                 # RPMS
                                 mkdir -p \${dest_path}/RPMS
-                                for arch in `ls -1 redhat/\${rhel}`; do
+                                for arch in `ls -1 \${path_to_build}/binary/redhat/\${rhel}`; do
                                     repo_path=\${dest_path}/RPMS/\${arch}
                                     mkdir -p \${repo_path}
-                                    if [ `ls redhat/\${rhel}/\${arch}/*.rpm | wc -l` -gt 0 ]; then
-                                        rsync -aHv redhat/\${rhel}/\${arch}/*.rpm \${rsync_exclude} \${repo_path}/
+                                    if [ `ls \${path_to_build}/binary/redhat/\${rhel}/\${arch}/*.rpm | wc -l` -gt 0 ]; then
+                                        rsync -aHv \${path_to_build}/binary/redhat/\${rhel}/\${arch}/*.rpm \${rsync_exclude} \${repo_path}/
                                     fi
                                     createrepo --update \${repo_path}
                                 done
 
                                 # SRPMS
                                 mkdir -p \${dest_path}/SRPMS
-                                if [ `find ../source/redhat -name '*.src.rpm' \${find_exclude}  | wc -l` -gt 0 ]; then
-                                    cp -v `find ../source/redhat -name '*.src.rpm' \${find_exclude}` \${dest_path}/SRPMS/
+                                if [ `find \${path_to_build}/source/redhat -name '*.src.rpm' \${find_exclude}  | wc -l` -gt 0 ]; then
+                                    cp -v `find \${path_to_build}/source/redhat -name '*.src.rpm' \${find_exclude}` \${dest_path}/SRPMS/
                                 fi
                                 createrepo --update \${dest_path}/SRPMS
                             done
 
-                            for dist in `ls -1 debian`; do
-                                for deb in `find debian/\${dist} -name '*.deb'`; do
+                            for dist in `ls -1 \${path_to_build}/binary/debian`; do
+                                for deb in `find \${path_to_build}/binary/debian/\${dist} -name '*.deb'`; do
                                     repopush --remove-package --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/apt
                                 done
 
