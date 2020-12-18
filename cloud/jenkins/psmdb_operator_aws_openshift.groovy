@@ -248,6 +248,7 @@ pipeline {
                 runTest('security-context')
                 runTest('smart-update')
                 runTest('version-service')
+                runTest('rs-shard-migration')
             }
         }
         stage('E2E Basic Tests') {
