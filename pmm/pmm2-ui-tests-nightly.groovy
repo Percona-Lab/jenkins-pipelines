@@ -163,7 +163,7 @@ pipeline {
         }
         stage('Start Server') {
             steps {
-                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '', CLIENT_INSTANCE, SERVER_IP)
+                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--setup-alertmanager', CLIENT_INSTANCE, SERVER_IP)
             }
         }
         stage('Start Client Instance') {
