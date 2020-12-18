@@ -8,10 +8,10 @@ def call(String FOLDER_NAME, String AWS_STASH_PATH, String TarballType) {
             sh """
                 export path_to_build=`cat uploadPath`
 
-                cat /etc/hosts > ./hosts
-                echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
-                sudo cp ./hosts /etc/
-
+                cat /etc/hosts > hosts
+                echo '10.30.6.9 repo.ci.percona.com' >> hosts
+                sudo cp ./hosts /etc || true
+                
                 ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                     mkdir -p \${path_to_build}/${TarballType}/tarball
 

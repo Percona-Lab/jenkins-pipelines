@@ -10,7 +10,7 @@ def call(String FOLDER_NAME, String AWS_STASH_PATH) {
 
                 cat /etc/hosts > ./hosts
                 echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
-                sudo cp ./hosts /etc/
+                sudo cp ./hosts /etc/ || true
 
                 dsc=`find . -name '*.dsc'`
                 if [ -f "\${dsc}" ]; then
