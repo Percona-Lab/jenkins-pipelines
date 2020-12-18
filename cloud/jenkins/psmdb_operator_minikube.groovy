@@ -234,6 +234,7 @@ pipeline {
                     runTest('smart-update')
                     runTest('version-service')
                     runTest('users')
+                    runTest('rs-shard-migration')
             }
             post {
                 always {
