@@ -100,7 +100,7 @@ pipeline {
         }
         stage('Build client source rpm') {
             steps {
-                sh 'sg docker -c "./build/bin/build-client-srpm centos:6"'
+                sh 'sg docker -c "./build/bin/build-client-srpm centos:7"'
                 stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
                 uploadRPM()
             }
