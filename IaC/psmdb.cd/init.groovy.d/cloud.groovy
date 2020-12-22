@@ -78,6 +78,10 @@ initMap['docker'] = '''
         sudo mount -o noatime ${DEVICE} /mnt
     fi
 
+    cat /etc/hosts > ./hosts
+    echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
+    sudo cp ./hosts /etc/
+
     sudo yum -y install java-1.8.0-openjdk git aws-cli docker
     sudo yum -y remove java-1.7.0-openjdk
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
@@ -118,6 +122,10 @@ initMap['docker-32gb'] = '''
         sudo mount -o noatime ${DEVICE} /mnt
     fi
 
+    cat /etc/hosts > ./hosts
+    echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
+    sudo cp ./hosts /etc/
+
     sudo yum -y install java-1.8.0-openjdk git aws-cli docker
     sudo yum -y remove java-1.7.0-openjdk
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
@@ -156,6 +164,10 @@ initMap['micro-amazon'] = '''
         sudo mount ${DEVICE} /mnt
     fi
 
+    cat /etc/hosts > ./hosts
+    echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
+    sudo cp ./hosts /etc/
+
     echo "*  soft  nofile  65000" | sudo tee -a /etc/security/limits.conf
     echo "*  hard  nofile  65000" | sudo tee -a /etc/security/limits.conf
     echo "*  soft  nproc  65000"  | sudo tee -a /etc/security/limits.conf
@@ -179,6 +191,10 @@ initMap['min-artful-x64'] = '''
         sudo mount ${DEVICE} /mnt
     fi
 
+    cat /etc/hosts > ./hosts
+    echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
+    sudo cp ./hosts /etc/
+
     sudo apt-get -y install openjdk-8-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
@@ -195,6 +211,10 @@ initMap['min-centos-6-x64'] = '''
         sudo mkfs.xfs ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
+
+    cat /etc/hosts > ./hosts
+    echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
+    sudo cp ./hosts /etc/
 
     echo "*  soft  nofile  65000" | sudo tee -a /etc/security/limits.conf
     echo "*  hard  nofile  65000" | sudo tee -a /etc/security/limits.conf
@@ -221,6 +241,10 @@ initMap['min-jessie-x64'] = '''
         sudo mount ${DEVICE} /mnt
     fi
 
+    cat /etc/hosts > ./hosts
+    echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
+    sudo cp ./hosts /etc/
+
     sudo apt-get -y install git wget
     wget https://jenkins.percona.com/downloads/jre/jre-8u152-linux-x64.tar.gz
     sudo tar -zxf jre-8u152-linux-x64.tar.gz -C /usr/local
@@ -242,6 +266,10 @@ initMap['min-bionic-x64'] = '''
         sudo mkfs.xfs ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
+
+    cat /etc/hosts > ./hosts
+    echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
+    sudo cp ./hosts /etc/
 
     sudo apt-get -y install openjdk-8-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
