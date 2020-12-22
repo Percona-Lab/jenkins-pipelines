@@ -80,7 +80,7 @@ pipeline {
             steps {
                 slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH}")
                 cleanUpWS()
-                buildStage("centos:6", "--get_sources=1")
+                buildStage("centos:7", "--get_sources=1")
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-36.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
@@ -107,7 +107,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:6", "--build_src_rpm=1")
+                        buildStage("centos:7", "--build_src_rpm=1")
 
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
@@ -128,21 +128,8 @@ pipeline {
                 }
             }  //parallel
         } // stage
-        stage('Build PSMDB RPMs/DEBs') {
+        stage('Build PSMDB RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Centos 6') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:6", "--build_rpm=1")
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Centos 7') {
                     agent {
                         label 'docker'
@@ -234,23 +221,6 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-            }
-        }
-        stage('Build PSMDB binaries') {
-            parallel {
-                stage('Centos 6 tarball') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:6", "--build_tarball=1")
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                    }
-                }
                 stage('Centos 7 tarball') {
                     agent {
                         label 'docker'
@@ -262,18 +232,6 @@ pipeline {
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                    }
-                }
-                stage('Centos 6 debug tarball') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:6", "--debug=1")
-
-                        pushArtifactFolder("debug/", AWS_STASH_PATH)
                     }
                 }
                 stage('Centos 7 debug tarball') {
