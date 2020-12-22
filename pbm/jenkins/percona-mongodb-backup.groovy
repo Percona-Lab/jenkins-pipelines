@@ -70,10 +70,11 @@ pipeline {
     stages {
         stage('Create PBM source tarball') {
             steps {
+                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH}")
                 cleanUpWS()
-                buildStage("centos:6", "--get_sources=1")
+                buildStage("centos:7", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-backup-mongodb.properties | cut -d = -f 2 | sed "s:BUILDS/::;s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-backup-mongodb.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
@@ -97,7 +98,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:6", "--build_src_rpm=1")
+                        buildStage("centos:7", "--build_src_rpm=1")
 
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
@@ -118,21 +119,8 @@ pipeline {
                 }
             }  //parallel
         } // stage
-        stage('Build PBM rpms') {
+        stage('Build PBM RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Centos 6') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:6", "--build_rpm=1")
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Centos 7') {
                     agent {
                         label 'docker'
@@ -159,11 +147,6 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-            }
-        }
-
-        stage('Build PBM debs') {
-            parallel {
                 stage('Ubuntu Xenial(16.04)') {
                     agent {
                         label 'docker'
@@ -203,19 +186,6 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Jessie(8)') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:jessie", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Debian Stretch(9)') {
                     agent {
                         label 'docker'
@@ -242,24 +212,20 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-            }
-        }
-        stage('Build PBM binaries') {
-//            parallel {
-//                stage('Centos 6 tarball') {
+                stage('Centos 7 tarball') {
                     agent {
                         label 'docker'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:6", "--build_tarball=1")
+                        buildStage("centos:7", "--build_tarball=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
-//                }
-//            }
+                }
+            }
         }
 
         stage('Sign packages') {
@@ -277,6 +243,14 @@ pipeline {
 
     }
     post {
+        success {
+            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH}")
+            deleteDir()
+        }
+        failure {
+            slackNotify("#releases", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH}")
+            deleteDir()
+        }
         always {
             sh '''
                 sudo rm -rf ./*
