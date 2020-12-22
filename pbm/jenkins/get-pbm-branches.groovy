@@ -60,6 +60,7 @@ pipeline {
                 script {
                     START_NEW_BUILD = sh(returnStdout: true, script: "source startBuild; echo \${START_NEW_BUILD}").trim()
                     BRANCH_NAME = sh(returnStdout: true, script: "source branch_commit_id.properties; echo \${BRANCH_NAME}").trim()
+                    COMMIT_ID = sh(returnStdout: true, script: "source branch_commit_id.properties; echo \${COMMIT_ID}").trim()
                     VERSION = sh(returnStdout: true, script: "source branch_commit_id.properties; echo \${BRANCH_NAME} | sed s:release\\-::").trim()
                 }
 
@@ -76,6 +77,7 @@ pipeline {
                         echo ${START_NEW_BUILD}: build required
                     """
                 }
+                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
                 build job: 'pbm-autobuild-RELEASE', parameters: [string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'VERSION', value: VERSION), string(name: 'COMPONENT', value: 'testing')]
 
             }
