@@ -164,6 +164,7 @@ pushd ${WORKDIR}
         -DWITH_RE2=bundled \
         -DWITH_LIBEVENT=bundled \
         -DWITH_EDITLINE=bundled \
+        -DWITH_ZLIB=bundled \
         -DWITH_ZSTD=bundled \
         -DBUILD_CONFIG=mysql_release \
         -DFEATURE_SET=community \
