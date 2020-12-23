@@ -117,9 +117,7 @@ initMap['docker'] = '''
         echo try again
     done
 
-    cat /etc/hosts > ./hosts
-    echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
-    sudo cp ./hosts /etc/
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
     sudo yum -y install java-1.8.0-openjdk git aws-cli docker
     sudo yum -y remove java-1.7.0-openjdk
@@ -155,9 +153,7 @@ initMap['micro-amazon'] = '''
         sudo mount ${DEVICE} /mnt
     fi
 
-    cat /etc/hosts > ./hosts
-    echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
-    sudo cp ./hosts /etc/
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
     until sudo yum makecache; do
         sleep 1
@@ -179,9 +175,7 @@ initMap['min-centos-6-x32'] = '''
         sudo mount ${DEVICE} /mnt
     fi
 
-    cat /etc/hosts > ./hosts
-    echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
-    sudo cp ./hosts /etc/
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
     until sudo yum makecache; do
         sleep 1
@@ -211,9 +205,7 @@ initMap['min-artful-x64'] = '''
         sudo mount ${DEVICE} /mnt
     fi
 
-    cat /etc/hosts > ./hosts
-    echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
-    sudo cp ./hosts /etc/
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
     until sudo apt-get update; do
         sleep 1
@@ -230,9 +222,7 @@ initMap['min-buster-x64'] = '''
         sudo mount ${DEVICE} /mnt
     fi
 
-    cat /etc/hosts > ./hosts
-    echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
-    sudo cp ./hosts /etc/
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
     until sudo apt-get update; do
         sleep 1
