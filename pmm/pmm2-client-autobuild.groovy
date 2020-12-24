@@ -110,7 +110,6 @@ pipeline {
                 sh '''
                     sg docker -c "
                         env
-                        ./build/bin/build-client-rpm centos:6
                         ./build/bin/build-client-rpm centos:7
                         ./build/bin/build-client-rpm centos:8
                     "
