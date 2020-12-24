@@ -199,7 +199,10 @@ initMap['min-artful-x64'] = '''
         sleep 1
         echo try again
     done
-    sudo apt-get -y install openjdk-8-jre-headless git
+    until sudo apt-get -y install openjdk-8-jre-headless git; do
+        sleep 1
+        echo try again
+    done
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 initMap['min-buster-x64'] = '''
