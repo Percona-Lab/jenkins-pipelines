@@ -116,6 +116,9 @@ initMap['docker'] = '''
         sleep 1
         echo try again
     done
+
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
+
     sudo yum -y install java-1.8.0-openjdk git aws-cli docker
     sudo yum -y remove java-1.7.0-openjdk
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
@@ -149,6 +152,9 @@ initMap['micro-amazon'] = '''
         sudo mkfs.ext2 ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
+
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
+
     until sudo yum makecache; do
         sleep 1
         echo try again
@@ -168,6 +174,9 @@ initMap['min-centos-6-x32'] = '''
         sudo mkfs.ext2 ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
+
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
+
     until sudo yum makecache; do
         sleep 1
         echo try again
@@ -195,6 +204,9 @@ initMap['min-artful-x64'] = '''
         sudo mkfs.ext2 ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
+
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
+
     until sudo apt-get update; do
         sleep 1
         echo try again
@@ -212,6 +224,9 @@ initMap['min-buster-x64'] = '''
         sudo mkfs.ext2 ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
+
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
+
     until sudo apt-get update; do
         sleep 1
         echo try again
