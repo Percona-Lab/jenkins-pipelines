@@ -173,7 +173,10 @@ initMap['min-bionic-x64'] = '''
         sleep 1
         echo try again
     done
-    sudo apt-get -y install openjdk-8-jre-headless git
+    until sudo apt-get -y install openjdk-8-jre-headless git; do
+        sleep 1
+        echo try again
+    done
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 initMap['min-stretch-x64'] = initMap['min-bionic-x64']
@@ -202,7 +205,7 @@ typeMap['min-centos-6-x64'] = 'm4.xlarge'
 typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-xenial-x32'] = typeMap['min-centos-7-x64']
+typeMap['min-xenial-x32'] = 'm1.medium'
 typeMap['psmdb'] = typeMap['docker-32gb']
 
 execMap = [:]
@@ -235,7 +238,7 @@ devMap['min-centos-8-x64'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-buster-x64'] = devMap['min-stretch-x64']
 devMap['min-xenial-x64'] = devMap['min-bionic-x64']
-devMap['min-xenial-x32'] = devMap['min-bionic-x64']
+devMap['min-xenial-x32'] = '/dev/sda1=:10:false:gp2,/dev/sdd=:80:false:gp2'
 devMap['min-centos-6-x32'] = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 
