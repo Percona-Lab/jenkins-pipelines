@@ -26,6 +26,10 @@ pipeline {
             defaultValue: 'psmdb-42',
             description: 'PSMDB for testing. Valid values: psmdb-4*, psmdb-36',
             name: 'psmdb_to_test')
+        string(
+            defaultValue: '1.3.4',
+            description: 'PBM Version for tests',
+            name: 'VERSION')
   }
   options {
           withCredentials(moleculePbmJenkinsCreds())
