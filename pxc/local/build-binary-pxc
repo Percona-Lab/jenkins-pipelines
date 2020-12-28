@@ -126,9 +126,9 @@ if [[ "$COMPILER" != "default" ]]; then
     export CXX=$(echo ${COMPILER} | sed -e 's/gcc/g++/; s/clang/clang++/')
 fi
 
-# CentOS 6 and 7
-if [[ -f /opt/rh/devtoolset-7/enable ]]; then
-    source /opt/rh/devtoolset-7/enable
+# CentOS 7
+if [[ -f /opt/rh/devtoolset-8/enable ]]; then
+    source /opt/rh/devtoolset-8/enable
 fi
 
 
