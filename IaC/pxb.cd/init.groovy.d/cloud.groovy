@@ -32,6 +32,7 @@ imageMap['min-bionic-x64'] = 'ami-12cdeb6a'
 imageMap['min-stretch-x64'] = 'ami-76f6ab0e'
 imageMap['min-buster-x64'] = 'ami-0f5d8e2951e3f83a5'
 imageMap['min-xenial-x64'] = 'ami-0f2016003e1759f35'
+imageMap['min-xenial-x32'] = 'ami-0697ba3ee1b641c90'
 imageMap['min-focal-x64'] = 'ami-09dd2e08d601bff67'
 imageMap['psmdb'] = imageMap['min-xenial-x64']
 
@@ -57,6 +58,7 @@ userMap['min-stretch-x64'] = 'admin'
 userMap['min-buster-x64'] = 'admin'
 userMap['min-focal-x64'] = 'ubuntu'
 userMap['min-xenial-x64'] = 'ubuntu'
+userMap['min-xenial-x32'] = 'ubuntu'
 userMap['psmdb'] = userMap['min-xenial-x64']
 
 initMap = [:]
@@ -109,7 +111,8 @@ initMap['micro-amazon'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git aws-cli || :
+    sudo yum -y install java-1.8.0-openjdk git || :
+    sudo yum -y install aws-cli || :
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
@@ -170,11 +173,15 @@ initMap['min-bionic-x64'] = '''
         sleep 1
         echo try again
     done
-    sudo apt-get -y install openjdk-8-jre-headless git
+    until sudo apt-get -y install openjdk-8-jre-headless git; do
+        sleep 1
+        echo try again
+    done
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 initMap['min-stretch-x64'] = initMap['min-bionic-x64']
 initMap['min-xenial-x64'] = initMap['min-bionic-x64']
+initMap['min-xenial-x32'] = initMap['min-bionic-x64']
 initMap['min-focal-x64'] = initMap['min-bionic-x64']
 initMap['psmdb'] = initMap['min-xenial-x64']
 
@@ -198,6 +205,7 @@ typeMap['min-centos-6-x64'] = 'm4.xlarge'
 typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-xenial-x32'] = 'm1.medium'
 typeMap['psmdb'] = typeMap['docker-32gb']
 
 execMap = [:]
@@ -213,6 +221,7 @@ execMap['min-centos-8-x64'] = '1'
 execMap['min-stretch-x64'] = '1'
 execMap['min-buster-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
+execMap['min-xenial-x32'] = '1'
 execMap['min-focal-x64'] = '1'
 execMap['psmdb'] = '1'
 
@@ -229,6 +238,7 @@ devMap['min-centos-8-x64'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-buster-x64'] = devMap['min-stretch-x64']
 devMap['min-xenial-x64'] = devMap['min-bionic-x64']
+devMap['min-xenial-x32'] = '/dev/sda1=:10:false:gp2,/dev/sdd=:80:false:gp2'
 devMap['min-centos-6-x32'] = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 
@@ -246,6 +256,7 @@ labelMap['min-centos-8-x64'] = ''
 labelMap['min-stretch-x64'] = ''
 labelMap['min-buster-x64'] = ''
 labelMap['min-xenial-x64'] = ''
+labelMap['min-xenial-x32'] = ''
 labelMap['psmdb'] = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
@@ -325,6 +336,7 @@ String region = 'us-west-2'
             getTemplate('min-stretch-x64', "${region}${it}"),
             getTemplate('min-buster-x64', "${region}${it}"),
             getTemplate('min-xenial-x64', "${region}${it}"),
+            getTemplate('min-xenial-x32', "${region}${it}"),
             getTemplate('min-bionic-x64', "${region}${it}"),
             getTemplate('min-focal-x64', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
