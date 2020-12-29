@@ -1,5 +1,5 @@
 - job:
-    name: pxb24-single-platform--run
+    name: pxb24-single-platform-run
     project-type: matrix
     description: |
         Do not edit this job through the web!
