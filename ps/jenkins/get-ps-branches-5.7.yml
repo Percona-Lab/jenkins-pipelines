@@ -1,0 +1,17 @@
+- job:
+    name: ps57-autobuild
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+        Check PS repo for new release branches to build packages
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'master'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ps/jenkins/get-ps-branches-5.7.groovy
+    triggers:
+      - timed: "H/15 * * * *"
