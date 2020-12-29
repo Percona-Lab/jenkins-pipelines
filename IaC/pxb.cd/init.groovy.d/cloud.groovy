@@ -179,10 +179,28 @@ initMap['min-bionic-x64'] = '''
     done
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-stretch-x64'] = initMap['min-bionic-x64']
-initMap['min-xenial-x64'] = initMap['min-bionic-x64']
-initMap['min-xenial-x32'] = initMap['min-bionic-x64']
-initMap['min-focal-x64'] = initMap['min-bionic-x64']
+
+initMap['min-focal-x64'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
+        sudo mkfs.ext2 ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+    until sudo apt-get -y install openjdk-8-jre-headless git; do
+        sleep 1
+        echo try again
+    done
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
+
+initMap['min-stretch-x64'] = initMap['min-focal-x64']
+initMap['min-xenial-x64'] = initMap['min-focal-x64']
+initMap['min-xenial-x32'] = initMap['min-focal-x64']
 initMap['psmdb'] = initMap['min-xenial-x64']
 
 capMap = [:]
