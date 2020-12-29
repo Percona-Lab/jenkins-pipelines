@@ -23,9 +23,9 @@ tar -C ${WORKDIR_ABS}/PXC --strip-components=1 -zxpf $(ls $WORKDIR_ABS/*.tar.gz 
 export WSREP_PROVIDER=${WORKDIR_ABS}/PXC/lib/libgalera_smm.so
 cd ${WORKDIR_ABS}/PXC/mysql-test
 TESTCASE_TIMEOUT=30
-# CentOS 6 & 7
-if [[ -f /opt/rh/devtoolset-7/enable ]]; then
-    source /opt/rh/devtoolset-7/enable
+# CentOS 7
+if [[ -f /opt/rh/devtoolset-8/enable ]]; then
+    source /opt/rh/devtoolset-8/enable
 fi
 
 JEMALLOC=$(find /lib* /usr/lib* /usr/local/lib* -type f -name 'libjemalloc.so*' | head -n1)

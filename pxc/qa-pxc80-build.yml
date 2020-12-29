@@ -45,12 +45,12 @@
             sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel
             sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel
             sudo yum -y install numactl-devel centos-release-scl
-            sudo yum -y install gcc-c++ devtoolset-7-gcc-c++ devtoolset-7-binutils cmake python-pip python2-pip patchelf
+            sudo yum -y install gcc-c++ devtoolset-8-gcc-c++ devtoolset-8-binutils cmake python-pip python2-pip patchelf
 
             sudo pip install awscli
             sudo pip install --upgrade awscli
 
-            source /opt/rh/devtoolset-7/enable
+            source /opt/rh/devtoolset-8/enable
         fi
  
         if [ -f /usr/bin/apt-get ]; then

@@ -44,7 +44,7 @@
             sudo yum -y install scons gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel libcurl-devel
             sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel
             sudo yum -y install numactl-devel centos-release-scl redhat-lsb-core
-            sudo yum -y install gcc-c++ devtoolset-7-gcc-c++ devtoolset-7-binutils cmake python-pip python2-pip patchelf
+            sudo yum -y install gcc-c++ devtoolset-8-gcc-c++ devtoolset-8-binutils cmake python-pip python2-pip patchelf
 
             CENTOS_VER=$(lsb_release -sr | awk -F'.' '{print $1}')
             if [[ ${CENTOS_VER} = '6' ]]; then
@@ -55,7 +55,7 @@
                 sudo pip install --upgrade awscli
             fi
 
-            source /opt/rh/devtoolset-7/enable
+            source /opt/rh/devtoolset-8/enable
         fi
  
         if [ -f /usr/bin/apt-get ]; then
@@ -106,14 +106,14 @@
             if [ "x$REDHAT_VERSION" = "xrhel6" ]; then
                 source /opt/rh/devtoolset-7/enable 
             elif [ "x$REDHAT_VERSION" = "xrhel7" ]; then
-                source /opt/rh/devtoolset-7/enable
+                source /opt/rh/devtoolset-8/enable
         fi
             bash -x ./build-ps/build-binary.sh -d ./target
         else
             if [ "x$REDHAT_VERSION" = "xrhel6" ]; then
                 source /opt/rh/devtoolset-7/enable
             elif [ "x$REDHAT_VERSION" = "xrhel7" ]; then
-                source /opt/rh/devtoolset-7/enable
+                source /opt/rh/devtoolset-8/enable
             fi
 
             bash -x ./build-ps/build-binary.sh ./target
