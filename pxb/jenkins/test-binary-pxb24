@@ -19,7 +19,7 @@ WORKSPACE=$(
 
 rm -fr ${WORKSPACE}/PXB
 mkdir -p ${WORKSPACE}/PXB
-tar -C ${WORKSPACE}/PXB --strip-components=1 -zxpf $(ls $WORKSPACE/pxb24.tar.gz | head -1)
+tar -C ${WORKSPACE}/PXB --strip-components=1 -zxpf $(ls $WORKSPACE/*.tar.gz | head -1)
 
 # CentOS 6 & 7
 if [[ -f /opt/rh/devtoolset-7/enable ]]; then
@@ -28,11 +28,10 @@ fi
 
 if [[ -f /usr/bin/apt-get ]]; then
     DIST=$(lsb_release -sc)
-    DEBIAN_FRONTEND=noninteractive sudo -E apt update
     if [[ "$DIST" == 'focal' ]]; then
-        DEBIAN_FRONTEND=noninteractive sudo -E apt install -y python3-sphinx
+        sudo apt install -y python3-sphinx
     else
-        DEBIAN_FRONTEND=noninteractive sudo -E apt install -y python-sphinx
+        sudo apt install -y python-sphinx
     fi
 fi
 
@@ -72,8 +71,8 @@ else
     ./bootstrap.sh --type=${XTRABACKUP_TARGET} --version=${XTRABACKUP_TARGET_VERSION}
 fi
 
-./run.sh $XTRABACKUP_TARGET ${XBTR_ARGS} -f | tee ${WORKSPACE}/xbtr.output
-sudo cp -r ${TEST_DIR}/results /tmp/pxb24/results/
+./run.sh ${XBTR_ARGS} -f | tee ${WORKSPACE}/xbtr.output
+sudo cp -r ${TEST_DIR}/results ${WORKSPACE}
 cp test_results.subunit ${WORKSPACE}
 cat test_results.subunit | PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml > ${WORKSPACE}/junit.xml || true
 exit $status
