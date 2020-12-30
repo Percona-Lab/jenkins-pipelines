@@ -7,7 +7,7 @@ void build(String IMAGE_PREFIX){
         cd src/github.com/percona/percona-backup-mongodb
         docker run --rm -v \$(pwd):/go/src/github.com/percona/percona-backup-mongodb -w /go/src/github.com/percona/percona-backup-mongodb golang:1.14 make build
         cd \$SOURCE_ROOT_DIR
-        docker build -t perconalab/percona-server-mongodb-operator:master-${IMAGE_PREFIX} -f docker/Dockerfile.k8s .
+        docker build -t perconalab/percona-server-mongodb-operator:main-${IMAGE_PREFIX} -f docker/Dockerfile.k8s .
         sudo rm -rf ./vendor
     """
 }
@@ -21,8 +21,8 @@ void checkImageForDocker(String IMAGE_PREFIX){
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH --quiet --auto-refresh perconalab/\$IMAGE_NAME:master-${IMAGE_PREFIX}
-                /usr/local/bin/trivy -o \$TrityCriticaltLog --ignore-unfixed --exit-code 1 --severity CRITICAL --quiet --auto-refresh perconalab/\$IMAGE_NAME:master-${IMAGE_PREFIX}
+                /usr/local/bin/trivy -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH --quiet --auto-refresh perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
+                /usr/local/bin/trivy -o \$TrityCriticaltLog --ignore-unfixed --exit-code 1 --severity CRITICAL --quiet --auto-refresh perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
             "
 
             if [ ! -s \$TrityHightLog ]; then
@@ -41,9 +41,9 @@ void pushImageToRhel(String IMAGE_PREFIX){
             IMAGE_PREFIX=${IMAGE_PREFIX}
             GIT_FULL_COMMIT=\$(git rev-parse HEAD)
             GIT_SHORT_COMMIT=\${GIT_FULL_COMMIT:0:7}
-            IMAGE_ID=\$(docker images -q perconalab/percona-server-mongodb-operator:master-\$IMAGE_PREFIX)
+            IMAGE_ID=\$(docker images -q perconalab/percona-server-mongodb-operator:main-\$IMAGE_PREFIX)
             IMAGE_NAME='percona-server-mongodb-operator'
-            IMAGE_TAG="master-\$GIT_SHORT_COMMIT-\$IMAGE_PREFIX"
+            IMAGE_TAG="main-\$GIT_SHORT_COMMIT-\$IMAGE_PREFIX"
             if [ -n "\${IMAGE_ID}" ]; then
                 sg docker -c "
                     docker login -u '${USER}' -p '${PASS}' scan.connect.redhat.com
@@ -61,7 +61,7 @@ void pushImageToDocker(String IMAGE_PREFIX){
             IMAGE_PREFIX=${IMAGE_PREFIX}
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                docker push perconalab/percona-server-mongodb-operator:master-${IMAGE_PREFIX}
+                docker push perconalab/percona-server-mongodb-operator:main-${IMAGE_PREFIX}
             "
         """
     }

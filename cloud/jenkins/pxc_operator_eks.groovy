@@ -151,7 +151,7 @@ pipeline {
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/percona-server-mongodb-operator:master-pmm',
+            description: 'PMM image: perconalab/percona-xtradb-cluster-operator:master-pmm',
             name: 'IMAGE_PMM')
     }
     agent {

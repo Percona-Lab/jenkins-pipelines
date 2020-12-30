@@ -153,11 +153,11 @@ pipeline {
             name: 'IMAGE_HAPROXY')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-server-mongodb-operator:master-pxc5.7-backup',
+            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-pxc5.7-backup',
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/percona-server-mongodb-operator:master-pmm',
+            description: 'PMM image: perconalab/percona-xtradb-cluster-operator:master-pmm',
             name: 'IMAGE_PMM')
         string(
             defaultValue: 'v1.14.8',

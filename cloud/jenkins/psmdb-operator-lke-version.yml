@@ -26,7 +26,7 @@
         description: percona/percona-server-mongodb-operator repository
     - string:
         name: GIT_BRANCH
-        default: master
+        default: main
         description: Tag/Branch for percona/percona-server-mongodb-operator repository
     - string:
         name: LKE_VERSION
