@@ -78,7 +78,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
         try {
             echo "The $TEST_NAME test was started!"
 
-            MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
+            MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$MDB_TAG")
 
             sh """
@@ -138,7 +138,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
             name: 'GIT_BRANCH')
         string(
@@ -155,19 +155,19 @@ pipeline {
             name: 'IS_GKE_ALPHA')
         string(
             defaultValue: '',
-            description: 'Operator image: perconalab/percona-server-mongodb-operator:master',
+            description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
             name: 'PSMDB_OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:master-mongod4.0',
+            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod4.0',
             name: 'IMAGE_MONGOD')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-server-mongodb-operator:master-backup',
+            description: 'Backup image: perconalab/percona-server-mongodb-operator:main-backup',
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/percona-server-mongodb-operator:master-pmm',
+            description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
             name: 'IMAGE_PMM')
     }
     agent {

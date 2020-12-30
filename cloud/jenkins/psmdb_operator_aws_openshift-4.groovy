@@ -40,7 +40,7 @@ void runTest(String TEST_NAME) {
             GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
             VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
             testsReportMap[TEST_NAME] = 'failure'
-            MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
+            MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
 
             popArtifactFile("$VERSION-$TEST_NAME-$MDB_TAG")
 
@@ -100,7 +100,7 @@ void installRpms() {
 pipeline {
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
             name: 'GIT_BRANCH')
         string(
@@ -109,19 +109,19 @@ pipeline {
             name: 'GIT_REPO')
         string(
             defaultValue: '',
-            description: 'Operator image: perconalab/percona-server-mongodb-operator:master',
+            description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
             name: 'PSMDB_OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:master-mongod4.0',
+            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod4.0',
             name: 'IMAGE_MONGOD')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-server-mongodb-operator:master-pxc5.7-backup',
+            description: 'Backup image: perconalab/percona-server-mongodb-operator:main-pxc5.7-backup',
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/percona-server-mongodb-operator:master-pmm',
+            description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
             name: 'IMAGE_PMM')
     }
     environment {

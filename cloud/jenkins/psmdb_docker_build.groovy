@@ -2,8 +2,8 @@ void build(String IMAGE_SUFFIX){
     sh """
         cd ./source/
         DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
-        docker build --no-cache --squash -t perconalab/percona-server-mongodb-operator:master-${IMAGE_SUFFIX} -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile.k8s percona-server-mongodb-\$DOCKER_FILE_PREFIX
-        docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-server-mongodb-operator:master-${IMAGE_SUFFIX}-debug -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile.k8s percona-server-mongodb-\$DOCKER_FILE_PREFIX
+        docker build --no-cache --squash -t perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX} -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile.k8s percona-server-mongodb-\$DOCKER_FILE_PREFIX
+        docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX}-debug -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile.k8s percona-server-mongodb-\$DOCKER_FILE_PREFIX
     """
 }
 void checkImageForDocker(String IMAGE_SUFFIX){
@@ -38,8 +38,8 @@ void pushImageToDocker(String IMAGE_SUFFIX){
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
                 export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                docker trust sign perconalab/percona-server-mongodb-operator:master-${IMAGE_SUFFIX}
-                docker push perconalab/percona-server-mongodb-operator:master-${IMAGE_SUFFIX}
+                docker trust sign perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX}
+                docker push perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX}
                 docker logout
             "
         """
@@ -50,9 +50,9 @@ void pushImageToRhelOperator(){
         sh """
             GIT_FULL_COMMIT=\$(git rev-parse HEAD)
             GIT_SHORT_COMMIT=\${GIT_FULL_COMMIT:0:7}
-            IMAGE_ID=\$(docker images -q perconalab/percona-server-mongodb-operator:master)
+            IMAGE_ID=\$(docker images -q perconalab/percona-server-mongodb-operator:main)
             IMAGE_NAME='percona-server-mongodb-operator'
-            IMAGE_TAG="master-\$GIT_SHORT_COMMIT"
+            IMAGE_TAG="main-\$GIT_SHORT_COMMIT"
             if [ -n "\${IMAGE_ID}" ]; then
                 sg docker -c "
                     docker login -u '${USER}' -p '${PASS}' scan.connect.redhat.com
@@ -70,9 +70,9 @@ void pushImageToRhel(String IMAGE_SUFFIX){
             IMAGE_SUFFIX=${IMAGE_SUFFIX}
             GIT_FULL_COMMIT=\$(git rev-parse HEAD)
             GIT_SHORT_COMMIT=\${GIT_FULL_COMMIT:0:7}
-            IMAGE_ID=\$(docker images -q perconalab/percona-server-mongodb-operator:master-\$IMAGE_SUFFIX)
+            IMAGE_ID=\$(docker images -q perconalab/percona-server-mongodb-operator:main-\$IMAGE_SUFFIX)
             IMAGE_NAME='percona-server-mongodb-operator'
-            IMAGE_TAG="master-\$GIT_SHORT_COMMIT-\$IMAGE_SUFFIX"
+            IMAGE_TAG="main-\$GIT_SHORT_COMMIT-\$IMAGE_SUFFIX"
             if [ -n "\${IMAGE_ID}" ]; then
                 sg docker -c "
                     docker login -u '${USER}' -p '${PASS}' scan.connect.redhat.com
@@ -87,7 +87,7 @@ void pushImageToRhel(String IMAGE_SUFFIX){
 pipeline {
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
             name: 'GIT_BRANCH')
         string(
@@ -165,8 +165,8 @@ pipeline {
 
                             docker login -u '${USER}' -p '${PASS}'
                             export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                            docker trust sign perconalab/percona-server-mongodb-operator:master
-                            docker push perconalab/percona-server-mongodb-operator:master
+                            docker trust sign perconalab/percona-server-mongodb-operator:main
+                            docker push perconalab/percona-server-mongodb-operator:main
                             docker logout
                         "
                     '''
@@ -227,15 +227,15 @@ pipeline {
         }
         stage('Check PSMDB Docker images') {
             steps {
-                checkImageForDocker('master')
-                checkImageForDocker('master-mongod3.6')
-                checkImageForDocker('master-mongod3.6-debug')
-                checkImageForDocker('master-mongod4.0')
-                checkImageForDocker('master-mongod4.0-debug')
-                checkImageForDocker('master-mongod4.2')
-                checkImageForDocker('master-mongod4.2-debug')
-                checkImageForDocker('master-mongod4.4')
-                checkImageForDocker('master-mongod4.4-debug')
+                checkImageForDocker('main')
+                checkImageForDocker('main-mongod3.6')
+                checkImageForDocker('main-mongod3.6-debug')
+                checkImageForDocker('main-mongod4.0')
+                checkImageForDocker('main-mongod4.0-debug')
+                checkImageForDocker('main-mongod4.2')
+                checkImageForDocker('main-mongod4.2-debug')
+                checkImageForDocker('main-mongod4.4')
+                checkImageForDocker('main-mongod4.4-debug')
                 sh '''
                    CRITICAL=$(ls trivy-critical-*) || true
                    if [ -n "$CRITICAL" ]; then
