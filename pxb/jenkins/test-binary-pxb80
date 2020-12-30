@@ -28,6 +28,7 @@ fi
 
 if [[ -f /usr/bin/apt-get ]]; then
     DIST=$(lsb_release -sc)
+    DEBIAN_FRONTEND=noninteractive sudo -E apt update
     if [[ "$DIST" == 'focal' ]]; then
         sudo apt install -y python3-sphinx
     else
