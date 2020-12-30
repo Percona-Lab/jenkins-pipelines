@@ -1,8 +1,9 @@
-void runUITests(CLIENT_VERSION, CLIENT_INSTANCE, SERVER_IP) {
+void runUITests(CLIENT_VERSION, CLIENT_INSTANCE, SERVER_IP, GIT_BRANCH) {
     stagingJob = build job: 'pmm2-ui-tests', parameters: [
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'SERVER_IP', value: SERVER_IP)
+        string(name: 'SERVER_IP', value: SERVER_IP),
+        string(name: 'GIT_BRANCH', value: GIT_BRANCH)
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
@@ -68,8 +69,8 @@ pipeline {
             description: 'Use this OVA Setup as PMM-client',
             name: 'SETUP_CLIENT')
         string(
-            defaultValue: 'master',
-            description: 'Tag/Branch for percona-qa repository',
+            defaultValue: 'PMM-2.0',
+            description: 'Tag/Branch for grafana-dashboard repository',
             name: 'GIT_BRANCH')
     }
     options {
@@ -190,7 +191,7 @@ pipeline {
         }
         stage('Start UI Tests') {
             steps {
-                runUITests(CLIENT_VERSION, 'yes', "${env.PUBLIC_IP}")
+                runUITests(CLIENT_VERSION, 'yes', "${env.PUBLIC_IP}", GIT_BRANCH)
             }
         }
     }
