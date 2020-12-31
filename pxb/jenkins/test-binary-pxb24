@@ -13,13 +13,13 @@
 set -o errexit
 set -o xtrace
 WORKSPACE=$(
-  cd ${1:-./build/pxb80}
+  cd ${1:-./build/pxb24}
   pwd -P
 )
 
 rm -fr ${WORKSPACE}/PXB
 mkdir -p ${WORKSPACE}/PXB
-tar -C ${WORKSPACE}/PXB --strip-components=1 -zxpf $(ls $WORKSPACE/pxb80.tar.gz | head -1)
+tar -C ${WORKSPACE}/PXB --strip-components=1 -zxpf $(ls $WORKSPACE/*.tar.gz | head -1)
 
 # CentOS 6 & 7
 if [[ -f /opt/rh/devtoolset-7/enable ]]; then
@@ -28,11 +28,10 @@ fi
 
 if [[ -f /usr/bin/apt-get ]]; then
     DIST=$(lsb_release -sc)
-    DEBIAN_FRONTEND=noninteractive sudo -E apt update
     if [[ "$DIST" == 'focal' ]]; then
-        DEBIAN_FRONTEND=noninteractive sudo -E apt install -y python3-sphinx
+        sudo apt install -y python3-sphinx
     else
-        DEBIAN_FRONTEND=noninteractive sudo -E apt install -y python-sphinx
+        sudo apt install -y python-sphinx
     fi
 fi
 
@@ -47,13 +46,21 @@ TEST_DIR=$(dirname "$(find ${WORKSPACE}/PXB -name bootstrap.sh)")
 cd ${TEST_DIR}
 
 mkdir -p server-tarball/${XTRABACKUP_TARGET}
-if [[ ${XTRABACKUP_TARGET} == "galera80" ]]; then
+if [[ ${XTRABACKUP_TARGET} == "galera57" ]]; then
     wget --progress=dot:giga \
-    -O server-tarball/${XTRABACKUP_TARGET}/Percona-XtraDB-Cluster_8.0.20-11.3_Linux.x86_64.glibc2.12-minimal.tar.gz \
-    https://www.percona.com/downloads/Percona-XtraDB-Cluster-LATEST/Percona-XtraDB-Cluster-8.0.20-11.3/binary/tarball/Percona-XtraDB-Cluster_8.0.20-11.3_Linux.x86_64.glibc2.12-minimal.tar.gz
+    -O server-tarball/${XTRABACKUP_TARGET}/Percona-XtraDB-Cluster-5.7.31-rel34-43.2.Linux.x86_64.glibc2.12-minimal.tar.gz \
+    https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.31-31.45-2/binary/tarball/Percona-XtraDB-Cluster-5.7.31-rel34-43.2.Linux.x86_64.glibc2.12-minimal.tar.gz
     rm -rf server
     mkdir server
-    tar xfz server-tarball/${XTRABACKUP_TARGET}/Percona-XtraDB-Cluster_8.0.20-11.3_Linux.x86_64.glibc2.12-minimal.tar.gz -C server
+    tar xfz server-tarball/${XTRABACKUP_TARGET}/Percona-XtraDB-Cluster-5.7.31-rel34-43.2.Linux.x86_64.glibc2.12-minimal.tar.gz -C server
+    mv server/*/* server/
+elif [[ ${XTRABACKUP_TARGET} == "galera56" ]]; then
+    wget --progress=dot:giga \
+      -O server-tarball/${XTRABACKUP_TARGET}/Percona-XtraDB-Cluster-$(uname -m).tar.gz \
+      https://www.percona.com/downloads/Percona-XtraDB-Cluster-56/Percona-XtraDB-Cluster-5.6.49-28.42-2/binary/tarball/Percona-XtraDB-Cluster-5.6.49-rel89.0-28.42.2.Linux.$(uname -m).ssl${SSL_VER}.tar.gz
+    rm -rf server
+    mkdir server
+    tar xfz server-tarball/${XTRABACKUP_TARGET}/Percona-XtraDB-Cluster-$(uname -m).tar.gz -C server
     mv server/*/* server/
 else
     if [[ -n ${BOOTSTRAP_URL} ]]; then
@@ -64,8 +71,8 @@ else
     ./bootstrap.sh --type=${XTRABACKUP_TARGET} --version=${XTRABACKUP_TARGET_VERSION}
 fi
 
-./run.sh $XTRABACKUP_TARGET ${XBTR_ARGS} -f | tee ${WORKSPACE}/xbtr.output
-sudo cp -r ${TEST_DIR}/results /tmp/pxb80/results/
+./run.sh ${XBTR_ARGS} -f | tee ${WORKSPACE}/xbtr.output
+sudo cp -r ${TEST_DIR}/results ${WORKSPACE}
 cp test_results.subunit ${WORKSPACE}
 cat test_results.subunit | PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml > ${WORKSPACE}/junit.xml || true
 exit $status
