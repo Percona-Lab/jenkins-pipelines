@@ -321,6 +321,7 @@ pipeline {
                 runTest('demand-backup')
                 runTest('demand-backup-encrypted-with-tls')
                 runTest('scheduled-backup')
+                runTest('pitr')
             }
         }
         stage('E2E BigData') {

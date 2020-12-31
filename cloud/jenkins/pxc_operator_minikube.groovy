@@ -261,6 +261,7 @@ pipeline {
                     runTest('upgrade-consistency')
                     runTest('self-healing-advanced')
                     runTest('operator-self-healing')
+                    runTest('pitr')
             }
             post {
                 always {
