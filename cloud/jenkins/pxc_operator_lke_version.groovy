@@ -333,6 +333,7 @@ pipeline {
                         runTest('demand-backup', 'backups')
                         runTest('demand-backup-encrypted-with-tls', 'backups')
                         runTest('scheduled-backup', 'backups')
+                        runTest('pitr','backups')
                         ShutdownCluster('backups')
                     }
                 }
