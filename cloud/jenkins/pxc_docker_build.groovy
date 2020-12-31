@@ -85,8 +85,8 @@ pipeline {
 
                         sg docker -c "
                             docker login -u '${USER}' -p '${PASS}'
-                            /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy/ image -o \$TrityHightLog --timeout 5m0s --ignore-unfixed --exit-code 0 --severity HIGH  perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
-                            /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy/ image -o \$TrityCriticaltLog --timeout 5m0s --ignore-unfixed --exit-code 1 --severity CRITICAL  perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
+                            /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --timeout 5m0s --ignore-unfixed --exit-code 0 --severity HIGH  perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
+                            /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --timeout 5m0s --ignore-unfixed --exit-code 1 --severity CRITICAL  perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
                         "
 
                         if [ ! -s \$TrityHightLog ]; then

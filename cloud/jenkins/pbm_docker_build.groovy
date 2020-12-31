@@ -21,8 +21,8 @@ void checkImageForDocker(String IMAGE_SUFFIX){
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy/ image -o \$TrityHightLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH perconalab/\$IMAGE_NAME:main-\${IMAGE_SUFFIX}
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy/ image -o \$TrityCriticaltLog --timeout 10m0s --ignore-unfixed --exit-code 1 --severity CRITICAL perconalab/\$IMAGE_NAME:main-\${IMAGE_SUFFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH perconalab/\$IMAGE_NAME:main-\${IMAGE_SUFFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --timeout 10m0s --ignore-unfixed --exit-code 1 --severity CRITICAL perconalab/\$IMAGE_NAME:main-\${IMAGE_SUFFIX}
             "
 
             if [ ! -s \$TrityHightLog ]; then
