@@ -75,27 +75,6 @@ pipeline {
                 }
             }
         }
-        stage('Push docker image to RHEL registry') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'scan.connect.redhat.com-pxc-operator', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh '''
-                        GIT_FULL_COMMIT=\$(git rev-parse HEAD)
-                        GIT_SHORT_COMMIT=\${GIT_FULL_COMMIT:0:7}
-                        IMAGE_ID=\$(docker images -q perconalab/percona-xtradb-cluster-operator:${DOCKER_TAG})
-                        IMAGE_NAME='percona-xtradb-cluster-operator'
-                        IMAGE_TAG="\${DOCKER_TAG}-\$GIT_SHORT_COMMIT"
-                        if [ -n "\${IMAGE_ID}" ]; then
-                            sg docker -c "
-                                docker login -u '${USER}' -p '${PASS}' scan.connect.redhat.com
-                                docker tag \${IMAGE_ID} scan.connect.redhat.com/ospid-f1113c97-aabd-410b-a15e-7f013dee2aa7/\$IMAGE_NAME:\$IMAGE_TAG
-                                docker push scan.connect.redhat.com/ospid-f1113c97-aabd-410b-a15e-7f013dee2aa7/\$IMAGE_NAME:\$IMAGE_TAG
-                                docker logout
-                            "
-                        fi 
-                    '''
-                }
-            }
-        }
         stage('Check PXC docker image') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -106,8 +85,8 @@ pipeline {
 
                         sg docker -c "
                             docker login -u '${USER}' -p '${PASS}'
-                            /usr/local/bin/trivy -q image -o \$TrityHightLog --timeout 5m0s --ignore-unfixed --exit-code 0 --severity HIGH  perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
-                            /usr/local/bin/trivy -q image -o \$TrityCriticaltLog --timeout 5m0s --ignore-unfixed --exit-code 1 --severity CRITICAL  perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
+                            /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --timeout 5m0s --ignore-unfixed --exit-code 0 --severity HIGH  perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
+                            /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --timeout 5m0s --ignore-unfixed --exit-code 1 --severity CRITICAL  perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
                         "
 
                         if [ ! -s \$TrityHightLog ]; then

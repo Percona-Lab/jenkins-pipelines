@@ -16,8 +16,8 @@ void checkImageForDocker(String IMAGE_SUFFIX){
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q image -o \$TrityHightLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH  perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
-                /usr/local/bin/trivy -q image -o \$TrityCriticaltLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity CRITICAL perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity CRITICAL perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
             "
 
             if [ ! -s \$TrityHightLog ]; then
@@ -42,45 +42,6 @@ void pushImageToDocker(String IMAGE_SUFFIX){
                 docker push perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX}
                 docker logout
             "
-        """
-    }
-}
-void pushImageToRhelOperator(){
-     withCredentials([usernamePassword(credentialsId: 'scan.connect.redhat.com-psmdb-operator', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            GIT_FULL_COMMIT=\$(git rev-parse HEAD)
-            GIT_SHORT_COMMIT=\${GIT_FULL_COMMIT:0:7}
-            IMAGE_ID=\$(docker images -q perconalab/percona-server-mongodb-operator:main)
-            IMAGE_NAME='percona-server-mongodb-operator'
-            IMAGE_TAG="main-\$GIT_SHORT_COMMIT"
-            if [ -n "\${IMAGE_ID}" ]; then
-                sg docker -c "
-                    docker login -u '${USER}' -p '${PASS}' scan.connect.redhat.com
-                    docker tag \${IMAGE_ID} scan.connect.redhat.com/ospid-e90784a0-8fe7-4122-9c91-f0ce60be8314/\$IMAGE_NAME:\$IMAGE_TAG
-                    docker push scan.connect.redhat.com/ospid-e90784a0-8fe7-4122-9c91-f0ce60be8314/\$IMAGE_NAME:\$IMAGE_TAG
-                    docker logout
-                "
-            fi
-        """
-    }
-}
-void pushImageToRhel(String IMAGE_SUFFIX){
-     withCredentials([usernamePassword(credentialsId: 'scan.connect.redhat.com-psmdb-containers', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            IMAGE_SUFFIX=${IMAGE_SUFFIX}
-            GIT_FULL_COMMIT=\$(git rev-parse HEAD)
-            GIT_SHORT_COMMIT=\${GIT_FULL_COMMIT:0:7}
-            IMAGE_ID=\$(docker images -q perconalab/percona-server-mongodb-operator:main-\$IMAGE_SUFFIX)
-            IMAGE_NAME='percona-server-mongodb-operator'
-            IMAGE_TAG="main-\$GIT_SHORT_COMMIT-\$IMAGE_SUFFIX"
-            if [ -n "\${IMAGE_ID}" ]; then
-                sg docker -c "
-                    docker login -u '${USER}' -p '${PASS}' scan.connect.redhat.com
-                    docker tag \${IMAGE_ID} scan.connect.redhat.com/ospid-5690f369-d04c-45f9-8195-5acb27d80ebf/\$IMAGE_NAME:\$IMAGE_TAG
-                    docker push scan.connect.redhat.com/ospid-5690f369-d04c-45f9-8195-5acb27d80ebf/\$IMAGE_NAME:\$IMAGE_TAG
-                    docker logout
-                "
-            fi
         """
     }
 }
@@ -212,19 +173,6 @@ pipeline {
             }
         }
 
-        stage('Push PSMDB images to RHEL registry') {
-            steps {
-                pushImageToRhel('mongod3.6')
-                pushImageToRhel('mongod3.6-debug')
-                pushImageToRhel('mongod4.0')
-                pushImageToRhel('mongod4.0-debug')
-                pushImageToRhel('mongod4.2')
-                pushImageToRhel('mongod4.2-debug')
-                pushImageToRhel('mongod4.4')
-                pushImageToRhel('mongod4.4-debug')
-                pushImageToRhelOperator()
-            }
-        }
         stage('Check PSMDB Docker images') {
             steps {
                 checkImageForDocker('main')
