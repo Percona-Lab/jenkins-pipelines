@@ -1,10 +1,12 @@
 def call(operatingSystems, moleculeDir, action, varName, varValue) {
   tests = [:]
   operatingSystems.each { os ->
-   tests["${os}"] =  {
-        stage("${os}") {
-            moleculeExecuteActionWithVariableAndScenario(${moleculeDir}, ${action}, ${os}, ${varName}, ${varValue})
-        }
+  tests["${os}"] =  {
+        sh """
+            . virtenv/bin/activate
+            cd ${moleculeDir}
+            ${varName}=${varValue} molecule ${action} -s ${os}
+        """
       }
     }
   parallel tests
