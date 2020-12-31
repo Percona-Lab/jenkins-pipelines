@@ -35,26 +35,6 @@ void checkImageForDocker(String IMAGE_SUFFIX){
         """
     }
 }
-void pushImageToRhel(String IMAGE_PREFIX){
-     withCredentials([usernamePassword(credentialsId: 'scan.connect.redhat.com-psmdb-containers', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            IMAGE_PREFIX=${IMAGE_PREFIX}
-            GIT_FULL_COMMIT=\$(git rev-parse HEAD)
-            GIT_SHORT_COMMIT=\${GIT_FULL_COMMIT:0:7}
-            IMAGE_ID=\$(docker images -q perconalab/percona-server-mongodb-operator:main-\$IMAGE_PREFIX)
-            IMAGE_NAME='percona-server-mongodb-operator'
-            IMAGE_TAG="main-\$GIT_SHORT_COMMIT-\$IMAGE_PREFIX"
-            if [ -n "\${IMAGE_ID}" ]; then
-                sg docker -c "
-                    docker login -u '${USER}' -p '${PASS}' scan.connect.redhat.com
-                    docker tag \${IMAGE_ID} scan.connect.redhat.com/ospid-5690f369-d04c-45f9-8195-5acb27d80ebf/\$IMAGE_NAME:\$IMAGE_TAG
-                    docker push scan.connect.redhat.com/ospid-5690f369-d04c-45f9-8195-5acb27d80ebf/\$IMAGE_NAME:\$IMAGE_TAG
-                    docker logout
-                "
-            fi
-        """
-    }
-}
 void pushImageToDocker(String IMAGE_PREFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
@@ -117,11 +97,6 @@ pipeline {
         stage('Push PBM image to Docker registry') {
             steps {
                 pushImageToDocker('backup')
-            }
-        }
-        stage('Push PBM image to RHEL registry') {
-            steps {
-                pushImageToRhel('backup')
             }
         }
         stage('Check PBM Docker image') {
