@@ -21,8 +21,8 @@ void checkImageForDocker(String IMAGE_SUFFIX){
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/trivy/ image -o \$TrityHightLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH --auto-refresh perconalab/\$IMAGE_NAME:main-\${IMAGE_SUFFIX}
-                /usr/local/bin/trivy -q --cache-dir /mnt/trivy/ image -o \$TrityCriticaltLog --timeout 10m0s --ignore-unfixed --exit-code 1 --severity CRITICAL --auto-refresh perconalab/\$IMAGE_NAME:main-\${IMAGE_SUFFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/trivy/ image -o \$TrityHightLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH perconalab/\$IMAGE_NAME:main-\${IMAGE_SUFFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/trivy/ image -o \$TrityCriticaltLog --timeout 10m0s --ignore-unfixed --exit-code 1 --severity CRITICAL perconalab/\$IMAGE_NAME:main-\${IMAGE_SUFFIX}
             "
 
             if [ ! -s \$TrityHightLog ]; then
@@ -94,6 +94,7 @@ pipeline {
                     TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
                     wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
+
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
                     sudo git reset --hard
