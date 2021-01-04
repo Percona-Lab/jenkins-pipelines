@@ -245,17 +245,14 @@ pipeline {
             }
         }
         stage('E2E Upgrade') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             steps {
-                CreateCluster('upgrade')
                 runTest('upgrade-haproxy')
-                ShutdownCluster('upgrade')
-                CreateCluster('upgrade')
                 runTest('upgrade-proxysql')
-                ShutdownCluster('upgrade')
-                CreateCluster('upgrade')
                 runTest('smart-update')
                 runTest('upgrade-consistency')
-                ShutdownCluster('upgrade')
             }
         }
         stage('E2E Basic Tests') {
