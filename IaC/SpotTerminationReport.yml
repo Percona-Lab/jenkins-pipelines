@@ -22,6 +22,8 @@ Resources:
         Protocol: email
       - Endpoint: "evgeniy.patlan@percona.com"
         Protocol: email
+      - Endpoint: "oleksandr.miroshnychenko@percona.com"
+        Protocol: email
 
   SNSTopicPMM:
     Condition: CreateForPMM
@@ -36,6 +38,8 @@ Resources:
       - Endpoint: "slava.sarzhan@percona.com"
         Protocol: email
       - Endpoint: "evgeniy.patlan@percona.com"
+        Protocol: email
+      - Endpoint: "oleksandr.miroshnychenko@percona.com"
         Protocol: email
       - Endpoint: "alexander.tymchuk@percona.com"
         Protocol: email
