@@ -209,7 +209,7 @@ pipeline {
                                     }
                                 ],
                                 "EbsOptimized": false,
-                                "ImageId": "ami-15e9c770",
+                                "ImageId": "ami-0a0ad6b70e61be944",
                                 "UserData": "c3VkbyB5dW0gaW5zdGFsbCAteSBqYXZhLTEuOC4wLW9wZW5qZGsKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhIC91c3IvbGliL2p2bS9qcmUtMS44LjAtb3Blbmpkay54ODZfNjQvYmluL2phdmEKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhYyAvdXNyL2xpYi9qdm0vanJlLTEuOC4wLW9wZW5qZGsueDg2XzY0L2Jpbi9qYXZhYwoKc3VkbyB5dW0gcmVtb3ZlIGphdmEtMS43Cg==",
                                 "InstanceType": "t3.large",
                                 "KeyName": "jenkins",
@@ -304,9 +304,20 @@ pipeline {
                         sudo yum -y update --security
                         sudo yum -y install https://repo.percona.com/yum/percona-release-0.1-7.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
-                        sudo yum -y install svn docker sysbench mysql57-server git php php-mysql php-pdo
+                        sudo yum -y install https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm 
+                        sudo yum -y install git gcc make automake libtool openssl-devel ncurses-compat-libs
+                        sudo yum -y install svn docker git php php-mysql php-pdo mysql-community-devel mysql-community-client mysql-community-common mysql-community-server
+                        git clone https://github.com/akopytov/sysbench
+                        cd sysbench
+                        ./autogen.sh
+                        ./configure
+                        make
+                        sudo make install
+                        sysbench --version
+                        cd ..
                         sudo service mysqld start
-                        sudo yum -y install bats --enablerepo=epel
+                        sudo amazon-linux-extras install epel -y
+                        sudo yum -y install bats
                         sudo usermod -aG docker ec2-user
                         sudo service docker start
                         sudo mkdir -p /srv/pmm-qa || :
