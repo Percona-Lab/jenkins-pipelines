@@ -238,6 +238,11 @@
                     exit 0
                 fi
             fi
+        elif [[ ${xtrabackuptarget} == "galera57" ]] || [[ ${xtrabackuptarget} == "xtradb57" ]]; then
+            if [[ $(lsb_release -sc) == "xenial" ]] && [[ $(uname -m) == "i686" ]]; then
+                    echo "$(uname -m) is not supported for ${xtrabackuptarget} target, this is a stub we decided to implement in PXB-2368"
+                    exit 0
+            fi
         fi
 
         RHVER="$(rpm --eval %rhel)"
@@ -277,14 +282,18 @@
             chmod +x bootstrap.sh
         fi
 
-        SSL_VER=$(ls -la {/,/usr/}{lib64,lib,lib/x86_64-linux-gnu}/libssl.so.1.* | sed 's/.*[.]so//; s/[^0-9]//g' | head -1)
+        if [[ $(uname -m) == 'i686' ]]; then
+            SSL_VER=$(ls -la {/,/usr/}{lib,lib/i386-linux-gnu}/libssl.so.1.* 2>/dev/null | sed 's/.*[.]so//; s/[^0-9]//g' | head -1)
+        else
+            SSL_VER=$(ls -la {/,/usr/}{lib64,lib,lib/x86_64-linux-gnu}/libssl.so.1.* 2>/dev/null | sed 's/.*[.]so//; s/[^0-9]//g' | head -1)
+        fi
         if [[ ${xtrabackuptarget} == "galera56" ]]
         then
             mkdir -p ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}
             wget --progress=dot:giga \
                 -O ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}/Percona-XtraDB-Cluster-$(uname -m).tar.gz \
                 https://www.percona.com/downloads/Percona-XtraDB-Cluster-56/Percona-XtraDB-Cluster-5.6.40-26.25/binary/tarball/Percona-XtraDB-Cluster-5.6.40-rel84.0-26.25.1.Linux.$(uname -m).ssl${SSL_VER}.tar.gz
-        elif [[ ${xtrabackuptarget} == "galera57" ]]
+        elif [[ ${xtrabackuptarget} == "galera57" ]] && [[ $(uname -m) == "x86_64" ]]
         then
             mkdir -p ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}
             wget --progress=dot:giga \
@@ -340,18 +349,23 @@
                     unsupported=true
                 fi
             fi
-            if [[ ${unsupported} == true ]]; then
+        elif [[ ${xtrabackuptarget} == "galera57" ]] || [[ ${xtrabackuptarget} == "xtradb57" ]]; then
+            if [[ $(lsb_release -sc) == "xenial" ]] && [[ $(uname -m) == "i686" ]]; then
+                unsupported=true
+            fi
+        fi
+
+        if [[ ! -z ${unsupported} ]] && [[ ${unsupported} == true ]]; then
         cat <<-EOF | tee test_results.subunit
         time: $(date +%Y-%m-%d) $(date +%H:%M:%S)
         test: Compilation & Test run for this flavour(${xtrabackuptarget}) is masked as its not supported on selected platform
         time: $(date +%Y-%m-%d) $(date +%H:%M:%S)
         success: Compilation & Test run for this flavour(${xtrabackuptarget}) is masked as its not supported on selected platform
         EOF
-                cp test_results.subunit ${WORKSPACE}
-                cat test_results.subunit | ./subunit2junitxml > ${WORKSPACE}/junit.xml || true
-                echo "${SSL_VER} is not supported for ${xtrabackuptarget} target, this is a stub we decided to implement in PXB-2368"
-                exit 0
-            fi
+            cp test_results.subunit ${WORKSPACE}
+            cat test_results.subunit | ./subunit2junitxml > ${WORKSPACE}/junit.xml || true
+            echo "${SSL_VER} is not supported for ${xtrabackuptarget} target, this is a stub we decided to implement in PXB-2368"
+            exit 0
         fi
 
         if [ -f /usr/bin/yum ]; then
