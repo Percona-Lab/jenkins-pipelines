@@ -279,7 +279,7 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) 'java -version; sudo yum install -y java-1.8.0-openjdk; sudo /usr/sbin/alternatives --set java /usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java; java -version;' ; do
-                            sleep 1
+                            sleep 5
                         done
                     """
                 }
@@ -304,22 +304,15 @@ pipeline {
                         sudo yum -y update --security
                         sudo yum -y install https://repo.percona.com/yum/percona-release-0.1-7.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
+                        sudo yum -y install git svn docker sysbench
                         sudo yum -y install https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm 
-                        sudo yum -y install git gcc make automake libtool openssl-devel ncurses-compat-libs
-                        sudo yum -y install svn docker git php php-mysql php-pdo mysql-community-devel mysql-community-client mysql-community-common mysql-community-server
-                        git clone https://github.com/akopytov/sysbench
-                        cd sysbench
-                        ./autogen.sh
-                        ./configure
-                        make
-                        sudo make install
-                        sysbench --version
-                        cd ..
-                        sudo service mysqld start
+                        # sudo yum -y install git gcc make automake libtool ncurses-compat-libs
+                        sudo yum -y install php php-mysqlnd php-pdo mysql-community-client mysql-community-common mysql-community-server
+                        sudo systemctl start mysqld
                         sudo amazon-linux-extras install epel -y
                         sudo yum -y install bats
                         sudo usermod -aG docker ec2-user
-                        sudo service docker start
+                        sudo systemctl start docker
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
                             sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
@@ -367,6 +360,7 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
+                                docker login 
                                 if [[ \$PMM_VERSION == pmm2 ]]; then
                                     docker create \
                                         -v /srv \
@@ -526,7 +520,7 @@ pipeline {
                                     sudo pmm-agent setup --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
                                 fi
                                 sleep 10
-                                sudo cat /var/log/pmm-agent.log
+                                test -f /var/log/pmm-agent.log && sudo cat /var/log/pmm-agent.log
                                 pmm-admin list
                             fi
                         else
