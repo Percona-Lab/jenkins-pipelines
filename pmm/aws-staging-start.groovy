@@ -360,7 +360,6 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                docker login 
                                 if [[ \$PMM_VERSION == pmm2 ]]; then
                                     docker create \
                                         -v /srv \
