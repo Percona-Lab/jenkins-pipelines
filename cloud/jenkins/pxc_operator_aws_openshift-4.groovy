@@ -268,6 +268,7 @@ pipeline {
                 runTest('proxysql-sidecar-res-limits')
                 runTest('users')
                 runTest('haproxy')
+                runTest('monitoring-2-0')
             }
         }
         stage('E2E Scaling') {
