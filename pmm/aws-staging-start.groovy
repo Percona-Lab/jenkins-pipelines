@@ -306,12 +306,11 @@ pipeline {
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum -y install git svn docker sysbench
                         sudo yum -y install https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm 
-                        # sudo yum -y install git gcc make automake libtool ncurses-compat-libs
                         sudo yum -y install php php-mysqlnd php-pdo mysql-community-client mysql-community-common mysql-community-server
-                        sudo systemctl start mysqld
                         sudo amazon-linux-extras install epel -y
                         sudo yum -y install bats
                         sudo usermod -aG docker ec2-user
+                        sudo systemctl start mysqld
                         sudo systemctl start docker
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
@@ -595,6 +594,7 @@ pipeline {
         failure {
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                 sh '''
+                    set -o xtrace
                     export REQUEST_ID=\$(cat REQUEST_ID)
                     if [ -n "$REQUEST_ID" ]; then
                         aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids \$REQUEST_ID
