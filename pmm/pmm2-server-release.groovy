@@ -114,6 +114,7 @@ pipeline {
                         echo ${VERSION} > VERSION
                     """
                     sh '''
+                        set -ex
                         export VERSION=$(cat VERSION)
                         export TOP_VER=$(cat VERSION | cut -d. -f1)
                         export MID_VER=$(cat VERSION | cut -d. -f2)
@@ -159,7 +160,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
                         sg docker -c "
-                            docker login -u "${USER}" -p "${PASS}"
+                            echo "${PASS}" | docker login -u "${USER}" --password-stdin
                         "
                     """
                 }
@@ -169,6 +170,7 @@ pipeline {
                     MID_VER=\$(cat VERSION | cut -d. -f2)
                     DOCKER_MID="\$TOP_VER.\$MID_VER"
                     sg docker -c "
+                        set -ex
                         docker pull \${DOCKER_VERSION}
                         docker tag \${DOCKER_VERSION} percona/pmm-server:\${VERSION}
                         docker tag \${DOCKER_VERSION} percona/pmm-server:\${DOCKER_MID}
@@ -207,6 +209,7 @@ pipeline {
                 """
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
+                        set -ex
                         aws s3 cp --only-show-errors pmm-server-\${VERSION}.docker s3://percona-vm/pmm-server-\${VERSION}.docker
                         aws s3 cp --only-show-errors pmm-client-\${VERSION}.docker s3://percona-vm/pmm-client-\${VERSION}.docker
                     """
@@ -221,6 +224,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
+                        set -ex
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.docker
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-client-\${VERSION}.docker pmm-client-\${VERSION}.docker
                     """
@@ -271,6 +275,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
+                        set -ex
                         get_image_id() {
                             aws ec2 describe-images \
                                 --owners self \
@@ -325,6 +330,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
+                        set -ex
                         get_image_id() {
                             aws ec2 describe-images \
                                 --owners self \
