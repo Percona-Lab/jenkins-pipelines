@@ -302,11 +302,11 @@ pipeline {
                         fi
 
                         sudo yum -y update --security
-                        sudo yum -y install https://repo.percona.com/yum/percona-release-0.1-7.noarch.rpm
+                        sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-25.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum -y install git svn docker sysbench
                         sudo yum -y install https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm 
-                        sudo yum -y install php php-mysqlnd php-pdo mysql-community-client mysql-community-common mysql-community-server
+                        sudo yum -y install php php-mysqlnd php-pdo mysql-community-server
                         sudo amazon-linux-extras install epel -y
                         sudo yum -y install bats
                         sudo usermod -aG docker ec2-user
@@ -434,7 +434,7 @@ pipeline {
                         export PATH=\$PATH:/usr/sbin
                         test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
                         export CLIENT_IP=\$(curl ifconfig.me);
-                        sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                        sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
                         if [[ \$CLIENT_VERSION = dev-latest ]]; then
                             sudo percona-release enable-only original testing
                             sudo yum clean all
@@ -448,7 +448,7 @@ pipeline {
                             sudo percona-release enable-only original testing
                         elif [[ \$CLIENT_VERSION = 2* ]]; then
                             sudo yum clean all
-                            sudo yum -y install pmm2-client-\$CLIENT_VERSION-6.el6.x86_64
+                            sudo yum -y install pmm2-client-\$CLIENT_VERSION-6.el7.x86_64
                             sudo percona-release enable-only original testing
                             sleep 15
                         elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then
