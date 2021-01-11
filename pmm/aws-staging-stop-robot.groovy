@@ -35,6 +35,12 @@ pipeline {
                                     --query 'SpotInstanceRequests[].Tags[]' \
                                     | sed -e 's/aws:/aws_/'
                             )
+                            if [ "$tags" == "[]" ]; then
+                                # instances (especially those created manually) may not have tags
+                                id=($instance_id)
+                                echo "The instance ${id[1]} has no tags!"
+                                return
+                            fi                            
                             aws ec2 create-tags \
                                 --region us-east-2 \
                                 --output json \
