@@ -73,7 +73,7 @@ pipeline {
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
         text(
-            defaultValue: '-e METRICS_RETENTION=192h',
+            defaultValue: '',
             description: '''
             Passing Env Variables to PMM Server Docker Container, supported only for pmm2.x
             An Example: -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PMM_DEBUG=1
@@ -209,7 +209,7 @@ pipeline {
                                     }
                                 ],
                                 "EbsOptimized": false,
-                                "ImageId": "ami-15e9c770",
+                                "ImageId": "ami-0a0ad6b70e61be944",
                                 "UserData": "c3VkbyB5dW0gaW5zdGFsbCAteSBqYXZhLTEuOC4wLW9wZW5qZGsKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhIC91c3IvbGliL2p2bS9qcmUtMS44LjAtb3Blbmpkay54ODZfNjQvYmluL2phdmEKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhYyAvdXNyL2xpYi9qdm0vanJlLTEuOC4wLW9wZW5qZGsueDg2XzY0L2Jpbi9qYXZhYwoKc3VkbyB5dW0gcmVtb3ZlIGphdmEtMS43Cg==",
                                 "InstanceType": "t3.large",
                                 "KeyName": "jenkins",
@@ -279,7 +279,7 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) 'java -version; sudo yum install -y java-1.8.0-openjdk; sudo /usr/sbin/alternatives --set java /usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java; java -version;' ; do
-                            sleep 1
+                            sleep 5
                         done
                     """
                 }
@@ -302,13 +302,16 @@ pipeline {
                         fi
 
                         sudo yum -y update --security
-                        sudo yum -y install https://repo.percona.com/yum/percona-release-0.1-7.noarch.rpm
+                        sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-25.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
-                        sudo yum -y install svn docker sysbench mysql57-server git php php-mysql php-pdo
-                        sudo service mysqld start
-                        sudo yum -y install bats --enablerepo=epel
+                        sudo yum -y install git svn docker sysbench
+                        sudo yum -y install https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm 
+                        sudo yum -y install php php-mysqlnd php-pdo mysql-community-server
+                        sudo amazon-linux-extras install epel -y
+                        sudo yum -y install bats
                         sudo usermod -aG docker ec2-user
-                        sudo service docker start
+                        sudo systemctl start mysqld
+                        sudo systemctl start docker
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
                             sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
@@ -431,7 +434,7 @@ pipeline {
                         export PATH=\$PATH:/usr/sbin
                         test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
                         export CLIENT_IP=\$(curl ifconfig.me);
-                        sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                        sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
                         if [[ \$CLIENT_VERSION = dev-latest ]]; then
                             sudo percona-release enable-only original testing
                             sudo yum clean all
@@ -445,7 +448,7 @@ pipeline {
                             sudo percona-release enable-only original testing
                         elif [[ \$CLIENT_VERSION = 2* ]]; then
                             sudo yum clean all
-                            sudo yum -y install pmm2-client-\$CLIENT_VERSION-6.el6.x86_64
+                            sudo yum -y install pmm2-client-\$CLIENT_VERSION-6.el7.x86_64
                             sudo percona-release enable-only original testing
                             sleep 15
                         elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then
@@ -515,7 +518,6 @@ pipeline {
                                     sudo pmm-agent setup --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
                                 fi
                                 sleep 10
-                                sudo cat /var/log/pmm-agent.log
                                 pmm-admin list
                             fi
                         else
@@ -591,6 +593,7 @@ pipeline {
         failure {
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                 sh '''
+                    set -o xtrace
                     export REQUEST_ID=\$(cat REQUEST_ID)
                     if [ -n "$REQUEST_ID" ]; then
                         aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids \$REQUEST_ID
