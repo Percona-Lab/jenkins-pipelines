@@ -518,7 +518,6 @@ pipeline {
                                     sudo pmm-agent setup --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
                                 fi
                                 sleep 10
-                                test -f /var/log/pmm-agent.log && sudo cat /var/log/pmm-agent.log
                                 pmm-admin list
                             fi
                         else
