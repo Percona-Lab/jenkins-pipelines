@@ -516,18 +516,15 @@ Resources:
                   rpm --import https://openresty.org/package/pubkey.gpg
                   wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+                  amazon-linux-extras install epel -y
                   yum -y update --security
-                  yum -y install java-1.8.0-openjdk-1.8.0.265.b01 jenkins-2.249.3 git yum-cron aws-cli xfsprogs openresty
+                  yum -y install java-1.8.0-openjdk-1.8.0.265.b01 jenkins-2.249.3 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
                   echo "exclude=java*" >> /etc/yum/yum-cron.conf
                   chkconfig yum-cron on
                   service yum-cron start
-
-                  wget https://dl.eff.org/certbot-auto -O /opt/certbot-auto
-                  chmod 755 /opt/certbot-auto
-                  touch /etc/redhat-release
               }
 
               volume_state() {
@@ -708,10 +705,10 @@ Resources:
 
               setup_letsencrypt() {
                   install -d /usr/share/nginx/html
-                  /opt/certbot-auto --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
+                  certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
-                  echo '/opt/certbot-auto renew' > /etc/cron.daily/certbot
+                  printf '#!/bin/sh\ncertbot renew\nservice openresty reload\n' > /etc/cron.daily/certbot
                   chmod 755 /etc/cron.daily/certbot
                   service openresty stop
                   sleep 2
