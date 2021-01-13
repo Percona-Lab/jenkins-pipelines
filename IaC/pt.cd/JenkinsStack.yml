@@ -27,7 +27,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: slava
+    Default: illia
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
@@ -365,7 +365,7 @@ Resources:
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true
-        SpotPrice: 0.10
+        SpotPrice: 0.16
         TargetCapacity: 1
         TerminateInstancesWithExpiration: false
         Type: maintain
@@ -398,6 +398,7 @@ Resources:
           Groups:
           - !GetAtt JVPC.DefaultSecurityGroup
           - !GetAtt HTTPSecurityGroup.GroupId
+          - !GetAtt SSHSecurityGroup.GroupId
         TagSpecifications:
         - ResourceType: instance
           Tags:
@@ -473,7 +474,7 @@ Resources:
                   amazon-linux-extras install epel -y
                   yum -y update --security
                   amazon-linux-extras install -y nginx1.12
-                  yum -y install java-1.8.0-openjdk-1.8.0.265.b01 jenkins-2.249.3 certbot git yum-cron aws-cli xfsprogs
+                  yum -y install java-1.8.0-openjdk-1.8.0.272.b10 jenkins-2.263.2 certbot git yum-cron aws-cli xfsprogs
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
