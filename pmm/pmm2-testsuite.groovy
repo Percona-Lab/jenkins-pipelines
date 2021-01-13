@@ -74,10 +74,10 @@ void fetchAgentLog(String CLIENT_VERSION) {
                 set -o xtrace
                 export CLIENT_VERSION=${CLIENT_VERSION}
                 if [[ \$CLIENT_VERSION != http* ]]; then
+                    journalctl -u pmm-agent.service > /var/log/pmm-agent.log
                     sudo chmod 777 /var/log/pmm-agent.log
                 fi
                 if [[ -e /var/log/pmm-agent.log ]]; then
-                    journalctl -u pmm-agent.service > /var/log/pmm-agent.log
                     cp /var/log/pmm-agent.log .
                 fi
             '
