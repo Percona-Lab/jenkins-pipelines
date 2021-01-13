@@ -708,7 +708,7 @@ Resources:
                   certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
-                  echo 'certbot renew; service openresty reload' > /etc/cron.daily/certbot
+                  printf '#!/bin/sh\ncertbot renew\nservice openresty reload\n' > /etc/cron.daily/certbot
                   chmod 755 /etc/cron.daily/certbot
                   service openresty stop
                   sleep 2
