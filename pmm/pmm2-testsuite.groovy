@@ -77,6 +77,7 @@ void fetchAgentLog(String CLIENT_VERSION) {
                     sudo chmod 777 /var/log/pmm-agent.log
                 fi
                 if [[ -e /var/log/pmm-agent.log ]]; then
+                    journalctl -u pmm-agent.service > /var/log/pmm-agent.log
                     cp /var/log/pmm-agent.log .
                 fi
             '
