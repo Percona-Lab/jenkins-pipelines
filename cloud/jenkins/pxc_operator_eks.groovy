@@ -285,6 +285,7 @@ EOF
                 runTest('tls-issue-self')
                 runTest('tls-issue-cert-manager')
                 runTest('tls-issue-cert-manager-ref')
+                runTest('validation-hook')
             }
         }
         stage('E2E Scaling') {

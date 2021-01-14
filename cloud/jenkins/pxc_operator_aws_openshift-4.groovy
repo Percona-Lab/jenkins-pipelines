@@ -269,6 +269,7 @@ pipeline {
                 runTest('users')
                 runTest('haproxy')
                 runTest('monitoring-2-0')
+                runTest('validation-hook')
             }
         }
         stage('E2E Scaling') {
