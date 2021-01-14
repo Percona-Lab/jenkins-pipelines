@@ -47,8 +47,14 @@
          type: user-defined
          name: DOCKER_OS
          values:
-          - centos:7
-          - asan
+         - centos:7
+         - centos:8
+         - ubuntu:xenial
+         - ubuntu:bionic
+         - ubuntu:focal
+         - debian:stretch
+         - debian:buster
+         - asan
     builders:
     - trigger-builds:
       - project: percona-xtrabackup-2.4-compile-pipeline

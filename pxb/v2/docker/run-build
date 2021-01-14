@@ -25,6 +25,7 @@ docker run --rm \
     export CMAKE_OPTS='${CMAKE_OPTS}'
     export MAKE_OPTS='${MAKE_OPTS}'
     export ASAN_SWITCH='${ASAN_SWITCH}'
+    export DOCKER_OS='${DOCKER_OS//:/-}'
 
     if [ -f /usr/bin/yum ]; then
         sudo yum -y install qpress
