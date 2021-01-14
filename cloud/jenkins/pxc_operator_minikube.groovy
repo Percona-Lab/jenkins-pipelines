@@ -262,6 +262,7 @@ pipeline {
                     runTest('self-healing-advanced')
                     runTest('operator-self-healing')
                     runTest('pitr')
+                    runTest('validation-hook')
             }
             post {
                 always {
