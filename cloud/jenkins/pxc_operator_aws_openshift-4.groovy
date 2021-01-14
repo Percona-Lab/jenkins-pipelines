@@ -270,6 +270,9 @@ pipeline {
                 runTest('haproxy')
                 runTest('monitoring-2-0')
                 runTest('validation-hook')
+                runTest('tls-issue-self')
+                runTest('tls-issue-cert-manager')
+                runTest('tls-issue-cert-manager-ref')
             }
         }
         stage('E2E Scaling') {
