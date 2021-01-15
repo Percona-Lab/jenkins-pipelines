@@ -8,8 +8,8 @@ pipeline {
             description: 'Tag/Branch for build',
             name: 'BRANCH_NAME')
         choice(
-            choices: ['test.percona.com'],
-            description: 'Publish to test server',
+            choices: ['test.percona.com', 'percona.com'],
+            description: 'Publish to test or production server',
             name: 'PUBLISH_TARGET')
     }
     options {
