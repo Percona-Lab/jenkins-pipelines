@@ -123,6 +123,10 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                             export IMAGE_PMM=${IMAGE_PMM}
                         fi
 
+                        if [ -n "${IMAGE_LOGCOLLECTOR}" ]; then
+                            export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
+                        fi
+
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
                         source $HOME/google-cloud-sdk/path.bash.inc
                         ./e2e-tests/$TEST_NAME/run
@@ -202,6 +206,10 @@ pipeline {
             defaultValue: '',
             description: 'PMM image: perconalab/percona-xtradb-cluster-operator:master-pmm',
             name: 'IMAGE_PMM')
+        string(
+            defaultValue: '',
+            description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:master-logcollector',
+            name: 'IMAGE_LOGCOLLECTOR')
     }
     agent {
         label 'docker'

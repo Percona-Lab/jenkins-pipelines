@@ -79,6 +79,10 @@ void runTest(String TEST_NAME) {
                         export IMAGE_PMM=${IMAGE_PMM}
                     fi
 
+                    if [ -n "${IMAGE_LOGCOLLECTOR}" ]; then
+                            export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
+                    fi
+
                     ./e2e-tests/$TEST_NAME/run
                 fi
             """
@@ -159,6 +163,10 @@ pipeline {
             defaultValue: '',
             description: 'PMM image: perconalab/percona-xtradb-cluster-operator:master-pmm',
             name: 'IMAGE_PMM')
+        string(
+            defaultValue: '',
+            description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:master-logcollector',
+            name: 'IMAGE_LOGCOLLECTOR')
         string(
             defaultValue: 'v1.14.8',
             description: 'Kubernetes Version',
