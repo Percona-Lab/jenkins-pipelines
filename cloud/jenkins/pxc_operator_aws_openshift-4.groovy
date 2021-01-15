@@ -82,6 +82,10 @@ void runTest(String TEST_NAME) {
                             export IMAGE_PMM=${IMAGE_PMM}
                         fi
 
+                        if [ -n "${IMAGE_LOGCOLLECTOR}" ]; then
+                            export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
+                        fi
+
                         source $HOME/google-cloud-sdk/path.bash.inc
                         export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
                         oc whoami
@@ -151,6 +155,10 @@ pipeline {
             defaultValue: '',
             description: 'PMM image: perconalab/percona-xtradb-cluster-operator:master-pmm',
             name: 'IMAGE_PMM')
+        string(
+            defaultValue: '',
+            description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:master-logcollector',
+            name: 'IMAGE_LOGCOLLECTOR')
     }
     environment {
         TF_IN_AUTOMATION = 'true'
