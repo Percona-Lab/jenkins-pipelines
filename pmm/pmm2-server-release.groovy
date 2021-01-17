@@ -172,22 +172,27 @@ pipeline {
                     sg docker -c "
                         set -ex
                         docker pull \${DOCKER_VERSION}
+                        if [ \${TOP_VER} -gt 1 ]; then
+                            docker tag \${DOCKER_VERSION} percona/pmm-server:latest
+                            docker push percona/pmm-server:latest
+                            docker tag \${DOCKER_VERSION} perconalab/pmm-server:latest
+                            docker push perconalab/pmm-server:latest
+                        fi
                         docker tag \${DOCKER_VERSION} percona/pmm-server:\${VERSION}
                         docker tag \${DOCKER_VERSION} percona/pmm-server:\${DOCKER_MID}
                         docker tag \${DOCKER_VERSION} percona/pmm-server:\${TOP_VER}
                         docker push percona/pmm-server:\${VERSION}
                         docker push percona/pmm-server:\${DOCKER_MID}
                         docker push percona/pmm-server:\${TOP_VER}
-                        if [ \${TOP_VER} = 1 ]; then
-                            docker push percona/pmm-server:latest
-                        fi
+
                         docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
 
                         docker pull \${DOCKER_CLIENT_VERSION}
-
-                        if [ \${TOP_VER} = 1 ]; then
+                        if [ \${TOP_VER} -gt 1 ]; then
                             docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:latest
                             docker push perconalab/pmm-client:latest
+                            docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:latest
+                            docker push percona/pmm-client:latest
                         fi
 
                         docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${VERSION}
