@@ -44,4 +44,7 @@
         name: IMAGE_HAPROXY
         default:
         description: PXC haproxy image
-
+    - string:
+        name: IMAGE_LOGCOLLECTOR
+        default:
+        description: PXC logcollector image
