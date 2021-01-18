@@ -266,10 +266,8 @@ pipeline {
                     runTest('scaling')
                     runTest('affinity')
                     runTest('one-pod')
-                    runTest('upgrade-consistency')
                     runTest('self-healing-advanced')
                     runTest('operator-self-healing')
-                    runTest('pitr')
                     runTest('validation-hook')
             }
             post {
