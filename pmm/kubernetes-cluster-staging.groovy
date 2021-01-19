@@ -3,6 +3,11 @@ import hudson.slaves.*
 import jenkins.model.Jenkins
 import hudson.plugins.sshslaves.SSHLauncher
 
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+]) _
+
 pipeline {
     agent {
         label 'awscli'
@@ -51,8 +56,8 @@ pipeline {
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
 
                     if ("${NOTIFY}" == "true") {
-                        slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: cluster creation - ${BUILD_URL}"
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FFFF00', message: "[${JOB_NAME}]: cluster creation - ${BUILD_URL}"
                     }
                 }
             }
@@ -60,120 +65,7 @@ pipeline {
 
         stage('Run VM') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        export VM_NAME=\$(cat VM_NAME)
-                        export OWNER=\$(cat OWNER_FULL)
-                        export SUBNET=\$(
-                            aws ec2 describe-subnets \
-                                --region us-east-2 \
-                                --output text \
-                                --filters "Name=tag:aws:cloudformation:stack-name,Values=pmm-staging" \
-                                --query 'Subnets[].SubnetId' \
-                                | tr '\t' '\n' \
-                                | sort --random-sort \
-                                | head -1
-                        )
-                        export SG1=\$(
-                            aws ec2 describe-security-groups \
-                                --region us-east-2 \
-                                --output text \
-                                --filters "Name=tag:aws:cloudformation:stack-name,Values=pmm-staging" \
-                                          "Name=group-name,Values=HTTP" \
-                                --query 'SecurityGroups[].GroupId'
-                        )
-                        export SG2=\$(
-                            aws ec2 describe-security-groups \
-                                --region us-east-2 \
-                                --output text \
-                                --filters "Name=tag:aws:cloudformation:stack-name,Values=pmm-staging" \
-                                          "Name=group-name,Values=SSH" \
-                                --query 'SecurityGroups[].GroupId'
-                        )
-
-                        echo '{
-                            "DryRun": false,
-                            "InstanceCount": 1,
-                            "InstanceInterruptionBehavior": "terminate",
-                            "LaunchSpecification": {
-                                "BlockDeviceMappings": [
-                                    {
-                                        "DeviceName": "/dev/xvda",
-                                        "Ebs": {
-                                            "DeleteOnTermination": true,
-                                            "VolumeSize": 50,
-                                            "VolumeType": "gp2"
-                                        }
-                                    }
-                                ],
-                                "EbsOptimized": false,
-                                "ImageId": "ami-0a0ad6b70e61be944",
-                                "UserData": "c3VkbyB5dW0gaW5zdGFsbCAteSBqYXZhLTEuOC4wLW9wZW5qZGsKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhIC91c3IvbGliL2p2bS9qcmUtMS44LjAtb3Blbmpkay54ODZfNjQvYmluL2phdmEKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhYyAvdXNyL2xpYi9qdm0vanJlLTEuOC4wLW9wZW5qZGsueDg2XzY0L2Jpbi9qYXZhYwoKc3VkbyB5dW0gcmVtb3ZlIGphdmEtMS43Cg==",
-                                "InstanceType": "c4.4xlarge",
-                                "KeyName": "jenkins",
-                                "Monitoring": {
-                                    "Enabled": false
-                                },
-                                "IamInstanceProfile": {
-                                    "Name": "jenkins-pmm-slave"
-                                },
-                                "SecurityGroupIds": [
-                                    "security-group-id-1",
-                                    "security-group-id-2"
-                                ],
-                                "SubnetId": "subnet-id"
-                            },
-                            "SpotPrice": "0.1448",
-                            "Type": "persistent"
-                        }' \
-                            | sed -e "s/subnet-id/\${SUBNET}/" \
-                            | sed -e "s/security-group-id-1/\${SG1}/" \
-                            | sed -e "s/security-group-id-2/\${SG2}/" \
-                            > config.json
-
-                        REQUEST_ID=\$(
-                            aws ec2 request-spot-instances \
-                                --output text \
-                                --region us-east-2 \
-                                --cli-input-json file://config.json \
-                                --query SpotInstanceRequests[].SpotInstanceRequestId
-                        )
-                        echo \$REQUEST_ID > REQUEST_ID
-
-                        until [ -s IP ]; do
-                            sleep 1
-                            aws ec2 describe-instances \
-                                --filters "Name=spot-instance-request-id,Values=\${REQUEST_ID}" \
-                                --query 'Reservations[].Instances[].PublicIpAddress' \
-                                --output text \
-                                --region us-east-2 \
-                                | tee IP
-                        done
-
-                        aws ec2 describe-instances \
-                            --filters "Name=spot-instance-request-id,Values=\${REQUEST_ID}" \
-                            --query 'Reservations[].Instances[].InstanceId' \
-                            --output text \
-                            --region us-east-2 \
-                            | tee ID
-
-                        VOLUMES=$(
-                            aws ec2 describe-instances \
-                                --region us-east-2 \
-                                --output text \
-                                --instance-ids \$(cat ID) \
-                                --query 'Reservations[].Instances[].BlockDeviceMappings[].Ebs.VolumeId'
-                        )
-
-                        aws ec2 create-tags  \
-                            --region us-east-2 \
-                            --resources \$REQUEST_ID \$(cat ID) \$VOLUMES \
-                            --tags Key=Name,Value=\$VM_NAME \
-                                   Key=iit-billing-tag,Value=pmm-staging \
-                                   Key=stop-after-days,Value=${DAYS} \
-                                   Key=owner,Value=\$OWNER
-                    '''
-                }
+                launchSpotInstance("c4.4xlarge", "0.1448", 50)
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) 'java -version; sudo yum install -y java-1.8.0-openjdk; sudo /usr/sbin/alternatives --set java /usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java; java -version;' ; do
@@ -224,8 +116,7 @@ pipeline {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                         sh """
-                        export IP=\$(cat IP)
-                        export VM_NAME=\$(cat VM_NAME)
+                            export VM_NAME=\$(cat VM_NAME)
                         """
                         node(env.VM_NAME){
                             sh """
@@ -248,7 +139,6 @@ pipeline {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                         sh """
-                            export IP=\$(cat IP)
                             export VM_NAME=\$(cat VM_NAME)
                         """
                         node(env.VM_NAME){
@@ -277,7 +167,6 @@ pipeline {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                         sh """
-                            export IP=\$(cat IP)
                             export VM_NAME=\$(cat VM_NAME)
                         """
                         node(env.VM_NAME){
@@ -341,8 +230,8 @@ pipeline {
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
 
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER_FULL}, Cluster IP: ${PUBLIC_IP}"
-                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - Cluster IP: ${PUBLIC_IP}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: cluster creation finished, owner: @${OWNER_FULL}, Cluster IP: ${PUBLIC_IP}"
+                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: cluster creation finished - Cluster IP: ${PUBLIC_IP}"
                 }
             }
         }
@@ -363,8 +252,8 @@ pipeline {
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
 
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER_FULL}"
-                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: cluster creation failed, owner: @${OWNER_FULL}"
+                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: cluster creation failed"
                 }
             }
         }
