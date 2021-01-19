@@ -45,9 +45,6 @@ pipeline {
     post {
         always {
             // stop staging
-            sh '''
-                sudo chmod 777 -R ./
-            '''
             deleteDir()
         }
     }
