@@ -1,8 +1,11 @@
-def call(String INSTANCE_TYPE, String SPOT_PRICE, String VOLUME) {
+def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh '''
+        sh """
             export VM_NAME=\$(cat VM_NAME)
             export OWNER=\$(cat OWNER_FULL)
+            export INSTANCE_TYPE=${INSTANCE_TYPE}
+            export SPOT_PRICE=${SPOT_PRICE}
+            export VOLUME=${VOLUME}
             export SUBNET=\$(
                 aws ec2 describe-subnets \
                     --region us-east-2 \
@@ -40,7 +43,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, String VOLUME) {
                             "DeviceName": "/dev/xvda",
                             "Ebs": {
                                 "DeleteOnTermination": true,
-                                "VolumeSize": \${VOLUME},
+                                "VolumeSize": VOLUME,
                                 "VolumeType": "gp2"
                             }
                         }
@@ -48,7 +51,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, String VOLUME) {
                     "EbsOptimized": false,
                     "ImageId": "ami-0a0ad6b70e61be944",
                     "UserData": "c3VkbyB5dW0gaW5zdGFsbCAteSBqYXZhLTEuOC4wLW9wZW5qZGsKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhIC91c3IvbGliL2p2bS9qcmUtMS44LjAtb3Blbmpkay54ODZfNjQvYmluL2phdmEKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhYyAvdXNyL2xpYi9qdm0vanJlLTEuOC4wLW9wZW5qZGsueDg2XzY0L2Jpbi9qYXZhYwoKc3VkbyB5dW0gcmVtb3ZlIGphdmEtMS43Cg==",
-                    "InstanceType": \${INSTANCE_TYPE},
+                    "InstanceType": "INSTANCE_TYPE",
                     "KeyName": "jenkins",
                     "Monitoring": {
                         "Enabled": false
@@ -62,12 +65,15 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, String VOLUME) {
                     ],
                     "SubnetId": "subnet-id"
                 },
-                "SpotPrice": \${SPOT_PRICE},
+                "SpotPrice": "SPOT_PRICE",
                 "Type": "persistent"
             }' \
                 | sed -e "s/subnet-id/\${SUBNET}/" \
                 | sed -e "s/security-group-id-1/\${SG1}/" \
                 | sed -e "s/security-group-id-2/\${SG2}/" \
+                | sed -e "s/SPOT_PRICE/\${SPOT_PRICE}/" \
+                | sed -e "s/INSTANCE_TYPE/\${INSTANCE_TYPE}/" \
+                | sed -e "s/VOLUME/\${VOLUME}/" \
                 > config.json
 
             REQUEST_ID=\$(
@@ -96,7 +102,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, String VOLUME) {
                 --region us-east-2 \
                 | tee ID
 
-            VOLUMES=$(
+            VOLUMES=\$(
                 aws ec2 describe-instances \
                     --region us-east-2 \
                     --output text \
@@ -111,6 +117,6 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, String VOLUME) {
                        Key=iit-billing-tag,Value=pmm-staging \
                        Key=stop-after-days,Value=${DAYS} \
                        Key=owner,Value=\$OWNER
-        '''
+        """
     }
 }
