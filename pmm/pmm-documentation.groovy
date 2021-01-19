@@ -22,8 +22,7 @@ pipeline {
                     sudo chmod 777 -R ./
                 """
                 git poll: false, branch: BRANCH_NAME, url: 'https://github.com/percona/pmm-doc.git'
-            stash name: "html-files", includes: "**"
-
+                stash name: "html-files", includes: "**"
             }
         }
         stage('Doc Publish'){
@@ -44,7 +43,6 @@ pipeline {
     }
     post {
         always {
-            // stop staging
             deleteDir()
         }
     }
