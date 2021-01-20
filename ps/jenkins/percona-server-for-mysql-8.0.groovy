@@ -100,13 +100,13 @@ parameters {
             parallel {
                 stage('Build PS generic source rpm') {
                     agent {
-                        label 'min-centos-7-x64'
+                        label 'min-centos-6-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_src_rpm=1")
+                        buildStage("centos:6", "--build_src_rpm=1")
 
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
@@ -139,6 +139,20 @@ parameters {
                         installCli("rpm")
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
                         buildStage("centos:7", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Centos 6') {
+                    agent {
+                        label 'min-centos-6-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("centos:6", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
@@ -228,9 +242,9 @@ parameters {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 7 binary tarball') {
+                stage('Centos 6 binary tarball') {
                     agent {
-                        label 'min-centos-7-x64'
+                        label 'min-centos-6-x64'
                     }
                     steps {
                         cleanUpWS()
