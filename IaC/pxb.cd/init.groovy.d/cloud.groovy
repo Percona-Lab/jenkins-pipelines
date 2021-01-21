@@ -116,7 +116,33 @@ initMap['micro-amazon'] = '''
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-centos-6-x64'] = initMap['micro-amazon']
+initMap['min-centos-6-x64'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
+        sudo mkfs.ext2 ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+
+    until sudo yum -y install epel-release centos-release-scl; do    
+        sleep 1
+        echo try again
+    done
+    sudo rm /etc/yum.repos.d/epel-testing.repo
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-epel-eol.repo --output /etc/yum.repos.d/epel.repo
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl.repo
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
+
+    sudo yum -y install java-1.8.0-openjdk git || :
+    sudo yum -y install aws-cli || :
+    sudo yum -y remove java-1.7.0-openjdk || :
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
 initMap['min-centos-7-x64'] = initMap['micro-amazon']
 initMap['fips-centos-7-x64'] = initMap['micro-amazon']
 initMap['min-centos-8-x64'] = initMap['micro-amazon']
@@ -127,10 +153,19 @@ initMap['min-centos-6-x32'] = '''
         sudo mkfs.ext2 ${DEVICE}
         sudo mount ${DEVICE} /mnt
     fi
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
     until sudo yum makecache; do
         sleep 1
         echo try again
     done
+    until sudo yum -y install epel-release; do    
+        sleep 1
+        echo try again
+    done
+    sudo rm /etc/yum.repos.d/epel-testing.repo
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-epel-eol.repo --output /etc/yum.repos.d/epel.repo
+
+    
     sudo yum -y install java-1.8.0-openjdk git || :
     sudo yum -y install aws-cli || :
     sudo yum -y remove java-1.7.0-openjdk || :

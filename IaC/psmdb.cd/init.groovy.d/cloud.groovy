@@ -192,6 +192,41 @@ initMap['min-artful-x64'] = '''
 '''
 initMap['min-centos-6-x64'] = '''
     set -o xtrace
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+
+    until sudo yum -y install epel-release centos-release-scl; do    
+        sleep 1
+        echo try again
+    done
+    sudo rm /etc/yum.repos.d/epel-testing.repo
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-epel-eol.repo --output /etc/yum.repos.d/epel.repo
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl.repo
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
+
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/nvme2n1 | head -1)
+        sudo yum -y install xfsprogs
+        sudo mkfs.xfs ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
+
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
+
+    echo "*  soft  nofile  65000" | sudo tee -a /etc/security/limits.conf
+    echo "*  hard  nofile  65000" | sudo tee -a /etc/security/limits.conf
+    echo "*  soft  nproc  65000"  | sudo tee -a /etc/security/limits.conf
+    echo "*  hard  nproc  65000"  | sudo tee -a /etc/security/limits.conf
+
+    sudo yum -y install java-1.8.0-openjdk git aws-cli || :
+    sudo yum -y remove java-1.7.0-openjdk || :
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
+initMap['min-centos-7-x64']  = '''
+    set -o xtrace
     until sudo yum makecache; do
         sleep 1
         echo try again
@@ -215,8 +250,7 @@ initMap['min-centos-6-x64'] = '''
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-centos-7-x64']  = initMap['min-centos-6-x64']
-initMap['fips-centos-7-x64'] = initMap['min-centos-6-x64']
+initMap['fips-centos-7-x64'] = initMap['min-centos-7-x64']
 initMap['min-jessie-x64'] = '''
     set -o xtrace
     until sudo apt-get update; do
