@@ -190,6 +190,10 @@ initMap['min-centos-6-x32'] = '''
         sleep 1
         echo try again
     done
+    until sudo yum -y update; do
+        sleep 1
+        echo try again
+    done
     until sudo yum -y install epel-release; do    
         sleep 1
         echo try again
