@@ -247,14 +247,14 @@ initMap['min-trusty-x64'] = initMap['min-jessie-x64']
 
 capMap = [:]
 capMap['c4.xlarge']  = '60'
-capMap['m5.xlarge']  = '5'
+capMap['m5.large']  = '5'
 capMap['m4.2xlarge'] = '40'
 capMap['r4.4xlarge'] = '40'
-capMap['c5d.xlarge'] = '10'
+capMap['c5d.xlarge'] = '60'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 'm5.large'
-typeMap['docker']            = 'c4.xlarge'
+typeMap['docker']            = 'c5d.xlarge'
 typeMap['docker-32gb']       = 'm4.2xlarge'
 typeMap['docker2']           = 'r4.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
