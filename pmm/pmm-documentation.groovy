@@ -34,7 +34,7 @@ pipeline {
                         echo BRANCH=${BRANCH_NAME}
                         ls -l
                         DEST_HOST='docs-rsync-endpoint.int.percona.com'
-                        rsync --delete -vv -azr -O -e "ssh -o StrictHostKeyChecking=no -p2222 -i \${KEY_PATH}" ./* \${USER}@\${DEST_HOST}:/data/websites_data/\${PUBLISH_TARGET}/doc/percona-monitoring-and-management/
+                        rsync --delete -vv -azr -O -e "ssh -o StrictHostKeyChecking=no -p2222 -i \${KEY_PATH}" ./ \${USER}@\${DEST_HOST}:/data/websites_data/\${PUBLISH_TARGET}/doc/percona-monitoring-and-management/
                     '''
                 }
             }
