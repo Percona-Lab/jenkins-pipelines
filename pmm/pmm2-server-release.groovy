@@ -185,14 +185,21 @@ pipeline {
                         docker push percona/pmm-server:\${DOCKER_MID}
                         docker push percona/pmm-server:\${TOP_VER}
 
+                        docker tag \${DOCKER_VERSION} perconalab/pmm-server:\${VERSION}
+                        docker tag \${DOCKER_VERSION} perconalab/pmm-server:\${DOCKER_MID}
+                        docker tag \${DOCKER_VERSION} perconalab/pmm-server:\${TOP_VER}
+                        docker push perconalab/pmm-server:\${VERSION}
+                        docker push perconalab/pmm-server:\${DOCKER_MID}
+                        docker push perconalab/pmm-server:\${TOP_VER}
+
                         docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
 
                         # push pmm-client
                         docker pull \${DOCKER_CLIENT_VERSION}
-                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:latest
-                        docker push perconalab/pmm-client:latest
                         docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:latest
                         docker push percona/pmm-client:latest
+                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:latest
+                        docker push perconalab/pmm-client:latest
 
                         docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${VERSION}
                         docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${DOCKER_MID}
