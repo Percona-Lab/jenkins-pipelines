@@ -29,6 +29,7 @@ imageMap['eu-west-1a.min-centos-7-x64'] = 'ami-0ff760d16d9497662'
 imageMap['eu-west-1a.fips-centos-7-x64'] = 'ami-0ff760d16d9497662'
 
 imageMap['eu-west-1a.min-centos-6-x64'] = 'ami-0451e9d3427711cb1'
+imageMap['eu-west-1a.min-centos-6-x32'] = 'ami-25839351'
 imageMap['eu-west-1a.min-centos-7-x64'] = 'ami-0d4002a13019b7703'
 imageMap['eu-west-1a.min-centos-8-x64'] = 'ami-0bfa4fefe067b7946'
 imageMap['eu-west-1a.min-buster-x64']   = 'ami-093185e1a0acee74b'
@@ -46,6 +47,7 @@ imageMap['eu-west-1b.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64'
 imageMap['eu-west-1b.fips-centos-7-x64'] = imageMap['eu-west-1a.fips-centos-7-x64']
 
 imageMap['eu-west-1b.min-centos-6-x64'] = imageMap['eu-west-1a.min-centos-6-x64']
+imageMap['eu-west-1b.min-centos-6-x32'] = imageMap['eu-west-1a.min-centos-6-x32']
 imageMap['eu-west-1b.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64']
 imageMap['eu-west-1b.min-centos-8-x64'] = imageMap['eu-west-1a.min-centos-8-x64']
 imageMap['eu-west-1b.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
@@ -63,6 +65,7 @@ imageMap['eu-west-1c.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64'
 imageMap['eu-west-1c.fips-centos-7-x64'] = imageMap['eu-west-1a.fips-centos-7-x64']
 
 imageMap['eu-west-1c.min-centos-6-x64'] = imageMap['eu-west-1a.min-centos-6-x64']
+imageMap['eu-west-1c.min-centos-6-x32'] = imageMap['eu-west-1a.min-centos-6-x32']
 imageMap['eu-west-1c.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64']
 imageMap['eu-west-1c.min-centos-8-x64'] = imageMap['eu-west-1a.min-centos-8-x64']
 imageMap['eu-west-1c.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
@@ -206,6 +209,10 @@ initMap['min-centos-6-x32'] = '''
     sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
 
     until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+    until sudo yum -y update; do
         sleep 1
         echo try again
     done
@@ -438,6 +445,7 @@ String region = 'eu-west-1'
             getTemplate('min-centos-8-x64',   "${region}${it}"),
             getTemplate('min-centos-7-x64',     "${region}${it}"),
             getTemplate('min-centos-6-x64',     "${region}${it}"),
+            getTemplate('min-centos-6-x32',     "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
