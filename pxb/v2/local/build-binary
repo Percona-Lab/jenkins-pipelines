@@ -62,6 +62,10 @@ if [[ "$COMPILER" != "default" ]]; then
     export CXX=$(echo ${COMPILER} | sed -e 's/gcc/g++/; s/clang/clang++/')
 fi
 
+if [[ "${DOCKER_OS}" = "centos-6" ]] || [[ "${DOCKER_OS}" = "centos-7" ]] || [[ "${DOCKER_OS}" = "asan" ]]; then
+    JOB_CMAKE='cmake3'
+fi
+
 # ------------------------------------------------------------------------------
 # set version
 # ------------------------------------------------------------------------------
@@ -80,6 +84,11 @@ if [[ "${CMAKE_BUILD_TYPE}" == "Debug" ]]; then
     TAG+="-debug"
 else
     export BUILD_TYPE=" -DBUILD_CONFIG=xtrabackup_release"
+fi
+
+# Enable devtoolset if XB_MAJOR_VERSION is 8 and for  CentOS 6 and 7 only
+if [[ ${XB_VERSION_MAJOR} -eq 8 ]] && [[ -f /opt/rh/devtoolset-7/enable ]]; then
+    source /opt/rh/devtoolset-7/enable
 fi
 
 XTRABACKUP_VERSION="${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}"

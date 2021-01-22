@@ -1,0 +1,55 @@
+- job:
+    name: percona-xtrabackup-8.0-compile-pipeline
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: true
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Sudokamikaze/jenkins-pipelines
+            branches:
+            - "PXB-2330-pxb80"
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pxb/v2/jenkins/percona-xtrabackup-8.0-compile-pipeline.groovy
+    parameters:
+    - string:
+        name: GIT_REPO
+        default: "https://github.com/percona/percona-xtrabackup"
+        description: URL to percona-xtrabackup repository
+    - string:
+        name: BRANCH
+        default: "8.0"
+        description: Tag/Branch for percona-xtrabackup repository
+    - choice:
+        name: DOCKER_OS
+        choices:
+        - centos:7
+        - centos:8
+        - ubuntu:xenial
+        - ubuntu:bionic
+        - ubuntu:focal
+        - debian:stretch
+        - debian:buster
+        - asan
+        description: OS version for compilation
+    - choice:
+        name: CMAKE_BUILD_TYPE
+        choices:
+          - RelWithDebInfo
+          - Debug
+        description: Type of build to produce
+    - string:
+        name: CMAKE_OPTS
+        default:
+        description: cmake options
+    - string:
+        name: MAKE_OPTS
+        default:
+        description: make options, like VERBOSE=1
+    - choice:
+        name: LABEL
+        choices:
+        - docker
+        description: Run build on specified instance type. 
