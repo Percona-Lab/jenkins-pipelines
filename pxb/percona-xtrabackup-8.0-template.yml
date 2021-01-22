@@ -220,9 +220,11 @@
         #!/bin/bash -x
 
         if [[ ${xtrabackuptarget} == "galera57" ]] || [[ ${xtrabackuptarget} == "xtradb80" ]]; then
-            if [[ $(lsb_release -sc) == "xenial" ]] && [[ $(uname -m) == "i686" ]]; then
-                    echo "$(uname -m) is not supported for ${xtrabackuptarget} target, this is a stub we decided to implement in PXB-2368"
-                    exit 0
+            if [ -f /usr/bin/apt-get ]; then
+                if [[ $(lsb_release -sc) == "xenial" ]] && [[ $(uname -m) == "i686" ]]; then
+                        echo "$(uname -m) is not supported for ${xtrabackuptarget} target, this is a stub we decided to implement in PXB-2368"
+                        exit 0
+                fi
             fi
         fi
 
@@ -260,8 +262,10 @@
         fi
 
         if [[ ${xtrabackuptarget} == "galera57" ]] || [[ ${xtrabackuptarget} == "xtradb80" ]]; then
-            if [[ $(lsb_release -sc) == "xenial" ]] && [[ $(uname -m) == "i686" ]]; then
-                unsupported=true
+            if [ -f /usr/bin/apt-get ]; then
+                if [[ $(lsb_release -sc) == "xenial" ]] && [[ $(uname -m) == "i686" ]]; then
+                    unsupported=true
+                fi
             fi
         fi
         if [[ ! -z ${unsupported} ]] && [[ ${unsupported} == true ]]; then
@@ -328,8 +332,10 @@
         cd ${XB_TEST_ROOT_DIR}/test
 
         if [[ ${xtrabackuptarget} == "galera57" ]] || [[ ${xtrabackuptarget} == "xtradb80" ]]; then
-            if [[ $(lsb_release -sc) == "xenial" ]] && [[ $(uname -m) == "i686" ]]; then
-                unsupported=true
+            if [ -f /usr/bin/apt-get ]; then
+                if [[ $(lsb_release -sc) == "xenial" ]] && [[ $(uname -m) == "i686" ]]; then
+                    unsupported=true
+                fi
             fi
         fi
         if [[ ! -z ${unsupported} ]] && [[ ${unsupported} == true ]]; then
