@@ -19,6 +19,10 @@ if [ -f /usr/bin/yum ]; then
   RHVER="$(rpm --eval %rhel)"
   rpm --eval %_arch > /etc/yum/vars/basearch
 
+  if [[ ${RHVER} -eq 6 ]]; then
+    curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
+  fi
+
   yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
   percona-release enable tools testing
 
@@ -28,7 +32,16 @@ if [ -f /usr/bin/yum ]; then
     sleep 1
   done
 
-  PKGLIST+=" wget epel-release"
+  PKGLIST+=" wget"
+
+  until yum -y install epel-release; do
+    echo "waiting"
+    sleep 1
+  done
+  if [[ ${RHVER} -eq 6 ]]; then
+    rm /etc/yum.repos.d/epel-testing.repo
+    curl https://jenkins.percona.com/downloads/cent6/centos6-epel-eol.repo --output /etc/yum.repos.d/epel.repo
+  fi
 
   if [[ ${RHVER} -eq 8 ]]; then
       PKGLIST+=" dnf-utils"
@@ -42,7 +55,15 @@ if [ -f /usr/bin/yum ]; then
   fi
 
   if [[ ${RHVER} -lt 8 ]]; then
-      PKGLIST+=" centos-release-scl python-docutils"
+      PKGLIST+=" python-docutils"
+      until yum -y install centos-release-scl; do
+        echo "waiting"
+        sleep 1
+      done
+      if [[ ${RHVER} -eq 6 ]]; then
+        curl https://jenkins.percona.com/downloads/cent6/centos6-scl-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl.repo
+        curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
+      fi
   fi
   until yum -y install ${PKGLIST}; do
     echo "waiting"
