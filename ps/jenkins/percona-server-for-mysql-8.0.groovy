@@ -250,7 +250,21 @@ parameters {
                         cleanUpWS()
                         installCli("rpm")
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_tarball=1")
+                        buildStage("centos:6", "--build_tarball=1")
+
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Centos 6 binary  debug tarball') {
+                    agent {
+                        label 'min-centos-6-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("centos:6", "--debug=1 --build_tarball=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
