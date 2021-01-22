@@ -27,12 +27,6 @@ docker run --rm \
     export ASAN_SWITCH='${ASAN_SWITCH}'
     export DOCKER_OS='${DOCKER_OS//:/-}'
 
-    if [ -f /usr/bin/yum ]; then
-        sudo yum -y install qpress
-    else
-        sudo apt-get install qpress
-    fi
-
     mkdir /tmp/results
     cp -r /tmp/source_downloads /tmp/results/source_downloads
     sudo chown -R mysql:mysql /tmp/pxb

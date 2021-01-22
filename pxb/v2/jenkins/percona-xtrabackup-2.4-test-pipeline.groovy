@@ -61,7 +61,7 @@ pipeline {
                         currentBuild.displayName = "${BUILD_NUMBER} ${CMAKE_BUILD_TYPE}/${DOCKER_OS}"
                     }
                     sh 'echo Prepare: \$(date -u "+%s")'
-                    git branch: 'PXB-2330', url: 'https://github.com/Sudokamikaze/jenkins-pipelines'
+                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     sh '''
                         # sudo is needed for better node recovery after compilation failure
                         # if building failed on compilation stage directory will have files owned by docker user
