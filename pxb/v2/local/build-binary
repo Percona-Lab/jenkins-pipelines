@@ -1,0 +1,109 @@
+#!/bin/bash
+
+
+set -o errexit
+set -o xtrace
+
+
+# ------------------------------------------------------------------------------
+# Declare all input variables
+# ------------------------------------------------------------------------------
+JOB_CMAKE=${JOB_CMAKE:-cmake}
+COMPILER=${COMPILER:-default}
+CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-RelWithDebInfo}
+ASAN_SWITCH=${ASAN_SWITCH:-OFF}
+MAKE_OPTS=${MAKE_OPTS:--j$(nproc)}
+CMAKE_OPTS=${CMAKE_OPTS:-}
+TAG=${TAG:-}
+
+# ------------------------------------------------------------------------------
+# set working dir
+# ------------------------------------------------------------------------------
+mkdir -p ${1:-./build}
+WORKDIR=$(cd ${1:-./build}; pwd -P)
+INSTALL_DIR=${WORKDIR}/DESTDIR
+DOWNLOAD_DIR=${WORKDIR}/source_downloads
+mkdir -p ${INSTALL_DIR} ${DOWNLOAD_DIR}
+SOURCEDIR=$(cd ${2:-$(dirname $0)/../sources}; pwd -P)
+
+
+# ------------------------------------------------------------------------------
+# download external libs
+# ------------------------------------------------------------------------------
+wget_loop() {
+    local FILE="$1"
+    local URL="$2"
+
+    if [[ ! -f "${DOWNLOAD_DIR}/${FILE}" ]]; then
+        until wget --progress=dot:giga -O "${DOWNLOAD_DIR}/${FILE}" "${URL}"; do
+            echo "sleep before retry"
+            sleep 1
+        done
+    fi
+}
+
+# ------------------------------------------------------------------------------
+# Set OS/Arch flags
+# ------------------------------------------------------------------------------
+
+TARGET_ARCH="$(uname -m)"
+
+export CC=${CC:-gcc}
+export CXX=${CXX:-g++}
+export CFLAGS=${CFLAGS:-}
+export CXXFLAGS=${CXXFLAGS:-}
+export MAKE_JFLAG=-j$(nproc)
+
+# ------------------------------------------------------------------------------
+# Set compile options
+# ------------------------------------------------------------------------------
+if [[ "$COMPILER" != "default" ]]; then
+    export CC=${COMPILER}
+    export CXX=$(echo ${COMPILER} | sed -e 's/gcc/g++/; s/clang/clang++/')
+fi
+
+# ------------------------------------------------------------------------------
+# set version
+# ------------------------------------------------------------------------------
+source "${SOURCEDIR}/XB_VERSION"
+if [[ -n "$(which git)" ]] && [[ -d "${SOURCEDIR}/.git" ]]; then
+    REVISION="$(cd "${SOURCEDIR}"; git rev-parse --short HEAD)"
+fi
+
+if [[ "${ASAN_SWITCH}" == "ON" ]]; then
+    CMAKE_OPTS=+" -DWITH_ASAN=ON"
+    TAG+="-asan"
+fi
+
+if [[ "${CMAKE_BUILD_TYPE}" == "Debug" ]]; then
+    export BUILD_TYPE=" -DWITH_DEBUG=ON"
+    TAG+="-debug"
+else
+    export BUILD_TYPE=" -DBUILD_CONFIG=xtrabackup_release"
+fi
+
+XTRABACKUP_VERSION="${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}"
+FULL_PRODUCT_NAME="percona-xtrabackup-${XTRABACKUP_VERSION}-$(uname -s)-$(uname -m)-${DOCKER_OS}${TAG}"
+
+
+
+# ------------------------------------------------------------------------------
+# Finaly, compile!
+# ------------------------------------------------------------------------------
+pushd ${WORKDIR}
+    ${JOB_CMAKE} \
+        ${BUILD_TYPE} \
+        -DDOWNLOAD_BOOST=ON \
+        -DWITH_BOOST=${DOWNLOAD_DIR} \
+        -DCMAKE_INSTALL_PREFIX=${FULL_PRODUCT_NAME} \
+        -DINSTALL_MYSQLTESTDIR=${FULL_PRODUCT_NAME}-test \
+        -DINSTALL_MANDIR=${FULL_PRODUCT_NAME}/man \
+        -DMYSQL_UNIX_ADDR=/var/run/mysqld/mysqld.sock \
+        ${TARGET_CFLAGS:+-DCMAKE_C_FLAGS="${TARGET_CFLAGS}" -DCMAKE_CXX_FLAGS="${TARGET_CFLAGS}"} \
+        ${CMAKE_OPTS} \
+        ${SOURCEDIR}
+    make ${MAKE_OPTS}
+    make DESTDIR=${INSTALL_DIR} install > make_install.log
+popd
+
+tar -C ${INSTALL_DIR}/${WORKDIR} --owner=0 --group=0 -czf "${WORKDIR}/${FULL_PRODUCT_NAME}.tar.gz" ${FULL_PRODUCT_NAME}

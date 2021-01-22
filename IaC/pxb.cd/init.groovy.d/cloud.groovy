@@ -239,7 +239,7 @@ initMap['min-xenial-x32'] = initMap['min-focal-x64']
 initMap['psmdb'] = initMap['min-xenial-x64']
 
 capMap = [:]
-capMap['c5.xlarge'] = '10'
+capMap['c5.xlarge'] = '40'
 capMap['m4.xlarge'] = '10'
 capMap['m4.2xlarge'] = '10'
 capMap['m1.medium'] = '10'

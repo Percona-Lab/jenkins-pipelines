@@ -1,0 +1,73 @@
+- job:
+    name: percona-xtrabackup-2.4-test-pipeline
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: true
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines
+            branches:
+            - "master"
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pxb/v2/jenkins/percona-xtrabackup-2.4-test-pipeline.groovy
+    parameters:
+    - choice:
+        name: DOCKER_OS
+        choices:
+          - centos:7
+          - centos:8
+          - ubuntu:xenial
+          - ubuntu:bionic
+          - ubuntu:focal
+          - debian:stretch
+          - debian:buster
+          - asan
+        description: OS version for compilation
+    - choice:
+        name: CMAKE_BUILD_TYPE
+        choices:
+          - RelWithDebInfo
+          - Debug
+        description: Type of build to produce
+    - choice:
+        name: XTRABACKUP_TARGET
+        choices:
+          - innodb56
+          - innodb57
+          - xtradb56
+          - xtradb57
+          - galera56
+          - galera57
+        description: Type of build to produce  
+    - string:
+        name: BOOTSTRAP_URL
+        default:
+        description: 
+    - string:
+        name: INNODB56_VERSION
+        default: "5.6.49"
+        description: Version of MySQL InnoDB56 which will be used for bootstrap.sh script
+    - string:
+        name: INNODB57_VERSION
+        default: "5.7.31"
+        description: Version of MySQL InnoDB57 which will be used for bootstrap.sh script
+    - string:
+        name: XTRADB56_VERSION
+        default: "5.6.49-89.0"
+        description: Version of Percona XtraDB56 which will be used for bootstrap.sh script
+    - string:
+        name: XTRADB57_VERSION
+        default: "5.7.31-34"
+        description: Version of Percona XtraDB57 which will be used for bootstrap.sh script
+    - string:
+        name: XBTR_ARGS
+        default:
+        description: "./run.sh options, for options like: -j N Run tests in N parallel processes, -T seconds, -x options Extra options to pass to xtrabackup"
+    - choice:
+        name: LABEL
+        choices:
+        - docker
+        description: Run build on specified instance type. 

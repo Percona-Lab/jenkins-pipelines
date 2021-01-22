@@ -63,7 +63,7 @@ if [ -f /usr/bin/yum ]; then
     libzstd-devel tzdata check-devel scons libgcrypt-devel libev-devel zlib-devel libaio-devel \
     ncurses-devel readline-devel pam-devel socat vim-common openssl perl-CPAN rsync libcurl-devel \
     python3 sysbench perl-DBD-mysql \
-    patchelf lsof automake bzip2 gnutls gnutls-devel patch lsof socat \
+    patchelf lsof automake bzip2 gnutls gnutls-devel patch lsof socat qpress \
     "
 
     if [[ ${RHVER} -eq 8 ]]; then
@@ -158,7 +158,7 @@ if [ -f /usr/bin/apt-get ]; then
         tzdata check scons libreadline-dev libgcrypt-dev libev-dev zlib1g-dev libasio-dev ncurses-dev \
         libpam-dev vim-common python3-pip libboost-all-dev rsync \
         python3 sysbench libdbd-mysql-perl \
-        patchelf lynx librtmp-dev lsof socat \
+        patchelf lynx librtmp-dev lsof socat qpress libncurses5 \
     "
     
     if [[ ${DIST} != 'focal' ]]; then
