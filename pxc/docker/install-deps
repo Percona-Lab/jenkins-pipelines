@@ -50,7 +50,7 @@ if [ -f /usr/bin/yum ]; then
         sleep 1
       done
 
-      dnf config-manager --set-enabled PowerTools
+      dnf config-manager --set-enabled powertools
       PKGLIST+=" libedit-devel python3-docutils"
   fi
 
@@ -72,7 +72,7 @@ if [ -f /usr/bin/yum ]; then
 
   if [[ ${RHVER} -eq 8 ]]; then
       wget -O /etc/yum.repos.d/percona-dev.repo https://jenkins.percona.com/yum-repo/percona-dev.repo
-      dnf config-manager --set-enabled PowerTools
+      dnf config-manager --set-enabled powertools
   fi
 
   PKGLIST=" \
@@ -150,7 +150,7 @@ if [ -f /usr/bin/apt-get ]; then
         echo "waiting"
     done
 
-    until apt-get -y install lsb-release gnupg wget bc; do
+    until apt-get -y install lsb-release gnupg wget bc curl; do
         sleep 1
         echo "waiting"
     done
