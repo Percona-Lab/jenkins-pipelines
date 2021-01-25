@@ -52,7 +52,7 @@ pipeline {
                     sh '''
                         sg docker -c "
                             docker pull perconalab/pmm-doc-md:latest
-                            docker run -i -v `pwd`:/docs -e USER_ID=$UID -e UMASK=0777 perconalab/pmm-doc-md
+                            docker run -i -v `pwd`:/docs -e USER_ID=$UID -e UMASK=0777 perconalab/pmm-doc-md:latest
                         "
                     '''
                 }
@@ -69,7 +69,6 @@ pipeline {
                     sh '''
                         echo BRANCH=${BRANCH_NAME}
                         DEST_HOST='docs-rsync-endpoint.int.percona.com'
-
                         rsync --delete-before -avzr -O -e "ssh -o StrictHostKeyChecking=no -p2222 -i \${KEY_PATH}"  site/ \${USER}@\${DEST_HOST}:/data/websites_data/\${PUBLISH_TARGET}/doc/percona-monitoring-and-management/2.x/
                     '''
                 }
@@ -85,24 +84,16 @@ pipeline {
                     sh '''
                         sg docker -c "
                             docker pull perconalab/pmm-doc-md:latest
-                            docker run -i -v `pwd`:/docs -e USER_ID=$UID -e UMASK=0777 perconalab/pmm-doc-md mkdocs build -f mkdocs-pdf.yml
+                            docker run -i -v `pwd`:/docs -e USER_ID=$UID -e UMASK=0777 -e ENABLE_PDF_EXPORT=1 perconalab/pmm-doc-md:latest mkdocs build -t material
                         "
                     '''
                 }
-                archiveArtifacts 'site_pdf/_pdf/*.pdf'
+                archiveArtifacts 'site/_pdf/*.pdf'
             }
         }
     }
     post {
         always {
-            // stop staging
-            script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
-                } else {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
-                }
-            }
             sh '''
                 sudo chmod 777 -R ./
             '''
