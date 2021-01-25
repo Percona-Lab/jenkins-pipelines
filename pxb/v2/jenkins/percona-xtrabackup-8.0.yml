@@ -1,0 +1,54 @@
+- job:
+    name: percona-xtrabackup-8.0-multijob
+    project-type: multijob
+    parameters:
+        - string:
+            name: GIT_REPO
+            default: "https://github.com/percona/percona-xtrabackup"
+            description: URL to percona-xtrabackup repository
+        - string:
+            name: BRANCH
+            default: "8.0"
+            description: Tag/Branch for percona-xtrabackup repository
+        - string:
+            name: CMAKE_OPTS
+            default: ""
+            description: cmake options
+        - string:
+            name: MAKE_OPTS
+            default: ""
+            description: make options, like VERBOSE=1
+        - string:
+            name: BOOTSTRAP_URL
+            default: ""
+            description: ""
+        - string:
+            name: INNODB80_VERSION
+            default: "8.0.21"
+            description: Version of MySQL InnoDB80 which will be used for bootstrap.sh script
+        - string:
+            name: XTRADB80_VERSION
+            default: "8.0.20-11"
+            description: Version of Percona XtraDB80 which will be used for bootstrap.sh script
+        - string:
+            name: XBTR_ARGS
+            default: ""
+            description: "./run.sh options, for options like: -j N Run tests in N parallel processes, -T seconds, -x options Extra options to pass to xtrabackup"
+        - choice:
+            name: LABEL
+            choices:
+            - docker
+            description: Run build on specified instance type. 
+    builders:
+    - multijob:
+        name: compile-stage
+        condition: SUCCESSFUL
+        projects:
+            - name: percona-xtrabackup-8.0-compile-param
+              current-parameters: true
+    - multijob:
+        name: test-stage
+        condition: UNSTABLE
+        projects:
+            - name: percona-xtrabackup-8.0-test-param
+              current-parameters: true

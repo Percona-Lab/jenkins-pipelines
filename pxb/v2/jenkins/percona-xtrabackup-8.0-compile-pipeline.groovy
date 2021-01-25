@@ -8,7 +8,7 @@ pipeline {
             name: 'GIT_REPO',
             trim: true)
         string(
-            defaultValue: '2.4',
+            defaultValue: '8.0',
             description: 'Tag/Branch for percona-xtrabackup repository',
             name: 'BRANCH',
             trim: true)
@@ -53,13 +53,10 @@ pipeline {
                     sh 'echo Prepare: \$(date -u "+%s")'
                     echo 'Checking Percona XtraBackup branch version, JEN-913 prevent wrong version run'
                     sh '''
-                        MY_BRANCH_BASE_MAJOR=2
-                        MY_BRANCH_BASE_MINOR=4
+                        MY_BRANCH_BASE_MAJOR=8
+                        MY_BRANCH_BASE_MINOR=0
                         RAW_VERSION_LINK=$(echo ${GIT_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
-                        REPLY=$(curl -Is ${RAW_VERSION_LINK}/${BRANCH}/MYSQL_VERSION | head -n 1 | awk '{print $2}')
-                        if [[ ${REPLY} != 200 ]]; then
-                            wget ${RAW_VERSION_LINK}/${BRANCH}/XB_VERSION -O ${WORKSPACE}/XB_VERSION-${BUILD_NUMBER}
-                        fi
+                        curl ${RAW_VERSION_LINK}/${BRANCH}/XB_VERSION --output ${WORKSPACE}/XB_VERSION-${BUILD_NUMBER}
                         source ${WORKSPACE}/XB_VERSION-${BUILD_NUMBER}
                         if [[ ${XB_VERSION_MAJOR} -lt ${MY_BRANCH_BASE_MAJOR} ]] ; then
                             echo "Are you trying to build wrong branch?"
