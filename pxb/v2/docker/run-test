@@ -22,10 +22,6 @@ docker run --rm \
     set -o errexit
     set -o xtrace
 
-    if [ ! -f /usr/bin/yum ]; then
-        sudo apt-get -y install libtinfo5
-    fi
-
     export CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'
     export XBTR_ARGS='${XBTR_ARGS}'
     export XTRABACKUP_TARGET='${XTRABACKUP_TARGET}'

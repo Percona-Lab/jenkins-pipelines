@@ -7,9 +7,9 @@
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/Sudokamikaze/jenkins-pipelines
+            url: https://github.com/Percona-Lab/jenkins-pipelines
             branches:
-            - "PXB-2330-pxb80"
+            - "master"
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pxb/v2/jenkins/percona-xtrabackup-8.0-test-pipeline.groovy
