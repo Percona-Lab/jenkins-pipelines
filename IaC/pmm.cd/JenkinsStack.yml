@@ -747,6 +747,19 @@ Resources:
                   fi
               }
 
+              setup_ssh_ciphers() {
+                LIST_ALLOWED_KEX="diffie-hellman-group18-sha512,diffie-hellman-group14-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512"
+                LIST_ALLOWED_KEY="ssh-ed25519,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,ssh-rsa,ssh-dss"
+                LIST_ALLOWED_ENC="aes128-gcm@openssh.com,chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr"
+                LIST_ALLOWED_MAC="hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com"
+                
+                sed -i 's/Ciphers .*//g; s/HostKeyAlgorithms .*//g; s/KexAlgorithms .*//g; s/MACs .*//g' /etc/ssh/sshd_config
+                echo "Ciphers ${LIST_ALLOWED_ENC}" | tee -a /etc/ssh/sshd_config
+                echo "HostKeyAlgorithms ${LIST_ALLOWED_KEY}" | tee -a /etc/ssh/sshd_config
+                echo "KexAlgorithms ${LIST_ALLOWED_KEX}" | tee -a /etc/ssh/sshd_config
+                echo "MACs ${LIST_ALLOWED_MAC}" | tee -a /etc/ssh/sshd_config
+              }
+
               main() {
                   setup_aws
                   install_software
@@ -757,6 +770,7 @@ Resources:
                   setup_dhparam
                   setup_letsencrypt
                   setup_nginx_allow_list
+                  setup_ssh_ciphers
               }
 
               main
