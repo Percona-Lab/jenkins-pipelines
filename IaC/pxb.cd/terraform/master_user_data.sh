@@ -29,7 +29,7 @@ install_software() {
     yum -y update --security
     amazon-linux-extras install -y nginx1.12
     amazon-linux-extras install -y epel
-    yum -y install java-1.8.0-openjdk-1.8.0.272.b10 jenkins-2.263.2 certbot git yum-cron aws-cli xfsprogs
+    yum -y install java-1.8.0-openjdk-1.8.0.272.b10 jenkins-2.263.3 certbot git yum-cron aws-cli xfsprogs
 
     sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
     sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -188,10 +188,16 @@ setup_nginx() {
 }
 
 setup_letsencrypt() {
+    if [[ -d /mnt/ssl_backup ]]; then
+        rsync -aHSv --delete /mnt/ssl_backup/ /etc/letsencrypt/
+        certbot renew
+    else
+        certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
+    fi
     certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
     ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
     ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
-    printf '#!/bin/sh\ncertbot renew\nservice nginx restart\n' > /etc/cron.daily/certbot
+    printf '#!/bin/sh\ncertbot renew\nservice nginx restart\nrsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/\n' > /etc/cron.daily/certbot
     chmod 755 /etc/cron.daily/certbot
     service nginx stop
     sleep 2
