@@ -35,11 +35,11 @@ pipeline {
 			  echo "BRANCH_NAME=\${BRANCH_NAME}" > branch_commit_id_80.properties
 			  echo "COMMIT_ID=\${COMMIT_ID}" >> branch_commit_id_80.properties
 
-			  aws s3 cp branch_commit_id_80.properties s3://percona-jenkins-artifactory/percona-xtradb-cluster/
+			  aws s3 cp ./branch_commit_id_80.properties s3://percona-jenkins-artifactory/percona-xtradb-cluster/
                           echo "START_NEW_BUILD=NO" > startBuild
 			else
                           aws s3 cp s3://percona-jenkins-artifactory/percona-xtradb-cluster/branch_commit_id_80.properties .
-			  source branch_commit_id_80.properties
+			  source ./branch_commit_id_80.properties
 
 			  LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release-8.0\\* | tail -1)
 			  LATEST_BRANCH_NAME=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d "/" -f 3)
@@ -53,16 +53,16 @@ pipeline {
 
 			  echo "BRANCH_NAME=\${LATEST_BRANCH_NAME}" > branch_commit_id_80.properties
 			  echo "COMMIT_ID=\${LATEST_COMMIT_ID}" >> branch_commit_id_80.properties
-                          aws s3 cp branch_commit_id_80.properties s3://percona-jenkins-artifactory/percona-xtradb-cluster/
+                          aws s3 cp ./branch_commit_id_80.properties s3://percona-jenkins-artifactory/percona-xtradb-cluster/
                         fi
                     """
                 }
                 script {
-                    START_NEW_BUILD = sh(returnStdout: true, script: "source startBuild; echo \${START_NEW_BUILD}").trim()
-                    BRANCH_NAME = sh(returnStdout: true, script: "source branch_commit_id_80.properties; echo \${BRANCH_NAME}").trim()
-                    COMMIT_ID = sh(returnStdout: true, script: "source branch_commit_id_80.properties; echo \${COMMIT_ID}").trim()
-                    VERSION = sh(returnStdout: true, script: "source branch_commit_id_80.properties; echo \${BRANCH_NAME} | cut -d - -f 2 ").trim()
-                    RELEASE = sh(returnStdout: true, script: "source branch_commit_id_80.properties; echo \${BRANCH_NAME} | cut -d - -f 3 ").trim()
+                    START_NEW_BUILD = sh(returnStdout: true, script: "source ./startBuild; echo \${START_NEW_BUILD}").trim()
+                    BRANCH_NAME = sh(returnStdout: true, script: "source ./branch_commit_id_80.properties; echo \${BRANCH_NAME}").trim()
+                    COMMIT_ID = sh(returnStdout: true, script: "source ./branch_commit_id_80.properties; echo \${COMMIT_ID}").trim()
+                    VERSION = sh(returnStdout: true, script: "source ./branch_commit_id_80.properties; echo \${BRANCH_NAME} | cut -d - -f 2 ").trim()
+                    RELEASE = sh(returnStdout: true, script: "source ./branch_commit_id_80.properties; echo \${BRANCH_NAME} | cut -d - -f 3 ").trim()
                 }
 
             }
