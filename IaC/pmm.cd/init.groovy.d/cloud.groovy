@@ -17,9 +17,8 @@ logger.info("Cloud init started")
 Jenkins jenkins = Jenkins.getInstance()
 
 netMap = [:]
-# CHANGE ME 
-netMap['us-east-2b'] = 'subnet-02e8446080b5a52ef'
-netMap['us-east-2c'] = 'subnet-0eb939327a262a348'
+netMap['us-east-2b'] = 'subnet-04356480646777b55'
+netMap['us-east-2c'] = 'subnet-00b3df129e7d8c658'
 
 imageMap = [:]
 imageMap['us-east-2a.min-centos-6-x64'] = 'ami-ff48629a'
@@ -43,15 +42,13 @@ priceMap['t2.xlarge'] = '0.06'
 priceMap['t3.large']  = '0.03'
 priceMap['m4.large']  = '0.03'
 
-
 userMap = [:]
 userMap['min-centos-6-x64']  = 'centos'
 userMap['min-centos-7-x64']  = userMap['min-centos-6-x64']
 userMap['micro-amazon']      = 'ec2-user'
-userMap['micro-amazon']      = userMap['large-amazon']
+userMap['large-amazon']      = userMap['micro-amazon']
 
 initMap = [:]
-
 initMap['min-centos-6-x64'] = '''
     set -o xtrace
     RHVER="$(rpm --eval %rhel)"
@@ -113,7 +110,6 @@ initMap['micro-amazon']     = '''
 '''
 initMap['large-amazon']     = initMap['micro-amazon']
 
-
 capMap = [:]
 capMap['t2.large']   = '20'
 capMap['t2.xlarge']  = '20'
@@ -131,7 +127,6 @@ execMap['min-centos-6-x64']  = '1'
 execMap['min-centos-7-x64']  = '1'
 execMap['micro-amazon']      = '4'
 execMap['large-amazon']      = '1'
-
 
 devMap = [:]
 devMap['min-centos-6-x64']  = '/dev/sda1=:8:true:gp2,/dev/sdd=:20:true:gp2'
