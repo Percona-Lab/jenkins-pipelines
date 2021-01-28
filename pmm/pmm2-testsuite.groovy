@@ -136,7 +136,7 @@ pipeline {
                 sh '''
                     if [ ! -f ~/.nvm/nvm.sh ]; then
                         curl -o - https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash
-                    ]
+                    fi
                     . ~/.nvm/nvm.sh
                     nvm install 12.20.1
                     sudo rm -f /usr/bin/node
