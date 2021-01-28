@@ -168,7 +168,7 @@ pipeline {
         }
         stage('Start Client Instance') {
             steps {
-                runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=mo,2 --with-replica --addclient=pgsql,1 --addclient=pxc,3 --with-proxysql --pmm2 --setup-alertmanager --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP)
+                runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=pdpgsql,1 --addclient=ps,1 --addclient=md,1 --addclient=mo,2 --with-replica --addclient=pgsql,1 --addclient=pxc,3 --addclient=mo,1 --with-sharding --mongomagic --with-proxysql --pmm2 --setup-alertmanager --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP)
             }
         }
         stage('Sanity check') {
