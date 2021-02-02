@@ -30,6 +30,16 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
+void runClusterStaging(String PMM_QA_GIT_BRANCH) {
+    clusterJob = build job: 'kubernetes-cluster-staging', parameters: [
+        string(name: 'NOTIFY', value: 'false'),
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
+        string(name: 'DAYS', value: '1')
+    ]
+    env.CLUSTER_IP = clusterJob.buildVariables.IP
+    env.KUBECONFIG = clusterJob.buildVariables.KUBECONFIG
+}
+
 void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
@@ -55,8 +65,6 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         env.PMM_UI_URL = "http://${VM_IP}"
     }
 }
-
-
 
 void destroyStaging(IP) {
     build job: 'aws-staging-stop', parameters: [
@@ -167,12 +175,21 @@ pipeline {
                 sh 'git checkout ' + env.GIT_COMMIT_HASH
             }
         }
-        stage('Start PMM Server Instance') {
-            when {
-                expression { env.CLIENT_INSTANCE == "no" }
-            }
-            steps {
-                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '', CLIENT_INSTANCE, SERVER_IP)
+        stage('Setup PMM Server and Kubernetes Cluster') {
+            parallel {
+                stage('Start PMM Cluster Staging Instance') {
+                    steps {
+                        runClusterStaging('master')
+                    }
+                }
+                stage('Start PMM Server Instance') {
+                    when {
+                        expression { env.CLIENT_INSTANCE == "no" }
+                    }
+                    steps {
+                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '', CLIENT_INSTANCE, SERVER_IP)
+                    }
+                }
             }
         }
         stage('Start PMM Client Instance') {
@@ -251,7 +268,7 @@ pipeline {
                         pushd pmm-app/
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
-                        sudo docker run --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env-file env.generated.list --net=host -v \$PWD:/tests -v \$PWD/node_modules:/node_modules  codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@qan)'
+                        sudo docker run --env kubeconfig_minikube="${KUBECONFIG}" --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env-file env.generated.list --net=host -v \$PWD:/tests -v \$PWD/node_modules:/node_modules  codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@qan)'
                         popd
                     """
                 }
@@ -275,6 +292,10 @@ pipeline {
                 if(env.VM_CLIENT_NAME)
                 {
                     destroyStaging(VM_CLIENT_NAME)
+                }
+                if(env.CLUSTER_IP)
+                {
+                    destroyStaging(CLUSTER_IP)
                 }
             }
             uploadAllureArtifacts()
