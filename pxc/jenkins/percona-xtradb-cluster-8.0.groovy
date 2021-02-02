@@ -1,13 +1,13 @@
-library changelog: false, identifier: 'lib@pxc80test', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/vorsel/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir -p test
-        wget https://raw.githubusercontent.com/vorsel/percona-xtradb-cluster/${GIT_BRANCH}/build-ps/pxc_builder.sh -O pxc_builder.sh
+        wget https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/build-ps/pxc_builder.sh -O pxc_builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
@@ -33,7 +33,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'https://github.com/vorsel/percona-xtradb-cluster.git',
+            defaultValue: 'https://github.com/percona/percona-xtradb-cluster.git',
             description: 'URL for percona-xtradb-cluster repository',
             name: 'GIT_REPO')
         string(
@@ -70,7 +70,7 @@ pipeline {
     stages {
         stage('Create PXC source tarball') {
             steps {
-                slackNotify("@alex.miroshnychenko", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH}")
+                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH}")
                 cleanUpWS()
                 buildStage("centos:7", "--get_sources=1")
                 sh '''
@@ -280,11 +280,11 @@ pipeline {
     }
     post {
         success {
-            slackNotify("@alex.miroshnychenko", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH}")
+            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH}")
             deleteDir()
         }
         failure {
-            slackNotify("@alex.miroshnychenko", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH}")
+            slackNotify("#releases", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH}")
             deleteDir()
         }
         always {
