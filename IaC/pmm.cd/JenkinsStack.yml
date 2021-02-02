@@ -744,7 +744,6 @@ Resources:
               			  resolver                    8.8.8.8 ipv6=off;
               			  lua_ssl_trusted_certificate /etc/pki/tls/certs/ca-bundle.crt;
               			  lua_ssl_verify_depth        3;
-              			  include                     /mnt/$JENKINS_HOST/ssl/*-list.conf;
               			  satisfy                     any;
 
               			  location / {
@@ -779,15 +778,14 @@ Resources:
               setup_letsencrypt() {
                   install -d /usr/share/nginx/html
                   if [[ -d /mnt/ssl_backup ]]; then
-                    rm -rf /etc/letsencrypt
-                    rsync -aHSv /mnt/ssl_backup/ /etc/letsencrypt/
+                    rsync -aHSv --delete /mnt/ssl_backup/ /etc/letsencrypt/
                     certbot renew
                   else
                     certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
                   fi
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
-                  printf '#!/bin/sh\ncertbot renew\nsystemctl restart openresty\nrm -rf  /mnt/ssl_backup\nrsync -aHSv /etc/letsencrypt/ /mnt/ssl_backup/\n' > /etc/cron.daily/certbot
+                  printf '#!/bin/sh\ncertbot renew\nsystemctl restart openresty\nrsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/\n' > /etc/cron.daily/certbot
                   chmod 755 /etc/cron.daily/certbot
                   systemctl stop openresty
                   sleep 2
@@ -800,29 +798,6 @@ Resources:
                   fi
                   cp /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem /etc/nginx/ssl/dhparam.pem
                   systemctl restart openresty
-              }
-
-              setup_nginx_allow_list() {
-                  if [ ! -f /home/ec2-user/copy-nginx-allow-list.sh ]; then
-                    cat <<-EOF | tee /home/ec2-user/copy-nginx-allow-list.sh
-                      #!/bin/bash
-
-                      PATH_TO_BUILDS="/mnt/$JENKINS_HOST/jobs/manage-nginx-allow-list/builds"
-                      if [ -d "\$PATH_TO_BUILDS" ]; then
-                          lastSuccessfulBuildID=\$(grep 'lastSuccessfulBuild' \$PATH_TO_BUILDS/permalinks | awk '{print \$2}')
-
-                          PATH_TO_ALLOW_LIST="\$PATH_TO_BUILDS/\$lastSuccessfulBuildID/archive"
-                          if [ -n "\$PATH_TO_ALLOW_LIST/nginx-white-list.conf" ]; then
-                              isChanged=\$(rsync -aHv \$PATH_TO_ALLOW_LIST/nginx-white-list.conf /mnt/$JENKINS_HOST/ssl/ | grep nginx-white-list.conf)
-                              if [ -n "\$isChanged" ]; then
-                                  openresty -s reload
-                              fi
-                          fi
-                      fi
-              		EOF
-              		chmod 755 /home/ec2-user/copy-nginx-allow-list.sh
-              		echo '* * * * * root sleep 30; /home/ec2-user/copy-nginx-allow-list.sh' > /etc/cron.d/sync-nginx-allow-list
-                  fi
               }
 
               setup_ssh_ciphers() {
@@ -849,7 +824,6 @@ Resources:
                   setup_nginx
                   setup_dhparam
                   setup_letsencrypt
-                  setup_nginx_allow_list
               }
 
               main
