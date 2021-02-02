@@ -41,20 +41,13 @@ Parameters:
     ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
 
 Mappings:
-  AmazonLinux1:
-    us-east-2:
-      x64: ami-922914f7
-    us-west-1:
-      x64: ami-0bdb828fd58c52235
-    us-west-2:
-      x64: ami-01e24be29428c15b2
   AmazonLinux2:
     eu-west-1:
-      x64: ami-0fad7378adf284ce0
+      x64: ami-0fc970315c2d38f01
     eu-central-1:
-      x64: ami-0eaec5838478eb0ba
+      x64: ami-0a6dc7529cd559185
     us-west-2:
-      x64: ami-032509850cf9ee54e
+      x64: ami-0e999cbd62129e3b1
 
 Resources:
 
@@ -539,13 +532,12 @@ Resources:
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                   amazon-linux-extras install epel -y
                   yum -y update --security
-                  yum -y install java-1.8.0-openjdk-1.8.0.272.b10 jenkins-2.263.2 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install java-1.8.0-openjdk-1.8.0.272.b10 jenkins-2.263.3 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
                   echo "exclude=java*" >> /etc/yum/yum-cron.conf
-                  chkconfig yum-cron on
-                  service yum-cron start
+                  systemctl enable --now yum-cron
               }
 
               volume_state() {
@@ -607,13 +599,13 @@ Resources:
                   sed -i 's^"-Djava.awt.headless=true"^"-Djava.awt.headless=true -Xms2048m -Xmx4096m -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc-%t.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2 -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"^' /etc/sysconfig/jenkins
                   echo JENKINS_HOME=/mnt/$JENKINS_HOST \
                       | tee -a /etc/sysconfig/jenkins
-                  chkconfig jenkins on
-                  service jenkins start
+                  systemctl enable jenkins
+                  systemctl start jenkins
 
                   #echo "/usr/bin/aws s3 sync --sse-kms-key-id alias/jenkins-pmm-backup --sse aws:kms --exclude '*/caches/*' --exclude '*/config-history/nodes/*' --exclude '*/secretFiles/*' --delete /mnt/ s3://backup.cd.percona.com/" > /etc/cron.daily/jenkins-backup
                   #chmod 755 /etc/cron.daily/jenkins-backup
 
-                  printf "* * * * * root bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"service jenkins stop; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n* * * * * root sleep 30; bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"service jenkins stop; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n" > /etc/cron.d/terminate-check
+                  printf "* * * * * root bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n* * * * * root sleep 30; bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n" > /etc/cron.d/terminate-check
               }
 
               create_fake_ssl_cert() {
@@ -716,20 +708,24 @@ Resources:
                   wget -O /mnt/$JENKINS_HOST/nginx-google-oauth.lua \
                     https://raw.githubusercontent.com/cloudflare/nginx-google-oauth/master/access.lua
 
-                  chkconfig openresty on
-                  service openresty start
+                  systemctl enable --now openresty
               }
 
               setup_letsencrypt() {
                   install -d /usr/share/nginx/html
-                  certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
+                  if [[ -d /mnt/ssl_backup ]]; then
+                    rsync -aHSv --delete /mnt/ssl_backup/ /etc/letsencrypt/
+                    certbot renew
+                  else
+                    certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
+                  fi
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
-                  printf '#!/bin/sh\ncertbot renew\nservice openresty reload\n' > /etc/cron.daily/certbot
+                  printf '#!/bin/sh\ncertbot renew\nsystemctl restart openresty\nrsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/\n' > /etc/cron.daily/certbot
                   chmod 755 /etc/cron.daily/certbot
-                  service openresty stop
+                  systemctl stop openresty
                   sleep 2
-                  service openresty start
+                  systemctl start openresty
               }
 
               setup_dhparam() {
@@ -737,7 +733,7 @@ Resources:
                       openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem 4096
                   fi
                   cp /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem /etc/nginx/ssl/dhparam.pem
-                  service openresty restart
+                  systemctl restart openresty
               }
 
               setup_nginx_allow_list() {
