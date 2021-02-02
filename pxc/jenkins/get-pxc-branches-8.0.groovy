@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@pxc80test', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/vorsel/jenkins-pipelines.git'
 ]) _
 
 pipeline {
@@ -9,7 +9,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'https://github.com/percona/percona-xtradb-cluster.git',
+            defaultValue: 'https://github.com/vorsel/percona-xtradb-cluster.git',
             description: 'URL for percona-xtradb-cluster repository',
             name: 'GIT_REPO')
     }
@@ -25,21 +25,21 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AWS_STASH', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         EC=0
-                        aws s3 ls s3://percona-jenkins-artifactory/percona-xtradb-cluster/branch_commit_id_80.properties || EC=\$?
+                        aws s3 ls s3://percona-jenkins-artifactory/percona-xtradb-cluster/branch_commit_id_80_test.properties || EC=\$?
 
 			if [ \${EC} = 1 ]; then
 			  LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release-8.0\\* | tail -1)
 			  BRANCH_NAME=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d "/" -f 3)
 			  COMMIT_ID=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d " " -f 1)
 
-			  echo "BRANCH_NAME=\${BRANCH_NAME}" > branch_commit_id_80.properties
-			  echo "COMMIT_ID=\${COMMIT_ID}" >> branch_commit_id_80.properties
+			  echo "BRANCH_NAME=\${BRANCH_NAME}" > branch_commit_id_80_test.properties
+			  echo "COMMIT_ID=\${COMMIT_ID}" >> branch_commit_id_80_test.properties
 
-			  aws s3 cp ./branch_commit_id_80.properties s3://percona-jenkins-artifactory/percona-xtradb-cluster/
+			  aws s3 cp ./branch_commit_id_80_test.properties s3://percona-jenkins-artifactory/percona-xtradb-cluster/
                           echo "START_NEW_BUILD=NO" > startBuild
 			else
-                          aws s3 cp s3://percona-jenkins-artifactory/percona-xtradb-cluster/branch_commit_id_80.properties .
-			  source ./branch_commit_id_80.properties
+                          aws s3 cp s3://percona-jenkins-artifactory/percona-xtradb-cluster/branch_commit_id_80_test.properties .
+			  source ./branch_commit_id_80_test.properties
 
 			  LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release-8.0\\* | tail -1)
 			  LATEST_BRANCH_NAME=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d "/" -f 3)
@@ -51,18 +51,18 @@ pipeline {
 			    echo "START_NEW_BUILD=NO" > startBuild
 			  fi
 
-			  echo "BRANCH_NAME=\${LATEST_BRANCH_NAME}" > branch_commit_id_80.properties
-			  echo "COMMIT_ID=\${LATEST_COMMIT_ID}" >> branch_commit_id_80.properties
-                          aws s3 cp ./branch_commit_id_80.properties s3://percona-jenkins-artifactory/percona-xtradb-cluster/
+			  echo "BRANCH_NAME=\${LATEST_BRANCH_NAME}" > branch_commit_id_80_test.properties
+			  echo "COMMIT_ID=\${LATEST_COMMIT_ID}" >> branch_commit_id_80_test.properties
+                          aws s3 cp ./branch_commit_id_80_test.properties s3://percona-jenkins-artifactory/percona-xtradb-cluster/
                         fi
                     """
                 }
                 script {
                     START_NEW_BUILD = sh(returnStdout: true, script: "source ./startBuild; echo \${START_NEW_BUILD}").trim()
-                    BRANCH_NAME = sh(returnStdout: true, script: "source ./branch_commit_id_80.properties; echo \${BRANCH_NAME}").trim()
-                    COMMIT_ID = sh(returnStdout: true, script: "source ./branch_commit_id_80.properties; echo \${COMMIT_ID}").trim()
-                    VERSION = sh(returnStdout: true, script: "source ./branch_commit_id_80.properties; echo \${BRANCH_NAME} | cut -d - -f 2 ").trim()
-                    RELEASE = sh(returnStdout: true, script: "source ./branch_commit_id_80.properties; echo \${BRANCH_NAME} | cut -d - -f 3 ").trim()
+                    BRANCH_NAME = sh(returnStdout: true, script: "source ./branch_commit_id_80_test.properties; echo \${BRANCH_NAME}").trim()
+                    COMMIT_ID = sh(returnStdout: true, script: "source ./branch_commit_id_80_test.properties; echo \${COMMIT_ID}").trim()
+                    VERSION = sh(returnStdout: true, script: "source ./branch_commit_id_80_test.properties; echo \${BRANCH_NAME} | cut -d - -f 2 ").trim()
+                    RELEASE = sh(returnStdout: true, script: "source ./branch_commit_id_80_test.properties; echo \${BRANCH_NAME} | cut -d - -f 3 ").trim()
                 }
 
             }
@@ -78,8 +78,8 @@ pipeline {
                         echo ${START_NEW_BUILD}: build required
                     """
                 }
-                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
-                build job: 'pxc80-autobuild-RELEASE', parameters: [string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'COMPONENT', value: 'testing')]
+                slackNotify("@alex.miroshnychenko", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
+                build job: 'pxc80-autobuild-RELEASE-TEST', parameters: [string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'COMPONENT', value: 'laboratory')]
 
             }
         }
