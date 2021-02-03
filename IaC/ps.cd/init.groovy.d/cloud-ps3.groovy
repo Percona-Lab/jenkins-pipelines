@@ -112,8 +112,14 @@ initMap['docker'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git aws-cli docker
+    sudo yum -y install java-1.8.0-openjdk git docker
     sudo yum -y remove java-1.7.0-openjdk
+
+    cd /tmp
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip awscliv2.zip
+    sudo ./aws/install
+
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
     sudo sysctl net.ipv4.tcp_fin_timeout=15
