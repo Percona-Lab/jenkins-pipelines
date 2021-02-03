@@ -435,6 +435,7 @@ String region = 'eu-west-1'
         '240',                                   // String instanceCapStr
         [
             getTemplate('docker',           "${region}${it}"),
+            getTemplate('docker-32gb',      "${region}${it}"),
             getTemplate('micro-amazon',     "${region}${it}"),
             getTemplate('min-xenial-x64',     "${region}${it}"),
             getTemplate('min-xenial-x32',     "${region}${it}"),
