@@ -209,11 +209,14 @@ pipeline {
                             sh """
                                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                                     ${USER}@${IP}:workspace/kubernetes-cluster-staging/kubeconfig.yml \
-                                    kubeconfig.yml
+                                    kubeconfig
                             """
                         }
-                        stash includes: 'kubeconfig.yml', name: 'kubeconfig'
-                        archiveArtifacts 'kubeconfig.yml'
+                        script {
+                            env.KUBECONFIG = sh(returnStdout: true, script: "cat kubeconfig").trim()
+                        }
+                        stash includes: 'kubeconfig', name: 'kubeconfig'
+                        archiveArtifacts 'kubeconfig'
                     }
                 }
             }
