@@ -29,7 +29,7 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'docker'
+        label 'docker-32gb'
     }
     parameters {
         string(
@@ -95,7 +95,7 @@ pipeline {
             parallel {
                 stage('Build PXC generic source rpm') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -110,7 +110,7 @@ pipeline {
                 }
                 stage('Build PXC generic source deb') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -129,7 +129,7 @@ pipeline {
             parallel {
                 stage('Centos 7') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -144,7 +144,7 @@ pipeline {
                 }
                 stage('Centos 8') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -159,7 +159,7 @@ pipeline {
                 }
                 stage('Ubuntu Xenial(16.04)') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -174,7 +174,7 @@ pipeline {
                 }
                 stage('Ubuntu Bionic(18.04)') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -189,7 +189,7 @@ pipeline {
                 }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -204,7 +204,7 @@ pipeline {
                 }
                 stage('Debian Stretch(9)') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -219,7 +219,7 @@ pipeline {
                 }
                 stage('Debian Buster(10)') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -234,7 +234,7 @@ pipeline {
                 }
                 stage('Centos 7 tarball') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -249,13 +249,13 @@ pipeline {
                 }
                 stage('Centos 7 debug tarball') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         unstash 'pxc-80.properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--debug=1")
+                        buildStage("centos:7", "--build_tarball=1 --debug=1")
 
                         stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
                         pushArtifactFolder("debug/", AWS_STASH_PATH)
