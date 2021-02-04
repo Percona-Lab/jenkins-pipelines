@@ -69,8 +69,8 @@ Resources:
             - sts:GetServiceBearerToken
       Tags: 
         - Key: iit-billing-tag
-          Value: jenkins-ecr-readwriteuser
-      UserName: "ECRRWUser"
+          Value: jenkins-ps-ecr
+      UserName: "jenkins-ps-ecr-push"
 
   ECRRWUserAccessKey:
     Type: AWS::IAM::AccessKey

@@ -23,9 +23,8 @@
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'ECRRWUser', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                 sh """
                     SOURCE_IMAGE=${SOURCE_IMAGE}
-                    ECR_TEMP_PASS="\$(aws ecr-public get-login-password --region us-east-1)"
+                    aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                     sg docker -c "
-                        docker login -u AWS -p \$ECR_TEMP_PASS public.ecr.aws/e7j3v3n0
                         docker push public.ecr.aws/e7j3v3n0/pxc-build:\${SOURCE_IMAGE//[:\\/]/-}
                     "
                 """
