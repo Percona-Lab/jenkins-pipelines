@@ -23,8 +23,8 @@ netMap['us-east-2c'] = 'subnet-00b3df129e7d8c658'
 imageMap = [:]
 imageMap['us-east-2a.min-centos-6-x64'] = 'ami-ff48629a'
 imageMap['us-east-2a.min-centos-7-x64'] = 'ami-00f8e2c955f7ffa9b'
-imageMap['us-east-2a.micro-amazon']     = 'ami-0a0ad6b70e61be944'
-imageMap['us-east-2a.large-amazon']     = 'ami-0a0ad6b70e61be944'
+imageMap['us-east-2a.micro-amazon']     = 'ami-02b0c55eeae6d5096'
+imageMap['us-east-2a.large-amazon']     = 'ami-caaf84af'
 
 imageMap['us-east-2b.min-centos-6-x64'] = imageMap['us-east-2a.min-centos-6-x64']
 imageMap['us-east-2b.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
@@ -38,7 +38,7 @@ imageMap['us-east-2c.large-amazon']     = imageMap['us-east-2a.large-amazon']
 
 priceMap = [:]
 priceMap['t2.large']  = '0.04'
-priceMap['t2.xlarge'] = '0.06'
+priceMap['t3.xlarge'] = '0.06'
 priceMap['t3.large']  = '0.03'
 priceMap['m4.large']  = '0.03'
 
@@ -108,11 +108,27 @@ initMap['micro-amazon']     = '''
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['large-amazon']     = initMap['micro-amazon']
+initMap['large-amazon']     = '''
+    set -o xtrace
+
+    printf "127.0.0.1 $(hostname) $(hostname -A)
+    10.30.6.220 vbox-01.ci.percona.com
+    10.30.6.9 repo.ci.percona.com
+    "     | sudo tee -a /etc/hosts
+
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+
+    sudo yum -y install java-1.8.0-openjdk git aws-cli tar coreutils || :
+    sudo yum -y remove java-1.7.0-openjdk || :
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
 
 capMap = [:]
 capMap['t2.large']   = '20'
-capMap['t2.xlarge']  = '20'
+capMap['t3.xlarge']  = '20'
 capMap['t3.large']   = '20'
 capMap['m4.large']   = '10'
 
@@ -120,7 +136,7 @@ typeMap = [:]
 typeMap['min-centos-6-x64']  = 'm4.large'
 typeMap['min-centos-7-x64']  = 'm4.large'
 typeMap['micro-amazon']      = 't3.large'
-typeMap['large-amazon']      = 't2.xlarge'
+typeMap['large-amazon']      = 't3.xlarge'
 
 execMap = [:]
 execMap['min-centos-6-x64']  = '1'
@@ -132,7 +148,7 @@ devMap = [:]
 devMap['min-centos-6-x64']  = '/dev/sda1=:8:true:gp2,/dev/sdd=:20:true:gp2'
 devMap['min-centos-7-x64']  = devMap['min-centos-6-x64']
 devMap['micro-amazon']      = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
-devMap['large-amazon']      = devMap['micro-amazon']
+devMap['large-amazon']      = '/dev/xvda=:100:true:gp2'
 
 labelMap = [:]
 labelMap['min-centos-6-x64']  = 'min-centos-6-x64'

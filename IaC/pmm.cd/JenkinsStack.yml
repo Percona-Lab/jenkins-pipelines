@@ -4,7 +4,7 @@ AWSTemplateFormatVersion: 2010-09-09
 Parameters:
 
   JHostName:
-    Default: pmm2.cd.percona.com
+    Default: pmm.cd.percona.com
     Description: Fully Qualified Domain Name
     Type: String
     MinLength: 1
@@ -670,7 +670,7 @@ Resources:
 
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
-                  sed -i 's^"-Djava.awt.headless=true"^"-Djava.awt.headless=true -Xms2048m -Xmx4096m -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc-%t.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2 -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"^' /etc/sysconfig/jenkins
+                  sed -i 's^"-Djava.awt.headless=true"^"-Djava.awt.headless=true -Xms2048m -Xmx3500m -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc-%t.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2 -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"^' /etc/sysconfig/jenkins
                   echo JENKINS_HOME=/mnt/$JENKINS_HOST \
                       | tee -a /etc/sysconfig/jenkins
                   systemctl enable jenkins # it will redirect to chkconfig, so enable --now wont work
