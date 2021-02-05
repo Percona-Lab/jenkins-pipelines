@@ -77,6 +77,7 @@ pipeline {
                             sudo rm -rf sources
                             ./local/checkout
 
+                            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                             echo Build: \$(date -u "+%s")
                             sg docker -c "
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then

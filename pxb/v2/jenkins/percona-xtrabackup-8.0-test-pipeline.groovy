@@ -102,6 +102,7 @@ pipeline {
                             until aws s3 cp --no-progress s3://pxb-build-cache/$PATH_TO_TARBALL/$TARBALL ./sources/results/binary.tar.gz; do
                                 sleep 5
                             done
+                            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                             echo Test: \$(date -u "+%s")
                             sg docker -c "
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
