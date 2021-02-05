@@ -245,8 +245,8 @@ execMap['psmdb'] = '1'
 
 devMap = [:]
 devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
-devMap['docker2'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
-devMap['docker-32gb'] = devMap['docker']
+devMap['docker2'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
+devMap['docker-32gb'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['micro-amazon'] = devMap['docker']
 devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-bionic-x64'] = devMap['min-artful-x64']
