@@ -94,7 +94,7 @@ else
     ./bootstrap.sh --type=${XTRABACKUP_TARGET} --version=${XTRABACKUP_TARGET_VERSION}
 fi
 
-./run.sh ${XTRABACKUP_TARGET} ${XBTR_ARGS} -f | tee -a ${WORKDIR_ABS}/xbtr.output
+./run.sh ${XBTR_ARGS} -f | tee -a ${WORKDIR_ABS}/xbtr.output
 cat results/setup
 sudo cp -r ${TEST_DIR}/results/* ${WORKDIR_ABS}/
 cp test_results.subunit ${WORKDIR_ABS}
