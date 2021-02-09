@@ -271,6 +271,7 @@ pipeline {
                         runTest('service-per-pod', 'basic')
                         runTest('liveness', 'basic')
                         runTest('users', 'basic')
+                        runTest('data-sharded', 'basic')
                         ShutdownCluster('basic')
                     }
                 }

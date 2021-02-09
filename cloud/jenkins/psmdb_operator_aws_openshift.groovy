@@ -249,6 +249,7 @@ pipeline {
                 runTest('smart-update')
                 runTest('version-service')
                 runTest('rs-shard-migration')
+                runTest('data-sharded')
             }
         }
         stage('E2E Basic Tests') {
