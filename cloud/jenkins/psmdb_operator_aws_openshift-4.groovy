@@ -232,6 +232,7 @@ pipeline {
                 runTest('service-per-pod')
                 runTest('liveness')
                 runTest('users')
+                runTest('data-sharded')
            }
         }
         stage('E2E Backups') {

@@ -235,6 +235,7 @@ pipeline {
                     runTest('version-service')
                     runTest('users')
                     runTest('rs-shard-migration')
+                    runTest('data-sharded')
             }
             post {
                 always {
