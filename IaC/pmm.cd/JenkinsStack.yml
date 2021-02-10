@@ -759,7 +759,7 @@ Resources:
               			    proxy_buffering off; # Required for HTTP-based CLI to work over SSL
               			    # workaround for https://issues.jenkins-ci.org/browse/JENKINS-45651
               			    add_header 'X-SSH-Endpoint' '$JENKINS_HOST:50022' always;
-                                    rewrite ^/$ $scheme://$server_name/blue/pipelines/ last;
+              			    rewrite ^/$ $scheme://$server_name/blue/pipelines/ last;
               			  }
               			}
               		EOF
