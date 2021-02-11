@@ -198,7 +198,7 @@ pipeline {
         }
         stage('Create AWS Infrastructure') {
             steps {
-                git branch: 'master', url: 'https://github.com/Percona-Lab/k8s-lab'
+                git branch: 'main', url: 'https://github.com/Percona-Lab/k8s-lab'
                     sh """
                         # sudo is needed for better node recovery after compilation failure
                         # if building failed on compilation stage directory will have files owned by docker user

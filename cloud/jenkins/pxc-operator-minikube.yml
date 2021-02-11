@@ -26,7 +26,7 @@
         description: percona/percona-xtradb-cluster-operator repository
     - string:
         name: GIT_BRANCH
-        default: master
+        default: main
         description: Tag/Branch for percona/percona-xtradb-cluster-operator repository
     - string:
         name: IMAGE_PXC
