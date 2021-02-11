@@ -42,7 +42,7 @@ void runTest(String TEST_NAME) {
             echo "The $TEST_NAME test was started!"
 
             GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-            PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
+            PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
             FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.KUBER_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"
             testsReportMap[TEST_NAME] = 'failure'
@@ -128,7 +128,7 @@ EOF
 pipeline {
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
             name: 'GIT_BRANCH')
         string(
@@ -141,31 +141,31 @@ pipeline {
             name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
-            description: 'Operator image: perconalab/percona-xtradb-cluster-operator:master',
+            description: 'Operator image: perconalab/percona-xtradb-cluster-operator:main',
             name: 'PXC_OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc5.7',
+            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:main-pxc5.7',
             name: 'IMAGE_PXC')
         string(
             defaultValue: '',
-            description: 'PXC proxy image: perconalab/percona-xtradb-cluster-operator:master-proxysql',
+            description: 'PXC proxy image: perconalab/percona-xtradb-cluster-operator:main-proxysql',
             name: 'IMAGE_PROXY')
         string(
             defaultValue: '',
-            description: 'PXC haproxy image: perconalab/percona-xtradb-cluster-operator:master-haproxy2.1',
+            description: 'PXC haproxy image: perconalab/percona-xtradb-cluster-operator:main-haproxy',
             name: 'IMAGE_HAPROXY')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-pxc5.7-backup',
+            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:main-pxc5.7-backup',
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/percona-xtradb-cluster-operator:master-pmm',
+            description: 'PMM image: perconalab/percona-xtradb-cluster-operator:main-pmm',
             name: 'IMAGE_PMM')
         string(
             defaultValue: '',
-            description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:master-logcollector',
+            description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
             name: 'IMAGE_LOGCOLLECTOR')
         string(
             defaultValue: 'v1.14.8',
