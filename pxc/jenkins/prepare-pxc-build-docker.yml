@@ -41,7 +41,7 @@
             stages {
                 stage('Prepare') {
                     steps {
-                        git poll: true, branch: 'ENG-969', url: 'https://github.com/Sudokamikaze/jenkins-pipelines'
+                        git poll: true, branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                         sh '''
                             git reset --hard
                             git clean -xdf
