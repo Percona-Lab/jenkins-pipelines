@@ -1,0 +1,86 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: "AWS ECR for internal build images"
+Parameters: {}
+Mappings: {}
+
+Resources:
+  PSBuildRepo:
+    Type: AWS::ECR::PublicRepository
+    Properties:
+      RepositoryName: "ps-build"
+      RepositoryCatalogData:
+        UsageText: "This image used exclusively for Percona Jenkins pipelines"
+        AboutText: "This image contains all build utilities to create proper builds and execute tests"
+        OperatingSystems:
+          - "Linux"
+        Architectures:
+          - "x86"
+          - "x86-64"
+
+  PXCBuildRepo:
+    Type: AWS::ECR::PublicRepository
+    Properties:
+      RepositoryName: "pxc-build"
+      RepositoryCatalogData:
+        UsageText: "This image used exclusively for Percona Jenkins pipelines"
+        AboutText: "This image contains all build utilities to create proper builds and execute tests"
+        OperatingSystems:
+          - "Linux"
+        Architectures:
+          - "x86"
+          - "x86-64"
+
+  ECRRWUser:
+    Type: AWS::IAM::User
+    Properties: 
+      Policies: 
+      - PolicyName: PushImagesECR
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Resource:
+            - !GetAtt PSBuildRepo.Arn
+            - !GetAtt PXCBuildRepo.Arn            
+            Action:
+            - ecr-public:BatchCheckLayerAvailability
+            - ecr-public:GetRepositoryPolicy
+            - ecr-public:DescribeRepositories
+            - ecr-public:DescribeRegistries
+            - ecr-public:DescribeImages
+            - ecr-public:DescribeImageTags
+            - ecr-public:GetRepositoryCatalogData
+            - ecr-public:GetRegistryCatalogData
+            - ecr-public:BatchCheckLayerAvailability
+            - ecr-public:PutImage
+            - ecr-public:InitiateLayerUpload
+            - ecr-public:UploadLayerPart
+            - ecr-public:CompleteLayerUpload
+      - PolicyName: GetAuthToken
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Resource:
+            - '*'    
+            Action:
+            - ecr-public:GetAuthorizationToken
+            - sts:GetServiceBearerToken
+      Tags: 
+        - Key: iit-billing-tag
+          Value: jenkins-ps-ecr
+      UserName: "jenkins-ps-ecr-push"
+
+  ECRRWUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref ECRRWUser
+
+Outputs:
+  ECRRWAccessKey:
+    Description: ECR ReadWrite AccessKey
+    Value: !Ref ECRRWUserAccessKey
+  ECRRWSecretAccessKey:
+    Description: ECR ReadWrite SecretAccessKey
+    Value: !GetAtt ECRRWUserAccessKey.SecretAccessKey

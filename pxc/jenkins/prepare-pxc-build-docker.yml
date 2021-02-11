@@ -1,0 +1,67 @@
+- job:
+    name: prepare-pxc-build-docker-ecr
+    project-type: pipeline
+    description: |
+        Prepare docker images for PXC builds.
+        upload to AWS ECR: public.ecr.aws/e7j3v3n0/pxc-build
+        Do not edit this job through the web!
+    disabled: false
+    concurrent: false
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 10
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 10
+    dsl: |
+        void build(String SOURCE_IMAGE) {
+            sh """
+                sg docker -c "
+                    ./pxc/docker/prepare-docker ${SOURCE_IMAGE}
+                "
+            """
+            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'ECRRWUser', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                sh """
+                    SOURCE_IMAGE=${SOURCE_IMAGE}
+                    aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                    sg docker -c "
+                        docker push public.ecr.aws/e7j3v3n0/pxc-build:\${SOURCE_IMAGE//[:\\/]/-}
+                    "
+                """
+            }
+        }
+        pipeline {
+            agent {
+                label 'docker-32gb'
+            }
+            options {
+                skipStagesAfterUnstable()
+                buildDiscarder(logRotator(artifactNumToKeepStr: '10'))
+            }
+            stages {
+                stage('Prepare') {
+                    steps {
+                        git poll: true, branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        sh '''
+                            git reset --hard
+                            git clean -xdf
+                        '''
+                    }
+                }
+                stage('Build') {
+                    steps {
+                        parallel(
+                            "centos:6":       { build('centos:6') },
+                            "centos:7":       { build('centos:7') },
+                            "centos:8":       { build('centos:8') },
+                            "ubuntu:xenial":  { build('ubuntu:xenial') },
+                            "ubuntu:bionic":  { build('ubuntu:bionic') },
+                            "ubuntu:focal":   { build('ubuntu:focal') },
+                            "debian:jessie":  { build('debian:jessie') },
+                            "debian:stretch":  { build('debian:stretch') },
+                            "debian:buster":   { build('debian:buster') },
+                        )
+                    }
+                }
+            }
+        }
