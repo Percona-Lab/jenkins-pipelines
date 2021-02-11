@@ -125,7 +125,7 @@
             PKGLIST="bison pkg-config cmake devscripts debconf debhelper automake bison ca-certificates libcurl4-openssl-dev"
             PKGLIST="${PKGLIST} cmake debhelper libaio-dev libncurses-dev libssl-dev libtool libz-dev"
             PKGLIST="${PKGLIST} libgcrypt-dev libev-dev lsb-release python-docutils"
-            PKGLIST="${PKGLIST} build-essential rsync libdbd-mysql-perl libnuma1 socat librtmp-dev libtinfo5 qpress"
+            PKGLIST="${PKGLIST} build-essential rsync libdbd-mysql-perl libnuma1 socat librtmp-dev libtinfo5 qpress liblz4-tool liblz4-1 liblz4-dev"
             if [[ "$DIST" == 'focal' ]]; then
                 PKGLIST="${PKGLIST} python3-sphinx"
             else
