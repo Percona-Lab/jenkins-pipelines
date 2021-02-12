@@ -1,0 +1,15 @@
+- job:
+    name: proxysql-scheduler-go-pxc80-pipeline
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: true
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/kamil-holubicki/jenkins-pipelines.git
+            branches:
+            - 'proxysql-scheduler-1'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: proxysql-scheduler/jenkins/proxysql-scheduler-go-pxc80-pipeline.groovy
