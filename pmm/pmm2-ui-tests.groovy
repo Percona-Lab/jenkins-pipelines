@@ -164,6 +164,10 @@ pipeline {
                     sudo chmod +x /usr/local/bin/docker-compose
                     sudo ln -sfn /usr/local/bin/docker-compose /usr/bin/docker-compose
                     sudo docker-compose --version
+                    sudo yum install -y xdg-utils lsb libXScrnSaver
+                    wget https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
+                    sudo yum install -y ./google-chrome-stable_current_x86_64.rpm
+                    sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
                 '''
             }
         }
@@ -216,9 +220,6 @@ pipeline {
                             npm install
                             node -v
                             npm -v
-                            wget https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
-                            sudo yum install -y ./google-chrome-stable_current_x86_64.rpm
-                            sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
                             sudo yum install -y gettext
                             envsubst < env.list > env.generated.list
                             popd
