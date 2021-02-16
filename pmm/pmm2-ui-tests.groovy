@@ -216,6 +216,9 @@ pipeline {
                             npm install
                             node -v
                             npm -v
+                            wget https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
+                            sudo yum install -y ./google-chrome-stable_current_x86_64.rpm
+                            sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
                             sudo yum install -y gettext
                             envsubst < env.list > env.generated.list
                             popd
@@ -268,7 +271,9 @@ pipeline {
                         pushd pmm-app/
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
-                        sudo docker run --env kubeconfig_minikube="${KUBECONFIG}" --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env-file env.generated.list --net=host -v \$PWD:/tests -v \$PWD/node_modules:/node_modules  codeception/codeceptjs:latest codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@qan)'
+                        export CHROMIUM_PATH=/usr/bin/chromium
+                        export kubeconfig_minikube="${KUBECONFIG}"
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@qan)'
                         popd
                     """
                 }
