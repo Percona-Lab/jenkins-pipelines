@@ -3,28 +3,28 @@ pipeline_timeout = 10
 pipeline {
     parameters {
         string(
+            name: 'GIT_REPO',
             defaultValue: 'https://github.com/Tusamarco/proxysql_scheduler',
             description: 'URL to the scheduler repository',
-            name: 'GIT_REPO',
             trim: true)
         string(
+            name: 'BRANCH',
             defaultValue: 'main',
             description: 'Tag/Branch for the scheduler repository',
-            name: 'BRANCH',
             trim: true)
         string(
+            name: 'PXC_TARBALL',
             defaultValue: 'https://downloads.percona.com/downloads/TESTING/pxc-8.0.22-13.1/Percona-XtraDB-Cluster_8.0.22-13.1_Linux.x86_64.glibc2.17.tar.gz',
             description: 'PXC tarball including mtr to be used for testing',
-            name: 'PXC_TARBALL',
             trim: true)
         string(
+            name: 'MTR_ARGS',
             defaultValue: '--suite=proxysql',
-            description: 'mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report',
-            name: 'MTR_ARGS')
+            description: 'mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report')
         string(
+            name: 'MTR_REPEAT',
             defaultValue: '1',
-            description: 'Run each test N number of times, --repeat=N',
-            name: 'MTR_REPEAT')
+            description: 'Run each test N number of times, --repeat=N')
     }
     agent {
         label 'micro-amazon'
@@ -37,7 +37,7 @@ pipeline {
     }
     stages {
         stage('Build Scheduler') {
-            agent { label 'docker-32gb' }
+            agent { label 'docker' }
             steps {
                 git branch: 'proxysql-scheduler-1', url: 'https://github.com/kamil-holubicki/jenkins-pipelines'
                 echo 'Checkout proxysql_scheduler sources'
@@ -53,6 +53,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         echo 'Build proxysql_scheduler'
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                         sg docker -c "
                             if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                 docker ps -q | xargs docker stop --time 1 || :
@@ -73,7 +74,7 @@ pipeline {
             }
         }
 
-        stage('Test proxysql_scheduler') {
+        stage('Test Scheduler') {
             agent { label 'docker-32gb' }
             steps {
                 git branch: 'proxysql-scheduler-1', url: 'https://github.com/kamil-holubicki/jenkins-pipelines'
@@ -84,6 +85,7 @@ pipeline {
                             sleep 5
                         done
 
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                         sg docker -c "
                             if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                 docker ps -q | xargs docker stop --time 1 || :
