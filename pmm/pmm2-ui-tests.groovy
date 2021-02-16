@@ -165,8 +165,7 @@ pipeline {
                     sudo ln -sfn /usr/local/bin/docker-compose /usr/bin/docker-compose
                     sudo docker-compose --version
                     sudo yum install -y xdg-utils lsb libXScrnSaver
-                    wget https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
-                    sudo yum install -y ./google-chrome-stable_current_x86_64.rpm
+                    curl https://intoli.com/install-google-chrome.sh | bash
                     sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
                 '''
             }
