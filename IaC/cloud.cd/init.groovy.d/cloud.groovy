@@ -22,35 +22,20 @@ netMap['eu-west-1b'] = 'subnet-04221bb8f6d0aeeff'
 netMap['eu-west-1c'] = 'subnet-0b9a1fd4ba5296a8b'
 
 imageMap = [:]
-imageMap['eu-west-1a.docker'] = 'ami-0bfe21f21a54b82f9'
-imageMap['eu-west-1a.docker-32gb'] = 'ami-0bfe21f21a54b82f9'
-imageMap['eu-west-1a.docker2'] = 'ami-0bfe21f21a54b82f9'
-imageMap['eu-west-1a.micro-amazon'] = 'ami-0bfe21f21a54b82f9'
-imageMap['eu-west-1a.min-centos-7-x64'] = 'ami-0ff760d16d9497662'
-imageMap['eu-west-1a.fips-centos-7-x64'] = 'ami-0ff760d16d9497662'
+imageMap['eu-west-1a.docker'] = 'ami-0fc970315c2d38f01'
+imageMap['eu-west-1a.docker-32gb'] = 'ami-0fc970315c2d38f01'
+imageMap['eu-west-1a.docker2'] = 'ami-0fc970315c2d38f01'
+imageMap['eu-west-1a.micro-amazon'] = 'ami-0fc970315c2d38f01'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
 imageMap['eu-west-1b.docker2'] = imageMap['eu-west-1a.docker2']
 imageMap['eu-west-1b.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
-imageMap['eu-west-1b.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64']
-imageMap['eu-west-1b.fips-centos-7-x64'] = imageMap['eu-west-1a.fips-centos-7-x64']
 
 imageMap['eu-west-1c.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1c.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
 imageMap['eu-west-1c.docker2'] = imageMap['eu-west-1a.docker2']
 imageMap['eu-west-1c.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
-imageMap['eu-west-1c.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64']
-imageMap['eu-west-1c.fips-centos-7-x64'] = imageMap['eu-west-1a.fips-centos-7-x64']
-
-/*
-imageMap['min-artful-x64'] = 'ami-db2919be'
-imageMap['min-centos-6-x64'] = 'ami-ff48629a'
-imageMap['min-jessie-x64'] = 'ami-c5ba9fa0'
-imageMap['min-stretch-x64'] = 'ami-79c0f01c'
-imageMap['min-trusty-x64'] = 'ami-2ddeee48'
-imageMap['min-xenial-x64'] = 'ami-e82a1a8d'
-*/
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
@@ -89,19 +74,20 @@ initMap['docker'] = '''
         sudo mount -o noatime ${DEVICE} /mnt
     fi
     sudo ethtool -K eth0 sg off
+
+    if [ ! -f /usr/bin/aws ] && [ ! -f /usr/bin/local/bin ]; then
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
+            sleep 1
+            echo try again
+        done
+        unzip /tmp/awscliv2.zip -d /tmp
+        cd /tmp/aws && sudo ./install
+    fi
+
     until sudo yum makecache; do
         sleep 1
         echo try again
     done
-
-    until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
-        sleep 1
-        echo try again
-    done
-
-    unzip /tmp/awscliv2.zip -d /tmp
-    cd /tmp/aws && sudo ./install
-
     sudo yum -y install java-1.8.0-openjdk git docker
     sudo yum -y remove java-1.7.0-openjdk
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
