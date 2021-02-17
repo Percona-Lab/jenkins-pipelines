@@ -21,7 +21,7 @@ pipeline {
             description: 'Tag/Branch for grafana-dashboards repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '2.14.1',
+            defaultValue: '2.15.0',
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
     }
