@@ -22,6 +22,10 @@ pipeline {
             description: 'Tag/Branch for PXB80 repository',
             name: 'PXB80_BRANCH',
             trim: true)
+        booleanParam(
+            defaultValue: false, 
+            description: 'If checked, the PXB80_BRANCH will be ignored and latest available version will be used',
+            name: 'PXB80_LATEST') 
         string(
             defaultValue: 'https://github.com/percona/percona-xtrabackup',
             description: 'URL to PXB24 repository',
