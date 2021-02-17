@@ -40,16 +40,31 @@ function process_mtr_output {
 
 
 # Setup ProxySQL
+# Percona package
+sudo apt-get update
+sudo apt-get install -y wget gnupg2 lsb-release curl
+pushd /tmp
+    wget https://repo.percona.com/apt/percona-release_latest.generic_all.deb
+    sudo dpkg -i percona-release_latest.generic_all.deb
+popd
+sudo percona-release enable tools experimental
 sudo apt update
 
-pushd /tmp
-    sudo apt install -y lsb-release
-    sudo wget -O - 'https://repo.proxysql.com/ProxySQL/repo_pub_key' | sudo apt-key add -
-    sudo echo deb https://repo.proxysql.com/ProxySQL/proxysql-2.1.x/$(lsb_release -sc)/ ./ \ | sudo tee /etc/apt/sources.list.d/proxysql.list
-popd
-sudo apt update
-sudo apt install -y proxysql
+sudo apt install -y proxysql21
 sudo /usr/bin/proxysql
+
+
+# ProxySQL upstream package
+#
+# sudo apt update
+# sudo apt install -y lsb-release
+# pushd /tmp
+#     sudo wget -O - 'https://repo.proxysql.com/ProxySQL/repo_pub_key' | sudo apt-key add -
+#     sudo echo deb https://repo.proxysql.com/ProxySQL/proxysql-2.1.x/$(lsb_release -sc)/ ./ \ | sudo tee /etc/apt/sources.list.d/proxysql.list
+# popd
+# sudo apt update
+# sudo apt install -y proxysql
+# sudo /usr/bin/proxysql
 
 
 # setup PXC
