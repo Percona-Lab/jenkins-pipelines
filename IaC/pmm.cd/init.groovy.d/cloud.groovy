@@ -197,7 +197,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         false,                                      // boolean monitoring
         false,                                      // boolean t2Unlimited
         ConnectionStrategy.PUBLIC_DNS,              // connectionStrategy
-        -1,                                         // int maxTotalUses
+        1,                                          // int maxTotalUses
         null,
         HostKeyVerificationStrategyEnum.OFF,
     )
