@@ -98,5 +98,5 @@ fi
 cat results/setup
 sudo cp -r ${TEST_DIR}/results/* ${WORKDIR_ABS}/
 cp test_results.subunit ${WORKDIR_ABS}
-cat test_results.subunit | PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml > ${WORKDIR_ABS}/junit.xml || true
+iconv -t UTF-8 test_results.subunit | PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml > ${WORKDIR_ABS}/junit.xml || true
 exit $status
