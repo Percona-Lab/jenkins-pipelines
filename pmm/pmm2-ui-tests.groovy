@@ -139,6 +139,10 @@ pipeline {
             defaultValue: '',
             description: 'Value for Server Public IP, to use this instance just as client',
             name: 'SERVER_IP')
+        string(
+            defaultValue: 'master',
+            description: 'Tag/Branch for pmm-qa repository',
+            name: 'PMM_QA_GIT_BRANCH')
     }
     options {
         skipDefaultCheckout()
@@ -164,8 +168,13 @@ pipeline {
                     sudo chmod +x /usr/local/bin/docker-compose
                     sudo ln -sfn /usr/local/bin/docker-compose /usr/bin/docker-compose
                     sudo docker-compose --version
-                    sudo yum install -y xdg-utils lsb libXScrnSaver
-                    curl https://intoli.com/install-google-chrome.sh | bash
+                    sudo mkdir -p /srv/pmm-qa || :
+                    pushd /srv/pmm-qa
+                        sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                        sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
+                        sudo chmod 755 pmm-tests/install-google-chrome.sh
+                        bash ./pmm-tests/install-google-chrome.sh
+                    popd
                     sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
                 '''
             }
