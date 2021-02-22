@@ -248,25 +248,6 @@ pipeline {
                 }
             }
         }
-        stage('Run AMI Setup & UI Tests') {
-            when {
-                expression { env.AMI_TEST == "yes" }
-            }
-            steps {
-                sauce('SauceLabsKey') {
-                    sauceconnect(options: '', sauceConnectPath: '') {
-                        sh """
-                            pushd pmm-app/
-                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                            export PWD=\$(pwd);
-                            sudo docker run --env --net=host -v \$PWD:/tests codeception/codeceptjs:latest codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep @pmm-ami
-                            sudo docker run --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env-file env.generated.list --net=host -v \$PWD:/tests codeception/codeceptjs:latest codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@visual-test)'
-                            popd
-                        """
-                    }
-                }
-            }
-        }
         stage('Run UI Tests') {
             options {
                 timeout(time: 25, unit: "MINUTES")
