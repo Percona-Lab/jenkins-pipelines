@@ -1,0 +1,65 @@
+- job:
+    name: percona-xtrabackup-2.4-trunk
+    project-type: freestyle
+    defaults: global
+    description: |
+        Do not edit this job through the web!
+    disabled: false
+    concurrent: false
+    auth-token: xbparam24
+    node: micro-amazon
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 50
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 50
+    builders:
+    - trigger-builds:
+      - project: percona-xtrabackup-2.4-compile-param
+        current-parameters: false
+        predefined-parameters: |
+          GIT_REPO=https://github.com/percona/percona-xtrabackup
+          BRANCH=2.4
+        block: true
+        block-thresholds:
+          build-step-failure-threshold: FAILURE
+          unstable-threshold: never
+          failure-threshold: FAILURE
+      - project: percona-xtrabackup-2.4-test-param
+        current-parameters: false
+        block: true
+        block-thresholds:
+          build-step-failure-threshold: FAILURE
+          unstable-threshold: never
+          failure-threshold: FAILURE
+    - shell: |
+        sudo find . -name "*.xml" -o -name "*.log" -delete
+    - copyartifact:
+        project: percona-xtrabackup-2.4-compile-param
+        which-build: specific-build
+        build-number: "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_2_4_compile_param}"
+        do-not-fingerprint: true
+    - shell: |
+        echo "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_2_4_compile_param}" > COMPILE_PIPELINE_BUILD_NUMBER
+    - copyartifact:
+        project: percona-xtrabackup-2.4-test-param
+        which-build: specific-build
+        build-number: "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_2_4_test_param}"
+        do-not-fingerprint: true
+    - shell: |
+        echo "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_2_4_test_param}" > TEST_PIPELINE_BUILD_NUMBER
+    publishers:
+    - warnings:
+        workspace-file-scanners:
+        - file-pattern: "**/build.log"
+          scanner: 'GNU C Compiler 4 (gcc)'
+        run-always: true
+        shouldDetectModules: false
+    - junit:
+        results: "**/junit.xml"
+        keep-long-stdio: true
+    - archive:
+        artifacts: 'COMPILE_PIPELINE_BUILD_NUMBER'
+    - archive:
+        artifacts: 'TEST_PIPELINE_BUILD_NUMBER'

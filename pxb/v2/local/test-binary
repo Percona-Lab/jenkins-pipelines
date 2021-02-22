@@ -21,7 +21,7 @@ test: Compilation & Test run for this flavour(${XTRABACKUP_TARGET}) is masked as
 time: $(date +%Y-%m-%d) $(date +%H:%M:%S)
 success: Compilation & Test run for this flavour(${XTRABACKUP_TARGET}) is masked as its not supported on selected platform
 EOF
-  cat ${WORKDIR_ABS}/test_results.subunit | ./subunit2junitxml > ${WORKDIR_ABS}/junit.xml || true
+  iconv -t UTF-8 ${WORKDIR_ABS}/test_results.subunit | PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml > ${WORKDIR_ABS}/junit.xml || true
   echo "${SSL_VER} is not supported for ${XTRABACKUP_TARGET} target, this is a stub we decided to implement in PXB-2368"
   exit 0
 }
