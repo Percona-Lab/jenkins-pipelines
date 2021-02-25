@@ -248,7 +248,7 @@ pipeline {
                 }
             }
         }
-        stage('Run UI Tests') {
+        stage('Run UI Tests Group1') {
             options {
                 timeout(time: 25, unit: "MINUTES")
             }
@@ -263,7 +263,28 @@ pipeline {
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
                         export kubeconfig_minikube="${KUBECONFIG}"
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@qan)'
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@group1'
+                        popd
+                    """
+                }
+            }
+        }
+        stage('Run UI Tests Group2') {
+            options {
+                timeout(time: 25, unit: "MINUTES")
+            }
+            when {
+                expression { env.AMI_TEST == "no" }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        pushd pmm-app/
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        export PWD=\$(pwd);
+                        export CHROMIUM_PATH=/usr/bin/chromium
+                        export kubeconfig_minikube="${KUBECONFIG}"
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@group2'
                         popd
                     """
                 }
