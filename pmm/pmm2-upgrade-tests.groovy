@@ -73,7 +73,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM-2.0',
+            defaultValue: 'PMM-T424',
             description: 'Tag/Branch for grafana-dashboards repository',
             name: 'GIT_BRANCH')
         choice(
