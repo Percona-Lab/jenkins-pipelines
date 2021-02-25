@@ -67,5 +67,5 @@ fi
 ./run.sh ${XBTR_ARGS} -f | tee ${WORKSPACE}/xbtr.output
 sudo cp -r ${TEST_DIR}/results ${WORKSPACE}
 cp test_results.subunit ${WORKSPACE}
-cat test_results.subunit | PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml > ${WORKSPACE}/junit.xml || true
+cat test_results.subunit | PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH python2 subunit2junitxml > ${WORKSPACE}/junit.xml || true
 exit $status
