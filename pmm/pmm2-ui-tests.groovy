@@ -108,7 +108,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM-2.0',
+            defaultValue: 'PMM-7848',
             description: 'Tag/Branch for grafana-dashboard repository',
             name: 'GIT_BRANCH')
         string(
@@ -296,9 +296,9 @@ pipeline {
                         popd
                     """
                 }
-            }
-            script{
-                junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
+                script{
+                    junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
+                }
             }
         }
     }
