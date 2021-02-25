@@ -14,7 +14,7 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
     env.PMM_URL = "http://admin:admin@${VM_IP}"
-    env.PMM_UI_URL = "http://${VM_IP}"
+    env.PMM_UI_URL = "http://${VM_IP}/"
 }
 
 void destroyStaging(IP) {
@@ -88,6 +88,10 @@ pipeline {
             defaultValue: '2.15.0',
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
+        string(
+            defaultValue: 'master',
+            description: 'Tag/Branch for pmm-qa repository',
+            name: 'PMM_QA_GIT_BRANCH')
     }
     options {
         skipDefaultCheckout()
@@ -110,6 +114,14 @@ pipeline {
                     sudo chmod +x /usr/local/bin/docker-compose
                     sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
                     sudo docker-compose --version
+                    sudo mkdir -p /srv/pmm-qa || :
+                    pushd /srv/pmm-qa
+                    sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                    sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
+                    sudo chmod 755 pmm-tests/install-google-chrome.sh
+                    bash ./pmm-tests/install-google-chrome.sh
+                    popd
+                    sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
                 '''
             }
         }
@@ -152,7 +164,8 @@ pipeline {
                         pushd pmm-app/
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
-                        sudo docker run -e PMM_SERVER_LATEST=${PMM_SERVER_LATEST} -e DOCKER_VERSION=${DOCKER_VERSION}  --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env-file env.generated.list --net=host -v \$PWD:/tests -v \$PWD/node_modules:/node_modules codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
+                        export CHROMIUM_PATH=/usr/bin/chromium
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
                         popd
                     """
                     }
