@@ -264,9 +264,15 @@ pipeline {
                         export CHROMIUM_PATH=/usr/bin/chromium
                         export kubeconfig_minikube="${KUBECONFIG}"
                         ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@group1'
+                        sudo chmod 777 -R pmm-app/tests/output
+                        ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/parallel_chunk*/*.json > pmm-app/tests/output/combine_results_stage1.json
                         popd
                     """
                 }
+                script {
+                    junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
+                }
+
             }
         }
         stage('Run UI Tests Group2') {
@@ -285,9 +291,14 @@ pipeline {
                         export CHROMIUM_PATH=/usr/bin/chromium
                         export kubeconfig_minikube="${KUBECONFIG}"
                         ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@group2'
+                        sudo chmod 777 -R pmm-app/tests/output
+                        ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/parallel_chunk*/*.json > pmm-app/tests/output/combine_results_stage2.json
                         popd
                     """
                 }
+            }
+            script{
+                junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
             }
         }
     }
@@ -297,7 +308,8 @@ pipeline {
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip
                 sudo chmod 777 -R pmm-app/tests/output
-                ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/parallel_chunk*/*.json > pmm-app/tests/output/combine_results.json
+                ls -la pmm-app/tests/output/
+                ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/combine_results*.json > pmm-app/tests/output/combine_results.json
                 ./pmm-app/node_modules/.bin/marge pmm-app/tests/output/combine_results.json --reportDir pmm-app/tests/output/ --inline --cdn --charts
             '''
             script {
@@ -317,13 +329,11 @@ pipeline {
             uploadAllureArtifacts()
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}  & View Tests Run Report - http://${MONITORING_HOST}:9093/latest-report/"
                     archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
-                    junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL} & View Tests Run Report - http://${MONITORING_HOST}:9093/latest-report/"
                     archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
