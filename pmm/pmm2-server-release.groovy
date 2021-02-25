@@ -171,38 +171,45 @@ pipeline {
                     DOCKER_MID="\$TOP_VER.\$MID_VER"
                     sg docker -c "
                         set -ex
+                        # push pmm-server
                         docker pull \${DOCKER_VERSION}
-                        docker tag \${DOCKER_VERSION} percona/pmm-server:\${VERSION}
-                        docker tag \${DOCKER_VERSION} percona/pmm-server:\${DOCKER_MID}
+                        docker tag \${DOCKER_VERSION} percona/pmm-server:latest
+                        docker push percona/pmm-server:latest
+
                         docker tag \${DOCKER_VERSION} percona/pmm-server:\${TOP_VER}
-                        docker push percona/pmm-server:\${VERSION}
-                        docker push percona/pmm-server:\${DOCKER_MID}
+                        docker tag \${DOCKER_VERSION} percona/pmm-server:\${DOCKER_MID}
+                        docker tag \${DOCKER_VERSION} percona/pmm-server:\${VERSION}
                         docker push percona/pmm-server:\${TOP_VER}
-                        if [ \${TOP_VER} = 1 ]; then
-                            docker push percona/pmm-server:latest
-                        fi
+                        docker push percona/pmm-server:\${DOCKER_MID}
+                        docker push percona/pmm-server:\${VERSION}
+
+                        docker tag \${DOCKER_VERSION} perconalab/pmm-server:\${TOP_VER}
+                        docker tag \${DOCKER_VERSION} perconalab/pmm-server:\${DOCKER_MID}
+                        docker tag \${DOCKER_VERSION} perconalab/pmm-server:\${VERSION}
+                        docker push perconalab/pmm-server:\${TOP_VER}
+                        docker push perconalab/pmm-server:\${DOCKER_MID}
+                        docker push perconalab/pmm-server:\${VERSION}
+
                         docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
 
+                        # push pmm-client
                         docker pull \${DOCKER_CLIENT_VERSION}
+                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:latest
+                        docker push percona/pmm-client:latest
 
-                        if [ \${TOP_VER} = 1 ]; then
-                            docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:latest
-                            docker push perconalab/pmm-client:latest
-                        fi
-
-                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${VERSION}
-                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${DOCKER_MID}
                         docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${TOP_VER}
-                        docker push percona/pmm-client:\${VERSION}
-                        docker push percona/pmm-client:\${DOCKER_MID}
+                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${DOCKER_MID}
+                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${VERSION}
                         docker push percona/pmm-client:\${TOP_VER}
+                        docker push percona/pmm-client:\${DOCKER_MID}
+                        docker push percona/pmm-client:\${VERSION}
 
-                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${VERSION}
-                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${DOCKER_MID}
                         docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${TOP_VER}
-                        docker push perconalab/pmm-client:\${VERSION}
-                        docker push perconalab/pmm-client:\${DOCKER_MID}
+                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${DOCKER_MID}
+                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${VERSION}
                         docker push perconalab/pmm-client:\${TOP_VER}
+                        docker push perconalab/pmm-client:\${DOCKER_MID}
+                        docker push perconalab/pmm-client:\${VERSION}
 
                         docker save percona/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}.docker
                     "

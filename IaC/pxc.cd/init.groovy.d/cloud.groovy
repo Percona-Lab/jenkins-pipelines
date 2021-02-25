@@ -108,16 +108,20 @@ initMap['docker'] = '''
         echo try again
     done
 
-    until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
-        sleep 1
-        echo try again
-    done
-
-    unzip /tmp/awscliv2.zip -d /tmp
-    cd /tmp/aws && sudo ./install
-
-    sudo yum -y install java-1.8.0-openjdk git docker
+    sudo amazon-linux-extras install epel -y
+    sudo yum -y install java-1.8.0-openjdk git docker p7zip
     sudo yum -y remove java-1.7.0-openjdk
+
+    if ! $(aws --version | grep -q 'aws-cli/2'); then
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
+            sleep 1
+            echo try again
+        done
+
+        7za -o/tmp x /tmp/awscliv2.zip 
+        cd /tmp/aws && sudo ./install
+    fi
+
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
     sudo sysctl net.ipv4.tcp_fin_timeout=15
