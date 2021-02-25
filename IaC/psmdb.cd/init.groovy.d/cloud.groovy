@@ -22,20 +22,16 @@ netMap['us-west-2b'] = 'subnet-03136d8c244f56036'
 netMap['us-west-2c'] = 'subnet-09103aa8678a054f7'
 
 imageMap = [:]
-imageMap['micro-amazon'] = 'ami-020f88cb17f8dbdea'
-imageMap['min-artful-x64'] = 'ami-96dd93ee'
+imageMap['micro-amazon'] = 'ami-09c5e030f74651050'
 imageMap['min-centos-6-x64'] = 'ami-0362922178e02e9f3'
-imageMap['min-centos-7-x64'] = 'ami-01ed306a12b7d1c96'
-imageMap['min-jessie-x64'] = 'ami-fde96b9d'
-imageMap['min-stretch-x64'] = 'ami-0b9cb6198bfca486d'
-imageMap['min-trusty-x64'] = 'ami-08fbb070'
-imageMap['min-xenial-x64'] = 'ami-ba602bc2'
-imageMap['min-cosmic-x64'] = 'ami-080cf36c2a905f2b8'
-imageMap['min-bionic-x64'] = 'ami-0013ea6a76d3b8874'
+imageMap['min-centos-7-x64'] = 'ami-0686851c4e7b1a8e1'
+imageMap['min-stretch-x64'] = 'ami-02230925ee31677e3'
+imageMap['min-xenial-x64'] = 'ami-076cbb27c223df09a'
+imageMap['min-bionic-x64'] = 'ami-025102f49d03bec05'
 imageMap['psmdb'] = imageMap['min-xenial-x64']
-imageMap['psmdb-bionic'] = 'ami-0013ea6a76d3b8874'
+imageMap['psmdb-bionic'] = 'ami-025102f49d03bec05'
 imageMap['docker'] = imageMap['micro-amazon']
-imageMap['docker-32gb'] = 'ami-020f88cb17f8dbdea'
+imageMap['docker-32gb'] = imageMap['micro-amazon']
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
@@ -48,16 +44,11 @@ userMap = [:]
 userMap['docker'] = 'ec2-user'
 userMap['docker-32gb'] = userMap['docker']
 userMap['micro-amazon'] = userMap['docker']
-userMap['min-artful-x64'] = 'ubuntu'
 userMap['min-centos-6-x64'] = 'centos'
 userMap['min-centos-7-x64'] = 'centos'
-userMap['fips-centos-7-x64'] = 'centos'
-userMap['min-jessie-x64'] = 'admin'
 userMap['min-stretch-x64'] = 'admin'
-userMap['min-trusty-x64'] = 'ubuntu'
 userMap['min-xenial-x64'] = 'ubuntu'
 userMap['min-bionic-x64'] = 'ubuntu'
-userMap['min-cosmic-x64'] = 'ubuntu'
 userMap['psmdb'] = userMap['min-xenial-x64']
 userMap['psmdb-bionic'] = userMap['min-xenial-x64']
 
@@ -171,7 +162,7 @@ initMap['micro-amazon'] = '''
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-artful-x64'] = '''
+initMap['min-stretch-x64'] = '''
     set -o xtrace
     until sudo apt-get update; do
         sleep 1
@@ -250,7 +241,6 @@ initMap['min-centos-7-x64']  = '''
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['fips-centos-7-x64'] = initMap['min-centos-7-x64']
 initMap['min-jessie-x64'] = '''
     set -o xtrace
     until sudo apt-get update; do
@@ -294,10 +284,7 @@ initMap['min-bionic-x64'] = '''
     sudo apt-get -y install openjdk-8-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-stretch-x64'] = initMap['min-artful-x64']
-initMap['min-trusty-x64']  = initMap['min-jessie-x64']
-initMap['min-xenial-x64']  = initMap['min-artful-x64']
-initMap['min-cosmic-x64']  = initMap['min-artful-x64']
+initMap['min-xenial-x64']  = initMap['min-stretch-x64']
 initMap['psmdb']           = initMap['min-xenial-x64']
 initMap['psmdb-bionic']    = initMap['min-bionic-x64']
 
@@ -312,14 +299,9 @@ typeMap['micro-amazon']      = 't2.small'
 typeMap['docker']            = 'c5.xlarge'
 typeMap['docker-32gb']       = 'm4.2xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
-typeMap['fips-centos-7-x64'] = typeMap['docker-32gb']
-typeMap['min-artful-x64']    = typeMap['docker-32gb']
 typeMap['min-centos-6-x64']  = 'm4.2xlarge'
-typeMap['min-jessie-x64']    = typeMap['docker-32gb']
 typeMap['min-stretch-x64']   = typeMap['docker-32gb']
-typeMap['min-trusty-x64']    = typeMap['docker-32gb']
 typeMap['min-xenial-x64']    = typeMap['docker-32gb']
-typeMap['min-cosmic-x64']    = typeMap['docker-32gb']
 typeMap['min-bionic-x64']    = typeMap['docker-32gb']
 typeMap['psmdb']             = typeMap['docker-32gb']
 typeMap['psmdb-bionic']      = typeMap['docker-32gb']
@@ -328,16 +310,11 @@ execMap = [:]
 execMap['docker'] = '1'
 execMap['docker-32gb'] = execMap['docker']
 execMap['micro-amazon'] = '30'
-execMap['min-artful-x64'] = '1'
 execMap['min-centos-6-x64'] = '1'
 execMap['min-centos-7-x64'] = '1'
-execMap['fips-centos-7-x64'] = '1'
-execMap['min-jessie-x64'] = '1'
 execMap['min-stretch-x64'] = '1'
-execMap['min-trusty-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
 execMap['min-bionic-x64'] = '1'
-execMap['min-cosmic-x64'] = '1'
 execMap['psmdb'] = '1'
 execMap['psmdb-bionic'] = '1'
 
@@ -347,31 +324,21 @@ devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 devMap['psmdb-bionic'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:300:true:gp2'
 devMap['docker-32gb'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
-devMap['min-artful-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-centos-6-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:300:true:gp2'
 devMap['min-centos-7-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:300:true:gp2'
-devMap['fips-centos-7-x64'] = devMap['min-artful-x64']
-devMap['min-jessie-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:300:true:gp2'
 devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:300:true:gp2'
-devMap['min-trusty-x64'] = devMap['min-artful-x64']
 devMap['min-xenial-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:300:true:gp2'
 devMap['min-bionic-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:300:true:gp2'
-devMap['min-cosmic-x64'] = devMap['psmdb']
 
 labelMap = [:]
 labelMap['docker'] = ''
 labelMap['docker-32gb'] = ''
 labelMap['micro-amazon'] = 'master'
-labelMap['min-artful-x64'] = ''
 labelMap['min-centos-6-x64'] = ''
 labelMap['min-centos-7-x64'] = ''
-labelMap['fips-centos-7-x64'] = ''
-labelMap['min-jessie-x64'] = ''
 labelMap['min-stretch-x64'] = ''
-labelMap['min-trusty-x64'] = ''
 labelMap['min-xenial-x64'] = ''
 labelMap['min-bionic-x64'] = ''
-labelMap['min-cosmic-x64'] = ''
 labelMap['psmdb'] = ''
 labelMap['psmdb-bionic'] = ''
 
