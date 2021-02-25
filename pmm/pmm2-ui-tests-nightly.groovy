@@ -19,12 +19,12 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
         env.PMM_URL = "http://admin:admin@${SERVER_IP}"
-        env.PMM_UI_URL = "http://${SERVER_IP}"
+        env.PMM_UI_URL = "http://${SERVER_IP}/"
     }
     else
     {
         env.PMM_URL = "http://admin:admin@${VM_IP}"
-        env.PMM_UI_URL = "http://${VM_IP}"
+        env.PMM_UI_URL = "http://${VM_IP}/"
     }
 }
 
@@ -44,12 +44,12 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
         env.PMM_URL = "http://admin:admin@${SERVER_IP}"
-        env.PMM_UI_URL = "http://${SERVER_IP}"
+        env.PMM_UI_URL = "http://${SERVER_IP}/"
     }
     else
     {
         env.PMM_URL = "http://admin:admin@${VM_IP}"
-        env.PMM_UI_URL = "http://${VM_IP}"
+        env.PMM_UI_URL = "http://${VM_IP}/"
     }
 }
 
