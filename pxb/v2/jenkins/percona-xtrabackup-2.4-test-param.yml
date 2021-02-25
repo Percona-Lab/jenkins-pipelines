@@ -101,3 +101,5 @@
         keep-long-stdio: true
     - archive:
         artifacts: 'PIPELINE_BUILD_NUMBER'
+    - archive:
+        artifacts: 'junit.xml'
