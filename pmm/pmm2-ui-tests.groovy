@@ -204,6 +204,11 @@ pipeline {
                 }
             }
         }
+        stage('Start PMM Client Instance') {
+            steps {
+                runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=mo,2 --with-replica --addclient=pgsql,1 --addclient=pxc,3 --with-proxysql --pmm2 --setup-alertmanager --add-annotation --setup-replication-ps-pmm2', 'yes', env.SERVER_IP)
+            }
+        }
         stage('Setup') {
             parallel {
                 stage('Sanity check') {
@@ -258,14 +263,21 @@ pipeline {
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
                         export kubeconfig_minikube="${KUBECONFIG}"
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@group1'
-                        ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/parallel_chunk*/*.json > pmm-app/tests/output/combine_results_stage1.json
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@group1' || true
+                        ./node_modules/.bin/mochawesome-merge ./tests/output/parallel_chunk*/*.json > ./tests/output/combine_results_stage1.json
                         popd
                     """
                 }
                 script {
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
                 }
+                sh """
+                    export stage_tests_results=\$(cat pmm-app/tests/output/combine_results_stage1.json | jq .stats.failures)
+                    if [[ \$stage_tests_results -gt "0" ]]; then
+                       echo "UI tests have failed";
+                       exit 1;
+                    fi
+                """
 
             }
         }
@@ -284,14 +296,21 @@ pipeline {
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
                         export kubeconfig_minikube="${KUBECONFIG}"
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@group2'
-                        ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/parallel_chunk*/*.json > pmm-app/tests/output/combine_results_stage2.json
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@group2' || true
+                        ./node_modules/.bin/mochawesome-merge ./tests/output/parallel_chunk*/*.json > ./tests/output/combine_results_stage2.json
                         popd
                     """
                 }
                 script{
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
                 }
+                sh """
+                    export stage_tests_results=\$(cat pmm-app/tests/output/combine_results_stage2.json | jq .stats.failures)
+                    if [[ \$stage_tests_results -gt "0" ]]; then
+                       echo "UI tests have failed";
+                       exit 1;
+                    fi
+                """
             }
         }
     }
@@ -332,7 +351,6 @@ pipeline {
                     archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-app/tests/output/parallel_chunk*/*.png'
-                    archiveArtifacts artifacts: 'pmm-app/tests/output/video/*.mp4'
                 }
             }
             sh '''
