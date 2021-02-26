@@ -271,13 +271,6 @@ pipeline {
                 script {
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
                 }
-                sh """
-                    export stage_tests_results=\$(cat pmm-app/tests/output/combine_results_stage1.json | jq .stats.failures)
-                    if [[ \$stage_tests_results -gt "0" ]]; then
-                       echo "UI tests have failed";
-                       exit 1;
-                    fi
-                """
 
             }
         }
@@ -306,6 +299,13 @@ pipeline {
                 }
                 sh """
                     export stage_tests_results=\$(cat pmm-app/tests/output/combine_results_stage2.json | jq .stats.failures)
+                    if [[ \$stage_tests_results -gt "0" ]]; then
+                       echo "UI tests have failed";
+                       exit 1;
+                    fi
+                """
+                sh """
+                    export stage_tests_results=\$(cat pmm-app/tests/output/combine_results_stage1.json | jq .stats.failures)
                     if [[ \$stage_tests_results -gt "0" ]]; then
                        echo "UI tests have failed";
                        exit 1;
