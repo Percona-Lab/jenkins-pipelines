@@ -23,18 +23,18 @@ netMap['eu-west-1b'] = 'subnet-06b7b6c7fd86a48e8'
 netMap['eu-west-1c'] = 'subnet-0de17643aea1f04a4'
 
 imageMap = [:]
-imageMap['eu-west-1a.docker'] = 'ami-0bfe21f21a54b82f9'
-imageMap['eu-west-1a.docker-32gb'] = 'ami-0bfe21f21a54b82f9'
-imageMap['eu-west-1a.docker2'] = 'ami-0bfe21f21a54b82f9'
-imageMap['eu-west-1a.micro-amazon'] = 'ami-0bfe21f21a54b82f9'
+imageMap['eu-west-1a.docker'] = 'ami-096f43ef67d75e998'
+imageMap['eu-west-1a.docker-32gb'] = 'ami-096f43ef67d75e998'
+imageMap['eu-west-1a.docker2'] = 'ami-096f43ef67d75e998'
+imageMap['eu-west-1a.micro-amazon'] = 'ami-096f43ef67d75e998'
 imageMap['eu-west-1a.fips-centos-7-x64'] = 'ami-0ff760d16d9497662'
 
 imageMap['eu-west-1a.min-centos-6-x64'] = 'ami-0451e9d3427711cb1'
-imageMap['eu-west-1a.min-centos-7-x64'] = 'ami-09b9d14dc2de358a5'
-imageMap['eu-west-1a.min-buster-x64']   = 'ami-0a06bdac16827ac46'
-imageMap['eu-west-1a.min-bionic-x64']   = 'ami-021225f6fa049d781'
-imageMap['eu-west-1a.min-stretch-x64']  = 'ami-00a845a11b3d1f308'
-imageMap['eu-west-1a.min-xenial-x64']   = 'ami-03ef731cc103c9f09'
+imageMap['eu-west-1a.min-centos-7-x64'] = 'ami-04f5641b0d178a27a'
+imageMap['eu-west-1a.min-buster-x64']   = 'ami-09ea48ee08b5fd32c'
+imageMap['eu-west-1a.min-bionic-x64']   = 'ami-0e5657f6d3c3ea350'
+imageMap['eu-west-1a.min-stretch-x64']  = 'ami-04bbe8f60fcf37045'
+imageMap['eu-west-1a.min-xenial-x64']   = 'ami-0d94cb8577ea0e2fd'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
@@ -61,15 +61,6 @@ imageMap['eu-west-1c.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
 imageMap['eu-west-1c.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
 imageMap['eu-west-1c.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
 imageMap['eu-west-1c.min-xenial-x64']   = imageMap['eu-west-1a.min-xenial-x64']
-
-/*
-imageMap['min-artful-x64'] = 'ami-db2919be'
-imageMap['min-centos-6-x64'] = 'ami-ff48629a'
-imageMap['min-jessie-x64'] = 'ami-c5ba9fa0'
-imageMap['min-stretch-x64'] = 'ami-79c0f01c'
-imageMap['min-trusty-x64'] = 'ami-2ddeee48'
-imageMap['min-xenial-x64'] = 'ami-e82a1a8d'
-*/
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
