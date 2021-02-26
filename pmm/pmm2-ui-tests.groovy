@@ -263,7 +263,7 @@ pipeline {
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
                         export kubeconfig_minikube="${KUBECONFIG}"
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@group1' || true
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@dbaas' || true
                         ./node_modules/.bin/mochawesome-merge ./tests/output/parallel_chunk*/*.json > ./tests/output/combine_results_stage1.json
                         popd
                     """
@@ -296,7 +296,7 @@ pipeline {
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
                         export kubeconfig_minikube="${KUBECONFIG}"
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@group2' || true
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@ia' || true
                         ./node_modules/.bin/mochawesome-merge ./tests/output/parallel_chunk*/*.json > ./tests/output/combine_results_stage2.json
                         popd
                     """
