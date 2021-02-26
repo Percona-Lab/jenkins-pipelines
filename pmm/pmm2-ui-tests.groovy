@@ -131,6 +131,10 @@ pipeline {
             choices: ['no', 'yes'],
             description: "Run AMI Setup Wizard for AMI UI tests",
             name: 'AMI_TEST')
+        choice(
+            choices: ['no', 'yes'],
+            description: "Run Tests for OVF supported Features",
+            name: 'OVF_TEST')
         string(
             defaultValue: '',
             description: 'AMI Instance ID',
@@ -255,12 +259,12 @@ pipeline {
                 }
             }
         }
-        stage('Run UI Tests') {
+        stage('Run UI Tests Docker') {
             options {
                 timeout(time: 25, unit: "MINUTES")
             }
             when {
-                expression { env.AMI_TEST == "no" }
+                expression { env.AMI_TEST == "no" && env.OVF_TEST == "no" }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -269,6 +273,25 @@ pipeline {
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         sudo docker run --env kubeconfig_minikube="${KUBECONFIG}" --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env-file env.generated.list --net=host -v \$PWD:/tests -v \$PWD/node_modules:/node_modules  codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@qan)'
+                        popd
+                    """
+                }
+            }
+        }
+        stage('Run UI Tests OVF') {
+            options {
+                timeout(time: 25, unit: "MINUTES")
+            }
+            when {
+                expression { env.OVF_TEST == "yes" }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        pushd pmm-app/
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        export PWD=\$(pwd);
+                        sudo docker run --env kubeconfig_minikube="${KUBECONFIG}" --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env-file env.generated.list --net=host -v \$PWD:/tests -v \$PWD/node_modules:/node_modules  codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@qan)^(?!.*@dbaas)'
                         popd
                     """
                 }
