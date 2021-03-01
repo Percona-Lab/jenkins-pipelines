@@ -321,7 +321,6 @@ pipeline {
                     destroyStaging(CLUSTER_IP)
                 }
             }
-            uploadAllureArtifacts()
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'

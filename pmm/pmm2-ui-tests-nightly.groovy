@@ -264,7 +264,6 @@ pipeline {
                     destroyStaging(VM_CLIENT_NAME)
                 }
             }
-            uploadAllureArtifacts()
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
