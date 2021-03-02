@@ -131,6 +131,10 @@ pipeline {
             choices: ['no', 'yes'],
             description: "Run AMI Setup Wizard for AMI UI tests",
             name: 'AMI_TEST')
+        choice(
+            choices: ['no', 'yes'],
+            description: "Run Tests for OVF supported Features",
+            name: 'OVF_TEST')
         string(
             defaultValue: '',
             description: 'AMI Instance ID',
@@ -248,12 +252,12 @@ pipeline {
                 }
             }
         }
-        stage('Run UI Tests') {
+        stage('Run UI Tests Docker') {
             options {
                 timeout(time: 25, unit: "MINUTES")
             }
             when {
-                expression { env.AMI_TEST == "no" }
+                expression { env.AMI_TEST == "no" && env.OVF_TEST == "no" }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -264,6 +268,27 @@ pipeline {
                         export CHROMIUM_PATH=/usr/bin/chromium
                         export kubeconfig_minikube="${KUBECONFIG}"
                         ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@qan)'
+                        popd
+                    """
+                }
+            }
+        }
+        stage('Run UI Tests OVF') {
+            options {
+                timeout(time: 25, unit: "MINUTES")
+            }
+            when {
+                expression { env.OVF_TEST == "yes" }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        pushd pmm-app/
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        export PWD=\$(pwd);
+                        export CHROMIUM_PATH=/usr/bin/chromium
+                        export kubeconfig_minikube="${KUBECONFIG}"
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@qan)^(?!.*@dbaas)'
                         popd
                     """
                 }
@@ -293,7 +318,6 @@ pipeline {
                     destroyStaging(CLUSTER_IP)
                 }
             }
-            uploadAllureArtifacts()
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
@@ -308,7 +332,6 @@ pipeline {
                     archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-app/tests/output/parallel_chunk*/*.png'
-                    archiveArtifacts artifacts: 'pmm-app/tests/output/video/*.mp4'
                 }
             }
             sh '''

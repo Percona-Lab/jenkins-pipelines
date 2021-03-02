@@ -88,3 +88,5 @@
         artifacts: 'PIPELINE_BUILD_NUMBER'
     - archive:
         artifacts: 'COMPILE_BUILD_TAG'
+    - archive:
+        artifacts: 'build.log'
