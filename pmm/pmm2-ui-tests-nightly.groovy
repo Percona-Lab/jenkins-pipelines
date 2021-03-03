@@ -179,11 +179,9 @@ pipeline {
         stage('Setup Node') {
             steps {
                 sh """
-                    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
-                    . ~/.nvm/nvm.sh
-                    nvm install 12.14.1
-                    sudo rm -f /usr/bin/node
-                    sudo ln -s ~/.nvm/versions/node/v12.14.1/bin/node /usr/bin/node
+                    curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
+                    sudo yum -y install nodejs
+
                     pushd pmm-app/
                     npm install
                     node -v

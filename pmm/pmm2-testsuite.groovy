@@ -139,13 +139,8 @@ pipeline {
                 deleteDir()
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
-                    if [ ! -f ~/.nvm/nvm.sh ]; then
-                        curl -o - https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash
-                    fi
-                    . ~/.nvm/nvm.sh
-                    nvm install 12.20.1
-                    sudo rm -f /usr/bin/node
-                    sudo ln -s ~/.nvm/versions/node/v12.20.1/bin/node /usr/bin/node
+                    curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
+                    sudo yum -y install nodejs
                     npm install tap-junit
                 '''
             }
