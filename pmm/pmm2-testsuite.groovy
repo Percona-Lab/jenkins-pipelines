@@ -39,6 +39,7 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
             export stress="1"
             export table_c="100"
             export tap="1"
+            export PMM_VERSION=${PMM_VERSION}
 
             sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
             export CLIENT_VERSION=${CLIENT_VERSION}
@@ -120,6 +121,10 @@ pipeline {
             defaultValue: '',
             description: 'Commit hash for pmm-qa branch',
             name: 'PMM_QA_GIT_COMMIT_HASH')
+        string(
+            defaultValue: '2.15.1',
+            description: 'Commit hash for pmm-qa branch',
+            name: 'PMM_VERSION')
     }
     options {
         skipDefaultCheckout()
