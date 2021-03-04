@@ -22,19 +22,18 @@ netMap['us-west-2b'] = 'subnet-011f09cf273aeef73'
 netMap['us-west-2c'] = 'subnet-00b0d1d8bd8af5c07'
 
 imageMap = [:]
-imageMap['docker'] = 'ami-020f88cb17f8dbdea'
-imageMap['micro-amazon'] = 'ami-0ad99772'
+imageMap['docker'] = 'ami-09c5e030f74651050'
+imageMap['micro-amazon'] = 'ami-09c5e030f74651050'
 imageMap['min-centos-6-x32'] = 'ami-cb1382fb'
 imageMap['min-centos-6-x64'] = 'ami-6fcc8f17'
-imageMap['min-centos-7-x64'] = 'ami-3ecc8f46'
-imageMap['min-centos-8-x64'] = 'ami-0157b1e4eefd91fd7'
-imageMap['min-bionic-x64'] = 'ami-12cdeb6a'
-imageMap['min-stretch-x64'] = 'ami-76f6ab0e'
-imageMap['min-buster-x64'] = 'ami-0f5d8e2951e3f83a5'
-imageMap['min-xenial-x64'] = 'ami-0f2016003e1759f35'
-imageMap['min-xenial-x32'] = 'ami-0697ba3ee1b641c90'
-imageMap['min-focal-x64'] = 'ami-09dd2e08d601bff67'
-imageMap['psmdb'] = imageMap['min-xenial-x64']
+imageMap['min-centos-7-x64'] = 'ami-0686851c4e7b1a8e1'
+imageMap['min-centos-8-x64'] = 'ami-0155c31ea13d4abd2'
+imageMap['min-bionic-x64']   = 'ami-02701bcdc5509e57b'
+imageMap['min-stretch-x64']  = 'ami-0f3a8a1e9a9a8937f'
+imageMap['min-buster-x64']   = 'ami-010327334690f5fa5'
+imageMap['min-xenial-x64']   = 'ami-076cbb27c223df09a'
+imageMap['min-xenial-x32']   = 'ami-0697ba3ee1b641c90'
+imageMap['min-focal-x64']    = 'ami-0ca5c3bd5a268e7db'
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
@@ -59,7 +58,6 @@ userMap['min-buster-x64'] = 'admin'
 userMap['min-focal-x64'] = 'ubuntu'
 userMap['min-xenial-x64'] = 'ubuntu'
 userMap['min-xenial-x32'] = 'ubuntu'
-userMap['psmdb'] = userMap['min-xenial-x64']
 
 initMap = [:]
 initMap['docker'] = '''
@@ -300,7 +298,6 @@ initMap['min-focal-x64'] = '''
 initMap['min-stretch-x64'] = initMap['min-focal-x64']
 initMap['min-xenial-x64'] = initMap['min-focal-x64']
 initMap['min-xenial-x32'] = initMap['min-focal-x64']
-initMap['psmdb'] = initMap['min-xenial-x64']
 
 capMap = [:]
 capMap['c5.xlarge'] = '40'
@@ -323,7 +320,6 @@ typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x32'] = 'm1.medium'
-typeMap['psmdb'] = typeMap['docker-32gb']
 
 execMap = [:]
 execMap['docker'] = '1'
@@ -340,7 +336,6 @@ execMap['min-buster-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
 execMap['min-xenial-x32'] = '1'
 execMap['min-focal-x64'] = '1'
-execMap['psmdb'] = '1'
 
 devMap = [:]
 devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -353,11 +348,10 @@ devMap['min-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-centos-8-x64'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
-devMap['min-buster-x64'] = devMap['min-stretch-x64']
+devMap['min-buster-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-xenial-x64'] = devMap['min-bionic-x64']
 devMap['min-xenial-x32'] = '/dev/sda1=:10:false:gp2,/dev/sdd=:80:false:gp2'
 devMap['min-centos-6-x32'] = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 
 labelMap = [:]
 labelMap['docker'] = ''
@@ -374,7 +368,6 @@ labelMap['min-stretch-x64'] = ''
 labelMap['min-buster-x64'] = ''
 labelMap['min-xenial-x64'] = ''
 labelMap['min-xenial-x32'] = ''
-labelMap['psmdb'] = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
