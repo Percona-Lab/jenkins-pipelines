@@ -17,11 +17,11 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM-T424',
+            defaultValue: 'release/2.16',
             description: 'Tag/Branch for grafana-dashboards repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '2.15.0',
+            defaultValue: '2.15.1',
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
     }
@@ -116,6 +116,13 @@ pipeline {
                     steps {
                         script {
                             runUpgradeJob(GIT_BRANCH,'2.14.0', '2.14.0', PMM_SERVER_LATEST );
+                        }
+                    }
+                }
+                stage('Upgrade from 2.15.0'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.15.0', '2.15.0', PMM_SERVER_LATEST );
                         }
                     }
                 }
