@@ -85,7 +85,7 @@ pipeline {
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.15.0',
+            defaultValue: '2.15.1',
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
