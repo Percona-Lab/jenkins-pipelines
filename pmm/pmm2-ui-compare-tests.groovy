@@ -99,11 +99,9 @@ pipeline {
                 sauce('SauceLabsKey') {
                     sauceconnect(options: '', sauceConnectPath: '') {
                         sh """
-                            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
-                            . ~/.nvm/nvm.sh
-                            nvm install 10.6.0
-                            sudo rm -f /usr/bin/node
-                            sudo ln -s ~/.nvm/versions/node/v10.6.0/bin/node /usr/bin/node
+                            curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
+                            sudo yum -y install nodejs
+
                             npm install
                             node -v
                             npm -v
