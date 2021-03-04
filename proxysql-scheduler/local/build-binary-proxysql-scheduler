@@ -23,28 +23,31 @@ pushd /tmp
     #export PATH=$PATH:/usr/local/go/bin
     #sudo /usr/local/go/bin/go version
     #sudo rm go1.15.8.linux-amd64.tar.gz
-    sudo apt update
-    sudo apt install -y golang
+    apt update
+    apt install -y golang
 popd
-
+export GOPATH=${WORKDIR}
+echo "GOPATH: $GOPATH"
 pushd ${WORKDIR}
     echo "Getting dependencies"
     while read l; do
         if [[ $l == github* || $l == golang* ]]; then
-            sudo go get -v "$l"
+            go get -v "$l"
         fi
-    done < <(sudo go list -f '{{ join .Imports "\n" }}')
+    done < <(go list -f '{{ join .Imports "\n" }}')
 
     # todo: fix these dependencies to be able to get them automatically
-    sudo go get -v github.com/Tusamarco/toml
-    sudo go get -v golang.org/x/text/language
-    sudo go get -v golang.org/x/text/message
+    go get -v github.com/Tusamarco/toml
+    go get -v golang.org/x/text/language
+    go get -v golang.org/x/text/message
+    go get -v github.com/golang/mock/gomock
+    go get -v github.com/stretchr/testify/assert
 
-    sudo go build
+    go build
 
     # run unit tests
-    sudo go test -v ./...
+    go test -v dataobjects global
 
-    sudo ls -la
-    sudo tar --owner=0 --group=0 -czf proxysql-scheduler.tar.gz ./proxysql-scheduler ./mtr
+    ls -la
+    tar --owner=0 --group=0 -czf proxysql-scheduler.tar.gz ./proxysql-scheduler ./mtr
 popd
