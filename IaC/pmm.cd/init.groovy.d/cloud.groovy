@@ -23,18 +23,39 @@ netMap['us-east-2c'] = 'subnet-00b3df129e7d8c658'
 imageMap = [:]
 imageMap['us-east-2a.min-centos-6-x64'] = 'ami-ff48629a'
 imageMap['us-east-2a.min-centos-7-x64'] = 'ami-00f8e2c955f7ffa9b'
+imageMap['us-east-2a.min-centos-8-x64'] = 'ami-0ac6967966621d983'
+imageMap['us-east-2a.min-focal-x64']    = 'ami-0996d3051b72b5b2c'
+imageMap['us-east-2a.min-bionic-x64']   = 'ami-02aa7f3de34db391a'
+imageMap['us-east-2a.min-xenial-x64']   = 'ami-0c9c2203357e2568a'
+imageMap['us-east-2a.min-buster-x64']   = 'ami-0eec7e5aeb20f40ce'
+imageMap['us-east-2a.min-stretch-x64']  = 'ami-0e24a11c7e7dd6435'
 imageMap['us-east-2a.micro-amazon']     = 'ami-02b0c55eeae6d5096'
 imageMap['us-east-2a.large-amazon']     = 'ami-caaf84af'
+imageMap['us-east-2a.large-amazon-2']   = 'ami-01aab85a5e4a5a0fe'
 
 imageMap['us-east-2b.min-centos-6-x64'] = imageMap['us-east-2a.min-centos-6-x64']
 imageMap['us-east-2b.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
+imageMap['us-east-2b.min-centos-8-x64'] = imageMap['us-east-2a.min-centos-8-x64'] 
+imageMap['us-east-2b.min-focal-x64']    = imageMap['us-east-2a.min-focal-x64']
+imageMap['us-east-2b.min-bionic-x64']   = imageMap['us-east-2a.min-bionic-x64']
+imageMap['us-east-2b.min-xenial-x64']   = imageMap['us-east-2a.min-xenial-x64']
+imageMap['us-east-2b.min-buster-x64']   = imageMap['us-east-2a.min-buster-x64']
+imageMap['us-east-2b.min-stretch-x64']  = imageMap['us-east-2a.min-stretch-x64']
 imageMap['us-east-2b.micro-amazon']     = imageMap['us-east-2a.micro-amazon']
 imageMap['us-east-2b.large-amazon']     = imageMap['us-east-2a.large-amazon']
+imageMap['us-east-2b.large-amazon-2']   = imageMap['us-east-2a.large-amazon-2']
 
 imageMap['us-east-2c.min-centos-6-x64'] = imageMap['us-east-2a.min-centos-6-x64']
 imageMap['us-east-2c.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
+imageMap['us-east-2c.min-centos-8-x64'] = imageMap['us-east-2a.min-centos-8-x64'] 
+imageMap['us-east-2c.min-focal-x64']    = imageMap['us-east-2a.min-focal-x64']
+imageMap['us-east-2c.min-bionic-x64']   = imageMap['us-east-2a.min-bionic-x64']
+imageMap['us-east-2c.min-xenial-x64']   = imageMap['us-east-2a.min-xenial-x64']
+imageMap['us-east-2c.min-buster-x64']   = imageMap['us-east-2a.min-buster-x64']
+imageMap['us-east-2c.min-stretch-x64']  = imageMap['us-east-2a.min-stretch-x64']
 imageMap['us-east-2c.micro-amazon']     = imageMap['us-east-2a.micro-amazon']
 imageMap['us-east-2c.large-amazon']     = imageMap['us-east-2a.large-amazon']
+imageMap['us-east-2c.large-amazon-2']   = imageMap['us-east-2a.large-amazon-2']
 
 priceMap = [:]
 priceMap['t2.large']  = '0.04'
@@ -45,8 +66,15 @@ priceMap['m4.large']  = '0.03'
 userMap = [:]
 userMap['min-centos-6-x64']  = 'centos'
 userMap['min-centos-7-x64']  = userMap['min-centos-6-x64']
+userMap['min-centos-8-x64']  = 'centos'
+userMap['min-focal-x64']     = 'ubuntu'
+userMap['min-bionic-x64']    = 'ubuntu'
+userMap['min-xenial-x64']    = 'ubuntu'
+userMap['min-buster-x64']    = 'admin'
+userMap['min-stretch-x64']   = 'admin'
 userMap['micro-amazon']      = 'ec2-user'
 userMap['large-amazon']      = userMap['micro-amazon']
+userMap['large-amazon-2']    = userMap['micro-amazon']
 
 initMap = [:]
 initMap['min-centos-6-x64'] = '''
@@ -86,6 +114,63 @@ initMap['min-centos-6-x64'] = '''
 '''
 
 initMap['min-centos-7-x64'] = initMap['min-centos-6-x64']
+initMap['min-centos-8-x64'] = initMap['min-centos-6-x64']
+initMap['min-focal-x64'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
+        sudo mkfs.ext2 ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
+
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
+
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+    until sudo apt-get -y install openjdk-8-jre-headless git; do
+        sleep 1
+        echo try again
+    done
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
+initMap['min-bionic-x64'] = initMap['min-focal-x64']
+initMap['min-xenial-x64'] = initMap['min-focal-x64']
+initMap['min-stretch-x64'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
+        sudo mkfs.ext2 ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
+
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
+
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+    sudo apt-get -y install openjdk-8-jre-headless git
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
+initMap['min-buster-x64']   = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
+        sudo mkfs.ext2 ${DEVICE}
+        sudo mount ${DEVICE} /mnt
+    fi
+
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
+
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+    sudo apt-get -y install openjdk-11-jre-headless git
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+''' 
 initMap['micro-amazon']     = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -125,6 +210,7 @@ initMap['large-amazon']     = '''
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
+initMap['large-amazon-2'] = initMap['micro-amazon']
 
 capMap = [:]
 capMap['t2.large']   = '20'
@@ -134,27 +220,55 @@ capMap['m4.large']   = '10'
 
 typeMap = [:]
 typeMap['min-centos-6-x64']  = 'm4.large'
-typeMap['min-centos-7-x64']  = 'm4.large'
+typeMap['min-centos-7-x64']  = typeMap['min-centos-6-x64']
+typeMap['min-centos-8-x64']  = typeMap['min-centos-6-x64']
+typeMap['min-focal-x64']     = typeMap['min-centos-6-x64']
+typeMap['min-bionic-x64']    = typeMap['min-centos-6-x64']
+typeMap['min-xenial-x64']    = typeMap['min-centos-6-x64']
+typeMap['min-buster-x64']    = typeMap['min-centos-6-x64']
+typeMap['min-stretch-x64']   = typeMap['min-centos-6-x64']
 typeMap['micro-amazon']      = 't3.large'
 typeMap['large-amazon']      = 't3.xlarge'
+typeMap['large-amazon-2']      = 't3.xlarge'
 
 execMap = [:]
 execMap['min-centos-6-x64']  = '1'
 execMap['min-centos-7-x64']  = '1'
+execMap['min-centos-8-x64']  = '1'
+execMap['min-focal-x64']     = '1'
+execMap['min-bionic-x64']    = '1'
+execMap['min-xenial-x64']    = '1'
+execMap['min-buster-x64']    = '1'
+execMap['min-stretch-x64']   = '1'
 execMap['micro-amazon']      = '4'
 execMap['large-amazon']      = '1'
+execMap['large-amazon-2']    = '1'
 
 devMap = [:]
-devMap['min-centos-6-x64']  = '/dev/sda1=:8:true:gp2,/dev/sdd=:20:true:gp2'
+devMap['min-centos-6-x64']  = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-centos-7-x64']  = devMap['min-centos-6-x64']
+devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-focal-x64']     = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-bionic-x64']    = devMap['min-focal-x64']
+devMap['min-xenial-x64']    = devMap['min-focal-x64']
+devMap['min-buster-x64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-stretch-x64']   = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['micro-amazon']      = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['large-amazon']      = '/dev/xvda=:100:true:gp2'
+devMap['large-amazon-2']    = devMap['large-amazon']
 
 labelMap = [:]
 labelMap['min-centos-6-x64']  = 'min-centos-6-x64'
 labelMap['min-centos-7-x64']  = 'min-centos-7-x64'
+labelMap['min-centos-8-x64']  = 'min-centos-8-x64'
+labelMap['min-focal-x64']     = 'min-focal-x64'
+labelMap['min-bionic-x64']    = 'min-bionic-x64'
+labelMap['min-xenial-x64']    = 'min-xenial-x64'
+labelMap['min-buster-x64']    = 'min-buster-x64'
+labelMap['min-stretch-x64']   = 'min-stretch-x64'
 labelMap['micro-amazon']      = 'micro-amazon nodejs master awscli'
 labelMap['large-amazon']      = 'large-amazon'
+labelMap['large-amazon-2']    = 'large-amazon-2'
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -226,8 +340,15 @@ String region = 'us-east-2'
         [
             getTemplate('min-centos-6-x64',     "${region}${it}"),
             getTemplate('min-centos-7-x64',     "${region}${it}"),
+            getTemplate('min-centos-8-x64',     "${region}${it}"),
+            getTemplate('min-focal-x64',        "${region}${it}"),
+            getTemplate('min-bionic-x64',       "${region}${it}"),
+            getTemplate('min-xenial-x64',       "${region}${it}"),
+            getTemplate('min-buster-x64',       "${region}${it}"),
+            getTemplate('min-stretch-x64',      "${region}${it}"),
             getTemplate('micro-amazon',         "${region}${it}"),
             getTemplate('large-amazon',         "${region}${it}"),
+            getTemplate('large-amazon-2',       "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
