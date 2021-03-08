@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@PMM-Upgrade-Jobs', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
