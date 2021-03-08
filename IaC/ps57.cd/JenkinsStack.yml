@@ -705,6 +705,8 @@ Resources:
                     https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http.lua
                   wget -O /usr/local/openresty/lualib/resty/http_headers.lua \
                     https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http_headers.lua
+                  wget -O /usr/local/openresty/lualib/resty/http_connect.lua \
+                    https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http_connect.lua 
                   wget -O /mnt/$JENKINS_HOST/nginx-google-oauth.lua \
                     https://raw.githubusercontent.com/cloudflare/nginx-google-oauth/master/access.lua
 

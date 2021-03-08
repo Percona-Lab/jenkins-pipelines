@@ -768,11 +768,6 @@ Resources:
                   ln -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
                   sed -i'' -e 's/listen/#listen/; s/mime.types/jenkins.conf/' /usr/local/openresty/nginx/conf/nginx.conf
 
-                  wget -O /usr/local/openresty/lualib/resty/http.lua \
-                    https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http.lua
-                  wget -O /usr/local/openresty/lualib/resty/http_headers.lua \
-                    https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http_headers.lua
-
                   systemctl enable --now openresty
               }
 
