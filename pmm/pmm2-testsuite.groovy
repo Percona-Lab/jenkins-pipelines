@@ -65,6 +65,9 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
                     || :
         """
     }
+    script {
+        junit './*.xml'
+    }
 }
 
 void fetchAgentLog(String CLIENT_VERSION) {
@@ -162,64 +165,9 @@ pipeline {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
-        stage('Test: PS57') {
-            steps {
-                runTAP("ps", "ps", "2", "5.7")
-            }
-        }
-        stage('Test: PSMDB_4_0') {
-            steps {
-                runTAP("mo", "psmdb", "3", "4.0")
-            }
-        }
-        stage('Test: PS80') {
-            steps {
-                runTAP("ps", "ps", "2", "8.0")
-            }
-        }
-        stage('Test: PSMDB_3_6') {
-            steps {
-                runTAP("mo", "psmdb", "3", "3.6")
-            }
-        }
-        stage('Test: MDB_4_2') {
-            steps {
-                runTAP("modb", "modb", "3", "4.2")
-            }
-        }
-        stage('Test: MDB_4_0') {
-            steps {
-                runTAP("modb", "modb", "3", "4.0")
-            }
-        }
-        stage('Test: MS57') {
-            steps {
-                runTAP("ms", "mysql", "2", "5.7")
-            }
-        }
-        stage('Test: MS80') {
-            steps {
-                runTAP("ms", "mysql", "2", "8.0")
-            }
-        }
-        stage('Test: PGSQL10') {
-            steps {
-                runTAP("pgsql", "postgresql", "3", "10.6")
-            }
-        }
-        stage('Test: PD_PGSQL12') {
-            steps {
-                runTAP("pdpgsql", "postgresql", "1", "12")
-            }
-        }
         stage('Test: HAPROXY') {
             steps {
                 runTAP("haproxy", "haproxy", "1", "2.4")
-            }
-        }
-        stage('Test: PXC') {
-            steps {
-                runTAP("pxc", "pxc", "1", "5.7")
             }
         }
         stage('Check Results') {
