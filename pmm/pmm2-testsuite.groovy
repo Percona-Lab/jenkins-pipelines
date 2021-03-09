@@ -212,6 +212,11 @@ pipeline {
                 runTAP("pdpgsql", "postgresql", "1", "12")
             }
         }
+        stage('Test: HAPROXY') {
+            steps {
+                runTAP("haproxy", "haproxy", "1", "2.4")
+            }
+        }
         stage('Test: PXC') {
             steps {
                 runTAP("pxc", "pxc", "1", "5.7")
