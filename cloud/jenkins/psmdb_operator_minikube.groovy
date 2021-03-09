@@ -104,6 +104,7 @@ EOF
         sudo percona-release enable-only tools
         sudo yum clean all || true
         sudo yum install -y percona-xtrabackup-80 jq kubectl socat
+        sleep 30000
     '''
 }
 pipeline {
