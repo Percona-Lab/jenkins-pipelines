@@ -21,7 +21,7 @@ Resources:
       RoleName: RoleVolumeCleanup
       Tags: 
         - Key: iit-billing-tag
-          Value: lambda.cleanup
+          Value: lambda-cleanup-volumes
 
   PolicyVolumeCleanup:
     Type: AWS::IAM::Policy
@@ -67,12 +67,11 @@ Resources:
                               if "do not remove" not in name and volume.state=="available":
                                   volumeObject=ec2.Volume(volume.id)
                                   volumeObject.delete()
-                                  print("Deleted ID: " + volume.id)
-                                  print("In region:" + region)
+                                  print("Deleted ID: " + volume.id, "In region: " + region, sep="\n")
       Role: !GetAtt RoleVolumeCleanup.Arn
       Tags:
         - Key: iit-billing-tag
-          Value: lambda.cleanup
+          Value: lambda-cleanup-volumes
 
   EventVolumeCleanup:
     Type: AWS::Events::Rule
