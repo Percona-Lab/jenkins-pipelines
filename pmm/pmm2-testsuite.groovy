@@ -114,7 +114,7 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: 'master',
+            defaultValue: 'release/2.16',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
@@ -192,6 +192,11 @@ pipeline {
                 runTAP("modb", "modb", "3", "4.0")
             }
         }
+        stage('Test: HAPROXY') {
+            steps {
+                runTAP("haproxy", "haproxy", "1", "2.4")
+            }
+        }
         stage('Test: MS57') {
             steps {
                 runTAP("ms", "mysql", "2", "5.7")
@@ -242,9 +247,12 @@ pipeline {
     post {
         always {
             sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             fetchAgentLog(CLIENT_VERSION)
+            script {
+                junit allowEmptyResults: true, testResults: '**/*.xml'
+            }
             script {
                 if(env.VM_NAME) {
                     destroyStaging(VM_NAME)
