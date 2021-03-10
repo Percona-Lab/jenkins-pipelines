@@ -65,9 +65,6 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
                     || :
         """
     }
-    script {
-        junit allowEmptyResults: true, testResults: '**/*.xml'
-    }
 }
 
 void fetchAgentLog(String CLIENT_VERSION) {
@@ -253,6 +250,9 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             fetchAgentLog(CLIENT_VERSION)
+            script {
+                junit allowEmptyResults: true, testResults: '**/*.xml'
+            }
             script {
                 if(env.VM_NAME) {
                     destroyStaging(VM_NAME)
