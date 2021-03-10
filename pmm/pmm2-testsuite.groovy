@@ -65,6 +65,9 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
                     || :
         """
     }
+    script {
+        junit allowEmptyResults: true, testResults: '**/*.xml'
+    }
 }
 
 void fetchAgentLog(String CLIENT_VERSION) {
@@ -192,6 +195,11 @@ pipeline {
                 runTAP("modb", "modb", "3", "4.0")
             }
         }
+        stage('Test: HAPROXY') {
+            steps {
+                runTAP("haproxy", "haproxy", "1", "2.4")
+            }
+        }
         stage('Test: MS57') {
             steps {
                 runTAP("ms", "mysql", "2", "5.7")
@@ -242,7 +250,7 @@ pipeline {
     post {
         always {
             sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             fetchAgentLog(CLIENT_VERSION)
             script {
