@@ -510,10 +510,10 @@ Resources:
           - InstanceType: m5.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5.large
+          - InstanceType: m5d.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5d.large
+          - InstanceType: c5d.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
 
