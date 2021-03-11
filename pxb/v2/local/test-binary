@@ -91,7 +91,7 @@ else
       sudo wget -O bootstrap.sh ${BOOTSTRAP_URL}
       sudo chmod +x bootstrap.sh
     fi
-    ./bootstrap.sh --type=${XTRABACKUP_TARGET} --version=${XTRABACKUP_TARGET_VERSION}
+    ./bootstrap.sh --pxb-type=${CMAKE_BUILD_TYPE} --type=${XTRABACKUP_TARGET} --version=${XTRABACKUP_TARGET_VERSION}
 fi
 
 ./run.sh ${XBTR_ARGS} -f | tee -a ${WORKDIR_ABS}/xbtr.output
