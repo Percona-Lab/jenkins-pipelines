@@ -204,6 +204,17 @@ pipeline {
                 }
             }
         }
+        stage('Setup PMM Server Information') {
+            when {
+                expression { env.CLIENT_INSTANCE == "yes" }
+            }
+            steps {
+                script {
+                    env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+                    env.PMM_UI_URL = "http://${SERVER_IP}/"
+                }
+            }
+        }
         stage('Setup') {
             parallel {
                 stage('Sanity check') {
@@ -224,18 +235,6 @@ pipeline {
                             sudo yum install -y gettext
                             envsubst < env.list > env.generated.list
                             popd
-                        """
-                    }
-                }
-                stage('Sleep') {
-                    steps {
-                        sh """
-                        curl --data '{"enable_stt": true, "enable_telemetry": true}' -u admin:admin -X POST ${PMM_UI_URL}/v1/Settings/Change
-                        curl -u admin:admin -X POST ${PMM_UI_URL}/v1/management/SecurityChecks/Start
-                        """
-                        sleep 300
-                        sh """
-                        curl --data '{"disable_stt": true, "enable_telemetry": true}' -u admin:admin -X POST ${PMM_UI_URL}/v1/Settings/Change
                         """
                     }
                 }
