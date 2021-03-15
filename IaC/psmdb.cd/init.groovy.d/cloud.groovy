@@ -63,10 +63,17 @@ initMap['docker'] = '''
     done
 
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
-        sudo yum -y install xfsprogs
-        sudo mkfs.xfs ${DEVICE}
-        sudo mount -o noatime ${DEVICE} /mnt
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo yum -y install xfsprogs
+            sudo mkfs.xfs ${DEVICE}
+            sudo mount -o noatime ${DEVICE} /mnt
+        fi
     fi
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
@@ -105,10 +112,17 @@ initMap['docker-32gb'] = '''
     done
 
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
-        sudo yum -y install xfsprogs
-        sudo mkfs.xfs ${DEVICE}
-        sudo mount -o noatime ${DEVICE} /mnt
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo yum -y install xfsprogs
+            sudo mkfs.xfs ${DEVICE}
+            sudo mount -o noatime ${DEVICE} /mnt
+        fi
     fi
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
@@ -145,10 +159,17 @@ initMap['micro-amazon'] = '''
     done
 
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
-        sudo yum -y install xfsprogs
-        sudo mkfs.xfs ${DEVICE}
-        sudo mount ${DEVICE} /mnt
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo yum -y install xfsprogs
+            sudo mkfs.xfs ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
     fi
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
@@ -170,10 +191,17 @@ initMap['min-stretch-x64'] = '''
     done
 
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme1n1 | head -1)
-        sudo apt-get -y install xfsprogs
-        sudo mkfs.xfs ${DEVICE}
-        sudo mount ${DEVICE} /mnt
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo apt-get -y install xfsprogs
+            sudo mkfs.xfs ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
     fi
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
@@ -199,10 +227,17 @@ initMap['min-centos-6-x64'] = '''
     sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
 
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme2n1 | head -1)
-        sudo yum -y install xfsprogs
-        sudo mkfs.xfs ${DEVICE}
-        sudo mount ${DEVICE} /mnt
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo yum -y install xfsprogs
+            sudo mkfs.xfs ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
     fi
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
@@ -224,10 +259,17 @@ initMap['min-centos-7-x64']  = '''
     done
 
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme2n1 | head -1)
-        sudo yum -y install xfsprogs
-        sudo mkfs.xfs ${DEVICE}
-        sudo mount ${DEVICE} /mnt
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo yum -y install xfsprogs
+            sudo mkfs.xfs ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
     fi
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
@@ -249,10 +291,17 @@ initMap['min-jessie-x64'] = '''
     done
 
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme0n1 | head -1)
-        sudo apt-get -y install xfsprogs
-        sudo mkfs.xfs ${DEVICE}
-        sudo mount ${DEVICE} /mnt
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo apt-get -y install xfsprogs
+            sudo mkfs.xfs ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
     fi
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
@@ -273,10 +322,17 @@ initMap['min-bionic-x64'] = '''
     done
 
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/nvme0n1 | head -1)
-        sudo apt-get -y install xfsprogs
-        sudo mkfs.xfs ${DEVICE}
-        sudo mount ${DEVICE} /mnt
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo apt-get -y install xfsprogs
+            sudo mkfs.xfs ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
     fi
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
