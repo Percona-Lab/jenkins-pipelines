@@ -302,29 +302,42 @@ pipeline {
                     }
                 }
                 stage('E2E Basic Tests') {
-                    steps {
-                        CreateCluster('basic')
-                        stage('E2E Default CR') {
-                            when { branch pattern: "release-*", comparator: "REGEXP" }
+                    stages {
+                        stage('cluster creation') {
+                            steps {
+                                CreateCluster('basic')
+                            }
+                        }
+                        stage('default CR') {
+                            when { expression { params.GIT_BRANCH.contains('release-') }}
                             steps {
                                 runTest('default-cr', 'basic')
                             }
                         }
-                        runTest('init-deploy', 'basic')
-                        runTest('limits', 'basic')
-                        runTest('monitoring-2-0', 'basic')
-                        runTest('affinity', 'basic')
-                        runTest('one-pod', 'basic')
-                        runTest('auto-tuning', 'basic')
-                        runTest('proxysql-sidecar-res-limits', 'basic')
-                        runTest('users', 'basic')
-                        runTest('haproxy', 'basic')
-                        runTest('tls-issue-self', 'basic')
-                        runTest('tls-issue-cert-manager', 'basic')
-                        runTest('tls-issue-cert-manager-ref', 'basic')
-                        runTest('validation-hook', 'basic')
-                        ShutdownCluster('basic')
-                   }
+                        stage('basic suite') {
+                            steps {
+                                runTest('init-deploy', 'basic')
+                                runTest('limits', 'basic')
+                                runTest('monitoring-2-0', 'basic')
+                                runTest('affinity', 'basic')
+                                runTest('one-pod', 'basic')
+                                runTest('auto-tuning', 'basic')
+                                runTest('proxysql-sidecar-res-limits', 'basic')
+                                runTest('users', 'basic')
+                                runTest('haproxy', 'basic')
+                                runTest('tls-issue-self', 'basic')
+                                runTest('tls-issue-cert-manager', 'basic')
+                                runTest('tls-issue-cert-manager-ref', 'basic')
+                                runTest('validation-hook', 'basic')
+                            }
+                        }
+                        stage('cluster removal') {
+                            steps {
+                                ShutdownCluster('basic')
+                            }
+                        }
+                    }
+                }
                 }
                 stage('E2E Scaling') {
                     steps {
