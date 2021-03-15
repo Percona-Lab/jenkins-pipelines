@@ -304,6 +304,12 @@ pipeline {
                 stage('E2E Basic Tests') {
                     steps {
                         CreateCluster('basic')
+                        stage('E2E Default CR') {
+                            when { branch pattern: "release-*", comparator: "REGEXP" }
+                            steps {
+                                runTest('default-cr', 'basic')
+                            }
+                        }
                         runTest('init-deploy', 'basic')
                         runTest('limits', 'basic')
                         runTest('monitoring-2-0', 'basic')
