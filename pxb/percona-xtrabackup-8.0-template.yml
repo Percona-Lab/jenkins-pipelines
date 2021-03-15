@@ -378,9 +378,13 @@
             export LD_PRELOAD=
         fi
 
+        if [[ ${BUILD_TYPE} == "debug" ]] && [[ ${xtrabackuptarget} == "innodb80" ]]; then
+            more_test_arguments+= "-D"
+        fi
+
         # Limit the number of workers to cpu amount
         export XB_TEST_MAX_WORKERS=${THREADS}
-        if ! ./run.sh -c ${xtrabackuptarget} ${more_test_arguments} ; then
+        if ! ./run.sh -c ${xtrabackuptarget} ${more_test_arguments}; then
             cat results/setup
         #  status=255
         fi
