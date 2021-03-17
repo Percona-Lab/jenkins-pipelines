@@ -294,8 +294,8 @@ pipeline {
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                 sudo chmod 777 -R pmm-app/tests/output || true
-                ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/parallel_chunk*/*.json > pmm-app/tests/output/combine_results.json
-                ./pmm-app/node_modules/.bin/marge pmm-app/tests/output/combine_results.json --reportDir pmm-app/tests/output/ --inline --cdn --charts
+                ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/parallel_chunk*/*.json > pmm-app/tests/output/combine_results.json || true
+                ./pmm-app/node_modules/.bin/marge pmm-app/tests/output/combine_results.json --reportDir pmm-app/tests/output/ --inline --cdn --charts || true
             '''
             script {
                 if(env.VM_NAME)
