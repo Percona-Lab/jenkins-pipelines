@@ -318,7 +318,7 @@ pipeline {
                         runTest('tls-issue-cert-manager-ref', 'basic')
                         runTest('validation-hook', 'basic')
                         ShutdownCluster('basic')
-                   }
+                    }
                 }
                 stage('E2E Scaling') {
                     steps {
