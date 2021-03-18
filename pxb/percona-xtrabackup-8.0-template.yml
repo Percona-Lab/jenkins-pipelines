@@ -300,8 +300,8 @@
                 https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.22-29.26/binary/tarball/Percona-XtraDB-Cluster-5.7.22-rel22-29.26.1.Linux.$(uname -m).ssl${SSL_VER}.tar.gz
         else
             case "${xtrabackuptarget}" in
-                xtradb80) ./bootstrap.sh --type=${xtrabackuptarget} --version=${xtradb80_version} ;;
-                innodb80) ./bootstrap.sh --type=${xtrabackuptarget} --version=${innodb80_version} ;;
+                xtradb80) ./bootstrap.sh --pxb-type=${BUILD_TYPE} --type=${xtrabackuptarget} --version=${xtradb80_version} ;;
+                innodb80) ./bootstrap.sh --pxb-type=${BUILD_TYPE} --type=${xtrabackuptarget} --version=${innodb80_version} ;;
             esac
         fi
     - shell: |-
@@ -378,9 +378,13 @@
             export LD_PRELOAD=
         fi
 
+        if [[ ${BUILD_TYPE} == "debug" ]] && [[ ${xtrabackuptarget} == "innodb80" ]]; then
+            more_test_arguments+= "-D"
+        fi
+
         # Limit the number of workers to cpu amount
         export XB_TEST_MAX_WORKERS=${THREADS}
-        if ! ./run.sh -c ${xtrabackuptarget} ${more_test_arguments} ; then
+        if ! ./run.sh -c ${xtrabackuptarget} ${more_test_arguments}; then
             cat results/setup
         #  status=255
         fi
