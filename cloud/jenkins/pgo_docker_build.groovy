@@ -90,7 +90,7 @@ pipeline {
                 }
             }
         }
-        stage('Check PSMDB Docker images') {
+        stage('Check PGO Docker images') {
             steps {
                 checkImageForDocker('main-pgo-apiserver')
                 checkImageForDocker('main-pgo-event')
