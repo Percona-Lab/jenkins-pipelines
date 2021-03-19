@@ -198,6 +198,13 @@ pipeline {
                     archiveArtifacts artifacts: 'pmm-app/tests/output/video/*.mp4'
                 }
             }
+            allure([
+                includeProperties: false,
+                jdk: '',
+                properties: [],
+                reportBuildPolicy: 'ALWAYS',
+                results: [[path: 'pmm-app/tests/output/allure']]
+            ])
             sh '''
                 sudo rm -r pmm-app/node_modules/
                 sudo rm -r pmm-app/tests/output
