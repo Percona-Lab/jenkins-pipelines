@@ -315,12 +315,19 @@ pipeline {
                 } else {
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL} & View Tests Run Report - http://${MONITORING_HOST}:9093/latest-report/"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-app/tests/output/parallel_chunk*/*.png'
                 }
             }
+            allure([
+                includeProperties: false,
+                jdk: '',
+                properties: [],
+                reportBuildPolicy: 'ALWAYS',
+                results: [[path: 'pmm-app/tests/output/allure']]
+            ])
             sh '''
                 sudo rm -r pmm-app/node_modules/
                 sudo rm -r pmm-app/tests/output
