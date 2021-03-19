@@ -9,8 +9,9 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
+        string(name: 'PS_VERSION', value: '5.6'),
         string(name: 'QUERY_SOURCE', value: 'slowlog'),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com:443 -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PERCONA_TEST_DBAAS=1'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PERCONA_TEST_DBAAS=1 -e PMM_DEBUG=1 -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com:443 -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s'),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
@@ -198,14 +199,20 @@ pipeline {
                         expression { env.CLIENT_INSTANCE == "no" }
                     }
                     steps {
-                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '', CLIENT_INSTANCE, SERVER_IP)
+                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1', CLIENT_INSTANCE, SERVER_IP)
                     }
                 }
             }
         }
-        stage('Start PMM Client Instance') {
+        stage('Setup PMM Server Information') {
+            when {
+                expression { env.CLIENT_INSTANCE == "yes" }
+            }
             steps {
-                runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=mo,2 --with-replica --addclient=pgsql,1 --addclient=pxc,3 --with-proxysql --pmm2 --setup-alertmanager --add-annotation --setup-replication-ps-pmm2', 'yes', env.SERVER_IP)
+                script {
+                    env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+                    env.PMM_UI_URL = "http://${SERVER_IP}/"
+                }
             }
         }
         stage('Setup') {
@@ -228,18 +235,6 @@ pipeline {
                             sudo yum install -y gettext
                             envsubst < env.list > env.generated.list
                             popd
-                        """
-                    }
-                }
-                stage('Sleep') {
-                    steps {
-                        sh """
-                        curl --data '{"enable_stt": true, "enable_telemetry": true}' -u admin:admin -X POST ${PMM_UI_URL}/v1/Settings/Change
-                        curl -u admin:admin -X POST ${PMM_UI_URL}/v1/management/SecurityChecks/Start
-                        """
-                        sleep 300
-                        sh """
-                        curl --data '{"disable_stt": true, "enable_telemetry": true}' -u admin:admin -X POST ${PMM_UI_URL}/v1/Settings/Change
                         """
                     }
                 }
