@@ -61,13 +61,18 @@ Resources:
                   volumes = ec2.volumes.filter(Filters=[{"Name":"tag:Name", "Values":["*"]}])
 
                   for volume in volumes:
+                      pkeeptag = ''
                       for tag in volume.tags:
                           if tag['Key'] == 'Name':
                               name = tag.get('Value')
-                              if "do not remove" not in name and volume.state=="available":
-                                  volumeObject=ec2.Volume(volume.id)
-                                  volumeObject.delete()
-                                  print("Deleted ID: " + volume.id, "In region: " + region, sep="\n")
+                          If tag['Key'] == 'PerconaKeep':
+                              pkeeptag = True
+
+                      if "do not remove" not in name and volume.state=="available":
+                          if pkeeptag != True:
+                              volumeObject=ec2.Volume(volume.id)
+                              volumeObject.delete()
+                              print("Deleted ID: " + volume.id, "In region: " + region, sep="\n")
       Role: !GetAtt RoleVolumeCleanup.Arn
       Tags:
         - Key: iit-billing-tag
