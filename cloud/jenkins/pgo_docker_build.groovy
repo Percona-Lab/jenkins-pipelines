@@ -48,25 +48,29 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                sh """
-                    TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
-                    wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-                    sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
+                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
+                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    sh """
+                        export GIT_REPO=\$(echo \${GIT_REPO} | sed "s#github.com#\${GITHUB_TOKEN}@github.com#g")
+                        TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
+                        wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
+                        sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
 
-                    # sudo is needed for better node recovery after compilation failure
-                    # if building failed on compilation stage directory will have files owned by docker user
-                    sudo git reset --hard
-                    sudo git clean -xdf
-                    sudo rm -rf source
-                    ./cloud/local/checkout
-                """
-                stash includes: "cloud/**" , name: "checkout"
-                stash includes: "source/**", name: "sourceFILES"
+                        # sudo is needed for better node recovery after compilation failure
+                        # if building failed on compilation stage directory will have files owned by docker user
+                        sudo git reset --hard
+                        sudo git clean -xdf
+                        sudo rm -rf source
+                        env
+                        ./cloud/local/checkout
+                    """
+                    stash includes: "cloud/**" , name: "checkout"
+                    stash includes: "source/**", name: "sourceFILES"
 
-                sh '''
-                    rm -rf cloud
-                '''
+                    sh '''
+                        rm -rf cloud
+                    '''
+                }
             }
         }
 
@@ -82,7 +86,12 @@ pipeline {
 
                             docker login -u '${USER}' -p '${PASS}'
                             export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                            docker trust sign perconalab/percona-postgresql-operator:main
+                            docker trust sign perconalab/percona-postgresql-operator:main-pgo-apiserver
+                            docker trust sign perconalab/percona-postgresql-operator:main-pgo-event
+                            docker trust sign perconalab/percona-postgresql-operator:main-pgo-rmdata
+                            docker trust sign perconalab/percona-postgresql-operator:main-pgo-scheduler
+                            docker trust sign perconalab/percona-postgresql-operator:main-postgres-operator
+                            docker trust sign perconalab/percona-postgresql-operator:main-pgo-deployer
                             ./e2e-tests/build
                             docker logout
                         "
