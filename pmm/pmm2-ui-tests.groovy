@@ -106,6 +106,7 @@ pipeline {
         INFLUXDB_USER=credentials('influxdb-user')
         INFLUXDB_USER_PASSWORD=credentials('influxdb-user-password')
         MONITORING_HOST=credentials('monitoring-host')
+        EXTERNAL_EXPORTER_PORT=credentials('external-exporter-port')
     }
     parameters {
         string(
