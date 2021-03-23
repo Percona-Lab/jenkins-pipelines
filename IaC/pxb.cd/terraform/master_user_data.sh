@@ -235,6 +235,21 @@ EOF
     fi
 }
 
+setup_ssh_keys() {
+    KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan illia.pshonkin alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen kamil.babayev"
+
+    for KEY in $KEYS_LIST; do
+        if [[ ! -f "/tmp/$KEY.pub" ]]; then
+            until wget -O "/tmp/$KEY.pub" "https://www.percona.com/get/engineer/KEY/$KEY.pub"; do
+                echo "sleep before retry"
+                sleep 1
+            done
+        fi
+        cat /tmp/$KEY.pub | tee -a /home/ec2-user/.ssh/authorized_keys
+        rm /tmp/$KEY.pub
+    done
+}
+
 main() {
     setup_aws
     install_software
@@ -245,6 +260,7 @@ main() {
     setup_dhparam
     setup_letsencrypt
     setup_nginx_allow_list
+    setup_ssh_keys
 }
 
 main
