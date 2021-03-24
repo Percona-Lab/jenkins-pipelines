@@ -61,7 +61,6 @@ pipeline {
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf source
-                        env
                         ./cloud/local/checkout
                     """
                     stash includes: "cloud/**" , name: "checkout"
