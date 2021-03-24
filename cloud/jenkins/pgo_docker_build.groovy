@@ -85,12 +85,12 @@ pipeline {
 
                             docker login -u '${USER}' -p '${PASS}'
                             export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                            docker trust sign perconalab/percona-postgresql-operator:main-pgo-apiserver
-                            docker trust sign perconalab/percona-postgresql-operator:main-pgo-event
-                            docker trust sign perconalab/percona-postgresql-operator:main-pgo-rmdata
-                            docker trust sign perconalab/percona-postgresql-operator:main-pgo-scheduler
-                            docker trust sign perconalab/percona-postgresql-operator:main-postgres-operator
-                            docker trust sign perconalab/percona-postgresql-operator:main-pgo-deployer
+                            docker trust sign perconalab/percona-postgresql-operator:\$GIT_BRANCH-pgo-apiserver
+                            docker trust sign perconalab/percona-postgresql-operator:\$GIT_BRANCH-pgo-event
+                            docker trust sign perconalab/percona-postgresql-operator:\$GIT_BRANCH-pgo-rmdata
+                            docker trust sign perconalab/percona-postgresql-operator:\$GIT_BRANCH-pgo-scheduler
+                            docker trust sign perconalab/percona-postgresql-operator:\$GIT_BRANCH-postgres-operator
+                            docker trust sign perconalab/percona-postgresql-operator:\$GIT_BRANCH-pgo-deployer
                             ./e2e-tests/build
                             docker logout
                         "
@@ -100,12 +100,12 @@ pipeline {
         }
         stage('Check PGO Docker images') {
             steps {
-                checkImageForDocker('main-pgo-apiserver')
-                checkImageForDocker('main-pgo-event')
-                checkImageForDocker('main-pgo-rmdata')
-                checkImageForDocker('main-pgo-scheduler')
-                checkImageForDocker('main-postgres-operator')
-                checkImageForDocker('main-pgo-deployer')
+                checkImageForDocker('\$GIT_BRANCH-pgo-apiserver')
+                checkImageForDocker('\$GIT_BRANCH-pgo-event')
+                checkImageForDocker('\$GIT_BRANCH-pgo-rmdata')
+                checkImageForDocker('\$GIT_BRANCH-pgo-scheduler')
+                checkImageForDocker('\$GIT_BRANCH-postgres-operator')
+                checkImageForDocker('\$GIT_BRANCH-pgo-deployer')
                 sh '''
                    CRITICAL=$(ls trivy-critical-*) || true
                    if [ -n "$CRITICAL" ]; then
