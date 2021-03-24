@@ -109,6 +109,9 @@ pipeline {
                 retry(3) {
                     build('postgres-ha')
                 }
+                retry(3) {
+                    build('pgbadger')
+                }
             }
         }
         stage('Push Images to Docker registry') {
@@ -117,6 +120,7 @@ pipeline {
                 pushImageToDocker('pgbackrest')
                 pushImageToDocker('pgbouncer')
                 pushImageToDocker('postgres-ha')
+                pushImageToDocker('pgbadger')
             }
         }
         stage('Check Docker images') {
@@ -125,6 +129,7 @@ pipeline {
                 checkImageForDocker('pgbackrest')
                 checkImageForDocker('pgbouncer')
                 checkImageForDocker('postgres-ha')
+                checkImageForDocker('pgbadger')
                 sh '''
                    CRITICAL=$(ls trivy-critical-*) || true
                    if [ -n "$CRITICAL" ]; then
