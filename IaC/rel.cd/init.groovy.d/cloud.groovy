@@ -89,7 +89,6 @@ userMap['docker']            = 'ec2-user'
 userMap['docker-32gb']       = userMap['docker']
 userMap['docker2']           = userMap['docker']
 userMap['micro-amazon']      = userMap['docker']
-userMap['min-artful-x64']    = 'ubuntu'
 userMap['min-focal-x64']     = 'ubuntu'
 userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-xenial-x64']    = 'ubuntu'
@@ -102,7 +101,6 @@ userMap['fips-centos-7-x64'] = 'centos'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
 
-userMap['psmdb'] = userMap['min-xenial-x64']
 
 initMap = [:]
 initMap['docker'] = '''
@@ -281,7 +279,7 @@ initMap['min-centos-6-x32'] = '''
     sudo umount /dev/shm
     sudo mount /dev/shm
 '''
-initMap['min-artful-x64'] = '''
+initMap['min-bionic-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
         for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
@@ -332,12 +330,10 @@ initMap['min-buster-x64'] = '''
     sudo apt-get -y install openjdk-11-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-focal-x64'] = initMap['min-artful-x64']
-initMap['min-bionic-x64'] = initMap['min-artful-x64']
-initMap['min-stretch-x64'] = initMap['min-artful-x64']
-initMap['min-xenial-x64'] = initMap['min-artful-x64']
-initMap['min-xenial-x32'] = initMap['min-artful-x64']
-initMap['psmdb'] = initMap['min-xenial-x64']
+initMap['min-focal-x64'] = initMap['min-bionic-x64']
+initMap['min-stretch-x64'] = initMap['min-bionic-x64']
+initMap['min-xenial-x64'] = initMap['min-bionic-x64']
+initMap['min-xenial-x32'] = initMap['min-bionic-x64']
 
 capMap = [:]
 capMap['c5.xlarge']  = '60'
@@ -354,7 +350,6 @@ typeMap['docker2']           = 'r4.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
 typeMap['min-centos-8-x64']  = typeMap['min-centos-7-x64']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-artful-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32']  = 'm1.medium'
@@ -363,14 +358,12 @@ typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x32']    = 'm1.medium'
-typeMap['psmdb']             = typeMap['docker-32gb']
 
 execMap = [:]
 execMap['docker']            = '1'
 execMap['docker-32gb']       = execMap['docker']
 execMap['docker2']           = execMap['docker']
 execMap['micro-amazon']      = '30'
-execMap['min-artful-x64']    = '1'
 execMap['min-bionic-x64']    = '1'
 execMap['min-focal-x64']     = '1'
 execMap['min-centos-6-x32']  = '1'
@@ -382,33 +375,29 @@ execMap['min-stretch-x64']   = '1'
 execMap['min-xenial-x64']    = '1'
 execMap['min-xenial-x32']    = '1'
 execMap['min-buster-x64']    = '1'
-execMap['psmdb']             = '1'
 
 devMap = [:]
 devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker2']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb']       = devMap['docker']
 devMap['micro-amazon']      = devMap['docker']
-devMap['min-artful-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['min-bionic-x64']    = devMap['min-artful-x64']
-devMap['min-focal-x64']     = devMap['min-artful-x64']
-devMap['min-centos-6-x64']  = devMap['min-artful-x64']
-devMap['min-centos-7-x64']  = devMap['min-artful-x64']
-devMap['fips-centos-7-x64'] = devMap['min-artful-x64']
+devMap['min-bionic-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-focal-x64']     = devMap['min-bionic-x64']
+devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
+devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
+devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
-devMap['min-xenial-x64']    = devMap['min-artful-x64']
+devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-xenial-x32']    = '/dev/sda1=:10:false:gp2,/dev/sdd=:80:false:gp2'
 devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-buster-x64']    = devMap['docker']
-devMap['psmdb']             = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
 
 labelMap = [:]
 labelMap['docker']            = ''
 labelMap['docker-32gb']       = ''
 labelMap['docker2']           = 'docker-32gb'
 labelMap['micro-amazon']      = 'master'
-labelMap['min-artful-x64']    = ''
 labelMap['min-bionic-x64']    = 'asan'
 labelMap['min-focal-x64']     = ''
 labelMap['min-centos-6-x32']  = ''
@@ -420,7 +409,6 @@ labelMap['min-stretch-x64']   = ''
 labelMap['min-xenial-x64']    = ''
 labelMap['min-xenial-x32']    = ''
 labelMap['min-buster-x64']    = ''
-labelMap['psmdb']             = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
