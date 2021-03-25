@@ -22,7 +22,7 @@ pipeline {
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
         choice(
-            choices: ['1.6.0', '1.7.0'],
+            choices: ['1.7.0', '1.6.0'],
             description: 'Operator Version to be used for Deployment',
             name: 'OPERATOR_VERSION')
         string(
