@@ -31,6 +31,7 @@ imageMap['us-east-2a.min-buster-x64']   = 'ami-0eec7e5aeb20f40ce'
 imageMap['us-east-2a.min-stretch-x64']  = 'ami-0e24a11c7e7dd6435'
 imageMap['us-east-2a.micro-amazon']     = 'ami-01aab85a5e4a5a0fe'
 imageMap['us-east-2a.large-amazon']     = 'ami-01aab85a5e4a5a0fe'
+imageMap['us-east-2a.docker']           = 'ami-01aab85a5e4a5a0fe'
 
 imageMap['us-east-2b.min-centos-6-x64'] = imageMap['us-east-2a.min-centos-6-x64']
 imageMap['us-east-2b.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
@@ -42,6 +43,7 @@ imageMap['us-east-2b.min-buster-x64']   = imageMap['us-east-2a.min-buster-x64']
 imageMap['us-east-2b.min-stretch-x64']  = imageMap['us-east-2a.min-stretch-x64']
 imageMap['us-east-2b.micro-amazon']     = imageMap['us-east-2a.micro-amazon']
 imageMap['us-east-2b.large-amazon']     = imageMap['us-east-2a.large-amazon']
+imageMap['us-east-2b.docker']           = imageMap['us-east-2a.docker']
 
 imageMap['us-east-2c.min-centos-6-x64'] = imageMap['us-east-2a.min-centos-6-x64']
 imageMap['us-east-2c.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
@@ -53,6 +55,7 @@ imageMap['us-east-2c.min-buster-x64']   = imageMap['us-east-2a.min-buster-x64']
 imageMap['us-east-2c.min-stretch-x64']  = imageMap['us-east-2a.min-stretch-x64']
 imageMap['us-east-2c.micro-amazon']     = imageMap['us-east-2a.micro-amazon']
 imageMap['us-east-2c.large-amazon']     = imageMap['us-east-2a.large-amazon']
+imageMap['us-east-2c.docker']           = imageMap['us-east-2a.docker']
 
 priceMap = [:]
 priceMap['t2.large']  = '0.04'
@@ -71,6 +74,7 @@ userMap['min-buster-x64']    = 'admin'
 userMap['min-stretch-x64']   = 'admin'
 userMap['micro-amazon']      = 'ec2-user'
 userMap['large-amazon']      = userMap['micro-amazon']
+userMap['docker']            = userMap['micro-amazon']
 
 initMap = [:]
 initMap['min-centos-6-x64'] = '''
@@ -241,6 +245,55 @@ initMap['large-amazon']     = '''
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
+initMap['docker'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext4 ${DEVICE}
+            sudo mount -o noatime ${DEVICE} /mnt
+        fi
+    fi
+    sudo ethtool -K eth0 sg off
+    printf "127.0.0.1 $(hostname) $(hostname -A)
+    10.30.6.220 vbox-01.ci.percona.com
+    10.30.6.9 repo.ci.percona.com
+    "     | sudo tee -a /etc/hosts
+
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+    sudo amazon-linux-extras install epel -y
+    sudo yum -y install java-1.8.0-openjdk git docker p7zip
+    sudo yum -y remove java-1.7.0-openjdk
+
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+    sudo sysctl net.ipv4.tcp_fin_timeout=15
+    sudo sysctl net.ipv4.tcp_tw_reuse=1
+    sudo sysctl net.ipv6.conf.all.disable_ipv6=1
+    sudo sysctl net.ipv6.conf.default.disable_ipv6=1
+    sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
+    sudo sysctl -w fs.aio-max-nr=1048576 || true
+    sudo sysctl -w fs.file-max=6815744 || true
+    echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
+    sudo sed -i.bak -e 's/nofile=1024:4096/nofile=900000:900000/; s/DAEMON_MAXFILES=.*/DAEMON_MAXFILES=990000/' /etc/sysconfig/docker
+    echo 'DOCKER_STORAGE_OPTIONS="--data-root=/mnt/docker"' | sudo tee -a /etc/sysconfig/docker-storage
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
+    sudo systemctl daemon-reload
+    sudo install -o root -g root -d /mnt/docker
+    sudo usermod -aG docker $(id -u -n)
+    sudo mkdir -p /etc/docker
+    echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
+    sudo systemctl status docker || sudo systemctl start docker
+    sudo service docker status || sudo service docker start
+    echo "* * * * * root /usr/sbin/route add default gw 10.199.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+'''
 
 capMap = [:]
 capMap['t2.large']   = '20'
@@ -259,6 +312,7 @@ typeMap['min-buster-x64']    = typeMap['min-centos-6-x64']
 typeMap['min-stretch-x64']   = typeMap['min-centos-6-x64']
 typeMap['micro-amazon']      = 't3.large'
 typeMap['large-amazon']      = 't3.xlarge'
+typeMap['docker']            = 't3.large'
 
 execMap = [:]
 execMap['min-centos-6-x64']  = '1'
@@ -271,6 +325,7 @@ execMap['min-buster-x64']    = '1'
 execMap['min-stretch-x64']   = '1'
 execMap['micro-amazon']      = '4'
 execMap['large-amazon']      = '1'
+execMap['docker']            = '1'
 
 devMap = [:]
 devMap['min-centos-6-x64']  = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
@@ -283,6 +338,7 @@ devMap['min-buster-x64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-stretch-x64']   = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['micro-amazon']      = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['large-amazon']      = '/dev/xvda=:100:true:gp2'
+devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 
 labelMap = [:]
 labelMap['min-centos-6-x64']  = 'min-centos-6-x64'
@@ -295,6 +351,7 @@ labelMap['min-buster-x64']    = 'min-buster-x64'
 labelMap['min-stretch-x64']   = 'min-stretch-x64'
 labelMap['micro-amazon']      = 'micro-amazon nodejs master awscli'
 labelMap['large-amazon']      = 'large-amazon'
+labelMap['docker']            = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -374,6 +431,7 @@ String region = 'us-east-2'
             getTemplate('min-stretch-x64',      "${region}${it}"),
             getTemplate('micro-amazon',         "${region}${it}"),
             getTemplate('large-amazon',         "${region}${it}"),
+            getTemplate('docker'),              "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
