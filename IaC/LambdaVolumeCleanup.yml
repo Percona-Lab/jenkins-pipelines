@@ -65,7 +65,7 @@ Resources:
                       for tag in volume.tags:
                           if tag['Key'] == 'Name':
                               name = tag.get('Value')
-                          If tag['Key'] == 'PerconaKeep':
+                          if tag['Key'] == 'PerconaKeep':
                               pkeeptag = True
 
                       if "do not remove" not in name and volume.state=="available":
