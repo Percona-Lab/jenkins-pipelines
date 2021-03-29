@@ -21,7 +21,7 @@ netMap['eu-central-1b'] = 'subnet-085deaca8c1c59a4f'
 netMap['eu-central-1c'] = 'subnet-0643c0784b4e3cedd'
 
 imageMap = [:]
-imageMap['eu-central-1a.micro-amazon'] = 'ami-02f9ea74050d6f812'
+imageMap['eu-central-1a.micro-amazon'] = 'ami-013fffc873b1eaa1c'
 imageMap['eu-central-1b.micro-amazon'] = imageMap['eu-central-1a.micro-amazon']
 imageMap['eu-central-1c.micro-amazon'] = imageMap['eu-central-1a.micro-amazon']
 

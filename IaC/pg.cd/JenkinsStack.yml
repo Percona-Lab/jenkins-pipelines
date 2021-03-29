@@ -43,11 +43,11 @@ Parameters:
 Mappings:
   AmazonLinux2:
     eu-west-1:
-      x64: ami-01720b5f421cf0179
+      x64: ami-0d712b3e6e1f798ef
     eu-central-1:
-      x64: ami-03c3a7e4263fd998c
+      x64: ami-013fffc873b1eaa1c
     us-west-2:
-      x64: ami-0a36eb8fadc976275
+      x64: ami-05b622b5fa0269787
 
 Resources:
 
@@ -526,7 +526,7 @@ Resources:
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                   amazon-linux-extras install epel -y
                   yum -y update --security
-                  yum -y install java-1.8.0-openjdk jenkins-2.263.3 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install java-1.8.0-openjdk jenkins-2.277.1 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
