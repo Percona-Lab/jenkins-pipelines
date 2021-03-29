@@ -107,6 +107,9 @@ pipeline {
         INFLUXDB_USER_PASSWORD=credentials('influxdb-user-password')
         MONITORING_HOST=credentials('monitoring-host')
         EXTERNAL_EXPORTER_PORT=credentials('external-exporter-port')
+        MAILOSAUR_API_KEY=credentials('MAILOSAUR_API_KEY')
+        MAILOSAUR_SERVER_ID=credentials('MAILOSAUR_SERVER_ID')
+        MAILOSAUR_SMTP_PASSWORD=credentials('MAILOSAUR_SMTP_PASSWORD')
     }
     parameters {
         string(
