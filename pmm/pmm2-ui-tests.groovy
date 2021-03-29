@@ -191,6 +191,9 @@ pipeline {
         stage('Setup PMM Server and Kubernetes Cluster') {
             parallel {
                 stage('Start PMM Cluster Staging Instance') {
+                    when {
+                        expression { env.AMI_TEST == "no" && env.OVF_TEST == "no" }
+                    }
                     steps {
                         runClusterStaging('master')
                     }
