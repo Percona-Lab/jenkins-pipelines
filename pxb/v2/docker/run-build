@@ -1,0 +1,39 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+ROOT_DIR=$(cd $(dirname $0)/../sources; pwd -P)
+SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
+SOURCE_IMAGE=${1:-centos:7}
+
+if [[ ${SOURCE_IMAGE} == 'asan' ]]; then
+    SOURCE_IMAGE='centos:7'
+    ASAN_SWITCH=ON
+fi
+
+docker run --rm \
+    --cap-add SYS_PTRACE \
+    --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxb \
+    --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
+    public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+    sh -c "
+    set -o errexit
+    set -o xtrace
+
+    export CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'
+    export CMAKE_OPTS='${CMAKE_OPTS}'
+    export MAKE_OPTS='${MAKE_OPTS}'
+    export ASAN_SWITCH='${ASAN_SWITCH}'
+    export DOCKER_OS='${DOCKER_OS//:/-}'
+
+    mkdir /tmp/results
+    cp -r /tmp/source_downloads /tmp/results/source_downloads
+    sudo chown -R mysql:mysql /tmp/pxb
+    bash -x /tmp/scripts/build-binary /tmp/results /tmp/pxb
+
+    sudo rm -rf /tmp/pxb/results
+    sudo mkdir /tmp/pxb/results
+    sudo mv /tmp/results/*.tar.gz /tmp/pxb/results/
+    sudo chown -R $(id -u):$(id -g) /tmp/pxb/results
+"

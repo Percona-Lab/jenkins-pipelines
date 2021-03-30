@@ -19,6 +19,10 @@ if [ -f /usr/bin/yum ]; then
   RHVER="$(rpm --eval %rhel)"
   rpm --eval %_arch > /etc/yum/vars/basearch
 
+  if [[ ${RHVER} -eq 6 ]]; then
+    curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
+  fi
+
   yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
   percona-release enable tools testing
 
@@ -28,7 +32,16 @@ if [ -f /usr/bin/yum ]; then
     sleep 1
   done
 
-  PKGLIST+=" wget epel-release"
+  PKGLIST+=" wget"
+
+  until yum -y install epel-release; do
+    echo "waiting"
+    sleep 1
+  done
+  if [[ ${RHVER} -eq 6 ]]; then
+    rm /etc/yum.repos.d/epel-testing.repo
+    curl https://jenkins.percona.com/downloads/cent6/centos6-epel-eol.repo --output /etc/yum.repos.d/epel.repo
+  fi
 
   if [[ ${RHVER} -eq 8 ]]; then
       PKGLIST+=" dnf-utils"
@@ -37,12 +50,20 @@ if [ -f /usr/bin/yum ]; then
         sleep 1
       done
 
-      dnf config-manager --set-enabled PowerTools
+      dnf config-manager --set-enabled powertools
       PKGLIST+=" libedit-devel python3-docutils"
   fi
 
   if [[ ${RHVER} -lt 8 ]]; then
-      PKGLIST+=" centos-release-scl python-docutils"
+      PKGLIST+=" python-docutils"
+      until yum -y install centos-release-scl; do
+        echo "waiting"
+        sleep 1
+      done
+      if [[ ${RHVER} -eq 6 ]]; then
+        curl https://jenkins.percona.com/downloads/cent6/centos6-scl-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl.repo
+        curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
+      fi
   fi
   until yum -y install ${PKGLIST}; do
     echo "waiting"
@@ -51,7 +72,7 @@ if [ -f /usr/bin/yum ]; then
 
   if [[ ${RHVER} -eq 8 ]]; then
       wget -O /etc/yum.repos.d/percona-dev.repo https://jenkins.percona.com/yum-repo/percona-dev.repo
-      dnf config-manager --set-enabled PowerTools
+      dnf config-manager --set-enabled powertools
   fi
 
   PKGLIST=" \
@@ -63,7 +84,7 @@ if [ -f /usr/bin/yum ]; then
     libzstd-devel tzdata check-devel scons libgcrypt-devel libev-devel zlib-devel libaio-devel \
     ncurses-devel readline-devel pam-devel socat vim-common openssl perl-CPAN rsync libcurl-devel \
     python3 sysbench perl-DBD-mysql \
-    patchelf lsof automake bzip2 gnutls gnutls-devel patch lsof socat \
+    patchelf lsof automake bzip2 gnutls gnutls-devel patch lsof socat qpress \
     "
 
     if [[ ${RHVER} -eq 8 ]]; then
@@ -129,7 +150,7 @@ if [ -f /usr/bin/apt-get ]; then
         echo "waiting"
     done
 
-    until apt-get -y install lsb-release gnupg wget bc; do
+    until apt-get -y install lsb-release gnupg wget bc curl; do
         sleep 1
         echo "waiting"
     done
@@ -158,7 +179,7 @@ if [ -f /usr/bin/apt-get ]; then
         tzdata check scons libreadline-dev libgcrypt-dev libev-dev zlib1g-dev libasio-dev ncurses-dev \
         libpam-dev vim-common python3-pip libboost-all-dev rsync \
         python3 sysbench libdbd-mysql-perl \
-        patchelf lynx librtmp-dev lsof socat \
+        patchelf lynx librtmp-dev lsof socat qpress libncurses5 libtinfo5 \
     "
     
     if [[ ${DIST} != 'focal' ]]; then

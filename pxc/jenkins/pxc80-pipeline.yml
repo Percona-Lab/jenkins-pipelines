@@ -30,6 +30,10 @@
         name: PXB80_BRANCH
         default: percona-xtrabackup-8.0.12
         description: Tag/Branch for PXB80 repository
+    - bool:
+        name: PXB80_LATEST
+        default: false
+        description: "If checked, the PXB80_BRANCH will be ignored and latest available version will be used"
     - string:
         name: PXB24_REPO
         default: https://github.com/percona/percona-xtrabackup

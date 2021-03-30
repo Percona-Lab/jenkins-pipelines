@@ -1,7 +1,7 @@
 pipeline {
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
             name: 'GIT_BRANCH')
         string(
@@ -34,7 +34,7 @@ pipeline {
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
-                    ./cloud/local/checkout
+                    ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
                 """
                 stash includes: "source/**", name: "sourceFILES"
             }

@@ -13,7 +13,7 @@
     scm:
     - git:
         branches:
-        - '*/master'
+        - '*/main'
         url: https://github.com/Percona-Lab/percona-openshift
     triggers:
     - pollscm:

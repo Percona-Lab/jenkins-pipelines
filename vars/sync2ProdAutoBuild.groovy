@@ -44,7 +44,7 @@ def call(String REPO_NAME, String DESTINATION) {
                                 for deb in `find debian/\${dist} -name '*.deb'`; do
                                  pkg_fname=\$(basename \${deb})
                                  EC=0
-                                 /usr/local/reprepro5/bin/reprepro --list-format '"'"'\${package}_\${version}_\${architecture}.deb\\n'"'"' -Vb /srv/repo-copy/${REPO_NAME}/apt -C ${DESTINATION} list \${dist} | grep \${pkg_fname} > /dev/null || EC=\$?
+                                 /usr/local/reprepro5/bin/reprepro --list-format '"'"'\${package}_\${version}_\${architecture}.deb\\n'"'"' -Vb /srv/repo-copy/${REPO_NAME}/apt -C ${DESTINATION} list \${dist} | sed -re "s|[0-9]:||" | grep \${pkg_fname} > /dev/null || EC=\$?
                                  REPOPUSH_ARGS=""
                                  if [ \${EC} -eq 0 ]; then
                                      REPOPUSH_ARGS=" --remove-package "

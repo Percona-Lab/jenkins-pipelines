@@ -109,17 +109,39 @@ initMap['docker'] = '''
     set -o xtrace
 
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
-        sudo mkfs.ext4 ${DEVICE}
-        sudo mount -o noatime ${DEVICE} /mnt
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext4 ${DEVICE}
+            sudo mount -o noatime ${DEVICE} /mnt
+        fi
     fi
     sudo ethtool -K eth0 sg off
     until sudo yum makecache; do
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git aws-cli docker
+
+    sudo amazon-linux-extras install epel -y
+    sudo yum -y install java-1.8.0-openjdk git docker p7zip
     sudo yum -y remove java-1.7.0-openjdk
+
+    if ! $(aws --version | grep -q 'aws-cli/2'); then
+        find /tmp -maxdepth 1 -name "*aws*" -exec rm -rf {} +
+
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
+            sleep 1
+            echo try again
+        done
+
+        7za -o/tmp x /tmp/awscliv2.zip 
+        cd /tmp/aws && sudo ./install
+    fi
+
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
     sudo sysctl net.ipv4.tcp_fin_timeout=15
@@ -147,9 +169,16 @@ initMap['docker2'] = initMap['docker']
 initMap['micro-amazon'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
-        sudo mkfs.ext2 ${DEVICE}
-        sudo mount ${DEVICE} /mnt
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext2 ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
     fi
     until sudo yum makecache; do
         sleep 1
@@ -160,21 +189,68 @@ initMap['micro-amazon'] = '''
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-centos-6-x64'] = initMap['micro-amazon']
+initMap['min-centos-6-x64'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext2 ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
+    fi
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+    until sudo yum -y install epel-release centos-release-scl; do    
+        sleep 1
+        echo try again
+    done
+    sudo rm /etc/yum.repos.d/epel-testing.repo
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-epel-eol.repo --output /etc/yum.repos.d/epel.repo
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl.repo
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
+
+    sudo yum -y install java-1.8.0-openjdk git || :
+    sudo yum -y install aws-cli || :
+    sudo yum -y remove java-1.7.0-openjdk || :
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
 initMap['min-centos-7-x64'] = initMap['micro-amazon']
 initMap['fips-centos-7-x64'] = initMap['micro-amazon']
 initMap['min-centos-8-x64'] = initMap['micro-amazon']
 initMap['min-centos-6-x32'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
-        sudo mkfs.ext2 ${DEVICE}
-        sudo mount ${DEVICE} /mnt
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext2 ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
     fi
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
     until sudo yum makecache; do
         sleep 1
         echo try again
     done
+    until sudo yum -y install epel-release centos-release-scl; do    
+        sleep 1
+        echo try again
+    done
+    sudo rm /etc/yum.repos.d/epel-testing.repo
+    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-epel-eol.repo --output /etc/yum.repos.d/epel.repo
+
     sudo yum -y install java-1.8.0-openjdk git aws-cli || :
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
@@ -194,9 +270,16 @@ initMap['min-centos-6-x32'] = '''
 initMap['min-artful-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
-        sudo mkfs.ext2 ${DEVICE}
-        sudo mount ${DEVICE} /mnt
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext2 ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
     fi
     until sudo apt-get update; do
         sleep 1
@@ -208,9 +291,16 @@ initMap['min-artful-x64'] = '''
 initMap['min-buster-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
-        sudo mkfs.ext2 ${DEVICE}
-        sudo mount ${DEVICE} /mnt
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext2 ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
     fi
     until sudo apt-get update; do
         sleep 1
@@ -227,9 +317,16 @@ initMap['psmdb'] = initMap['min-xenial-x64']
 initMap['min-jessie-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
-        DEVICE=$(ls /dev/xvdd /dev/xvdh /dev/nvme1n1 | head -1)
-        sudo mkfs.ext2 ${DEVICE}
-        sudo mount ${DEVICE} /mnt
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext2 ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
     fi
     until sudo apt-get update; do
         sleep 1

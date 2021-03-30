@@ -1,12 +1,17 @@
 def call() {
     sh '''
-        sudo yum -y install git curl epel-release
-        sudo yum -y install python36
-        curl -fsSL https://bootstrap.pypa.io/pip/3.3/get-pip.py -o get-pip.py
-        sudo python3 get-pip.py
-        sudo env PATH=/usr/local/bin:${PATH} pip install awscli==1.15.19
-        curl -fsSL get.docker.com -o get-docker.sh
-        env -i sh get-docker.sh || sudo yum -y install docker
+        SYSREL=$(cat /etc/system-release | tr -dc '0-9.'|awk -F'.' {'print $1'})
+        if [[ $SYSREL -eq 2 ]]; then
+            sudo amazon-linux-extras install epel -y
+            sudo yum install -y docker
+        elif [[ $SYSREL -eq 7 ]]; then
+            sudo yum install -y epel-release 
+            sudo yum install -y python3 python3-pip
+            sudo pip3 install awscli
+            curl -fsSL get.docker.com -o get-docker.sh
+            env -i sh get-docker.sh || sudo yum -y install docker
+        fi
+        sudo yum -y install git curl
         sudo usermod -aG docker `id -u -n`
         sudo mkdir -p /etc/docker
         echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json

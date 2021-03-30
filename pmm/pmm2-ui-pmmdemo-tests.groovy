@@ -84,11 +84,9 @@ pipeline {
         stage('Setup Node') {
             steps {
                 sh """
-                    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
-                    . ~/.nvm/nvm.sh
-                    nvm install 12.14.1
-                    sudo rm -f /usr/bin/node
-                    sudo ln -s ~/.nvm/versions/node/v12.14.1/bin/node /usr/bin/node
+                    curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
+                    sudo yum -y install nodejs
+
                     pushd pmm-app/
                     npm install
                     node -v
@@ -128,16 +126,23 @@ pipeline {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}  & View Tests Run Report - http://${MONITORING_HOST}:9093/latest-report/"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
                 } else {
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL} & View Tests Run Report - http://${MONITORING_HOST}:9093/latest-report/"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'pmm-app/tests/output/parallel_chunk*/*.png'
                 }
             }
+            allure([
+                includeProperties: false,
+                jdk: '',
+                properties: [],
+                reportBuildPolicy: 'ALWAYS',
+                results: [[path: 'pmm-app/tests/output/allure']]
+            ])
             sh '''
                 sudo rm -r pmm-app/node_modules/
                 sudo rm -r pmm-app/tests/output

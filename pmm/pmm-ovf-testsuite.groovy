@@ -68,9 +68,11 @@ pipeline {
                     ssh -i "/tmp/${env.VM_NAME}/sshkey" -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${env.VM_IP} "
                         set -o errexit
                         set -o xtrace
+
                         git clone https://github.com/percona/pmm-qa.git --branch ${env.GIT_BRANCH}
-                        curl --silent --location https://rpm.nodesource.com/setup_8.x | sudo bash -
+                        curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
                         sudo yum -y install nodejs svn > /dev/null
+
                         export PATH=$PATH:/usr/local/node/bin > /dev/null
                         cd pmm-qa
                         npm install > /dev/null

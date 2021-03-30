@@ -1,0 +1,38 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+ROOT_DIR=$(cd $(dirname $0)/../sources; pwd -P)
+SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
+SOURCE_IMAGE=${1:-centos:7}
+
+if [[ ${SOURCE_IMAGE} == 'asan' ]]; then
+    SOURCE_IMAGE='centos:7'
+fi
+
+XTRABACKUP_TARGET_VERSION=$(set | grep -i $XTRABACKUP_TARGET'_VERSION' | awk -F '=' '{print $2}')
+
+docker run --rm \
+    --security-opt seccomp=unconfined \
+    --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxb \
+    --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
+    public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+    sh -c "
+    set -o errexit
+    set -o xtrace
+
+    export CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'
+    export XBTR_ARGS='${XBTR_ARGS}'
+    export XTRABACKUP_TARGET='${XTRABACKUP_TARGET}'
+    export XTRABACKUP_TARGET_VERSION='${XTRABACKUP_TARGET_VERSION}'
+    export BOOTSTRAP_URL='${BOOTSTRAP_URL}'
+
+    mkdir /tmp/results
+    cp /tmp/pxb/results/*.tar.gz /tmp/results
+
+    bash -x /tmp/scripts/test-binary /tmp/results
+
+    sudo mv /tmp/results/*.xml /tmp/results/*.output /tmp/results/test_results.subunit /tmp/results/PXB/percona-xtrabackup-*/results/* /tmp/pxb/results/ || true
+    sudo chown $(id -u):$(id -g) -R /tmp/pxb/results/
+"

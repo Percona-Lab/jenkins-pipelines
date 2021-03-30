@@ -32,7 +32,7 @@ void runGKEclusterAlpha(String CLUSTER_PREFIX) {
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_PREFIX} --zone us-central1-a --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --enable-autoscaling --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX}
+            gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version $GKE_VERSION --zone us-central1-a --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --enable-autoscaling --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX}
             kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
         """
    }
@@ -86,7 +86,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
-            PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'master'; fi", , returnStdout: true).trim()
+            PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             testsReportMap[TEST_NAME] = 'failure'
 
             popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
@@ -163,7 +163,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
             name: 'GIT_BRANCH')
         string(
@@ -184,31 +184,31 @@ pipeline {
             name: 'IS_GKE_ALPHA')
         string(
             defaultValue: '',
-            description: 'Operator image: perconalab/percona-xtradb-cluster-operator:master',
+            description: 'Operator image: perconalab/percona-xtradb-cluster-operator:main',
             name: 'PXC_OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:master-pxc8.0',
+            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0',
             name: 'IMAGE_PXC')
         string(
             defaultValue: '',
-            description: 'PXC proxy image: perconalab/percona-xtradb-cluster-operator:master-proxysql',
+            description: 'PXC proxy image: perconalab/percona-xtradb-cluster-operator:main-proxysql',
             name: 'IMAGE_PROXY')
         string(
             defaultValue: '',
-            description: 'PXC haproxy image: perconalab/percona-xtradb-cluster-operator:master-haproxy2.1',
+            description: 'PXC haproxy image: perconalab/percona-xtradb-cluster-operator:main-haproxy',
             name: 'IMAGE_HAPROXY')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:master-pxc8.0-backup',
+            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup',
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/percona-xtradb-cluster-operator:master-pmm',
+            description: 'PMM image: perconalab/percona-xtradb-cluster-operator:main-pmm',
             name: 'IMAGE_PMM')
         string(
             defaultValue: '',
-            description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:master-logcollector',
+            description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
             name: 'IMAGE_LOGCOLLECTOR')
     }
     agent {
@@ -318,7 +318,7 @@ pipeline {
                         runTest('tls-issue-cert-manager-ref', 'basic')
                         runTest('validation-hook', 'basic')
                         ShutdownCluster('basic')
-                   }
+                    }
                 }
                 stage('E2E Scaling') {
                     steps {

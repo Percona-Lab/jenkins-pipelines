@@ -1,10 +1,10 @@
-# aws cloudformation --region us-west-2 create-stack --template-body file://IaC/pt.cd/JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-pt --tags Key=iit-billing-tag,Value=jenkins-pt --parameters ParameterKey=JHostName,ParameterValue=pt.cd.percona.com ParameterKey=JShortName,ParameterValue=jenkins-pt
+# aws cloudformation --region us-east-2 create-stack --template-body file://IaC/pmm.cd/JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-pmm-amzn2 --tags Key=iit-billing-tag,Value=jenkins-pmm
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
 
   JHostName:
-    Default: pt.cd.percona.com
+    Default: pmm.cd.percona.com
     Description: Fully Qualified Domain Name
     Type: String
     MinLength: 1
@@ -13,7 +13,7 @@ Parameters:
     ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
 
   JShortName:
-    Default: jenkins-pt
+    Default: jenkins-pmm-amzn2
     Description: Short host name
     Type: String
     MinLength: 1
@@ -31,17 +31,30 @@ Parameters:
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
+  CacheBucketName:
+    Default: pmm-build-cache
+    Description: Fully Qualified Domain Name
+    Type: String
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: '^[a-z][a-z0-9\.\-]*$'
+    ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
+
 Mappings:
   AmazonLinux2:
+    us-east-1:
+      x64: ami-0be2609ba883822ec
+    us-east-2:
+      x64: ami-0a0ad6b70e61be944
     us-west-2:
-      x64: ami-a9d09ed1
+      x64: ami-0a36eb8fadc976275
 
 Resources:
 
-  JVPC: # separate virtual network for jenkins instances
+  JPMMv2VPC: # separate virtual network for jenkins instances
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 10.177.0.0/22
+      CidrBlock: 10.166.0.0/22
       EnableDnsSupport: true
       EnableDnsHostnames: true
       InstanceTenancy: default
@@ -51,7 +64,7 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JInternetGateway: # Internet Gateway for jenkins VPC
+  JPMMv2InternetGateway: # Internet Gateway for jenkins VPC
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
@@ -60,31 +73,17 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JVPCGatewayAttachment: # Attach Gateway to VPC
+  JPMMv2GatewayAttachment: # Attach Gateway to VPC
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      VpcId: !Ref JVPC
-      InternetGatewayId: !Ref JInternetGateway
+      VpcId: !Ref JPMMv2VPC
+      InternetGatewayId: !Ref JPMMv2InternetGateway
 
-  JSubnetA: # create subnet in AZ
+  JPMMv2SubnetB: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref JVPC
-      CidrBlock: 10.177.0.0/24
-      MapPublicIpOnLaunch: true
-      AvailabilityZone:
-        Fn::Select: [ 0, !GetAZs '' ]
-      Tags:
-      - Key: Name
-        Value: !Join [ '-', [ !Ref JShortName, 'A' ]]
-      - Key: iit-billing-tag
-        Value: !Ref JShortName
-
-  JSubnetB: # create subnet in AZ
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref JVPC
-      CidrBlock: 10.177.1.0/24
+      VpcId: !Ref JPMMv2VPC
+      CidrBlock: 10.166.1.0/24
       MapPublicIpOnLaunch: true
       AvailabilityZone:
         Fn::Select: [ 1, !GetAZs '' ]
@@ -94,11 +93,11 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JSubnetC: # create subnet in AZ
+  JPMMv2SubnetC: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref JVPC
-      CidrBlock: 10.177.2.0/24
+      VpcId: !Ref JPMMv2VPC
+      CidrBlock: 10.166.2.0/24
       MapPublicIpOnLaunch: true
       AvailabilityZone:
         Fn::Select: [ 2, !GetAZs '' ]
@@ -108,40 +107,34 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JRouteTable: # create route table for VPC
+  JPMMv2RouteTable: # create route table for VPC
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref JVPC
+      VpcId: !Ref JPMMv2VPC
       Tags:
       - Key: Name
         Value: !Ref JShortName
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JInternetRoute: # add default route
+  JPMMv2InternetRoute: # add default route
     Type: AWS::EC2::Route
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref JInternetGateway
-      RouteTableId: !Ref JRouteTable
+      GatewayId: !Ref JPMMv2InternetGateway
+      RouteTableId: !Ref JPMMv2RouteTable
 
-  SubnetARouteTable: # add subnet route
+  SubnetPMMv2BRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref JRouteTable
-      SubnetId: !Ref JSubnetA
+      RouteTableId: !Ref JPMMv2RouteTable
+      SubnetId: !Ref JPMMv2SubnetB
 
-  SubnetBRouteTable: # add subnet route
+  SubnetPMMv2CRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref JRouteTable
-      SubnetId: !Ref JSubnetB
-
-  SubnetCRouteTable: # add subnet route
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref JRouteTable
-      SubnetId: !Ref JSubnetC
+      RouteTableId: !Ref JPMMv2RouteTable
+      SubnetId: !Ref JPMMv2SubnetC
 
   S3Endpoint: # route S3 traffic over private network
     Type: AWS::EC2::VPCEndpoint
@@ -162,20 +155,59 @@ Resources:
             Resource:
             - '*'
       RouteTableIds:
-        - !Ref JRouteTable
+        - !Ref JPMMv2RouteTable
       ServiceName: !Join
         - ''
         - - com.amazonaws.
           - !Ref 'AWS::Region'
           - .s3
-      VpcId: !Ref JVPC
+      VpcId: !Ref JPMMv2VPC
 
-  SSHSecurityGroup: # allow ssh access (assign when needed)
+  TerminationQueue: # queue for termination notifications
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Join [ '-', [ !Ref JShortName, 'termination' ]]
+
+  TerminationQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref TerminationQueue
+      PolicyDocument:
+        Id: sqspolicy
+        Statement:
+          - Sid: First
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action:
+              - sqs:SendMessage
+            Resource:
+            - !GetAtt TerminationQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt TerminationRule1.Arn
+
+  TerminationRule1: # notify about instance interruption from aws side
+    Type: AWS::Events::Rule
+    Properties:
+      Description: EC2 Spot Instance Interruption Warning
+      EventPattern:
+        source:
+          - aws.ec2
+        detail-type:
+          - EC2 Spot Instance Interruption Warning
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt TerminationQueue.Arn
+          Id: !GetAtt TerminationQueue.QueueName
+
+  SSHPMMv2SecurityGroup: # allow ssh access (assign when needed)
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: SSH
+      GroupName: SSH_PMM
       GroupDescription: SSH traffic in
-      VpcId: !Ref JVPC
+      VpcId: !Ref JPMMv2VPC
       SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: 22
@@ -185,12 +217,12 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  HTTPSecurityGroup: # allow http and https access to jenkins master
+  HTTPPMMv2SecurityGroup: # allow http and https access to jenkins master
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: HTTP
+      GroupName: HTTP_PMM
       GroupDescription: HTTP and HTTPS traffic in
-      VpcId: !Ref JVPC
+      VpcId: !Ref JPMMv2VPC
       SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: 80
@@ -204,10 +236,10 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JSlaveRole: # create Role for jenkins slaves (needed for assign tags)
+  JWorkerRole: # create Role for jenkins workers (needed for assign tags)
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Join [ '-', [ !Ref JShortName, 'slave' ]]
+      RoleName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -217,7 +249,7 @@ Resources:
             Service: ec2.amazonaws.com
       Path: /
       Policies:
-      - PolicyName: !Join [ '-', [ !Ref JShortName, 'slave' ]]
+      - PolicyName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
         PolicyDocument:
           Version: 2012-10-17
           Statement:
@@ -228,16 +260,104 @@ Resources:
             - ec2:DeleteTags
             - ec2:DescribeInstances
             - ec2:DescribeSpotInstanceRequests
+          - Effect: Allow
+            Action:
+            - s3:ListBucket
+            - s3:GetObject
+            - s3:GetObjectAcl
+            - s3:PutObject
+            - s3:PutObjectAcl
+            - s3:DeleteObject
+            - s3:AbortMultipartUpload
+            Resource:
+            - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucketName ]]
+            - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucketName, '/*' ]]
 
-  JSlaveProfile: # create Profile for jenkins slaves (needed for assign tags)
+  JWorkerProfile: # create Profile for jenkins workers (needed for assign tags)
     Type: AWS::IAM::InstanceProfile
     Properties:
       Path: /
       Roles:
-        - !Ref JSlaveRole
-      InstanceProfileName: !Join [ '-', [ !Ref JShortName, 'slave' ]]
+        - !Ref JWorkerRole
+      InstanceProfileName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
 
-  JMasterRole: # create Role for jenkins master (needed for run slaves)
+  JWorkerUser: # create standalone user for jenkins jobs (needed for job-level actions)
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
+      Path: /
+      Policies:
+      - PolicyName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:PutObject
+            - s3:PutObjectAcl
+            - s3:GetObject
+            - s3:ListBucket
+            Resource:
+            - arn:aws:s3:::percona-vm
+            - arn:aws:s3:::percona-vm/*
+            - arn:aws:s3:::pmm-build-cache
+            - arn:aws:s3:::pmm-build-cache/*
+            - arn:aws:s3:::percona-jenkins-artifactory
+            - arn:aws:s3:::percona-jenkins-artifactory/*
+          - Effect: Allow
+            Action:
+            - s3:PutObject
+            - s3:PutObjectAcl
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            Resource:
+            - arn:aws:s3:::docs-test.cd.percona.com
+            - arn:aws:s3:::docs-test.cd.percona.com/*
+          - Effect: Allow
+            Action:
+            - iam:PassRole
+            Resource:
+            - !GetAtt JWorkerRole.Arn
+            - !GetAtt JWorkerProfile.Arn
+          - Effect: Allow
+            Resource: '*'
+            Action:
+            - ec2:DescribeRegions
+            - ec2:CopyImage
+            - ec2:DescribeSpotInstanceRequests
+            - ec2:CreateTags
+            - ec2:DeleteTags
+            - ec2:DescribeInstances
+            - ec2:RequestSpotInstances
+            - ec2:DescribeSpotInstanceRequests
+            - ec2:CancelSpotInstanceRequests
+            - ec2:CreateKeyPair
+            - ec2:DeleteKeyPair
+            - ec2:CreateImage
+            - ec2:RegisterImage
+            - ec2:DeregisterImage
+            - ec2:DescribeImages
+            - ec2:ModifyImageAttribute
+            - ec2:CreateSnapshot
+            - ec2:DeleteSnapshot
+            - ec2:DescribeSnapshots
+            - ec2:CreateTags
+            - ec2:RunInstances
+            - ec2:StopInstances
+            - ec2:TerminateInstances
+            - ec2:DescribeInstances
+            - ec2:CreateVolume
+            - ec2:DeleteVolume
+            - ec2:AttachVolume
+            - ec2:DetachVolume
+            - ec2:DescribeVolumes
+            - ec2:DescribeSecurityGroups
+            - ec2:DescribeSubnets
+            - ec2:DescribeInstanceStatus
+            - ec2:ModifyInstanceAttribute
+  
+  JMasterRole: # create Role for jenkins master (needed for run workers)
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Join [ '-', [ !Ref JShortName, 'master' ]]
@@ -283,12 +403,13 @@ Resources:
           Statement:
           - Effect: Allow
             Resource:
-            - !GetAtt JSlaveRole.Arn
-            - !GetAtt JSlaveProfile.Arn
+            - !GetAtt JWorkerRole.Arn
+            - !GetAtt JWorkerProfile.Arn
             Action:
             - iam:ListRoles
             - iam:PassRole
             - iam:ListInstanceProfiles
+            - iam:ListInstanceProfilesForRole
       - PolicyName: UserDataNeeds
         PolicyDocument:
           Version: 2012-10-17
@@ -302,8 +423,20 @@ Resources:
             - ec2:AssociateAddress
             - ec2:CreateTags
             - ec2:DescribeInstances
+      - PolicyName: ReadTerminationSQS
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Resource:
+            - !GetAtt TerminationQueue.Arn
+            Action:
+            - sqs:GetQueueUrl
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:DeleteMessageBatch
 
-  JMasterProfile: # create Profile for jenkins master (needed for run slaves)
+  JMasterProfile: # create Profile for jenkins master (needed for run workers)
     Type: AWS::IAM::InstanceProfile
     Properties:
       Path: /
@@ -316,7 +449,7 @@ Resources:
     Properties:
       RoleName: !Join [ '-', [ !Ref JShortName, 'SpotFleet' ]]
       ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetRole
+      - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole
       AssumeRolePolicyDocument:
         Version: 2008-10-17
         Statement:
@@ -327,7 +460,7 @@ Resources:
 
   MasterIP: # create public IP for jenkins master
     Type: AWS::EC2::EIP
-    DependsOn: JVPC
+    DependsOn: JPMMv2VPC
     Properties:
       Domain: vpc
 
@@ -365,7 +498,7 @@ Resources:
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true
-        SpotPrice: 0.16
+        SpotPrice: 0.10
         TargetCapacity: 1
         TerminateInstancesWithExpiration: false
         Type: maintain
@@ -374,31 +507,28 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !GetAtt JMasterTemplate.LatestVersionNumber
           Overrides:
-          - InstanceType: m4.large
-            AvailabilityZone:
-              Fn::Select: [ 1, !GetAZs '' ]
           - InstanceType: m5.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5.large
+          - InstanceType: m5d.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5d.large
+          - InstanceType: c5d.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
 
   JMasterTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: PTMasterTemplate
+      LaunchTemplateName: PMMv2MasterTemplate
       LaunchTemplateData:
         NetworkInterfaces:
         - DeviceIndex: 0
-          SubnetId: !Ref JSubnetB
+          SubnetId: !Ref JPMMv2SubnetB
           Groups:
-          - !GetAtt JVPC.DefaultSecurityGroup
-          - !GetAtt HTTPSecurityGroup.GroupId
-          - !GetAtt SSHSecurityGroup.GroupId
+          - !GetAtt JPMMv2VPC.DefaultSecurityGroup
+          - !GetAtt HTTPPMMv2SecurityGroup.GroupId
+          - !GetAtt SSHPMMv2SecurityGroup.GroupId
         TagSpecifications:
         - ResourceType: instance
           Tags:
@@ -469,18 +599,19 @@ Resources:
                       echo try again
                   done
 
+                  yum-config-manager --add-repo "https://openresty.org/package/rhel/7/x86_64"
+                  rpm --import https://openresty.org/package/pubkey.gpg
                   wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                   amazon-linux-extras install epel -y
                   yum -y update --security
-                  amazon-linux-extras install -y nginx1.12
-                  yum -y install java-1.8.0-openjdk-1.8.0.272.b10 jenkins-2.263.2 certbot git yum-cron aws-cli xfsprogs
+                  yum -y install java-1.8.0-openjdk jenkins-2.263.3 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
                   echo "exclude=java*" >> /etc/yum/yum-cron.conf
-                  chkconfig yum-cron on
-                  service yum-cron start
+                  systemctl enable --now yum-cron
+
               }
 
               volume_state() {
@@ -537,22 +668,18 @@ Resources:
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
                   chown -R jenkins:jenkins /mnt/$JENKINS_HOST
 
-                  wget -O /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy \
-                    https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
-                  sed -i 's/%LIST%/analysis-core build-blocker-plugin compress-buildlog conditional-buildstep copyartifact description-setter disk-usage ec2 envinject git google-login jobConfigHistory junit matrix-auth matrix-reloaded pipeline-model-definition pipeline-stage-view run-condition script-security slack ssh-slaves template-project timestamper warnings ws-cleanup/' /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy
-
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
                   sed -i 's^"-Djava.awt.headless=true"^"-Djava.awt.headless=true -Xms2048m -Xmx4096m -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc-%t.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2 -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"^' /etc/sysconfig/jenkins
                   echo JENKINS_HOME=/mnt/$JENKINS_HOST \
                       | tee -a /etc/sysconfig/jenkins
-                  chkconfig jenkins on
-                  service jenkins start
+                  systemctl enable jenkins # it will redirect to chkconfig, so enable --now wont work
+                  systemctl start jenkins
 
                   #echo "/usr/bin/aws s3 sync --sse-kms-key-id alias/jenkins-pmm-backup --sse aws:kms --exclude '*/caches/*' --exclude '*/config-history/nodes/*' --exclude '*/secretFiles/*' --delete /mnt/ s3://backup.cd.percona.com/" > /etc/cron.daily/jenkins-backup
                   #chmod 755 /etc/cron.daily/jenkins-backup
 
-                  printf "* * * * * root bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"service jenkins stop; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n* * * * * root sleep 30; bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"service jenkins stop; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n" > /etc/cron.d/terminate-check
+                  printf "* * * * * root bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n* * * * * root sleep 30; bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n" > /etc/cron.d/terminate-check
               }
 
               create_fake_ssl_cert() {
@@ -584,65 +711,81 @@ Resources:
               }
 
               setup_nginx() {
-                  sed -i'' -e 's/listen/#listen/' /etc/nginx/nginx.conf
-                  cat <<-EOF | tee /etc/nginx/conf.d/jenkins.conf
-              		upstream jenkins {
-              		  server 127.0.0.1:8080 fail_timeout=0;
-              		}
+                  if [ ! -f /mnt/$JENKINS_HOST/ssl/nginx.conf ]; then
+                      cat <<-EOF | tee /mnt/$JENKINS_HOST/ssl/nginx.conf
+              			upstream jenkins {
+              			  server 127.0.0.1:8080 fail_timeout=0;
+              			}
 
-              		server {
-              		  listen 80;
-              		  server_name $JENKINS_HOST;
+              			server {
+              			  listen 80;
+              			  server_name $JENKINS_HOST;
 
-              		  # letsencrypt certificates validation
-              		  location /.well-known {
-              		    alias /usr/share/nginx/html/.well-known;
-              		  }
+              			  # letsencrypt certificates validation
+              			  location /.well-known {
+              			    alias /usr/share/nginx/html/.well-known;
+              			  }
 
-              		  # or redirect to https
-              		  if (\$uri !~* ^/.well-known) {
-              		    return 301 https://\$host\$request_uri;
-              		  }
-              		}
+              			  # or redirect to https
+              			  if (\$uri !~* ^/.well-known) {
+              			    return 301 https://\$host\$request_uri;
+              			  }
+              			}
 
-              		server {
-              		  listen 443 ssl;
-              		  server_name $JENKINS_HOST;
+              			server {
+              			  listen 443 ssl;
+              			  server_name $JENKINS_HOST;
 
-              		  ssl_certificate /etc/nginx/ssl/certificate.crt;
-              		  ssl_certificate_key /etc/nginx/ssl/certificate.key;
-              		  ssl_trusted_certificate /etc/nginx/ssl/ca-certs.pem;
-              		  ssl_dhparam     /etc/nginx/ssl/dhparam.pem;
+              			  ssl_certificate             /etc/nginx/ssl/certificate.crt;
+              			  ssl_certificate_key         /etc/nginx/ssl/certificate.key;
+              			  ssl_trusted_certificate     /etc/nginx/ssl/ca-certs.pem;
+              			  ssl_dhparam                 /etc/nginx/ssl/dhparam.pem;
 
-              		  location / {
-              		    proxy_set_header        Host \$host:\$server_port;
-              		    proxy_set_header        X-Real-IP \$remote_addr;
-              		    proxy_set_header        X-Forwarded-For \$proxy_add_x_forwarded_for;
-              		    proxy_set_header        X-Forwarded-Proto \$scheme;
-              		    proxy_redirect http:// https://;
-              		    proxy_pass              http://jenkins;
-              		    # Required for new HTTP-based CLI
-              		    proxy_http_version 1.1;
-              		    proxy_request_buffering off;
-              		    proxy_buffering off; # Required for HTTP-based CLI to work over SSL
-              		    # workaround for https://issues.jenkins-ci.org/browse/JENKINS-45651
-              		    add_header 'X-SSH-Endpoint' '$JENKINS_HOST:50022' always;
-              		  }
-              		}
-              	EOF
-                  chkconfig nginx on
-                  service nginx start
+              			  resolver                    8.8.8.8 ipv6=off;
+              			  lua_ssl_trusted_certificate /etc/pki/tls/certs/ca-bundle.crt;
+              			  lua_ssl_verify_depth        3;
+              			  satisfy                     any;
+
+              			  location / {
+              			    proxy_set_header        Host \$host:\$server_port;
+              			    proxy_set_header        X-Real-IP \$remote_addr;
+              			    proxy_set_header        X-Forwarded-For \$proxy_add_x_forwarded_for;
+              			    proxy_set_header        X-Forwarded-Proto \$scheme;
+              			    proxy_redirect http:// https://;
+              			    proxy_pass              http://jenkins;
+              			    # Required for new HTTP-based CLI
+              			    proxy_http_version 1.1;
+              			    proxy_request_buffering off;
+              			    proxy_buffering off; # Required for HTTP-based CLI to work over SSL
+              			    # workaround for https://issues.jenkins-ci.org/browse/JENKINS-45651
+              			    add_header 'X-SSH-Endpoint' '$JENKINS_HOST:50022' always;
+              			    rewrite ^/$ $scheme://$server_name/blue/pipelines/ last;
+              			  }
+              			}
+              		EOF
+                  fi
+
+                  ln -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
+                  sed -i'' -e 's/listen/#listen/; s/mime.types/jenkins.conf/' /usr/local/openresty/nginx/conf/nginx.conf
+
+                  systemctl enable --now openresty
               }
 
               setup_letsencrypt() {
-                  certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
+                  install -d /usr/share/nginx/html
+                  if [[ -d /mnt/ssl_backup ]]; then
+                    rsync -aHSv --delete /mnt/ssl_backup/ /etc/letsencrypt/
+                    certbot renew
+                  else
+                    certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
+                  fi
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
-                  printf '#!/bin/sh\ncertbot renew\nservice nginx restart\n' > /etc/cron.daily/certbot
+                  printf '#!/bin/sh\ncertbot renew\nsystemctl restart openresty\nrsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/\n' > /etc/cron.daily/certbot
                   chmod 755 /etc/cron.daily/certbot
-                  service nginx stop
+                  systemctl stop openresty
                   sleep 2
-                  service nginx start
+                  systemctl start openresty
               }
 
               setup_dhparam() {
@@ -650,12 +793,27 @@ Resources:
                       openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem 4096
                   fi
                   cp /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem /etc/nginx/ssl/dhparam.pem
-                  service nginx restart
+                  systemctl restart openresty
+              }
+
+              setup_ssh_ciphers() {
+                LIST_ALLOWED_KEX="diffie-hellman-group18-sha512,diffie-hellman-group14-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512"
+                LIST_ALLOWED_KEY="ssh-ed25519,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,ssh-rsa,ssh-dss"
+                LIST_ALLOWED_ENC="aes128-gcm@openssh.com,chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr"
+                LIST_ALLOWED_MAC="hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com"
+                
+                sed -i 's/Ciphers .*//g; s/HostKeyAlgorithms .*//g; s/KexAlgorithms .*//g; s/MACs .*//g' /etc/ssh/sshd_config
+                echo "Ciphers $LIST_ALLOWED_ENC" | tee -a /etc/ssh/sshd_config
+                echo "HostKeyAlgorithms $LIST_ALLOWED_KEY" | tee -a /etc/ssh/sshd_config
+                echo "KexAlgorithms $LIST_ALLOWED_KEX" | tee -a /etc/ssh/sshd_config
+                echo "MACs $LIST_ALLOWED_MAC" | tee -a /etc/ssh/sshd_config
+                systemctl reload sshd
               }
 
               main() {
                   setup_aws
                   install_software
+                  setup_ssh_ciphers
                   mount_data_partition
                   start_jenkins
                   create_fake_ssl_cert

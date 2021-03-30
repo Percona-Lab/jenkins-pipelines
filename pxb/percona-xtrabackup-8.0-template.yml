@@ -125,7 +125,7 @@
             PKGLIST="bison pkg-config cmake devscripts debconf debhelper automake bison ca-certificates libcurl4-openssl-dev"
             PKGLIST="${PKGLIST} cmake debhelper libaio-dev libncurses-dev libssl-dev libtool libz-dev"
             PKGLIST="${PKGLIST} libgcrypt-dev libev-dev lsb-release python-docutils"
-            PKGLIST="${PKGLIST} build-essential rsync libdbd-mysql-perl libnuma1 socat librtmp-dev libtinfo5 qpress"
+            PKGLIST="${PKGLIST} build-essential rsync libdbd-mysql-perl libnuma1 socat librtmp-dev libtinfo5 qpress liblz4-tool liblz4-1 liblz4-dev"
             if [[ "$DIST" == 'focal' ]]; then
                 PKGLIST="${PKGLIST} python3-sphinx"
             else
@@ -220,9 +220,11 @@
         #!/bin/bash -x
 
         if [[ ${xtrabackuptarget} == "galera57" ]] || [[ ${xtrabackuptarget} == "xtradb80" ]]; then
-            if [[ $(lsb_release -sc) == "xenial" ]] && [[ $(uname -m) == "i686" ]]; then
-                    echo "$(uname -m) is not supported for ${xtrabackuptarget} target, this is a stub we decided to implement in PXB-2368"
-                    exit 0
+            if [ -f /usr/bin/apt-get ]; then
+                if [[ $(lsb_release -sc) == "xenial" ]] && [[ $(uname -m) == "i686" ]]; then
+                        echo "$(uname -m) is not supported for ${xtrabackuptarget} target, this is a stub we decided to implement in PXB-2368"
+                        exit 0
+                fi
             fi
         fi
 
@@ -260,8 +262,10 @@
         fi
 
         if [[ ${xtrabackuptarget} == "galera57" ]] || [[ ${xtrabackuptarget} == "xtradb80" ]]; then
-            if [[ $(lsb_release -sc) == "xenial" ]] && [[ $(uname -m) == "i686" ]]; then
-                unsupported=true
+            if [ -f /usr/bin/apt-get ]; then
+                if [[ $(lsb_release -sc) == "xenial" ]] && [[ $(uname -m) == "i686" ]]; then
+                    unsupported=true
+                fi
             fi
         fi
         if [[ ! -z ${unsupported} ]] && [[ ${unsupported} == true ]]; then
@@ -296,8 +300,8 @@
                 https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.22-29.26/binary/tarball/Percona-XtraDB-Cluster-5.7.22-rel22-29.26.1.Linux.$(uname -m).ssl${SSL_VER}.tar.gz
         else
             case "${xtrabackuptarget}" in
-                xtradb80) ./bootstrap.sh --type=${xtrabackuptarget} --version=${xtradb80_version} ;;
-                innodb80) ./bootstrap.sh --type=${xtrabackuptarget} --version=${innodb80_version} ;;
+                xtradb80) ./bootstrap.sh --pxb-type=${BUILD_TYPE} --type=${xtrabackuptarget} --version=${xtradb80_version} ;;
+                innodb80) ./bootstrap.sh --pxb-type=${BUILD_TYPE} --type=${xtrabackuptarget} --version=${innodb80_version} ;;
             esac
         fi
     - shell: |-
@@ -328,8 +332,10 @@
         cd ${XB_TEST_ROOT_DIR}/test
 
         if [[ ${xtrabackuptarget} == "galera57" ]] || [[ ${xtrabackuptarget} == "xtradb80" ]]; then
-            if [[ $(lsb_release -sc) == "xenial" ]] && [[ $(uname -m) == "i686" ]]; then
-                unsupported=true
+            if [ -f /usr/bin/apt-get ]; then
+                if [[ $(lsb_release -sc) == "xenial" ]] && [[ $(uname -m) == "i686" ]]; then
+                    unsupported=true
+                fi
             fi
         fi
         if [[ ! -z ${unsupported} ]] && [[ ${unsupported} == true ]]; then
@@ -372,9 +378,13 @@
             export LD_PRELOAD=
         fi
 
+        if [[ ${BUILD_TYPE} == "debug" ]] && [[ ${xtrabackuptarget} == "innodb80" ]]; then
+            more_test_arguments+= "-D"
+        fi
+
         # Limit the number of workers to cpu amount
         export XB_TEST_MAX_WORKERS=${THREADS}
-        if ! ./run.sh -c ${xtrabackuptarget} ${more_test_arguments} ; then
+        if ! ./run.sh -c ${xtrabackuptarget} ${more_test_arguments}; then
             cat results/setup
         #  status=255
         fi

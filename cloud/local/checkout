@@ -12,7 +12,7 @@ ROOT_DIR=$(cd $(dirname $0)/../..; pwd -P)/source
 clone_repo() {
     ROOT_DIR=$1
     GIT_REPO=$2
-    BRANCH=${3:-master}
+    BRANCH=${3:-main}
 
     if [ ! -d "${ROOT_DIR}" ]; then
         git clone "${GIT_REPO}" "${ROOT_DIR}"

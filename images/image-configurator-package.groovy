@@ -90,7 +90,7 @@ pipeline {
                 // prepare spec file
                 deleteDir()
                 sh '''
-                    git clone https://github.com/percona/pmm-server-packaging.git ./
+                    git clone https://github.com/percona/pmm-server.git ./
                     git rev-parse HEAD
                 '''
                 unstash 'packaging'

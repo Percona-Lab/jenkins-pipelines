@@ -1,0 +1,104 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Clean unused volumes everyday"
+Resources:
+
+  RoleVolumeCleanup:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: "Allow"
+            Principal: 
+              Service: 
+                - "lambda.amazonaws.com"
+                - "ec2.amazonaws.com"
+                - "logs.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Path: "/"
+      RoleName: RoleVolumeCleanup
+      Tags: 
+        - Key: iit-billing-tag
+          Value: lambda-cleanup-volumes
+
+  PolicyVolumeCleanup:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles: 
+        - !Ref RoleVolumeCleanup
+      PolicyName: PolicyVolumeCleanup
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - ec2:DescribeVolumes
+              - ec2:DeleteVolume
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: '*'
+
+  LambdaVolumeCleanup:
+    Type: AWS::Lambda::Function
+    Properties: 
+      FunctionName: LambdaVolumeCleanup
+      Description: Cleans up unused volumes
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      MemorySize : 128
+      Timeout: 240
+      Code: 
+        ZipFile: |
+          import boto3
+
+          def lambda_handler(event, context):
+              regions=["us-east-1", "us-east-2", "us-west-1", "us-west-2", "eu-central-1", "eu-west-1", "eu-west-2", "eu-west-3"]
+              for region in regions:
+                  ec2 = boto3.resource("ec2", region_name=region)
+                  volumes = ec2.volumes.filter(Filters=[{"Name":"tag:Name", "Values":["*"]}])
+
+                  for volume in volumes:
+                      pkeeptag = ''
+                      for tag in volume.tags:
+                          if tag['Key'] == 'Name':
+                              name = tag.get('Value')
+                          if tag['Key'] == 'PerconaKeep':
+                              pkeeptag = True
+
+                      if "do not remove" not in name and volume.state=="available":
+                          if pkeeptag != True:
+                              volumeObject=ec2.Volume(volume.id)
+                              volumeObject.delete()
+                              print("Deleted ID: " + volume.id, "In region: " + region, sep="\n")
+      Role: !GetAtt RoleVolumeCleanup.Arn
+      Tags:
+        - Key: iit-billing-tag
+          Value: lambda-cleanup-volumes
+
+  EventVolumeCleanup:
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: "Executed every day and triggers Lambda function to cleanup volumes"
+      Name: EventVolumeCleanup
+      ScheduleExpression: "rate(1 day)"
+      State: "ENABLED"
+      Targets: 
+        - Arn: !GetAtt LambdaVolumeCleanup.Arn
+          Id: LambdaVolumeCleanup
+
+  PermissionForEventsToInvokeLambda: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: !Ref LambdaVolumeCleanup
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt EventVolumeCleanup.Arn
+
+  LambdaLogGroup: 
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: "/aws/lambda/LambdaVolumeCleanup"
+      RetentionInDays: 7

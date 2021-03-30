@@ -1,0 +1,61 @@
+- job:
+    name: percona-xtrabackup-8.0-test-pipeline
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: true
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines
+            branches:
+            - "master"
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pxb/v2/jenkins/percona-xtrabackup-8.0-test-pipeline.groovy
+    parameters:
+    - choice:
+        name: DOCKER_OS
+        choices:
+          - centos:7
+          - centos:8
+          - ubuntu:xenial
+          - ubuntu:bionic
+          - ubuntu:focal
+          - debian:stretch
+          - debian:buster
+          - asan
+        description: OS version for compilation
+    - choice:
+        name: CMAKE_BUILD_TYPE
+        choices:
+          - RelWithDebInfo
+          - Debug
+        description: Type of build to produce
+    - choice:
+        name: XTRABACKUP_TARGET
+        choices:
+        - innodb80
+        - xtradb80
+        description: Type of build to produce  
+    - string:
+        name: BOOTSTRAP_URL
+        default:
+        description: 
+    - string:
+        name: INNODB80_VERSION
+        default: "8.0.21"
+        description: Version of MySQL InnoDB80 which will be used for bootstrap.sh script
+    - string:
+        name: XTRADB80_VERSION
+        default: "8.0.20-11"
+        description: Version of Percona XtraDB80 which will be used for bootstrap.sh script
+    - string:
+        name: XBTR_ARGS
+        default:
+        description: "./run.sh options, for options like: -j N Run tests in N parallel processes, -T seconds, -x options Extra options to pass to xtrabackup"
+    - choice:
+        name: LABEL
+        choices:
+        - docker
+        description: Run build on specified instance type. 

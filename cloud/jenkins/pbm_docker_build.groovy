@@ -5,7 +5,7 @@ void build(String IMAGE_PREFIX){
         mkdir -p src/github.com/percona
         ln -s \$SOURCE_ROOT_DIR  src/github.com/percona/percona-backup-mongodb
         cd src/github.com/percona/percona-backup-mongodb
-        docker run --rm -v \$(pwd):/go/src/github.com/percona/percona-backup-mongodb -w /go/src/github.com/percona/percona-backup-mongodb golang:1.14 make build
+        docker run --rm -v \$(pwd):/go/src/github.com/percona/percona-backup-mongodb -w /go/src/github.com/percona/percona-backup-mongodb golang:1.14 sh -c 'apt-get update -y && apt-get install -y libkrb5-dev && make build'
         cd \$SOURCE_ROOT_DIR
         docker build -t perconalab/percona-server-mongodb-operator:main-${IMAGE_PREFIX} -f docker/Dockerfile.k8s .
         sudo rm -rf ./vendor
@@ -80,7 +80,7 @@ pipeline {
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
-                    ./cloud/local/checkout
+                    ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
                 """
                 stash includes: "source/**", name: "sourceFILES"
             }

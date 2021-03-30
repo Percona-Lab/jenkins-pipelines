@@ -1,0 +1,92 @@
+- job:
+    name: percona-xtrabackup-8.0-compile-param
+    project-type: matrix
+    defaults: global
+    description: |
+        Do not edit this job through the web!
+    disabled: false
+    concurrent: true
+    auth-token: xbparam24
+    node: micro-amazon
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 50
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 50
+    parameters:
+    - string:
+        name: GIT_REPO
+        default: "https://github.com/percona/percona-xtrabackup"
+        description: URL to percona-xtrabackup repository
+    - string:
+        name: BRANCH
+        default: "8.0"
+        description: Tag/Branch for percona-xtrabackup repository
+    - string:
+        name: CMAKE_OPTS
+        default:
+        description: cmake options
+    - string:
+        name: MAKE_OPTS
+        default:
+        description: make options, like VERBOSE=1
+    - choice:
+        name: LABEL
+        choices:
+        - docker
+        description: Run build on specified instance type. 
+    axes:
+      - axis:
+         type: user-defined
+         name: CMAKE_BUILD_TYPE
+         values:
+          - RelWithDebInfo
+          - Debug
+      - axis:
+         type: user-defined
+         name: DOCKER_OS
+         values:
+         - centos:7
+         - centos:8
+         - ubuntu:xenial
+         - ubuntu:bionic
+         - ubuntu:focal
+         - debian:stretch
+         - debian:buster
+         - asan
+    builders:
+    - trigger-builds:
+      - project: percona-xtrabackup-8.0-compile-pipeline
+        current-parameters: true
+        predefined-parameters: |
+          DOCKER_OS=${DOCKER_OS}
+          CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        block: true
+        block-thresholds:
+          build-step-failure-threshold: FAILURE
+          unstable-threshold: never
+          failure-threshold: FAILURE
+    - shell: |
+        sudo find . -name "*.xml" -o -name "*.log" -delete
+    - copyartifact:
+        project: percona-xtrabackup-8.0-compile-pipeline
+        which-build: specific-build
+        build-number: "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_compile_pipeline}"
+        do-not-fingerprint: true
+    - shell: |
+        echo "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_compile_pipeline}" > PIPELINE_BUILD_NUMBER
+        gunzip build.log.gz
+    publishers:
+    - warnings:
+        workspace-file-scanners:
+        - file-pattern: 'build.log'
+          scanner: 'GNU C Compiler 4 (gcc)'
+        run-always: true
+        shouldDetectModules: false
+    - archive:
+        artifacts: 'PIPELINE_BUILD_NUMBER'
+    - archive:
+        artifacts: 'COMPILE_BUILD_TAG'
+    - archive:
+        artifacts: 'build.log'

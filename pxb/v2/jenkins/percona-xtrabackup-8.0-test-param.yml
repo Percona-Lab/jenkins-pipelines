@@ -1,0 +1,93 @@
+- job:
+    name: percona-xtrabackup-8.0-test-param
+    project-type: matrix
+    defaults: global
+    description: |
+        Do not edit this job through the web!
+    disabled: false
+    concurrent: true
+    auth-token: xbparam24
+    node: micro-amazon
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 50
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 50
+    parameters:
+    - string:
+        name: BOOTSTRAP_URL
+        default: ""
+        description: 
+    - string:
+        name: INNODB80_VERSION
+        default: "8.0.21"
+        description: Version of MySQL InnoDB80 which will be used for bootstrap.sh script
+    - string:
+        name: XTRADB80_VERSION
+        default: "8.0.20-11"
+        description: Version of Percona XtraDB80 which will be used for bootstrap.sh script
+    - string:
+        name: XBTR_ARGS
+        default: ""
+        description: "./run.sh options, for options like: -j N Run tests in N parallel processes, -T seconds, -x options Extra options to pass to xtrabackup"
+    - choice:
+        name: LABEL
+        choices:
+        - docker
+        description: Run build on specified instance type. 
+    axes:
+    - axis:
+        name: CMAKE_BUILD_TYPE
+        type: user-defined
+        values:
+          - RelWithDebInfo
+          - Debug
+    - axis:
+        type: user-defined
+        name: DOCKER_OS
+        values:
+        - centos:7
+        - centos:8
+        - ubuntu:xenial
+        - ubuntu:bionic
+        - ubuntu:focal
+        - debian:stretch
+        - debian:buster
+        - asan
+    - axis:
+        name: XTRABACKUP_TARGET
+        type: user-defined
+        values:
+        - innodb80
+        - xtradb80
+    builders:
+    - trigger-builds:
+      - project: percona-xtrabackup-8.0-test-pipeline
+        current-parameters: true
+        predefined-parameters: |
+          DOCKER_OS=${DOCKER_OS}
+          CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+          XTRABACKUP_TARGET=${XTRABACKUP_TARGET}
+        block: true
+        block-thresholds:
+          build-step-failure-threshold: FAILURE
+          unstable-threshold: never
+          failure-threshold: FAILURE
+    - shell: |
+        sudo find . -name "*.xml" -o -name "*.log" -delete
+    - copyartifact:
+        project: percona-xtrabackup-8.0-test-pipeline
+        which-build: specific-build
+        build-number: "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_test_pipeline}"
+        do-not-fingerprint: true
+    - shell: |
+        echo "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_test_pipeline}" > PIPELINE_BUILD_NUMBER
+    publishers:
+    - junit:
+        results: "**/junit.xml"
+        keep-long-stdio: true
+    - archive:
+        artifacts: 'PIPELINE_BUILD_NUMBER'
+    - archive:
+        artifacts: 'junit.xml'

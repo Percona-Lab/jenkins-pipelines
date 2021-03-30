@@ -39,6 +39,7 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
             export stress="1"
             export table_c="100"
             export tap="1"
+            export PMM_VERSION=${PMM_VERSION}
 
             sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
             export CLIENT_VERSION=${CLIENT_VERSION}
@@ -120,6 +121,10 @@ pipeline {
             defaultValue: '',
             description: 'Commit hash for pmm-qa branch',
             name: 'PMM_QA_GIT_COMMIT_HASH')
+        string(
+            defaultValue: '2.16.0',
+            description: 'Commit hash for pmm-qa branch',
+            name: 'PMM_VERSION')
     }
     options {
         skipDefaultCheckout()
@@ -134,11 +139,8 @@ pipeline {
                 deleteDir()
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
-                    curl -o - https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
-                    . ~/.nvm/nvm.sh
-                    nvm install 12.14.1
-                    sudo rm -f /usr/bin/node
-                    sudo ln -s ~/.nvm/versions/node/v12.14.1/bin/node /usr/bin/node
+                    curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
+                    sudo yum -y install nodejs
                     npm install tap-junit
                 '''
             }
@@ -188,6 +190,11 @@ pipeline {
         stage('Test: MDB_4_0') {
             steps {
                 runTAP("modb", "modb", "3", "4.0")
+            }
+        }
+        stage('Test: HAPROXY') {
+            steps {
+                runTAP("haproxy", "haproxy", "1", "2.4")
             }
         }
         stage('Test: MS57') {
@@ -240,9 +247,12 @@ pipeline {
     post {
         always {
             sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             fetchAgentLog(CLIENT_VERSION)
+            script {
+                junit allowEmptyResults: true, testResults: '**/*.xml'
+            }
             script {
                 if(env.VM_NAME) {
                     destroyStaging(VM_NAME)
