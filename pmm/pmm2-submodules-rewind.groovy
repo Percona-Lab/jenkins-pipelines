@@ -2,6 +2,13 @@ pipeline {
     agent {
         label 'micro-amazon'
     }
+    parameters {
+        string(
+            defaultValue: 'PMM-2.0',
+            description: 'Tag/Branch for pmm-submodules repository like PMM-2.0, release-2.xy',
+            name: 'GIT_BRANCH'
+        )
+    }
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         skipDefaultCheckout()
@@ -9,12 +16,12 @@ pipeline {
         skipStagesAfterUnstable()
     }
     triggers {
-        cron('H/10 * * * *')
+        cron(params.GIT_BRANCH == 'PMM-2.0' ? 'H/10 * * * *' : '')
     }
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'PMM-2.0', credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
+                git branch: GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
                         echo "/usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh

@@ -4,9 +4,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 pipeline {
-    environment {
-        DESTINATION = 'pmm2-components/yum/laboratory'
-    }
     agent {
         label 'large-amazon'
     }
@@ -15,6 +12,10 @@ pipeline {
             defaultValue: 'PMM-2.0',
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
+        choice(
+            choices: 'laboratory\ntesting\nexperimental\nrelease',
+            description: 'Repo component to push packages to',
+            name: 'DESTINATION') 
     }
     options {
         skipDefaultCheckout()
@@ -52,7 +53,7 @@ pipeline {
                     popd
 
                     git rev-parse --short HEAD > shortCommit
-                    echo "UPLOAD/${DESTINATION}/${JOB_NAME}/pmm/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
+                    echo "UPLOAD/pmm2-components/yum/${DESTINATION}/${JOB_NAME}/pmm/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
                 '''
                 archiveArtifacts 'uploadPath'
                 stash includes: 'uploadPath', name: 'uploadPath'

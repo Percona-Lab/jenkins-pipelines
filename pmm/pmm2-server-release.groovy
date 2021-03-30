@@ -12,7 +12,7 @@ pipeline {
     }
     parameters {
         choice(
-            choices: 'laboratory',
+            choices: 'laboratory\ntesting\nexperimental',
             description: 'publish pmm2-server packages from regular(laboratory) repository',
             name: 'UPDATER_REPO')
         string(
