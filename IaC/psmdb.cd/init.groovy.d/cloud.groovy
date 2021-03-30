@@ -22,14 +22,14 @@ netMap['us-west-2b'] = 'subnet-03136d8c244f56036'
 netMap['us-west-2c'] = 'subnet-09103aa8678a054f7'
 
 imageMap = [:]
-imageMap['micro-amazon'] = 'ami-09c5e030f74651050'
+imageMap['micro-amazon'] = 'ami-05b622b5fa0269787'
 imageMap['min-centos-6-x64'] = 'ami-0362922178e02e9f3'
 imageMap['min-centos-7-x64'] = 'ami-0686851c4e7b1a8e1'
-imageMap['min-stretch-x64'] = 'ami-02230925ee31677e3'
-imageMap['min-xenial-x64'] = 'ami-076cbb27c223df09a'
-imageMap['min-bionic-x64'] = 'ami-025102f49d03bec05'
+imageMap['min-stretch-x64'] = 'ami-0ada74f78fa02ad0d'
+imageMap['min-xenial-x64'] = 'ami-0ee876776acf64c80'
+imageMap['min-bionic-x64'] = 'ami-007f3fc421aeb286e'
 imageMap['psmdb'] = imageMap['min-xenial-x64']
-imageMap['psmdb-bionic'] = 'ami-025102f49d03bec05'
+imageMap['psmdb-bionic'] = imageMap['min-bionic-x64']
 imageMap['docker'] = imageMap['micro-amazon']
 imageMap['docker-32gb'] = imageMap['micro-amazon']
 
