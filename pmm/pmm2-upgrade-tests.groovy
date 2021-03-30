@@ -14,7 +14,7 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
     env.PMM_URL = "http://admin:admin@${VM_IP}"
-    env.PMM_UI_URL = "http://${VM_IP}"
+    env.PMM_UI_URL = "http://${VM_IP}/"
 }
 
 void destroyStaging(IP) {
@@ -23,15 +23,24 @@ void destroyStaging(IP) {
     ]
 }
 
-void checkUpgrade(String PMM_VERSION) {
+void checkUpgrade(String PMM_VERSION, String PRE_POST) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                 export PMM_VERSION=${PMM_VERSION}
                 echo "Checking";
-                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
-                bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh ${PMM_VERSION}
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh 
+                bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh ${PMM_VERSION} ${PRE_POST}
             '
+        """
+    }
+}
+
+void uploadAllureArtifacts() {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            scp -r -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+                pmm-app/tests/output/allure aws-jenkins@${MONITORING_HOST}:/home/aws-jenkins/allure-reports
         """
     }
 }
@@ -61,6 +70,9 @@ pipeline {
         INFLUXDB_USER=credentials('influxdb-user')
         INFLUXDB_USER_PASSWORD=credentials('influxdb-user-password')
         MONITORING_HOST=credentials('monitoring-host')
+        MAILOSAUR_API_KEY=credentials('MAILOSAUR_API_KEY')
+        MAILOSAUR_SERVER_ID=credentials('MAILOSAUR_SERVER_ID')
+        MAILOSAUR_SMTP_PASSWORD=credentials('MAILOSAUR_SMTP_PASSWORD')
     }
     parameters {
         string(
@@ -68,17 +80,21 @@ pipeline {
             description: 'Tag/Branch for grafana-dashboards repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: ['2.3.0', '2.4.0', '2.5.0', '2.6.0', '2.6.1', '2.7.0'],
+            choices: ['2.3.0', '2.4.0', '2.5.0', '2.6.0', '2.6.1', '2.7.0', '2.8.0', '2.9.0', '2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1'],
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_VERSION')
         choice(
-            choices: ['2.3.0', '2.4.0', '2.5.0', '2.6.0', '2.6.1', '2.7.0'],
+            choices: ['2.3.0', '2.4.0', '2.5.0', '2.6.0', '2.6.1', '2.7.0', '2.8.0', '2.9.0', '2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1'],
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.7.1',
+            defaultValue: '2.16.0',
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
+        string(
+            defaultValue: 'master',
+            description: 'Tag/Branch for pmm-qa repository',
+            name: 'PMM_QA_GIT_BRANCH')
     }
     options {
         skipDefaultCheckout()
@@ -90,17 +106,20 @@ pipeline {
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/grafana-dashboards.git'
 
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 installDocker()
                 sh '''
-                    sudo yum -y update --security
                     sudo yum -y install jq svn
                     sudo usermod -aG docker ec2-user
                     sudo service docker start
-                    sudo curl -L https://github.com/docker/compose/releases/download/1.21.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/local/bin/docker-compose > /dev/null
-                    sudo chmod +x /usr/local/bin/docker-compose
-                    sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
-                    sudo docker-compose --version
+                    sudo mkdir -p /srv/pmm-qa || :
+                    pushd /srv/pmm-qa
+                        sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                        sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
+                        sudo chmod 755 pmm-tests/install-google-chrome.sh
+                        bash ./pmm-tests/install-google-chrome.sh
+                    popd
+                    sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
                 '''
             }
         }
@@ -121,7 +140,7 @@ pipeline {
         }
         stage('Check Packages before Upgrade') {
             steps {
-                checkUpgrade(DOCKER_VERSION);
+                checkUpgrade(DOCKER_VERSION, "pre");
             }
         }
         stage('Run Upgrade Tests & Remote Instances Tests') {
@@ -130,7 +149,6 @@ pipeline {
                     sh """
                         curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
                         sudo yum -y install nodejs
-
                         pushd pmm-app/
                         npm install
                         node -v
@@ -141,7 +159,8 @@ pipeline {
                         pushd pmm-app/
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
-                        sudo docker run -e PMM_SERVER_LATEST=${PMM_SERVER_LATEST} -e DOCKER_VERSION=${DOCKER_VERSION}  --env VM_IP=${VM_IP} --env AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} --env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} --env-file env.generated.list --net=host -v \$PWD:/tests -v \$PWD/node_modules:/node_modules codeception/codeceptjs:2.6.1 codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
+                        export CHROMIUM_PATH=/usr/bin/chromium
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
                         popd
                     """
                     }
@@ -149,7 +168,7 @@ pipeline {
         }
         stage('Check Packages after Upgrade') {
             steps {
-                checkUpgrade(PMM_SERVER_LATEST);
+                checkUpgrade(PMM_SERVER_LATEST, "post");
             }
         }
     }
@@ -168,20 +187,25 @@ pipeline {
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
                     archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
                     junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'pmm-app/tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-app/tests/output/parallel_chunk*/*.png'
                     archiveArtifacts artifacts: 'pmm-app/tests/output/video/*.mp4'
                 }
             }
+            allure([
+                includeProperties: false,
+                jdk: '',
+                properties: [],
+                reportBuildPolicy: 'ALWAYS',
+                results: [[path: 'pmm-app/tests/output/allure']]
+            ])
             sh '''
                 sudo rm -r pmm-app/node_modules/
                 sudo rm -r pmm-app/tests/output

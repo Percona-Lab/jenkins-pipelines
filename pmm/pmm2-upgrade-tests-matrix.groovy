@@ -21,7 +21,7 @@ pipeline {
             description: 'Tag/Branch for grafana-dashboards repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '2.7.1',
+            defaultValue: '2.16.0',
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
     }
@@ -29,42 +29,12 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-    triggers { cron('0 0 * * SAT') }
+    triggers { 
+        cron('0 3 * * *') 
+    }
     stages {
         stage('Run Upgrade Matrix-1') {
             parallel {
-                stage('Upgrade from 2.3.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.3.0', '2.3.0', PMM_SERVER_LATEST );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.4.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.4.0', '2.4.0', PMM_SERVER_LATEST );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.5.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.5.0', '2.5.0', PMM_SERVER_LATEST );
-                        }
-                    }
-                }
-            }
-        }
-        stage('Run Upgrade Matrix-2') {
-            parallel {
-                stage('Upgrade from 2.6.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.6.0', '2.6.0', PMM_SERVER_LATEST );
-                        }
-                    }
-                }
                 stage('Upgrade from 2.6.1'){
                     steps {
                         script {
@@ -79,6 +49,90 @@ pipeline {
                         }
                     }
                 }
+                stage('Upgrade from 2.8.0'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.8.0', '2.8.0', PMM_SERVER_LATEST );
+                        }
+                    }
+                }
+                stage('Upgrade from 2.9.0'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.9.0', '2.9.0', PMM_SERVER_LATEST );
+                        }
+                    }
+                }
+                stage('Upgrade from 2.9.1'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.9.1', '2.9.1', PMM_SERVER_LATEST );
+                        }
+                    }
+                }
+                stage('Upgrade from 2.10.0'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.10.0', '2.10.0', PMM_SERVER_LATEST );
+                        }
+                    }
+                }
+                stage('Upgrade from 2.10.1'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.10.1', '2.10.1', PMM_SERVER_LATEST );
+                        }
+                    }
+                }
+                stage('Upgrade from 2.11.0'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.11.0', '2.11.0', PMM_SERVER_LATEST );
+                        }
+                    }
+                }
+                stage('Upgrade from 2.11.1'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.11.1', '2.11.1', PMM_SERVER_LATEST );
+                        }
+                    }
+                }
+                stage('Upgrade from 2.12.0'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.12.0', '2.12.0', PMM_SERVER_LATEST );
+                        }
+                    }
+                }
+                stage('Upgrade from 2.13.0'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.13.0', '2.13.0', PMM_SERVER_LATEST );
+                        }
+                    }
+                }
+                stage('Upgrade from 2.14.0'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.14.0', '2.14.0', PMM_SERVER_LATEST );
+                        }
+                    }
+                }
+                stage('Upgrade from 2.15.0'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.15.0', '2.15.0', PMM_SERVER_LATEST );
+                        }
+                    }
+                }
+                stage('Upgrade from 2.15.1'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.15.1', '2.15.1', PMM_SERVER_LATEST );
+                        }
+                    }
+                }
             }
         }
     }
@@ -86,9 +140,9 @@ pipeline {
         always {
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
                 } else {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
             }
             deleteDir()
