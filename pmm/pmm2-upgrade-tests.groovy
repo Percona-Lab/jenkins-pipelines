@@ -125,7 +125,7 @@ pipeline {
         }
         stage('Start staging') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1')
+                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --setup-with-custom-settings')
             }
         }
         stage('Sanity check') {
