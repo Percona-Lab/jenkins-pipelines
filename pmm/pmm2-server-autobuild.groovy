@@ -7,13 +7,17 @@ pipeline {
     agent {
         label 'large-amazon'
     }
+    environment {
+        DOCKER_LATEST_TAG = 'dev-latest'
+    }
     parameters {
         string(
             defaultValue: 'PMM-2.0',
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: 'laboratory\ntesting\nexperimental\nrelease',
+            // default is choices.get(0) - laboratory
+            choices: ['laboratory', 'testing'],
             description: 'Repo component to push packages to',
             name: 'DESTINATION') 
     }
@@ -54,7 +58,16 @@ pipeline {
 
                     git rev-parse --short HEAD > shortCommit
                     echo "UPLOAD/pmm2-components/yum/${DESTINATION}/${JOB_NAME}/pmm/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
+                    cat VERSION > versionTag
                 '''
+
+                script {
+                    def versionTag = readFile('versionTag').trim()
+                    if (params.DESTINATION == 'testing') {
+                        env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}"
+                    }
+                }
+
                 archiveArtifacts 'uploadPath'
                 stash includes: 'uploadPath', name: 'uploadPath'
                 archiveArtifacts 'shortCommit'
@@ -161,11 +174,11 @@ pipeline {
 
                         ./build/bin/build-server-docker
 
-                        docker tag  \\${DOCKER_TAG} perconalab/pmm-server:dev-latest
+                        docker tag  \\${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
                         docker push \\${DOCKER_TAG}
-                        docker push perconalab/pmm-server:dev-latest
+                        docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
                         docker rmi  \\${DOCKER_TAG}
-                        docker rmi  perconalab/pmm-server:dev-latest
+                        docker rmi  perconalab/pmm-server:${DOCKER_LATEST_TAG}
                     "
                 '''
                 stash includes: 'results/docker/TAG', name: 'IMAGE'
@@ -179,7 +192,7 @@ pipeline {
         }
         stage('Push to public repository') {
             steps {
-                sync2ProdPMM(DESTINATION, 'no')
+                sync2ProdPMM("pmm2-components/yum/${DESTINATION}", 'no')
             }
         }
     }
