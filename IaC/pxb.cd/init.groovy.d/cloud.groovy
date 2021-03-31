@@ -83,10 +83,10 @@ initMap['docker'] = '''
 
     sudo amazon-linux-extras install epel -y
     sudo yum -y install java-1.8.0-openjdk git docker p7zip
-    sudo yum -y remove java-1.7.0-openjdk
+    sudo yum -y remove java-1.7.0-openjdk awscli
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
-        find /tmp -maxdepth 1 -name "*aws*" -exec rm -rf {} +
+        find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
 
         until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
             sleep 1
