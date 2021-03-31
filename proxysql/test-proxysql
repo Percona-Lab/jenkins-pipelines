@@ -38,45 +38,82 @@ function process_proxysql_output {
 }
 
 WORKDIR_ABS=$(cd ${1:-./build/proxysql}; pwd -P)
-rm -fr ${WORKDIR_ABS}/WORKDIR ${WORKDIR_ABS}/PXB ${WORKDIR_ABS}/PXC
-mkdir -p ${WORKDIR_ABS}/WORKDIR/PROXY  ${WORKDIR_ABS}/WORKDIR/PXC
+rm -rf ${WORKDIR_ABS}/WORKDIR ${WORKDIR_ABS}/PROXY_ADMIN
+mkdir -p ${WORKDIR_ABS}/PROXY_ADMIN ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/usr/bin ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/etc
 
-if [[ "${PXC_VERSION}" == "PXC80" ]]; then
-    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_8.0.20-11.3_Linux.x86_64.glibc2.12-minimal.tar.gz https://www.percona.com/downloads/Percona-XtraDB-Cluster-LATEST/Percona-XtraDB-Cluster-8.0.20-11.3/binary/tarball/Percona-XtraDB-Cluster_8.0.20-11.3_Linux.x86_64.glibc2.12-minimal.tar.gz
-    sudo tar -C ${WORKDIR_ABS}/WORKDIR/PXC --strip-components=1 -zxpf $(ls $WORKDIR_ABS/WORKDIR/Percona-XtraDB-Cluster_8.0.20-11.3_Linux.x86_64.glibc2.12-minimal.tar.gz | head -1)
-elif [[ "${PXC_VERSION}" == "PXC57" ]]; then
-    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster-5.7.31-rel34-45.3.Linux.x86_64.glibc2.12-minimal.tar.gz  https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.31-31.45-3/binary/tarball/Percona-XtraDB-Cluster-5.7.31-rel34-45.3.Linux.x86_64.glibc2.12-minimal.tar.gz
-    sudo tar -C ${WORKDIR_ABS}/WORKDIR/PXC --strip-components=1 -zxpf $(ls $WORKDIR_ABS/WORKDIR/Percona-XtraDB-Cluster-5.7.31-rel34-45.3.Linux.x86_64.glibc2.12-minimal.tar.gz | head -1)
-    if [ -f /usr/bin/yum ]; then
-        sudo yum remove -y Percona-Server-shared-56-5.6.49-rel89.0.1.el7.x86_64
-        if [[ $RHEL -eq 8 ]]; then
-            sudo yum remove -y mariadb-connector-c-config-3.0.7-1.el8.noarch
-        fi
-        sudo yum install -y percona-xtrabackup-24 Percona-XtraDB-Cluster-57 proxysql2
-    else
-        sudo apt update -y
-        sudo apt install -y percona-xtrabackup-24 percona-xtradb-cluster-client-5.7 proxysql2
-    fi
+if [ -f /usr/bin/yum ]; then
+# Installing proxysql 2.0.latest package
+  sudo percona-release enable proxysql testing
+  sudo yum install -y proxysql2
+
+  if [[ "${PXC_VERSION}" == "PXC80" ]]; then
+# Downloading PXC-8.0 tarball package
+    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_8.0.22-13.1_Linux.x86_64.glibc2.17-minimal.tar.gz https://www.percona.com/downloads/Percona-XtraDB-Cluster-LATEST/Percona-XtraDB-Cluster-8.0.22/binary/tarball/Percona-XtraDB-Cluster_8.0.22-13.1_Linux.x86_64.glibc2.17-minimal.tar.gz
+
+# Installing PXC-8.0 client package
+    sudo percona-release enable pxc-80 release
+    sudo yum install -y percona-xtradb-cluster-client
+  elif [[ "${PXC_VERSION}" == "PXC57" ]]; then
+# Downloading PXC-5.7 tarball package
+    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster-5.7.33-rel36-49.1.Linux.x86_64.glibc2.12-minimal.tar.gz  https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.33-31.49/binary/tarball/Percona-XtraDB-Cluster-5.7.33-rel36-49.1.Linux.x86_64.glibc2.12-minimal.tar.gz
+
+# Installing PXC-5.7 client package
+    sudo percona-release enable pxc-57 release
+    sudo yum install -y Percona-XtraDB-Cluster-client-57
+
+# Installing PXB-2.4 (only required in case of PXC-5.7)
+    sudo percona-release enable pxb-24 release
+    sudo yum install -y percona-xtrabackup-24
+  fi
+elif [ -f /usr/bin/apt ]; then
+# In Linux distributions that rely on dpkg, the packages wget, gnupg2, curl and lsb-release are already installed. However, these packages may be missing from Docker base images. In this case, install them manually before running dpkg
+  sudo apt-get update
+  sudo apt-get install -y wget gnupg2 lsb-release curl
+
+# Installing proxysql 2.0.latest package
+  sudo percona-release enable proxysql testing
+  sudo apt-get update -y
+  sudo apt-get install -y proxysql2
+
+  if [[ "${PXC_VERSION}" == "PXC80" ]]; then
+# Downloading PXC-8.0 tarball package
+    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_8.0.22-13.1_Linux.x86_64.glibc2.17-minimal.tar.gz https://www.percona.com/downloads/Percona-XtraDB-Cluster-LATEST/Percona-XtraDB-Cluster-8.0.22/binary/tarball/Percona-XtraDB-Cluster_8.0.22-13.1_Linux.x86_64.glibc2.17-minimal.tar.gz
+
+# Installing PXC-8.0 client package
+    sudo percona-release enable pxc-80 release
+    sudo apt-get update -y
+    sudo apt-get install -y percona-xtradb-cluster-client
+  elif [[ "${PXC_VERSION}" == "PXC57" ]]; then
+# Downloading PXC-5.7 tarball package
+    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster-5.7.33-rel36-49.1.Linux.x86_64.glibc2.12-minimal.tar.gz  https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.33-31.49/binary/tarball/Percona-XtraDB-Cluster-5.7.33-rel36-49.1.Linux.x86_64.glibc2.12-minimal.tar.gz
+
+# Installing PXC-5.7 client
+    sudo percona-release enable pxc-57 release
+    sudo apt-get update -y
+    sudo apt-get install -y percona-xtradb-cluster-client-5.7
+
+# Installing PXB-2.4 (only required in case of PXC-5.7)
+    sudo percona-release enable pxb-24 release
+    sudo apt-get install -y percona-xtrabackup-24
+  fi
 fi
-
-tar -C ${WORKDIR_ABS}/WORKDIR/PROXY  --strip-components=1 -zxpf $(ls $WORKDIR_ABS/proxysql*.tar.gz | head -1)
 
 pushd ${WORKDIR_ABS}/WORKDIR
-sudo tar -xzf $WORKDIR_ABS/proxysql*.tar.gz -C ${WORKDIR_ABS}/WORKDIR
-sudo cp $WORKDIR_ABS/WORKDIR/PROXY/etc/proxysql.cnf /etc/
-sudo cp $WORKDIR_ABS/WORKDIR/PROXY/etc/proxysql-admin.cnf /etc/
-sudo cp $WORKDIR_ABS/WORKDIR/PROXY/usr/bin/* /usr/bin
-cp $WORKDIR_ABS/WORKDIR/PROXY/usr/bin/proxysql-* $WORKDIR_ABS/WORKDIR/
-sudo chmod 644 /etc/proxysql*.cnf
+sudo tar -xzf $WORKDIR_ABS/proxysql*.tar.gz -C ${WORKDIR_ABS}/PROXY_ADMIN
+sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/usr/bin/proxysql-admin ${WORKDIR_ABS}/WORKDIR/proxysql-admin
+sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/usr/bin/proxysql-admin-common ${WORKDIR_ABS}/WORKDIR/proxysql-admin-common
+sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/usr/bin/proxysql-login-file ${WORKDIR_ABS}/WORKDIR/proxysql-login-file
+sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/etc/proxysql-admin.cnf ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/etc/proxysql-admin.cnf
+sudo ln -s /usr/bin/proxysql $WORKDIR_ABS/WORKDIR/proxysql-2.0/usr/bin/proxysql
 status=0
+
 # Running ProxySQL QA script
-if [ -f /usr/bin/yum ]; then
-    sudo cp /etc/hosts ${WORKDIR_ABS}/hosts.new
-    sudo sed -i 's/::1*.*localhost /::1 /' ${WORKDIR_ABS}/hosts.new
-    sudo cp -f ${WORKDIR_ABS}/hosts.new /etc/hosts
-fi
-sudo sed -i 's/wsrep_sst_method=rsync/wsrep_sst_method=xtrabackup-v2/g' $WORKDIR_ABS/WORKDIR/PROXY/tests/proxysql-admin-testsuite.sh
-sudo bash $WORKDIR_ABS/WORKDIR/PROXY/tests/proxysql-admin-testsuite.sh \
+sudo cp /etc/hosts ${WORKDIR_ABS}/hosts.new
+sudo sed -i 's/::1*.*localhost /::1 /' ${WORKDIR_ABS}/hosts.new
+sudo cp -f ${WORKDIR_ABS}/hosts.new /etc/hosts
+
+sudo sed -i 's/wsrep_sst_method=rsync/wsrep_sst_method=xtrabackup-v2/g' $WORKDIR_ABS/PROXY_ADMIN/proxysql*/tests/proxysql-admin-testsuite.sh
+sudo bash $WORKDIR_ABS/PROXY_ADMIN/proxysql*/tests/proxysql-admin-testsuite.sh \
 $WORKDIR_ABS/WORKDIR | tee $WORKDIR_ABS/WORKDIR/proxysql_qa.output || status=$?
 process_proxysql_output PROXYSQL "$WORKDIR_ABS/WORKDIR/proxysql_qa.output" "${WORKDIR_ABS}/WORKDIR/junit.xml"
 popd
