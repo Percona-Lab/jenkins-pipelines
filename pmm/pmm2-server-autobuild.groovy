@@ -55,16 +55,17 @@ pipeline {
                     git lfs pull
                     git lfs checkout
                     popd
+                    ls -la
+                    pwd
 
                     git rev-parse --short HEAD > shortCommit
                     echo "UPLOAD/pmm2-components/yum/${DESTINATION}/${JOB_NAME}/pmm/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
-                    ls -la
                     cat VERSION > versionTag
                 '''
 
                 script {
-                    def versionTag = readFile('versionTag').trim()
-                    if (params.DESTINATION == 'testing') {
+                    def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
+                    if ("${DESTINATION}" == "testing") {
                         env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}"
                     }
                 }
