@@ -38,6 +38,7 @@ pipeline {
                     cd ../
                     wget https://github.com/git-lfs/git-lfs/releases/download/v2.7.1/git-lfs-linux-amd64-v2.7.1.tar.gz
                     tar -zxvf git-lfs-linux-amd64-v2.7.1.tar.gz
+                    rm git-lfs-linux-amd64-v2.7.1.tar.gz
                     sudo ./install.sh
                     cd $curdir
 
@@ -55,7 +56,6 @@ pipeline {
 
                     git rev-parse --short HEAD > shortCommit
                     echo "UPLOAD/pmm2-components/yum/${DESTINATION}/${JOB_NAME}/pmm/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
-                    cat VERSION > versionTag
                 '''
 
                 script {
