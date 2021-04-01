@@ -24,14 +24,14 @@ imageMap = [:]
 imageMap['us-east-2a.min-centos-6-x64'] = 'ami-ff48629a'
 imageMap['us-east-2a.min-centos-7-x64'] = 'ami-00f8e2c955f7ffa9b'
 imageMap['us-east-2a.min-centos-8-x64'] = 'ami-0ac6967966621d983'
-imageMap['us-east-2a.min-focal-x64']    = 'ami-0996d3051b72b5b2c'
-imageMap['us-east-2a.min-bionic-x64']   = 'ami-02aa7f3de34db391a'
-imageMap['us-east-2a.min-xenial-x64']   = 'ami-0c9c2203357e2568a'
-imageMap['us-east-2a.min-buster-x64']   = 'ami-0eec7e5aeb20f40ce'
-imageMap['us-east-2a.min-stretch-x64']  = 'ami-0e24a11c7e7dd6435'
-imageMap['us-east-2a.micro-amazon']     = 'ami-01aab85a5e4a5a0fe'
-imageMap['us-east-2a.large-amazon']     = 'ami-01aab85a5e4a5a0fe'
-imageMap['us-east-2a.docker']           = 'ami-01aab85a5e4a5a0fe'
+imageMap['us-east-2a.min-focal-x64']    = 'ami-02fc6052104add5ae'
+imageMap['us-east-2a.min-bionic-x64']   = 'ami-09135e71dc2619458'
+imageMap['us-east-2a.min-xenial-x64']   = 'ami-089fe97bc00bff7cc'
+imageMap['us-east-2a.min-buster-x64']   = 'ami-089fe97bc00bff7cc'
+imageMap['us-east-2a.min-stretch-x64']  = 'ami-037c986a9eb533931'
+imageMap['us-east-2a.micro-amazon']     = 'ami-05d72852800cbf29e'
+imageMap['us-east-2a.large-amazon']     = 'ami-05d72852800cbf29e'
+imageMap['us-east-2a.docker']           = 'ami-05d72852800cbf29e'
 
 imageMap['us-east-2b.min-centos-6-x64'] = imageMap['us-east-2a.min-centos-6-x64']
 imageMap['us-east-2b.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
@@ -431,7 +431,7 @@ String region = 'us-east-2'
             getTemplate('min-stretch-x64',      "${region}${it}"),
             getTemplate('micro-amazon',         "${region}${it}"),
             getTemplate('large-amazon',         "${region}${it}"),
-            getTemplate('docker'),              "${region}${it}"),
+            getTemplate('docker',               "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
