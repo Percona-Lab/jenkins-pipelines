@@ -2,7 +2,7 @@
     name: manage-ssh-allow-list
     project-type: pipeline
     description: |
-        report uptime of jenkins master
+        Setup AWS SSH Security group on current Jenkins
         Do not edit this job through the web!
     disabled: false
     concurrent: false
@@ -20,7 +20,7 @@
         description: IP without /32
     dsl: |
       pipeline {
-          agent { label "jenkins" }
+          agent { label "micro-amazon" }
           stages {
               stage('Add IP') {
                   steps {
