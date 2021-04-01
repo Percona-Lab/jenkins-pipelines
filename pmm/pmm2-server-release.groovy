@@ -12,7 +12,8 @@ pipeline {
     }
     parameters {
         choice(
-            choices: 'laboratory',
+            // default is choices.get(0) - laboratory
+            choices: ['laboratory', 'testing'],
             description: 'publish pmm2-server packages from regular(laboratory) repository',
             name: 'UPDATER_REPO')
         string(
