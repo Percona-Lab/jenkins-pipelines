@@ -783,19 +783,20 @@ Resources:
                 KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan illia.pshonkin alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen kamil.babayev"
 
                 for KEY in $KEYS_LIST; do
-                    if [[ ! -f "/tmp/$KEY.pub" ]]; then
+                    RETRY="3"
+                    while [ $RETRY != "0" ]; do
                         STATUS=$(curl -Is https://www.percona.com/get/engineer/KEY/$KEY.pub | head -n1 | awk '{print $2}')
                         if [[ ${STATUS} -eq 200 ]]; then
-                            until wget -O "/tmp/$KEY.pub" "https://www.percona.com/get/engineer/KEY/$KEY.pub"; do
-                                echo "sleep before retry"
-                                sleep 1
-                            done
+                            curl -s https://www.percona.com/get/engineer/KEY/$KEY.pub | tee -a /home/ec2-user/.ssh/authorized_keys
+                            RETRY="0"
                         elif [[ ${STATUS} -eq 404 ]]; then
                             echo "Skipping key $KEY"
+                            RETRY=0
+                        else
+                            echo "Got $STATUS, retrying"
+                            RETRY=$(($RETRY-1))
                         fi
-                    fi
-                    cat /tmp/$KEY.pub | tee -a /home/ec2-user/.ssh/authorized_keys
-                    rm /tmp/$KEY.pub
+                    done
                 done
               }
 
