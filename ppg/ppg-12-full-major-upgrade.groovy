@@ -3,7 +3,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "molecule/ppg/pg-12-full-major-upgrade"
+def moleculeDir = "ppg/pg-12-full-major-upgrade"
 
 pipeline {
   agent {
