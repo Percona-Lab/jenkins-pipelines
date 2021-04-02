@@ -36,6 +36,24 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
     }
 }
 
+void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
+                export PMM_VERSION=${PMM_VERSION}
+                echo "Upgrading pmm2-client";
+                sudo percona-release enable-only original testing
+                sudo yum clean all
+                sudo yum makecache
+                sudo yum -y install pmm2-client
+                sudo yum -y update
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
+                bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION} ${PRE_POST}
+            '
+        """
+    }
+}
+
 void uploadAllureArtifacts() {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
@@ -169,6 +187,11 @@ pipeline {
         stage('Check Packages after Upgrade') {
             steps {
                 checkUpgrade(PMM_SERVER_LATEST, "post");
+            }
+        }
+        stage('Check Client Upgrade') {
+            steps {
+                checkClientAfterUpgrade(PMM_SERVER_LATEST, "post");
             }
         }
     }
