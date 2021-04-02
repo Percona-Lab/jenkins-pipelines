@@ -62,6 +62,7 @@ pipeline {
                     def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
                     if ("${DESTINATION}" == "testing") {
                         env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}"
+                        env.DOCKER_RC_TAG = "${versionTag}-rc"
                     } else {
                         env.DOCKER_LATEST_TAG = "dev-latest"
                     }
@@ -173,6 +174,11 @@ pipeline {
 
                         ./build/bin/build-server-docker
 
+                        if [ ! -z \${DOCKER_RC_TAG+x} ]; then
+                            docker tag  \\${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
+                            docker push perconalab/pmm-server:\${DOCKER_RC_TAG}
+                            docker rmi perconalab/pmm-server:\${DOCKER_RC_TAG}
+                        fi
                         docker tag  \\${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
                         docker push \\${DOCKER_TAG}
                         docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}

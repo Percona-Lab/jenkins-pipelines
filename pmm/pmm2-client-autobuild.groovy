@@ -88,29 +88,27 @@ pipeline {
                         "
                     """
                 }
-                sh """
+                sh '''
                     sg docker -c "
                         set -o xtrace
 
                         export PUSH_DOCKER=1
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client:\$(date -u '+%Y%m%d%H%M')
+                        export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')
 
                         ./build/bin/build-client-docker
 
-                        if [[ \$DESTINATION == testing* ]]; then
-                            echo "Testing Repo"
-                            docker tag  \${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_LATEST_TAG}
-                        else
-                            docker tag  \${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_LATEST_TAG} perconalab/pmm-client:\${DOCKER_RC_TAG}
+                        if [ ! -z \${DOCKER_RC_TAG+x} ]; then
+                            docker tag  \\${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_RC_TAG}
                             docker push perconalab/pmm-client:\${DOCKER_RC_TAG}
                             docker rmi perconalab/pmm-client:\${DOCKER_RC_TAG}
                         fi
-                        docker push \${DOCKER_CLIENT_TAG}
+                        docker tag  \\${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_LATEST_TAG}
+                        docker push \\${DOCKER_CLIENT_TAG}
                         docker push perconalab/pmm-client:\${DOCKER_LATEST_TAG}
-                        docker rmi  \${DOCKER_CLIENT_TAG}
+                        docker rmi  \\${DOCKER_CLIENT_TAG}
                         docker rmi  perconalab/pmm-client:\${DOCKER_LATEST_TAG}
                     "
-                """
+                '''
                 stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
                 archiveArtifacts 'results/docker/CLIENT_TAG'
             }
