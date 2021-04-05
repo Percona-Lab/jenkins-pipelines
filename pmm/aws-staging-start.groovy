@@ -428,7 +428,7 @@ pipeline {
                         fi
                         export PATH=\$PATH:/usr/sbin:/sbin
                         if [[ \$PMM_VERSION == pmm2 ]]; then
-                            if [[ \$CLIENT_VERSION == dev-latest ]] || [[ \$CLIENT_VERSION == pmm2-latest ]] || [[ \$CLIENT_VERSION == 2* ]]; then
+                            if [[ \$CLIENT_VERSION == dev-latest ]] || [[ \$CLIENT_VERSION == pmm2-latest ]] || [[ \$CLIENT_VERSION == pmm2-rc ]] || [[ \$CLIENT_VERSION == 2* ]]; then
                                 pmm-admin --version
                                 if [[ \$CLIENT_INSTANCE == yes ]]; then
                                     if [[ \$ENABLE_PUSH_MODE == yes ]]; then
