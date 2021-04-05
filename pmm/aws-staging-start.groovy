@@ -35,6 +35,10 @@ pipeline {
             name: 'ENABLE_TESTING_REPO')
         choice(
             choices: ['no', 'yes'],
+            description: 'Enable Release Candidate Repo?',
+            name: 'ENABLE_RC_REPO')
+        choice(
+            choices: ['no', 'yes'],
             description: 'Enable Push Mode, if you are using this instance as Client Node',
             name: 'ENABLE_PUSH_MODE')
         choice(
@@ -291,7 +295,7 @@ pipeline {
         }
         stage('Enable Testing Repo') {
             when {
-                expression { env.ENABLE_TESTING_REPO == "yes" && env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" }
+                expression { env.ENABLE_TESTING_REPO == "yes" && env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" && env.ENABLE_RC_REPO == "no" }
             }
             steps {
                 script {
@@ -313,6 +317,30 @@ pipeline {
                 }
             }
         }
+        stage('Enable laboratory Repo') {
+            when {
+                expression { env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" && env.ENABLE_RC_REPO == "yes" }
+            }
+            steps {
+                script {
+                    withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
+                        sh """
+                            export IP=\$(cat IP)
+                            export VM_NAME=\$(cat VM_NAME)
+                        """
+                        node(env.VM_NAME){
+                            sh """
+                                set -o errexit
+                                set -o xtrace
+                                docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
+                                docker exec \${VM_NAME}-server percona-release enable original experimental
+                                docker exec \${VM_NAME}-server yum clean all
+                            """
+                        }
+                    }
+                }
+            }
+        }
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
@@ -325,6 +353,12 @@ pipeline {
                         sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
                         if [[ \$CLIENT_VERSION = dev-latest ]]; then
                             sudo percona-release enable-only original testing
+                            sudo yum clean all
+                            sudo yum makecache
+                            sudo yum -y install pmm2-client
+                            sudo yum -y update
+                        elif [[ \$CLIENT_VERSION = pmm2-rc ]]; then
+                            sudo percona-release enable-only original experimental
                             sudo yum clean all
                             sudo yum makecache
                             sudo yum -y install pmm2-client
