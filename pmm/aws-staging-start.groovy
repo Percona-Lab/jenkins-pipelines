@@ -317,7 +317,7 @@ pipeline {
                 }
             }
         }
-        stage('Enable laboratory Repo') {
+        stage('Enable RC Repo') {
             when {
                 expression { env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" && env.ENABLE_RC_REPO == "yes" }
             }
