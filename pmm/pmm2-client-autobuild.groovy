@@ -13,7 +13,7 @@ pipeline {
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: 'testing\nlaboratory',
+            choices: ['testing', 'laboratory'],
             description: 'publish result package to internal (testing) or external (laboratory) repository',
             name: 'DESTINATION')
     }
@@ -39,6 +39,16 @@ pipeline {
                     git rev-parse --short HEAD > shortCommit
                     echo "UPLOAD/${DESTINATION}/${JOB_NAME}/pmm2/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
                 '''
+                script {
+                    def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
+                    if ("${DESTINATION}" == "laboratory") {
+                        env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}"
+                        env.DOCKER_RC_TAG = "${versionTag}-rc"
+                    } else {
+                        env.DOCKER_LATEST_TAG = "dev-latest"
+                    }
+                }
+
                 archiveArtifacts 'uploadPath'
                 stash includes: 'uploadPath', name: 'uploadPath'
                 archiveArtifacts 'shortCommit'
@@ -87,11 +97,16 @@ pipeline {
 
                         ./build/bin/build-client-docker
 
-                        docker tag  \\${DOCKER_CLIENT_TAG} perconalab/pmm-client:dev-latest
+                        if [ ! -z \${DOCKER_RC_TAG+x} ]; then
+                            docker tag  \\${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_RC_TAG}
+                            docker push perconalab/pmm-client:\${DOCKER_RC_TAG}
+                            docker rmi perconalab/pmm-client:\${DOCKER_RC_TAG}
+                        fi
+                        docker tag  \\${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_LATEST_TAG}
                         docker push \\${DOCKER_CLIENT_TAG}
-                        docker push perconalab/pmm-client:dev-latest
+                        docker push perconalab/pmm-client:\${DOCKER_LATEST_TAG}
                         docker rmi  \\${DOCKER_CLIENT_TAG}
-                        docker rmi  perconalab/pmm-client:dev-latest
+                        docker rmi  perconalab/pmm-client:\${DOCKER_LATEST_TAG}
                     "
                 '''
                 stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
