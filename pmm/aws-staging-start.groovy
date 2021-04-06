@@ -35,7 +35,7 @@ pipeline {
             name: 'ENABLE_TESTING_REPO')
         choice(
             choices: ['no', 'yes'],
-            description: 'Enable Release Candidate Repo?',
+            description: 'Enable Experimental Repo?',
             name: 'ENABLE_RC_REPO')
         choice(
             choices: ['no', 'yes'],
@@ -317,7 +317,7 @@ pipeline {
                 }
             }
         }
-        stage('Enable RC Repo') {
+        stage('Enable Experimental Repo') {
             when {
                 expression { env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" && env.ENABLE_RC_REPO == "yes" }
             }
