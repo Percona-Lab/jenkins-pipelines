@@ -21,7 +21,11 @@
     - string:
         name: BRANCH
         default: "8.0"
-        description: Tag/Branch for PXC repository
+        description: Tag/PR/Branch for PXC repository
+    - bool:
+        name: USE_PR
+        default: false
+        description: "Check only if you pass PR number to BRANCH field"
     - string:
         name: PXB80_REPO
         default: https://github.com/percona/percona-xtrabackup
