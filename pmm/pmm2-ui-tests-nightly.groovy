@@ -28,6 +28,16 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
+void runClusterStaging(String PMM_QA_GIT_BRANCH) {
+    clusterJob = build job: 'kubernetes-cluster-staging', parameters: [
+        string(name: 'NOTIFY', value: 'false'),
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
+        string(name: 'DAYS', value: '1')
+    ]
+    env.CLUSTER_IP = clusterJob.buildVariables.IP
+    env.KUBECONFIG = clusterJob.buildVariables.KUBECONFIG
+}
+
 void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
@@ -181,9 +191,18 @@ pipeline {
                 runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--setup-alertmanager', CLIENT_INSTANCE, SERVER_IP)
             }
         }
-        stage('Start Client Instance') {
-            steps {
-                runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=pdpgsql,1 --addclient=ps,1 --addclient=md,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --addclient=pxc,3 --with-proxysql --pmm2 --setup-alertmanager --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP)
+        stage('Setup PMM Client and Kubernetes Cluster') {
+            parallel {
+                stage('Start PMM Cluster Staging Instance') {
+                    steps {
+                        runClusterStaging('master')
+                    }
+                }
+                stage('Start Client Instance') {
+                    steps {
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=pdpgsql,1 --addclient=ps,1 --addclient=md,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --addclient=pxc,3 --with-proxysql --pmm2 --setup-alertmanager --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP)
+                    }
+                }
             }
         }
         stage('Sanity check') {
@@ -219,9 +238,9 @@ pipeline {
                 """
             }
         }
-        stage('Run UI - QAN Tests') {
+        stage('Run UI - Tests') {
             options {
-                timeout(time: 30, unit: "MINUTES")
+                timeout(time: 35, unit: "MINUTES")
             }
             when {
                 expression { env.AMI_TEST == "no" }
@@ -233,6 +252,7 @@ pipeline {
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
+                        export kubeconfig_minikube="${KUBECONFIG}"
                         ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly'
                         popd
                     """
@@ -244,10 +264,10 @@ pipeline {
         always {
             // stop staging
             sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip
-                sudo chmod 777 -R pmm-app/tests/output
-                ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/parallel_chunk*/*.json > pmm-app/tests/output/combine_results.json
-                ./pmm-app/node_modules/.bin/marge pmm-app/tests/output/combine_results.json --reportDir pmm-app/tests/output/ --inline --cdn --charts
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+                sudo chmod 777 -R pmm-app/tests/output || true
+                ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/parallel_chunk*/*.json > pmm-app/tests/output/combine_results.json || true
+                ./pmm-app/node_modules/.bin/marge pmm-app/tests/output/combine_results.json --reportDir pmm-app/tests/output/ --inline --cdn --charts || true
             '''
             script {
                 if(env.VM_NAME)
@@ -257,6 +277,10 @@ pipeline {
                 if(env.VM_CLIENT_NAME)
                 {
                     destroyStaging(VM_CLIENT_NAME)
+                }
+                if(env.CLUSTER_IP)
+                {
+                    destroyStaging(CLUSTER_IP)
                 }
             }
             script {
