@@ -312,7 +312,7 @@ typeMap['min-buster-x64']    = typeMap['min-centos-6-x64']
 typeMap['min-stretch-x64']   = typeMap['min-centos-6-x64']
 typeMap['micro-amazon']      = 't3.large'
 typeMap['large-amazon']      = 't3.xlarge'
-typeMap['docker']            = 't3.large'
+typeMap['docker']            = 't3.xlarge'
 
 execMap = [:]
 execMap['min-centos-6-x64']  = '1'
