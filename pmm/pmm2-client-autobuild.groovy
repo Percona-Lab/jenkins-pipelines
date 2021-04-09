@@ -13,8 +13,8 @@ pipeline {
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: ['testing', 'laboratory'],
-            description: 'publish result package to internal (testing) or external (laboratory) repository',
+            choices: ['testing', 'experimental'],
+            description: 'publish result package to internal (testing) or experimental repository',
             name: 'DESTINATION')
     }
     options {
@@ -41,7 +41,7 @@ pipeline {
                 '''
                 script {
                     def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
-                    if ("${DESTINATION}" == "laboratory") {
+                    if ("${DESTINATION}" == "experimental") {
                         env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}"
                         env.DOCKER_RC_TAG = "${versionTag}-rc"
                     } else {
