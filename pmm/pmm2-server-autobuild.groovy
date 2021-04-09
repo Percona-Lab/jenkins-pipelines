@@ -14,7 +14,7 @@ pipeline {
             name: 'GIT_BRANCH')
         choice(
             // default is choices.get(0) - laboratory
-            choices: ['laboratory', 'testing'],
+            choices: ['laboratory', 'experimental', 'testing'],
             description: 'Repo component to push packages to',
             name: 'DESTINATION') 
     }
@@ -60,7 +60,7 @@ pipeline {
 
                 script {
                     def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
-                    if ("${DESTINATION}" == "testing") {
+                    if ("${DESTINATION}" == "experimental") {
                         env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}"
                         env.DOCKER_RC_TAG = "${versionTag}-rc"
                     } else {
