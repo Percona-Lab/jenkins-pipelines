@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'docker'
     }
     parameters {
         string(
@@ -72,10 +72,7 @@ pipeline {
         stage('API Tests Setup')
         {
             steps{
-                installDocker()
                 sh '''
-                    sudo usermod -aG docker ec2-user
-                    sudo service docker start
                     sudo curl -L https://github.com/docker/compose/releases/download/1.29.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/local/bin/docker-compose > /dev/null
                     sudo chmod +x /usr/local/bin/docker-compose
                     sudo ln -sfn /usr/local/bin/docker-compose /usr/bin/docker-compose
