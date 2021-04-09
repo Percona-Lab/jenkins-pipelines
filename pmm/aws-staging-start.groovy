@@ -332,7 +332,7 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
+                                docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
                                 docker exec \${VM_NAME}-server percona-release enable original experimental
                                 docker exec \${VM_NAME}-server yum clean all
                             """
