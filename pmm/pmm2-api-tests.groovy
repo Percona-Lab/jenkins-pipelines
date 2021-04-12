@@ -69,15 +69,21 @@ pipeline {
                 sh 'git checkout ' + env.GIT_COMMIT_HASH
             }
         }
+        stage('Setup') {
+            steps {
+                sh '''
+                    sudo curl -L https://github.com/docker/compose/releases/download/1.29.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/bin/docker-compose > /dev/null
+                    sudo chmod +x /usr/bin/docker-compose
+                    sudo usermod -aG docker ec2-user
+                    docker-compose --version
+                '''
+            }
+        }
         stage('API Tests Setup')
         {
             steps{
                 sh '''
-                    sudo curl -L https://github.com/docker/compose/releases/download/1.29.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/local/bin/docker-compose > /dev/null
-                    sudo chmod +x /usr/local/bin/docker-compose
-                    sudo ln -sfn /usr/local/bin/docker-compose /usr/bin/docker-compose
-                    sudo docker-compose --version
-                    sudo docker build -t pmm-api-tests .
+                    docker build -t pmm-api-tests .
                     git clone --single-branch --branch \${GIT_BRANCH_PMM_AGENT} https://github.com/percona/pmm-agent
                     cd pmm-agent
                     sudo PMM_SERVER_IMAGE=\${DOCKER_VERSION} MONGO_IMAGE=\${MONGO_IMAGE} MYSQL_IMAGE=\${MYSQL_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} docker-compose up -d
@@ -98,7 +104,7 @@ pipeline {
         stage('Run API Test') {
             steps {
                 sh '''
-                    sudo docker run -e PMM_SERVER_URL=\${PMM_URL} -e PMM_RUN_UPDATE_TEST=1 -e PMM_RUN_STT_TESTS=0 --name ${BUILD_TAG} --network host pmm-api-tests
+                    docker run -e PMM_SERVER_URL=\${PMM_URL} -e PMM_RUN_UPDATE_TEST=1 -e PMM_RUN_STT_TESTS=0 --name ${BUILD_TAG} --network host pmm-api-tests
                 '''
             }
         }
@@ -106,16 +112,16 @@ pipeline {
     post {
         always {
             sh '''
-                sudo docker cp ${BUILD_TAG}:/go/src/github.com/Percona-Lab/pmm-api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml || true
-                sudo chmod 777 ./${BUILD_TAG}.xml || true
-                sudo chmod 777 -R pmm-agent || true
-                sudo docker stop ${BUILD_TAG} || true
-                sudo docker rm ${BUILD_TAG} || true
+                docker cp ${BUILD_TAG}:/go/src/github.com/Percona-Lab/pmm-api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml || true
+                docker stop ${BUILD_TAG} || true
+                docker rm ${BUILD_TAG} || true
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                 cd pmm-agent
-                sudo docker-compose down
-                sudo docker rm -f $(sudo docker ps -a -q) || true
-                sudo docker volume rm $(sudo docker volume ls -q) || true
+                docker-compose down
+                docker rm -f $(sudo docker ps -a -q) || true
+                docker volume rm $(sudo docker volume ls -q) || true
+                cd ../
+                sudo chown -R ec2-user:ec2-user pmm-agent || true
             '''
             junit '${BUILD_TAG}.xml'
             script {
