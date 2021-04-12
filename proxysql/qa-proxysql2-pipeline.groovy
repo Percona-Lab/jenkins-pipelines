@@ -8,7 +8,7 @@ pipeline {
             name: 'GIT_REPO',
             trim: true)
         string(
-            defaultValue: 'v2.0.15',
+            defaultValue: 'v2.0.17',
             description: 'Tag/Branch for ProxySQL repository',
             name: 'BRANCH',
             trim: true)
@@ -23,12 +23,12 @@ pipeline {
             name: 'PROXYSQL_PACKAGE_BRANCH',
             trim: true)
         string(
-            defaultValue: 'v2.0.15-dev',
+            defaultValue: 'v2.0',
             description: 'Tag/Branch for ProxySQL-admin-tool repository',
             name: 'PAT_TAG',
             trim: true)
        choice(
-            choices: 'PXC57\nPXC80',
+            choices: 'PXC80\nPXC57',
             description: 'PXC version to test proxysql-admin suite',
             name: 'PXC_VERSION')
        choice(
