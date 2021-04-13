@@ -43,11 +43,22 @@ if [ "$SOURCE_NAME" == 'PXC80' -o "$SOURCE_NAME" == 'ALL' ]; then
 
         mkdir ./target
 
+        if [[ ${USE_PR} == "true" ]]; then
+            git fetch origin pull/${BRANCH}/head:pr-${BRANCH}
+        fi
         if [ -n "${BRANCH}" ]; then
-            git checkout "${BRANCH}"
+            if [[ ${USE_PR} == "true" ]]; then
+                git checkout pr-${BRANCH}
+            else      
+                git checkout "${BRANCH}"
+            fi
         fi
         if [ -n "${GIT_REPO}" -a -n "${BRANCH}" ]; then
-            git pull origin ${BRANCH}
+            if [[ ${USE_PR} == "true" ]]; then
+                git pull origin pull/${BRANCH}/head:pr-${BRANCH}
+            else
+                git pull origin ${BRANCH}
+            fi
         fi
 
         if [ -n "${PXC_GALERA_REPO}" ]; then

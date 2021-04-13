@@ -22,7 +22,11 @@
     - string:
         name: PXC56_BRANCH
         default: "5.6"
-        description: Tag/Branch for PXC repository
+        description: Tag/PR/Branch for PXC repository
+    - bool:
+        name: USE_PR
+        default: false
+        description: "Check only if you pass PR number to PXC56_BRANCH field"
     - string:
         name: PXB23_REPO
         default: https://github.com/percona/percona-xtrabackup

@@ -37,11 +37,22 @@ if [ "$SOURCE_NAME" == 'PXC57' -o "$SOURCE_NAME" == 'ALL' ]; then
 
         mkdir ./target
 
+        if [[ ${USE_PR} == "true" ]]; then
+            git fetch origin pull/${PXC57_BRANCH}/merge:pr-${PXC57_BRANCH}
+        fi
         if [ -n "${PXC57_BRANCH}" ]; then
-            git checkout "${PXC57_BRANCH}"
+            if [[ ${USE_PR} == "true" ]]; then
+                git checkout pr-${PXC57_BRANCH}
+            else      
+                git checkout "${PXC57_BRANCH}"
+            fi
         fi
         if [ -n "${PXC57_REPO}" -a -n "${PXC57_BRANCH}" ]; then
-            git pull origin ${PXC57_BRANCH}
+            if [[ ${USE_PR} == "true" ]]; then
+                git pull origin pull/${PXC57_BRANCH}/merge:pr-${PXC57_BRANCH}
+            else
+                git pull origin ${PXC57_BRANCH}
+            fi
         fi
 		
 		rm -rf percona-xtradb-cluster-galera || true
