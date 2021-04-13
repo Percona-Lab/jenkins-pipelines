@@ -41,8 +41,8 @@
                 PKGLIST+=" libcurl-devel cmake libaio-devel zlib-devel libev-devel bison make gcc"
                 PKGLIST+=" rpm-build libgcrypt-devel ncurses-devel readline-devel openssl-devel gcc-c++"
                 PKGLIST+=" vim-common rpmlint wget ncurses-compat-libs python2 python2-setuptools python2-wheel"
-                PKGLIST+=" lz4 lz4-devel"
-                until yum -y install ${PKGLIST}; do
+                PKGLIST+=" lz4 lz4-devel perl-DBD-MySQL"
+                until sudo yum -y install ${PKGLIST}; do
                     echo "waiting"
                     sleep 1
                 done
