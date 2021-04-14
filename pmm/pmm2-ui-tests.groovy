@@ -208,7 +208,7 @@ pipeline {
                         expression { env.CLIENT_INSTANCE == "no" }
                     }
                     steps {
-                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1', CLIENT_INSTANCE, SERVER_IP)
+                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=haproxy,1', CLIENT_INSTANCE, SERVER_IP)
                     }
                 }
             }
