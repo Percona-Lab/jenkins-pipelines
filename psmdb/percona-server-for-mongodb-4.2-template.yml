@@ -64,22 +64,22 @@
         set -x
 
         if [ -f /usr/bin/apt-get ]; then
-            sudo apt-get -y install wget
+            sudo apt-get -y install wget wiredtiger
         else
             sudo yum -y install wget redhat-lsb-core
         fi
 
-        wget https://raw.githubusercontent.com/percona/percona-server-mongodb/${PSM_BRANCH}/percona-packaging/scripts/psmdb_builder.sh
+        wget https://raw.githubusercontent.com/percona/percona-server-mongodb/v4.2/percona-packaging/scripts/psmdb_builder.sh
         chmod +x psmdb_builder.sh
         mkdir test
 
         sudo bash -x psmdb_builder.sh --builddir=$(pwd)/test --repo=${PSM_REPO} --branch=${PSM_BRANCH} --install_deps=1
-         
+        
         sudo percona-server-mongodb/support-files/ldap-sasl/deploy_ldap_and_sasl.sh
         # https://docs.mongodb.com/manual/tutorial/configure-ldap-sasl-openldap/#test-the-saslauthd-configuration
         sudo chmod 755 /var/run/saslauthd
         sudo percona-server-mongodb/support-files/ldap-sasl/check_saslauthd.sh
-   
+
         sudo rm -rf test/*
     - shell: |-
         rm -rf psmdb-misc-scripts
@@ -158,12 +158,6 @@
         fi
     - shell: |-
         # run tests
-
-        if [ -f /usr/bin/yum ]; then
-            ulimit -u 64000
-            ulimit -n 64000
-        fi
-
         cd ${WORKSPACE}
         PSMDIR="percona-server-mongodb"
         PSMDIR_ABS=${WORKSPACE}/${PSMDIR}
@@ -181,7 +175,7 @@
         rm -rf $SOURSE_TAR_MDB
 
 
-        SOURS_DIR=$(ls)
+        SOURS_DIR=$(basename $(find . -iname 'percona-server*' -type d))
         cd $(ls)
         mv ./jstests ../
         mv ./buildscripts ../
@@ -195,7 +189,7 @@
         tar -xzf $TAR_MDB
         rm -rf $TAR_MDB
 
-        MONGO_DB_DIR=$(ls)
+        MONGO_DB_DIR=$(basename $(find . -iname 'percona-server*' -type d))
         mv ./$MONGO_DB_DIR ./percona-server-mongodb
         cd ./percona-server-mongodb
         mv $WORKSPACE/test/source_tarball/jstests ./bin/
@@ -208,6 +202,10 @@
 
         DISTRIBUTION="xenial"
 
+        if [ -f /usr/bin/yum ]; then
+            ulimit -u 64000
+            ulimit -n 64000
+        fi
 
         if [ "$JOBS" != "auto" ]; then
             sed -i "s/^RESMOKE_JOBS=.*$/RESMOKE_JOBS=${JOBS}/" $WORKSPACE/psmdb-misc-scripts/run_resmoke_psmdb_3.2.sh
