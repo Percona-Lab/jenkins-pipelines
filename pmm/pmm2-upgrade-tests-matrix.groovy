@@ -21,9 +21,17 @@ pipeline {
             description: 'Tag/Branch for grafana-dashboards repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '2.16.0',
+            defaultValue: '2.17.0',
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
+        string(
+            defaultValue: '2.16.0',
+            description: 'RC PMM Server Version',
+            name: 'PMM_SERVER_RC')
+        choice(
+            choices: ['no', 'yes'],
+            description: 'Enable Experimental Repo?',
+            name: 'ENABLE_RC_REPO')
     }
     options {
         skipDefaultCheckout()

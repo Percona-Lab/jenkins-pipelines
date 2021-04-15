@@ -106,13 +106,21 @@ pipeline {
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.16.0',
+            defaultValue: '2.17.0',
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
             defaultValue: 'master',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
+        choice(
+            choices: ['no', 'yes'],
+            description: 'Enable Experimental Repo?',
+            name: 'ENABLE_RC_REPO')
+        string(
+            defaultValue: '2.17.0',
+            description: 'RC PMM Server Version',
+            name: 'PMM_SERVER_RC')
     }
     options {
         skipDefaultCheckout()

@@ -122,9 +122,13 @@ pipeline {
             description: 'Commit hash for pmm-qa branch',
             name: 'PMM_QA_GIT_COMMIT_HASH')
         string(
-            defaultValue: '2.16.0',
+            defaultValue: '2.17.0',
             description: 'Commit hash for pmm-qa branch',
             name: 'PMM_VERSION')
+        string(
+            defaultValue: '2.16.0',
+            description: 'Commit hash for pmm-qa branch',
+            name: 'PMM_RC_VERSION')
     }
     options {
         skipDefaultCheckout()
