@@ -130,7 +130,7 @@ pipeline {
                                 " > public_url
                             '''
                         }
-                        warnings canComputeNew: false, canResolveRelativePaths: false, categoriesPattern: '', defaultEncoding: '', excludePattern: '', healthy: '', includePattern: '', messagesPattern: '', parserConfigurations: [[parserName: 'GNU C Compiler 4 (gcc)', pattern: 'build.log']], unHealthy: ''
+                        recordIssues enabledForFailure: true, tools: [gcc(pattern: 'build.log')]
                         archiveArtifacts 'build.log.gz,public_url'
                     }
                 }
