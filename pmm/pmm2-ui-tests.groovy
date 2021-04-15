@@ -116,7 +116,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for grafana-dashboard repository',
+            description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '',
