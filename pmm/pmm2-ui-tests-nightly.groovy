@@ -188,7 +188,7 @@ pipeline {
         }
         stage('Start Server') {
             steps {
-                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--setup-alertmanager', CLIENT_INSTANCE, SERVER_IP)
+                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager', CLIENT_INSTANCE, SERVER_IP)
             }
         }
         stage('Setup PMM Client and Kubernetes Cluster') {
@@ -200,7 +200,7 @@ pipeline {
                 }
                 stage('Start Client Instance') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --addclient=ms,1 --addclient=pdpgsql,1 --addclient=ps,1 --addclient=md,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --addclient=pxc,3 --with-proxysql --pmm2 --setup-alertmanager --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=pdpgsql,1 --addclient=ps,1 --addclient=md,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --addclient=pxc,3 --with-proxysql --pmm2 --setup-alertmanager --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP)
                     }
                 }
             }
