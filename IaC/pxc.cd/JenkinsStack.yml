@@ -677,16 +677,9 @@ Resources:
               			  ssl_trusted_certificate     /etc/nginx/ssl/ca-certs.pem;
               			  ssl_dhparam                 /etc/nginx/ssl/dhparam.pem;
 
-              			  set \$ngo_client_id          "<-- SETUP MANUALLY -->";
-              			  set \$ngo_client_secret      "<-- SETUP MANUALLY -->";
-              			  set \$ngo_token_secret       "<-- SETUP MANUALLY -->";
-              			  set \$ngo_domain             percona.com;
-              			  set \$ngo_secure_cookies     true;
-              			  set \$ngo_http_only_cookies  true;
               			  resolver                    8.8.8.8 ipv6=off;
               			  lua_ssl_trusted_certificate /etc/pki/tls/certs/ca-bundle.crt;
               			  lua_ssl_verify_depth        3;
-              			  access_by_lua_file          /mnt/$JENKINS_HOST/nginx-google-oauth.lua;
               			  include                     /mnt/$JENKINS_HOST/ssl/*-list.conf;
               			  satisfy                     any;
 
@@ -710,15 +703,6 @@ Resources:
 
                   ln -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
                   sed -i'' -e 's/listen/#listen/; s/mime.types/jenkins.conf/' /usr/local/openresty/nginx/conf/nginx.conf
-
-                  wget -O /usr/local/openresty/lualib/resty/http.lua \
-                    https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http.lua
-                  wget -O /usr/local/openresty/lualib/resty/http_headers.lua \
-                    https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http_headers.lua
-                  wget -O /usr/local/openresty/lualib/resty/http_connect.lua \
-                    https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http_connect.lua 
-                  wget -O /mnt/$JENKINS_HOST/nginx-google-oauth.lua \
-                    https://raw.githubusercontent.com/cloudflare/nginx-google-oauth/master/access.lua
 
                   systemctl enable --now openresty
               }

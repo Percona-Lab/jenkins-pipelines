@@ -245,9 +245,29 @@
     properties:
       - disk-usage
     publishers:
-    - warnings:
-        console-log-parsers:
-          - GNU Make + GNU C Compiler (gcc)
+    - raw:
+        xml: !!binary |
+          PGlvLmplbmtpbnMucGx1Z2lucy5hbmFseXNpcy5jb3JlLnN0ZXBzLklzc3Vlc1JlY29yZGVyIHBs
+          dWdpbj0id2FybmluZ3MtbmdAOS4wLjEiPgogICAgICA8YW5hbHlzaXNUb29scz4KICAgICAgICA8
+          aW8uamVua2lucy5wbHVnaW5zLmFuYWx5c2lzLndhcm5pbmdzLkdjYzQ+CiAgICAgICAgICA8aWQg
+          Lz4KICAgICAgICAgIDxuYW1lIC8+CiAgICAgICAgICA8cGF0dGVybiAvPgogICAgICAgICAgPHJl
+          cG9ydEVuY29kaW5nIC8+CiAgICAgICAgICA8c2tpcFN5bWJvbGljTGlua3M+ZmFsc2U8L3NraXBT
+          eW1ib2xpY0xpbmtzPgogICAgICAgIDwvaW8uamVua2lucy5wbHVnaW5zLmFuYWx5c2lzLndhcm5p
+          bmdzLkdjYzQ+CiAgICAgIDwvYW5hbHlzaXNUb29scz4KICAgICAgPHNvdXJjZUNvZGVFbmNvZGlu
+          ZyAvPgogICAgICA8c291cmNlRGlyZWN0b3J5IC8+CiAgICAgIDxpZ25vcmVRdWFsaXR5R2F0ZT5m
+          YWxzZTwvaWdub3JlUXVhbGl0eUdhdGU+CiAgICAgIDxpZ25vcmVGYWlsZWRCdWlsZHM+dHJ1ZTwv
+          aWdub3JlRmFpbGVkQnVpbGRzPgogICAgICA8ZmFpbE9uRXJyb3I+ZmFsc2U8L2ZhaWxPbkVycm9y
+          PgogICAgICA8aGVhbHRoeT4wPC9oZWFsdGh5PgogICAgICA8dW5oZWFsdGh5PjA8L3VuaGVhbHRo
+          eT4KICAgICAgPG1pbmltdW1TZXZlcml0eSBwbHVnaW49ImFuYWx5c2lzLW1vZGVsLWFwaUAxMC4w
+          LjAiPgogICAgICAgIDxuYW1lPkxPVzwvbmFtZT4KICAgICAgPC9taW5pbXVtU2V2ZXJpdHk+CiAg
+          ICAgIDxmaWx0ZXJzIC8+CiAgICAgIDxpc0VuYWJsZWRGb3JGYWlsdXJlPmZhbHNlPC9pc0VuYWJs
+          ZWRGb3JGYWlsdXJlPgogICAgICA8aXNBZ2dyZWdhdGluZ1Jlc3VsdHM+ZmFsc2U8L2lzQWdncmVn
+          YXRpbmdSZXN1bHRzPgogICAgICA8aXNCbGFtZURpc2FibGVkPmZhbHNlPC9pc0JsYW1lRGlzYWJs
+          ZWQ+CiAgICAgIDxza2lwUHVibGlzaGluZ0NoZWNrcz5mYWxzZTwvc2tpcFB1Ymxpc2hpbmdDaGVj
+          a3M+CiAgICAgIDxwdWJsaXNoQWxsSXNzdWVzPmZhbHNlPC9wdWJsaXNoQWxsSXNzdWVzPgogICAg
+          ICA8cXVhbGl0eUdhdGVzIC8+CiAgICAgIDx0cmVuZENoYXJ0VHlwZT5BR0dSRUdBVElPTl9UT09M
+          UzwvdHJlbmRDaGFydFR5cGU+CiAgICAgIDxzY20gLz4KICAgIDwvaW8uamVua2lucy5wbHVnaW5z
+          LmFuYWx5c2lzLmNvcmUuc3RlcHMuSXNzdWVzUmVjb3JkZXI+CiAg
     - archive:
         artifacts: '**/**/percona-server-mongodb/bin/resmoke_summary*.log, **/**/percona-server-mongodb/bin/killer.log, **/**/percona-server-mongodb/bin/resmoke_logs.tar.gz'
         allow-empty: false
