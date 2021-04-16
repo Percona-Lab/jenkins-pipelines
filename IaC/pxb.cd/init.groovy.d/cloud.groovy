@@ -22,18 +22,18 @@ netMap['us-west-2b'] = 'subnet-011f09cf273aeef73'
 netMap['us-west-2c'] = 'subnet-00b0d1d8bd8af5c07'
 
 imageMap = [:]
-imageMap['docker'] = 'ami-05b622b5fa0269787'
-imageMap['micro-amazon'] = 'ami-05b622b5fa0269787'
+imageMap['docker'] = 'ami-0518bb0e75d3619ca'
+imageMap['micro-amazon'] = 'ami-0518bb0e75d3619ca'
 imageMap['min-centos-6-x32'] = 'ami-cb1382fb'
 imageMap['min-centos-6-x64'] = 'ami-6fcc8f17'
 imageMap['min-centos-7-x64'] = 'ami-0686851c4e7b1a8e1'
 imageMap['min-centos-8-x64'] = 'ami-0155c31ea13d4abd2'
 imageMap['min-bionic-x64']   = 'ami-007e276c37b5ff2d7'
 imageMap['min-stretch-x64']  = 'ami-0ada74f78fa02ad0d'
-imageMap['min-buster-x64']   = 'ami-010327334690f5fa5'
-imageMap['min-xenial-x64']   = 'ami-0ee876776acf64c80'
+imageMap['min-buster-x64']   = 'ami-0c7ea5497c02abcaf'
+imageMap['min-xenial-x64']   = 'ami-04b01d7f989b9ac8b'
 imageMap['min-xenial-x32']   = 'ami-0697ba3ee1b641c90'
-imageMap['min-focal-x64']    = 'ami-0a62a78cfedc09d76'
+imageMap['min-focal-x64']    = 'ami-0554443e7f55d3eeb'
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
