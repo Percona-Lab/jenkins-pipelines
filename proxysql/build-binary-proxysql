@@ -12,7 +12,7 @@ set -o xtrace
 if [ -f /usr/bin/yum ]; then
     RHEL=$(rpm --eval %rhel)
     if [[ $RHEL -eq 8 ]]; then
-        sudo yum -y install python2 gnutls-devel libtool || true
+        sudo yum -y install cmake python2 gnutls-devel libtool || true
     fi
     sudo yum -y install wget
     if [[ $RHEL -eq 7 ]]; then
