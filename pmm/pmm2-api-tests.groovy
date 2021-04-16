@@ -74,7 +74,6 @@ pipeline {
                 sh '''
                     sudo curl -L https://github.com/docker/compose/releases/download/1.29.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/bin/docker-compose > /dev/null
                     sudo chmod +x /usr/bin/docker-compose
-                    sudo usermod -aG docker ec2-user
                     docker-compose --version
                 '''
             }
