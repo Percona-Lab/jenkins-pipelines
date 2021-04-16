@@ -58,7 +58,7 @@ void uploadAllureArtifacts() {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             scp -r -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
-                pmm-app/tests/output/allure aws-jenkins@${MONITORING_HOST}:/home/aws-jenkins/allure-reports
+                tests/output/allure aws-jenkins@${MONITORING_HOST}:/home/aws-jenkins/allure-reports
         """
     }
 }
@@ -120,9 +120,9 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                // clean up workspace and fetch pmm-qa repository
+                // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/grafana-dashboards.git'
+                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 installDocker()
@@ -167,19 +167,15 @@ pipeline {
                     sh """
                         curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
                         sudo yum -y install nodejs
-                        pushd pmm-app/
                         npm install
                         node -v
                         npm -v
                         sudo yum install -y gettext
                         envsubst < env.list > env.generated.list
-                        popd
-                        pushd pmm-app/
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
                         ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
-                        popd
                     """
                     }
                 }
@@ -203,23 +199,23 @@ pipeline {
             '''
             destroyStaging(VM_NAME)
             sh '''
-                sudo chmod 777 -R pmm-app/tests/output
-                ./pmm-app/node_modules/.bin/mochawesome-merge pmm-app/tests/output/parallel_chunk*/*.json > pmm-app/tests/output/combine_results.json
-                ./pmm-app/node_modules/.bin/marge pmm-app/tests/output/combine_results.json --reportDir pmm-app/tests/output/ --inline --cdn --charts
+                sudo chmod 777 -R tests/output
+                ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json
+                ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts
             '''
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
+                    junit 'tests/output/parallel_chunk*/*.xml'
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
-                    archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
+                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
-                    junit 'pmm-app/tests/output/parallel_chunk*/*.xml'
+                    junit 'tests/output/parallel_chunk*/*.xml'
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'pmm-app/tests/output/combine_results.html'
+                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'pmm-app/tests/output/parallel_chunk*/*.png'
-                    archiveArtifacts artifacts: 'pmm-app/tests/output/video/*.mp4'
+                    archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
+                    archiveArtifacts artifacts: 'tests/output/video/*.mp4'
                 }
             }
             allure([
@@ -227,11 +223,11 @@ pipeline {
                 jdk: '',
                 properties: [],
                 reportBuildPolicy: 'ALWAYS',
-                results: [[path: 'pmm-app/tests/output/allure']]
+                results: [[path: 'tests/output/allure']]
             ])
             sh '''
-                sudo rm -r pmm-app/node_modules/
-                sudo rm -r pmm-app/tests/output
+                sudo rm -r node_modules/
+                sudo rm -r tests/output
             '''
             deleteDir()
         }
