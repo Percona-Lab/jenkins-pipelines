@@ -199,7 +199,6 @@ pipeline {
             '''
             destroyStaging(VM_NAME)
             sh '''
-                sudo chmod 777 -R tests/output || true
                 ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
             '''
