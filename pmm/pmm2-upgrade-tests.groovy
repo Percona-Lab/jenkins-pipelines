@@ -195,13 +195,13 @@ pipeline {
         always {
             // stop staging
             sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             destroyStaging(VM_NAME)
             sh '''
-                sudo chmod 777 -R tests/output
-                ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json
-                ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts
+                sudo chmod 777 -R tests/output || true
+                ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
+                ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
             '''
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
@@ -215,7 +215,6 @@ pipeline {
                     archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
-                    archiveArtifacts artifacts: 'tests/output/video/*.mp4'
                 }
             }
             allure([
