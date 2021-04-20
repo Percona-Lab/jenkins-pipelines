@@ -94,8 +94,8 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM-2.0',
-            description: 'Tag/Branch for grafana-dashboards repository',
+            defaultValue: 'main',
+            description: 'Tag/Branch for UI Tests Repo repository',
             name: 'GIT_BRANCH')
         choice(
             choices: ['2.3.0', '2.4.0', '2.5.0', '2.6.0', '2.6.1', '2.7.0', '2.8.0', '2.9.0', '2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1'],
