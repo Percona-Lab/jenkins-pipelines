@@ -70,8 +70,8 @@ pipeline {
             description: 'Use this OVA Setup as PMM-client',
             name: 'SETUP_CLIENT')
         string(
-            defaultValue: 'PMM-2.0',
-            description: 'Tag/Branch for grafana-dashboard repository',
+            defaultValue: 'main',
+            description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
     }
     options {
