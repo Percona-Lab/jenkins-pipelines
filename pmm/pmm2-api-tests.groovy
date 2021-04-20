@@ -1,27 +1,11 @@
-void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
-    stagingJob = build job: 'aws-staging-start', parameters: [
-        string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
-        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
-        string(name: 'PS_VERSION', value: '5.6'),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e ENABLE_ALERTING=1 -e ENABLE_BACKUP_MANAGEMENT=1 -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com:443 -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PERCONA_TEST_DBAAS=0'),
-        string(name: 'CLIENTS', value: CLIENTS),
-        string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1')
-    ]
-    env.VM_IP = stagingJob.buildVariables.IP
-    env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "http://admin:admin@${VM_IP}"
-}
-
-void destroyStaging(IP) {
-    build job: 'aws-staging-stop', parameters: [
-        string(name: 'VM', value: IP),
-    ]
-}
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+]) _
 
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'docker'
     }
     parameters {
         string(
@@ -41,13 +25,25 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
+            defaultValue: 'percona:5.7',
+            description: 'Percona Server Docker Container Image',
+            name: 'MYSQL_IMAGE')
+        string(
+            defaultValue: 'postgres:12',
+            description: 'Postgresql Docker Container Image',
+            name: 'POSTGRES_IMAGE')
+        string(
+            defaultValue: 'percona/percona-server-mongodb:4.2',
+            description: 'Percona Server MongoDb Docker Container Image',
+            name: 'MONGO_IMAGE')
+        string(
             defaultValue: '',
             description: 'Author of recent Commit to pmm-managed',
             name: 'OWNER')
         string (
-            defaultValue: '',
-            description: 'Value for Server Public IP, to use this instance just as client',
-            name: 'SERVER_IP')
+            defaultValue: 'master',
+            description: 'Branch for pmm-agent Repo, used for docker-compose setup',
+            name: 'GIT_BRANCH_PMM_AGENT')
     }
     options {
         skipDefaultCheckout()
@@ -73,45 +69,60 @@ pipeline {
                 sh 'git checkout ' + env.GIT_COMMIT_HASH
             }
         }
-        stage('Start staging') {
+        stage('Setup') {
             steps {
+                sh '''
+                    sudo curl -L https://github.com/docker/compose/releases/download/1.29.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/bin/docker-compose > /dev/null
+                    sudo chmod +x /usr/bin/docker-compose
+                    docker-compose --version
+                '''
+            }
+        }
+        stage('API Tests Setup')
+        {
+            steps{
+                sh '''
+                    docker run -d \
+                    -e ENABLE_ALERTING=1 \
+                    -e PMM_DEBUG=1 \
+                    -e PERCONA_TEST_CHECKS_INTERVAL=10s \
+                    -e ENABLE_BACKUP_MANAGEMENT=1 \
+                    -e PERCONA_TEST_DBAAS=0 \
+                    -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com:443 \
+                    -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
+                    -p 80:80 \
+                    -p 443:443 \
+                    -v \${PWD}/testdata/checks:/srv/checks \
+                    \${DOCKER_VERSION}
+
+                    docker build -t pmm-api-tests .
+                    git clone --single-branch --branch \${GIT_BRANCH_PMM_AGENT} https://github.com/percona/pmm-agent
+                    cd pmm-agent
+                    docker-compose up test_db
+                    MYSQL_IMAGE=\${MYSQL_IMAGE} docker-compose up -d mysql
+                    MONGO_IMAGE=\${MONGO_IMAGE} docker-compose up -d mongo
+                    MONGO_IMAGE=\${MONGO_IMAGE} docker-compose up -d mongo_with_ssl
+                    MONGO_IMAGE=\${MONGO_IMAGE} docker-compose up -d mongonoauth
+                    POSTGRES_IMAGE=\${POSTGRES_IMAGE} docker-compose up -d postgres
+                    docker-compose up -d sysbench
+                    cd ../
+                '''
                 script {
-                    if (!env.SERVER_IP) {
-                        runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1')
-                    }
-                    else
-                    {
-                        env.VM_IP = env.SERVER_IP
-                        env.PMM_URL = "http://admin:admin@${env.VM_IP}"
-                    }
+                    env.VM_IP = "127.0.0.1"
+                    env.PMM_URL = "http://admin:admin@${env.VM_IP}"
                 }
             }
         }
-        stage('Setup Step') {
-            parallel {
-                stage('Setup Docker')
-                {
-                    steps{
-                        sh '''
-                            sudo yum -y install docker
-                            sudo usermod -aG docker ec2-user
-                            sudo service docker start
-                            sudo docker build -t pmm-api-tests .
-                        '''
-                    }
-                }
-                stage('Sanity Check')
-                {
-                    steps {
-                        sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
-                    }
-                }
+        stage('Sanity Check')
+        {
+            steps {
+                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
         stage('Run API Test') {
             steps {
                 sh '''
-                    sudo docker run -e PMM_SERVER_URL=\${PMM_URL} -e PMM_RUN_UPDATE_TEST=1 -e PMM_RUN_STT_TESTS=0 --name ${BUILD_TAG} pmm-api-tests
+                    docker run -e PMM_SERVER_URL=\${PMM_URL} -e PMM_RUN_UPDATE_TEST=1 -e PMM_RUN_STT_TESTS=0 --name ${BUILD_TAG} --network host pmm-api-tests
                 '''
             }
         }
@@ -119,26 +130,26 @@ pipeline {
     post {
         always {
             sh '''
-                sudo docker ps -a
-                sudo docker cp ${BUILD_TAG}:/go/src/github.com/Percona-Lab/pmm-api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml
-                ls -al
-                sudo docker stop ${BUILD_TAG}
-                sudo docker rm ${BUILD_TAG}
+                docker cp ${BUILD_TAG}:/go/src/github.com/Percona-Lab/pmm-api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml || true
+                docker stop ${BUILD_TAG} || true
+                docker rm ${BUILD_TAG} || true
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+                cd pmm-agent
+                docker-compose down
+                docker rm -f $(sudo docker ps -a -q) || true
+                docker volume rm $(sudo docker volume ls -q) || true
+                cd ../
+                sudo chown -R ec2-user:ec2-user pmm-agent || true
             '''
             junit '${BUILD_TAG}.xml'
             script {
+                archiveArtifacts artifacts: 'logs.zip'
                 if (currentBuild.result == 'SUCCESS') {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                 } else {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, owner: @${OWNER}"
                 }
-                // stop staging
-                if(env.VM_NAME)
-                {
-                    destroyStaging(VM_NAME)
-                }
             }
-
             deleteDir()
         }
     }
