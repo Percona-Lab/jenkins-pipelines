@@ -181,8 +181,8 @@ pipeline {
                                 export PATH=\$PATH:/usr/sbin
                                 minikube kubectl -- get nodes
                                 minikube kubectl -- get pods
-                                minikube kubectl -- wait --for=condition=Available deployment percona-xtradb-cluster-operator
-                                minikube kubectl -- wait --for=condition=Available deployment percona-server-mongodb-operator
+                                minikube kubectl -- wait --for=condition=Available --timeout=60s deployment percona-xtradb-cluster-operator
+                                minikube kubectl -- wait --for=condition=Available --timeout=60s deployment percona-server-mongodb-operator
                             """
                         }
                     }
