@@ -26,7 +26,7 @@ imageMap['us-east-2a.min-centos-7-x64'] = 'ami-00f8e2c955f7ffa9b'
 imageMap['us-east-2a.min-centos-8-x64'] = 'ami-0ac6967966621d983'
 imageMap['us-east-2a.min-focal-x64']    = 'ami-02fc6052104add5ae'
 imageMap['us-east-2a.min-bionic-x64']   = 'ami-09135e71dc2619458'
-imageMap['us-east-2a.min-xenial-x64']   = 'ami-089fe97bc00bff7cc'
+imageMap['us-east-2a.min-xenial-x64']   = 'ami-0b6b93913be33d8f6'
 imageMap['us-east-2a.min-buster-x64']   = 'ami-089fe97bc00bff7cc'
 imageMap['us-east-2a.min-stretch-x64']  = 'ami-037c986a9eb533931'
 imageMap['us-east-2a.micro-amazon']     = 'ami-05d72852800cbf29e'
@@ -328,14 +328,14 @@ execMap['large-amazon']      = '1'
 execMap['docker']            = '1'
 
 devMap = [:]
-devMap['min-centos-6-x64']  = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-centos-6-x64']  = '/dev/sda1=:80:true:gp2,/dev/sdd=:20:true:gp2'
 devMap['min-centos-7-x64']  = devMap['min-centos-6-x64']
-devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['min-focal-x64']     = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['min-bionic-x64']    = devMap['min-focal-x64']
-devMap['min-xenial-x64']    = devMap['min-focal-x64']
-devMap['min-buster-x64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
-devMap['min-stretch-x64']   = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-centos-8-x64']  = devMap['min-centos-6-x64']
+devMap['min-focal-x64']     = devMap['min-centos-6-x64']
+devMap['min-bionic-x64']    = devMap['min-centos-6-x64']
+devMap['min-xenial-x64']    = devMap['min-centos-6-x64']
+devMap['min-buster-x64']    = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
+devMap['min-stretch-x64']   = 'xvda=:80:true:gp2,xvdd=:20:true:gp2'
 devMap['micro-amazon']      = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['large-amazon']      = '/dev/xvda=:100:true:gp2'
 devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
