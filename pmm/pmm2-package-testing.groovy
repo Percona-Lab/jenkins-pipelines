@@ -3,6 +3,27 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
+    stagingJob = build job: 'aws-staging-start', parameters: [
+        string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
+        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e DISABLE_TELEMETRY=true -e DATA_RETENTION=48h'),
+        string(name: 'CLIENTS', value: CLIENTS),
+        string(name: 'NOTIFY', value: 'false'),
+        string(name: 'DAYS', value: '1')
+    ]
+    env.VM_IP = stagingJob.buildVariables.IP
+    env.PMM_SERVER_IP = stagingJob.buildVariables.IP
+    env.VM_NAME = stagingJob.buildVariables.VM_NAME
+    env.PMM_URL = "http://admin:admin@${VM_IP}"
+}
+
+void destroyStaging(IP) {
+    build job: 'aws-staging-stop', parameters: [
+        string(name: 'VM', value: IP),
+    ]
+}
+
 void setup_rhel_package_tests()
 {
     sh '''
@@ -58,9 +79,13 @@ pipeline {
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
         string(
-            defaultValue: '',
-            description: 'IP of the Server Instance for Client to Connect',
-            name: 'PMM_SERVER_IP')
+            defaultValue: 'perconalab/pmm-server:dev-latest',
+            description: 'PMM Server docker container version (image-name:version-tag)',
+            name: 'DOCKER_VERSION')
+        string(
+            defaultValue: 'dev-latest',
+            description: 'PMM Client version',
+            name: 'CLIENT_VERSION')
         string(
             defaultValue: '2.17.0',
             description: 'PMM Version for testing',
@@ -71,7 +96,7 @@ pipeline {
             name: 'TESTS')
         choice(
             choices: ['testing', 'experimental', 'main'],
-            description: 'Enable Repo?',
+            description: 'Enable Repo for Client Nodes?',
             name: 'INSTALL_REPO')
         choice(
             choices: ['auto', 'push', 'pull'],
@@ -82,6 +107,11 @@ pipeline {
         skipDefaultCheckout()
     }
     stages {
+        stage('Setup Server Instance') {
+            steps {
+                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1')
+            }
+        }
         stage('Execute Package Tests') {
             parallel {
                 stage('centos-7-x64') {
@@ -187,7 +217,15 @@ pipeline {
     }
     post {
         always {
+            sh '''
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+            '''
             script {
+                if(env.VM_NAME)
+                {
+                    archiveArtifacts artifacts: 'logs.zip'
+                    destroyStaging(VM_NAME)
+                }
                 if (currentBuild.result == 'SUCCESS') {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                 } else {
