@@ -180,7 +180,7 @@ initMap['micro-amazon'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
-    SYSREL=$(cat /etc/system-release | tr -dc '0-9.'|awk -F'.' {'print $1'})
+    SYSREL=$(cat /etc/system-release | tr -dc '0-9.'|awk -F'.' '{print $1}')
     until sudo yum makecache; do
         sleep 1
         echo try again
