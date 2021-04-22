@@ -131,8 +131,9 @@ initMap['docker'] = '''
     sudo yum -y remove java-1.7.0-openjdk awscli
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
-        find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
-
+        if [ -d /tmp/aws ]; then
+            sudo rm -rf /tmp/aws
+        fi
         until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
             sleep 1
             echo try again
@@ -194,7 +195,9 @@ initMap['micro-amazon'] = '''
     sudo yum -y remove java-1.7.0-openjdk aws-cli || :
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
-        find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
+        if [ -d /tmp/aws ]; then
+            sudo rm -rf /tmp/aws
+        fi
 
         until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
             sleep 1
