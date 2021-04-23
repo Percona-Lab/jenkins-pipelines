@@ -50,7 +50,7 @@ pipeline {
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
         choice(
-            choices: ['8.0', '5.7', '5.6'],
+            choices: ['8.0', '5.7', '5.7.30', '5.6'],
             description: "Percona Server for MySQL version",
             name: 'PS_VERSION')
         choice(
@@ -260,6 +260,7 @@ pipeline {
                                     docker run -d \
                                         -p 80:80 \
                                         -p 443:443 \
+                                        -p 9000:9000 \
                                         --volumes-from \${VM_NAME}-data \
                                         --name \${VM_NAME}-server \
                                         --restart always \
