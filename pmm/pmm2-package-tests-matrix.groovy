@@ -41,7 +41,7 @@ pipeline {
             name: 'PMM_VERSION')
         choice(
             choices: ['testing', 'experimental', 'main'],
-            description: 'Enable Repo for Client Nodes?',
+            description: 'Enable Repo for Client Nodes',
             name: 'INSTALL_REPO')
         choice(
             choices: ['auto', 'push', 'pull'],
