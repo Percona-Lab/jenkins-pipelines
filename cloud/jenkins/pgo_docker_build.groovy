@@ -1,7 +1,7 @@
 void checkImageForDocker(String IMAGE_SUFFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            IMAGE_SUFFIX=${IMAGE_SUFFIX}
+            IMAGE_SUFFIX=\$(echo ${IMAGE_SUFFIX} | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
             IMAGE_NAME='percona-postgresql-operator'
             TrityHightLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_SUFFIX}.log"
             TrityCriticaltLog="$WORKSPACE/trivy-critical-\$IMAGE_NAME-${IMAGE_SUFFIX}.log"
@@ -26,7 +26,7 @@ void checkImageForDocker(String IMAGE_SUFFIX){
 pipeline {
     parameters {
         string(
-            defaultValue: 'main',
+            defaultValue: 'release-0.1.0',
             description: 'Tag/Branch for percona/percona-postgresql-operator repository',
             name: 'GIT_BRANCH')
         string(
@@ -83,14 +83,15 @@ pipeline {
                             mkdir -p /home/ec2-user/.docker/trust/private
                             cp "${docker_key}" ~/.docker/trust/private/
 
+                            TAG_PREFIX=\$(echo $GIT_BRANCH | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
                             docker login -u '${USER}' -p '${PASS}'
                             export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                            docker trust sign perconalab/percona-postgresql-operator:\$GIT_BRANCH-pgo-apiserver
-                            docker trust sign perconalab/percona-postgresql-operator:\$GIT_BRANCH-pgo-event
-                            docker trust sign perconalab/percona-postgresql-operator:\$GIT_BRANCH-pgo-rmdata
-                            docker trust sign perconalab/percona-postgresql-operator:\$GIT_BRANCH-pgo-scheduler
-                            docker trust sign perconalab/percona-postgresql-operator:\$GIT_BRANCH-postgres-operator
-                            docker trust sign perconalab/percona-postgresql-operator:\$GIT_BRANCH-pgo-deployer
+                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-pgo-apiserver
+                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-pgo-event
+                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-pgo-rmdata
+                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-pgo-scheduler
+                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-postgres-operator
+                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-pgo-deployer
                             ./e2e-tests/build
                             docker logout
                         "
