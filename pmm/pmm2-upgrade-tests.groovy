@@ -23,12 +23,23 @@ void destroyStaging(IP) {
     ]
 }
 
+void performDockerWayUpgrade(String PMM_VERSION) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
+                export PMM_VERSION=${PMM_VERSION}
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh
+                bash -xe /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh ${PMM_VERSION}
+            '
+        """
+    }
+}
+
 void checkUpgrade(String PMM_VERSION, String PRE_POST) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                 export PMM_VERSION=${PMM_VERSION}
-                echo "Checking";
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh 
                 bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh ${PMM_VERSION} ${PRE_POST}
             '
@@ -110,13 +121,21 @@ pipeline {
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
+            defaultValue: 'perconalab/pmm-server:dev-latest',
+            description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
+            name: 'PMM_SERVER_TAG')
+        string(
             defaultValue: 'master',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
             choices: ['no', 'yes'],
-            description: 'Enable Experimental Repo?',
+            description: 'Enable Experimental Repo',
             name: 'ENABLE_RC_REPO')
+        choice(
+            choices: ['no', 'yes'],
+            description: 'Perform Docker-way Upgrade?',
+            name: 'PERFORM_DOCKER_WAY_UPGRADE')
         string(
             defaultValue: '2.17.0',
             description: 'RC PMM Server Version',
@@ -169,7 +188,10 @@ pipeline {
                 checkUpgrade(DOCKER_VERSION, "pre");
             }
         }
-        stage('Run Upgrade Tests & Remote Instances Tests') {
+        stage('Run UI way Upgrade Tests') {
+            when {
+                expression { env.PERFORM_DOCKER_WAY_UPGRADE == "no" }
+            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
@@ -184,6 +206,34 @@ pipeline {
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
                         ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
+                    """
+                    }
+                }
+        }
+        stage('Run Docker Way Upgrade Tests') {
+            when {
+                expression { env.PERFORM_DOCKER_WAY_UPGRADE == "yes" }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
+                        sudo yum -y install nodejs
+                        npm install
+                        node -v
+                        npm -v
+                        sudo yum install -y gettext
+                        envsubst < env.list > env.generated.list
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        export PWD=\$(pwd);
+                        export CHROMIUM_PATH=/usr/bin/chromium
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pre-upgrade'
+                    """
+                    performDockerWayUpgrade(PMM_SERVER_TAG)
+                    sh """
+                        export PWD=\$(pwd);
+                        export CHROMIUM_PATH=/usr/bin/chromium
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@post-upgrade'
                     """
                     }
                 }
