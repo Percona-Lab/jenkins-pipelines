@@ -27,7 +27,7 @@ imageMap['eu-central-1a.docker2']           = 'ami-0db9040eb3ab74509'
 imageMap['eu-central-1a.micro-amazon']      = 'ami-0db9040eb3ab74509'
 imageMap['eu-central-1a.min-centos-8-x64']  = 'ami-032025b3afcbb6b34'
 imageMap['eu-central-1a.min-centos-7-x64']  = 'ami-04cf43aca3e6f3de3'
-imageMap['eu-central-1a.fips-centos-7-x64'] = 'ami-08b6d44b4f6f7b279'
+imageMap['eu-central-1a.fips-centos-7-x64'] = 'ami-0837950ffca9ae6e8'
 imageMap['eu-central-1a.min-centos-6-x64']  = 'ami-07fa74e425f2abf29'
 imageMap['eu-central-1a.min-buster-x64']    = 'ami-0245697ee3e07e755'
 imageMap['eu-central-1a.min-focal-x64']     = 'ami-0848da720bb07de35'
@@ -120,8 +120,9 @@ initMap['docker'] = '''
     sudo yum -y remove java-1.7.0-openjdk awscli
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
-        find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
-
+        if [ -d /tmp/aws ]; then
+            sudo rm -rf /tmp/aws
+        fi
         until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
             sleep 1
             echo try again
@@ -169,13 +170,33 @@ initMap['micro-amazon'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
+    SYSREL=$(cat /etc/system-release | tr -dc '0-9.'|awk -F'.' '{print $1}')
     until sudo yum makecache; do
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git || :
-    sudo yum -y install aws-cli || :
-    sudo yum -y remove java-1.7.0-openjdk || :
+    if [[ $SYSREL -eq 2 ]]; then
+        sudo amazon-linux-extras install epel -y
+    else
+        sudo yum -y install epel-release
+    fi
+    sudo yum -y install java-1.8.0-openjdk git p7zip || :
+    sudo yum -y remove java-1.7.0-openjdk aws-cli || :
+
+    if ! $(aws --version | grep -q 'aws-cli/2'); then
+        if [ -d /tmp/aws ]; then
+            sudo rm -rf /tmp/aws
+        fi
+
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
+            sleep 1
+            echo try again
+        done
+
+        7za -o/tmp x /tmp/awscliv2.zip 
+        cd /tmp/aws && sudo ./install
+    fi
+
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 initMap['min-centos-6-x64'] = '''
