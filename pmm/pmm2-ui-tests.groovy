@@ -86,6 +86,16 @@ pipeline {
         label 'large-amazon'
     }
     environment {
+        AZURE_CLIENT_ID=credentials('AZURE_CLIENT_ID');
+        AZURE_CLIENT_SECRET=credentials('AZURE_CLIENT_SECRET');
+        AZURE_MYSQL_HOST=credentials('AZURE_MYSQL_HOST');
+        AZURE_MYSQL_PASS=credentials('AZURE_MYSQL_PASS');
+        AZURE_MYSQL_USER=credentials('AZURE_MYSQL_USER');
+        AZURE_POSTGRES_HOST=credentials('AZURE_POSTGRES_HOST');
+        AZURE_POSTGRES_PASS=credentials('AZURE_POSTGRES_PASS');
+        AZURE_POSTGRES_USER=credentials('AZURE_POSTGRES_USER');
+        AZURE_SUBSCRIPTION_ID=credentials('AZURE_SUBSCRIPTION_ID');
+        AZURE_TENNANT_ID=credentials('AZURE_TENNANT_ID');
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
         REMOTE_AWS_MYSQL_PASSWORD=credentials('pmm-dev-remote-password')
         REMOTE_AWS_MYSQL57_HOST=credentials('pmm-dev-mysql57-remote-host')
