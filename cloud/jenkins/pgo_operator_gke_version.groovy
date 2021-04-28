@@ -83,55 +83,55 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
                     if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$MDB_TAG" ]; then
-                    echo Skip $TEST_NAME test
-                else
-                    cd ./source
-                    if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
-                        export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
+                        echo Skip $TEST_NAME test
                     else
-                        export IMAGE_OPERATOR=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-postgres-operator
-                    fi
+                        cd ./source
+                        if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
+                            export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
+                        else
+                            export IMAGE_OPERATOR=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-postgres-operator
+                        fi
 
-                    if [ -n "${PGO_APISERVER_IMAGE}" ]; then
-                        export IMAGE_APISERVER=${PGO_APISERVER_IMAGE}
-                    fi
+                        if [ -n "${PGO_APISERVER_IMAGE}" ]; then
+                            export IMAGE_APISERVER=${PGO_APISERVER_IMAGE}
+                        fi
 
-                    if [ -n "${PGO_EVENT_IMAGE}" ]; then
-                        export IMAGE_PGOEVENT=${PGO_EVENT_IMAGE}
-                    fi
+                        if [ -n "${PGO_EVENT_IMAGE}" ]; then
+                            export IMAGE_PGOEVENT=${PGO_EVENT_IMAGE}
+                        fi
 
-                    if [ -n "${PGO_RMDATA_IMAGE}" ]; then
-                        export IMAGE_RMDATA=${PGO_RMDATA_IMAGE}
-                    fi
+                        if [ -n "${PGO_RMDATA_IMAGE}" ]; then
+                            export IMAGE_RMDATA=${PGO_RMDATA_IMAGE}
+                        fi
 
-                    if [ -n "${PGO_SCHEDULER_IMAGE}" ]; then
-                        export IMAGE_SCHEDULER=${PGO_SCHEDULER_IMAGE}
-                    fi
+                        if [ -n "${PGO_SCHEDULER_IMAGE}" ]; then
+                            export IMAGE_SCHEDULER=${PGO_SCHEDULER_IMAGE}
+                        fi
 
-                    if [ -n "${PGO_DEPLOYER_IMAGE}" ]; then
-                        export IMAGE_DEPLOYER=${PGO_DEPLOYER_IMAGE}
-                    fi
+                        if [ -n "${PGO_DEPLOYER_IMAGE}" ]; then
+                            export IMAGE_DEPLOYER=${PGO_DEPLOYER_IMAGE}
+                        fi
 
-                    if [ -n "${PGO_PGBOUNCER_IMAGE}" ]; then
-                        export IMAGE_PGBOUNCER=${PGO_PGBOUNCER_IMAGE}
-                    fi
+                        if [ -n "${PGO_PGBOUNCER_IMAGE}" ]; then
+                            export IMAGE_PGBOUNCER=${PGO_PGBOUNCER_IMAGE}
+                        fi
 
-                    if [ -n "${PGO_POSTGRES_HA_IMAGE}" ]; then
-                        export IMAGE_PG_HA=${PGO_POSTGRES_HA_IMAGE}
-                    fi
+                        if [ -n "${PGO_POSTGRES_HA_IMAGE}" ]; then
+                            export IMAGE_PG_HA=${PGO_POSTGRES_HA_IMAGE}
+                        fi
 
-                    if [ -n "${PGO_BACKREST_IMAGE}" ]; then
-                        export IMAGE_BACKREST=${PGO_BACKREST_IMAGE}
-                    fi
+                        if [ -n "${PGO_BACKREST_IMAGE}" ]; then
+                            export IMAGE_BACKREST=${PGO_BACKREST_IMAGE}
+                        fi
 
-                    if [ -n "${PGO_BACKREST_REPO_IMAGE}" ]; then
-                        export IMAGE_BACKREST_REPO=${PGO_BACKREST_REPO_IMAGE}
-                    fi
+                        if [ -n "${PGO_BACKREST_REPO_IMAGE}" ]; then
+                            export IMAGE_BACKREST_REPO=${PGO_BACKREST_REPO_IMAGE}
+                        fi
 
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    ./e2e-tests/$TEST_NAME/run
-                fi
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                        source $HOME/google-cloud-sdk/path.bash.inc
+                        ./e2e-tests/$TEST_NAME/run
+                    fi
                 """
             }
             testsReportMap[TEST_NAME] = 'passed'
