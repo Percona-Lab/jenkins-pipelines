@@ -46,6 +46,10 @@ for REPOPATH in $REPOPATH_TMP; do
               mkdir -p /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS
               cp -v ${SRCRPM} /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS
               createrepo --update /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS
+	      if [ -f /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS/repodata/repomd.xml.asc ]; then
+                  rm -f /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS/repodata/repomd.xml.asc
+              fi
+	      echo ${SIGN_PASSWORD} | gpg --detach-sign --armor /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS/repodata/repomd.xml
           done
         fi
         #
@@ -57,6 +61,10 @@ for REPOPATH in $REPOPATH_TMP; do
                 mkdir -p /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}
                 cp -av redhat/${rhel}/${arch}/*.rpm /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}/
                 createrepo --update /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}/
+		if [ -f /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}/repodata/repomd.xml.asc ]; then
+                    rm -f /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}/repodata/repomd.xml.asc
+		fi
+		echo ${SIGN_PASSWORD} | gpg --detach-sign --armor /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}/repodata/repomd.xml
             done
         done
         #

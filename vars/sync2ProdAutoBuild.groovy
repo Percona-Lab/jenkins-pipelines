@@ -27,6 +27,10 @@ def call(String REPO_NAME, String DESTINATION) {
                                         rsync -aHv redhat/\${rhel}/\${arch}/*.rpm \${repo_path}/
                                     fi
                                     createrepo --update \${repo_path}
+                                    if [ -f \${repo_path}/repodata/repomd.xml.asc ]; then
+                                        rm -f \${repo_path}/repodata/repomd.xml.asc
+                                    fi
+                                    echo ${SIGN_PASSWORD} | gpg --detach-sign --armor \${repo_path}/repodata/repomd.xml 
                                 done
 
                                 # SRPMS
@@ -35,6 +39,10 @@ def call(String REPO_NAME, String DESTINATION) {
                                     cp -v `find ../source/redhat -name '*.src.rpm' \${find_exclude}` \${rpm_dest_path}/SRPMS/
                                 fi
                                 createrepo --update \${rpm_dest_path}/SRPMS
+                                if [ -f \${rpm_dest_path}/SRPMS/repodata/repomd.xml.asc ]; then
+                                    rm -f \${rpm_dest_path}/SRPMS/repodata/repomd.xml.asc
+                                fi
+                                echo ${SIGN_PASSWORD} | gpg --detach-sign --armor \${rpm_dest_path}/SRPMS/repodata/repomd.xml 
                             done
 
                             if [ "x${DESTINATION}" == "xrelease" ]; then
