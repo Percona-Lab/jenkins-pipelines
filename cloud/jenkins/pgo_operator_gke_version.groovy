@@ -165,11 +165,11 @@ pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
+            description: 'Tag/Branch for percona/percona-postgresql-operator repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
-            description: 'percona-server-mongodb-operator repository',
+            defaultValue: 'https://github.com/percona/percona-postgresql-operator',
+            description: 'percona-postgresql-operator repository',
             name: 'GIT_REPO')
         string(
             defaultValue: '1.19',
