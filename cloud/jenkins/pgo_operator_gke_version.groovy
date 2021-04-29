@@ -128,6 +128,10 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                             export IMAGE_BACKREST_REPO=${PGO_BACKREST_REPO_IMAGE}
                         fi
 
+                        if [ -n "${PGO_PGBADGER_IMAGE}" ]; then
+                            export IMAGE_PGBADGER=${PGO_PGBADGER_IMAGE}
+                        fi
+
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
                         source $HOME/google-cloud-sdk/path.bash.inc
                         ./e2e-tests/$TEST_NAME/run
@@ -219,6 +223,10 @@ pipeline {
             defaultValue: '',
             description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg13-pgbackrest-repo',
             name: 'PGO_BACKREST_REPO_IMAGE')
+        string(
+            defaultValue: '',
+            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg13-pgbadger',
+            name: 'PGO_PGBADGER_IMAGE')
     }
     agent {
         label 'docker'
