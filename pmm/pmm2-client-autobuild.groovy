@@ -13,8 +13,8 @@ pipeline {
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: ['testing', 'experimental'],
-            description: 'publish result package to internal (testing) or experimental repository',
+            choices: ['experimental', 'testing'],
+            description: 'publish result package to internal RC (testing) or experimental (dev-latest) repository',
             name: 'DESTINATION')
     }
     options {
@@ -41,7 +41,7 @@ pipeline {
                 '''
                 script {
                     def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
-                    if ("${DESTINATION}" == "experimental") {
+                    if ("${DESTINATION}" == "testing") {
                         env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}"
                         env.DOCKER_RC_TAG = "${versionTag}-rc"
                     } else {
@@ -170,7 +170,7 @@ pipeline {
                 deleteDir()
                 unstash 'binary.tarball'
                 sh '''
-                    scp -i ~/.ssh/id_rsa_downloads -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no results/tarball/*.tar.* jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
+                    scp -i ~/.ssh/id_rsa_downloads -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no results/tarball/*.tar.* jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/EXPERIMENTAL/pmm/
                 '''
             }
         }

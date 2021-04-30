@@ -12,8 +12,8 @@ pipeline {
     }
     parameters {
         choice(
-            // default is choices.get(0) - laboratory
-            choices: ['laboratory', 'experimental', 'testing'],
+            // default choice should be testing, since we publish RC on testing Repo
+            choices: ['testing', 'experimental'],
             description: 'publish pmm2-server packages from regular(laboratory) repository',
             name: 'UPDATER_REPO')
         string(

@@ -13,10 +13,10 @@ pipeline {
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(
-            // default is choices.get(0) - laboratory
-            choices: ['laboratory', 'experimental', 'testing'],
+            // default is choices.get(0) - experimental
+            choices: ['experimental', 'testing'],
             description: 'Repo component to push packages to',
-            name: 'DESTINATION') 
+            name: 'DESTINATION')
     }
     options {
         skipDefaultCheckout()
@@ -60,7 +60,7 @@ pipeline {
 
                 script {
                     def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
-                    if ("${DESTINATION}" == "experimental") {
+                    if ("${DESTINATION}" == "testing") {
                         env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}"
                         env.DOCKER_RC_TAG = "${versionTag}-rc"
                     } else {
