@@ -45,7 +45,7 @@ pipeline {
                         packer build \
                         -var 'pmm_client_repos=original testing' \
                         -var 'pmm_client_repo_name=percona-testing-x86_64' \
-                        -var 'pmm2_server_repo=laboratory' \
+                        -var 'pmm2_server_repo=testing' \
                         -only virtualbox-ovf -color=false packer/pmm2.json \
                             | tee build.log
                     """
