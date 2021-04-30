@@ -305,7 +305,7 @@ pipeline {
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
                     gcloud config set project $GCP_PROJECT
-                    gcloud alpha container clusters delete --zone us-central1-a $CLUSTER_NAME-sandbox | true
+                    gcloud alpha container clusters delete --zone us-central1-a $CLUSTER_NAME-sandbox || true
                 '''
             }
             sh '''
