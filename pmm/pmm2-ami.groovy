@@ -41,9 +41,9 @@ pipeline {
             }
         }
 
-        stage('Build Image Dev-Latest') {
+        stage('Build Image Release Candidate') {
             when {
-                expression { env.RELEASE_CANDIDATE == "no" }
+                expression { env.RELEASE_CANDIDATE == "yes" }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -62,9 +62,9 @@ pipeline {
                 archiveArtifacts 'IMAGE'
             }
         }
-        stage('Build Image Release Candidate') {
+        stage('Build Image Dev-Latest') {
             when {
-                expression { env.RELEASE_CANDIDATE == "yes" }
+                expression { env.RELEASE_CANDIDATE == "no" }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
