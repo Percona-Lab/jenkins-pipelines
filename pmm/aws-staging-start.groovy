@@ -296,7 +296,7 @@ pipeline {
         }
         stage('Enable Testing Repo') {
             when {
-                expression { env.ENABLE_TESTING_REPO == "yes" && env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" && env.ENABLE_EXPERIMENTAL_REPO == "no" }
+                expression { env.ENABLE_TESTING_REPO == "yes" && env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" }
             }
             steps {
                 script {
@@ -372,8 +372,13 @@ pipeline {
                         elif [[ \$CLIENT_VERSION = 2* ]]; then
                             sudo yum clean all
                             sudo yum -y install pmm2-client-\$CLIENT_VERSION-6.el7.x86_64
-                            sudo percona-release enable-only original experimental
-                            sleep 15
+                            if [[ \$ENABLE_TESTING_REPO = yes ]]
+                                sudo percona-release enable-only original testing
+                                sleep 15
+                            else
+                                sudo percona-release enable-only original experimental
+                                sleep 15
+                            fi
                         elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then
                             sudo percona-release enable-only original testing
                             sudo yum clean all
