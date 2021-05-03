@@ -9,7 +9,6 @@ def call() {
             sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
             sudo yum clean all
             sudo yum makecache
-            sudo yum -y update
             if [[ \$CLIENT_VERSION = dev-latest ]]; then
                 sudo percona-release enable-only original testing
                 sudo yum -y install pmm2-client
