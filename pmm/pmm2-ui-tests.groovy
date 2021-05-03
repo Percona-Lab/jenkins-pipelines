@@ -88,6 +88,10 @@ pipeline {
             name: 'CLIENT_VERSION')
         choice(
             choices: ['no', 'yes'],
+            description: "Use this instance only as a client host",
+            name: 'CLIENT_INSTANCE')
+        choice(
+            choices: ['no', 'yes'],
             description: "Run Tests for OVF supported Features",
             name: 'OVF_TEST')
         string (
