@@ -29,7 +29,7 @@ void uploadAllureArtifacts() {
 }
 pipeline {
     agent {
-        label 'docker'
+        label 'large-amazon'
     }
     environment {
         AZURE_CLIENT_ID=credentials('AZURE_CLIENT_ID');
@@ -125,12 +125,15 @@ pipeline {
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
+                installDocker()
                 sh '''
                     sudo curl -L https://github.com/docker/compose/releases/download/1.29.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/bin/docker-compose > /dev/null
                     sudo chmod +x /usr/bin/docker-compose
                     docker-compose --version
                     sudo yum -y update --security
                     sudo yum -y install jq svn
+                    sudo usermod -aG docker ec2-user
+                    sudo service docker start
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
