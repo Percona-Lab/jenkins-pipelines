@@ -5,7 +5,7 @@ def call() {
             set -o xtrace
             export PATH=\$PATH:/usr/sbin
             test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
-            export IP=\$(curl ifconfig.me);
+            export IP=\${SERVER_IP}
             sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
             if [[ \$CLIENT_VERSION = dev-latest ]]; then
                 sudo percona-release enable-only original testing
