@@ -12,7 +12,6 @@ def call(String CLIENT_VERSION, String PMM_VERSION, String ENABLE_PUSH_MODE, Str
                 sudo yum clean all
                 sudo yum makecache
                 sudo yum -y install pmm2-client
-                sudo yum -y update
             elif [[ \$CLIENT_VERSION = pmm2-rc ]]; then
                 sudo percona-release enable-only original experimental
                 sudo yum clean all
