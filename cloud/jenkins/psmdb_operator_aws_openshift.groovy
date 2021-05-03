@@ -198,7 +198,7 @@ pipeline {
         }
         stage('Create AWS Infrastructure') {
             steps {
-                git branch: 'main', url: 'https://github.com/Percona-Lab/k8s-lab'
+                git branch: 'improve-creation-infra', url: 'https://github.com/Percona-Lab/k8s-lab'
                     sh """
                         # sudo is needed for better node recovery after compilation failure
                         # if building failed on compilation stage directory will have files owned by docker user
@@ -232,7 +232,7 @@ pipeline {
                     retry(3) {
                          sh """
                             pushd ./aws-openshift-automation
-                                sleep 120
+                                sleep 600
                                 oc login \$(terraform output master-url) --insecure-skip-tls-verify=true -u=real-admin -p=123
                             popd
                         """
