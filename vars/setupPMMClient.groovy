@@ -7,24 +7,19 @@ def call() {
             test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
             export IP=\${SERVER_IP}
             sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+            sudo yum clean all
+            sudo yum makecache
+            sudo yum -y update
             if [[ \$CLIENT_VERSION = dev-latest ]]; then
                 sudo percona-release enable-only original testing
-                sudo yum clean all
-                sudo yum makecache
                 sudo yum -y install pmm2-client
             elif [[ \$CLIENT_VERSION = pmm2-rc ]]; then
                 sudo percona-release enable-only original experimental
-                sudo yum clean all
-                sudo yum makecache
                 sudo yum -y install pmm2-client
-                sudo yum -y update
             elif [[ \$CLIENT_VERSION = pmm2-latest ]]; then
-                sudo yum clean all
                 sudo yum -y install pmm2-client
-                sudo yum -y update
                 sudo percona-release enable-only original testing
             elif [[ \$CLIENT_VERSION = 2* ]]; then
-                sudo yum clean all
                 sudo yum -y install pmm2-client-\$CLIENT_VERSION-6.el7.x86_64
                 sudo percona-release enable-only original testing
                 sleep 15

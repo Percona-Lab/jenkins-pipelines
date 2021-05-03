@@ -267,6 +267,7 @@ pipeline {
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
+                sudo chown -R ec2-user:ec2-user . || true
             '''
             script {
                 if(env.VM_NAME)
