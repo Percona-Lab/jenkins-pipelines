@@ -267,7 +267,7 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                 ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
-                docker-compose down
+                sudo docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
                 sudo chown -R ec2-user:ec2-user . || true
