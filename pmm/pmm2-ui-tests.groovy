@@ -157,6 +157,9 @@ pipeline {
                     }
                 }
                 stage('Setup Instance') {
+                    when {
+                        expression { env.CLIENT_INSTANCE == "no" }
+                    }
                     steps {
                         sh """
                             mkdir testdata
@@ -166,8 +169,9 @@ pipeline {
                             env.SERVER_IP = "127.0.0.1"
                             env.PMM_UI_URL = "http://${env.SERVER_IP}/"
                             env.PMM_URL = "http://admin:admin@${env.SERVER_IP}"
+                            env.PMM_VERSION="pmm2"
                         }
-                        setupPMMClient(CLIENT_VERSION, 'pmm2', 'yes', SERVER_IP)
+                        setupPMMClient()
                         sh """
                             export PATH=\$PATH:/usr/sbin
                             pmm-admin add mysql --username=root --password=ps --port=43306 ps_test_instance

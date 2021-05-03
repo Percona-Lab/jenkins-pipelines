@@ -1,4 +1,4 @@
-def call(String CLIENT_VERSION, String PMM_VERSION, String ENABLE_PUSH_MODE, String SERVER_IP) {
+def call() {
    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             set -o errexit
