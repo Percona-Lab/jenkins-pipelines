@@ -1,35 +1,7 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-7984', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
-
-void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP) {
-    stagingJob = build job: 'aws-staging-start', parameters: [
-        string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
-        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
-        string(name: 'CLIENTS', value: CLIENTS),
-        string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'PS_VERSION', value: '5.7.30'),
-        string(name: 'QUERY_SOURCE', value: 'slowlog'),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e ENABLE_DBAAS=1 -e PMM_DEBUG=1 -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com:443 -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s'),
-        string(name: 'SERVER_IP', value: SERVER_IP),
-        string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1')
-    ]
-    env.VM_IP = stagingJob.buildVariables.IP
-    env.SERVER_IP = env.VM_IP
-    env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    def clientInstance = "yes";
-    if ( CLIENT_INSTANCE == clientInstance ) {
-        env.PMM_URL = "http://admin:admin@${SERVER_IP}"
-        env.PMM_UI_URL = "http://${SERVER_IP}/"
-    }
-    else
-    {
-        env.PMM_URL = "http://admin:admin@${VM_IP}"
-        env.PMM_UI_URL = "http://${VM_IP}/"
-    }
-}
 
 void runClusterStaging(String PMM_QA_GIT_BRANCH) {
     clusterJob = build job: 'kubernetes-cluster-staging', parameters: [
@@ -39,32 +11,6 @@ void runClusterStaging(String PMM_QA_GIT_BRANCH) {
     ]
     env.CLUSTER_IP = clusterJob.buildVariables.IP
     env.KUBECONFIG = clusterJob.buildVariables.KUBECONFIG
-}
-
-void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP) {
-    stagingJob = build job: 'aws-staging-start', parameters: [
-        string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
-        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
-        string(name: 'CLIENTS', value: CLIENTS),
-        string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'QUERY_SOURCE', value: 'slowlog'),
-        string(name: 'SERVER_IP', value: SERVER_IP),
-        string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1')
-    ]
-    env.VM_CLIENT_IP = stagingJob.buildVariables.IP
-    env.VM_CLIENT_NAME = stagingJob.buildVariables.VM_NAME
-    env.VM_IP = stagingJob.buildVariables.SERVER_IP
-    def clientInstance = "yes";
-    if ( CLIENT_INSTANCE == clientInstance ) {
-        env.PMM_URL = "http://admin:admin@${SERVER_IP}"
-        env.PMM_UI_URL = "http://${SERVER_IP}/"
-    }
-    else
-    {
-        env.PMM_URL = "http://admin:admin@${VM_IP}"
-        env.PMM_UI_URL = "http://${VM_IP}/"
-    }
 }
 
 void destroyStaging(IP) {
@@ -83,7 +29,7 @@ void uploadAllureArtifacts() {
 }
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'docker'
     }
     environment {
         AZURE_CLIENT_ID=credentials('AZURE_CLIENT_ID');
@@ -125,7 +71,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'main',
+            defaultValue: 'PMM-7984',
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         string(
@@ -142,24 +88,24 @@ pipeline {
             name: 'CLIENT_VERSION')
         choice(
             choices: ['no', 'yes'],
-            description: "Use this instance only as a client host",
-            name: 'CLIENT_INSTANCE')
-        choice(
-            choices: ['no', 'yes'],
-            description: "Run AMI Setup Wizard for AMI UI tests",
-            name: 'AMI_TEST')
-        choice(
-            choices: ['no', 'yes'],
             description: "Run Tests for OVF supported Features",
             name: 'OVF_TEST')
-        string(
-            defaultValue: '',
-            description: 'AMI Instance ID',
-            name: 'AMI_INSTANCE_ID')
         string (
             defaultValue: '',
             description: 'Value for Server Public IP, to use this instance just as client',
             name: 'SERVER_IP')
+        string(
+            defaultValue: 'percona:5.7.30',
+            description: 'Percona Server Docker Container Image',
+            name: 'MYSQL_IMAGE')
+        string(
+            defaultValue: 'postgres:12',
+            description: 'Postgresql Docker Container Image',
+            name: 'POSTGRES_IMAGE')
+        string(
+            defaultValue: 'percona/percona-server-mongodb:4.2',
+            description: 'Percona Server MongoDb Docker Container Image',
+            name: 'MONGO_IMAGE')
         string(
             defaultValue: 'master',
             description: 'Tag/Branch for pmm-qa repository',
@@ -178,12 +124,12 @@ pipeline {
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                installDocker()
                 sh '''
+                    sudo curl -L https://github.com/docker/compose/releases/download/1.29.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/bin/docker-compose > /dev/null
+                    sudo chmod +x /usr/bin/docker-compose
+                    docker-compose --version
                     sudo yum -y update --security
                     sudo yum -y install jq svn
-                    sudo usermod -aG docker ec2-user
-                    sudo service docker start
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
@@ -207,18 +153,29 @@ pipeline {
             parallel {
                 stage('Start PMM Cluster Staging Instance') {
                     when {
-                        expression { env.AMI_TEST == "no" && env.OVF_TEST == "no" }
+                        expression { env.OVF_TEST == "no" }
                     }
                     steps {
                         runClusterStaging('master')
                     }
                 }
-                stage('Start PMM Server Instance') {
-                    when {
-                        expression { env.CLIENT_INSTANCE == "no" }
-                    }
+                stage('Setup Instance') {
                     steps {
-                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --addclient=ps,1', CLIENT_INSTANCE, SERVER_IP)
+                        sh """
+                            mkdir testdata
+                            MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
+                        """
+                        script {
+                            env.SERVER_IP = "127.0.0.1"
+                            env.PMM_UI_URL = "http://${env.SERVER_IP}/"
+                            env.PMM_URL = "http://admin:admin@${env.SERVER_IP}"
+                        }
+                        setupPMMClient(CLIENT_VERSION, 'pmm2', 'yes', SERVER_IP)
+                        sh """
+                            export PATH=\$PATH:/usr/sbin
+                            pmm-admin add mysql --username=root --password=ps --port=43306 ps_test_instance
+                            pmm-admin list
+                        """
                     }
                 }
             }
@@ -302,6 +259,9 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                 ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
+                docker-compose down
+                docker rm -f $(sudo docker ps -a -q) || true
+                docker volume rm $(sudo docker volume ls -q) || true
             '''
             script {
                 if(env.VM_NAME)
