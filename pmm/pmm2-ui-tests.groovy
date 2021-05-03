@@ -224,7 +224,7 @@ pipeline {
                 timeout(time: 35, unit: "MINUTES")
             }
             when {
-                expression { env.AMI_TEST == "no" && env.OVF_TEST == "no" }
+                expression { env.OVF_TEST == "no" }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
