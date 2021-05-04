@@ -55,7 +55,14 @@ void setupReleaseBranches(String VERSION, String GIT_BRANCH) {
     def dependent_submodules = [
         "mysqld_exporter",
         "grafana",
-        "dbaas-controller"
+        "dbaas-controller",
+        "node_exporter",
+        "mongodb_exporter",
+        "postgres_exporter",
+        "clickhouse_exporter",
+        "proxysql_exporter",
+        "rds_exporter",
+        "azure_metrics_exporter"
     ]
     sh '''
         git branch \${RELEASE_BRANCH}
