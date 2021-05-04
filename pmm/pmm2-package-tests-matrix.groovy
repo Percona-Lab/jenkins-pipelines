@@ -7,7 +7,6 @@ void runPackageTestingJob(String GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
-        string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'PMM_VERSION', value: PMM_VERSION),
         string(name: 'TESTS', value: TESTS),
         string(name: 'METRICS_MODE', value: METRICS_MODE)
@@ -40,7 +39,7 @@ pipeline {
             description: 'PMM Version for testing',
             name: 'PMM_VERSION')
         choice(
-            choices: ['testing', 'experimental', 'main'],
+            choices: ['experimental', 'testing', 'main'],
             description: 'Enable Repo for Client Nodes',
             name: 'INSTALL_REPO')
         choice(

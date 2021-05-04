@@ -2,12 +2,13 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
-void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
+void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, ENABLE_TESTING_REPO) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: "percona/pmm-server:${DOCKER_VERSION}"),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'DOCKER_ENV_VARIABLE', value: '-e DISABLE_TELEMETRY=true -e DATA_RETENTION=48h'),
         string(name: 'CLIENTS', value: CLIENTS),
+        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
     ]
@@ -53,7 +54,6 @@ void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                 export PMM_VERSION=${PMM_VERSION}
                 echo "Upgrading pmm2-client";
-                sudo percona-release enable-only original testing
                 sudo yum clean all
                 sudo yum makecache
                 sudo yum -y install pmm2-client
@@ -109,16 +109,16 @@ pipeline {
             description: 'Tag/Branch for UI Tests Repo repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: ['2.3.0', '2.4.0', '2.5.0', '2.6.0', '2.6.1', '2.7.0', '2.8.0', '2.9.0', '2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1'],
+            choices: ['2.3.0', '2.4.0', '2.5.0', '2.6.0', '2.6.1', '2.7.0', '2.8.0', '2.9.0', '2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0'],
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_VERSION')
         choice(
-            choices: ['2.3.0', '2.4.0', '2.5.0', '2.6.0', '2.6.1', '2.7.0', '2.8.0', '2.9.0', '2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1'],
+            choices: ['2.3.0', '2.4.0', '2.5.0', '2.6.0', '2.6.1', '2.7.0', '2.8.0', '2.9.0', '2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0'],
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
             defaultValue: '2.17.0',
-            description: 'dev-latest PMM Server Version',
+            description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
@@ -130,16 +130,12 @@ pipeline {
             name: 'PMM_QA_GIT_BRANCH')
         choice(
             choices: ['no', 'yes'],
-            description: 'Enable Experimental Repo',
-            name: 'ENABLE_RC_REPO')
+            description: 'Enable Testing Repo, for RC testing',
+            name: 'ENABLE_TESTING_REPO')
         choice(
             choices: ['no', 'yes'],
             description: 'Perform Docker-way Upgrade?',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
-        string(
-            defaultValue: '2.17.0',
-            description: 'RC PMM Server Version',
-            name: 'PMM_SERVER_RC')
     }
     options {
         skipDefaultCheckout()
@@ -170,7 +166,7 @@ pipeline {
         }
         stage('Start staging') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --setup-with-custom-settings')
+                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --setup-with-custom-settings', ENABLE_TESTING_REPO)
             }
         }
         stage('Sanity check') {

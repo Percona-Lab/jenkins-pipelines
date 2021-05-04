@@ -30,13 +30,13 @@ pipeline {
             description: 'Which Version of PMM-Server',
             name: 'PMM_VERSION')
         choice(
-            choices: ['yes', 'no'],
-            description: 'Enable Testing Repo?',
+            choices: ['no', 'yes'],
+            description: 'Enable Testing Repo, for RC testing',
             name: 'ENABLE_TESTING_REPO')
         choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Experimental Repo?',
-            name: 'ENABLE_RC_REPO')
+            choices: ['yes', 'no'],
+            description: 'Enable Experimental Repo, for dev-latest',
+            name: 'ENABLE_EXPERIMENTAL_REPO')
         choice(
             choices: ['no', 'yes'],
             description: 'Enable Push Mode, if you are using this instance as Client Node',
@@ -296,7 +296,7 @@ pipeline {
         }
         stage('Enable Testing Repo') {
             when {
-                expression { env.ENABLE_TESTING_REPO == "yes" && env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" && env.ENABLE_RC_REPO == "no" }
+                expression { env.ENABLE_TESTING_REPO == "yes" && env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" }
             }
             steps {
                 script {
@@ -309,7 +309,7 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/laboratory/^' /etc/yum.repos.d/pmm2-server.repo
+                                docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
                                 docker exec \${VM_NAME}-server percona-release enable original testing
                                 docker exec \${VM_NAME}-server yum clean all
                             """
@@ -320,7 +320,7 @@ pipeline {
         }
         stage('Enable Experimental Repo') {
             when {
-                expression { env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" && env.ENABLE_RC_REPO == "yes" }
+                expression { env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" && env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
             }
             steps {
                 script {
@@ -353,13 +353,13 @@ pipeline {
                         export CLIENT_IP=\$(curl ifconfig.me);
                         sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
                         if [[ \$CLIENT_VERSION = dev-latest ]]; then
-                            sudo percona-release enable-only original testing
+                            sudo percona-release enable-only original experimental
                             sudo yum clean all
                             sudo yum makecache
                             sudo yum -y install pmm2-client
                             sudo yum -y update
                         elif [[ \$CLIENT_VERSION = pmm2-rc ]]; then
-                            sudo percona-release enable-only original experimental
+                            sudo percona-release enable-only original testing
                             sudo yum clean all
                             sudo yum makecache
                             sudo yum -y install pmm2-client
@@ -368,12 +368,17 @@ pipeline {
                             sudo yum clean all
                             sudo yum -y install pmm2-client
                             sudo yum -y update
-                            sudo percona-release enable-only original testing
+                            sudo percona-release enable-only original experimental
                         elif [[ \$CLIENT_VERSION = 2* ]]; then
                             sudo yum clean all
                             sudo yum -y install pmm2-client-\$CLIENT_VERSION-6.el7.x86_64
-                            sudo percona-release enable-only original testing
-                            sleep 15
+                            if [[ \$ENABLE_TESTING_REPO = yes ]]; then
+                                sudo percona-release enable-only original testing
+                                sleep 15
+                            else
+                                sudo percona-release enable-only original experimental
+                                sleep 15
+                            fi
                         elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then
                             sudo percona-release enable-only original testing
                             sudo yum clean all
