@@ -107,7 +107,7 @@ void createBranch(String SUBMODULE, String BRANCH)
             export submodule_url=\$(git config --file=.gitmodules submodule.\${SUBMODULE}.url)
             export submodule_branch=\$(git config --file=.gitmodules submodule.\${SUBMODULE}.branch)
             export ssh_submodule_url=\$(echo \$submodule_url | sed "s^https://github.com/^git@github.com:^g")
-            git config --file=.gitmodules submodule.\${SUBMODULE}.branch release-${VERSION}
+            git config --file=.gitmodules submodule.\${SUBMODULE}.branch \${BRANCH}
             cd /tmp/
             export submodule_branch_exist=\$(git ls-remote --heads \${submodule_url} \${BRANCH} | wc -l)
             if [[ \${submodule_branch_exist} != 1 ]]; then
