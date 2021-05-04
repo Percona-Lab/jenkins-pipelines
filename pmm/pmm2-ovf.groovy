@@ -108,11 +108,14 @@ pipeline {
             script {
                 unstash 'IMAGE'
                 def IMAGE = sh(returnStdout: true, script: "cat IMAGE").trim()
-                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - http://percona-vm.s3-website-us-east-1.amazonaws.com/${IMAGE}"
                 if ("${RELEASE_CANDIDATE}" == "yes")
                 {
-                  currentBuild.description = "Release Candidate Build"
-                  slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${specName}]: ${BUILD_URL} Release Candidate build finished - ${IMAGE}"
+                    currentBuild.description = "Release Candidate Build"
+                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${specName}]: ${BUILD_URL} Release Candidate build finished - ${IMAGE}"
+                }
+                else
+                {
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - http://percona-vm.s3-website-us-east-1.amazonaws.com/${IMAGE}"
                 }
             }
         }
