@@ -62,7 +62,8 @@ void setupReleaseBranches(String VERSION, String GIT_BRANCH) {
         "clickhouse_exporter",
         "proxysql_exporter",
         "rds_exporter",
-        "azure_metrics_exporter"
+        "azure_metrics_exporter",
+        "percona-toolkit"
     ]
     sh '''
         git branch \${RELEASE_BRANCH}
