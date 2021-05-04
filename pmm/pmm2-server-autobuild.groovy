@@ -13,10 +13,10 @@ pipeline {
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(
-            // default is choices.get(0) - laboratory
-            choices: ['laboratory', 'experimental', 'testing'],
+            // default is choices.get(0) - experimental
+            choices: ['experimental', 'testing'],
             description: 'Repo component to push packages to',
-            name: 'DESTINATION') 
+            name: 'DESTINATION')
     }
     options {
         skipDefaultCheckout()
@@ -60,7 +60,7 @@ pipeline {
 
                 script {
                     def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
-                    if ("${DESTINATION}" == "experimental") {
+                    if ("${DESTINATION}" == "testing") {
                         env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}"
                         env.DOCKER_RC_TAG = "${versionTag}-rc"
                     } else {
@@ -209,6 +209,11 @@ pipeline {
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE} - ${BUILD_URL}"
                     slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
+                    if ("${DESTINATION}" == "testing")
+                    {
+                      currentBuild.description = "Release Candidate Build"
+                      slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished"
+                    }
                 } else {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
