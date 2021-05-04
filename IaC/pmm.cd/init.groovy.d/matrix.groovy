@@ -147,6 +147,7 @@ authz_strategy_config = [
         'percona*iit': ['Overall Administer'],
         'percona*pmm-devs': ['Overall Read','Agent Build','Agent Configure','Agent Connect','Agent Create','Agent Delete','Agent Disconnect','Job Build','Job Cancel','Job Configure','Job Create','Job Delete','Job Discover','Job Move','Job Read','Job Workspace','Run Delete','Run Update','Run Replay','View Configure','View Create','View Delete','View Read','SCM Tag'],
         'percona*ext-sde': ['Overall Read','Agent Build','Agent Configure','Agent Connect','Agent Create','Agent Delete','Agent Disconnect','Job Build','Job Cancel','Job Configure','Job Create','Job Delete','Job Discover','Job Move','Job Read','Job Workspace','Run Delete','Run Update','Run Replay','View Configure','View Create','View Delete','View Read','SCM Tag'],
+        'percona*PMM Contributors': ['Overall Read','Agent Build','Job Build','Job Cancel','Job Discover','Job Read','View Read'],
         'atymchuk': ['Overall Administer'],
     ]
 ]

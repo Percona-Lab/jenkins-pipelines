@@ -133,6 +133,7 @@ pipeline {
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
                             rsync -aHv --delete -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
+                                export SIGN_PASSWORD=\${SIGN_PASSWORD}
                                 bash -x /tmp/args_pipeline
                                 wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/ps-pxc-dist/rpm_release.sh -O rpm_release.sh
                                 bash -xe rpm_release.sh
