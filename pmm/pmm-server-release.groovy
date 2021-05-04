@@ -79,11 +79,19 @@ pipeline {
         }
         stage('Createrepo') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
+                    withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com " \
                             createrepo --update /srv/repo-copy/pmm/7/RPMS/x86_64/
-                    '''
+                            if [ -f /srv/repo-copy/pmm/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc ]; then
+                                rm -f /srv/repo-copy/pmm/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc
+                            fi
+                            export SIGN_PASSWORD=\${SIGN_PASSWORD}
+                            echo \${SIGN_PASSWORD} | gpg --detach-sign --armor /srv/repo-copy/pmm/yum/release/7/RPMS/x86_64/repodata/repomd.xml
+                        "
+                    """
+                    }
                 }
             }
         }

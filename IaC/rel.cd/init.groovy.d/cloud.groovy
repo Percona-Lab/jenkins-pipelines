@@ -35,7 +35,7 @@ imageMap['eu-west-1a.min-buster-x64']    = 'ami-09ea48ee08b5fd32c'
 imageMap['eu-west-1a.min-stretch-x64']   = 'ami-07b6f61657bc90905'
 imageMap['eu-west-1a.min-focal-x64']     = 'ami-075d4aa9d88dbfb75'
 imageMap['eu-west-1a.min-bionic-x64']    = 'ami-0d40053470cce7b92'
-imageMap['eu-west-1a.min-xenial-x64']    = 'ami-08fabf5d4fa6fcc12'
+imageMap['eu-west-1a.min-xenial-x64']    = 'ami-0a9aac550bc5711d3'
 imageMap['eu-west-1a.min-xenial-x32']    = 'ami-0d842b54e0120f205'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
@@ -195,9 +195,9 @@ initMap['micro-amazon'] = '''
 initMap['min-centos-6-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
-        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+        for DEVICE_NAME in $(lsblk -ndbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
             if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
-                DEVICE="${DEVICE_NAME}"
+                DEVICE="/dev/${DEVICE_NAME}"
                 break
             fi
         done
@@ -377,20 +377,20 @@ execMap['min-xenial-x32']    = '1'
 execMap['min-buster-x64']    = '1'
 
 devMap = [:]
-devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
-devMap['docker2']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:180:true:gp2'
+devMap['docker2']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:180:true:gp2'
 devMap['docker-32gb']       = devMap['docker']
 devMap['micro-amazon']      = devMap['docker']
-devMap['min-bionic-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-bionic-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:180:true:gp2'
 devMap['min-focal-x64']     = devMap['min-bionic-x64']
 devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
-devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
+devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
+devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:180:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
-devMap['min-xenial-x32']    = '/dev/sda1=:10:false:gp2,/dev/sdd=:80:false:gp2'
-devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-xenial-x32']    = '/dev/sda1=:10:false:gp2,/dev/sdd=:180:false:gp2'
+devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:180:true:gp2'
 devMap['min-buster-x64']    = devMap['docker']
 
 labelMap = [:]

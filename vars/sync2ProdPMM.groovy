@@ -33,6 +33,10 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                                         rsync -aHv redhat/\${rhel}/\${arch}/*.rpm \${rsync_exclude} \${repo_path}/
                                     fi
                                     createrepo --update \${repo_path}
+                                    if [ -f \${repo_path}/repodata/repomd.xml.asc ]; then
+                                        rm -f \${repo_path}/repodata/repomd.xml.asc
+                                    fi
+                                    echo ${SIGN_PASSWORD} | gpg --detach-sign --armor \${repo_path}/repodata/repomd.xml 
                                 done
 
                                 # SRPMS
@@ -41,6 +45,10 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                                     cp -v \$(find ../source/redhat -name '*.src.rpm' \${find_exclude}) \${dest_path}/SRPMS/
                                 fi
                                 createrepo --update \${dest_path}/SRPMS
+                                if [ -f \${dest_path}/SRPMS/repodata/repomd.xml.asc ]; then
+                                    rm -f \${dest_path}/SRPMS/repodata/repomd.xml.asc
+                                fi
+                                echo ${SIGN_PASSWORD} | gpg --detach-sign --armor \${dest_path}/SRPMS/repodata/repomd.xml 
                             done
 
                             for dist in \$(ls -1 debian); do
