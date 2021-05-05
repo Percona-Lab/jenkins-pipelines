@@ -102,7 +102,7 @@ void runTest(String TEST_NAME) {
                     fi
                 """
             }
-            pushArtifactFile("$VERSION-$TEST_NAME-$MDB_TAG")
+            pushArtifactFile("${params.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-$PPG_TAG")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
