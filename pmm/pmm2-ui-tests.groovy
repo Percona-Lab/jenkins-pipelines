@@ -185,6 +185,12 @@ pipeline {
                         sh """
                             export PATH=\$PATH:/usr/sbin
                             pmm-admin add mysql --username=root --password=ps --port=43306 ps_test_instance
+                            bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
+                                --download \
+                                --addclient=haproxy,1 \
+                                --pmm2 \
+                                --pmm2-server-ip=\$SERVER_IP
+                            sleep 10
                             pmm-admin list
                         """
                     }
