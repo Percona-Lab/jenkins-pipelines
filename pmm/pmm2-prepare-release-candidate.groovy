@@ -183,7 +183,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'PMM-2.0',
-            description: 'Prepare Submodules from pmm-submodules branch, to delete release branch please pass actual submodule branch name & set Remove param to yes',
+            description: 'Prepare Submodules from pmm-submodules branch',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '2.17.0',
