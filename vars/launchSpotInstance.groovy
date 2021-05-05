@@ -57,7 +57,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                         "Enabled": false
                     },
                     "IamInstanceProfile": {
-                        "Name": "jenkins-pmm-slave"
+                        "Name": "pmm-staging-slave"
                     },
                     "SecurityGroupIds": [
                         "security-group-id-1",
