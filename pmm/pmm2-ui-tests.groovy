@@ -245,7 +245,7 @@ pipeline {
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
                         export kubeconfig_minikube="${KUBECONFIG}"
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@qan)^(?!.*@nightly)'
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@pmm-upgrade)^(?!.*@qan)^(?!.*@nightly)'
                     """
                 }
             }
