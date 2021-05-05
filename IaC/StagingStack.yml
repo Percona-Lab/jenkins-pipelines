@@ -165,6 +165,54 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref SShortName
 
+  SInstancesRole: # separate IAM role for Staging instances
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Join [ '-', [ !Ref SShortName, 'slave' ]]
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: 'sts:AssumeRole'
+            Principal:
+              Service: ec2.amazonaws.com
+      Path: /
+      Policies:
+        - PolicyName: !Join [ '-', [ !Ref SShortName, 'slave' ]]
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource: '*'
+                Action:
+                  - 'ec2:CreateTags'
+                  - 'ec2:DeleteTags'
+                  - 'ec2:DescribeInstances'
+                  - 'ec2:DescribeSpotInstanceRequests'
+  SInstancesProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref SInstancesRole
+      InstanceProfileName: !Join [ '-', [ !Ref SShortName, 'slave' ]]
+
+  SInstancesUser: # create standalone user for PMM jenkins jobs
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Join [ '-', [ !Ref SShortName, 'slave' ]]
+      Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
+      - arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess
+      - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+      - arn:aws:iam::aws:policy/AmazonEKSServicePolicy
+      - arn:aws:iam::aws:policy/AmazonEC2FullAccess
+      - arn:aws:iam::119175775298:policy/jenkins-artifactory
+      - arn:aws:iam::119175775298:policy/eks-jenkins
+      - arn:aws:iam::119175775298:policy/EKS
+      - arn:aws:iam::119175775298:policy/PMM-EKS-Jenkins
+
   LambdaExecutionRole: # create Role for lambda function
     Type: AWS::IAM::Role
     Properties:
