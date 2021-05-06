@@ -29,7 +29,7 @@ void uploadAllureArtifacts() {
 }
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'docker'
     }
     environment {
         AZURE_CLIENT_ID=credentials('AZURE_CLIENT_ID');
@@ -114,6 +114,21 @@ pipeline {
             defaultValue: 'master',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
+        text(
+            defaultValue: '--addclient=haproxy,1 --addclient=ps,1',
+            description: '''
+            Configure PMM Clients
+            ms - MySQL (ex. --addclient=ms,1),
+            ps - Percona Server for MySQL (ex. --addclient=ps,1),
+            pxc - Percona XtraDB Cluster, --with-proxysql (to be used with proxysql only ex. --addclient=pxc,1 --with-proxysql),
+            md - MariaDB Server (ex. --addclient=md,1),
+            mo - Percona Server for MongoDB(ex. --addclient=mo,1),
+            modb - Official MongoDB version from MongoDB Inc (ex. --addclient=modb,1),
+            pgsql - Postgre SQL Server (ex. --addclient=pgsql,1)
+            pdpgsql - Percona Distribution for PostgreSQL (ex. --addclient=pdpgsql,1)
+            An example: --addclient=ps,1 --addclient=mo,1 --addclient=md,1 --addclient=pgsql,2 --addclient=modb,2
+            ''',
+            name: 'CLIENTS')
     }
     options {
         skipDefaultCheckout()
@@ -132,8 +147,6 @@ pipeline {
                     docker-compose --version
                     sudo yum -y update --security
                     sudo yum -y install jq svn
-                    sudo usermod -aG docker ec2-user
-                    sudo service docker start
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
@@ -181,13 +194,12 @@ pipeline {
                             env.PMM_URL = "http://admin:admin@${env.SERVER_IP}"
                             env.PMM_VERSION="pmm2"
                         }
-                        setupPMMClient()
+                        setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'yes', 'no', 'yes')
                         sh """
                             export PATH=\$PATH:/usr/sbin
-                            pmm-admin add mysql --username=root --password=ps --port=3306 ps_test_instance
                             bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                                 --download \
-                                --addclient=haproxy,1 \
+                                ${CLIENTS} \
                                 --pmm2 \
                                 --pmm2-server-ip=\$SERVER_IP
                             sleep 10
@@ -231,6 +243,24 @@ pipeline {
                 }
             }
         }
+        stage('Run UI Tests OVF') {
+            options {
+                timeout(time: 35, unit: "MINUTES")
+            }
+            when {
+                expression { env.OVF_TEST == "yes" }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        export PWD=\$(pwd);
+                        export CHROMIUM_PATH=/usr/bin/chromium
+                        ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@qan)^(?!.*@dbaas)'
+                    """
+                }
+            }
+        }
         stage('Run UI Tests Docker') {
             options {
                 timeout(time: 35, unit: "MINUTES")
@@ -250,24 +280,6 @@ pipeline {
                 }
             }
         }
-        stage('Run UI Tests OVF') {
-            options {
-                timeout(time: 35, unit: "MINUTES")
-            }
-            when {
-                expression { env.OVF_TEST == "yes" }
-            }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        export PWD=\$(pwd);
-                        export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@qan)^(?!.*@dbaas)'
-                    """
-                }
-            }
-        }
     }
     post {
         always {
@@ -276,9 +288,9 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                 ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
-                sudo docker-compose down
-                sudo docker rm -f $(sudo docker ps -a -q) || true
-                sudo docker volume rm $(sudo docker volume ls -q) || true
+                docker-compose down
+                docker rm -f $(sudo docker ps -a -q) || true
+                docker volume rm $(sudo docker volume ls -q) || true
                 sudo chown -R ec2-user:ec2-user . || true
             '''
             script {
