@@ -186,10 +186,7 @@ pipeline {
                             sudo MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
                         """
                         script {
-                            env.SERVER_IP = sh (
-                                    script: 'curl -s http://169.254.169.254/latest/meta-data/local-ipv4',
-                                    returnStdout: true
-                                ).trim()
+                            env.SERVER_IP = "127.0.0.1"
                             env.PMM_UI_URL = "http://${env.SERVER_IP}/"
                             env.PMM_URL = "http://admin:admin@${env.SERVER_IP}"
                             env.PMM_VERSION="pmm2"
