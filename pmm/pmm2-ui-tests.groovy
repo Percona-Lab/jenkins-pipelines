@@ -184,7 +184,7 @@ pipeline {
                         setupPMMClient()
                         sh """
                             export PATH=\$PATH:/usr/sbin
-                            pmm-admin add mysql --username=root --password=ps --port=43306 ps_test_instance
+                            pmm-admin add mysql --username=root --password=ps --port=3306 ps_test_instance
                             bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                                 --download \
                                 --addclient=haproxy,1 \
@@ -277,8 +277,8 @@ pipeline {
                 ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
                 sudo docker-compose down
-                docker rm -f $(sudo docker ps -a -q) || true
-                docker volume rm $(sudo docker volume ls -q) || true
+                sudo docker rm -f $(sudo docker ps -a -q) || true
+                sudo docker volume rm $(sudo docker volume ls -q) || true
                 sudo chown -R ec2-user:ec2-user . || true
             '''
             script {
