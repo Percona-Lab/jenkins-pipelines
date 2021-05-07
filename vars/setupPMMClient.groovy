@@ -20,14 +20,14 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 sudo percona-release enable-only original experimental
                 sudo yum clean all
                 sudo yum makecache
-                sudo yum -y install pmm2-client
                 sudo yum -y update
+                sudo yum -y install pmm2-client
             elif [[ \$CLIENT_VERSION = pmm2-rc ]]; then
                 sudo percona-release enable-only original testing
                 sudo yum clean all
                 sudo yum makecache
-                sudo yum -y install pmm2-client
                 sudo yum -y update
+                sudo yum -y install pmm2-client
             elif [[ \$CLIENT_VERSION = pmm2-latest ]]; then
                 sudo yum clean all
                 sudo yum -y install pmm2-client
