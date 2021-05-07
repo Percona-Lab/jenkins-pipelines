@@ -191,7 +191,7 @@ pipeline {
                             env.PMM_URL = "http://admin:admin@${env.SERVER_IP}"
                             env.PMM_VERSION="pmm2"
                         }
-                        setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'yes', 'no', 'yes')
+                        setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes')
                         sh """
                             export PATH=\$PATH:/usr/sbin
                             bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
