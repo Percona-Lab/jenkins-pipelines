@@ -330,16 +330,16 @@ devMap = [:]
 devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['docker2']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb']       = devMap['docker']
-devMap['micro-amazon']      = devMap['docker']
-devMap['min-bionic-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:120:true:gp2'
+devMap['micro-amazon']      = '/dev/xvda=:30:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-bionic-x64']    = '/dev/sda1=:30:true:gp2,/dev/sdd=:120:true:gp2'
 devMap['min-focal-x64']     = devMap['min-bionic-x64']
 devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
-devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:120:true:gp2'
+devMap['min-centos-8-x64']  = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-stretch-x64']   = 'xvda=:30:true:gp2,xvdd=:120:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
-devMap['min-buster-x64']    = devMap['min-stretch-x64']
+devMap['min-buster-x64']    = '/dev/xvda=:30:true:gp2,/dev/xvdd=:120:true:gp2'
 
 labelMap = [:]
 labelMap['docker']            = ''
