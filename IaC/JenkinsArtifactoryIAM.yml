@@ -1,0 +1,28 @@
+# aws cloudformation --region us-east-1 create-stack --template-body file://IaC/JenkinsArtifactoryIAM --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-artifactory --tags Key=iit-billing-tag,Value=jenkins-artifactory
+---
+AWSTemplateFormatVersion: 2010-09-09
+Resources:
+
+  JenkinsArtifactoryUser: # create standalone user for Cloud Jenkins AWS_STASH jenkins jobs
+    Type: AWS::IAM::User
+    Properties:
+      UserName: "jenkins-artifactory-user"
+      Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::119175775298:policy/jenkins-artifactory
+      Tags:
+      - Key: iit-billing-tag
+        Value: jenkins-artifactory-user
+
+  JenkinsArtifactoryUserKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref JenkinsArtifactoryUser
+
+Outputs:
+  JenkinsArtifactoryUserAccessKey:
+    Description: JenkinsArtifactory AccessKey
+    Value: !Ref JenkinsArtifactoryUserKey
+  JenkinsArtifactoryUserSecretKey:
+    Description: JenkinsArtifactory SecretAccessKey
+    Value: !GetAtt JenkinsArtifactoryUserKey.SecretAccessKey

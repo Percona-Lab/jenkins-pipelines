@@ -183,12 +183,32 @@ Resources:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
-                Resource: '*'
+                Resource: 'arn:aws:ec2:*:*:*/pmm-*'
                 Action:
-                  - 'ec2:CreateTags'
-                  - 'ec2:DeleteTags'
-                  - 'ec2:DescribeInstances'
-                  - 'ec2:DescribeSpotInstanceRequests'
+                - ec2:ModifySpotFleetRequest
+                - ec2:DescribeSpotFleetRequests
+                - ec2:DescribeSpotFleetInstances
+                - ec2:DescribeSpotInstanceRequests
+                - ec2:CancelSpotInstanceRequests
+                - ec2:GetConsoleOutput
+                - ec2:RequestSpotInstances
+                - ec2:RunInstances
+                - ec2:StartInstances
+                - ec2:StopInstances
+                - ec2:TerminateInstances
+                - ec2:CreateTags
+                - ec2:DeleteTags
+                - ec2:DescribeInstances
+                - ec2:DescribeKeyPairs
+                - ec2:DescribeRegions
+                - ec2:DescribeImages
+                - ec2:DescribeAvailabilityZones
+                - ec2:DescribeSecurityGroups
+                - ec2:DescribeSubnets
+      Tags:
+      - Key: iit-billing-tag
+        Value: !Ref SShortName
+
   SInstancesProfile:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:
@@ -203,15 +223,58 @@ Resources:
       UserName: !Join [ '-', [ !Ref SShortName, 'slave' ]]
       Path: /
       ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
       - arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess
-      - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
-      - arn:aws:iam::aws:policy/AmazonEKSServicePolicy
-      - arn:aws:iam::aws:policy/AmazonEC2FullAccess
       - arn:aws:iam::119175775298:policy/jenkins-artifactory
       - arn:aws:iam::119175775298:policy/eks-jenkins
       - arn:aws:iam::119175775298:policy/EKS
       - arn:aws:iam::119175775298:policy/PMM-EKS-Jenkins
+      Policies:
+      - PolicyName: CloudformationAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - cloudformation:*
+            Resource:
+            - 'arn:aws:cloudformation:*:*:stack/pmm-*/*'
+            - 'arn:aws:cloudformation:*:*:stack/eksctl-pmm-*/*'
+      - PolicyName: EC2Access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - ec2:ModifySpotFleetRequest
+            - ec2:DescribeSpotFleetRequests
+            - ec2:DescribeSpotFleetInstances
+            - ec2:DescribeSpotInstanceRequests
+            - ec2:CancelSpotInstanceRequests
+            - ec2:GetConsoleOutput
+            - ec2:RequestSpotInstances
+            - ec2:RunInstances
+            - ec2:StartInstances
+            - ec2:StopInstances
+            - ec2:TerminateInstances
+            - ec2:CreateTags
+            - ec2:DeleteTags
+            - ec2:DescribeInstances
+            - ec2:DescribeKeyPairs
+            - ec2:DescribeRegions
+            - ec2:DescribeImages
+            - ec2:DescribeAvailabilityZones
+            - ec2:DescribeSecurityGroups
+            - ec2:DescribeSubnets
+            Resource:
+            - '*'
+      Tags:
+      - Key: iit-billing-tag
+        Value: !Ref SShortName
+
+  SInstancesUserKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref SInstancesUser
 
   LambdaExecutionRole: # create Role for lambda function
     Type: AWS::IAM::Role
@@ -388,3 +451,10 @@ Resources:
       Principal: events.amazonaws.com
       SourceArn: !GetAtt ScheduledRule.Arn
 
+Outputs:
+  SInstancesUserAccessKey:
+    Description: pmm-staging-slave AccessKey
+    Value: !Ref SInstancesUserKey
+  SInstancesUserSecretKey:
+    Description: pmm-staging-slave SecretAccessKey
+    Value: !GetAtt SInstancesUserKey.SecretAccessKey
