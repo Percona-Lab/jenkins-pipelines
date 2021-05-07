@@ -146,7 +146,10 @@ pipeline {
                     sudo chmod +x /usr/bin/docker-compose
                     docker-compose --version
                     sudo yum -y update --security
-                    sudo yum -y install jq svn
+                    sudo yum -y install https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm
+                    sudo yum -y install php php-mysqlnd php-pdo mysql-community-server jq svn bats
+                    sudo amazon-linux-extras install epel -y
+                    sudo systemctl start mysqld
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
