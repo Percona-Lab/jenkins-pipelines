@@ -195,6 +195,8 @@ pipeline {
                         }
                         setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes')
                         sh """
+                            set -o errexit
+                            set -o xtrace
                             export PATH=\$PATH:/usr/sbin
                             if [[ \$CLIENT_VERSION != dev-latest ]]; then
                                 export PATH="`pwd`/pmm2-client/bin:$PATH"
