@@ -15,26 +15,17 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
             sudo yum clean all
             sudo yum makecache
-            sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
             if [[ \$CLIENT_VERSION = dev-latest ]]; then
-                sudo yum clean all
-                sudo yum makecache
-                sudo yum -y update
                 sudo percona-release enable-only original experimental
                 sudo yum -y install pmm2-client
             elif [[ \$CLIENT_VERSION = pmm2-rc ]]; then
-                sudo yum clean all
-                sudo yum makecache
-                sudo yum -y update
                 sudo percona-release enable-only original testing
                 sudo yum -y install pmm2-client
             elif [[ \$CLIENT_VERSION = pmm2-latest ]]; then
-                sudo yum clean all
                 sudo yum -y install pmm2-client
                 sudo yum -y update
                 sudo percona-release enable-only original experimental
             elif [[ \$CLIENT_VERSION = 2* ]]; then
-                sudo yum clean all
                 sudo yum -y install pmm2-client-\$CLIENT_VERSION-6.el7.x86_64
                 if [[ \$ENABLE_TESTING_REPO = yes ]]; then
                     sudo percona-release enable-only original testing
@@ -45,7 +36,6 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 fi
             elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then
                 sudo percona-release enable-only original testing
-                sudo yum clean all
                 sudo yum -y install pmm-client
                 sudo yum -y update
             else
