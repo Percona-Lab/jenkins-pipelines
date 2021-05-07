@@ -146,8 +146,7 @@ pipeline {
                     sudo chmod +x /usr/bin/docker-compose
                     docker-compose --version
                     sudo yum -y update --security
-                    sudo yum -y install https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm
-                    sudo yum -y install php php-mysqlnd php-pdo mysql-community-server jq svn bats
+                    sudo yum -y install php php-mysqlnd php-pdo jq svn bats
                     sudo amazon-linux-extras install epel -y
                     sudo systemctl start mysqld
                     sudo mkdir -p /srv/pmm-qa || :
@@ -197,6 +196,9 @@ pipeline {
                         setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes')
                         sh """
                             export PATH=\$PATH:/usr/sbin
+                            if [[ \$CLIENT_VERSION != dev-latest ]]; then
+                                export PATH="`pwd`/pmm2-client/bin:$PATH"
+                            fi
                             bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                                 --download \
                                 ${CLIENTS} \
