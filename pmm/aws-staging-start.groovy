@@ -62,7 +62,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['13.2-2', '12', '11'],
+            choices: ['13', '12', '11'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -111,6 +111,10 @@ pipeline {
             choices: ['no', 'yes'],
             description: "Use this instance only as a client host",
             name: 'CLIENT_INSTANCE')
+        choice(
+            choices: ['no', 'yes'],
+            description: "install backup toolkit (only works with versions 5.7 and 8.0)",
+            name: 'BACKUP_TOOLKIT')
         string (
             defaultValue: '0.0.0.0',
             description: 'Please change the default Value for Server Public IP, When you need to use this instance just as client',
@@ -451,6 +455,10 @@ pipeline {
                         else
                             sudo pmm-admin config --client-name pmm-client-hostname --server `ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1`
                         fi
+                        #TODO ADDED TOOLKIT
+                        if [[ \$BACKUP_TOOLKIT = yes ]]; then
+                            bash /srv/pmm-qa/install_backup_toolkit.sh ${MS_VERSION}
+
                         [ -z "${CLIENTS}" ] && exit 0 || :
                         if [[ \$PMM_VERSION == pmm1 ]]; then
                             bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
