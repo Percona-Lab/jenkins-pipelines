@@ -202,7 +202,6 @@ pipeline {
                             env.PMM_URL = "http://admin:admin@${SERVER_IP}"
                             env.PMM_UI_URL = "http://${SERVER_IP}/"
                         }
-                        setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes')
                     }
                 }
             }
