@@ -148,7 +148,6 @@ pipeline {
                     sudo yum -y update --security
                     sudo yum -y install php php-mysqlnd php-pdo jq svn bats
                     sudo amazon-linux-extras install epel -y
-                    sudo systemctl start mysqld
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
