@@ -177,7 +177,7 @@ pipeline {
                         runClusterStaging('master')
                     }
                 }
-                stage('Setup Instance') {
+                stage('Setup Server Instance') {
                     when {
                         expression { env.CLIENT_INSTANCE == "no" }
                     }
@@ -190,37 +190,41 @@ pipeline {
                             env.SERVER_IP = "127.0.0.1"
                             env.PMM_UI_URL = "http://${env.SERVER_IP}/"
                             env.PMM_URL = "http://admin:admin@${env.SERVER_IP}"
-                            env.PMM_VERSION="pmm2"
+                        }
+                    }
+                }
+                stage('Setup PMM Server Information') {
+                    when {
+                        expression { env.CLIENT_INSTANCE == "yes" }
+                    }
+                    steps {
+                        script {
+                            env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+                            env.PMM_UI_URL = "http://${SERVER_IP}/"
                         }
                         setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes')
-                        sh """
-                            set -o errexit
-                            set -o xtrace
-                            export PATH=\$PATH:/usr/sbin
-                            if [[ \$CLIENT_VERSION != dev-latest ]]; then
-                                export PATH="`pwd`/pmm2-client/bin:$PATH"
-                            fi
-                            bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
-                                --download \
-                                ${CLIENTS} \
-                                --pmm2 \
-                                --pmm2-server-ip=\$SERVER_IP
-                            sleep 10
-                            pmm-admin list
-                        """
                     }
                 }
             }
         }
-        stage('Setup PMM Server Information') {
-            when {
-                expression { env.CLIENT_INSTANCE == "yes" }
-            }
+        stage('Setup Client for PMM-Server') {
             steps {
-                script {
-                    env.PMM_URL = "http://admin:admin@${SERVER_IP}"
-                    env.PMM_UI_URL = "http://${SERVER_IP}/"
-                }
+                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes')
+                sh """
+                    set -o errexit
+                    set -o xtrace
+                    export PATH=\$PATH:/usr/sbin
+                    if [[ \$CLIENT_VERSION != dev-latest ]]; then
+                        export PATH="`pwd`/pmm2-client/bin:$PATH"
+                    fi
+                    bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
+                        --download \
+                        ${CLIENTS} \
+                        --pmm2 \
+                        --pmm2-server-ip=\$SERVER_IP
+                    sleep 10
+                    pmm-admin list
+                """
             }
         }
         stage('Setup') {
