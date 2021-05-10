@@ -26,7 +26,7 @@ void checkImageForDocker(String IMAGE_SUFFIX){
 pipeline {
     parameters {
         string(
-            defaultValue: 'release-0.1.0',
+            defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-postgresql-operator repository',
             name: 'GIT_BRANCH')
         string(
