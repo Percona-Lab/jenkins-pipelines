@@ -223,50 +223,78 @@ Resources:
       UserName: !Join [ '-', [ !Ref SShortName, 'slave' ]]
       Path: /
       ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess
+      - arn:aws:iam::aws:policy/AmazonEC2FullAccess
+      - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
       - arn:aws:iam::119175775298:policy/jenkins-artifactory
-      - arn:aws:iam::119175775298:policy/eks-jenkins
-      - arn:aws:iam::119175775298:policy/EKS
-      - arn:aws:iam::119175775298:policy/PMM-EKS-Jenkins
       Policies:
-      - PolicyName: CloudformationAccess
+      - PolicyName: EksAllAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: 
+            - eks:*
+            Resource: "*"
+          - Action:
+            - ssm:GetParameter
+            - ssm:GetParameters
+            Resource:
+            - arn:aws:ssm:*:119175775298:parameter/aws/*
+            - arn:aws:ssm:*::parameter/aws/*
+            Effect: Allow
+          - Action:
+            - kms:CreateGrant
+            - kms:DescribeKey
+            Resource: "*"
+            Effect: Allow               
+      - PolicyName: IamLimitedAccess
         PolicyDocument:
           Version: '2012-10-17'
           Statement:
           - Effect: Allow
             Action:
-            - cloudformation:*
+            - iam:CreateInstanceProfile
+            - iam:DeleteInstanceProfile
+            - iam:GetInstanceProfile
+            - iam:RemoveRoleFromInstanceProfile
+            - iam:GetRole
+            - iam:CreateRole
+            - iam:DeleteRole
+            - iam:AttachRolePolicy
+            - iam:PutRolePolicy
+            - iam:ListInstanceProfiles
+            - iam:AddRoleToInstanceProfile
+            - iam:ListInstanceProfilesForRole
+            - iam:PassRole
+            - iam:DetachRolePolicy
+            - iam:DeleteRolePolicy
+            - iam:GetRolePolicy
+            - iam:GetOpenIDConnectProvider
+            - iam:CreateOpenIDConnectProvider
+            - iam:DeleteOpenIDConnectProvider
+            - iam:ListAttachedRolePolicies
+            - iam:TagRole
             Resource:
-            - 'arn:aws:cloudformation:*:*:stack/pmm-*/*'
-            - 'arn:aws:cloudformation:*:*:stack/eksctl-pmm-*/*'
-      - PolicyName: EC2Access
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
+            - arn:aws:iam::119175775298:instance-profile/eksctl-*
+            - arn:aws:iam::119175775298:role/eksctl-*
+            - arn:aws:iam::119175775298:oidc-provider/*
+            - arn:aws:iam::119175775298:role/aws-service-role/eks-nodegroup.amazonaws.com/AWSServiceRoleForAmazonEKSNodegroup
+            - arn:aws:iam::119175775298:role/eksctl-managed-*  
           - Effect: Allow
             Action:
-            - ec2:ModifySpotFleetRequest
-            - ec2:DescribeSpotFleetRequests
-            - ec2:DescribeSpotFleetInstances
-            - ec2:DescribeSpotInstanceRequests
-            - ec2:CancelSpotInstanceRequests
-            - ec2:GetConsoleOutput
-            - ec2:RequestSpotInstances
-            - ec2:RunInstances
-            - ec2:StartInstances
-            - ec2:StopInstances
-            - ec2:TerminateInstances
-            - ec2:CreateTags
-            - ec2:DeleteTags
-            - ec2:DescribeInstances
-            - ec2:DescribeKeyPairs
-            - ec2:DescribeRegions
-            - ec2:DescribeImages
-            - ec2:DescribeAvailabilityZones
-            - ec2:DescribeSecurityGroups
-            - ec2:DescribeSubnets
+            - iam:GetRole
             Resource:
-            - '*'
+            - arn:aws:iam::119175775298:role/*
+          - Effect: Allow
+            Action:
+            - iam:CreateServiceLinkedRole
+            Resource: "*"
+            Condition:
+              StringEquals:
+                iam:AWSServiceName:
+                - eks.amazonaws.com
+                - eks-nodegroup.amazonaws.com
+                - eks-fargate.amazonaws.com
       Tags:
       - Key: iit-billing-tag
         Value: !Ref SShortName
