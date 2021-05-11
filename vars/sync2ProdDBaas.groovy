@@ -26,7 +26,7 @@ def call(String DESTINATION) {
                                     if [ -f \${repo_path}/repodata/repomd.xml.asc ]; then
                                         rm -f \${repo_path}/repodata/repomd.xml.asc
                                     fi
-                                    echo ${SIGN_PASSWORD} | gpg --detach-sign --armor \${repo_path}/repodata/repomd.xml 
+                                    gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} \${repo_path}/repodata/repomd.xml 
                                 done
 
                                 # SRPMS
@@ -38,7 +38,7 @@ def call(String DESTINATION) {
                                 if [ -f \${rpm_dest_path}/SRPMS/repodata/repomd.xml.asc ]; then
                                     rm -f \${rpm_dest_path}/SRPMS/repodata/repomd.xml.asc
                                 fi
-                                echo ${SIGN_PASSWORD} | gpg --detach-sign --armor \${rpm_dest_path}/SRPMS/repodata/repomd.xml 
+                                gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} \${rpm_dest_path}/SRPMS/repodata/repomd.xml 
                             done
 
                             if [ "x${DESTINATION}" == "xrelease" ]; then

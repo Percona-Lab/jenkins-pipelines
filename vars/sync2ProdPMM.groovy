@@ -36,7 +36,7 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                                     if [ -f \${repo_path}/repodata/repomd.xml.asc ]; then
                                         rm -f \${repo_path}/repodata/repomd.xml.asc
                                     fi
-                                    echo ${SIGN_PASSWORD} | gpg --detach-sign --armor \${repo_path}/repodata/repomd.xml 
+                                    gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} \${repo_path}/repodata/repomd.xml 
                                 done
 
                                 # SRPMS
@@ -48,7 +48,7 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                                 if [ -f \${dest_path}/SRPMS/repodata/repomd.xml.asc ]; then
                                     rm -f \${dest_path}/SRPMS/repodata/repomd.xml.asc
                                 fi
-                                echo ${SIGN_PASSWORD} | gpg --detach-sign --armor \${dest_path}/SRPMS/repodata/repomd.xml 
+                                gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} \${dest_path}/SRPMS/repodata/repomd.xml 
                             done
 
                             for dist in \$(ls -1 debian); do

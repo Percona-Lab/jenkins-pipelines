@@ -92,7 +92,7 @@ pipeline {
                                 rm -f /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc
                             fi
                             export SIGN_PASSWORD=\${SIGN_PASSWORD}
-                            
+                            gpg --detach-sign --armor --passphrase \${SIGN_PASSWORD} /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml
                         "
                     """
                     }
