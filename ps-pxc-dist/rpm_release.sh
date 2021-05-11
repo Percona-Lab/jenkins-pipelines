@@ -49,7 +49,7 @@ for REPOPATH in $REPOPATH_TMP; do
 	      if [ -f /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS/repodata/repomd.xml.asc ]; then
                   rm -f /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS/repodata/repomd.xml.asc
               fi
-	      echo ${SIGN_PASSWORD} | gpg --detach-sign --armor /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS/repodata/repomd.xml
+	      gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} /srv/${REPOPATH}/${REPOCOMP}/${rhel}/SRPMS/repodata/repomd.xml
           done
         fi
         #
@@ -64,7 +64,7 @@ for REPOPATH in $REPOPATH_TMP; do
 		if [ -f /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}/repodata/repomd.xml.asc ]; then
                     rm -f /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}/repodata/repomd.xml.asc
 		fi
-		echo ${SIGN_PASSWORD} | gpg --detach-sign --armor /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}/repodata/repomd.xml
+		gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} /srv/${REPOPATH}/${REPOCOMP}/${rhel}/RPMS/${arch}/repodata/repomd.xml
             done
         done
         #
