@@ -183,7 +183,7 @@ Resources:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
-                Resource: 'arn:aws:ec2:*:*:*/pmm-*'
+                Resource: '*'
                 Action:
                 - ec2:ModifySpotFleetRequest
                 - ec2:DescribeSpotFleetRequests
@@ -295,6 +295,17 @@ Resources:
                 - eks.amazonaws.com
                 - eks-nodegroup.amazonaws.com
                 - eks-fargate.amazonaws.com
+      - PolicyName: EC2Spot
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Resource: '*'
+              Action:
+              - ec2:DescribeInstances
+              - ec2:RequestSpotInstances
+              - ec2:RunInstances
+              - iam:PassRole
       Tags:
       - Key: iit-billing-tag
         Value: !Ref SShortName
