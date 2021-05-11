@@ -40,7 +40,7 @@ if [ "$SOURCE_NAME" == 'PXC56' -o "$SOURCE_NAME" == 'ALL' ]; then
         mkdir ./target
 
         if [[ ${USE_PR} == "true" ]]; then
-            git fetch origin pull/${PXC56_BRANCH}/head:pr-${PXC56_BRANCH}
+            git fetch origin pull/${PXC56_BRANCH}/merge:pr-${PXC56_BRANCH}
         fi
         if [ -n "${PXC56_BRANCH}" ]; then
             if [[ ${USE_PR} == "true" ]]; then
@@ -51,7 +51,7 @@ if [ "$SOURCE_NAME" == 'PXC56' -o "$SOURCE_NAME" == 'ALL' ]; then
         fi
         if [ -n "${PXC56_REPO}" -a -n "${PXC56_BRANCH}" ]; then
             if [[ ${USE_PR} == "true" ]]; then
-                git pull origin pull/${PXC56_BRANCH}/head:pr-${PXC56_BRANCH}
+                git pull origin pull/${PXC56_BRANCH}/merge:pr-${PXC56_BRANCH}
             else
                 git pull origin ${PXC56_BRANCH}
             fi

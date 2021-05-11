@@ -44,7 +44,7 @@ if [ "$SOURCE_NAME" == 'PXC80' -o "$SOURCE_NAME" == 'ALL' ]; then
         mkdir ./target
 
         if [[ ${USE_PR} == "true" ]]; then
-            git fetch origin pull/${BRANCH}/head:pr-${BRANCH}
+            git fetch origin pull/${BRANCH}/merge:pr-${BRANCH}
         fi
         if [ -n "${BRANCH}" ]; then
             if [[ ${USE_PR} == "true" ]]; then
@@ -55,7 +55,7 @@ if [ "$SOURCE_NAME" == 'PXC80' -o "$SOURCE_NAME" == 'ALL' ]; then
         fi
         if [ -n "${GIT_REPO}" -a -n "${BRANCH}" ]; then
             if [[ ${USE_PR} == "true" ]]; then
-                git pull origin pull/${BRANCH}/head:pr-${BRANCH}
+                git pull origin pull/${BRANCH}/merge:pr-${BRANCH}
             else
                 git pull origin ${BRANCH}
             fi
