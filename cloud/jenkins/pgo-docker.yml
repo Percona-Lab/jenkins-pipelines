@@ -27,5 +27,5 @@
         description: percona/percona-postgresql-operator repository
     - string:
         name: GIT_BRANCH
-        default: release-0.1.0
+        default: main
         description: Tag/Branch for percona/percona-postgresql-operator repository

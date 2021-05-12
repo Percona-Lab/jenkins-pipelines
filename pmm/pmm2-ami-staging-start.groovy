@@ -97,7 +97,7 @@ pipeline {
                             aws ec2 run-instances \
                             --image-id $AMI_ID \
                             --security-group-ids $SG1 $SG2\
-                            --instance-type t2.micro \
+                            --instance-type t2.large \
                             --subnet-id $SS1 \
                             --region us-east-1 \
                             --key-name jenkins-admin \

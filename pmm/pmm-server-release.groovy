@@ -88,7 +88,7 @@ pipeline {
                                 rm -f /srv/repo-copy/pmm/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc
                             fi
                             export SIGN_PASSWORD=\${SIGN_PASSWORD}
-                            echo \${SIGN_PASSWORD} | gpg --detach-sign --armor /srv/repo-copy/pmm/yum/release/7/RPMS/x86_64/repodata/repomd.xml
+                            gpg --detach-sign --no-tty --armor --passphrase \${SIGN_PASSWORD} /srv/repo-copy/pmm/yum/release/7/RPMS/x86_64/repodata/repomd.xml
                         "
                     """
                     }
