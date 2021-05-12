@@ -236,6 +236,11 @@ initMap['large-amazon']     = '''
     10.30.6.9 repo.ci.percona.com
     "     | sudo tee -a /etc/hosts
 
+    sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
+    sudo sysctl -w fs.aio-max-nr=1048576 || true
+    sudo sysctl -w fs.file-max=6815744 || true
+    echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
+
     until sudo yum makecache; do
         sleep 1
         echo try again
