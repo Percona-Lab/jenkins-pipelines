@@ -85,7 +85,6 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                     if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG" ]; then
                         echo Skip $TEST_NAME test
                     else
-                        cd ./source
                         if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
                             export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
                         else
@@ -274,6 +273,27 @@ pipeline {
                     sh '''
                         cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
                         cp $CLOUD_MINIO_SECRET_FILE ./source/e2e-tests/conf/cloud-secret-minio-gw.yml
+                    '''
+                }
+            }
+        }
+        stage('Build docker image') {
+            steps {
+                unstash "sourceFILES"
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh '''
+                        if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
+                            echo "SKIP: Build is not needed, PG operator image was set!"
+                        else
+                            cd ./source/
+                            sg docker -c "
+                                docker login -u '${USER}' -p '${PASS}'
+                                export IMAGE_URI_BASE=perconalab/percona-postgresql-operator:$GIT_BRANCH
+                                ./e2e-tests/build
+                                docker logout
+                            "
+                            sudo rm -rf ./build
+                        fi
                     '''
                 }
             }

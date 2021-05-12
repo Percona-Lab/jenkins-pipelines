@@ -192,17 +192,6 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                sh """
-                    # sudo is needed for better node recovery after compilation failure
-                    # if building failed on compilation stage directory will have files owned by docker user
-                    sudo git reset --hard
-                    sudo git clean -xdf
-                    sudo rm -rf source
-                    ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
-                """
-                stash includes: "source/**", name: "sourceFILES"
-
                 installRpms()
                 sh '''
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
@@ -223,11 +212,33 @@ pipeline {
                     sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
                 '''
-                unstash "sourceFILES"
-                withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
+            }
+        }
+        stage('Build docker image') {
+            steps {
+                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
                     sh '''
+                        sudo git reset --hard
+                        sudo git clean -xdf
+                        sudo rm -rf source
+                        ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
+
                         cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
                         cp $CLOUD_MINIO_SECRET_FILE ./source/e2e-tests/conf/cloud-secret-minio-gw.yml
+
+                        if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
+                            echo "SKIP: Build is not needed, PGO operator image was set!"
+                        else
+                            cd ./source/
+                            sg docker -c "
+                                docker login -u '${USER}' -p '${PASS}'
+                                export IMAGE_URI_BASE=perconalab/percona-postgresql-operator:$GIT_BRANCH
+                                ./e2e-tests/build
+                                docker logout
+                            "
+                            sudo rm -rf ./build
+                        fi
                     '''
                 }
             }
