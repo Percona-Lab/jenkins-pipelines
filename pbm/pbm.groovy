@@ -80,7 +80,7 @@ pipeline {
             script{
               moleculeExecuteActionWithScenario(moleculeDir, "verify", env.PLATFORM)
             }
-            junit "${moleculeDir}molecule/${PLATFORM}/report.xml"
+            junit "${moleculeDir}/molecule/${PLATFORM}/report.xml"
         }
     }
       stage ('Start Cleanup ') {
