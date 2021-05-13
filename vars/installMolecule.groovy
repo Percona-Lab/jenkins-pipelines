@@ -5,6 +5,6 @@ def call() {
             python3 -m venv virtenv
             . virtenv/bin/activate
             python3 --version
-            python3 -m pip install --upgrade molecule==3.0.2 testinfra pytest molecule-ec2==0.2 ansible==2.9.6
+            python3 -m pip install --upgrade molecule==3.2.4 testinfra pytest molecule-ec2==0.3 ansible==2.9.6
         """
 }
