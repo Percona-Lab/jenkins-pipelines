@@ -85,6 +85,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                     if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG" ]; then
                         echo Skip $TEST_NAME test
                     else
+                        cd ./source
                         if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
                             export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
                         else
