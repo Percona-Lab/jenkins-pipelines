@@ -11,7 +11,7 @@ def creds = [sshUserPrivateKey(credentialsId: 'MOLECULE_AWS_PRIVATE_KEY', keyFil
 
 pipeline {
   agent {
-  label 'micro-amazon'
+  label 'min-centos-7-x64'
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
@@ -75,7 +75,6 @@ pipeline {
             script{
               moleculeExecuteActionWithScenario(moleculeDir, "verify", env.PLATFORM)
             }
-            junit "molecule/pdmdb/molecule/${PLATFORM}/report.xml"
         }
     }
       stage ('Start Cleanup ') {

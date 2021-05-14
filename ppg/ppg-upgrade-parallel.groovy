@@ -5,7 +5,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 pipeline {
   agent {
-      label 'micro-amazon'
+      label 'min-centos-7-x64'
   }
   parameters {
         choice(
