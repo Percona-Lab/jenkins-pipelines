@@ -47,7 +47,7 @@ pipeline {
         stage('Run VM with PMM server') {
             steps 
             {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID',  credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID',  credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                    sh """
                         if [ -n "${AMI_ID}" ]; then
                           aws ec2 --region us-east-1 terminate-instances --instance-ids "${AMI_ID}"
