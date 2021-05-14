@@ -10,7 +10,6 @@ def call(operatingSystems, moleculeDir) {
                   ansible --version
                   molecule test -s ${os}
                """
-            junit "${moleculeDir}/molecule/${os}/report.xml"
         }
       }
     }
