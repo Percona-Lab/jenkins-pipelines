@@ -269,6 +269,8 @@ pipeline {
                 runTest('demand-backup-sharded')
                 runTest('scheduled-backup')
                 runTest('upgrade-sharded')
+                runTest('pitr')
+                runTest('pitr-sharded')
             }
         }
         stage('Make report') {
