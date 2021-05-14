@@ -55,35 +55,17 @@ pipeline {
         cron('0 4 * * *') 
     }
     stages {
-        stage('Run Package Tests Matrix') {
-            parallel {
-                stage('Install Playbook'){
-                    steps {
-                        script {
-                            runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, 'pmm2-client', METRICS_MODE);
-                        }
-                    }
+        stage('Integration Playbook'){
+            steps {
+                script {
+                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, 'pmm2-client_integration', METRICS_MODE);
                 }
-                stage('Upgrade Playbook'){
-                    steps {
-                        script {
-                            runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, 'pmm2-client_upgrade', METRICS_MODE);
-                        }
-                    }
-                }
-                stage('Integration Playbook'){
-                    steps {
-                        script {
-                            runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, 'pmm2-client_integration', METRICS_MODE);
-                        }
-                    }
-                }
-                stage('Integration Upgrade Playbook'){
-                    steps {
-                        script {
-                            runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, 'pmm2-client_integration_upgrade', METRICS_MODE);
-                        }
-                    }
+            }
+        }
+        stage('Integration Upgrade Playbook'){
+            steps {
+                script {
+                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, 'pmm2-client_integration_upgrade', METRICS_MODE);
                 }
             }
         }
