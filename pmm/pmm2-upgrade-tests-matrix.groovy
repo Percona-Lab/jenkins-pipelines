@@ -22,7 +22,7 @@ pipeline {
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '2.17.0',
+            defaultValue: '2.18.0',
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
@@ -44,13 +44,6 @@ pipeline {
     stages {
         stage('Run Upgrade Matrix-1') {
             parallel {
-                stage('Upgrade from 2.6.1'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.6.1', '2.6.1', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
                 stage('Upgrade from 2.7.0'){
                     steps {
                         script {
@@ -146,6 +139,13 @@ pipeline {
                     steps {
                         script {
                             runUpgradeJob(GIT_BRANCH,'2.16.0', '2.16.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                        }
+                    }
+                }
+                stage('Upgrade from 2.17.0'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.17.0', '2.17.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
                         }
                     }
                 }
