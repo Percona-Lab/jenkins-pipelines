@@ -147,6 +147,7 @@ authz_strategy_config = [
         'percona*iit': ['Overall Administer'],
         'percona*dev-psmdb': ['Overall Read','Agent Configure','Agent Delete','Agent Create','Agent Disconnect','Agent Connect','Agent Build','Agent Provision','Run Delete','Run Update','Run Replay','Job Create','Job Delete','Job Configure','Job Read','Job Discover','Job Build','Job Workspace','Job Cancel','Job Move','View Create','View Delete','View Configure','View Read'],
         'percona*doc': ['Overall Read','Agent Build','Agent Connect','Agent Provision','Job Discover','Job Read','Job Build','Job Cancel','Job Workspace','View Read'],
+        'percona*dev-pgsql': ['Overall Read','Agent Connect','Agent Build','Agent Provision','Run Delete','Run Update','Run Replay','Job Create','Job Delete','Job Configure','Job Read','Job Discover','Job Build','Job Workspace','Job Cancel','View Create','View Delete','View Configure','View Read'],
     ]
 ]
 
