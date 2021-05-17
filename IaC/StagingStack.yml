@@ -165,6 +165,156 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref SShortName
 
+  SInstancesRole: # separate IAM role for Staging instances
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Join [ '-', [ !Ref SShortName, 'slave' ]]
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: 'sts:AssumeRole'
+            Principal:
+              Service: ec2.amazonaws.com
+      Path: /
+      Policies:
+        - PolicyName: !Join [ '-', [ !Ref SShortName, 'slave' ]]
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource: '*'
+                Action:
+                - ec2:ModifySpotFleetRequest
+                - ec2:DescribeSpotFleetRequests
+                - ec2:DescribeSpotFleetInstances
+                - ec2:DescribeSpotInstanceRequests
+                - ec2:CancelSpotInstanceRequests
+                - ec2:GetConsoleOutput
+                - ec2:RequestSpotInstances
+                - ec2:RunInstances
+                - ec2:StartInstances
+                - ec2:StopInstances
+                - ec2:TerminateInstances
+                - ec2:CreateTags
+                - ec2:DeleteTags
+                - ec2:DescribeInstances
+                - ec2:DescribeKeyPairs
+                - ec2:DescribeRegions
+                - ec2:DescribeImages
+                - ec2:DescribeAvailabilityZones
+                - ec2:DescribeSecurityGroups
+                - ec2:DescribeSubnets
+      Tags:
+      - Key: iit-billing-tag
+        Value: !Ref SShortName
+
+  SInstancesProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref SInstancesRole
+      InstanceProfileName: !Join [ '-', [ !Ref SShortName, 'slave' ]]
+
+  SInstancesUser: # create standalone user for PMM jenkins jobs
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Join [ '-', [ !Ref SShortName, 'slave' ]]
+      Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonEC2FullAccess
+      - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
+      - arn:aws:iam::119175775298:policy/jenkins-artifactory
+      Policies:
+      - PolicyName: EksAllAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: 
+            - eks:*
+            Resource: "*"
+          - Action:
+            - ssm:GetParameter
+            - ssm:GetParameters
+            Resource:
+            - arn:aws:ssm:*:119175775298:parameter/aws/*
+            - arn:aws:ssm:*::parameter/aws/*
+            Effect: Allow
+          - Action:
+            - kms:CreateGrant
+            - kms:DescribeKey
+            Resource: "*"
+            Effect: Allow               
+      - PolicyName: IamLimitedAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - iam:CreateInstanceProfile
+            - iam:DeleteInstanceProfile
+            - iam:GetInstanceProfile
+            - iam:RemoveRoleFromInstanceProfile
+            - iam:GetRole
+            - iam:CreateRole
+            - iam:DeleteRole
+            - iam:AttachRolePolicy
+            - iam:PutRolePolicy
+            - iam:ListInstanceProfiles
+            - iam:AddRoleToInstanceProfile
+            - iam:ListInstanceProfilesForRole
+            - iam:PassRole
+            - iam:DetachRolePolicy
+            - iam:DeleteRolePolicy
+            - iam:GetRolePolicy
+            - iam:GetOpenIDConnectProvider
+            - iam:CreateOpenIDConnectProvider
+            - iam:DeleteOpenIDConnectProvider
+            - iam:ListAttachedRolePolicies
+            - iam:TagRole
+            Resource:
+            - arn:aws:iam::119175775298:instance-profile/eksctl-*
+            - arn:aws:iam::119175775298:role/eksctl-*
+            - arn:aws:iam::119175775298:oidc-provider/*
+            - arn:aws:iam::119175775298:role/aws-service-role/eks-nodegroup.amazonaws.com/AWSServiceRoleForAmazonEKSNodegroup
+            - arn:aws:iam::119175775298:role/eksctl-managed-*  
+          - Effect: Allow
+            Action:
+            - iam:GetRole
+            Resource:
+            - arn:aws:iam::119175775298:role/*
+          - Effect: Allow
+            Action:
+            - iam:CreateServiceLinkedRole
+            Resource: "*"
+            Condition:
+              StringEquals:
+                iam:AWSServiceName:
+                - eks.amazonaws.com
+                - eks-nodegroup.amazonaws.com
+                - eks-fargate.amazonaws.com
+      - PolicyName: EC2Spot
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Resource: '*'
+              Action:
+              - ec2:DescribeInstances
+              - ec2:RequestSpotInstances
+              - ec2:RunInstances
+              - iam:PassRole
+      Tags:
+      - Key: iit-billing-tag
+        Value: !Ref SShortName
+
+  SInstancesUserKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref SInstancesUser
+
   LambdaExecutionRole: # create Role for lambda function
     Type: AWS::IAM::Role
     Properties:
@@ -340,3 +490,10 @@ Resources:
       Principal: events.amazonaws.com
       SourceArn: !GetAtt ScheduledRule.Arn
 
+Outputs:
+  SInstancesUserAccessKey:
+    Description: pmm-staging-slave AccessKey
+    Value: !Ref SInstancesUserKey
+  SInstancesUserSecretKey:
+    Description: pmm-staging-slave SecretAccessKey
+    Value: !GetAtt SInstancesUserKey.SecretAccessKey

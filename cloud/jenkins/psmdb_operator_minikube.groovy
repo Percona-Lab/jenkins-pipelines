@@ -235,6 +235,8 @@ pipeline {
                     runTest('version-service')
                     runTest('users')
                     runTest('data-sharded')
+                    runTest('pitr')
+                    runTest('pitr-sharded')
             }
             post {
                 always {

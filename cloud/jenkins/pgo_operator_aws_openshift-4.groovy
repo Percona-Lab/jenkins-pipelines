@@ -22,7 +22,7 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite  name=\\"PSMDB\\">\n'
+TestsReport = '<testsuite  name=\\"PGO\\">\n'
 testsReportMap = [:]
 void makeReport() {
     for ( test in testsReportMap ) {
@@ -36,35 +36,61 @@ void runTest(String TEST_NAME) {
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
-
-            GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
-            VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
+            GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
             testsReportMap[TEST_NAME] = 'failure'
-            MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
+            PPG_TAG = sh(script: "if [ -n \"\${PGO_POSTGRES_HA_IMAGE}\" ] ; then echo ${PGO_POSTGRES_HA_IMAGE} | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' ; else echo 'main-ppg13'; fi", , returnStdout: true).trim()
 
-            popArtifactFile("$VERSION-$TEST_NAME-$MDB_TAG")
+            popArtifactFile("${params.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-$PPG_TAG")
 
             sh """
-                if [ -f "$VERSION-$TEST_NAME-$MDB_TAG" ]; then
+                if [ -f "${params.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-$PPG_TAG" ]; then
                     echo Skip $TEST_NAME test
                 else
                     cd ./source
-                    if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
-                        export IMAGE=${PSMDB_OPERATOR_IMAGE}
+                    if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
+                        export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
                     else
-                        export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
+                        export IMAGE_OPERATOR=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-postgres-operator
                     fi
 
-                    if [ -n "${IMAGE_MONGOD}" ]; then
-                        export IMAGE_MONGOD=${IMAGE_MONGOD}
+                    if [ -n "${PGO_APISERVER_IMAGE}" ]; then
+                        export IMAGE_APISERVER=${PGO_APISERVER_IMAGE}
                     fi
 
-                    if [ -n "${IMAGE_BACKUP}" ]; then
-                        export IMAGE_BACKUP=${IMAGE_BACKUP}
+                    if [ -n "${PGO_EVENT_IMAGE}" ]; then
+                        export IMAGE_PGOEVENT=${PGO_EVENT_IMAGE}
                     fi
 
-                    if [ -n "${IMAGE_PMM}" ]; then
-                        export IMAGE_PMM=${IMAGE_PMM}
+                    if [ -n "${PGO_RMDATA_IMAGE}" ]; then
+                        export IMAGE_RMDATA=${PGO_RMDATA_IMAGE}
+                    fi
+
+                    if [ -n "${PGO_SCHEDULER_IMAGE}" ]; then
+                        export IMAGE_SCHEDULER=${PGO_SCHEDULER_IMAGE}
+                    fi
+
+                    if [ -n "${PGO_DEPLOYER_IMAGE}" ]; then
+                        export IMAGE_DEPLOYER=${PGO_DEPLOYER_IMAGE}
+                    fi
+
+                    if [ -n "${PGO_PGBOUNCER_IMAGE}" ]; then
+                        export IMAGE_PGBOUNCER=${PGO_PGBOUNCER_IMAGE}
+                    fi
+
+                    if [ -n "${PGO_POSTGRES_HA_IMAGE}" ]; then
+                        export IMAGE_PG_HA=${PGO_POSTGRES_HA_IMAGE}
+                    fi
+
+                    if [ -n "${PGO_BACKREST_IMAGE}" ]; then
+                        export IMAGE_BACKREST=${PGO_BACKREST_IMAGE}
+                    fi
+
+                    if [ -n "${PGO_BACKREST_REPO_IMAGE}" ]; then
+                        export IMAGE_BACKREST_REPO=${PGO_BACKREST_REPO_IMAGE}
+                    fi
+
+                    if [ -n "${PGO_PGBADGER_IMAGE}" ]; then
+                        export IMAGE_PGBADGER=${PGO_PGBADGER_IMAGE}
                     fi
 
                     source $HOME/google-cloud-sdk/path.bash.inc
@@ -74,7 +100,7 @@ void runTest(String TEST_NAME) {
                     ./e2e-tests/$TEST_NAME/run
                 fi
             """
-            pushArtifactFile("$VERSION-$TEST_NAME-$MDB_TAG")
+            pushArtifactFile("${params.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-$PPG_TAG")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
@@ -105,28 +131,56 @@ pipeline {
             name: 'OS_VERSION')
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
+            description: 'Tag/Branch for percona/percona-postgresql-operator repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
-            description: 'percona-server-mongodb-operator repository',
+            defaultValue: 'https://github.com/percona/percona-postgresql-operator',
+            description: 'percona-postgresql-operator repository',
             name: 'GIT_REPO')
         string(
             defaultValue: '',
-            description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
-            name: 'PSMDB_OPERATOR_IMAGE')
+            description: 'Operator image: perconalab/percona-postgresql-operator:main-postgres-operator',
+            name: 'PGO_OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod4.0',
-            name: 'IMAGE_MONGOD')
+            description: 'Operators API server image: perconalab/percona-postgresql-operator:main-pgo-apiserver',
+            name: 'PGO_APISERVER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-server-mongodb-operator:main-pxc5.7-backup',
-            name: 'IMAGE_BACKUP')
+            description: 'Operators event server image: perconalab/percona-postgresql-operator:main-pgo-event',
+            name: 'PGO_EVENT_IMAGE')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
-            name: 'IMAGE_PMM')
+            description: 'Operators rmdata image: perconalab/percona-postgresql-operator:main-pgo-rmdata',
+            name: 'PGO_RMDATA_IMAGE')
+        string(
+            defaultValue: '',
+            description: 'Operators scheduler image: perconalab/percona-postgresql-operator:main-pgo-scheduler',
+            name: 'PGO_SCHEDULER_IMAGE')
+        string(
+            defaultValue: '',
+            description: 'Operators deployer image: perconalab/percona-postgresql-operator:main-pgo-deployer',
+            name: 'PGO_DEPLOYER_IMAGE')
+        string(
+            defaultValue: '',
+            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg13-pgbouncer',
+            name: 'PGO_PGBOUNCER_IMAGE')
+        string(
+            defaultValue: '',
+            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg13-postgres-ha',
+            name: 'PGO_POSTGRES_HA_IMAGE')
+        string(
+            defaultValue: '',
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg13-pgbackrest',
+            name: 'PGO_BACKREST_IMAGE')
+        string(
+            defaultValue: '',
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg13-pgbackrest-repo',
+            name: 'PGO_BACKREST_REPO_IMAGE')
+        string(
+            defaultValue: '',
+            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg13-pgbadger',
+            name: 'PGO_PGBADGER_IMAGE')
     }
     environment {
         TF_IN_AUTOMATION = 'true'
@@ -176,7 +230,7 @@ pipeline {
         stage('Build docker image') {
             steps {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'),file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
                     sh '''
                         sudo git reset --hard
                         sudo git clean -xdf
@@ -184,14 +238,15 @@ pipeline {
                         ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
 
                         cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
+                        cp $CLOUD_MINIO_SECRET_FILE ./source/e2e-tests/conf/cloud-secret-minio-gw.yml
 
-                        if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
-                            echo "SKIP: Build is not needed, PSMDB operator image was set!"
+                        if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
+                            echo "SKIP: Build is not needed, PG operator image was set!"
                         else
                             cd ./source/
                             sg docker -c "
                                 docker login -u '${USER}' -p '${PASS}'
-                                export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                                export IMAGE_URI_BASE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                                 ./e2e-tests/build
                                 docker logout
                             "
@@ -203,7 +258,7 @@ pipeline {
         }
         stage('Create AWS Infrastructure') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'psmdb-openshift4-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'pgo-openshift4-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
                      sh """
                          mkdir openshift
                          cp $OPENSHIFT_CONF_FILE ./openshift/install-config.yaml
@@ -217,37 +272,16 @@ pipeline {
 
             }
         }
-        stage('E2E Scaling') {
+        stage('Run Tests') {
+            environment {
+                CLEAN_NAMESPACE = 1
+            }
             steps {
                 runTest('init-deploy')
-                runTest('limits')
                 runTest('scaling')
-                runTest('security-context')
-                runTest('smart-update')
-                runTest('version-service')
-                runTest('rs-shard-migration')
-            }
-        }
-        stage('E2E Basic Tests') {
-            steps {
-                runTest('one-pod')
-                runTest('arbiter')
-                runTest('service-per-pod')
-                runTest('liveness')
-                runTest('users')
-                runTest('data-sharded')
-           }
-        }
-        stage('E2E Backups') {
-            steps {
-                runTest('upgrade')
-                runTest('upgrade-consistency')
+                runTest('recreate')
+                runTest('affinity')
                 runTest('demand-backup')
-                runTest('demand-backup-sharded')
-                runTest('scheduled-backup')
-                runTest('upgrade-sharded')
-                runTest('pitr')
-                runTest('pitr-sharded')
             }
         }
         stage('Make report') {
@@ -264,7 +298,7 @@ pipeline {
 
     post {
         always {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'psmdb-openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'pgo-openshift4-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
                      sshagent(['aws-openshift-41-key']) {
                          sh """
                              /usr/local/bin/openshift-install destroy cluster --dir=./openshift/

@@ -6,9 +6,10 @@ def call(operatingSystems, moleculeDir) {
             sh """
                   . virtenv/bin/activate
                   cd ${moleculeDir}
+                  molecule --version
+                  ansible --version
                   molecule test -s ${os}
                """
-            junit "${moleculeDir}/molecule/${os}/report.xml"
         }
       }
     }

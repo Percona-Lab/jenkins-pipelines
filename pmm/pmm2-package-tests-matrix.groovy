@@ -2,13 +2,14 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
-void runPackageTestingJob(String GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, TESTS, METRICS_MODE) {
+void runPackageTestingJob(String GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, TESTS, METRICS_MODE, INSTALL_REPO) {
     upgradeJob = build job: 'package-testing', parameters: [
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'PMM_VERSION', value: PMM_VERSION),
         string(name: 'TESTS', value: TESTS),
+        string(name: 'INSTALL_REPO', value: INSTALL_REPO),
         string(name: 'METRICS_MODE', value: METRICS_MODE)
     ]
 }
@@ -35,7 +36,7 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.17.0',
+            defaultValue: '2.18.0',
             description: 'PMM Version for testing',
             name: 'PMM_VERSION')
         choice(
@@ -55,35 +56,17 @@ pipeline {
         cron('0 4 * * *') 
     }
     stages {
-        stage('Run Package Tests Matrix') {
-            parallel {
-                stage('Install Playbook'){
-                    steps {
-                        script {
-                            runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, 'pmm2-client', METRICS_MODE);
-                        }
-                    }
+        stage('Integration Playbook'){
+            steps {
+                script {
+                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, 'pmm2-client_integration', METRICS_MODE, INSTALL_REPO);
                 }
-                stage('Upgrade Playbook'){
-                    steps {
-                        script {
-                            runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, 'pmm2-client_upgrade', METRICS_MODE);
-                        }
-                    }
-                }
-                stage('Integration Playbook'){
-                    steps {
-                        script {
-                            runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, 'pmm2-client_integration', METRICS_MODE);
-                        }
-                    }
-                }
-                stage('Integration Upgrade Playbook'){
-                    steps {
-                        script {
-                            runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, 'pmm2-client_integration_upgrade', METRICS_MODE);
-                        }
-                    }
+            }
+        }
+        stage('Integration Upgrade Playbook'){
+            steps {
+                script {
+                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, 'pmm2-client_integration_upgrade', METRICS_MODE, INSTALL_REPO);
                 }
             }
         }
