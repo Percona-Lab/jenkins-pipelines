@@ -254,7 +254,7 @@ pipeline {
         }
         stage('Run UI Tests OVF') {
             options {
-                timeout(time: 50, unit: "MINUTES")
+                timeout(time: 60, unit: "MINUTES")
             }
             when {
                 expression { env.OVF_TEST == "yes" }
@@ -265,7 +265,7 @@ pipeline {
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@qan)^(?!.*@dbaas)'
+                        ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@not-ovf)^(?!.*@qan)^(?!.*@dbaas)'
                     """
                 }
             }
