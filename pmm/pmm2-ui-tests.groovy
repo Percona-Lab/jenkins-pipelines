@@ -254,7 +254,7 @@ pipeline {
         }
         stage('Run UI Tests OVF') {
             options {
-                timeout(time: 35, unit: "MINUTES")
+                timeout(time: 50, unit: "MINUTES")
             }
             when {
                 expression { env.OVF_TEST == "yes" }
