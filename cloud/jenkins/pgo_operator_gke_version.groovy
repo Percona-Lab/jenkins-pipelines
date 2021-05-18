@@ -278,6 +278,27 @@ pipeline {
                 }
             }
         }
+        stage('Build docker image') {
+            steps {
+                unstash "sourceFILES"
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh '''
+                        if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
+                            echo "SKIP: Build is not needed, PG operator image was set!"
+                        else
+                            cd ./source/
+                            sg docker -c "
+                                docker login -u '${USER}' -p '${PASS}'
+                                export IMAGE_URI_BASE=perconalab/percona-postgresql-operator:$GIT_BRANCH
+                                ./e2e-tests/build
+                                docker logout
+                            "
+                            sudo rm -rf ./build
+                        fi
+                    '''
+                }
+            }
+        }
         stage('Run Tests') {
             environment {
                 CLOUDSDK_CORE_DISABLE_PROMPTS = 1
