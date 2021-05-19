@@ -8,7 +8,7 @@ pipeline {
             description: 'Git URL',
             name: 'GIT_REPO')
         string(
-            defaultValue: '13',
+            defaultValue: '11',
             description: 'Tag/Branch for build',
             name: 'BRANCH_NAME')
         choice(
@@ -74,7 +74,7 @@ pipeline {
                         echo BRANCH=${BRANCH_NAME}
                         DEST_HOST='docs-rsync-endpoint.int.percona.com'
 
-                        rsync --delete-before -avzr -O -e "ssh -o StrictHostKeyChecking=no -p2222 -i \${KEY_PATH}"  site/ \${USER}@\${DEST_HOST}:/data/websites_data/\${PUBLISH_TARGET}/doc/postgresql/13.x/
+                        rsync --delete-before -avzr -O -e "ssh -o StrictHostKeyChecking=no -p2222 -i \${KEY_PATH}"  site/ \${USER}@\${DEST_HOST}:/data/websites_data/\${PUBLISH_TARGET}/doc/postgresql/11/
                     '''
                 }
             }

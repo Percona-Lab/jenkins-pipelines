@@ -1,5 +1,5 @@
 - job:
-    name: ppg-13-documentation
+    name: ppg-11-documentation
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -12,9 +12,9 @@
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/nastena1606/jenkins-pipelines
+            url: https://github.com/Percona-Lab/jenkins-pipelines
             branches:
-            - "ppg13-doc-job"
+            - "master"
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ppg/ppg-13-documentation-md.groovy
+      script-path: ppg/ppg-11-documentation-md.groovy
