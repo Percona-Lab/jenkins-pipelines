@@ -59,7 +59,7 @@ pipeline {
             description: 'Postgre SQL Server version',
             name: 'PGSQL_VERSION')
         string(
-            defaultValue: '--addclient=haproxy,1 --setup-external-service --addclient=ms,1 --addclient=pdpgsql,1 --addclient=ps,1 --addclient=md,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --addclient=pxc,3 --with-proxysql --pmm2 --setup-alertmanager --add-annotation --setup-replication-ps-pmm2',
+            defaultValue: '--addclient=ms,1 --addclient=pdpgsql,1 --addclient=ps,1 --addclient=md,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pxc,3 --with-proxysql --pmm2 --setup-alertmanager --add-annotation --setup-replication-ps-pmm2',
             description: 'Configure PMM Clients. ps - Percona Server for MySQL, pxc - Percona XtraDB Cluster, ms - MySQL Community Server, md - MariaDB Server, MO - Percona Server for MongoDB, pgsql - Postgre SQL Server',
             name: 'CLIENTS')
         string(
