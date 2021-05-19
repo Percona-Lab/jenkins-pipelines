@@ -1,0 +1,56 @@
+# aws cloudformation --region us-east-1 create-stack --template-body file://IaC/JenkinsArtifactoryAndSpawnIAM.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-spawn-user --tags Key=iit-billing-tag,Value=jenkins-spawn-user
+---
+AWSTemplateFormatVersion: 2010-09-09
+Resources:
+
+  JenkinsSpawnUser: # create standalone user for Cloud Jenkins AWS_STASH jenkins jobs and for spawning instances
+    Type: AWS::IAM::User
+    Properties:
+      UserName: "jenkins-spawn-user"
+      Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::119175775298:policy/jenkins-artifactory
+      Policies:
+        - PolicyName: EC2Access
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource: '*'
+                Action:
+                - ec2:ModifySpotFleetRequest
+                - ec2:DescribeSpotFleetRequests
+                - ec2:DescribeSpotFleetInstances
+                - ec2:DescribeSpotInstanceRequests
+                - ec2:CancelSpotInstanceRequests
+                - ec2:GetConsoleOutput
+                - ec2:RequestSpotInstances
+                - ec2:RunInstances
+                - ec2:StartInstances
+                - ec2:StopInstances
+                - ec2:TerminateInstances
+                - ec2:CreateTags
+                - ec2:DeleteTags
+                - ec2:DescribeInstances
+                - ec2:DescribeKeyPairs
+                - ec2:DescribeRegions
+                - ec2:DescribeImages
+                - ec2:DescribeAvailabilityZones
+                - ec2:DescribeSecurityGroups
+                - ec2:DescribeSubnets
+      Tags:
+      - Key: iit-billing-tag
+        Value: jenkins-spawn-user
+
+  JenkinsSpawnUserKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref JenkinsSpawnUser
+
+Outputs:
+  JenkinsSpawnUserAccessKey:
+    Description: JenkinsSpawn AccessKey
+    Value: !Ref JenkinsSpawnUserKey
+  JenkinsSpawnUserSecretKey:
+    Description: JenkinsSpawn SecretAccessKey
+    Value: !GetAtt JenkinsSpawnUserKey.SecretAccessKey
