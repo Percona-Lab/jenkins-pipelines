@@ -47,7 +47,7 @@ void setup_debian_package_tests()
 void setup_ubuntu_package_tests()
 {
     sh '''
-        sudo apt update
+        sudo apt update -y
         sudo apt install software-properties-common
         sudo apt-add-repository --yes --update ppa:ansible/ansible
         sudo apt-get install -y ansible git wget 
