@@ -317,13 +317,18 @@ pipeline {
                 }
             }
             script {
+                if (env.OVF_TEST == "no") {
+                    env.PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
+                } else {
+                    env.PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
+                }
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/parallel_chunk*/*.xml'
+                    junit env.PATH_TO_REPORT_RESULTS
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
                     archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
-                    junit 'tests/output/parallel_chunk*/*.xml'
+                    junit env.PATH_TO_REPORT_RESULTS
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'tests/output/combine_results.html'
