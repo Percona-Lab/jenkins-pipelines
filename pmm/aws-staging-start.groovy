@@ -206,6 +206,15 @@ pipeline {
                         sudo amazon-linux-extras install epel -y
                         sudo yum -y install bats
                         sudo usermod -aG docker ec2-user
+                        sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
+                        sudo sysctl -w fs.aio-max-nr=1048576 || true
+                        sudo sysctl -w fs.file-max=6815744 || true
+                        echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
+                        sudo mkdir -p /etc/docker
+                        echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json
+                        sudo sed -i.bak -e 's/nofile=1024:4096/nofile=900000:900000/; s/DAEMON_MAXFILES=.*/DAEMON_MAXFILES=990000/' /etc/sysconfig/docker
+                        sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
+                        sudo systemctl daemon-reload
                         sudo systemctl start mysqld
                         sudo systemctl start docker
                         sudo mkdir -p /srv/pmm-qa || :
