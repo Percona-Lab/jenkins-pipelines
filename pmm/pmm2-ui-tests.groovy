@@ -296,6 +296,7 @@ pipeline {
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                 ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
+                ./node_modules/.bin/mochawesome-merge tests/output/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
@@ -334,6 +335,7 @@ pipeline {
                     archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
+                    archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
             allure([
