@@ -186,7 +186,7 @@ pipeline {
             description: 'Prepare Submodules from pmm-submodules branch',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '2.17.0',
+            defaultValue: '',
             description: 'Release Version',
             name: 'VERSION')
         choice(
