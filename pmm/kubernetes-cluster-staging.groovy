@@ -159,7 +159,6 @@ pipeline {
                                 minikube start --driver=none
                                 sudo chown -R $USER $HOME/.kube $HOME/.minikube
                                 sed -i s:/root:$HOME:g $HOME/.kube/config
-                                bash /srv/pmm-qa/pmm-tests/minikube_operators_setup.sh ${OPERATOR_VERSION}
                                 sleep 10
                             """
                         }
