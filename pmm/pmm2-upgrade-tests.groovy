@@ -74,6 +74,39 @@ void uploadAllureArtifacts() {
     }
 }
 
+void fetchAgentLog(String CLIENT_VERSION) {
+     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
+                set -o errexit
+                set -o xtrace
+                export CLIENT_VERSION=${CLIENT_VERSION}
+                if [[ \$CLIENT_VERSION != http* ]]; then
+                    journalctl -u pmm-agent.service > /var/log/pmm-agent.log
+                    sudo chmod 777 /var/log/pmm-agent.log
+                fi
+                if [[ -e /var/log/pmm-agent.log ]]; then
+                    cp /var/log/pmm-agent.log .
+                fi
+            '
+            if [[ \$CLIENT_VERSION != http* ]]; then
+                scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+                    ${USER}@${VM_IP}:pmm-agent.log \
+                    pmm-agent.log
+            fi
+        """
+    }
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            if [[ \$CLIENT_VERSION == http* ]]; then
+                scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+                    ${USER}@${VM_IP}:workspace/aws-staging-start/pmm-agent.log \
+                    pmm-agent.log
+            fi
+        """
+    }
+}
+
 pipeline {
     agent {
         label 'large-amazon'
@@ -251,6 +284,7 @@ pipeline {
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
+            fetchAgentLog(CLIENT_VERSION)
             destroyStaging(VM_NAME)
             sh '''
                 ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
@@ -262,11 +296,13 @@ pipeline {
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
                     archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
+                    archiveArtifacts artifacts: 'pmm-agent.log'
                 } else {
                     junit 'tests/output/parallel_chunk*/*.xml'
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
+                    archiveArtifacts artifacts: 'pmm-agent.log'
                     archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
                 }
             }
