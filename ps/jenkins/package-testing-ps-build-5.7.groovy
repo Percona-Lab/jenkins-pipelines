@@ -63,24 +63,7 @@ List all_actions = [
     "maj-upgrade-from",
 ]
 
-Map product_nodes = [
-    ps56: [
-        "min-stretch-x64",
-        "min-centos-6-x64",
-        "min-centos-7-x64",
-        "min-xenial-x64",
-        "min-bionic-x64",
-        "micro-amazon",
-    ],
-    ps57: all_nodes,
-    client_test: all_nodes,
-]
-
 product_action_playbooks = [
-    ps56: [
-        install: "common_56.yml",
-        upgrade: "common_56_upgrade.yml",
-    ],
     ps57: [
         install: "common_57.yml",
         upgrade: "common_57_upgrade.yml",
@@ -116,7 +99,7 @@ void runPlaybook(String action_to_test) {
 
     sh """
         export install_repo="\${install_repo}"
-        export client_to_test="\${client_to_test}"
+        export client_to_test="ps57"
         ansible-playbook \
         --connection=local \
         --inventory 127.0.0.1, \
@@ -131,7 +114,7 @@ pipeline {
     parameters {
         choice(
             name: "product_to_test",
-            choices: ["ps56", "ps57", "client_test"],
+            choices: ["ps57", "client_test"],
             description: "Product for which the packages will be tested"
         )
 
@@ -139,12 +122,6 @@ pipeline {
             name: "install_repo",
             choices: ["testing", "main", "experimental"],
             description: "Repo to use in install test"
-        )
-
-        choice(
-            name: "client_to_test",
-            choices: ["ps56", "ps57"],
-            description: "Client to check (only when client_test is selected)"
         )
 
         choice(
@@ -166,16 +143,6 @@ pipeline {
                 script {
                     currentBuild.displayName = "#${BUILD_NUMBER}-${params.product_to_test}-${params.install_repo}-${params.node_to_test}"
                     currentBuild.description = "action: ${params.action_to_test}"
-
-                    if (!(product_nodes[params.product_to_test].contains(params.node_to_test))) {
-                        error "The product ${params.product_to_test} cannot be tested on node ${params.node_to_test}"
-                    }
-                    if (
-                        (params.product_to_test == "client_test") &&
-                        !(product_nodes[params.client_to_test].contains(params.node_to_test))
-                    ) {
-                        error "The ${params.client_to_test} client cannot be tested on node ${params.node_to_test}" 
-                    }
                 }
             }
         }
@@ -236,6 +203,25 @@ pipeline {
 
                     steps {
                         runPlaybook("maj-upgrade-to")
+                    }
+                }
+
+                stage("Major upgrade from") {
+                    agent {
+                        label params.node_to_test
+                    }
+
+                    when {
+                        expression {
+                            product_actions[params.product_to_test].contains("maj-upgrade-from")
+                        }
+                        expression {
+                            actions_to_test.contains("maj-upgrade-from")
+                        }
+                    }
+
+                    steps {
+                        runPlaybook("maj-upgrade-from")
                     }
                 }
             }

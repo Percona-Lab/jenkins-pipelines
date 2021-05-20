@@ -15,20 +15,6 @@ List all_nodes = [
     "micro-amazon",
 ]
 
-Map product_nodes = [
-    ps56: [
-        "min-stretch-x64",
-        "min-centos-6-x64",
-        "min-centos-7-x64",
-        "min-xenial-x64",
-        "min-bionic-x64",
-        "micro-amazon",
-    ],
-    ps57: all_nodes,
-    ps80: all_nodes,
-    client_test: all_nodes,
-]
-
 product_to_test = params.product_to_test
 
 List nodes_to_test = []
@@ -44,7 +30,6 @@ void runNodeBuild(String node_to_test) {
         parameters: [
             string(name: "product_to_test", value: product_to_test),
             string(name: "install_repo", value: params.install_repo),
-            string(name: "client_to_test", value: params.client_to_test),
             string(name: "node_to_test", value: node_to_test),
             string(name: "action_to_test", value: params.action_to_test)
         ],
@@ -59,7 +44,7 @@ pipeline {
     parameters {
         choice(
             name: "product_to_test",
-            choices: ["ps57", "ps56", "client_test"],
+            choices: ["ps57", "client_test"],
             description: "Product for which the packages will be tested"
         )
 
@@ -67,12 +52,6 @@ pipeline {
             name: "install_repo",
             choices: ["testing", "main", "experimental"],
             description: "Repo to use in install test"
-        )
-
-        choice(
-            name: "client_to_test",
-            choices: ["ps57", "ps56"],
-            description: "Client to check (only when client_test is selected)"
         )
 
         choice(
@@ -103,13 +82,6 @@ pipeline {
                 stage("Debian Stretch") {
                     when {
                         expression {
-                            product_nodes[product_to_test].contains("min-stretch-x64")
-                        }
-                        expression { (
-                            (product_to_test != "client_test") ||
-                            (product_nodes[client_to_test].contains("min-stretch-x64"))
-                        ) }
-                        expression {
                             nodes_to_test.contains("min-stretch-x64")
                         }
                     }
@@ -121,13 +93,6 @@ pipeline {
 
                 stage("Debian Buster") {
                     when {
-                        expression {
-                            product_nodes[product_to_test].contains("min-buster-x64")
-                        }
-                        expression { (
-                            (product_to_test != "client_test") ||
-                            (product_nodes[client_to_test].contains("min-buster-x64"))
-                        ) }
                         expression {
                             nodes_to_test.contains("min-buster-x64")
                         }
@@ -141,13 +106,6 @@ pipeline {
                 stage("Centos 6") {
                     when {
                         expression {
-                            product_nodes[product_to_test].contains("min-centos-6-x64")
-                        }
-                        expression { (
-                            (product_to_test != "client_test") ||
-                            (product_nodes[client_to_test].contains("min-centos-6-x64"))
-                        ) }
-                        expression {
                             nodes_to_test.contains("min-centos-6-x64")
                         }
                     }
@@ -159,13 +117,6 @@ pipeline {
 
                 stage("Centos 7") {
                     when {
-                        expression {
-                            product_nodes[product_to_test].contains("min-centos-7-x64")
-                        }
-                        expression { (
-                            (product_to_test != "client_test") ||
-                            (product_nodes[client_to_test].contains("min-centos-7-x64"))
-                        ) }
                         expression {
                             nodes_to_test.contains("min-centos-7-x64")
                         }
@@ -179,13 +130,6 @@ pipeline {
                 stage("Centos 8") {
                     when {
                         expression {
-                            product_nodes[product_to_test].contains("min-centos-8-x64")
-                        }
-                        expression { (
-                            (product_to_test != "client_test") ||
-                            (product_nodes[client_to_test].contains("min-centos-8-x64"))
-                        ) }
-                        expression {
                             nodes_to_test.contains("min-centos-8-x64")
                         }
                     }
@@ -197,13 +141,6 @@ pipeline {
 
                 stage("Ubuntu Xenial") {
                     when {
-                        expression {
-                            product_nodes[product_to_test].contains("min-xenial-x64")
-                        }
-                        expression { (
-                            (product_to_test != "client_test") ||
-                            (product_nodes[client_to_test].contains("min-xenial-x64"))
-                        ) }
                         expression {
                             nodes_to_test.contains("min-xenial-x64")
                         }
@@ -217,13 +154,6 @@ pipeline {
                 stage("Ubuntu Bionic") {
                     when {
                         expression {
-                            product_nodes[product_to_test].contains("min-bionic-x64")
-                        }
-                        expression { (
-                            (product_to_test != "client_test") ||
-                            (product_nodes[client_to_test].contains("min-bionic-x64"))
-                        ) }
-                        expression {
                             nodes_to_test.contains("min-bionic-x64")
                         }
                     }
@@ -236,13 +166,6 @@ pipeline {
                 stage("Ubuntu Focal") {
                     when {
                         expression {
-                            product_nodes[product_to_test].contains("min-focal-x64")
-                        }
-                        expression { (
-                            (product_to_test != "client_test") ||
-                            (product_nodes[client_to_test].contains("min-focal-x64"))
-                        ) }
-                        expression {
                             nodes_to_test.contains("min-focal-x64")
                         }
                     }
@@ -254,13 +177,6 @@ pipeline {
 
                 stage("Amazon Linux") {
                     when {
-                        expression {
-                            product_nodes[product_to_test].contains("micro-amazon")
-                        }
-                        expression { (
-                            (product_to_test != "client_test") ||
-                            (product_nodes[client_to_test].contains("micro-amazon"))
-                        ) }
                         expression {
                             nodes_to_test.contains("micro-amazon")
                         }
