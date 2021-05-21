@@ -245,12 +245,6 @@ pipeline {
                             sudo yum install -y gettext
                             envsubst < env.list > env.generated.list
                         """
-                        script {
-                            env.CLIENT_IP = sh (
-                                script: 'curl http://169.254.169.254/latest/meta-data/public-ipv4',
-                                returnStdout: true
-                            ).trim()
-                        }
                     }
                 }
             }
