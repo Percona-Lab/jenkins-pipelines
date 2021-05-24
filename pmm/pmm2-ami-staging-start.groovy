@@ -11,6 +11,22 @@ pipeline {
             choices: '1\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16',
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
+        choice(
+            choices: ['no', 'yes'],
+            description: 'Enable Testing Repo, for RC testing',
+            name: 'ENABLE_TESTING_REPO')
+        choice(
+            choices: ['yes', 'no'],
+            description: 'Enable Experimental Repo, for dev-latest',
+            name: 'ENABLE_EXPERIMENTAL_REPO')
+        string(
+            defaultValue: 'master',
+            description: 'Tag/Branch for pmm-qa repository',
+            name: 'PMM_QA_GIT_BRANCH')
+        string(
+            defaultValue: '',
+            description: 'Commit hash for pmm-qa branch',
+            name: 'PMM_QA_GIT_COMMIT_HASH')
         string(
             defaultValue: '',
             description: 'public ssh key for "admin" user, please set if you need ssh access',
@@ -152,10 +168,20 @@ pipeline {
                         if [ -n "$SSH_KEY" ]; then
                             echo '$SSH_KEY' | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) 'cat - >> .ssh/authorized_keys'
                         fi
-                        [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
-                        sleep 300
+                        sleep 60
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) '
+                            [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
+                            sudo yum -y install git svn sysbench
+                            sudo mkdir -p /srv/pmm-qa || :
+                            pushd /srv/pmm-qa
+                                sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                                sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
+                                sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
+                                sudo chmod 755 get_download_link.sh
+                            popd
+                        '
                     """
-                } 
+                }
                 script {
                     env.IP_PRIVATE  = sh(returnStdout: true, script: "cat IP_PRIVATE").trim()
                     env.IP  = sh(returnStdout: true, script: "cat IP_PUBLIC").trim()
@@ -164,6 +190,38 @@ pipeline {
                 }
                 archiveArtifacts 'IP'  
                 archiveArtifacts 'INSTANCE_ID' 
+            }
+        }
+        stage('Enable Testing Repo') {
+            when {
+                expression { env.ENABLE_TESTING_REPO == "yes" }
+            }
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) '
+                            sudo sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
+                            sudo percona-release enable original testing
+                            sudo yum clean all
+                        '
+                    """
+                }
+            }
+        }
+        stage('Enable Experimental Repo') {
+            when {
+                expression { env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
+            }
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) '
+                            sudo sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
+                            sudo percona-release enable original experimental
+                            sudo yum clean all
+                        '
+                    """
+                }
             }
         }
     }
