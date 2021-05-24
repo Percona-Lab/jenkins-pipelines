@@ -323,7 +323,6 @@ pipeline {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit env.PATH_TO_REPORT_RESULTS
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
-                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
                     junit env.PATH_TO_REPORT_RESULTS
