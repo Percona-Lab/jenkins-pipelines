@@ -170,8 +170,10 @@ pipeline {
                         fi
                         sleep 60
                     """
-                    sh '''
-                        ssh -i "\${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) '
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) "
+                            set -o errexit
+                            set -o xtrace
                             [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
                             sudo yum -y install git svn sysbench
                             sudo mkdir -p /srv/pmm-qa || :
@@ -181,8 +183,8 @@ pipeline {
                                 sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
                                 sudo chmod 755 get_download_link.sh
                             popd
-                        '
-                    '''
+                        "
+                    """
                 }
                 script {
                     env.IP_PRIVATE  = sh(returnStdout: true, script: "cat IP_PRIVATE").trim()
