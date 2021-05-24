@@ -22,10 +22,10 @@ netMap['eu-west-1b'] = 'subnet-04221bb8f6d0aeeff'
 netMap['eu-west-1c'] = 'subnet-0b9a1fd4ba5296a8b'
 
 imageMap = [:]
-imageMap['eu-west-1a.docker'] = 'ami-0ffea00000f287d30'
-imageMap['eu-west-1a.docker-32gb'] = 'ami-0ffea00000f287d30'
-imageMap['eu-west-1a.docker2'] = 'ami-0ffea00000f287d30'
-imageMap['eu-west-1a.micro-amazon'] = 'ami-0ffea00000f287d30'
+imageMap['eu-west-1a.docker'] = 'ami-063d4ab14480ac177'
+imageMap['eu-west-1a.docker-32gb'] = 'ami-063d4ab14480ac177'
+imageMap['eu-west-1a.docker2'] = 'ami-063d4ab14480ac177'
+imageMap['eu-west-1a.micro-amazon'] = 'ami-063d4ab14480ac177'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
