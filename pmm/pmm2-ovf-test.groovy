@@ -1,10 +1,11 @@
-void runUITests(CLIENT_VERSION, CLIENT_INSTANCE, SERVER_IP, GIT_BRANCH) {
+void runUITests(CLIENT_VERSION, CLIENT_INSTANCE, SERVER_IP, GIT_BRANCH, CLIENTS) {
     stagingJob = build job: 'pmm2-ui-tests', parameters: [
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'OVF_TEST', value: 'yes'),
-        string(name: 'GIT_BRANCH', value: GIT_BRANCH)
+        string(name: 'GIT_BRANCH', value: GIT_BRANCH),
+        string(name: 'CLIENTS', value: CLIENTS)
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
@@ -58,7 +59,7 @@ pipeline {
             description: 'Postgre SQL Server version',
             name: 'PGSQL_VERSION')
         string(
-            defaultValue: '--addclient=ps,1 --addclient=mo,1',
+            defaultValue: '--addclient=ps,1',
             description: 'Configure PMM Clients. ps - Percona Server for MySQL, pxc - Percona XtraDB Cluster, ms - MySQL Community Server, md - MariaDB Server, MO - Percona Server for MongoDB, pgsql - Postgre SQL Server',
             name: 'CLIENTS')
         string(
@@ -192,7 +193,7 @@ pipeline {
         }
         stage('Start UI Tests') {
             steps {
-                runUITests(CLIENT_VERSION, 'yes', "${env.PUBLIC_IP}", GIT_BRANCH)
+                runUITests(CLIENT_VERSION, 'yes', "${env.PUBLIC_IP}", GIT_BRANCH, CLIENTS)
             }
         }
     }
