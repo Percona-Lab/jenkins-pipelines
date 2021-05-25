@@ -21,7 +21,7 @@ def call(String FOLDER_NAME, String AWS_STASH_PATH) {
 
                 if [ `find . -name '*.el6.noarch.rpm' -o -name '*.el6.x86_64.rpm' | wc -l` -gt 0 ]; then
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                        mkdir -p \${path_to_build}/redhat/6/x86_64
+                        mkdir -p \${path_to_build}/binary/redhat/6/x86_64
                     scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
                         `find . -name '*.el6.noarch.rpm' -o -name '*.el6.x86_64.rpm'` \
                         ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/6/x86_64/
@@ -29,7 +29,7 @@ def call(String FOLDER_NAME, String AWS_STASH_PATH) {
 
                 if [ `find . -name '*.el7.noarch.rpm' -o -name '*.el7.x86_64.rpm' | wc -l` -gt 0 ]; then
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                        mkdir -p \${path_to_build}/redhat/7/x86_64
+                        mkdir -p \${path_to_build}/binary/redhat/7/x86_64
                     scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
                         `find . -name '*.el7.noarch.rpm' -o -name '*.el7.x86_64.rpm'` \
                         ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/7/x86_64/
