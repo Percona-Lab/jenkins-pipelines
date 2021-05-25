@@ -273,7 +273,7 @@ pipeline {
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@ami-upgrade'
+                        ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@ami-upgrade'
                     """
                     }
                 }
@@ -306,23 +306,23 @@ pipeline {
                 }
             }
             sh '''
-                ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
+                ./node_modules/.bin/mochawesome-merge tests/output/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
             '''
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/parallel_chunk*/*.xml'
+                    junit 'tests/output/*.xml'
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
                     archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-agent.log'
                 } else {
-                    junit 'tests/output/parallel_chunk*/*.xml'
+                    junit 'tests/output/*.xml'
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-agent.log'
-                    archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
+                    archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
             allure([
