@@ -256,6 +256,13 @@ fi
 if [ ! -f /usr/local/lib/libeatmydata.so ]; then
     git clone https://github.com/stewartsmith/libeatmydata /tmp/libeatmydata
     pushd /tmp/libeatmydata
+        # PS-7639: Needed for CentOS 6 because of ancient autoconf
+        if [ -f /usr/bin/yum ]; then
+            RHVER="$(rpm --eval %rhel)"
+            if [[ ${RHVER} -eq 6 ]]; then
+                git checkout df7ddeb0345104f25b5b7bb154bc6a008c8c8404
+            fi
+        fi
         autoreconf --force --install
         ./configure
         make
