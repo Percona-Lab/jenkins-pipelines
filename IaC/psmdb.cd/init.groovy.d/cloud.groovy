@@ -377,14 +377,14 @@ execMap['psmdb-bionic'] = '1'
 devMap = [:]
 devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:160:true:gp2'
 devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
-devMap['psmdb-bionic'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:300:true:gp2'
+devMap['psmdb-bionic'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:400:true:gp2'
 devMap['docker-32gb'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
-devMap['min-centos-6-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:300:true:gp2'
-devMap['min-centos-7-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:300:true:gp2'
-devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:300:true:gp2'
-devMap['min-xenial-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:300:true:gp2'
-devMap['min-bionic-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:300:true:gp2'
+devMap['min-centos-6-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:400:true:gp2'
+devMap['min-centos-7-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:400:true:gp2'
+devMap['min-stretch-x64'] = 'xvda=:8:true:gp2,xvdd=:400:true:gp2'
+devMap['min-xenial-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:400:true:gp2'
+devMap['min-bionic-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:400:true:gp2'
 
 labelMap = [:]
 labelMap['docker'] = ''
