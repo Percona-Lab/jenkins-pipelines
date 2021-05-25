@@ -42,10 +42,19 @@
                 PKGLIST+=" rpm-build libgcrypt-devel ncurses-devel readline-devel openssl-devel gcc-c++"
                 PKGLIST+=" vim-common rpmlint wget ncurses-compat-libs python2 python2-setuptools python2-wheel"
                 PKGLIST+=" lz4 lz4-devel perl-DBD-MySQL"
+                DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-gcc-c++ gcc-toolset-10-binutils"
+                DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-valgrind gcc-toolset-10-valgrind-devel gcc-toolset-10-libatomic-devel"
+                DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-libasan-devel gcc-toolset-10-libubsan-devel"     
                 until sudo yum -y install ${PKGLIST}; do
                     echo "waiting"
                     sleep 1
                 done
+                sudo yum -y install centos-release-stream
+                until sudo yum -y install ${DEVTOOLSET10_PKGLIST}; do
+                    echo "waiting"
+                    sleep 1
+                done
+                sudo yum -y remove centos-release-stream
             else
                 until sudo -E yum -y install epel-release centos-release-scl; do
                     sudo yum clean all
@@ -81,6 +90,9 @@
             if [[ ${RHEL} -eq 8 ]]; then
                 sudo /usr/bin/pip3 install sphinx
                 sudo ln -sf /bin/python3 /bin/python
+            elif [[ ${RHEL} -eq 7 ]]; then
+                sudo yum -y --enablerepo=centos-sclo-rh-testing install devtoolset-10-gcc-c++ devtoolset-10-binutils devtoolset-10-valgrind devtoolset-10-valgrind-devel devtoolset-10-libatomic-devel
+                sudo yum -y --enablerepo=centos-sclo-rh-testing install devtoolset-10-libasan-devel devtoolset-10-libubsan-devel
             fi
         fi
         #
