@@ -38,7 +38,7 @@ void runClusterStaging(String PMM_QA_GIT_BRANCH) {
     env.KUBECONFIG = clusterJob.buildVariables.KUBECONFIG
 }
 
-void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP) {
+void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -49,8 +49,19 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
     ]
-    env.VM_CLIENT_IP = stagingJob.buildVariables.IP
-    env.VM_CLIENT_NAME = stagingJob.buildVariables.VM_NAME
+    if ( NODE_TYPE == 'mysql-node' ) {
+        env.VM_CLIENT_IP_MYSQL = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_MYSQL = stagingJob.buildVariables.VM_NAME
+    }
+    else if ( NODE_TYPE == 'pxc-node' ) {
+        env.VM_CLIENT_IP_PXC = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_PXC = stagingJob.buildVariables.VM_NAME
+    }
+    else
+    {
+        env.VM_CLIENT_IP_MONGO = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_MONGO = stagingJob.buildVariables.VM_NAME
+    }
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
         env.PMM_URL = "http://admin:admin@${SERVER_IP}"
@@ -198,9 +209,19 @@ pipeline {
                         runClusterStaging('master')
                     }
                 }
-                stage('Start Client Instance') {
+                stage('Start Client Instance - ps-replication') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=pdpgsql,1 --addclient=ps,1 --addclient=md,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --addclient=pxc,3 --with-proxysql --pmm2 --setup-alertmanager --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2 --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP, 'mysql-node')
+                    }
+                }
+                stage('Start Client Instance - ms/md/pxc') {
+                    steps {
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=md,1 --addclient=pxc,3 --with-proxysql --pmm2', 'yes', env.VM_IP, 'pxc-node')
+                    }
+                }
+                stage('Start Client Instance - mongo/postgresql') {
+                    steps {
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pdpgsql,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --pmm2', 'yes', env.VM_IP, 'mongo-postgres-node')
                     }
                 }
             }
@@ -263,9 +284,17 @@ pipeline {
                 {
                     destroyStaging(VM_NAME)
                 }
-                if(env.VM_CLIENT_NAME)
+                if(env.VM_CLIENT_NAME_MYSQL)
                 {
-                    destroyStaging(VM_CLIENT_NAME)
+                    destroyStaging(VM_CLIENT_NAME_MYSQL)
+                }
+                if(env.VM_CLIENT_NAME_MONGO)
+                {
+                    destroyStaging(VM_CLIENT_NAME_MONGO)
+                }
+                if(env.VM_CLIENT_NAME_PXC)
+                {
+                    destroyStaging(VM_CLIENT_NAME_PXC)
                 }
                 if(env.CLUSTER_IP)
                 {
