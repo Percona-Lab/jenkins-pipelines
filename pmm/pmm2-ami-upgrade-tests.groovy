@@ -260,9 +260,6 @@ pipeline {
             }
         }
         stage('Run UI Upgrade Tests') {
-            when {
-                expression { env.PERFORM_DOCKER_WAY_UPGRADE == "no" }
-            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
