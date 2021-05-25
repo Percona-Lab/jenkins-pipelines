@@ -106,6 +106,7 @@ if [ -f /usr/bin/yum ]; then
         PKGLIST+=" devtoolset-2-valgrind devtoolset-2-valgrind-devel"
         PKGLIST+=" libevent2-devel python34 python34-pip"
         PKGLIST+=" perautomake g++ gcc percona-devtoolset-gcc percona-devtoolset-binutils percona-devtoolset-gcc-c++"
+        PKGLIST+=" rh-python36-python-pip rh-python36-docutils rh-python36-python-setuptools"
     fi
 
     if [[ ${RHVER} -gt 6 ]]; then
@@ -256,6 +257,13 @@ fi
 if [ ! -f /usr/local/lib/libeatmydata.so ]; then
     git clone https://github.com/stewartsmith/libeatmydata /tmp/libeatmydata
     pushd /tmp/libeatmydata
+        # PS-7639: Needed for CentOS 6 because of ancient autoconf
+        if [ -f /usr/bin/yum ]; then
+            RHVER="$(rpm --eval %rhel)"
+            if [[ ${RHVER} -eq 6 ]]; then
+                git checkout df7ddeb0345104f25b5b7bb154bc6a008c8c8404
+            fi
+        fi
         autoreconf --force --install
         ./configure
         make
@@ -264,7 +272,21 @@ if [ ! -f /usr/local/lib/libeatmydata.so ]; then
     rm -rf /tmp/libeatmydata
 fi
 
-pip3 install --upgrade sphinx==1.4
+if [ -f /usr/bin/yum ]; then
+    RHVER="$(rpm --eval %rhel)"
+    if [[ ${RHVER} -eq 6 ]]; then
+        source /opt/rh/rh-python36/enable
+        pip install --upgrade sphinx==1.4
+        ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-build /usr/local/bin/sphinx-build
+        ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-autogen /usr/local/bin/sphinx-autogen
+        ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-quickstart /usr/local/bin/sphinx-quickstart
+        ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-apidoc /usr/local/bin/sphinx-apidoc
+    else
+        pip3 install --upgrade sphinx==1.4
+    fi
+else
+    pip3 install --upgrade sphinx==1.4
+fi
 
 export PERL_MM_USE_DEFAULT=1
 sudo -E cpan -T Memcached::libmemcached
