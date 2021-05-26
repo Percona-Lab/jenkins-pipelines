@@ -12,7 +12,7 @@ List all_nodes = [
     "min-xenial-x64",
     "min-bionic-x64",
     "min-focal-x64",
-    "micro-amazon",
+    "min-amazon-2-x64",
 ]
 
 product_to_test = params.product_to_test
@@ -178,12 +178,12 @@ pipeline {
                 stage("Amazon Linux") {
                     when {
                         expression {
-                            nodes_to_test.contains("micro-amazon")
+                            nodes_to_test.contains("min-amazon-2-x64")
                         }
                     }
 
                     steps {
-                        runNodeBuild("micro-amazon")
+                        runNodeBuild("min-amazon-2-x64")
                     }
                 }
             }

@@ -45,7 +45,7 @@
                 - "min-xenial-x64"
                 - "min-bionic-x64"
                 - "min-focal-x64"
-                - "micro-amazon"
+                - "min-amazon-2-x64"
             description: "Node in which to test the product"
         - choice:
             name: action_to_test
