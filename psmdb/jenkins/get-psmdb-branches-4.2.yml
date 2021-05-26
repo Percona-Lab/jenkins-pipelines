@@ -8,7 +8,7 @@
       scm:
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
-            branches:	
+            branches:
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
