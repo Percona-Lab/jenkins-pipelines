@@ -81,4 +81,10 @@ if [[ "${DEFAULT_TESTING}" != "no" ]]; then
         --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.mtr.xml" || true   
 fi
 
+# Convert Latin1(ISO-8859-1) into browser readable UTF-8
+for file in $(find ${WORKDIR_ABS}/ -maxdepth 1 -name "*.xml"); do
+    iconv -c -t UTF-8 ${file} | tr -cd '[:print:]\n\r' > ${file}-converted
+    mv ${file}-converted ${file}
+done
+
 exit $status
