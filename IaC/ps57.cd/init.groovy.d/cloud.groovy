@@ -25,6 +25,7 @@ imageMap['eu-central-1a.docker']            = 'ami-0db9040eb3ab74509'
 imageMap['eu-central-1a.docker-32gb']       = 'ami-0db9040eb3ab74509'
 imageMap['eu-central-1a.docker2']           = 'ami-0db9040eb3ab74509'
 imageMap['eu-central-1a.micro-amazon']      = 'ami-0db9040eb3ab74509'
+imageMap['eu-central-1a.min-amazon-2-x64']  = 'ami-0db9040eb3ab74509'
 imageMap['eu-central-1a.min-centos-8-x64']  = 'ami-032025b3afcbb6b34'
 imageMap['eu-central-1a.min-centos-7-x64']  = 'ami-04cf43aca3e6f3de3'
 imageMap['eu-central-1a.fips-centos-7-x64'] = 'ami-0837950ffca9ae6e8'
@@ -39,6 +40,7 @@ imageMap['eu-central-1b.docker']            = imageMap['eu-central-1a.docker']
 imageMap['eu-central-1b.docker-32gb']       = imageMap['eu-central-1a.docker-32gb']
 imageMap['eu-central-1b.docker2']           = imageMap['eu-central-1a.docker2']
 imageMap['eu-central-1b.micro-amazon']      = imageMap['eu-central-1a.micro-amazon']
+imageMap['eu-central-1b.min-amazon-2-x64']  = imageMap['eu-central-1a.min-amazon-2-x64']
 imageMap['eu-central-1b.min-centos-8-x64']  = imageMap['eu-central-1a.min-centos-8-x64']
 imageMap['eu-central-1b.min-centos-7-x64']  = imageMap['eu-central-1a.min-centos-7-x64']
 imageMap['eu-central-1b.fips-centos-7-x64'] = imageMap['eu-central-1a.fips-centos-7-x64']
@@ -53,6 +55,7 @@ imageMap['eu-central-1c.docker']            = imageMap['eu-central-1a.docker']
 imageMap['eu-central-1c.docker-32gb']       = imageMap['eu-central-1a.docker-32gb']
 imageMap['eu-central-1c.docker2']           = imageMap['eu-central-1a.docker2']
 imageMap['eu-central-1c.micro-amazon']      = imageMap['eu-central-1a.micro-amazon']
+imageMap['eu-central-1c.min-amazon-2-x64']  = imageMap['eu-central-1a.min-amazon-2-x64']
 imageMap['eu-central-1c.min-centos-8-x64']  = imageMap['eu-central-1a.min-centos-8-x64']
 imageMap['eu-central-1c.min-centos-7-x64']  = imageMap['eu-central-1a.min-centos-7-x64']
 imageMap['eu-central-1c.fips-centos-7-x64'] = imageMap['eu-central-1a.fips-centos-7-x64']
@@ -79,6 +82,7 @@ userMap['docker']            = 'ec2-user'
 userMap['docker-32gb']       = userMap['docker']
 userMap['docker2']           = userMap['docker']
 userMap['micro-amazon']      = userMap['docker']
+userMap['min-amazon-2-x64']  = userMap['docker']
 userMap['min-focal-x64']     = 'ubuntu'
 userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-trusty-x64']    = 'ubuntu'
@@ -199,6 +203,7 @@ initMap['micro-amazon'] = '''
 
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
+initMap['min-amazon-2-x64'] = initMap['micro-amazon']
 initMap['min-centos-6-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -347,12 +352,14 @@ typeMap['min-centos-6-x64']  = 'm4.xlarge'
 typeMap['min-stretch-x64']   = typeMap['docker']
 typeMap['min-xenial-x64']    = typeMap['docker']
 typeMap['psmdb']             = typeMap['docker-32gb']
+typeMap['min-amazon-2-x64']  = typeMap['micro-amazon']
 
 execMap = [:]
 execMap['docker']            = '1'
 execMap['docker-32gb']       = execMap['docker']
 execMap['docker2']           = execMap['docker']
 execMap['micro-amazon']      = '30'
+execMap['min-amazon-2-x64']  = '1'
 execMap['min-focal-x64']     = '1'
 execMap['min-bionic-x64']    = '1'
 execMap['min-centos-6-x32']  = '1'
@@ -371,6 +378,7 @@ devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:100:true:gp2'
 devMap['docker2']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb']       = devMap['docker']
 devMap['micro-amazon']      = devMap['docker']
+devMap['min-amazon-2-x64']  = devMap['docker']
 devMap['min-bionic-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-focal-x64']     = devMap['min-bionic-x64']
 devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
@@ -388,6 +396,7 @@ labelMap['docker']            = ''
 labelMap['docker-32gb']       = ''
 labelMap['docker2']           = 'docker-32gb'
 labelMap['micro-amazon']      = 'master'
+labelMap['min-amazon-2-x64']  = ''
 labelMap['min-bionic-x64']    = 'asan'
 labelMap['min-focal-x64']     = ''
 labelMap['min-centos-6-x32']  = ''
@@ -471,6 +480,7 @@ String region = 'eu-central-1'
             getTemplate('docker',             "${region}${it}"),
             getTemplate('docker-32gb',        "${region}${it}"),
             getTemplate('micro-amazon',       "${region}${it}"),
+            getTemplate('min-amazon-2-x64',   "${region}${it}"),
             getTemplate('min-centos-8-x64',   "${region}${it}"),
             getTemplate('min-centos-7-x64',   "${region}${it}"),
             getTemplate('fips-centos-7-x64',  "${region}${it}"),
