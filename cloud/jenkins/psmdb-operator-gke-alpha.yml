@@ -1,0 +1,48 @@
+- job:
+    name: psmdb-operator-gke-alpha
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: false
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 10
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 10
+    triggers:
+      - timed: "0 0 * * 1"
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - master
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: cloud/jenkins/psmdb_operator_gke_alpha.groovy
+    parameters:
+    - string:
+        name: GIT_REPO
+        default: https://github.com/percona/percona-server-mongodb-operator
+        description: percona/percona-server-mongodb-operator repository
+    - string:
+        name: GIT_BRANCH
+        default: main
+        description: Tag/Branch for percona/percona-server-mongodb-operator repository
+    - string:
+        name: PSMDB_OPERATOR_IMAGE
+        default:
+        description: Operator image: perconalab/percona-server-mongodb-operator:main
+    - string:
+        name: IMAGE_MONGOD
+        default:
+        description: MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod4.0
+    - string:
+        name: IMAGE_BACKUP
+        default:
+        description: Backup image: perconalab/percona-server-mongodb-operator:main-backup
+    - string
+        name: IMAGE_PMM
+        default:
+        description: PMM image: perconalab/pmm-client:dev-latest
