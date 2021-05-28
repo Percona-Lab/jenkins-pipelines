@@ -68,6 +68,8 @@ pipeline {
         MAILOSAUR_API_KEY=credentials('MAILOSAUR_API_KEY')
         MAILOSAUR_SERVER_ID=credentials('MAILOSAUR_SERVER_ID')
         MAILOSAUR_SMTP_PASSWORD=credentials('MAILOSAUR_SMTP_PASSWORD')
+        PORTAL_USER_EMAIL=credentials('PORTAL_USER_EMAIL')
+        PORTAL_USER_PASSWORD=credentials('PORTAL_USER_PASSWORD')
     }
     parameters {
         string(
