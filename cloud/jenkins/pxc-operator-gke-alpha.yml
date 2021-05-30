@@ -1,5 +1,5 @@
 - job:
-    name: pxc-operator-gke-version
+    name: pxc-operator-gke-alpha
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -20,7 +20,7 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxc_operator_gke_version.groovy
+      script-path: cloud/jenkins/pxc_operator_gke_alpha.groovy
     parameters:
     - string:
         name: GIT_REPO
