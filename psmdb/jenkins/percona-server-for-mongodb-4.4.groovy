@@ -141,7 +141,7 @@ pipeline {
                 }
                 stage('Centos 8') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
