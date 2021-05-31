@@ -267,7 +267,9 @@ pipeline {
                     runTest('affinity')
                     runTest('one-pod')
                     runTest('self-healing-advanced')
+                    runTest('self-healing-advanced-chaos')
                     runTest('operator-self-healing')
+                    runTest('operator-self-healing-chaos')
                     runTest('validation-hook')
             }
             post {
