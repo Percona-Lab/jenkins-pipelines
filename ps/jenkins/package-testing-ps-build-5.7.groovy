@@ -19,12 +19,19 @@ setup_amazon_package_tests = { ->
     '''
 }
 
-setup_debian_package_tests = { ->
+setup_stretch_package_tests = { ->
     sh '''
         sudo apt-get update
         sudo apt-get install -y dirmngr gnupg2
         echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
         sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
+        sudo apt-get update
+        sudo apt-get install -y ansible git wget
+    '''
+}
+
+setup_buster_package_tests = { ->
+    sh '''
         sudo apt-get update
         sudo apt-get install -y ansible git wget
     '''
@@ -40,8 +47,8 @@ setup_ubuntu_package_tests = { ->
 }
 
 node_setups = [
-    "min-stretch-x64": setup_debian_package_tests,
-    "min-buster-x64": setup_debian_package_tests,
+    "min-stretch-x64": setup_stretch_package_tests,
+    "min-buster-x64": setup_buster_package_tests,
     "min-centos-6-x64": setup_rhel_package_tests,
     "min-centos-7-x64": setup_rhel_package_tests,
     "min-centos-8-x64": setup_rhel_package_tests,
