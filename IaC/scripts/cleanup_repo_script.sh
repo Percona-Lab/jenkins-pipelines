@@ -9,6 +9,7 @@ Usage: $0 [OPTIONS]
         --older_than        Pass days older than packages should be removed. For example: 365
         --repo              Pass name of repository which needed to be cleaned up
         --component         Pass name of component, supported values: \"laboratory\" \"experimental\" \"testing\" \"all\"
+        --dry-run           Enables dry-run mode, will show what will be removed and what was excluded only
         --help) usage ;;
 Example $0 --mode=latest
 EOF
@@ -26,34 +27,42 @@ parse_arguments() {
         case "$arg" in
             --mode=*) MODE="$val" ;;
             --older_than=*) OLDER_THAN="$val" ;;
-            --repo=*) REPO_LISTS="$val" ;;
-            --component=*) REPO_COMPONENTS="$val" ;;
+            --repo=*) REPO_LIST="$val" ;;
+            --component=*) REPO_COMPONENT="$val" ;;
+            --dry-run=*) DRY_RUN="$val" ;;
             --help|*) usage ;;
         esac
     done
 }
 
 function main {
-    if [[ "$REPO_COMPONENTS" == "all" ]]; then
-        REPO_COMPONENTS="testing laboratory experimental"
+    if [[ "$REPO_COMPONENT" == "all" ]]; then
+        REPO_COMPONENT="testing laboratory experimental"
     fi
 
-    for REPO in $REPO_LISTS; do
-        for COMPONENT in $REPO_COMPONENTS; do
+    for REPO in $REPO_LIST; do
+        for COMPONENT in $REPO_COMPONENT; do
             REPOPATH="/mnt/${REPO}/yum/${COMPONENT}"
 
             echo "Cleaning repo: ${REPO} & component: ${COMPONENT}"
 
             if [[ ${MODE} == "date" ]]; then
                 EXCLUDE_COMPONENT=$(echo "$EXCLUDE_LIST" | grep -o "${COMPONENT}=.*" | awk -F '=' '{print $2}')
-                echo "Searching for packets to be excluded across all EL versions"
+                echo "Searching for packages to be excluded across all EL versions"
 
                 for package in $EXCLUDE_COMPONENT; do
                     find $REPOPATH/ -type f -name "$package.*" > /tmp/excludes_${REPO}_${COMPONENT}
                 done
                 EXCLUDE="$(cat /tmp/excludes_${REPO}_${COMPONENT} | awk -F "/" '{print $NF}')"
-    
-                find $REPOPATH/ -type f -name "*.rpm" $(printf "! -name %s " $(printf "! -name %s " $EXCLUDE)) -mtime +$OLDER_THAN -exec rm -f {} \;
+
+                if [[ ${DRY_RUN} == "no" ]]; then
+                    FIND_CMD="rm -f"
+                else
+                    FIND_CMD="echo"
+                        printf "Will be excluded: $EXCLUDE \n"
+                        printf "Will be removed: \n"
+                fi
+                find $REPOPATH/ -type f -name "*.rpm" $(printf "! -name %s " $(printf "! -name %s " $EXCLUDE)) -mtime +$OLDER_THAN -exec $FIND_CMD {} \;
             elif [[ ${MODE} == "latest" ]]; then
                 echo "Building list of latest packages for ${REPO} in ${COMPONENT}"
                 find $REPOPATH/ -type f -name "*.rpm" > /tmp/packages_${REPO}_${COMPONENT}
@@ -66,7 +75,7 @@ function main {
                 cat /tmp/packages_without_version_${REPO}_${COMPONENT} | sort | awk '!seen[$0]++' > /tmp/sorted_packages_without_version_${REPO}_${COMPONENT}
                 mv /tmp/sorted_packages_without_version_${REPO}_${COMPONENT} /tmp/packages_without_version_${REPO}_${COMPONENT}
 
-                for EL in el6 el7 el8 src; do
+                for EL in el5 el6 el7 el8 src; do
                     EXCLUDE_LATEST=""
                     for package in $(cat /tmp/packages_without_version_${REPO}_${COMPONENT}); do
                         package_path=$(cat /tmp/packages_${REPO}_${COMPONENT} | grep ${EL} | grep "${package}-[0-9]" | sort -r | head -n1)
@@ -76,31 +85,42 @@ function main {
                     done
                     echo $EXCLUDE_LATEST >> /tmp/excludes_${REPO}_${COMPONENT}_${EL}
 
-                    echo "Removing packages except latest versions in ${REPO} in ${COMPONENT} for ${EL}"
                     EXCLUDE=$(cat /tmp/excludes_${REPO}_${COMPONENT}_${EL})
-                    if [[ ${EL} == 'src' ]]; then
-                        find $REPOPATH/ -type f -name "*.src.rpm" $(printf "! -name %s " $(printf "! -name %s " $EXCLUDE)) -exec rm -f {} \;
+                    
+                    if [[ ${DRY_RUN} == "yes" ]]; then
+                        FIND_CMD="echo"
+                        printf "Will be excluded for ${EL} and ${COMPONENT}: $EXCLUDE \n"
+                        printf "Will be removed for ${EL} and ${COMPONENT}: \n"
                     else
-                        find $REPOPATH/ -type f -name "*.${EL}.*.rpm" $(printf "! -name %s " $(printf "! -name %s " $EXCLUDE)) -exec rm -f {} \;
+                        echo "Removing packages except latest versions in ${REPO} in ${COMPONENT} for ${EL}"
+                        FIND_CMD="rm -f"
+                    fi
+                    if [[ ${EL} == 'src' ]]; then
+                        find $REPOPATH/ -type f -name "*.src.rpm" $(printf "! -name %s " $(printf "! -name %s " $EXCLUDE)) -exec $FIND_CMD {} \;
+                    else
+                        find $REPOPATH/ -type f -name "*.${EL}.*.rpm" $(printf "! -name %s " $(printf "! -name %s " $EXCLUDE)) -exec $FIND_CMD {} \;
                     fi
                 done
             fi
 
-            for RHEL_ARCH in $(find ${REPOPATH}/ -maxdepth 3 -type d \( -name "*x86_64" -o -name "*noarch" -o -name "i386" \)); do
-                if [ -f ${RHEL_ARCH}/repodata/repomd.xml.asc ]; then
-                    rm -f  ${RHEL_ARCH}/repodata/repomd.xml.asc
-                fi
-                gpg --detach-sign --armor --passphrase $PASSWORD ${RHEL_ARCH}/repodata/repomd.xml
-                createrepo --update ${RHEL_ARCH}/
-            done
+            if [[ ${DRY_RUN} == "no" ]]; then
+                for RHEL_ARCH in $(find ${REPOPATH}/ -maxdepth 3 -type d \( -name "*x86_64" -o -name "*noarch" -o -name "i386" \)); do
+                    if [ -f ${RHEL_ARCH}/repodata/repomd.xml.asc ]; then
+                        rm -f  ${RHEL_ARCH}/repodata/repomd.xml.asc
+                    fi
+                    gpg --detach-sign --armor --passphrase $PASSWORD ${RHEL_ARCH}/repodata/repomd.xml
+                    createrepo --update ${RHEL_ARCH}/
+                done
+            fi
         done
     done
 }
 
-REPO_COMPONENTS="all"
-REPO_LISTS="tools"
+REPO_COMPONENT="all"
+REPO_LIST="tools"
 OLDER_THAN="365"
 MODE="latest"
+DRY_RUN="no"
 
 EXCLUDE_LIST="
 experimental=percona-xtrabackup-test-80-8.0.5-1 percona-backup-mongodb-agent-0.5.0-1
