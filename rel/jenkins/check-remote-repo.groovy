@@ -54,10 +54,15 @@ ReposPathMap = [
     'Prometheus':        "${GitHubURL}/prometheus/prometheus",
     'Orchestrator':      "${GitHubURL}/outbrain/orchestrator",
     'SysBench':          "${GitHubURL}/akopytov/sysbench",
+    'HAProxy':           "${GitHubURL}/haproxy/haproxy",
     'Patroni':           "${GitHubURL}/zalando/patroni",
     'PgAudit':           "${GitHubURL}/pgaudit/pgaudit",
+    'PgAudit-Set-User':  "${GitHubURL}/pgaudit/set_user",
     'PgBackrest':        "${GitHubURL}/pgbackrest/pgbackrest",
     'PgRepack':          "${GitHubURL}/reorg/pg_repack",
+    'PgBadger':          "${GitHubURL}/darold/pgbadger",
+    'PgBouncer':         "${GitHubURL}/pgbouncer/pgbouncer",
+    'Wal2Json':          "${GitHubURL}/eulerto/wal2json",
     'PostgreSQL-Common': "https://salsa.debian.org/postgresql/postgresql-common",
     'PostgreSQL':        "git://git.postgresql.org/git/postgresql"
     ]
@@ -73,10 +78,15 @@ ReposSlackMap = [
     'Prometheus':        "#pmm",
     'Orchestrator':      "#pmm",
     'SysBench':          "#opensource",
+    'HAProxy':           '#opensource',
     'Patroni':           "#postgresql-build",
     'PgAudit':           "#postgresql-build",
+    'PgAudit-Set-User':  "#postgresql-build",
     'PgBackrest':        "#postgresql-build",
     'PgRepack':          "#postgresql-build",
+    'PgBadger':          "#postgresql-build",
+    'PgBouncer':         "#postgresql-build",
+    'Wal2Json':          "#postgresql-build",
     'PostgreSQL-Common': "#postgresql-build",
     'PostgreSQL':        "#postgresql-build"
     ]
