@@ -102,7 +102,7 @@ pipeline {
                         checkRepo("${repo_info.key}", "${repo_info.value}")
                     }
                 }
-                stash allowEmpty: true, includes: "*.newtag", name: "NewTagsFiles"
+                stash allowEmpty: true, includes: "*.newtags", name: "NewTagsFiles"
             }
         }
         stage('Sending notifications') {
