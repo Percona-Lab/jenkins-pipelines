@@ -274,7 +274,7 @@ pipeline {
         }
         stage('Run UI Tests Docker') {
             options {
-                timeout(time: 35, unit: "MINUTES")
+                timeout(time: 50, unit: "MINUTES")
             }
             when {
                 expression { env.OVF_TEST == "no" }
