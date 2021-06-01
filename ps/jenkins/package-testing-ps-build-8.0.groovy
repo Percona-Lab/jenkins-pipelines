@@ -117,6 +117,10 @@ void runPlaybook(String action_to_test) {
 pipeline {
     agent none
 
+    options {
+        skipDefaultCheckout()
+    }
+
     parameters {
         choice(
             name: "product_to_test",
@@ -161,6 +165,7 @@ pipeline {
                     }
 
                     when {
+                        beforeAgent true
                         expression {
                             product_actions[params.product_to_test].contains("install")
                         }
@@ -180,6 +185,7 @@ pipeline {
                     }
 
                     when {
+                        beforeAgent true
                         expression {
                             product_actions[params.product_to_test].contains("upgrade")
                         }
@@ -199,6 +205,7 @@ pipeline {
                     }
 
                     when {
+                        beforeAgent true
                         expression {
                             product_actions[params.product_to_test].contains("maj-upgrade-to")
                         }
