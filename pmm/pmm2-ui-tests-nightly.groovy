@@ -174,6 +174,8 @@ pipeline {
                     sudo yum -y install jq svn
                     sudo usermod -aG docker ec2-user
                     sudo service docker start
+                    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
                     sudo curl -L https://github.com/docker/compose/releases/download/1.21.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/local/bin/docker-compose > /dev/null
                     sudo chmod +x /usr/local/bin/docker-compose
                     sudo ln -sfn /usr/local/bin/docker-compose /usr/bin/docker-compose
@@ -265,6 +267,9 @@ pipeline {
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
                         export kubeconfig_minikube="${KUBECONFIG}"
+                        echo "${KUBECONFIG}" > kubeconfig
+                        export KUBECONFIG=./kubeconfig
+                        kubectl get nodes
                         ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly'
                     """
                 }
