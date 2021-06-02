@@ -23,18 +23,18 @@ netMap['eu-west-1b'] = 'subnet-06b7b6c7fd86a48e8'
 netMap['eu-west-1c'] = 'subnet-0de17643aea1f04a4'
 
 imageMap = [:]
-imageMap['eu-west-1a.docker'] = 'ami-0ffea00000f287d30'
-imageMap['eu-west-1a.docker-32gb'] = 'ami-0ffea00000f287d30'
-imageMap['eu-west-1a.docker2'] = 'ami-0ffea00000f287d30'
-imageMap['eu-west-1a.micro-amazon'] = 'ami-0ffea00000f287d30'
+imageMap['eu-west-1a.docker'] = 'ami-063d4ab14480ac177'
+imageMap['eu-west-1a.docker-32gb'] = 'ami-063d4ab14480ac177'
+imageMap['eu-west-1a.docker2'] = 'ami-063d4ab14480ac177'
+imageMap['eu-west-1a.micro-amazon'] = 'ami-063d4ab14480ac177'
 imageMap['eu-west-1a.fips-centos-7-x64'] = 'ami-0ff760d16d9497662'
 
 imageMap['eu-west-1a.min-centos-6-x64'] = 'ami-0451e9d3427711cb1'
 imageMap['eu-west-1a.min-centos-7-x64'] = 'ami-04f5641b0d178a27a'
 imageMap['eu-west-1a.min-buster-x64']   = 'ami-0874dad5025ca362c'
-imageMap['eu-west-1a.min-bionic-x64']   = 'ami-03c4a26550b802f69'
-imageMap['eu-west-1a.min-stretch-x64']  = 'ami-07b6f61657bc90905'
-imageMap['eu-west-1a.min-xenial-x64']   = 'ami-02da223b2a27163b1'
+imageMap['eu-west-1a.min-bionic-x64']   = 'ami-014b036b990648fb3'
+imageMap['eu-west-1a.min-stretch-x64']  = 'ami-07a2fd1dc58356f1e'
+imageMap['eu-west-1a.min-xenial-x64']   = 'ami-038d7b856fe7557b3'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
