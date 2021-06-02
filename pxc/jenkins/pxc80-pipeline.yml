@@ -36,7 +36,7 @@
         description: Tag/Branch for PXB80 repository
     - bool:
         name: PXB80_LATEST
-        default: false
+        default: true
         description: "If checked, the PXB80_BRANCH will be ignored and latest available version will be used"
     - string:
         name: PXB24_REPO
