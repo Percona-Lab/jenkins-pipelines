@@ -27,7 +27,7 @@ pipeline {
             name: 'PXB80_BRANCH',
             trim: true)
         booleanParam(
-            defaultValue: false, 
+            defaultValue: true, 
             description: 'If checked, the PXB80_BRANCH will be ignored and latest available version will be used',
             name: 'PXB80_LATEST') 
         string(
