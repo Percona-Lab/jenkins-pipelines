@@ -47,6 +47,9 @@ void setInstanceAMIId(PMM_VERSION) {
         case "2.17.0":
             env.AMI_ID = "ami-03af848f3557ff8d0"
             break;
+        case "2.18.0":
+            env.AMI_ID = "ami-0184c7b18b45d2a7b"
+            break;
         case "custom":
             env.AMI_ID = env.AMI_ID_CUSTOM
             break;
@@ -184,15 +187,15 @@ pipeline {
             description: 'PMM Server AMI ID',
             name: 'AMI_ID_CUSTOM')
         choice(
-            choices: ['2.15.0','2.15.1', '2.16.0', '2.17.0', 'custom'],
+            choices: ['2.15.0','2.15.1', '2.16.0', '2.17.0', '2.18.0', 'custom'],
             description: 'PMM Server AMI ID to test for Upgrade',
             name: 'SERVER_VERSION')
         choice(
-            choices: ['2.15.0', '2.15.1', '2.16.0', '2.17.0'],
+            choices: ['2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0'],
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.18.0',
+            defaultValue: '2.19.0',
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
