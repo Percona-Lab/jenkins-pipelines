@@ -64,6 +64,11 @@ void setup_package_tests() {
 
 List all_nodes = node_setups.keySet().collect()
 
+List ps56_excluded_nodes = [
+    "min-centos-8-x64",
+    "min-focal-x64",
+]
+
 List all_actions = [
     "install",
     "upgrade",
@@ -213,6 +218,9 @@ pipeline {
                         }
                         expression {
                             actions_to_test.contains("maj-upgrade-to")
+                        }
+                        expression {
+                            !(ps56_excluded_nodes.contains(params.node_to_test))
                         }
                     }
 
