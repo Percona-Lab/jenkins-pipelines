@@ -377,7 +377,7 @@ execMap['psmdb-bionic'] = '1'
 devMap = [:]
 devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:160:true:gp2'
 devMap['psmdb'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
-devMap['psmdb-bionic'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:400:true:gp2'
+devMap['psmdb-bionic'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
 devMap['docker-32gb'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
 devMap['min-centos-6-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:400:true:gp2'
