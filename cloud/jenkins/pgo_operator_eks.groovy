@@ -56,22 +56,32 @@ void runTest(String TEST_NAME) {
 
                         if [ -n "${PGO_APISERVER_IMAGE}" ]; then
                             export IMAGE_APISERVER=${PGO_APISERVER_IMAGE}
+                        else
+                            export IMAGE_APISERVER=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-apiserver
                         fi
 
                         if [ -n "${PGO_EVENT_IMAGE}" ]; then
                             export IMAGE_PGOEVENT=${PGO_EVENT_IMAGE}
+                        else
+                            export IMAGE_PGOEVENT=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-event
                         fi
 
                         if [ -n "${PGO_RMDATA_IMAGE}" ]; then
                             export IMAGE_RMDATA=${PGO_RMDATA_IMAGE}
+                        else
+                            export IMAGE_RMDATA=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-rmdata
                         fi
 
                         if [ -n "${PGO_SCHEDULER_IMAGE}" ]; then
                             export IMAGE_SCHEDULER=${PGO_SCHEDULER_IMAGE}
+                        else
+                            export IMAGE_SCHEDULER=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-scheduler
                         fi
 
                         if [ -n "${PGO_DEPLOYER_IMAGE}" ]; then
                             export IMAGE_DEPLOYER=${PGO_DEPLOYER_IMAGE}
+                        else
+                            export IMAGE_DEPLOYER=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-deployer
                         fi
 
                         if [ -n "${PGO_PGBOUNCER_IMAGE}" ]; then
