@@ -1,10 +1,10 @@
-# aws cloudformation --region us-east-2 create-stack --template-body file://IaC/ps.cd/JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-ps --tags Key=iit-billing-tag,Value=jenkins-ps --parameters ParameterKey=JHostName,ParameterValue=ps.cd.percona.com ParameterKey=JShortName,ParameterValue=jenkins-ps
+# aws cloudformation --region us-west-1 create-stack --template-body file://IaC/ps.cd/JenkinsStack.yml_ps3 --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-ps3 --tags Key=iit-billing-tag,Value=jenkins-ps3
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
 
   JHostName:
-    Default: ps.cd.percona.com
+    Default: ps3.cd.percona.com
     Description: Fully Qualified Domain Name
     Type: String
     MinLength: 1
@@ -13,7 +13,7 @@ Parameters:
     ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
 
   JShortName:
-    Default: jenkins-ps
+    Default: jenkins-ps3
     Description: Short host name
     Type: String
     MinLength: 1
@@ -27,7 +27,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: slava
+    Default: illia
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
@@ -41,16 +41,11 @@ Parameters:
     ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
 
 Mappings:
-  AmazonLinux1:
-    us-east-2:
-      x64: ami-922914f7
-    us-west-1:
-      x64: ami-0bdb828fd58c52235
   AmazonLinux2:
-    us-east-2:
-      x64: ami-2a0f324f
-    us-west-1:
-      x64: ami-01beb64058d271bc4
+    eu-west-1:
+      x64: ami-063d4ab14480ac177
+    eu-central-1:
+      x64: ami-043097594a7df80ec
 
 Resources:
 
@@ -139,25 +134,6 @@ Resources:
       RouteTableId: !Ref JRouteTable
       SubnetId: !Ref JSubnetC
 
-  CacheBucket: # S3 bucket for store build cache
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: ps-cache
-      AccessControl: Private
-      VersioningConfiguration:
-        Status: Suspended
-      LifecycleConfiguration:
-        Rules:
-        - Id: 30 Days Cleanup
-          Status: Enabled
-          ExpirationInDays: 30
-          NoncurrentVersionExpirationInDays: 1
-          AbortIncompleteMultipartUpload:
-            DaysAfterInitiation: 1
-      Tags:
-      - Key: iit-billing-tag
-        Value: !Ref JShortName
-
   S3Endpoint: # route S3 traffic over private network
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -234,7 +210,27 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 178.214.201.190/32
+        CidrIp: 176.37.55.60/32
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 188.163.20.103/32
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 213.159.239.48/32
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 46.149.86.84/32
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 54.214.47.252/32
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 54.214.47.254/32
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
@@ -261,7 +257,7 @@ Resources:
   JWorkerRole: # create Role for jenkins workers (needed for assign tags)
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Join [ '-', [ !Ref JShortName, 'worker-ps' ]]
+      RoleName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -292,10 +288,8 @@ Resources:
             - s3:DeleteObject
             - s3:AbortMultipartUpload
             Resource:
-            - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucket ]]
-            - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucket, '/*' ]]
-            - !Join [ '', [ 'arn:aws:s3:::ps-build-cache' ]]
-            - !Join [ '', [ 'arn:aws:s3:::ps-build-cache/*']]
+            - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucketName ]]
+            - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucketName, '/*' ]]
 
   JWorkerProfile: # create Profile for jenkins workers (needed for assign tags)
     Type: AWS::IAM::InstanceProfile
@@ -303,12 +297,12 @@ Resources:
       Path: /
       Roles:
         - !Ref JWorkerRole
-      InstanceProfileName: !Join [ '-', [ !Ref JShortName, 'worker-ps' ]]
+      InstanceProfileName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
 
   JMasterRole: # create Role for jenkins master (needed for run workers)
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Join [ '-', [ !Ref JShortName, 'master-ps' ]]
+      RoleName: !Join [ '-', [ !Ref JShortName, 'master' ]]
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -390,12 +384,12 @@ Resources:
       Path: /
       Roles:
         - !Ref JMasterRole
-      InstanceProfileName: !Join [ '-', [ !Ref JShortName, 'ps' ]]
+      InstanceProfileName: !Ref JShortName
 
   SpotFleetRole: # create Role for run jenkins master as spot instance
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Join [ '-', [ !Ref JShortName, 'SpotFleetRole' ]]
+      RoleName: !Join [ '-', [ !Ref JShortName, 'SpotFleet' ]]
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole
       AssumeRolePolicyDocument:
@@ -430,7 +424,7 @@ Resources:
       AvailabilityZone:
         Fn::Select: [ 1, !GetAZs '' ]
       Encrypted: false
-      Size: 200
+      Size: 100
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
@@ -446,7 +440,7 @@ Resources:
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true
-        SpotPrice: 0.10
+        SpotPrice: 0.15
         TargetCapacity: 1
         TerminateInstancesWithExpiration: false
         Type: maintain
@@ -456,9 +450,6 @@ Resources:
             Version: !GetAtt JMasterTemplate.LatestVersionNumber
           Overrides:
           - InstanceType: m4.large
-            AvailabilityZone:
-              Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c4.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
           - InstanceType: m5.large
@@ -474,7 +465,7 @@ Resources:
   JMasterTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: MasterTemplatePS
+      LaunchTemplateName: PS3MasterTemplate
       LaunchTemplateData:
         NetworkInterfaces:
         - DeviceIndex: 0
@@ -555,19 +546,16 @@ Resources:
 
                   yum-config-manager --add-repo "https://openresty.org/package/rhel/7/x86_64"
                   rpm --import https://openresty.org/package/pubkey.gpg
-                  wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat/jenkins.repo
-                  rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key
+                  wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+                  rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+                  amazon-linux-extras install epel -y
                   yum -y update --security
-                  yum -y install java-1.8.0-openjdk jenkins-2.235.5 git yum-cron aws-cli xfsprogs openresty
+                  yum -y install java-1.8.0-openjdk jenkins-2.289.1 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
-                  chkconfig yum-cron on
-                  service yum-cron start
-
-                  wget https://dl.eff.org/certbot-auto -O /opt/certbot-auto
-                  chmod 755 /opt/certbot-auto
-                  touch /etc/redhat-release
+                  echo "exclude=java*" >> /etc/yum/yum-cron.conf
+                  systemctl enable --now yum-cron
               }
 
               volume_state() {
@@ -629,13 +617,13 @@ Resources:
                   sed -i 's^"-Djava.awt.headless=true"^"-Djava.awt.headless=true -Xms2048m -Xmx4096m -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc-%t.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2 -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"^' /etc/sysconfig/jenkins
                   echo JENKINS_HOME=/mnt/$JENKINS_HOST \
                       | tee -a /etc/sysconfig/jenkins
-                  chkconfig jenkins on
-                  service jenkins start
+                  systemctl enable jenkins
+                  systemctl start jenkins
 
                   #echo "/usr/bin/aws s3 sync --sse-kms-key-id alias/jenkins-pmm-backup --sse aws:kms --exclude '*/caches/*' --exclude '*/config-history/nodes/*' --exclude '*/secretFiles/*' --delete /mnt/ s3://backup.cd.percona.com/" > /etc/cron.daily/jenkins-backup
                   #chmod 755 /etc/cron.daily/jenkins-backup
 
-                  printf "* * * * * root bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"service jenkins stop; umount /mnt\" || :'\n* * * * * root sleep 30; bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"service jenkins stop; umount /mnt\" || :'\n" > /etc/cron.d/terminate-check
+                  printf "* * * * * root bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n* * * * * root sleep 30; bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n" > /etc/cron.d/terminate-check
               }
 
               create_fake_ssl_cert() {
@@ -697,19 +685,10 @@ Resources:
               			  ssl_trusted_certificate     /etc/nginx/ssl/ca-certs.pem;
               			  ssl_dhparam                 /etc/nginx/ssl/dhparam.pem;
 
-              			  set \$ngo_client_id          "<-- SETUP MANUALLY -->";
-              			  set \$ngo_client_secret      "<-- SETUP MANUALLY -->";
-              			  set \$ngo_token_secret       "<-- SETUP MANUALLY -->";
-              			  set \$ngo_domain             percona.com;
-              			  set \$ngo_secure_cookies     true;
-              			  set \$ngo_http_only_cookies  true;
               			  resolver                    8.8.8.8 ipv6=off;
               			  lua_ssl_trusted_certificate /etc/pki/tls/certs/ca-bundle.crt;
               			  lua_ssl_verify_depth        3;
-              			  access_by_lua_file          /mnt/$JENKINS_HOST/nginx-google-oauth.lua;
-              			  allow                       176.37.55.60; # mykola home IP, needed for jenkins-job-builder
-                      allow                       178.214.201.190; # mykola co-working IP, needed for jenkins-job-builder
-                      allow                       146.149.86.84;   # slava home IP, needed for jenkins-job-builder
+              			  include                     /mnt/$JENKINS_HOST/ssl/*-list.conf;
               			  satisfy                     any;
 
               			  location / {
@@ -733,27 +712,24 @@ Resources:
                   ln -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
                   sed -i'' -e 's/listen/#listen/; s/mime.types/jenkins.conf/' /usr/local/openresty/nginx/conf/nginx.conf
 
-                  wget -O /usr/local/openresty/lualib/resty/http.lua \
-                    https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http.lua
-                  wget -O /usr/local/openresty/lualib/resty/http_headers.lua \
-                    https://raw.githubusercontent.com/pintsized/lua-resty-http/master/lib/resty/http_headers.lua
-                  wget -O /mnt/$JENKINS_HOST/nginx-google-oauth.lua \
-                    https://raw.githubusercontent.com/cloudflare/nginx-google-oauth/master/access.lua
-
-                  chkconfig openresty on
-                  service openresty start
+                  systemctl enable --now openresty
               }
 
               setup_letsencrypt() {
                   install -d /usr/share/nginx/html
-                  /opt/certbot-auto --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
+                  if [[ -d /mnt/ssl_backup ]]; then
+                    rsync -aHSv --delete /mnt/ssl_backup/ /etc/letsencrypt/
+                    certbot renew
+                  else
+                    certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
+                  fi
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
-                  printf '#!/bin/sh\n/opt/certbot-auto renew\nservice nginx restart\n' > /etc/cron.daily/certbot
+                  printf '#!/bin/sh\ncertbot renew\nsystemctl restart openresty\nrsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/\n' > /etc/cron.daily/certbot
                   chmod 755 /etc/cron.daily/certbot
-                  service openresty stop
+                  systemctl stop openresty
                   sleep 2
-                  service openresty start
+                  systemctl start openresty
               }
 
               setup_dhparam() {
@@ -761,7 +737,51 @@ Resources:
                       openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem 4096
                   fi
                   cp /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem /etc/nginx/ssl/dhparam.pem
-                  service openresty restart
+                  systemctl restart openresty
+              }
+
+              setup_nginx_allow_list() {
+                  if [ ! -f /home/ec2-user/copy-nginx-allow-list.sh ]; then
+                    cat <<-EOF | tee /home/ec2-user/copy-nginx-allow-list.sh
+                      #!/bin/bash
+
+                      PATH_TO_BUILDS="/mnt/$JENKINS_HOST/jobs/manage-nginx-allow-list/builds"
+                      if [ -d "\$PATH_TO_BUILDS" ]; then
+                          lastSuccessfulBuildID=\$(grep 'lastSuccessfulBuild' \$PATH_TO_BUILDS/permalinks | awk '{print \$2}')
+
+                          PATH_TO_ALLOW_LIST="\$PATH_TO_BUILDS/\$lastSuccessfulBuildID/archive"
+                          if [ -n "\$PATH_TO_ALLOW_LIST/nginx-white-list.conf" ]; then
+                              isChanged=\$(rsync -aHv \$PATH_TO_ALLOW_LIST/nginx-white-list.conf /mnt/$JENKINS_HOST/ssl/ | grep nginx-white-list.conf)
+                              if [ -n "\$isChanged" ]; then
+                                  openresty -s reload
+                              fi
+                          fi
+                      fi
+              		EOF
+              		chmod 755 /home/ec2-user/copy-nginx-allow-list.sh
+              		echo '* * * * * root sleep 30; /home/ec2-user/copy-nginx-allow-list.sh' > /etc/cron.d/sync-nginx-allow-list
+                  fi
+              }
+
+              setup_ssh_keys() {
+                KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan illia.pshonkin alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen kamil.babayev"
+
+                for KEY in $KEYS_LIST; do
+                    RETRY="3"
+                    while [ $RETRY != "0" ]; do
+                        STATUS=$(curl -Is https://www.percona.com/get/engineer/KEY/$KEY.pub | head -n1 | awk '{print $2}')
+                        if [[ $STATUS -eq 200 ]]; then
+                            curl -s https://www.percona.com/get/engineer/KEY/$KEY.pub | tee -a /home/ec2-user/.ssh/authorized_keys
+                            RETRY="0"
+                        elif [[ $STATUS -eq 404 ]]; then
+                            echo "Skipping key $KEY"
+                            RETRY=0
+                        else
+                            echo "Got $STATUS, retrying"
+                            RETRY=$(($RETRY-1))
+                        fi
+                    done
+                done
               }
 
               main() {
@@ -773,6 +793,8 @@ Resources:
                   setup_nginx
                   setup_dhparam
                   setup_letsencrypt
+                  setup_nginx_allow_list
+                  setup_ssh_keys
               }
 
               main
