@@ -62,7 +62,7 @@
             if [[ ${RHEL} != 8 ]]; then
                 PKGLIST+=" python-sphinx python-docutils"
             else
-                PKGLIST+=" python3-pip python3-setuptools python3-wheel wget ncurses-compat-libs lz4 lz4-devel"
+                PKGLIST+=" python3-pip python3-setuptools python3-wheel wget ncurses-compat-libs lz4 lz4-devel libarchive"
             fi
 
             if [[ ${RHEL} -eq 6 ]]; then
