@@ -93,7 +93,7 @@
                 echo "waiting"
             done
             #
-            until sudo -E apt-get -y install lsb-release gnupg2; do
+            until sudo -E apt-get -y install lsb-release gnupg2 curl; do
                 sleep 1
                 echo "waiting"
             done
