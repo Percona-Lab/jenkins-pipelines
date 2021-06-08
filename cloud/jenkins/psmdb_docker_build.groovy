@@ -146,9 +146,6 @@ pipeline {
                 """
                 echo 'Build PSMDB docker images'
                 retry(3) {
-                    build('mongod3.6')
-                }
-                retry(3) {
                     build('mongod4.0')
                 }
                 retry(3) {
@@ -162,8 +159,6 @@ pipeline {
 
         stage('Push PSMDB images to Docker registry') {
             steps {
-                pushImageToDocker('mongod3.6')
-                pushImageToDocker('mongod3.6-debug')
                 pushImageToDocker('mongod4.0')
                 pushImageToDocker('mongod4.0-debug')
                 pushImageToDocker('mongod4.2')
@@ -176,8 +171,6 @@ pipeline {
         stage('Check PSMDB Docker images') {
             steps {
                 checkImageForDocker('main')
-                checkImageForDocker('main-mongod3.6')
-                checkImageForDocker('main-mongod3.6-debug')
                 checkImageForDocker('main-mongod4.0')
                 checkImageForDocker('main-mongod4.0-debug')
                 checkImageForDocker('main-mongod4.2')
