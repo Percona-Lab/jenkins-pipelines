@@ -191,10 +191,13 @@ pipeline {
                     steps {
                         sh """
                             PWD=\$(pwd) MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
-                            sleep 30
+                        """
+                        waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
+                        waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
+                        waitForContainer('pmm-agent_mysql_5_7', "socket: '/var/lib/mysql/mysql.sock'  port: 3306")
+                        waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
+                        sh """
                             bash -x testdata/db_setup.sh
-                            mkdir testdata
-                            sudo MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
                         """
                         script {
                             env.SERVER_IP = "127.0.0.1"

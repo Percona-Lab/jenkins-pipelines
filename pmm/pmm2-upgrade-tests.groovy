@@ -156,7 +156,12 @@ pipeline {
                 sh """
                     docker volume create pmm-server-data
                     PWD=\$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:\${DOCKER_VERSION} docker-compose up -d
-                    sleep 30
+                """
+                waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
+                waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
+                waitForContainer('pmm-agent_mysql_5_7', "socket: '/var/lib/mysql/mysql.sock'  port: 3306")
+                waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
+                sh """
                     bash -x testdata/db_setup.sh
                 """
                 script {
@@ -179,7 +184,7 @@ pipeline {
                         docker exec pmm-server percona-release enable original testing
                         docker exec pmm-server yum clean all
                     """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'yes', 'yes')
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'yes', 'yes')
                 }
             }
         }
@@ -196,7 +201,7 @@ pipeline {
                         docker exec pmm-server percona-release enable original experimental
                         docker exec pmm-server yum clean all
                     """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes')
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes')
                 }
             }
         }
