@@ -194,7 +194,7 @@ pipeline {
                         """
                         waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
                         waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
-                        waitForContainer('pmm-agent_mysql_5_7', "socket: '/var/lib/mysql/mysql.sock'  port: 3306")
+                        waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                         waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
                         sh """
                             bash -x testdata/db_setup.sh
