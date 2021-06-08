@@ -42,7 +42,7 @@ function main {
 
     for REPO in $REPO_LIST; do
         for COMPONENT in $REPO_COMPONENT; do
-            REPOPATH="/mnt/${REPO}/yum/${COMPONENT}"
+            REPOPATH="/srv/repo-copy/${REPO}/yum/${COMPONENT}"
 
             echo "Cleaning repo: ${REPO} & component: ${COMPONENT}"
 
@@ -56,20 +56,21 @@ function main {
                 EXCLUDE="$(cat /tmp/excludes_${REPO}_${COMPONENT} | awk -F "/" '{print $NF}')"
 
                 if [[ ${DRY_RUN} == "no" ]]; then
-                    FIND_CMD="rm -f"
+                    FIND_ARG="rm -f"
                 else
-                    FIND_CMD="echo"
+                    FIND_ARG="echo"
                         printf "Will be excluded: $EXCLUDE \n"
                         printf "Will be removed: \n"
                 fi
-                find $REPOPATH/ -type f -name "*.rpm" $(printf "! -name %s " $(printf "! -name %s " $EXCLUDE)) -mtime +$OLDER_THAN -exec $FIND_CMD {} \;
+                find $REPOPATH/ -type f -name "*.rpm" $(printf "! -name %s " $(printf "! -name %s " $EXCLUDE)) -mtime +$OLDER_THAN -exec $FIND_ARG {} \;
+                rm /tmp/excludes_${REPO}_${COMPONENT}
             elif [[ ${MODE} == "latest" ]]; then
                 echo "Building list of latest packages for ${REPO} in ${COMPONENT}"
                 find $REPOPATH/ -type f -name "*.rpm" > /tmp/packages_${REPO}_${COMPONENT}
 
                 echo "Getting names of packages"
                 for package in $(cat /tmp/packages_${REPO}_${COMPONENT}); do
-                    rpm -qp --nosignature --queryformat "%{NAME}\n" $package >> /tmp/packages_without_version_${REPO}_${COMPONENT}
+                    rpm -qp --nosignature "%{NAME}\n" $package >> /tmp/packages_without_version_${REPO}_${COMPONENT}
                 done
                 echo "Sorting list of packages without versions"
                 cat /tmp/packages_without_version_${REPO}_${COMPONENT} | sort | awk '!seen[$0]++' > /tmp/sorted_packages_without_version_${REPO}_${COMPONENT}
@@ -88,23 +89,23 @@ function main {
                     EXCLUDE=$(cat /tmp/excludes_${REPO}_${COMPONENT}_${EL})
                     
                     if [[ ${DRY_RUN} == "yes" ]]; then
-                        FIND_CMD="echo"
+                        FIND_ARG="echo"
                         printf "Will be excluded for ${EL} and ${COMPONENT}: $EXCLUDE \n"
                         printf "Will be removed for ${EL} and ${COMPONENT}: \n"
                     else
                         echo "Removing packages except latest versions in ${REPO} in ${COMPONENT} for ${EL}"
-                        FIND_CMD="rm -f"
+                        FIND_ARG="rm -f"
                     fi
                     if [[ ${EL} == 'src' ]]; then
-                        find $REPOPATH/ -type f -name "*.src.rpm" $(printf "! -name %s " $(printf "! -name %s " $EXCLUDE)) -exec $FIND_CMD {} \;
+                        find $REPOPATH/ -type f -name "*.src.rpm" $(printf "! -name %s " $(printf "! -name %s " $EXCLUDE)) -exec $FIND_ARG {} \;
                     else
-                        find $REPOPATH/ -type f -name "*.${EL}.*.rpm" $(printf "! -name %s " $(printf "! -name %s " $EXCLUDE)) -exec $FIND_CMD {} \;
+                        find $REPOPATH/ -type f -name "*.${EL}.*.rpm" $(printf "! -name %s " $(printf "! -name %s " $EXCLUDE)) -exec $FIND_ARG {} \;
                     fi
                 done
             fi
 
             if [[ ${DRY_RUN} == "no" ]]; then
-                for RHEL_ARCH in $(find ${REPOPATH}/ -maxdepth 3 -type d \( -name "*x86_64" -o -name "*noarch" -o -name "i386" \)); do
+                for RHEL_ARCH in $(find ${REPOPATH}/ -maxdepth 3 -type d \( -name "*x86_64" -o -name "*noarch" -o -name "i386" -o -name "SRPMS" \)); do
                     if [ -f ${RHEL_ARCH}/repodata/repomd.xml.asc ]; then
                         rm -f  ${RHEL_ARCH}/repodata/repomd.xml.asc
                     fi
@@ -112,6 +113,8 @@ function main {
                     createrepo --update ${RHEL_ARCH}/
                 done
             fi
+
+            rm /tmp/excludes_${REPO}_${COMPONENT}_${EL} /tmp/packages_without_version_${REPO}_${COMPONENT}
         done
     done
 }
