@@ -191,6 +191,7 @@ pipeline {
                     steps {
                         sh """
                             docker volume create pmm-server-data
+                            docker network create -d bridge --subnet 192.168.0.0/24 --gateway 192.168.0.1 pmm-network
                             PWD=\$(pwd) MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
                         """
                         waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')

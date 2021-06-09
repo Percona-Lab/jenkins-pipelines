@@ -108,7 +108,7 @@ pipeline {
             description: 'Perform Docker-way Upgrade?',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
         text(
-            defaultValue: '--addclient=ps,1 --setup-with-custom-settings',
+            defaultValue: '--addclient=ps,1 --setup-with-custom-settings --setup-alertmanager',
             description: '''
             Configure PMM Clients
             ms - MySQL (ex. --addclient=ms,1),
@@ -155,6 +155,7 @@ pipeline {
             steps {
                 sh """
                     docker volume create pmm-server-data
+                    docker network create -d bridge --subnet 192.168.0.0/24 --gateway 192.168.0.1 pmm-network
                     PWD=\$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:\${DOCKER_VERSION} docker-compose up -d
                 """
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
