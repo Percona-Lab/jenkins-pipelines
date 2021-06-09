@@ -83,7 +83,7 @@ void runTest(String TEST_NAME) {
                             export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
                     fi
 
-                    rm -rf /tmp/hostpath-provisioner/*
+                    sudo rm -rf /tmp/hostpath-provisioner/*
                     ./e2e-tests/$TEST_NAME/run
                 fi
             """
