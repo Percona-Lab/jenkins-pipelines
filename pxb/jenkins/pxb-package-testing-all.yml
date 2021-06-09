@@ -1,0 +1,36 @@
+- job:
+    name: pxb-package-testing-all
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    properties:
+        - build-discarder:
+            num-to-keep: 15
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                branches:
+                    - 'master'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: pxb/jenkins/pxb-package-testing-all.groovy
+    parameters:
+        - choice:
+            name: product_to_test
+            choices:
+                - "pxb80"
+                - "pxb24"
+            description: 'Choose the product version to test: PXB8.0 OR PXB2.4'
+        - choice:
+            name: install_repo
+            choices:
+                - "testing"
+                - "main"
+                - "experimental"
+            description: 'Choose the repo from which to install packages and run the tests'
+        - string:
+            name: git_repo
+            default: 'https://github.com/Percona-QA/package-testing.git'
+            description: ""
+            trim: false
