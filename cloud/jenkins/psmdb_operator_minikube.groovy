@@ -20,7 +20,7 @@ void popArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
     }
 }
 
-TestsReport = '<testsuite  name=\\"PXC\\">\n'
+TestsReport = '<testsuite name=\\"PSMDB\\">\n'
 testsReportMap = [:]
 void makeReport() {
     for ( test in testsReportMap ) {
