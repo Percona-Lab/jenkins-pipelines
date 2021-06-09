@@ -24,14 +24,14 @@ imageMap = [:]
 imageMap['us-east-2a.min-centos-6-x64'] = 'ami-ff48629a'
 imageMap['us-east-2a.min-centos-7-x64'] = 'ami-00f8e2c955f7ffa9b'
 imageMap['us-east-2a.min-centos-8-x64'] = 'ami-0ac6967966621d983'
-imageMap['us-east-2a.min-focal-x64']    = 'ami-02f680d5d9fb3c8dc'
-imageMap['us-east-2a.min-bionic-x64']   = 'ami-0b9064170e32bde34'
+imageMap['us-east-2a.min-focal-x64']    = 'ami-051d99278ba9fdc66'
+imageMap['us-east-2a.min-bionic-x64']   = 'ami-063e88ad6c9af427d'
 imageMap['us-east-2a.min-xenial-x64']   = 'ami-0d563aeddd4be7fff'
 imageMap['us-east-2a.min-buster-x64']   = 'ami-089fe97bc00bff7cc'
-imageMap['us-east-2a.min-stretch-x64']  = 'ami-037c986a9eb533931'
-imageMap['us-east-2a.micro-amazon']     = 'ami-0f57b4cec24530068'
-imageMap['us-east-2a.large-amazon']     = 'ami-0f57b4cec24530068'
-imageMap['us-east-2a.docker']           = 'ami-0f57b4cec24530068'
+imageMap['us-east-2a.min-stretch-x64']  = 'ami-0e46b96bd047ea242'
+imageMap['us-east-2a.micro-amazon']     = 'ami-0d8d212151031f51c'
+imageMap['us-east-2a.large-amazon']     = 'ami-0d8d212151031f51c'
+imageMap['us-east-2a.docker']           = 'ami-0d8d212151031f51c'
 
 imageMap['us-east-2b.min-centos-6-x64'] = imageMap['us-east-2a.min-centos-6-x64']
 imageMap['us-east-2b.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
@@ -77,14 +77,16 @@ userMap['large-amazon']      = userMap['micro-amazon']
 userMap['docker']            = userMap['micro-amazon']
 
 initMap = [:]
-initMap['min-centos-6-x64'] = '''
-    set -o xtrace
-    RHVER="$(rpm --eval %rhel)"
 
+initMap['rpmMap'] = '''
+    set -o xtrace
+    RHVER=$(rpm --eval %rhel)
+    SYSREL=$(cat /etc/system-release | tr -dc '0-9.'|awk -F'.' {'print $1'})
+    
     if ! mountpoint -q /mnt; then
-        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+        for DEVICE_NAME in $(lsblk -ndbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
             if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
-                DEVICE="${DEVICE_NAME}"
+                DEVICE="/dev/${DEVICE_NAME}"
                 break
             fi
         done
@@ -93,124 +95,26 @@ initMap['min-centos-6-x64'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
-
-    if [[ $RHVER == 6 ]]; then
+    if [[ ${RHVER} -eq 6 ]]; then
         sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
-    fi
-
-    until sudo yum makecache; do
-        sleep 1
-        echo try again
-    done
-
-    if [[ $RHVER == 6 ]]; then
-        until sudo yum -y install epel-release centos-release-scl; do    
+        until sudo yum makecache; do
+            sleep 1
+            echo try again
+        done
+        if [[ ${ARCH} == "x86_64" ]]; then
+            PKGLIST="epel-release centos-release-scl"
+        else
+            PKGLIST="epel-release"
+        fi
+        until sudo yum -y install ${PKGLIST}; do    
             sleep 1
             echo try again
         done
         sudo rm /etc/yum.repos.d/epel-testing.repo
         sudo curl https://jenkins.percona.com/downloads/cent6/centos6-epel-eol.repo --output /etc/yum.repos.d/epel.repo
-        sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl.repo
-        sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
-    fi
-
-
-    sudo yum -y install java-1.8.0-openjdk git wget curl || :
-    sudo yum -y remove java-1.7.0-openjdk || :
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-'''
-
-initMap['min-centos-7-x64'] = initMap['min-centos-6-x64']
-initMap['min-centos-8-x64'] = initMap['min-centos-6-x64']
-initMap['min-focal-x64'] = '''
-    set -o xtrace
-    if ! mountpoint -q /mnt; then
-        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
-            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
-                DEVICE="${DEVICE_NAME}"
-                break
-            fi
-        done
-        if [ -n "${DEVICE}" ]; then
-            sudo mkfs.ext2 ${DEVICE}
-            sudo mount ${DEVICE} /mnt
-        fi
-    fi
-
-    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
-
-    until sudo apt-get update; do
-        sleep 1
-        echo try again
-    done
-    until sudo apt-get -y install openjdk-8-jre-headless git; do
-        sleep 1
-        echo try again
-    done
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-'''
-initMap['min-bionic-x64'] = initMap['min-focal-x64']
-initMap['min-xenial-x64'] = initMap['min-focal-x64']
-initMap['min-stretch-x64'] = '''
-    set -o xtrace
-    if ! mountpoint -q /mnt; then
-        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
-            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
-                DEVICE="${DEVICE_NAME}"
-                break
-            fi
-        done
-        if [ -n "${DEVICE}" ]; then
-            sudo mkfs.ext2 ${DEVICE}
-            sudo mount ${DEVICE} /mnt
-        fi
-    fi
-
-    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
-
-    until sudo apt-get update; do
-        sleep 1
-        echo try again
-    done
-    sudo apt-get -y install openjdk-8-jre-headless git
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-'''
-initMap['min-buster-x64']   = '''
-    set -o xtrace
-    if ! mountpoint -q /mnt; then
-        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
-            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
-                DEVICE="${DEVICE_NAME}"
-                break
-            fi
-        done
-        if [ -n "${DEVICE}" ]; then
-            sudo mkfs.ext2 ${DEVICE}
-            sudo mount ${DEVICE} /mnt
-        fi
-    fi
-
-    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
-
-    until sudo apt-get update; do
-        sleep 1
-        echo try again
-    done
-    sudo apt-get -y install openjdk-11-jre-headless git
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-''' 
-initMap['micro-amazon']     = '''
-    set -o xtrace
-    if ! mountpoint -q /mnt; then
-        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
-            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
-                DEVICE="${DEVICE_NAME}"
-                break
-            fi
-        done
-        if [ -n "${DEVICE}" ]; then
-            sudo mkfs.ext2 ${DEVICE}
-            sudo mount ${DEVICE} /mnt
+        if [[ ${ARCH} == "x86_64" ]]; then
+            sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl.repo
+            sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
         fi
     fi
 
@@ -219,37 +123,68 @@ initMap['micro-amazon']     = '''
     10.30.6.9 repo.ci.percona.com
     "     | sudo tee -a /etc/hosts
 
+    if [[ $SYSREL -eq 2 ]]; then
+        sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
+        sudo sysctl -w fs.aio-max-nr=1048576 || true
+        sudo sysctl -w fs.file-max=6815744 || true
+        echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
+        PKGLIST="tar coreutils aws-cli"
+    fi
     until sudo yum makecache; do
         sleep 1
         echo try again
     done
-
-    sudo yum -y install java-1.8.0-openjdk git aws-cli tar coreutils || :
+    sudo yum -y install java-1.8.0-openjdk git ${PKGLIST} || :
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['large-amazon']     = '''
+
+initMap['debMap'] = '''
     set -o xtrace
-
-    printf "127.0.0.1 $(hostname) $(hostname -A)
-    10.30.6.220 vbox-01.ci.percona.com
-    10.30.6.9 repo.ci.percona.com
-    "     | sudo tee -a /etc/hosts
-
-    sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
-    sudo sysctl -w fs.aio-max-nr=1048576 || true
-    sudo sysctl -w fs.file-max=6815744 || true
-    echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
-
-    until sudo yum makecache; do
+    if ! mountpoint -q /mnt; then
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext2 ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
+    fi
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+    until sudo apt-get install -y lsb-release; do
         sleep 1
         echo try again
     done
 
-    sudo yum -y install java-1.8.0-openjdk git aws-cli tar coreutils || :
-    sudo yum -y remove java-1.7.0-openjdk || :
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
+
+    DEB_VER=$(lsb_release -sc)
+    if [[ ${DEB_VER} == "buster" ]]; then
+        JAVA_VER="openjdk-11-jre-headless"
+    else
+        JAVA_VER="openjdk-8-jre-headless"
+    fi
+    sudo apt-get -y install ${JAVA_VER} git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
+
+initMap['micro-amazon']     = initMap['rpmMap']
+initMap['large-amazon']     = initMap['rpmMap']
+initMap['min-centos-6-x64'] = initMap['rpmMap']
+initMap['min-centos-7-x64'] = initMap['rpmMap']
+initMap['min-centos-8-x64'] = initMap['rpmMap']
+initMap['min-focal-x64']    = initMap['debMap']
+initMap['min-bionic-x64']   = initMap['debMap']
+initMap['min-xenial-x64']   = initMap['debMap']
+initMap['min-stretch-x64']  = initMap['debMap']
+initMap['min-buster-x64']   = initMap['debMap']
+
 initMap['docker'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
