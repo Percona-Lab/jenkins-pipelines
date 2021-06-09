@@ -76,7 +76,9 @@ void makeReport() {
 
 void setTestsresults() {
     testsResultsMap.each { file ->
-        pushArtifactFile("${file.key}")
+      if ( "${file.value}" == "passed") {
+          pushArtifactFile("${file.key}")
+      }
     }
 }
 
