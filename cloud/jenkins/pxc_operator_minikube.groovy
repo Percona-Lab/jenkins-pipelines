@@ -271,7 +271,6 @@ pipeline {
                     runTest('operator-self-healing-chaos')
                     runTest('pitr')
                     runTest('proxysql-sidecar-res-limits')
-                    runTest('recreate')
                     runTest('restore-to-encrypted-cluster')
                     runTest('scaling')
                     runTest('scaling-proxysql')
