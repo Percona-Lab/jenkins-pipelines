@@ -22,7 +22,7 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite  name=\\"PSMDB\\">\n'
+TestsReport = '<testsuite name=\\"PSMDB\\">\n'
 testsReportMap = [:]
 void makeReport() {
     for ( test in testsReportMap ) {
