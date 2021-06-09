@@ -65,6 +65,7 @@ void runTest(String TEST_NAME) {
                         export IMAGE_PMM=${IMAGE_PMM}
                     fi
 
+                    rm -rf /tmp/hostpath-provisioner/*
                     ./e2e-tests/$TEST_NAME/run
                 fi
             """
