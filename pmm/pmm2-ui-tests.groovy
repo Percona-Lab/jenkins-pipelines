@@ -190,6 +190,7 @@ pipeline {
                     }
                     steps {
                         sh """
+                            docker volume create pmm-server-data
                             PWD=\$(pwd) MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
                         """
                         waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
