@@ -252,6 +252,10 @@ if [ -f /usr/bin/apt-get ]; then
     apt-get -y purge librtmp-dev || true
     apt-get -y install automake bzip2 cmake make g++ gcc git openssl libssl-dev libgnutls28-dev libtool patch patchelf python
     apt-get -y clean
+
+    if [[ ${DIST} == 'focal' ]]; then
+        update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+    fi
 fi
 
 if [ ! -f /usr/local/lib/libeatmydata.so ]; then
