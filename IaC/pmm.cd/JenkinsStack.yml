@@ -241,6 +241,10 @@ Resources:
         FromPort: 22
         ToPort: 22
         CidrIp: 93.81.255.68/32
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 195.91.212.140/32
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
@@ -839,7 +843,17 @@ Resources:
               }
 
               setup_ssh_keys() {
-                KEYS_LIST="alexander.tymchuk mykola.marzhan evgeniy.patlan slava.sarzhan illia.pshonkin alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen kamil.babayev"
+                KEYS_LIST="alexander.tymchuk \
+                           mykola.marzhan \
+                           evgeniy.patlan \
+                           slava.sarzhan \
+                           illia.pshonkin \
+                           alex.miroshnychenko \
+                           eduardo.casarero \
+                           santiago.ruiz \
+                           andrew.siemen \
+                           kamil.babayev \
+                           nikita.beletskii"
 
                 for KEY in $KEYS_LIST; do
                     RETRY="3"
