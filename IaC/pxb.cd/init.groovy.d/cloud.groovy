@@ -22,18 +22,18 @@ netMap['us-west-2b'] = 'subnet-011f09cf273aeef73'
 netMap['us-west-2c'] = 'subnet-00b0d1d8bd8af5c07'
 
 imageMap = [:]
-imageMap['docker'] = 'ami-0518bb0e75d3619ca'
-imageMap['micro-amazon'] = 'ami-0518bb0e75d3619ca'
+imageMap['docker'] = 'ami-0a78fb1467aab24f9'
+imageMap['micro-amazon'] = 'ami-0a78fb1467aab24f9'
 imageMap['min-centos-6-x32'] = 'ami-cb1382fb'
 imageMap['min-centos-6-x64'] = 'ami-6fcc8f17'
 imageMap['min-centos-7-x64'] = 'ami-0686851c4e7b1a8e1'
 imageMap['min-centos-8-x64'] = 'ami-0155c31ea13d4abd2'
-imageMap['min-bionic-x64']   = 'ami-007e276c37b5ff2d7'
-imageMap['min-stretch-x64']  = 'ami-0ada74f78fa02ad0d'
+imageMap['min-bionic-x64']   = 'ami-0b7d93899b51ff83b'
+imageMap['min-stretch-x64']  = 'ami-0f85562ed658aea93'
 imageMap['min-buster-x64']   = 'ami-0c7ea5497c02abcaf'
-imageMap['min-xenial-x64']   = 'ami-04b01d7f989b9ac8b'
+imageMap['min-xenial-x64']   = 'ami-0dd273d94ed0540c0'
 imageMap['min-xenial-x32']   = 'ami-0697ba3ee1b641c90'
-imageMap['min-focal-x64']    = 'ami-0554443e7f55d3eeb'
+imageMap['min-focal-x64']    = 'ami-0fc272c9b2d204826'
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
@@ -120,111 +120,90 @@ initMap['docker'] = '''
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 initMap['docker-32gb'] = initMap['docker']
-initMap['micro-amazon'] = '''
-    set -o xtrace
-    if ! mountpoint -q /mnt; then
-        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
-            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
-                DEVICE="${DEVICE_NAME}"
-                break
-            fi
-        done
-        if [ -n "${DEVICE}" ]; then
-            sudo mkfs.ext2 ${DEVICE}
-            sudo mount ${DEVICE} /mnt
-        fi
-    fi
-    until sudo yum makecache; do
-        sleep 1
-        echo try again
-    done
-    sudo yum -y install java-1.8.0-openjdk git || :
-    sudo yum -y install aws-cli || :
-    sudo yum -y remove java-1.7.0-openjdk || :
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-'''
-initMap['min-centos-6-x64'] = '''
-    set -o xtrace
-    if ! mountpoint -q /mnt; then
-        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
-            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
-                DEVICE="${DEVICE_NAME}"
-                break
-            fi
-        done
-        if [ -n "${DEVICE}" ]; then
-            sudo mkfs.ext2 ${DEVICE}
-            sudo mount ${DEVICE} /mnt
-        fi
-    fi
-    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
-    until sudo yum makecache; do
-        sleep 1
-        echo try again
-    done
 
-    until sudo yum -y install epel-release centos-release-scl; do    
-        sleep 1
-        echo try again
-    done
-    sudo rm /etc/yum.repos.d/epel-testing.repo
-    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-epel-eol.repo --output /etc/yum.repos.d/epel.repo
-    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl.repo
-    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
-
-    sudo yum -y install java-1.8.0-openjdk git || :
-    sudo yum -y install aws-cli || :
-    sudo yum -y remove java-1.7.0-openjdk || :
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-'''
-initMap['min-centos-7-x64'] = initMap['micro-amazon']
-initMap['fips-centos-7-x64'] = initMap['micro-amazon']
-initMap['min-centos-8-x64'] = initMap['micro-amazon']
-initMap['min-centos-6-x32'] = '''
+initMap['rpmMap'] = '''
     set -o xtrace
-    if ! mountpoint -q /mnt; then
-        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
-            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
-                DEVICE="${DEVICE_NAME}"
-                break
-            fi
-        done
-        if [ -n "${DEVICE}" ]; then
-            sudo mkfs.ext2 ${DEVICE}
-            sudo mount ${DEVICE} /mnt
-        fi
-    fi
-    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
-    until sudo yum makecache; do
-        sleep 1
-        echo try again
-    done
-    until sudo yum -y install epel-release; do    
-        sleep 1
-        echo try again
-    done
-    sudo rm /etc/yum.repos.d/epel-testing.repo
-    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-epel-eol.repo --output /etc/yum.repos.d/epel.repo
-
+    RHVER=$(rpm --eval %rhel)
+    ARCH=$(uname -m)
+    SYSREL=$(cat /etc/system-release | tr -dc '0-9.'|awk -F'.' {'print $1'})
     
-    sudo yum -y install java-1.8.0-openjdk git || :
-    sudo yum -y install aws-cli || :
+    if ! mountpoint -q /mnt; then
+        for DEVICE_NAME in $(lsblk -ndbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="/dev/${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext2 ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
+    fi
+    if [[ ${RHVER} -eq 6 ]]; then
+        sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
+        until sudo yum makecache; do
+            sleep 1
+            echo try again
+        done
+        if [[ ${ARCH} == "x86_64" ]]; then
+            PKGLIST="epel-release centos-release-scl"
+        else
+            PKGLIST="epel-release"
+            until sudo yum -y update; do
+                sleep 1
+                echo try again
+            done
+        fi
+        until sudo yum -y install ${PKGLIST}; do    
+            sleep 1
+            echo try again
+        done
+        sudo rm /etc/yum.repos.d/epel-testing.repo
+        sudo curl https://jenkins.percona.com/downloads/cent6/centos6-epel-eol.repo --output /etc/yum.repos.d/epel.repo
+        if [[ ${ARCH} == "x86_64" ]]; then
+            sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl.repo
+            sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
+        fi
+    fi
+    if [[ $SYSREL -eq 2 ]]; then
+        sudo amazon-linux-extras install epel -y
+        PKGLIST="p7zip"
+    fi
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+    sudo yum -y install java-1.8.0-openjdk git ${PKGLIST} || :
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-
-    echo 'Defaults !requiretty' | sudo tee /etc/sudoers.d/requiretty
-    if [ ! -f /mnt/swapfile ]; then
-        sudo dd if=/dev/zero of=/mnt/swapfile bs=1024 count=524288
-        sudo chown root:root /mnt/swapfile
-        sudo chmod 0600 /mnt/swapfile
-        sudo mkswap /mnt/swapfile
-        sudo swapon /mnt/swapfile
+    # CentOS 6 x32 workarounds
+    if [[ ${ARCH} != "x86_64" ]]; then
+        echo 'Defaults !requiretty' | sudo tee /etc/sudoers.d/requiretty
+        if [ ! -f /mnt/swapfile ]; then
+            sudo dd if=/dev/zero of=/mnt/swapfile bs=1024 count=524288
+            sudo chown root:root /mnt/swapfile
+            sudo chmod 0600 /mnt/swapfile
+            sudo mkswap /mnt/swapfile
+            sudo swapon /mnt/swapfile
+        fi
+        sudo /bin/sed -i '/shm/s/defaults/defaults,size=2500M/' /etc/fstab
+        sudo umount /dev/shm
+        sudo mount /dev/shm
     fi
-    sudo /bin/sed -i '/shm/s/defaults/defaults,size=2500M/' /etc/fstab
-    sudo umount /dev/shm
-    sudo mount /dev/shm
+    if [[ $SYSREL -eq 2 ]]; then
+        if ! $(aws --version | grep -q 'aws-cli/2'); then
+            sudo rm -rf /tmp/aws* || true
+            until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
+                sleep 1
+                echo try again
+            done
+            7za -o/tmp x /tmp/awscliv2.zip 
+            cd /tmp/aws && sudo ./install
+        fi
+    fi
 '''
-initMap['min-buster-x64'] = '''
+
+initMap['debMap'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
         for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
@@ -242,62 +221,35 @@ initMap['min-buster-x64'] = '''
         sleep 1
         echo try again
     done
-    sudo apt-get -y install openjdk-11-jre-headless git
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-'''
-initMap['min-bionic-x64'] = '''
-    set -o xtrace
-    if ! mountpoint -q /mnt; then
-        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
-            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
-                DEVICE="${DEVICE_NAME}"
-                break
-            fi
-        done
-        if [ -n "${DEVICE}" ]; then
-            sudo mkfs.ext2 ${DEVICE}
-            sudo mount ${DEVICE} /mnt
-        fi
+    until sudo apt-get install -y lsb-release; do
+        sleep 1
+        echo try again
+    done
+    DEB_VER=$(lsb_release -sc)
+    if [[ ${DEB_VER} == "buster" ]]; then
+        JAVA_VER="openjdk-11-jre-headless"
+    else
+        JAVA_VER="openjdk-8-jre-headless"
     fi
-    until sudo apt-get update; do
-        sleep 1
-        echo try again
-    done
-    until sudo apt-get -y install openjdk-8-jre-headless git; do
-        sleep 1
-        echo try again
-    done
+    sudo apt-get -y install ${JAVA_VER} git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 
-initMap['min-focal-x64'] = '''
-    set -o xtrace
-    if ! mountpoint -q /mnt; then
-        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
-            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
-                DEVICE="${DEVICE_NAME}"
-                break
-            fi
-        done
-        if [ -n "${DEVICE}" ]; then
-            sudo mkfs.ext2 ${DEVICE}
-            sudo mount ${DEVICE} /mnt
-        fi
-    fi
-    until sudo apt-get update; do
-        sleep 1
-        echo try again
-    done
-    until sudo apt-get -y install openjdk-8-jre-headless git; do
-        sleep 1
-        echo try again
-    done
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-'''
+initMap['micro-amazon'] = initMap['rpmMap']
+initMap['min-centos-6-x64'] = initMap['rpmMap']
+initMap['min-centos-7-x64'] = initMap['rpmMap']
+initMap['fips-centos-7-x64'] = initMap['rpmMap']
+initMap['min-centos-8-x64'] = initMap['rpmMap']
+initMap['min-centos-6-x32'] = initMap['rpmMap']
 
-initMap['min-stretch-x64'] = initMap['min-focal-x64']
-initMap['min-xenial-x64'] = initMap['min-focal-x64']
-initMap['min-xenial-x32'] = initMap['min-focal-x64']
+initMap['min-stretch-x64'] = initMap['debMap']
+initMap['min-buster-x64'] = initMap['debMap']
+
+initMap['min-xenial-x64'] = initMap['debMap']
+initMap['min-xenial-x32'] = initMap['debMap']
+initMap['min-bionic-x64'] = initMap['debMap']
+initMap['min-focal-x64'] = initMap['debMap']
+
 
 capMap = [:]
 capMap['c5.xlarge'] = '40'
