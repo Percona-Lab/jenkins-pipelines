@@ -861,6 +861,7 @@ Resources:
 
               main() {
                   setup_aws
+                  setup_ssh_keys
                   install_software
                   setup_ssh_ciphers
                   mount_data_partition
@@ -869,7 +870,6 @@ Resources:
                   setup_nginx
                   setup_dhparam
                   setup_letsencrypt
-                  setup_ssh_keys
               }
 
               main

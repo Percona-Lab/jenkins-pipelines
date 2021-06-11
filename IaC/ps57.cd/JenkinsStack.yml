@@ -791,6 +791,7 @@ Resources:
 
               main() {
                   setup_aws
+                  setup_ssh_keys
                   install_software
                   mount_data_partition
                   start_jenkins
@@ -799,7 +800,6 @@ Resources:
                   setup_dhparam
                   setup_letsencrypt
                   setup_nginx_allow_list
-                  setup_ssh_keys
               }
 
               main

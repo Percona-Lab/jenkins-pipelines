@@ -258,6 +258,7 @@ setup_ssh_keys() {
 
 main() {
     setup_aws
+    setup_ssh_keys
     install_software
     mount_data_partition
     create_fake_ssl_cert
@@ -266,7 +267,6 @@ main() {
     setup_dhparam
     setup_letsencrypt
     setup_nginx_allow_list
-    setup_ssh_keys
 }
 
 main
