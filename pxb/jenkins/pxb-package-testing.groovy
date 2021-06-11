@@ -71,12 +71,12 @@ pipeline {
                 'min-stretch-x64',
                 'min-buster-x64'
             ],
-            description: 'Node in which to test the product',
+            description: 'Node to run tests',
             name: 'node_to_test'
         )
         choice(
             choices: ['testing', 'main', 'experimental'],
-            description: 'Choose the repo from which to install packages and run the tests',
+            description: 'Choose the repo to install packages and run the tests',
             name: 'install_repo'
         )
         string(
