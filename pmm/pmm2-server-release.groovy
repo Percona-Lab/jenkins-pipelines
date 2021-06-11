@@ -14,7 +14,7 @@ pipeline {
         choice(
             // default choice should be testing, since we publish RC on testing Repo
             choices: ['testing', 'experimental'],
-            description: 'publish pmm2-server packages from regular(laboratory) repository',
+            description: 'publish pmm2-server packages from testing repository',
             name: 'UPDATER_REPO')
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
