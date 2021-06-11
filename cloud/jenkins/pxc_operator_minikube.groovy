@@ -83,6 +83,7 @@ void runTest(String TEST_NAME) {
                             export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
                     fi
 
+                    sudo rm -rf /tmp/hostpath-provisioner/*
                     ./e2e-tests/$TEST_NAME/run
                 fi
             """
@@ -262,14 +263,16 @@ pipeline {
                     }
 
                     installRpms()
-                    runTest('limits')
-                    runTest('scaling')
                     runTest('affinity')
+                    runTest('auto-tuning')
+                    runTest('limits')
                     runTest('one-pod')
-                    runTest('self-healing-advanced')
-                    runTest('self-healing-advanced-chaos')
                     runTest('operator-self-healing')
                     runTest('operator-self-healing-chaos')
+                    runTest('scaling')
+                    runTest('self-healing')
+                    runTest('self-healing-advanced')
+                    runTest('self-healing-advanced-chaos')
                     runTest('validation-hook')
             }
             post {
