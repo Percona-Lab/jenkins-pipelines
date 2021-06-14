@@ -37,7 +37,7 @@ void fetchAgentLog(String CLIENT_VERSION) {
         export CLIENT_VERSION=${CLIENT_VERSION}
         if [[ \$CLIENT_VERSION != http* ]]; then
             journalctl -u pmm-agent.service > /var/log/pmm-agent.log
-            sudo chmod 777 /var/log/pmm-agent.log
+            sudo chown ec2-user:ec2-user /var/log/pmm-agent.log
         fi
         if [[ -e /var/log/pmm-agent.log ]]; then
             cp /var/log/pmm-agent.log .
@@ -135,10 +135,9 @@ pipeline {
 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 installDocker()
+                setupDockerCompose()
                 sh '''
                     sudo yum -y install jq svn
-                    sudo curl -L https://github.com/docker/compose/releases/download/1.29.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/bin/docker-compose > /dev/null
-                    sudo chmod +x /usr/bin/docker-compose
                     docker-compose --version
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
@@ -154,8 +153,6 @@ pipeline {
         stage('Start Server Instance') {
             steps {
                 sh """
-                    docker volume create pmm-server-data
-                    docker network create -d bridge --subnet 192.168.0.0/24 --gateway 192.168.0.1 pmm-network
                     PWD=\$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:\${DOCKER_VERSION} docker-compose up -d
                 """
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')

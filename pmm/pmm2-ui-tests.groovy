@@ -146,9 +146,8 @@ pipeline {
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 installDocker()
+                setupDockerCompose()
                 sh '''
-                    sudo curl -L https://github.com/docker/compose/releases/download/1.29.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/bin/docker-compose > /dev/null
-                    sudo chmod +x /usr/bin/docker-compose
                     docker-compose --version
                     sudo yum -y update --security
                     sudo yum -y install php php-mysqlnd php-pdo jq svn bats
@@ -190,8 +189,6 @@ pipeline {
                     }
                     steps {
                         sh """
-                            docker volume create pmm-server-data
-                            docker network create -d bridge --subnet 192.168.0.0/24 --gateway 192.168.0.1 pmm-network
                             PWD=\$(pwd) MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
                         """
                         waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
