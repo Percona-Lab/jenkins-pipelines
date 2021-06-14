@@ -24,8 +24,8 @@ netMap['us-west-1c'] = 'subnet-0550c1d2ffd688021'
 
 imageMap = [:]
 imageMap['micro-amazon']     = 'ami-0b2ca94b5b49e0132'
-imageMap['min-bionic-x64']   = 'ami-05620e35978c63272'
-imageMap['min-focal-x64']    = 'ami-009c002b1cd1b34da'
+imageMap['min-bionic-x64']   = 'ami-0f5b07b31937d4275'
+imageMap['min-focal-x64']    = 'ami-04d9ce6b8cf0f422c'
 imageMap['min-centos-6-x32'] = 'ami-67e3cd22'
 imageMap['min-centos-6-x64'] = 'ami-8adb3fe9'
 imageMap['min-centos-7-x64'] = 'ami-08d2d8b00f270d03b'
@@ -449,30 +449,59 @@ devMap['ramdisk-buster-x64']   = '/dev/xvda=:8:true:gp2'
 devMap['performance-centos-6-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:120:true:gp2'
 
 labelMap = [:]
-labelMap['docker']            = ''
-labelMap['docker-32gb']       = ''
-labelMap['micro-amazon']      = 'master'
-labelMap['min-bionic-x64']    = 'asan'
-labelMap['min-focal-x64']     = ''
-labelMap['min-centos-6-x32']  = ''
-labelMap['min-centos-6-x64']  = ''
-labelMap['min-centos-7-x64']  = ''
-labelMap['min-centos-8-x64']  = ''
-labelMap['fips-centos-7-x64'] = ''
-labelMap['min-stretch-x64']   = ''
-labelMap['min-buster-x64']    = ''
-labelMap['min-xenial-x64']    = ''
+labelMap['docker']            = 'docker'
+labelMap['docker-32gb']       = 'docker-32gb'
+labelMap['micro-amazon']      = 'master micro-amazon'
+labelMap['min-bionic-x64']    = 'min-bionic-x6 asan'
+labelMap['min-focal-x64']     = 'min-focal-x64'
+labelMap['min-centos-6-x32']  = 'min-centos-6-x32'
+labelMap['min-centos-6-x64']  = 'min-centos-6-x64'
+labelMap['min-centos-7-x64']  = 'min-centos-7-x64'
+labelMap['min-centos-8-x64']  = 'min-centos-8-x64'
+labelMap['fips-centos-7-x64'] = 'fips-centos-7-x64'
+labelMap['min-stretch-x64']   = 'min-stretch-x64'
+labelMap['min-buster-x64']    = 'min-buster-x64'
+labelMap['min-xenial-x64']    = 'min-xenial-x64'
 
-labelMap['ramdisk-centos-6-x64'] = ''
-labelMap['ramdisk-centos-7-x64'] = ''
-labelMap['ramdisk-centos-8-x64'] = ''
-labelMap['ramdisk-bionic-x64']   = ''
-labelMap['ramdisk-focal-x64']    = ''
-labelMap['ramdisk-xenial-x64']   = ''
-labelMap['ramdisk-stretch-x64']  = ''
-labelMap['ramdisk-buster-x64']   = ''
+labelMap['ramdisk-centos-6-x64'] = 'ramdisk-centos-6-x64'
+labelMap['ramdisk-centos-7-x64'] = 'ramdisk-centos-7-x64'
+labelMap['ramdisk-centos-8-x64'] = 'ramdisk-centos-8-x64'
+labelMap['ramdisk-bionic-x64']   = 'ramdisk-bionic-x64'
+labelMap['ramdisk-focal-x64']    = 'ramdisk-focal-x64'
+labelMap['ramdisk-xenial-x64']   = 'ramdisk-xenial-x64'
+labelMap['ramdisk-stretch-x64']  = 'ramdisk-stretch-x64'
+labelMap['ramdisk-buster-x64']   = 'ramdisk-buster-x64'
 
 labelMap['performance-centos-6-x64'] = 'perf-centos-6-x64'
+
+maxUseMap = [:]
+maxUseMap['singleUse'] = '1'
+maxUseMap['multipleUse'] = '-1'
+
+maxUseMap['docker']            = maxUseMap['multipleUse']
+maxUseMap['docker-32gb']       = maxUseMap['multipleUse']
+maxUseMap['micro-amazon']      = maxUseMap['multipleUse']
+maxUseMap['min-bionic-x64']    = maxUseMap['singleUse']
+maxUseMap['min-focal-x64']     = maxUseMap['singleUse']
+maxUseMap['min-centos-6-x32']  = maxUseMap['singleUse']
+maxUseMap['min-centos-6-x64']  = maxUseMap['singleUse']
+maxUseMap['min-centos-7-x64']  = maxUseMap['singleUse']
+maxUseMap['min-centos-8-x64']  = maxUseMap['singleUse']
+maxUseMap['fips-centos-7-x64'] = maxUseMap['singleUse']
+maxUseMap['min-stretch-x64']   = maxUseMap['singleUse']
+maxUseMap['min-buster-x64']    = maxUseMap['singleUse']
+maxUseMap['min-xenial-x64']    = maxUseMap['singleUse']
+
+maxUseMap['ramdisk-centos-6-x64'] = maxUseMap['singleUse']
+maxUseMap['ramdisk-centos-7-x64'] = maxUseMap['singleUse']
+maxUseMap['ramdisk-centos-8-x64'] = maxUseMap['singleUse']
+maxUseMap['ramdisk-bionic-x64']   = maxUseMap['singleUse']
+maxUseMap['ramdisk-focal-x64']    = maxUseMap['singleUse']
+maxUseMap['ramdisk-xenial-x64']   = maxUseMap['singleUse']
+maxUseMap['ramdisk-stretch-x64']  = maxUseMap['singleUse']
+maxUseMap['ramdisk-buster-x64']   = maxUseMap['singleUse']
+
+maxUseMap['performance-centos-6-x64'] = maxUseMap['singleUse']
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -515,7 +544,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         false,                                      // boolean monitoring
         false,                                      // boolean t2Unlimited
         ConnectionStrategy.PUBLIC_DNS,              // connectionStrategy
-        1,                                          // int maxTotalUses
+        maxUseMap[OSType],                          // int maxTotalUses
         null,
         HostKeyVerificationStrategyEnum.OFF,
     )
@@ -531,7 +560,7 @@ jenkins.clouds.each {
 String sshKeysCredentialsId = '436191c0-07ed-4025-b049-8d5c5321e4a9'
 
 String region = 'us-west-1'
-('b'..'b').each {
+('b'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
     AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
