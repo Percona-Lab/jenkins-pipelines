@@ -767,7 +767,7 @@ Resources:
               }
 
               setup_ssh_keys() {
-                KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan illia.pshonkin alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen kamil.babayev"
+                KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan illia.pshonkin alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen"
 
                 for KEY in $KEYS_LIST; do
                     RETRY="3"
