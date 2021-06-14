@@ -146,7 +146,7 @@ authz_strategy_config = [
         'percona*Build Engineers': ['Overall Administer'],
         'percona*iit': ['Overall Administer'],
         'percona': ['Overall Read','Agent Build','Agent Connect','Agent Provision','Job Discover','Job Read','Job Build','Job Cancel','Job Workspace','View Read'],
-        'percona*doc': ['Overall Read','Agent Build','Agent Connect','Agent Provision','Job Build','Job Cancel','Job Configure','Job Create','Job Delete','Job Discover','Job Move','Job Read','Job Workspace','View Read'],
+        'percona*doc': ['Overall Read','Agent Build','Agent Connect','Agent Provision','Job Build','Job Cancel','Job Configure','Job Create','Job Delete','Job Discover','Job Move','Job Read','Job Workspace','View Read', 'View Create', 'View Delete', 'View Configure'],
     ]
 ]
 

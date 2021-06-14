@@ -93,7 +93,7 @@
                 echo "waiting"
             done
             #
-            until sudo -E apt-get -y install lsb-release; do
+            until sudo -E apt-get -y install lsb-release gnupg2 curl; do
                 sleep 1
                 echo "waiting"
             done
@@ -304,9 +304,9 @@
         else
             case "${xtrabackuptarget}" in
                 xtradb56) ./bootstrap.sh --type=${xtrabackuptarget} --version=${xtradb56_version} ;;
-                xtradb57) ./bootstrap.sh --type=${xtrabackuptarget} --version=${xtradb57_version} ;;
+                xtradb57) ./bootstrap.sh --pxb-type="${BUILD_TYPE}" --type=${xtrabackuptarget} --version=${xtradb57_version} ;;
                 innodb56) ./bootstrap.sh --type=${xtrabackuptarget} --version=${innodb56_version} ;;
-                innodb57) ./bootstrap.sh --type=${xtrabackuptarget} --version=${innodb57_version} ;;
+                innodb57) ./bootstrap.sh --pxb-type="${BUILD_TYPE}" -type=${xtrabackuptarget} --version=${innodb57_version} ;;
             esac
         fi
     - shell: |-
@@ -410,6 +410,10 @@
             export ASAN_OPTIONS="detect_leaks=1"
             # disable LD_PRELOAD for ASAN biilds
             export LD_PRELOAD=
+        fi
+
+        if [[ ${BUILD_TYPE} == "debug" ]] && [[ ${xtrabackuptarget} == "innodb57" ]]; then
+            more_test_arguments+= "-D"
         fi
 
         # Limit the number of workers to cpu amount

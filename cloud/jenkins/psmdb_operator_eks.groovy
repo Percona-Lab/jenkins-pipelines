@@ -22,7 +22,7 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite  name=\\"PSMDB\\">\n'
+TestsReport = '<testsuite name=\\"PSMDB\\">\n'
 testsReportMap = [:]
 void makeReport() {
     for ( test in testsReportMap ) {
@@ -254,7 +254,9 @@ EOF
             steps {
                 runTest('storage')
                 runTest('self-healing')
+                runTest('self-healing-chaos')
                 runTest('operator-self-healing')
+                runTest('operator-self-healing-chaos')
             }
         }
         stage('E2E Backups') {

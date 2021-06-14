@@ -72,7 +72,7 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite  name=\\"PXC\\">\n'
+TestsReport = '<testsuite name=\\"PXC\\">\n'
 testsReportMap = [:]
 void makeReport() {
     for ( test in testsReportMap ) {
@@ -334,8 +334,11 @@ pipeline {
                         CreateCluster('selfhealing')
                         runTest('storage', 'selfhealing')
                         runTest('self-healing', 'selfhealing')
+                        runTest('self-healing-chaos', 'selfhealing')
                         runTest('self-healing-advanced', 'selfhealing')
+                        runTest('self-healing-advanced-chaos', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
+                        runTest('operator-self-healing-chaos', 'selfhealing')
                         ShutdownCluster('selfhealing')
                     }
                 }

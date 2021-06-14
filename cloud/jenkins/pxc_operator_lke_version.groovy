@@ -86,6 +86,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             echo "The $TEST_NAME test was started!"
             PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"] = 'failure'
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
                     if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
@@ -329,8 +330,11 @@ pipeline {
                         CreateCluster('selfheal')
                         runTest('storage', 'selfheal')
                         runTest('self-healing', 'selfheal')
+                        runTest('self-healing-chaos', 'selfheal')
                         runTest('self-healing-advanced', 'selfheal')
+                        runTest('self-healing-advanced-chaos', 'selfheal')
                         runTest('operator-self-healing', 'selfheal')
+                        runTest('operator-self-healing-chaos', 'selfheal')
                         ShutdownCluster('selfheal')
                     }
                 }

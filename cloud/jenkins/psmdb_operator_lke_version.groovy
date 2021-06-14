@@ -84,6 +84,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
 
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}")
+            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$MDB_TAG"] = 'failure'
 
             sh """
                 if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$MDB_TAG" ]; then
@@ -280,7 +281,9 @@ pipeline {
                         CreateCluster('selfheal')
                         runTest('storage', 'selfheal')
                         runTest('self-healing', 'selfheal')
+                        runTest('self-healing-chaos', 'selfheal')
                         runTest('operator-self-healing', 'selfheal')
+                        runTest('operator-self-healing-chaos', 'selfheal')
                         ShutdownCluster('selfheal')
                     }
                 }

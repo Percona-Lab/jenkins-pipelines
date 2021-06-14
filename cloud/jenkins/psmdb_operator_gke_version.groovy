@@ -65,10 +65,20 @@ void popArtifactFile(String FILE_NAME) {
 }
 
 testsResultsMap = [:]
+TestsReport = '<testsuite name=\\"PSMDB\\">\n'
+
+void makeReport() {
+    for ( test in testsResultsMap ) {
+        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
+    }
+    TestsReport = TestsReport + '</testsuite>\n'
+}
 
 void setTestsresults() {
     testsResultsMap.each { file ->
-        pushArtifactFile("${file.key}")
+      if ( "${file.value}" == "passed") {
+          pushArtifactFile("${file.key}")
+      }
     }
 }
 
@@ -80,6 +90,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
 
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$MDB_TAG")
+            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$MDB_TAG"] = 'failure'
 
             sh """
                 if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$MDB_TAG" ]; then
@@ -290,7 +301,9 @@ pipeline {
                         CreateCluster('selfhealing')
                         runTest('storage', 'selfhealing')
                         runTest('self-healing', 'selfhealing')
+                        runTest('self-healing-chaos', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
+                        runTest('operator-self-healing-chaos', 'selfhealing')
                         ShutdownCluster('selfhealing')
                     }
                 }
@@ -315,6 +328,13 @@ pipeline {
     post {
         always {
             setTestsresults()
+            makeReport()
+            sh """
+                echo "${TestsReport}" > TestsReport.xml
+            """
+            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            archiveArtifacts '*.xml'
+
             withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                 sh '''
                     export CLUSTER_NAME=$(echo jenkins-psmdb-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')

@@ -28,7 +28,7 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite  name=\\"PXC\\">\n'
+TestsReport = '<testsuite name=\\"PXC\\">\n'
 testsReportMap = [:]
 void makeReport() {
     for ( test in testsReportMap ) {
@@ -294,6 +294,16 @@ pipeline {
                 runTest('scaling')
                 runTest('scaling-proxysql')
                 runTest('security-context')
+            }
+        }
+        stage('E2E SelfHealing') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
+            steps {
+                runTest('self-healing-chaos')
+                runTest('self-healing-advanced-chaos')
+                runTest('operator-self-healing-chaos')
             }
         }
         stage('E2E Backups') {

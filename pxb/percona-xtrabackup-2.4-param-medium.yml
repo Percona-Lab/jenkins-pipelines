@@ -62,7 +62,7 @@
         name: bootstrap_url
         trim: false
     - string:
-        default: '5.7.31'
+        default: '5.7.34'
         description: Version of MySQL InnoDB57 which will be used for bootstrap.sh script
         name: innodb57_version
         trim: false
@@ -72,7 +72,7 @@
         name: innodb56_version
         trim: false
     - string:
-        default: '5.7.31-34'
+        default: '5.7.34-37'
         description: Version of Percona XtraDB57 which will be used for bootstrap.sh script
         name: xtradb57_version
         trim: false
