@@ -18,27 +18,64 @@ product_action_playbooks = [
     ]
 ]
 
+setup_centos_package_tests = { ->
+    sh '''
+        sudo yum install -y epel-release
+        sudo yum -y update
+        sudo yum install -y ansible
+    '''
+}
+
+setup_stretch_package_tests = { ->
+    sh '''
+        sudo apt-get update
+        sudo apt-get install -y dirmngr gnupg2
+        echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
+        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
+        sudo apt-get update
+        sudo apt-get install -y ansible
+    '''
+}
+
+setup_buster_package_tests = { ->
+    sh '''
+        sudo apt-get update
+        sudo apt-get install -y ansible
+    '''
+}
+
+setup_ubuntu_package_tests = { ->
+    sh '''
+        sudo apt-get update
+        sudo apt-get install -y software-properties-common
+        sudo apt-add-repository --yes --update ppa:ansible/ansible
+        sudo apt-get install -y ansible
+    '''
+}
+
+node_setups = [
+    "min-stretch-x64": setup_stretch_package_tests,
+    "min-buster-x64": setup_buster_package_tests,
+    "min-centos-7-x64": setup_centos_package_tests,
+    "min-centos-8-x64": setup_centos_package_tests,
+    "min-xenial-x64": setup_ubuntu_package_tests,
+    "min-bionic-x64": setup_ubuntu_package_tests,
+    "min-focal-x64": setup_ubuntu_package_tests,
+]
+
+void setup_package_tests() {
+    node_setups[params.node_to_test]()
+}
+
 void runPlaybook(String action_to_test) {
     def playbook = product_action_playbooks[params.product_to_test][action_to_test]
     def playbook_path = "package-testing/playbooks/${playbook}"
 
     sh '''
         git clone --depth 1 "${git_repo}"
-
-        if [ -f /usr/bin/yum ]; then
-            sudo yum -y update
-            sudo yum -y install epel-release
-            sudo yum -y install ansible
-        fi
-
-        if [ -f /usr/bin/apt-get ]; then
-            sudo DEBIAN_FRONTEND=noninteractive apt-get update
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install python
-            curl https://bootstrap.pypa.io/pip/2.7/get-pip.py -o get-pip.py
-            sudo python get-pip.py
-            sudo python -m pip install ansible
-        fi
     '''
+
+    setup_package_tests()
 
     sh """
         export install_repo="\${install_repo}"
