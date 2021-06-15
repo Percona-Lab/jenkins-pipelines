@@ -189,7 +189,10 @@ pipeline {
                             [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
                             sudo yum -y install git svn docker
                             sudo systemctl start docker
-                            sudo curl -L https://github.com/docker/compose/releases/download/1.29.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/bin/docker-compose > /dev/null
+                            sudo curl -L https://github.com/docker/compose/releases/download/1.29.0/docker-compose-`uname -s`-`uname -m` | sudo tee docker-compose > /dev/null
+                            md5sum docker-compose > checkmd5.md5
+                            md5sum -c --strict checkmd5.md5
+                            sudo mv docker-compose /usr/bin/docker-compose
                             sudo chmod +x /usr/bin/docker-compose
                             docker-compose --version
                             sudo mkdir -p /srv/pmm-qa || :
@@ -252,9 +255,8 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) '
-                            sudo git clone --single-branch --branch \${GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
+                            sudo git clone --single-branch --branch ${GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
                             cd pmm-ui-tests
-                            sudo docker volume create pmm-server-data
                             sudo PWD=\$(pwd) docker-compose up -d mysql
                             sudo PWD=\$(pwd) docker-compose up -d mongo
                             sudo PWD=\$(pwd) docker-compose up -d postgres
