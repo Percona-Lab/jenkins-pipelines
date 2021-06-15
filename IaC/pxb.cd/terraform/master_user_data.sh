@@ -236,7 +236,7 @@ EOF
 }
 
 setup_ssh_keys() {
-    KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan illia.pshonkin alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen kamil.babayev"
+    KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan illia.pshonkin alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen"
 
     for KEY in $KEYS_LIST; do
         RETRY="3"
@@ -258,6 +258,7 @@ setup_ssh_keys() {
 
 main() {
     setup_aws
+    setup_ssh_keys
     install_software
     mount_data_partition
     create_fake_ssl_cert
@@ -266,7 +267,6 @@ main() {
     setup_dhparam
     setup_letsencrypt
     setup_nginx_allow_list
-    setup_ssh_keys
 }
 
 main
