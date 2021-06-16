@@ -65,6 +65,7 @@ void runTest(String TEST_NAME) {
                         export IMAGE_PMM=${IMAGE_PMM}
                     fi
 
+                    sudo rm -rf /tmp/hostpath-provisioner/*
                     ./e2e-tests/$TEST_NAME/run
                 fi
             """
@@ -223,22 +224,24 @@ pipeline {
                     }
 
                     installRpms()
-                    runTest('init-deploy')
+                    runTest('arbiter')
+                    runTest('demand-backup')
                     runTest('limits')
-                    runTest('scaling')
-                    runTest('self-healing')
-                    runTest('self-healing-chaos')
+                    runTest('liveness')
+                    runTest('one-pod')
                     runTest('operator-self-healing')
                     runTest('operator-self-healing-chaos')
-                    runTest('demand-backup')
-                    runTest('liveness')
-                    runTest('security-context')
-                    runTest('smart-update')
-                    runTest('version-service')
-                    runTest('users')
-                    runTest('data-sharded')
                     runTest('pitr')
-                    runTest('pitr-sharded')
+                    runTest('scaling')
+                    runTest('scheduled-backup')
+                    runTest('security-context')
+                    runTest('self-healing')
+                    runTest('self-healing-chaos')
+                    runTest('service-per-pod')
+                    runTest('smart-update')
+                    runTest('upgrade-consistency')
+                    runTest('users')
+                    runTest('version-service')
             }
             post {
                 always {

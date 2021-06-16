@@ -95,11 +95,10 @@ else
 fi
 if [[ ${CMAKE_BUILD_TYPE} == "Debug" ]]; then
     if [[ ${XTRABACKUP_TARGET} == "innodb80" ]] || [[ ${XTRABACKUP_TARGET} == "innodb57" ]]; then
-        ./run.sh ${XBTR_ARGS} -f -D | tee -a ${WORKDIR_ABS}/xbtr.output
+        XBTR_ARGS+="-D"
     fi
-else
-    ./run.sh ${XBTR_ARGS} -f | tee -a ${WORKDIR_ABS}/xbtr.output
 fi
+./run.sh ${XBTR_ARGS} -f | tee -a ${WORKDIR_ABS}/xbtr.output
 cat results/setup
 sudo cp -r ${TEST_DIR}/results/* ${WORKDIR_ABS}/
 cp test_results.subunit ${WORKDIR_ABS}

@@ -25,7 +25,7 @@
         description: Version of MySQL InnoDB56 which will be used for bootstrap.sh script
     - string:
         name: INNODB57_VERSION
-        default: "5.7.31"
+        default: "5.7.34"
         description: Version of MySQL InnoDB57 which will be used for bootstrap.sh script
     - string:
         name: XTRADB56_VERSION
@@ -33,7 +33,7 @@
         description: Version of Percona XtraDB56 which will be used for bootstrap.sh script
     - string:
         name: XTRADB57_VERSION
-        default: "5.7.31-34"
+        default: "5.7.34-37"
         description: Version of Percona XtraDB57 which will be used for bootstrap.sh script
     - string:
         name: XBTR_ARGS
