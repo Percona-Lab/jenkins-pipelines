@@ -1,0 +1,53 @@
+- job:
+    name: wip-test-ps-innodb-cluster
+    project-type: pipeline
+    description: |
+        Work in progress, please ignore
+        Do not edit this job through the web!
+    properties:
+        - build-discarder:
+            artifact-days-to-keep: -1
+            artifact-num-to-keep: 10
+            days-to-keep: -1
+            num-to-keep: 10
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                branches:
+                    - 'wip-test-ps-innodb-cluster'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: ps/jenkins/test-ps-innodb-cluster.groovy
+    parameters:
+        - string:
+            name: UPSTREAM_VERSION
+            default: "8.0.23"
+            description: "Upstream MySQL version"
+        - string:
+            name: PS_VERSION
+            default: "14"
+            description: "Percona part of version"
+        - string:
+            name: PS_REVISION
+            default: "3558242"
+            description: "Short git hash for release"
+        - choice:
+            name: TEST_DIST
+            choices:
+                - 'ubuntu-focal'
+                - 'ubuntu-bionic'
+                - 'ubuntu-xenial'
+                - 'debian-10'
+                - 'debian-9'
+                - 'centos-8'
+                - 'centos-7'
+                - 'centos-6'
+            description: "Distribution to run test"
+        - choice:
+            name: INSTALL_REPO
+            choices:
+                - "testing"
+                - "main"
+                - "experimental"
+            description: "Repo to install packages from"
