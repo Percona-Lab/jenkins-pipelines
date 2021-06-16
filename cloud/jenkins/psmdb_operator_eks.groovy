@@ -110,6 +110,10 @@ pipeline {
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
+            defaultValue: '1.20',
+            description: 'EKS kubernetes version',
+            name: 'EKS_VERSION')
+        string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
             name: 'PSMDB_OPERATOR_IMAGE')
@@ -201,6 +205,7 @@ kind: ClusterConfig
 metadata:
     name: eks-psmdb-cluster
     region: eu-west-3
+    version: "$EKS_VERSION"
 
 nodeGroups:
     - name: ng-1

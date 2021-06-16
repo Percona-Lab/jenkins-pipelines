@@ -129,6 +129,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator',
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
+        string(
+            defaultValue: '1.20',
+            description: 'EKS kubernetes version',
+            name: 'EKS_VERSION')
         choice(
             choices: 'NO\nYES',
             description: 'Run tests with cluster wide',
@@ -238,6 +242,7 @@ kind: ClusterConfig
 metadata:
     name: eks-pxc-cluster
     region: eu-west-3
+    version: "$EKS_VERSION"
 
 nodeGroups:
     - name: ng-1
