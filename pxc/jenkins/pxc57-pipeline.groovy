@@ -104,8 +104,8 @@ pipeline {
                             sudo apt-get install -y jq
                         fi
 
-                        PXC57_REPO=$(curl https://api.github.com/repos/percona/percona-xtradb-cluster/pulls/${BRANCH} | jq -r '.head.repo.html_url')
-                        PXC57_BRANCH=$(curl https://api.github.com/repos/percona/percona-xtradb-cluster/pulls/${BRANCH} | jq -r '.head.ref')
+                        PXC57_REPO=$(curl https://api.github.com/repos/percona/percona-xtradb-cluster/pulls/${PXC57_BRANCH} | jq -r '.head.repo.html_url')
+                        PXC57_BRANCH=$(curl https://api.github.com/repos/percona/percona-xtradb-cluster/pulls/${PXC57_BRANCH} | jq -r '.head.ref')
                     fi
 
                     RAW_VERSION_LINK=$(echo ${PXC57_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
