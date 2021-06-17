@@ -23,6 +23,7 @@ netMap['us-west-2c'] = 'subnet-024be5829372c4f38'
 imageMap = [:]
 imageMap['us-west-2a.docker']            = 'ami-0a78fb1467aab24f9'
 imageMap['us-west-2a.docker-32gb']       = 'ami-0a78fb1467aab24f9'
+imageMap['us-west-2a.docker-32gb-hirsute'] = 'ami-0cbdf6c0f39fd3950'
 imageMap['us-west-2a.docker2']           = 'ami-0a78fb1467aab24f9'
 imageMap['us-west-2a.micro-amazon']      = 'ami-0a78fb1467aab24f9'
 imageMap['us-west-2a.min-amazon-2-x64']  = 'ami-0a78fb1467aab24f9'
@@ -38,6 +39,7 @@ imageMap['us-west-2a.min-xenial-x64']    = 'ami-014f0ecd3e71df934'
 
 imageMap['us-west-2b.docker']            = imageMap['us-west-2a.docker']
 imageMap['us-west-2b.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
+imageMap['us-west-2b.docker-32gb-hirsute'] = imageMap['us-west-2a.docker-32gb-hirsute']
 imageMap['us-west-2b.docker2']           = imageMap['us-west-2a.docker2']
 imageMap['us-west-2b.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
 imageMap['us-west-2b.min-amazon-2-x64']  = imageMap['us-west-2a.min-amazon-2-x64']
@@ -53,6 +55,7 @@ imageMap['us-west-2b.min-xenial-x64']    = imageMap['us-west-2a.min-xenial-x64']
 
 imageMap['us-west-2c.docker']            = imageMap['us-west-2a.docker']
 imageMap['us-west-2c.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
+imageMap['us-west-2c.docker-32gb-hirsute'] = imageMap['us-west-2a.docker-32gb-hirsute']
 imageMap['us-west-2c.docker2']           = imageMap['us-west-2a.docker2']
 imageMap['us-west-2c.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
 imageMap['us-west-2c.min-amazon-2-x64']  = imageMap['us-west-2a.min-amazon-2-x64']
@@ -68,6 +71,7 @@ imageMap['us-west-2c.min-xenial-x64']    = imageMap['us-west-2a.min-xenial-x64']
 
 imageMap['us-west-2d.docker']            = imageMap['us-west-2a.docker']
 imageMap['us-west-2d.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
+imageMap['us-west-2d.docker-32gb-hirsute'] = imageMap['us-west-2d.docker-32gb-hirsute']
 imageMap['us-west-2d.docker2']           = imageMap['us-west-2a.docker2']
 imageMap['us-west-2d.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
 imageMap['us-west-2d.min-amazon-2-x64']  = imageMap['us-west-2a.min-amazon-2-x64']
@@ -95,6 +99,7 @@ priceMap['c5d.xlarge'] = '0.20'
 userMap = [:]
 userMap['docker']            = 'ec2-user'
 userMap['docker-32gb']       = userMap['docker']
+userMap['docker-32gb-hirsute'] = 'ubuntu'
 userMap['docker2']           = userMap['docker']
 userMap['micro-amazon']      = userMap['docker']
 userMap['min-amazon-2-x64']  = userMap['docker']
@@ -113,6 +118,7 @@ userMap['psmdb'] = userMap['min-xenial-x64']
 modeMap = [:]
 modeMap['docker']            = 'Node.Mode.NORMAL'
 modeMap['docker-32gb']       = modeMap['docker']
+modeMap['docker-32gb-hirsute']       = modeMap['docker']
 modeMap['docker2']           = modeMap['docker']
 modeMap['micro-amazon']      = modeMap['docker']
 modeMap['min-amazon-2-x64']  = modeMap['docker']
@@ -187,6 +193,74 @@ initMap['docker'] = '''
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 initMap['docker-32gb'] = initMap['docker']
+initMap['docker-32gb-hirsute'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext2 ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
+    fi
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+
+    until sudo apt-get -y install openjdk-8-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
+        sleep 1
+        echo try again
+    done
+
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+    until sudo apt-get -y install docker-ce docker-ce-cli containerd.io; do
+        sleep 1
+        echo try again
+    done
+
+    if ! $(aws --version | grep -q 'aws-cli/2'); then
+        find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
+
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
+            sleep 1
+            echo try again
+        done
+
+        unzip -o /tmp/awscliv2.zip -d /tmp 
+        cd /tmp/aws && sudo ./install
+    fi
+
+
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+
+    sudo sysctl net.ipv4.tcp_fin_timeout=15
+    sudo sysctl net.ipv4.tcp_tw_reuse=1
+    sudo sysctl net.ipv6.conf.all.disable_ipv6=1
+    sudo sysctl net.ipv6.conf.default.disable_ipv6=1
+    sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
+    sudo sysctl -w fs.aio-max-nr=1048576 || true
+    sudo sysctl -w fs.file-max=6815744 || true
+    echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
+    sudo systemctl daemon-reload
+    sudo install -o root -g root -d /mnt/docker
+    sudo usermod -aG docker $(id -u -n)
+    sudo mkdir -p /etc/docker
+    echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
+    sudo systemctl status docker || sudo systemctl start docker
+    echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+'''
+
 initMap['docker2'] = initMap['docker']
 initMap['micro-amazon'] = '''
     set -o xtrace
@@ -307,6 +381,7 @@ typeMap = [:]
 typeMap['micro-amazon']      = 't2.small'
 typeMap['docker']            = 'c3.xlarge'
 typeMap['docker-32gb']       = 'm4.2xlarge'
+typeMap['docker-32gb-hirsute'] = 'm4.2xlarge'
 typeMap['docker2']           = 'r4.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['min-centos-8-x64']  = typeMap['docker']
@@ -322,6 +397,7 @@ typeMap['min-amazon-2-x64']  = typeMap['docker']
 execMap = [:]
 execMap['docker']            = '1'
 execMap['docker-32gb']       = execMap['docker']
+execMap['docker-32gb-hirsute'] = execMap['docker']
 execMap['docker2']           = execMap['docker']
 execMap['micro-amazon']      = '30'
 execMap['min-amazon-2-x64']  = '1'
@@ -339,6 +415,7 @@ devMap = [:]
 devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['docker2']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb']       = devMap['docker']
+devMap['docker-32gb-hirsute'] = devMap['docker']
 devMap['micro-amazon']      = '/dev/xvda=:30:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-amazon-2-x64']  = '/dev/xvda=:30:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['min-bionic-x64']    = '/dev/sda1=:30:true:gp2,/dev/sdd=:120:true:gp2'
@@ -354,6 +431,7 @@ devMap['min-buster-x64']    = '/dev/xvda=:30:true:gp2,/dev/xvdd=:120:true:gp2'
 labelMap = [:]
 labelMap['docker']            = ''
 labelMap['docker-32gb']       = ''
+labelMap['docker-32gb-hirsute'] = ''
 labelMap['docker2']           = ''
 labelMap['micro-amazon']      = 'master'
 labelMap['min-amazon-2-x64']  = ''
@@ -437,6 +515,7 @@ String region = 'us-west-2'
         [
             getTemplate('docker',             "${region}${it}"),
             getTemplate('docker-32gb',        "${region}${it}"),
+            getTemplate('docker-32gb-hirsute', "${region}${it}"),
             getTemplate('micro-amazon',       "${region}${it}"),
             getTemplate('min-amazon-2-x64',   "${region}${it}"),
             getTemplate('min-centos-8-x64',   "${region}${it}"),
