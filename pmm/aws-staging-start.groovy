@@ -345,7 +345,7 @@ pipeline {
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
-                    setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PUSH_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE)
+                    setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PUSH_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging')
                     sh """
                         set -o errexit
                         set -o xtrace
