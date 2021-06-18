@@ -13,7 +13,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             export ENABLE_TESTING_REPO=${ENABLE_TESTING_REPO}
             export CLIENT_INSTANCE=${CLIENT_INSTANCE}
             export SETUP_TYPE=${SETUP_TYPE}
-            if [[ \$SETUP_TYPE = compose_setup ]]; then
+            if [[ \$SETUP_TYPE == compose_setup ]]; then
                 export IP=192.168.0.1
             fi
             sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
