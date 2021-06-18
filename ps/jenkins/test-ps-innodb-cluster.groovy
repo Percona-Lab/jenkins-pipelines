@@ -72,6 +72,13 @@ pipeline {
         skipDefaultCheckout()
     }
 
+    environment {
+        PS_NODE1_IP = "10.177.1.50"
+        PS_NODE2_IP = "10.177.1.51"
+        PS_NODE3_IP = "10.177.1.52"
+        MYSQL_ROUTER_IP = "10.177.1.53"
+    }
+
     parameters {
         string(
             name: 'UPSTREAM_VERSION',
