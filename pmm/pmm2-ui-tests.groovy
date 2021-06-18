@@ -150,7 +150,7 @@ pipeline {
                 sh '''
                     docker-compose --version
                     sudo yum -y update --security
-                    sudo yum -y install php php-mysqlnd php-pdo jq svn bats
+                    sudo yum -y install php php-mysqlnd php-pdo jq svn bats mysql
                     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
                     sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
                     sudo amazon-linux-extras install epel -y

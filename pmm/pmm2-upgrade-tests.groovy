@@ -137,7 +137,7 @@ pipeline {
                 installDocker()
                 setupDockerCompose()
                 sh '''
-                    sudo yum -y install jq svn
+                    sudo yum -y install jq svn mysql
                     docker-compose --version
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa

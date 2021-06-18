@@ -92,12 +92,12 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     pmm-admin --version
                     if [[ \$CLIENT_INSTANCE == yes ]]; then
                         if [[ \$ENABLE_PUSH_MODE == yes ]]; then
-                            sudo pmm-agent setup --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin --metrics-mode=push \$IP
+                            sudo pmm-admin config --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin --metrics-mode=push \$IP
                         else
-                            sudo pmm-agent setup --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
+                            sudo pmm-admin config --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
                         fi
                     else
-                        sudo pmm-agent setup --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
+                        sudo pmm-admin config --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
                     fi
                     sleep 10
                     pmm-admin list
