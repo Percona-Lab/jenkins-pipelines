@@ -13,6 +13,9 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             export ENABLE_TESTING_REPO=${ENABLE_TESTING_REPO}
             export CLIENT_INSTANCE=${CLIENT_INSTANCE}
             export SETUP_TYPE=${SETUP_TYPE}
+            if [[ \$SETUP_TYPE = compose_setup ]]; then
+                export IP=192.168.0.1
+            fi
             sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
             sudo yum clean all
             sudo yum makecache
@@ -95,11 +98,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                         if [[ \$ENABLE_PUSH_MODE == yes ]]; then
                             sudo pmm-admin config --server-url=https://admin:admin@\$SERVER_IP:443 --server-insecure-tls --metrics-mode=push \$IP
                         else
-                            if [[ \$SETUP_TYPE == upgrade_setup ]]; then
-                                sudo pmm-admin config --server-url=https://admin:admin@\$SERVER_IP:443 --server-insecure-tls 192.168.0.1
-                            else
-                                sudo pmm-admin config --server-url=https://admin:admin@\$SERVER_IP:443 --server-insecure-tls \$IP
-                            fi
+                            sudo pmm-admin config --server-url=https://admin:admin@\$SERVER_IP:443 --server-insecure-tls \$IP
                         fi
                     else
                         sudo pmm-admin config --server-url=https://admin:admin@\$SERVER_IP:443 --server-insecure-tls \$IP

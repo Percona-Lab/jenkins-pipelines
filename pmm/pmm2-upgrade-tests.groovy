@@ -182,7 +182,7 @@ pipeline {
                         docker exec pmm-server percona-release enable original testing
                         docker exec pmm-server yum clean all
                     """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'yes', 'yes', 'upgrade_setup')
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'yes', 'yes', 'compose_setup')
                 }
             }
         }
@@ -199,7 +199,7 @@ pipeline {
                         docker exec pmm-server percona-release enable original experimental
                         docker exec pmm-server yum clean all
                     """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'upgrade_setup')
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup')
                 }
             }
         }
