@@ -171,7 +171,7 @@ if [ -f /usr/bin/apt-get ]; then
         echo "waiting"
     done
 
-    wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb && dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb && rm percona-release_latest.$(lsb_release -sc)_all.deb
+    curl https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb --output /tmp/prel.deb && dpkg -i /tmp/prel.deb && rm /tmp/prel.deb
     percona-release enable tools testing
 
     DIST=$(lsb_release -sc)
