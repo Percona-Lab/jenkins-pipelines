@@ -38,7 +38,7 @@ priceMap['t2.small']   = '0.01'
 priceMap['c5.xlarge']  = '0.10'
 priceMap['m4.xlarge']  = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
-priceMap['m4.2xlarge'] = '0.20'
+priceMap['m5a.2xlarge'] = '0.25'
 
 userMap = [:]
 userMap['docker']           = 'ec2-user'
@@ -255,14 +255,14 @@ capMap = [:]
 capMap['c5.xlarge'] = '60'
 capMap['m4.xlarge'] = '60'
 capMap['m4.2xlarge'] = '10'
-capMap['m4.2xlarge'] = '10'
+capMap['m5a.2xlarge'] = '10'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.small'
 typeMap['docker']            = 'c5.xlarge'
-typeMap['docker-32gb']       = 'm4.2xlarge'
+typeMap['docker-32gb']       = 'm5a.2xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
-typeMap['min-centos-6-x64']  = 'm4.2xlarge'
+typeMap['min-centos-6-x64']  = 'm5a.2xlarge'
 typeMap['min-stretch-x64']   = typeMap['docker-32gb']
 typeMap['min-xenial-x64']    = typeMap['docker-32gb']
 typeMap['min-bionic-x64']    = typeMap['docker-32gb']
