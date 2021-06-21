@@ -294,13 +294,13 @@
             mkdir -p ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}
             wget --progress=dot:giga \
                 -O ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}/Percona-XtraDB-Cluster-$(uname -m).tar.gz \
-                https://www.percona.com/downloads/Percona-XtraDB-Cluster-56/Percona-XtraDB-Cluster-5.6.40-26.25/binary/tarball/Percona-XtraDB-Cluster-5.6.40-rel84.0-26.25.1.Linux.$(uname -m).ssl${SSL_VER}.tar.gz
+                https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-56/Percona-XtraDB-Cluster-5.6.51-28.46/binary/tarball/Percona-XtraDB-Cluster-5.6.51-rel91.0-28.46.1.Linux.$(uname -m).ssl${SSL_VER}.tar.gz
         elif [[ ${xtrabackuptarget} == "galera57" ]] && [[ $(uname -m) == "x86_64" ]]
         then
             mkdir -p ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}
             wget --progress=dot:giga \
                 -O ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}/Percona-XtraDB-Cluster-$(uname -m).tar.gz \
-                https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.31-31.45-3/binary/tarball/Percona-XtraDB-Cluster-5.7.31-rel34-45.3.Linux.x86_64.glibc2.12.tar.gz
+                https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.31-31.45-3/binary/tarball/Percona-XtraDB-Cluster-5.7.31-rel34-45.3.Linux.x86_64.glibc2.12.tar.gz
         else
             case "${xtrabackuptarget}" in
                 xtradb56) ./bootstrap.sh --type=${xtrabackuptarget} --version=${xtradb56_version} ;;
