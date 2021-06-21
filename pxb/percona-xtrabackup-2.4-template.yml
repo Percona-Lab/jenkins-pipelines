@@ -288,6 +288,12 @@
             SSL_VER=$(ls -la {/,/usr/}{lib,lib/i386-linux-gnu}/libssl.so.1.* 2>/dev/null | sed 's/.*[.]so//; s/[^0-9]//g' | head -1)
         else
             SSL_VER=$(ls -la {/,/usr/}{lib64,lib,lib/x86_64-linux-gnu}/libssl.so.1.* 2>/dev/null | sed 's/.*[.]so//; s/[^0-9]//g' | head -1)
+            if [ -f /etc/redhat-release ]; then
+                RHVER=$(rpm --eval %rhel)
+                if [[ ${RHVER} -eq 7 ]] && [[ ${xtrabackuptarget} == "galera56" ]]; then
+                    unset SSL_VER && SSL_VER="1:102.el7"
+                fi
+            fi
         fi
         if [[ ${xtrabackuptarget} == "galera56" ]]
         then
@@ -400,7 +406,7 @@
         then
             rm -rf server
             mkdir server
-            tar xfz ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}/Percona-XtraDB-Cluster*$ARCH.tar.gz -C server
+            tar -xzf ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}/Percona-XtraDB-Cluster*$ARCH.tar.gz -C server
             mv server/*/* server/
         fi
 
