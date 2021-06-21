@@ -214,8 +214,7 @@ pipeline {
                         ${CLIENTS} \
                         --pmm2 \
                         --pmm2-server-ip=\$SERVER_IP
-                    sleep 10
-                    pmm-admin list
+                    sleep 20
                 """
             }
         }
