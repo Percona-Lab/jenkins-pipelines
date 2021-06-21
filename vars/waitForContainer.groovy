@@ -13,7 +13,7 @@ def call(String CONTAINER_NAME, String LOGS) {
               echo "${CONTAINER_NAME} is ready!"
               break
             fi
-            sleep 1
+            sleep 10
         done;
     """
 }
