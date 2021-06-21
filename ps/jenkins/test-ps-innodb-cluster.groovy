@@ -21,22 +21,7 @@ void installDependencies() {
     '''
 }
 
-void setInstanceEnvironment(String instanceName) {
-    def instances = readYaml(
-        file: "${env.WORKSPACE}/package-testing/molecule/configuration.yml"
-    )
-
-    def instance = instances[instanceName]
-    if (instance == null) {
-        error("instance `${instanceName}` is not defined in configuration YAML")
-    }
-
-    env.TEST_IMAGE = instance.image
-    env.TEST_ROOT_DEVICE_NAME = instance.root_device_name
-    env.TEST_SSH_USER = instance.user
-}
-
-void runMoleculeAction(String action) {
+void runMoleculeAction(String action, String scenario) {
     def awsCredentials = [
         sshUserPrivateKey(
             credentialsId: 'MOLECULE_AWS_PRIVATE_KEY',
@@ -56,9 +41,9 @@ void runMoleculeAction(String action) {
             source venv/bin/activate
             export MOLECULE_DEBUG=1
             cd package-testing/molecule/ps-innodb-cluster-server
-            molecule ${action}
+            molecule ${action} -s ${scenario}
             cd ../ps-innodb-cluster-router
-            molecule ${action}
+            molecule ${action} -s ${scenario}
         """
     }
 }
@@ -124,25 +109,24 @@ pipeline {
         stage("Set up") {
             steps {
                 installDependencies()
-                setInstanceEnvironment(params.TEST_DIST)
             }
         }
 
         stage("Create") {
             steps {
-                runMoleculeAction("create")
+                runMoleculeAction("create", params.TEST_DIST)
             }
         }
 
         stage("Converge") {
             steps {
-                runMoleculeAction("converge")
+                runMoleculeAction("converge", params.TEST_DIST)
             }
         }
 
         stage("Verify") {
             steps {
-                runMoleculeAction("verify")
+                runMoleculeAction("verify", params.TEST_DIST)
             }
         }
     }
@@ -150,7 +134,7 @@ pipeline {
     post {
         always {
             script {
-                runMoleculeAction("destroy")
+                runMoleculeAction("destroy", params.TEST_DIST)
             }
         }
     }
