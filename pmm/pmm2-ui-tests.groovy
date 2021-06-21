@@ -117,7 +117,7 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         text(
-            defaultValue: '--addclient=haproxy,1 --addclient=ps,1',
+            defaultValue: '--addclient=haproxy,1 --addclient=ps,1 --setup-external-service',
             description: '''
             Configure PMM Clients
             ms - MySQL (ex. --addclient=ms,1),
@@ -146,12 +146,11 @@ pipeline {
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 installDocker()
+                setupDockerCompose()
                 sh '''
-                    sudo curl -L https://github.com/docker/compose/releases/download/1.29.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/bin/docker-compose > /dev/null
-                    sudo chmod +x /usr/bin/docker-compose
                     docker-compose --version
                     sudo yum -y update --security
-                    sudo yum -y install php php-mysqlnd php-pdo jq svn bats
+                    sudo yum -y install php php-mysqlnd php-pdo jq svn bats mysql
                     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
                     sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
                     sudo amazon-linux-extras install epel -y
@@ -190,8 +189,14 @@ pipeline {
                     }
                     steps {
                         sh """
-                            mkdir testdata
-                            sudo MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
+                            PWD=\$(pwd) MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
+                        """
+                        waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
+                        waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
+                        waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
+                        waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
+                        sh """
+                            bash -x testdata/db_setup.sh
                         """
                         script {
                             env.SERVER_IP = "127.0.0.1"
@@ -215,7 +220,7 @@ pipeline {
         }
         stage('Setup Client for PMM-Server') {
             steps {
-                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes')
+                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'compose_setup')
                 sh """
                     set -o errexit
                     set -o xtrace
