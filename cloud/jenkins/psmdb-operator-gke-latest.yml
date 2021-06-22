@@ -1,5 +1,5 @@
 - job:
-    name: psmdb-operator-gke-alpha
+    name: psmdb-operator-gke-latest
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -20,7 +20,7 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/psmdb_operator_gke_alpha.groovy
+      script-path: cloud/jenkins/psmdb_operator_gke_latest.groovy
     parameters:
     - string:
         name: GIT_REPO

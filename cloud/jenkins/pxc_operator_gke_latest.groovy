@@ -1,23 +1,23 @@
-void CreateCluster(String CLUSTER_PREFIX) {
+void CreateCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version ${params.GKE_VERSION} --zone us-central1-a --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --enable-autoscaling --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX}
+            gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version ${params.GKE_VERSION} --zone us-central1-a --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --enable-autoscaling --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX}
             kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
         """
    }
 }
-void ShutdownCluster(String CLUSTER_PREFIX) {
+void ShutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX}
+            gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-${CLUSTER_SUFFIX}
         """
    }
 }
@@ -45,7 +45,7 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite  name=\\"PXC\\">\n'
+TestsReport = '<testsuite name=\\"PXC\\">\n'
 testsReportMap = [:]
 void makeReport() {
     for ( test in testsReportMap ) {
@@ -54,7 +54,7 @@ void makeReport() {
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
+void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     def retryCount = 0
     waitUntil {
         try {
@@ -100,7 +100,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                             export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
                         fi
 
-                        export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
                         source $HOME/google-cloud-sdk/path.bash.inc
                         ./e2e-tests/$TEST_NAME/run
                     fi
