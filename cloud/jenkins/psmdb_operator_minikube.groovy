@@ -237,7 +237,6 @@ pipeline {
                     runTest('security-context')
                     runTest('self-healing')
                     runTest('self-healing-chaos')
-                    runTest('service-per-pod')
                     runTest('smart-update')
                     runTest('upgrade-consistency')
                     runTest('users')
