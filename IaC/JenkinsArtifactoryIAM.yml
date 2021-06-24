@@ -10,6 +10,7 @@ Resources:
       Path: /
       ManagedPolicyArns:
       - arn:aws:iam::119175775298:policy/jenkins-artifactory
+      - arn:aws:iam::aws:policy/AmazonElasticContainerRegistryPublicReadOnly
       Tags:
       - Key: iit-billing-tag
         Value: jenkins-artifactory-user
