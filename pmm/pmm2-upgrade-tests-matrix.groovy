@@ -22,11 +22,11 @@ pipeline {
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '2.19.0',
+            defaultValue: '2.20.0',
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: '2.18.0',
+            defaultValue: '2.19.0',
             description: 'RC PMM Server Version',
             name: 'PMM_SERVER_RC')
         choice(
