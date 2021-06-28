@@ -145,7 +145,6 @@ pipeline {
 
                             # 3rd-party
                             build-server-rpm clickhouse
-                            build-server-rpm prometheus
                             build-server-rpm victoriametrics
                             build-server-rpm alertmanager
                             build-server-rpm grafana
