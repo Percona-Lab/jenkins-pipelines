@@ -40,10 +40,13 @@ void runMoleculeAction(String action, String scenario) {
         sh """
             source venv/bin/activate
             export MOLECULE_DEBUG=1
-            cd package-testing/molecule/ps-innodb-cluster-server
+            cd package-testing/molecule/ps-innodb-cluster
+            cd server
             molecule ${action} -s ${scenario}
-            cd ../ps-innodb-cluster-router
+            cd -
+            cd router
             molecule ${action} -s ${scenario}
+            cd -
         """
     }
 }
