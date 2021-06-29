@@ -188,7 +188,7 @@ parameters {
                 }
                 stage('Ubuntu Bionic(18.04)') {
                     agent {
-                        label 'min-focal-x64'
+                        label 'min-bionic-x64'
                     }
                     steps {
                         cleanUpWS()
