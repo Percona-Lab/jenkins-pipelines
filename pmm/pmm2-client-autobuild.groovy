@@ -13,8 +13,11 @@ pipeline {
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: ['experimental', 'testing'],
-            description: 'publish result package to internal RC (testing) or experimental (dev-latest) repository',
+            choices: ['experimental', 'testing', 'laboratory'],
+            description: '''publish result package to:<br>
+testing: internal RC<br>
+experimental: (dev-latest) repository<br>
+laboratory: internal repository for FB packages''',
             name: 'DESTINATION')
     }
     options {
