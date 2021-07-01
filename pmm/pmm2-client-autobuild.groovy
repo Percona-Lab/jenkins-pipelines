@@ -14,10 +14,7 @@ pipeline {
             name: 'GIT_BRANCH')
         choice(
             choices: ['experimental', 'testing', 'laboratory'],
-            description: '''publish result package to:<br>
-testing: internal RC<br>
-experimental: (dev-latest) repository<br>
-laboratory: internal repository for FB packages''',
+            description: 'publish result package to: testing (internal RC), experimental: (dev-latest repository), laboratory: (internal repository for FB packages)',
             name: 'DESTINATION')
     }
     options {
