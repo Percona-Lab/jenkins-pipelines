@@ -33,16 +33,16 @@
     - string:
         name: PSMDB_OPERATOR_IMAGE
         default:
-        description: Operator image: perconalab/percona-server-mongodb-operator:main
+        description: Operator image
     - string:
         name: IMAGE_MONGOD
         default:
-        description: MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod4.0
+        description: MONGOD image
     - string:
         name: IMAGE_BACKUP
         default:
-        description: Backup image: perconalab/percona-server-mongodb-operator:main-backup
-    - string
+        description: Backup image
+    - string:
         name: IMAGE_PMM
         default:
-        description: PMM image: perconalab/pmm-client:dev-latest
+        description: PMM image
