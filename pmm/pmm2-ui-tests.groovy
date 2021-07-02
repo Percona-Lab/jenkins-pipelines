@@ -42,6 +42,9 @@ pipeline {
         AZURE_POSTGRES_USER=credentials('AZURE_POSTGRES_USER');
         AZURE_SUBSCRIPTION_ID=credentials('AZURE_SUBSCRIPTION_ID');
         AZURE_TENNANT_ID=credentials('AZURE_TENNANT_ID');
+        GCP_SERVER_IP=credentials('GCP_SERVER_IP');
+        GCP_USER=credentials('GCP_USER');
+        GCP_USER_PASSWORD=credentials('GCP_USER_PASSWORD');
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
         REMOTE_AWS_MYSQL_PASSWORD=credentials('pmm-dev-remote-password')
         REMOTE_AWS_MYSQL57_HOST=credentials('pmm-dev-mysql57-remote-host')
