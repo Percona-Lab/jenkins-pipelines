@@ -2,114 +2,52 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
-void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, ENABLE_TESTING_REPO) {
-    stagingJob = build job: 'aws-staging-start', parameters: [
-        string(name: 'DOCKER_VERSION', value: "percona/pmm-server:${DOCKER_VERSION}"),
-        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e DISABLE_TELEMETRY=true -e DATA_RETENTION=48h'),
-        string(name: 'CLIENTS', value: CLIENTS),
-        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
-        string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1')
-    ]
-    env.VM_IP = stagingJob.buildVariables.IP
-    env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "http://admin:admin@${VM_IP}"
-    env.PMM_UI_URL = "http://${VM_IP}/"
-}
-
-void destroyStaging(IP) {
-    build job: 'aws-staging-stop', parameters: [
-        string(name: 'VM', value: IP),
-    ]
-}
 
 void performDockerWayUpgrade(String PMM_VERSION) {
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
-                export PMM_VERSION=${PMM_VERSION}
-                sudo chmod 755 /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh
-                bash -xe /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh ${PMM_VERSION}
-            '
-        """
-    }
+    sh """
+        export PMM_VERSION=${PMM_VERSION}
+        sudo chmod 755 /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh
+        bash -xe /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh ${PMM_VERSION}
+    """
 }
 
 void checkUpgrade(String PMM_VERSION, String PRE_POST) {
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
-                export PMM_VERSION=${PMM_VERSION}
-                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh 
-                bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh ${PMM_VERSION} ${PRE_POST}
-            '
-        """
-    }
+    sh """
+        export PMM_VERSION=${PMM_VERSION}
+        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
+        bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh ${PMM_VERSION} ${PRE_POST}
+    """
 }
 
 void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
-                export PMM_VERSION=${PMM_VERSION}
-                echo "Upgrading pmm2-client";
-                sudo yum clean all
-                sudo yum makecache
-                sudo yum -y install pmm2-client
-                sudo yum -y update
-                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
-                bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION} ${PRE_POST}
-            '
-        """
-    }
-}
-
-void uploadAllureArtifacts() {
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
-            scp -r -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
-                tests/output/allure aws-jenkins@${MONITORING_HOST}:/home/aws-jenkins/allure-reports
-        """
-    }
+    sh """
+        export PMM_VERSION=${PMM_VERSION}
+        echo "Upgrading pmm2-client";
+        sudo yum clean all
+        sudo yum makecache
+        sudo yum -y install pmm2-client
+        sleep 30
+        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
+        bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION} ${PRE_POST}
+    """
 }
 
 void fetchAgentLog(String CLIENT_VERSION) {
-     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
-                set -o errexit
-                set -o xtrace
-                export CLIENT_VERSION=${CLIENT_VERSION}
-                if [[ \$CLIENT_VERSION != http* ]]; then
-                    journalctl -u pmm-agent.service > /var/log/pmm-agent.log
-                    sudo chmod 777 /var/log/pmm-agent.log
-                fi
-                if [[ -e /var/log/pmm-agent.log ]]; then
-                    cp /var/log/pmm-agent.log .
-                fi
-            '
-            if [[ \$CLIENT_VERSION != http* ]]; then
-                scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
-                    ${USER}@${VM_IP}:pmm-agent.log \
-                    pmm-agent.log
-            fi
-        """
-    }
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
-            if [[ \$CLIENT_VERSION == http* ]]; then
-                scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
-                    ${USER}@${VM_IP}:workspace/aws-staging-start/pmm-agent.log \
-                    pmm-agent.log
-            fi
-        """
-    }
+    sh """
+        export CLIENT_VERSION=${CLIENT_VERSION}
+        if [[ \$CLIENT_VERSION != http* ]]; then
+            journalctl -u pmm-agent.service > /var/log/pmm-agent.log
+            sudo chown ec2-user:ec2-user /var/log/pmm-agent.log
+        fi
+        if [[ -e /var/log/pmm-agent.log ]]; then
+            cp /var/log/pmm-agent.log .
+        fi
+    """
 }
 
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'docker'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -150,7 +88,7 @@ pipeline {
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.19.0',
+            defaultValue: '2.20.0',
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
@@ -169,6 +107,21 @@ pipeline {
             choices: ['no', 'yes'],
             description: 'Perform Docker-way Upgrade?',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
+        text(
+            defaultValue: '--addclient=ps,1 --setup-with-custom-settings --setup-alertmanager',
+            description: '''
+            Configure PMM Clients
+            ms - MySQL (ex. --addclient=ms,1),
+            ps - Percona Server for MySQL (ex. --addclient=ps,1),
+            pxc - Percona XtraDB Cluster, --with-proxysql (to be used with proxysql only ex. --addclient=pxc,1 --with-proxysql),
+            md - MariaDB Server (ex. --addclient=md,1),
+            mo - Percona Server for MongoDB(ex. --addclient=mo,1),
+            modb - Official MongoDB version from MongoDB Inc (ex. --addclient=modb,1),
+            pgsql - Postgre SQL Server (ex. --addclient=pgsql,1)
+            pdpgsql - Percona Distribution for PostgreSQL (ex. --addclient=pdpgsql,1)
+            An example: --addclient=ps,1 --addclient=mo,1 --addclient=md,1 --addclient=pgsql,2 --addclient=modb,2
+            ''',
+            name: 'CLIENTS')
     }
     options {
         skipDefaultCheckout()
@@ -182,10 +135,10 @@ pipeline {
 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 installDocker()
+                setupDockerCompose()
                 sh '''
-                    sudo yum -y install jq svn
-                    sudo usermod -aG docker ec2-user
-                    sudo service docker start
+                    sudo yum -y install jq svn mysql
+                    docker-compose --version
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
@@ -197,9 +150,72 @@ pipeline {
                 '''
             }
         }
-        stage('Start staging') {
+        stage('Start Server Instance') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --setup-with-custom-settings', ENABLE_TESTING_REPO)
+                sh """
+                    PWD=\$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:\${DOCKER_VERSION} docker-compose up -d
+                """
+                waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
+                waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
+                waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
+                waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
+                sh """
+                    bash -x testdata/db_setup.sh
+                """
+                script {
+                    env.SERVER_IP = "127.0.0.1"
+                    env.PMM_UI_URL = "http://${env.SERVER_IP}/"
+                    env.PMM_URL = "http://admin:admin@${env.SERVER_IP}"
+                }
+            }
+        }
+        stage('Enable Testing Repo') {
+            when {
+                expression { env.ENABLE_TESTING_REPO == "yes" }
+            }
+            steps {
+                script {
+                    sh """
+                        set -o errexit
+                        set -o xtrace
+                        docker exec pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
+                        docker exec pmm-server percona-release enable original testing
+                        docker exec pmm-server yum clean all
+                    """
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'yes', 'yes', 'compose_setup')
+                }
+            }
+        }
+        stage('Enable Experimental Repo') {
+            when {
+                expression { env.ENABLE_TESTING_REPO == "no" }
+            }
+            steps {
+                script {
+                    sh """
+                        set -o errexit
+                        set -o xtrace
+                        docker exec pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
+                        docker exec pmm-server percona-release enable original experimental
+                        docker exec pmm-server yum clean all
+                    """
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup')
+                }
+            }
+        }
+        stage('Setup Client for PMM-Server') {
+            steps {
+                sh """
+                    set -o errexit
+                    set -o xtrace
+                    export PATH=\$PATH:/usr/sbin
+                    bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
+                        --download \
+                        ${CLIENTS} \
+                        --pmm2 \
+                        --pmm2-server-ip=\$SERVER_IP
+                    sleep 20
+                """
             }
         }
         stage('Sanity check') {
@@ -262,6 +278,7 @@ pipeline {
                     sh """
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
+                        sleep 30
                         ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@post-upgrade'
                     """
                     }
@@ -285,10 +302,13 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             fetchAgentLog(CLIENT_VERSION)
-            destroyStaging(VM_NAME)
             sh '''
                 ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
+                docker-compose down
+                docker rm -f $(sudo docker ps -a -q) || true
+                docker volume rm $(sudo docker volume ls -q) || true
+                sudo chown -R ec2-user:ec2-user . || true
             '''
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {

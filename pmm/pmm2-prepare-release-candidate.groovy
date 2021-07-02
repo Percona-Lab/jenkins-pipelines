@@ -65,7 +65,8 @@ def dependent_submodules() {
         "proxysql_exporter",
         "rds_exporter",
         "azure_metrics_exporter",
-        "percona-toolkit"
+        "percona-toolkit",
+        "percona-images"
     ]
 }
 
@@ -262,12 +263,12 @@ pipeline {
             parallel {
                 stage('Start AMI Build for RC') {
                     steps {
-                        runPMM2AMIBuild('master', 'yes')
+                        runPMM2AMIBuild("pmm-${VERSION}", 'yes')
                     }
                 }
                 stage('Start OVF Build for RC') {
                     steps {
-                        runPMM2OVFBuild('master', 'yes')
+                        runPMM2OVFBuild("pmm-${VERSION}", 'yes')
                     }
                 }
             }

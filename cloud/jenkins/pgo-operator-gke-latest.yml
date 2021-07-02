@@ -1,0 +1,37 @@
+- job:
+    name: pgo-operator-gke-latest
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: false
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 10
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 10
+    triggers:
+      - timed: "0 0 * * 3"
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - master
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: cloud/jenkins/pgo_operator_gke_latest.groovy
+    parameters:
+    - string:
+        name: GIT_REPO
+        default: https://github.com/percona/percona-postgresql-operator
+        description: percona/percona-postgresql-operator repository
+    - string:
+        name: GIT_BRANCH
+        default: release-0.1.0
+        description: Tag/Branch for percona/percona-postgresql-operator repository
+    - string:
+        name: GKE_VERSION
+        default: 'latest'
+        description: GKE version
+
