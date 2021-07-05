@@ -65,8 +65,7 @@ def dependent_submodules() {
         "proxysql_exporter",
         "rds_exporter",
         "azure_metrics_exporter",
-        "percona-toolkit",
-        "percona-images"
+        "percona-toolkit"
     ]
 }
 
