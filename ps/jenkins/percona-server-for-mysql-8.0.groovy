@@ -62,6 +62,10 @@ parameters {
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
         choice(
+            choices: 'OFF\nON',
+            description: 'Compile with ZenFS support?, only affects Ubuntu Hirsute',
+            name: 'ENABLE_ZENFS')
+        choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
@@ -226,6 +230,24 @@ parameters {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Hirsute(21.04)') {
+                    agent {
+                        label 'min-hirsute-x64-zenfs'
+                    }
+                    when {
+                        expression { env.ENABLE_ZENFS == "ON" }
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:hirsute", "--build_deb=1 --with_zenfs=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Debian Stretch(9)') {
                     agent {
                         label 'min-stretch-x64'
@@ -281,6 +303,24 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("centos:6", "--debug=1 --build_tarball=1")
+
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Ubuntu Hirsute(21.04) ZenFS tarball') {
+                    agent {
+                        label 'min-hirsute-x64-zenfs'
+                    }
+                    when {
+                        expression { env.ENABLE_ZENFS == "ON" }
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:hirsute", "--build_tarball=1 --with_zenfs=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
