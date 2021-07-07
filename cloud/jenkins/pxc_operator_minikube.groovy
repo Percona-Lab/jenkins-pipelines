@@ -249,10 +249,11 @@ pipeline {
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
                         export CHANGE_MINIKUBE_NONE_USER=true
-                        sudo -E /usr/local/bin/minikube start --vm-driver=none --kubernetes-version ${KUBER_VERSION}
+                        sudo -E /usr/local/bin/minikube start --disable-driver-mounts --cpus=12 --memory=16096  --network-plugin=cni --cni=calico --nodes=3 --vm-driver=none
                         sudo mv /root/.kube /root/.minikube $HOME
                         sudo chown -R $USER $HOME/.kube $HOME/.minikube
                         sed -i s:/root:$HOME:g $HOME/.kube/config
+                        sleep 3000
                     '''
 
                     unstash "sourceFILES"
