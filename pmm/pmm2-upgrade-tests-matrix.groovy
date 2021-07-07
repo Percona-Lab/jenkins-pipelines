@@ -156,6 +156,13 @@ pipeline {
                         }
                     }
                 }
+                stage('Upgrade from 2.19.0'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.19.0', '2.19.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                        }
+                    }
+                }
             }
         }
     }
