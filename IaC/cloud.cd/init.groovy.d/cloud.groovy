@@ -158,8 +158,8 @@ execMap['docker2'] = execMap['docker']
 execMap['micro-amazon'] = '30'
 
 devMap = [:]
-devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
-devMap['docker2'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker'] = '/dev/xvda=:15:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker2'] = '/dev/xvda=:15:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
 
