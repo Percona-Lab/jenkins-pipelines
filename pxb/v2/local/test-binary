@@ -95,13 +95,12 @@ else
 fi
 if [[ ${CMAKE_BUILD_TYPE} == "Debug" ]]; then
     if [[ ${XTRABACKUP_TARGET} == "innodb80" ]] || [[ ${XTRABACKUP_TARGET} == "innodb57" ]]; then
-        XBTR_ARGS+="-D"
+        XBTR_ARGS+=" -D"
     fi
 fi
 ./run.sh ${XBTR_ARGS} -f | tee -a ${WORKDIR_ABS}/xbtr.output
 cat results/setup
 sudo cp -r ${TEST_DIR}/results/* ${WORKDIR_ABS}/
 cp test_results.subunit ${WORKDIR_ABS}
-iconv -c -t UTF-8 test_results.subunit | tr -cd '[:print:]\n\r' > test_results_converted.subunit
-cat test_results_converted.subunit | PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml > ${WORKDIR_ABS}/junit.xml || true
+iconv -t UTF-8 test_results.subunit | PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml > ${WORKDIR_ABS}/junit.xml || true
 exit $status
