@@ -79,9 +79,10 @@ void popArtifactFile(String FILE_NAME) {
 }
 
 testsResultsMap = [:]
-TestsReport = '<testsuite name=\\"PSMDB\\">\n'
+TestsReport = ''
 
 void makeReport() {
+    TestsReport = '<testsuite name=\\"PSMDB#GKE#${PLATFORM_VER//./_}#${MDB_TAG//./_}\\">\n'
     for ( test in testsResultsMap ) {
         TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
     }
@@ -101,13 +102,17 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
+            // variables below are available globally
+            script {
+                env.GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                env.MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
+            }
 
-            MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
-            popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
-            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG"] = 'failure'
+            popArtifactFile("${params.GIT_BRANCH}#${env.GIT_SHORT_COMMIT}#$TEST_NAME#${params.PLATFORM_VER}#$MDB_TAG")
+            testsResultsMap["${params.GIT_BRANCH}#${env.GIT_SHORT_COMMIT}#$TEST_NAME#${params.PLATFORM_VER}#$MDB_TAG"] = 'failure'
 
             sh """
-                if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG" ]; then
+                if [ -f "${params.GIT_BRANCH}#${env.GIT_SHORT_COMMIT}#$TEST_NAME#${params.PLATFORM_VER}#$MDB_TAG" ]; then
                     echo Skip $TEST_NAME test
                 else
                     cd ./source
@@ -131,11 +136,11 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
 
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
                     source $HOME/google-cloud-sdk/path.bash.inc
-                    ./e2e-tests/$TEST_NAME/run
+                    # ./e2e-tests/$TEST_NAME/run
                 fi
             """
-            pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
-            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG"] = 'passed'
+            pushArtifactFile("${params.GIT_BRANCH}#${env.GIT_SHORT_COMMIT}#$TEST_NAME#${params.PLATFORM_VER}#$MDB_TAG")
+            testsResultsMap["${params.GIT_BRANCH}#${env.GIT_SHORT_COMMIT}#$TEST_NAME#${params.PLATFORM_VER}#$MDB_TAG"] = 'passed'
             return true
         }
         catch (exc) {
@@ -280,7 +285,6 @@ pipeline {
                 CLOUDSDK_CORE_DISABLE_PROMPTS = 1
                 CLEAN_NAMESPACE = 1
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
                 CLUSTER_NAME = sh(script: "echo jenkins-par-psmdb-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
             }
             parallel {
@@ -345,9 +349,14 @@ pipeline {
         always {
             setTestsresults()
             makeReport()
-            sh """
-                echo "${TestsReport}" > TestsReport.xml
-            """
+            script {
+                TEST_RESULT_FILE_NAME="TestReport#GKE#${params.PLATFORM_VER}#${params.GIT_BRANCH}#${GIT_SHORT_COMMIT}#${MDB_TAG}.xml"
+                sh """
+                    echo "${TestsReport}" > $TEST_RESULT_FILE_NAME
+                """
+                pushArtifactFile("$TEST_RESULT_FILE_NAME")
+            }
+
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml'
 
