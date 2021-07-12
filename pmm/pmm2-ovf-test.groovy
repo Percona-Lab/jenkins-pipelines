@@ -146,6 +146,7 @@ pipeline {
                     sudo PWD=\$(pwd) docker-compose up -d postgres
                     sudo PWD=\$(pwd) docker-compose up -d proxysql
                     sleep 30
+                    bash -x testdata/db_setup.sh
                 """
                 sh '''
                     wget -O \$(cat VM_NAME).ova http://percona-vm.s3-website-us-east-1.amazonaws.com/\${OVA_VERSION} > /dev/null
