@@ -210,6 +210,12 @@ pipeline {
                     echo 'Test PXC57'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
+                            sudo git reset --hard
+                            sudo git clean -xdf
+                            rm -rf pxc/sources/* || :
+                            sudo git -C sources reset --hard || :
+                            sudo git -C sources clean -xdf   || :
+
                             until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/pxb24.tar.gz ./pxc/sources/pxc/results/pxb24.tar.gz; do
                                 sleep 5
                             done
