@@ -121,15 +121,10 @@ pipeline {
         stage('Run PMM-Server') {
             steps {
                 unstash 'VM_NAME'
+                installDocker()
+                setupDockerCompose()
                 sh """
-                    sudo yum -y install git svn docker
-                    sudo systemctl start docker
-                    sudo curl -L https://github.com/docker/compose/releases/download/1.29.0/docker-compose-`uname -s`-`uname -m` | sudo tee docker-compose > /dev/null
-                    md5sum docker-compose > checkmd5.md5
-                    md5sum -c --strict checkmd5.md5
-                    sudo mv docker-compose /usr/bin/docker-compose
-                    sudo chmod +x /usr/bin/docker-compose
-                    docker-compose --version
+                    sudo yum -y install svn git
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone https://github.com/percona/pmm-qa.git .
@@ -137,13 +132,14 @@ pipeline {
                         sudo chmod 755 get_download_link.sh
                     popd
                     sudo git clone --single-branch --branch \${GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
-                    cd pmm-ui-tests
-                    sudo PWD=\$(pwd) docker-compose up -d mysql
-                    sudo PWD=\$(pwd) docker-compose up -d mongo
-                    sudo PWD=\$(pwd) docker-compose up -d postgres
-                    sudo PWD=\$(pwd) docker-compose up -d proxysql
+                    pushd pmm-ui-tests
+                    PWD=\$(pwd) docker-compose up -d mysql
+                    PWD=\$(pwd) docker-compose up -d mongo
+                    PWD=\$(pwd) docker-compose up -d postgres
+                    PWD=\$(pwd) docker-compose up -d proxysql
                     sleep 30
                     bash -x testdata/db_setup.sh
+                    popd
                 """
                 sh '''
                     wget -O \$(cat VM_NAME).ova http://percona-vm.s3-website-us-east-1.amazonaws.com/\${OVA_VERSION} > /dev/null
@@ -241,6 +237,15 @@ pipeline {
     }
 
     post {
+        always {
+            sh '''
+                pushd pmm-ui-tests
+                docker-compose down
+                docker rm -f $(sudo docker ps -a -q) || true
+                docker volume rm $(sudo docker volume ls -q) || true
+                popd
+            '''
+        }
         success {
             script {
                 sh '''
