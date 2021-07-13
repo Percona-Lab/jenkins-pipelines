@@ -49,12 +49,7 @@ def pmm_submodules() {
         "grafana-dashboards",
         "pmm-api-tests",
         "pmm-ui-tests",
-        "pmm-qa"
-    ]
-}
-
-def dependent_submodules() {
-    return [
+        "pmm-qa",
         "mysqld_exporter",
         "grafana",
         "dbaas-controller",
@@ -72,10 +67,6 @@ def dependent_submodules() {
 void deleteReleaseBranches(String VERSION, String GIT_BRANCH) {
 
     pmm_submodules().each { submodule ->
-        println "Deleting Release branch for : $submodule"
-        deleteBranch(submodule, 'release-' + VERSION)
-    }
-    dependent_submodules().each { submodule ->
         println "Deleting Release branch for : $submodule"
         deleteBranch(submodule, 'pmm-' + VERSION)
     }
@@ -99,10 +90,6 @@ void setupReleaseBranches(String VERSION, String GIT_BRANCH) {
         git checkout \${RELEASE_BRANCH}
     '''
     pmm_submodules().each { submodule ->
-        println "Preparing Release branch for Submodule: $submodule"
-        createBranch(submodule, 'release-' + VERSION)
-    }
-    dependent_submodules().each { submodule ->
         println "Preparing Release branch for Submodule: $submodule"
         createBranch(submodule, 'pmm-' + VERSION)
     }
