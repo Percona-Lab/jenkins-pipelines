@@ -4,7 +4,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 void runUITests(CLIENT_VERSION, CLIENT_INSTANCE, SERVER_IP, GIT_BRANCH, CLIENTS) {
-    stagingJob = build job: 'pmm2-ui-tests-temp', parameters: [
+    stagingJob = build job: 'pmm2-ui-tests', parameters: [
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
         string(name: 'SERVER_IP', value: SERVER_IP),
