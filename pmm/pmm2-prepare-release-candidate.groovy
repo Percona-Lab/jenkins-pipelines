@@ -186,9 +186,9 @@ pipeline {
             steps {
                 deleteDir()
                 script {
-                    env.RELEASE_BRANCH = 'release-' + VERSION
+                    env.RELEASE_BRANCH = 'pmm-' + VERSION
                     env.EXIST = sh (
-                        script: 'git ls-remote --heads https://github.com/Percona-Lab/pmm-submodules release-\${VERSION} | wc -l',
+                        script: 'git ls-remote --heads https://github.com/Percona-Lab/pmm-submodules pmm-\${VERSION} | wc -l',
                         returnStdout: true
                     ).trim()
                 }
