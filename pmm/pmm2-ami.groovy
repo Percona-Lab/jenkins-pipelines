@@ -13,7 +13,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: 'PMM-2.0',
             description: 'Tag/Branch for pmm-server repository',
             name: 'GIT_BRANCH')
         choice(
