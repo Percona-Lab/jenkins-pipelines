@@ -137,7 +137,13 @@ pipeline {
                     PWD=\$(pwd) docker-compose up -d mongo
                     PWD=\$(pwd) docker-compose up -d postgres
                     PWD=\$(pwd) docker-compose up -d proxysql
-                    sleep 30
+                    popd
+                """
+                waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
+                waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
+                waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
+                sh """    
+                    pushd pmm-ui-tests
                     bash -x testdata/db_setup.sh
                     popd
                 """
