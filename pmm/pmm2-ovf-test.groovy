@@ -84,6 +84,7 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
+    triggers { cron('0 22 * * *') }
     stages {
         stage('Prepare') {
             steps {
