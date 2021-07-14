@@ -3,36 +3,36 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runSubmodulesRewind(String GIT_BRANCH) {
+void runSubmodulesRewind(String SUBMODULES_GIT_BRANCH) {
     rewindSubmodule = build job: 'pmm2-rewind-submodules-fb', propagate: false, parameters: [
-        string(name: 'GIT_BRANCH', value: GIT_BRANCH)
+        string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH)
     ]
 }
 
-void runPMM2ServerAutobuild(String GIT_BRANCH, String DESTINATION) {
+void runPMM2ServerAutobuild(String SUBMODULES_GIT_BRANCH, String DESTINATION) {
     pmm2Server = build job: 'pmm2-server-autobuild', parameters: [
-        string(name: 'GIT_BRANCH', value: GIT_BRANCH),
+        string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH),
         string(name: 'DESTINATION', value: DESTINATION)
     ]
 }
 
-void runPMM2ClientAutobuild(String GIT_BRANCH, String DESTINATION) {
+void runPMM2ClientAutobuild(String SUBMODULES_GIT_BRANCH, String DESTINATION) {
     pmm2Client = build job: 'pmm2-client-autobuilds', parameters: [
-        string(name: 'GIT_BRANCH', value: GIT_BRANCH),
+        string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH),
         string(name: 'DESTINATION', value: DESTINATION)
     ]
 }
 
-void runPMM2AMIBuild(String GIT_BRANCH, String RELEASE_CANDIDATE) {
+void runPMM2AMIBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
     pmm2AMI = build job: 'pmm2-ami', parameters: [
-        string(name: 'GIT_BRANCH', value: GIT_BRANCH),
+        string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH),
         string(name: 'RELEASE_CANDIDATE', value: RELEASE_CANDIDATE)
     ]
 }
 
-void runPMM2OVFBuild(String GIT_BRANCH, String RELEASE_CANDIDATE) {
+void runPMM2OVFBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
     pmm2OVF = build job: 'pmm2-ovf', parameters: [
-        string(name: 'GIT_BRANCH', value: GIT_BRANCH),
+        string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH),
         string(name: 'RELEASE_CANDIDATE', value: RELEASE_CANDIDATE)
     ]
 }
@@ -64,7 +64,7 @@ def pmm_submodules() {
     ]
 }
 
-void deleteReleaseBranches(String VERSION, String GIT_BRANCH) {
+void deleteReleaseBranches(String VERSION) {
 
     pmm_submodules().each { submodule ->
         println "Deleting Release branch for : $submodule"
@@ -83,7 +83,7 @@ void deleteReleaseBranches(String VERSION, String GIT_BRANCH) {
     }
 }
 
-void setupReleaseBranches(String VERSION, String GIT_BRANCH) {
+void setupReleaseBranches(String VERSION) {
 
     sh '''
         git branch \${RELEASE_BRANCH}
@@ -171,7 +171,7 @@ pipeline {
         string(
             defaultValue: 'PMM-2.0',
             description: 'Prepare Submodules from pmm-submodules branch',
-            name: 'GIT_BRANCH')
+            name: 'SUBMODULES_GIT_BRANCH')
         string(
             defaultValue: '',
             description: 'Release Version',
@@ -200,7 +200,7 @@ pipeline {
             }
             steps {
                 git branch: env.RELEASE_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
-                deleteReleaseBranches(VERSION, GIT_BRANCH)
+                deleteReleaseBranches(VERSION)
             }
         }
         stage('Checkout Submodules and Prepare for creating branches') {
@@ -208,13 +208,13 @@ pipeline {
                 expression { env.EXIST.toInteger() == 0 }
             }
             steps {
-                git branch: GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
+                git branch: SUBMODULES_GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
                 sh """
                     sudo yum install -y git wget jq
                     git config --global user.email "dev-services@percona.com"
                     git config --global user.name "PMM Jenkins"
                 """
-                setupReleaseBranches(VERSION, GIT_BRANCH)
+                setupReleaseBranches(VERSION)
             }
         }
         stage('Rewind Release Submodule') {
