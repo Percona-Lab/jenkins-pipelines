@@ -3,11 +3,12 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runAMIStagingStart(AMI_ID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO) {
+void runAMIStagingStart(AMI_ID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, AMI_UPGRADE_TESTING_INSTANCE) {
     amiStagingJob = build job: 'pmm2-ami-staging-start', parameters: [
         string(name: 'AMI_ID', value: AMI_ID),
         string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
-        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH)
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
+        string(name: 'AMI_UPGRADE_TESTING_INSTANCE', value: AMI_UPGRADE_TESTING_INSTANCE)
     ]
     env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
     env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.IP
@@ -206,6 +207,10 @@ pipeline {
             choices: ['no', 'yes'],
             description: 'Enable Testing Repo, for RC testing',
             name: 'ENABLE_TESTING_REPO')
+        choice(
+            choices: ['true', 'false'],
+            description: 'Enable to setup Docker-compose for remote instances',
+            name: 'AMI_UPGRADE_TESTING_INSTANCE')
     }
     options {
         skipDefaultCheckout()
@@ -237,7 +242,7 @@ pipeline {
         }
         stage('Start AMI Server') {
             steps {
-                runAMIStagingStart(AMI_ID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO)
+                runAMIStagingStart(AMI_ID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, AMI_UPGRADE_TESTING_INSTANCE)
                 customSetupAMIInstance(AMI_INSTANCE_IP)
             }
         }

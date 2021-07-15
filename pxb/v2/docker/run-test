@@ -27,6 +27,7 @@ docker run --rm \
     export XTRABACKUP_TARGET='${XTRABACKUP_TARGET}'
     export XTRABACKUP_TARGET_VERSION='${XTRABACKUP_TARGET_VERSION}'
     export BOOTSTRAP_URL='${BOOTSTRAP_URL}'
+    export LANG=en_AU.UTF-8
 
     mkdir /tmp/results
     cp /tmp/pxb/results/*.tar.gz /tmp/results

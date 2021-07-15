@@ -138,11 +138,13 @@ pipeline {
                     sh '''
                         aws s3 cp --no-progress s3://pxb-build-cache/${BUILD_TAG}/xbtr.output.gz ./ || true
                         aws s3 cp --no-progress s3://pxb-build-cache/${BUILD_TAG}/junit.xml.gz ./ || true
+                        aws s3 cp --no-progress s3://pxb-build-cache/${BUILD_TAG}/test_results.subunit.gz ./ || true
                         gunzip < xbtr.output.gz > xbtr.output || true
                         gunzip < junit.xml.gz > junit.xml || true
+                        gunzip < test_results.subunit.gz > test_results.subunit || true
                     '''
                 }
-                archiveArtifacts allowEmptyArchive: true, followSymlinks: false, onlyIfSuccessful: true, artifacts: 'xbtr.output,junit.xml'
+                archiveArtifacts allowEmptyArchive: true, followSymlinks: false, onlyIfSuccessful: true, artifacts: 'xbtr.output,junit.xml,test_results.subunit'
                 step([$class: 'JUnitResultArchiver', testResults: 'junit.xml', healthScaleFactor: 1.0])
                 }
             }

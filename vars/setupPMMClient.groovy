@@ -1,4 +1,4 @@
-def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENABLE_PUSH_MODE, String ENABLE_TESTING_REPO, String CLIENT_INSTANCE) {
+def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENABLE_PUSH_MODE, String ENABLE_TESTING_REPO, String CLIENT_INSTANCE, String SETUP_TYPE) {
    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             set -o errexit
@@ -12,6 +12,10 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             export ENABLE_PUSH_MODE=${ENABLE_PUSH_MODE}
             export ENABLE_TESTING_REPO=${ENABLE_TESTING_REPO}
             export CLIENT_INSTANCE=${CLIENT_INSTANCE}
+            export SETUP_TYPE=${SETUP_TYPE}
+            if [[ \$SETUP_TYPE == compose_setup ]]; then
+                export IP=192.168.0.1
+            fi
             sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
             sudo yum clean all
             sudo yum makecache
@@ -92,12 +96,12 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     pmm-admin --version
                     if [[ \$CLIENT_INSTANCE == yes ]]; then
                         if [[ \$ENABLE_PUSH_MODE == yes ]]; then
-                            sudo pmm-agent setup --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin --metrics-mode=push \$IP
+                            sudo pmm-admin config --server-url=https://admin:admin@\$SERVER_IP:443 --server-insecure-tls --metrics-mode=push \$IP
                         else
-                            sudo pmm-agent setup --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
+                            sudo pmm-admin config --server-url=https://admin:admin@\$SERVER_IP:443 --server-insecure-tls \$IP
                         fi
                     else
-                        sudo pmm-agent setup --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
+                        sudo pmm-admin config --server-url=https://admin:admin@\$SERVER_IP:443 --server-insecure-tls \$IP
                     fi
                     sleep 10
                     pmm-admin list

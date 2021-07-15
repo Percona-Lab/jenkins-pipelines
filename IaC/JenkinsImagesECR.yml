@@ -31,6 +31,19 @@ Resources:
           - "x86"
           - "x86-64"
 
+  RPMBuildRepo:
+    Type: AWS::ECR::PublicRepository
+    Properties:
+      RepositoryName: "rpmbuild"
+      RepositoryCatalogData:
+        UsageText: "This image used exclusively for Percona Jenkins pipelines"
+        AboutText: "This image contains all build utilities to create proper builds and execute tests"
+        OperatingSystems:
+          - "Linux"
+        Architectures:
+          - "x86"
+          - "x86-64"
+
   ECRRWUser:
     Type: AWS::IAM::User
     Properties: 
@@ -42,7 +55,8 @@ Resources:
           - Effect: Allow
             Resource:
             - !GetAtt PSBuildRepo.Arn
-            - !GetAtt PXCBuildRepo.Arn            
+            - !GetAtt PXCBuildRepo.Arn    
+            - !GetAtt RPMBuildRepo.Arn        
             Action:
             - ecr-public:BatchCheckLayerAvailability
             - ecr-public:GetRepositoryPolicy

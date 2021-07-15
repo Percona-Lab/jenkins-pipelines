@@ -95,7 +95,7 @@ else
 fi
 if [[ ${CMAKE_BUILD_TYPE} == "Debug" ]]; then
     if [[ ${XTRABACKUP_TARGET} == "innodb80" ]] || [[ ${XTRABACKUP_TARGET} == "innodb57" ]]; then
-        XBTR_ARGS+="-D"
+        XBTR_ARGS+=" -D"
     fi
 fi
 ./run.sh ${XBTR_ARGS} -f | tee -a ${WORKDIR_ABS}/xbtr.output

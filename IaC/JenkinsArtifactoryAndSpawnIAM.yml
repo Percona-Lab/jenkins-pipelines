@@ -38,6 +38,10 @@ Resources:
                 - ec2:DescribeAvailabilityZones
                 - ec2:DescribeSecurityGroups
                 - ec2:DescribeSubnets
+                - ec2:AuthorizeSecurityGroupEgress
+                - ec2:AuthorizeSecurityGroupIngress
+                - ec2:RevokeSecurityGroupEgress
+                - ec2:RevokeSecurityGroupIngress
       Tags:
       - Key: iit-billing-tag
         Value: jenkins-spawn-user
