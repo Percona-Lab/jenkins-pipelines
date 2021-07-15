@@ -25,14 +25,14 @@ void runPMM2ClientAutobuild(String SUBMODULES_GIT_BRANCH, String DESTINATION) {
 
 void runPMM2AMIBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
     pmm2AMI = build job: 'pmm2-ami', parameters: [
-        string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH),
+        string(name: 'PMM_SERVER_BRANCH', value: SUBMODULES_GIT_BRANCH),
         string(name: 'RELEASE_CANDIDATE', value: RELEASE_CANDIDATE)
     ]
 }
 
 void runPMM2OVFBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
     pmm2OVF = build job: 'pmm2-ovf', parameters: [
-        string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH),
+        string(name: 'PMM_SERVER_BRANCH', value: SUBMODULES_GIT_BRANCH),
         string(name: 'RELEASE_CANDIDATE', value: RELEASE_CANDIDATE)
     ]
 }
