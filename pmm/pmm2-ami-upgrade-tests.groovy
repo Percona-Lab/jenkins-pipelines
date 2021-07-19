@@ -60,12 +60,13 @@ void setInstanceAMIId(PMM_VERSION) {
     }
 }
 
-void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH) {
+void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
+        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
@@ -259,7 +260,7 @@ pipeline {
         }
         stage('Start Client Instance') {
             steps {
-                runStagingClient(CLIENT_VERSION, '--addclient=ps,1 --setup-with-custom-queries --setup-mysql-ssl', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH)
+                runStagingClient(CLIENT_VERSION, '--addclient=ps,1 --setup-with-custom-queries --setup-mysql-ssl', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO)
             }
         }
         stage('Sleep') {
