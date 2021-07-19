@@ -60,8 +60,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         AUX_PATH_1=/tmp/zenfs_disk_dir_1
         sudo rm -rf /tmp/zenfs* \$AUX_PATH_0 \$AUX_PATH_1 || true
 
-        zenfs mkfs --zbd nullb0 --aux_path \$AUX_PATH_0
-        zenfs mkfs --zbd nullb1 --aux_path \$AUX_PATH_1
+        sudo zenfs mkfs --zbd nullb0 --aux_path \$AUX_PATH_0
+        sudo zenfs mkfs --zbd nullb1 --aux_path \$AUX_PATH_1
 
         for nulldevice in 0 1; do
             sudo zenfs ls-uuid
@@ -71,7 +71,10 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             sudo blkzone report /dev/nullb\$nulldevice
             sudo zbd report /dev/nullb\$nulldevice
         done
-        
+        sudo chown 1000:1000 /dev/nullb0
+        sudo chown 1000:1000 /dev/nullb1
+        sudo chmod 600 /dev/nullb
+        sudo chmod 600 /dev/nullb1
         sudo chown -R 1000:1000 \$AUX_PATH_0 \$AUX_PATH_1 
         sudo chmod -R 770 \$AUX_PATH_0 \$AUX_PATH_1
          
