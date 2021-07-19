@@ -60,8 +60,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         AUX_PATH_1=/tmp/zenfs_disk_dir_1
         sudo rm -rf /tmp/zenfs* \$AUX_PATH_0 \$AUX_PATH_1 || true
 
-        sudo zenfs mkfs --zbd nullb0 --aux_path \$AUX_PATH_0
-        sudo zenfs mkfs --zbd nullb1 --aux_path \$AUX_PATH_1
+        zenfs mkfs --zbd nullb0 --aux_path \$AUX_PATH_0
+        zenfs mkfs --zbd nullb1 --aux_path \$AUX_PATH_1
 
         for nulldevice in 0 1; do
             sudo zenfs ls-uuid
@@ -77,6 +77,12 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
          
 
         cd /usr/lib/mysql-test/
+        if [ -d var ]; then
+            sudo rm -rf var
+        fi
+        if [ -f mtr_rocksdbzenfs_debug.log ]; then
+            rm -f mtr_rocksdbzenfs_debug.log
+        fi
         sudo mkdir -p var
         sudo chmod 777 var
         ./mtr --debug-server --force --retry=0 --max-test-fail=0 --testcase-timeout=45 \
