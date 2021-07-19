@@ -33,6 +33,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         set -o xtrace
         cd \${build_dir}
         mkdir debs
+        sudo apt update
+        sudo apt-get install -y libgflags-dev
         cd debs
         wget https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/libperconaserverclient21_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/libperconaserverclient21-dev_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-client-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-common-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-dbg-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-rocksdb-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-server-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-source-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-test-zenfs_8.0.23-14-2.hirsute_amd64.deb
         export DEBIAN_FRONTEND="noninteractive"
