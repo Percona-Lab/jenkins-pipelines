@@ -39,8 +39,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         sudo dpkg -i ./libjemalloc1_3.6.0-11_amd64.deb
         sudo apt-get install -y libjemalloc2
         cd debs
-        grep `whoami` /etc/passwd
-        exit 1
         wget https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/libperconaserverclient21_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/libperconaserverclient21-dev_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-client-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-common-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-dbg-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-rocksdb-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-server-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-source-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-test-zenfs_8.0.23-14-2.hirsute_amd64.deb
         export DEBIAN_FRONTEND="noninteractive"
         sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ./*.deb
@@ -74,7 +72,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             sudo zbd report /dev/nullb\$nulldevice
         done
         
-        sudo chown -R 27:27 \$AUX_PATH_0 \$AUX_PATH_1 
+        sudo chown -R 1000:1000 \$AUX_PATH_0 \$AUX_PATH_1 
         sudo chmod -R 770 \$AUX_PATH_0 \$AUX_PATH_1
          
 
@@ -82,7 +80,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         sudo mkdir -p var
         sudo chmod 777 var
         ./mtr --debug-server --force --retry=0 --max-test-fail=0 --testcase-timeout=45 \
-  --after-failure-hook=\"rm -rf ; rm -rf \$AUX_PATH_0  \$AUX_PATH_1; /usr/bin/zenfs mkfs --zbd nullb0 --aux_path \$AUX_PATH_0 --force; /usr/bin/zenfs mkfs --zbd nullb1 --aux_path \$AUX_PATH_1 --force\" \
+  --after-failure-hook=\"rm -rf \$AUX_PATH_0  \$AUX_PATH_1; /usr/bin/zenfs mkfs --zbd nullb0 --aux_path \$AUX_PATH_0 --force; /usr/bin/zenfs mkfs --zbd nullb1 --aux_path \$AUX_PATH_1 --force\" \
   --defaults-extra-file=include/zenfs_nullb_emulated.cnf --suite=rocksdb | tee mtr_rocksdbzenfs_debug.log
 
     """
