@@ -77,7 +77,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         
 
         cd /usr/lib/mysql-test/
-        mkdir -p var
+        sudo mkdir -p var
         sudo chmod 777 var
         ./mtr --debug-server --force --retry=0 --max-test-fail=0 --testcase-timeout=45 \
   --after-failure-hook=\"rm -rf ; rm -rf \$AUX_PATH_0  \$AUX_PATH_1; /usr/bin/zenfs mkfs --zbd nullb0 --aux_path \$AUX_PATH_0 --force; /usr/bin/zenfs mkfs --zbd nullb1 --aux_path \$AUX_PATH_1 --force\" \
