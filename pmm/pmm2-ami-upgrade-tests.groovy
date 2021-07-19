@@ -195,15 +195,15 @@ pipeline {
             description: 'PMM Server AMI ID',
             name: 'AMI_ID_CUSTOM')
         choice(
-            choices: ['2.15.0','2.15.1', '2.16.0', '2.17.0', '2.18.0', 'custom'],
+            choices: ['2.15.0','2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', 'custom'],
             description: 'PMM Server AMI ID to test for Upgrade',
             name: 'SERVER_VERSION')
         choice(
-            choices: ['2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0'],
+            choices: ['2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0'],
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.19.0',
+            defaultValue: '2.20.0',
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
