@@ -59,29 +59,29 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         unset AUX_PATH_0 AUX_PATH_1
         AUX_PATH_0=/tmp/zenfs_disk_dir_0
         AUX_PATH_1=/tmp/zenfs_disk_dir_1
-        sudo rm -rf /tmp/zenfs* $AUX_PATH_0 $AUX_PATH_1 || true
+        sudo rm -rf /tmp/zenfs* \$AUX_PATH_0 \$AUX_PATH_1 || true
 
-        sudo zenfs mkfs --zbd nullb0 --aux_path $AUX_PATH_0
-        sudo zenfs mkfs --zbd nullb1 --aux_path $AUX_PATH_1
+        sudo zenfs mkfs --zbd nullb0 --aux_path \$AUX_PATH_0
+        sudo zenfs mkfs --zbd nullb1 --aux_path \$AUX_PATH_1
 
         for nulldevice in 0 1; do
             sudo zenfs ls-uuid
-            sudo zenfs df --zbd nullb$nulldevice
-            sudo zenfs list --zbd nullb$nulldevice
+            sudo zenfs df --zbd nullb\$nulldevice
+            sudo zenfs list --zbd nullb\$nulldevice
 
-            sudo blkzone report /dev/nullb$nulldevice
-            sudo zbd report /dev/nullb$nulldevice
+            sudo blkzone report /dev/nullb\$nulldevice
+            sudo zbd report /dev/nullb\$nulldevice
         done
 
-        sudo chown -R 27:27 $AUX_PATH_0 $AUX_PATH_1 
-        sudo chmod -R 770 $AUX_PATH_0 $AUX_PATH_1
+        sudo chown -R 27:27 \$AUX_PATH_0 \$AUX_PATH_1 
+        sudo chmod -R 770 \$AUX_PATH_0 \$AUX_PATH_1
         
 
         cd /usr/lib/mysql-test/
         mkdir -p var
         sudo chmod 777 var
         ./mtr --debug-server --force --retry=0 --max-test-fail=0 --testcase-timeout=45 \
-  --after-failure-hook=\"rm -rf ; rm -rf $AUX_PATH_0  $AUX_PATH_1; /usr/bin/zenfs mkfs --zbd nullb0 --aux_path $AUX_PATH_0 --force; /usr/bin/zenfs mkfs --zbd nullb1 --aux_path $AUX_PATH_1 --force\" \
+  --after-failure-hook=\"rm -rf ; rm -rf \$AUX_PATH_0  \$AUX_PATH_1; /usr/bin/zenfs mkfs --zbd nullb0 --aux_path \$AUX_PATH_0 --force; /usr/bin/zenfs mkfs --zbd nullb1 --aux_path \$AUX_PATH_1 --force\" \
   --defaults-extra-file=include/zenfs_nullb_emulated.cnf --suite=rocksdb | tee mtr_rocksdbzenfs_debug.log
 
     """
