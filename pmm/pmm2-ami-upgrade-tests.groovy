@@ -51,6 +51,9 @@ void setInstanceAMIId(PMM_VERSION) {
         case "2.18.0":
             env.AMI_ID = "ami-0184c7b18b45d2a7b"
             break;
+        case "2.19.0":
+            env.AMI_ID = "ami-0d3c21da426d248d3"
+            break;
         case "custom":
             env.AMI_ID = env.AMI_ID_CUSTOM
             break;
@@ -177,6 +180,9 @@ pipeline {
         MAILOSAUR_API_KEY=credentials('MAILOSAUR_API_KEY')
         MAILOSAUR_SERVER_ID=credentials('MAILOSAUR_SERVER_ID')
         MAILOSAUR_SMTP_PASSWORD=credentials('MAILOSAUR_SMTP_PASSWORD')
+        GCP_SERVER_IP=credentials('GCP_SERVER_IP')
+        GCP_USER=credentials('GCP_USER')
+        GCP_USER_PASSWORD=credentials('GCP_USER_PASSWORD')
     }
     parameters {
         string(
