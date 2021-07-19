@@ -33,13 +33,13 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         set -o xtrace
         cd \${build_dir}
         sudo apt-get install -y chrpath ghostscript
-        sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
         mkdir debs
         cd debs
-        wget https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/libperconaserverclient21_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/libperconaserverclient21-dev_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-client-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-common-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-dbg-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-rocksdb-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-server-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-source-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-test-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-tokudb-zenfs_8.0.23-14-2.hirsute_amd64.deb
+        wget https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/libperconaserverclient21_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/libperconaserverclient21-dev_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-client-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-common-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-dbg-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-rocksdb-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-server-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-source-zenfs_8.0.23-14-2.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83/percona-server-test-zenfs_8.0.23-14-2.hirsute_amd64.deb
         export DEBIAN_FRONTEND="noninteractive"
         sudo apt-get install ./*.deb
         cd ../
+
         sudo dpkg -l | grep -i percona
     """
 }
