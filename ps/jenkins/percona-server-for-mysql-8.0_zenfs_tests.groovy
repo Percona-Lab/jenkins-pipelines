@@ -73,7 +73,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         done
         sudo chown 1000:1000 /dev/nullb0
         sudo chown 1000:1000 /dev/nullb1
-        sudo chmod 600 /dev/nullb
+        sudo chmod 600 /dev/nullb0
         sudo chmod 600 /dev/nullb1
         sudo chown -R 1000:1000 \$AUX_PATH_0 \$AUX_PATH_1 
         sudo chmod -R 770 \$AUX_PATH_0 \$AUX_PATH_1
