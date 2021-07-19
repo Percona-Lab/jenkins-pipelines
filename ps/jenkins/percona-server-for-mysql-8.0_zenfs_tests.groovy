@@ -41,12 +41,17 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         sudo chmod +x nullblk-zoned.sh
         sudo mv nullblk-zoned.sh /usr/bin
         for nulldevice in 0 1; do
-            sudo bash -c \"echo 0 > /sys/kernel/config/nullb/nullb$nulldevice/power\" || true
-            sudo rmdir /sys/kernel/config/nullb/nullb$nulldevice || true 
+            sudo bash -c \"echo 0 > /sys/kernel/config/nullb/nullb0/power\" || true
+            sudo bash -c \"echo 0 > /sys/kernel/config/nullb/nullb1/power\" || true
+            sudo rmdir /sys/kernel/config/nullb/nullb0 || true 
+            sudo rmdir /sys/kernel/config/nullb/nullb1 || true 
 
-            sudo nullblk-zoned $nulldevice 512 128 124 0 32 12 12
-            sudo chown 27:27 /dev/nullb$nulldevice
-            sudo chmod 600 /dev/nullb$nulldevice
+            sudo nullblk-zoned 0 512 128 124 0 32 12 12
+            sudo nullblk-zoned 1 512 128 124 0 32 12 12
+            sudo chown 27:27 /dev/nullb0
+            sudo chown 27:27 /dev/nullb1
+            sudo chmod 600 /dev/nullb0
+            sudo chmod 600 /dev/nullb1
         done
 
 
