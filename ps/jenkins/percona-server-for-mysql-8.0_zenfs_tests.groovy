@@ -36,7 +36,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         wget https://repo.percona.com/tools/apt/pool/main/j/jemalloc/libjemalloc1_3.6.0-11_amd64.deb
         sudo dpkg -i ./libjemalloc1_3.6.0-11_amd64.deb
         sudo apt-get install -y libjemalloc2
-        sudo apt-get install         curl bison cmake perl libssl-dev gcc g++ libaio-dev libldap2-dev libwrap0-dev gdb zip unzip gawk \
+        sudo apt-get install -y  curl bison cmake perl libssl-dev gcc g++ libaio-dev libldap2-dev libwrap0-dev gdb zip unzip gawk \
         libmecab-dev libncurses5-dev libreadline-dev libpam-dev zlib1g-dev libcurl4-openssl-dev \
         libnuma-dev libjemalloc-dev libc6-dbg valgrind libjson-perl libevent-dev pkg-config \
         libmecab2 mecab mecab-ipadic git autoconf libgsasl7 libsasl2-dev libsasl2-modules devscripts \
