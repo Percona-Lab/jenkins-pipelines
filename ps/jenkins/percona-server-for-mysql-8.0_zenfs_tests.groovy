@@ -97,7 +97,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         fi
         sudo mkdir -p /tmp/var
         sudo chmod 777 /tmp/var
-        sudo ln -s var /tmp/var
+        sudo ln -s /tmp/var var
         sudo sed -i '3446s:mkpath:#mkpath:' ./mtr
         sudo sed -i '3995s:remove:#remove:' ./mtr
         sudo sed -i '3437s:mkpath:#mkpath:' ./mtr
