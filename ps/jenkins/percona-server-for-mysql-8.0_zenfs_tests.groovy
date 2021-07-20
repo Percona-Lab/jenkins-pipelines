@@ -31,8 +31,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         set -o xtrace
         cd \${build_dir}
         mkdir debs
-       df -h
-exit 1
         sudo apt update
         sudo apt-get install -y libgflags-dev
         wget https://repo.percona.com/tools/apt/pool/main/j/jemalloc/libjemalloc1_3.6.0-11_amd64.deb
@@ -91,15 +89,15 @@ exit 1
         if [ -f var ]; then
             sudo rm -rf var
         fi
-        if [ -d /tmp/var ]; then
-            sudo rm -rf /tmp/var
+        if [ -d  \${build_dir}/var ]; then
+            sudo rm -rf \${build_dir}/var
         fi
         if [ -f mtr_rocksdbzenfs_debug.log ]; then
             rm -f mtr_rocksdbzenfs_debug.log
         fi
-        sudo mkdir -p /tmp/var
-        sudo chmod 777 /tmp/var
-        sudo ln -s /tmp/var var
+        sudo mkdir -p \${build_dir}/var
+        sudo chmod 777 \${build_dir}/var
+        sudo ln -s \${build_dir}/var var
         sudo sed -i '3446s:mkpath:#mkpath:' ./mtr
         sudo sed -i '3995s:remove:#remove:' ./mtr
         sudo sed -i '3437s:mkpath:#mkpath:' ./mtr
