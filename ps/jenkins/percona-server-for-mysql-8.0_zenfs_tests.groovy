@@ -86,14 +86,19 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
          
 
         cd /usr/lib/mysql-test/
-        if [ -d var ]; then
+        if [ -f var ]; then
             sudo rm -rf var
+        fi
+        if [ -d /tmp/var ]; then
+            sudo rm -rf /tmp/var
         fi
         if [ -f mtr_rocksdbzenfs_debug.log ]; then
             rm -f mtr_rocksdbzenfs_debug.log
         fi
-        sudo mkdir -p var
-        sudo chmod 777 var
+        sudo mkdir -p /tmp/var
+        sudo chmod 777 /tmp/var
+        sudo ln -s var /tmp/var
+        
         ./mtr --debug-server --force --retry=0 --max-test-fail=0 --testcase-timeout=45 \
   --after-failure-hook='rm -rf /tmp/zenfs_disk_dir_1 /tmp/zenfs_disk_dir_0; /usr/bin/zenfs mkfs --zbd nullb0 --aux_path /tmp/zenfs_disk_dir_0 --force; /usr/bin/zenfs mkfs --zbd nullb1 --aux_path /tmp/zenfs_disk_dir_1 --force' \
   --defaults-extra-file=include/zenfs_nullb_emulated.cnf --suite=rocksdb | tee mtr_rocksdbzenfs_debug.log
