@@ -31,6 +31,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         set -o xtrace
         cd \${build_dir}
         mkdir debs
+       df -h
+exit 1
         sudo apt update
         sudo apt-get install -y libgflags-dev
         wget https://repo.percona.com/tools/apt/pool/main/j/jemalloc/libjemalloc1_3.6.0-11_amd64.deb
