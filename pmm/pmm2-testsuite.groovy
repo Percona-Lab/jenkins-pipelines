@@ -102,7 +102,7 @@ void fetchAgentLog(String CLIENT_VERSION) {
 
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'large-amazon'
     }
     parameters {
         string(
