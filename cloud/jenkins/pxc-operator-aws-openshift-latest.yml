@@ -14,4 +14,36 @@
             wipe-workspace: false
       lightweight-checkout: true
       script-path: cloud/jenkins/pxc_operator_aws_openshift-latest.groovy
-
+    parameters:
+    - string:
+        name: GIT_REPO
+        default: https://github.com/percona/percona-xtradb-cluster-operator
+        description: percona/percona-xtradb-cluster-operator repository
+    - string:
+        name: GIT_BRANCH
+        default: main
+        description: Tag/Branch for percona/percona-xtradb-cluster-operator repository
+    - string:
+        name: OWNER_SLACK
+        default: sergey.pronin
+        description: Slack user to notify on failures
+    - string:
+        name: IMAGE_PXC
+        default:
+        description: PXC image
+    - string:
+        name: IMAGE_BACKUP
+        default:
+        description: PXC image
+    - string:
+        name: IMAGE_PROXY
+        default:
+        description: PXC proxy image
+    - string:
+        name: IMAGE_HAPROXY
+        default:
+        description: PXC haproxy image
+    - string:
+        name: IMAGE_LOGCOLLECTOR
+        default:
+        description: PXC logcollector image

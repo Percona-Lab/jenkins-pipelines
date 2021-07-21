@@ -32,10 +32,14 @@
         description: Tag/Branch for percona/percona-xtradb-cluster-operator repository
     - string:
         name: OWNER_SLACK
-        default:
+        default: sergey.pronin
         description: Slack user to notify on failures
     - string:
         name: IMAGE_PXC
+        default:
+        description: PXC image
+    - string:
+        name: IMAGE_BACKUP
         default:
         description: PXC image
     - string:
