@@ -148,7 +148,7 @@ pipeline {
             description: 'GKE version',
             name: 'GKE_VERSION')
         string(
-            defaultValue: '',
+            defaultValue: 'sergey.pronin',
             description: 'Slack user to notify on failures',
             name: 'OWNER_SLACK')
         choice(

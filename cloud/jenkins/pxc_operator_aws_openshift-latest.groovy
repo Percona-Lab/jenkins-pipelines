@@ -136,7 +136,7 @@ pipeline {
             description: 'Run tests with cluster wide',
             name: 'CLUSTER_WIDE')
         string(
-            defaultValue: '',
+            defaultValue: 'sergey.pronin',
             description: 'Slack user to notify on failures',
             name: 'OWNER_SLACK')
         string(
