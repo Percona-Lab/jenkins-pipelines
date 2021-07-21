@@ -14,3 +14,65 @@
             wipe-workspace: false
       lightweight-checkout: true
       script-path: cloud/jenkins/pgo_operator_aws_openshift-latest.groovy
+    parameters:
+    - string:
+        name: GIT_REPO
+        default: https://github.com/percona/percona-postgresql-operator
+        description: percona/percona-postgresql-operator repository
+    - string:
+        name: GIT_BRANCH
+        default: release-0.1.0
+        description: Tag/Branch for percona/percona-postgresql-operator repository
+    - string:
+        name: GKE_VERSION
+        default: 'latest'
+        description: GKE version
+    - string:
+        name: OWNER_SLACK
+        default: sergey.pronin
+        description: Slack user to notify on failures
+    - string:
+        name: PGO_OPERATOR_IMAGE
+        default:
+        description: Operator image
+    - string:
+        name: PGO_APISERVER_IMAGE
+        default:
+        description: Operator API server image
+    - string:
+        name: PGO_EVENT_IMAGE
+        default:
+        description: Operator event server image
+    - string:
+        name: PGO_RMDATA_IMAGE
+        default:
+        description: Operator rmdata image
+    - string:
+        name: PGO_SCHEDULER_IMAGE
+        default:
+        description: Operator scheduler image
+    - string:
+        name: PGO_DEPLOYER_IMAGE
+        default:
+        description: Operator deployer image
+    - string:
+        name: PGO_PGBOUNCER_IMAGE
+        default:
+        description: Operator pgBouncer image
+    - string:
+        name: PGO_POSTGRES_HA_IMAGE
+        default:
+        description: Operator postgres image
+    - string:
+        name: PGO_BACKREST_IMAGE
+        default:
+        description: Operator backrest utility image
+    - string:
+        name: PGO_BACKREST_REPO_IMAGE
+        default:
+        description: Operator backrest utility image
+    - string:
+        name: PGO_PGBADGER_IMAGE
+        default:
+        description: Operator pgBadger image
+
