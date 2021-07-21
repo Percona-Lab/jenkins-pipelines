@@ -122,7 +122,7 @@ pipeline {
             description: 'Commit hash for pmm-qa branch',
             name: 'PMM_QA_GIT_COMMIT_HASH')
         string(
-            defaultValue: '2.20.0',
+            defaultValue: '2.21.0',
             description: 'pmm2-client latest version',
             name: 'PMM_VERSION')
     }
