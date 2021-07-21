@@ -3,22 +3,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runClusterStaging(String PMM_QA_GIT_BRANCH) {
-    clusterJob = build job: 'kubernetes-cluster-staging', parameters: [
-        string(name: 'NOTIFY', value: 'false'),
-        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'DAYS', value: '1')
-    ]
-    env.CLUSTER_IP = clusterJob.buildVariables.IP
-    env.KUBECONFIG = clusterJob.buildVariables.KUBECONFIG
-}
-
-void destroyStaging(IP) {
-    build job: 'aws-staging-stop', parameters: [
-        string(name: 'VM', value: IP),
-    ]
-}
-
 void uploadAllureArtifacts() {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
@@ -176,16 +160,8 @@ pipeline {
                 sh 'git checkout ' + env.GIT_COMMIT_HASH
             }
         }
-        stage('Setup PMM Server and Kubernetes Cluster') {
+        stage('Setup PMM Server') {
             parallel {
-                stage('Start PMM Cluster Staging Instance') {
-                    when {
-                        expression { env.OVF_TEST == "no" }
-                    }
-                    steps {
-                        runClusterStaging('master')
-                    }
-                }
                 stage('Setup Server Instance') {
                     when {
                         expression { env.CLIENT_INSTANCE == "no" }
@@ -295,11 +271,7 @@ pipeline {
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        export kubeconfig_minikube="${KUBECONFIG}"
-                        echo "${KUBECONFIG}" > kubeconfig
-                        export KUBECONFIG=./kubeconfig
-                        kubectl get nodes
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@qan)^(?!.*@nightly)'
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@dbaas)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@qan)^(?!.*@nightly)'
                     """
                 }
             }
@@ -326,10 +298,6 @@ pipeline {
                 if(env.VM_CLIENT_NAME)
                 {
                     destroyStaging(VM_CLIENT_NAME)
-                }
-                if(env.CLUSTER_IP)
-                {
-                    destroyStaging(CLUSTER_IP)
                 }
             }
             script {
