@@ -51,18 +51,22 @@ void setInstanceAMIId(PMM_VERSION) {
         case "2.18.0":
             env.AMI_ID = "ami-0184c7b18b45d2a7b"
             break;
+        case "2.19.0":
+            env.AMI_ID = "ami-0d3c21da426d248d3"
+            break;
         case "custom":
             env.AMI_ID = env.AMI_ID_CUSTOM
             break;
     }
 }
 
-void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH) {
+void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
+        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
@@ -177,6 +181,9 @@ pipeline {
         MAILOSAUR_API_KEY=credentials('MAILOSAUR_API_KEY')
         MAILOSAUR_SERVER_ID=credentials('MAILOSAUR_SERVER_ID')
         MAILOSAUR_SMTP_PASSWORD=credentials('MAILOSAUR_SMTP_PASSWORD')
+        GCP_SERVER_IP=credentials('GCP_SERVER_IP')
+        GCP_USER=credentials('GCP_USER')
+        GCP_USER_PASSWORD=credentials('GCP_USER_PASSWORD')
     }
     parameters {
         string(
@@ -188,15 +195,15 @@ pipeline {
             description: 'PMM Server AMI ID',
             name: 'AMI_ID_CUSTOM')
         choice(
-            choices: ['2.15.0','2.15.1', '2.16.0', '2.17.0', '2.18.0', 'custom'],
+            choices: ['2.15.0','2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', 'custom'],
             description: 'PMM Server AMI ID to test for Upgrade',
             name: 'SERVER_VERSION')
         choice(
-            choices: ['2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0'],
+            choices: ['2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0'],
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.19.0',
+            defaultValue: '2.20.0',
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
@@ -253,7 +260,7 @@ pipeline {
         }
         stage('Start Client Instance') {
             steps {
-                runStagingClient(CLIENT_VERSION, '--addclient=ps,1 --setup-with-custom-queries', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH)
+                runStagingClient(CLIENT_VERSION, '--addclient=ps,1 --setup-with-custom-queries --setup-remote-db', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO)
             }
         }
         stage('Sleep') {

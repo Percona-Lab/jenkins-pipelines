@@ -1,3 +1,8 @@
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+]) _
+
 void runUITests(CLIENT_VERSION, CLIENT_INSTANCE, SERVER_IP, GIT_BRANCH, CLIENTS) {
     stagingJob = build job: 'pmm2-ui-tests', parameters: [
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -59,7 +64,7 @@ pipeline {
             description: 'Postgre SQL Server version',
             name: 'PGSQL_VERSION')
         string(
-            defaultValue: '--addclient=ps,1',
+            defaultValue: '--addclient=haproxy,1 --setup-external-service',
             description: 'Configure PMM Clients. ps - Percona Server for MySQL, pxc - Percona XtraDB Cluster, ms - MySQL Community Server, md - MariaDB Server, MO - Percona Server for MongoDB, pgsql - Postgre SQL Server',
             name: 'CLIENTS')
         string(
@@ -79,9 +84,7 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-    triggers {
-        upstream upstreamProjects: 'pmm2-ovf', threshold: hudson.model.Result.SUCCESS
-    }
+    triggers { cron('0 22 * * *') }
     stages {
         stage('Prepare') {
             steps {
@@ -119,6 +122,32 @@ pipeline {
         stage('Run PMM-Server') {
             steps {
                 unstash 'VM_NAME'
+                installDocker()
+                setupDockerCompose()
+                sh """
+                    sudo yum -y install svn git
+                    sudo mkdir -p /srv/pmm-qa || :
+                    pushd /srv/pmm-qa
+                        sudo git clone https://github.com/percona/pmm-qa.git .
+                        sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
+                        sudo chmod 755 get_download_link.sh
+                    popd
+                    sudo git clone --single-branch --branch \${GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
+                    pushd pmm-ui-tests
+                    PWD=\$(pwd) docker-compose up -d mysql
+                    PWD=\$(pwd) docker-compose up -d mongo
+                    PWD=\$(pwd) docker-compose up -d postgres
+                    PWD=\$(pwd) docker-compose up -d proxysql
+                    popd
+                """
+                waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
+                waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
+                waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
+                sh """    
+                    pushd pmm-ui-tests
+                    bash -x testdata/db_setup.sh
+                    popd
+                """
                 sh '''
                     wget -O \$(cat VM_NAME).ova http://percona-vm.s3-website-us-east-1.amazonaws.com/\${OVA_VERSION} > /dev/null
                 '''
@@ -187,6 +216,22 @@ pipeline {
                     env.PUB_KEY = sh(returnStdout: true, script: "cat PUB_KEY").trim()
                     env.OWNER   = sh(returnStdout: true, script: "cat OWNER | cut -d . -f 1").trim()
                 }
+                setupPMMClient(env.PUBLIC_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'ovf_setup')
+                sh """
+                    set -o errexit
+                    set -o xtrace
+                    export PATH=\$PATH:/usr/sbin
+                    if [[ \$CLIENT_VERSION != dev-latest ]]; then
+                        export PATH="`pwd`/pmm2-client/bin:$PATH"
+                    fi
+                    bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
+                        --download \
+                        ${CLIENTS} \
+                        --pmm2 \
+                        --pmm2-server-ip=\$PUBLIC_IP
+                    sleep 10
+                    pmm-admin list
+                """
                 archiveArtifacts 'PUBLIC_IP'
                 archiveArtifacts 'VM_NAME'
             }
@@ -199,6 +244,15 @@ pipeline {
     }
 
     post {
+        always {
+            sh '''
+                pushd pmm-ui-tests
+                docker-compose down
+                docker rm -f $(sudo docker ps -a -q) || true
+                docker volume rm $(sudo docker volume ls -q) || true
+                popd
+            '''
+        }
         success {
             script {
                 sh '''
