@@ -316,6 +316,7 @@ pipeline {
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                 VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
                 CLUSTER_NAME = sh(script: "echo jenkins-param-pgo-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                PGO_K8S_NAME = "${env.CLUSTER_NAME}-upstream"
             }
             parallel {
                 stage('E2E Basic tests') {
