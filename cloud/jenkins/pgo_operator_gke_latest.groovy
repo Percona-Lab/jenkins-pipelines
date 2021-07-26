@@ -267,14 +267,34 @@ pipeline {
                 VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
                 CLUSTER_NAME = sh(script: "echo jenkins-latest-pgo-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
             }
-            steps {
-                CreateCluster('sandbox')
-                runTest('init-deploy', 'sandbox')
-                runTest('scaling', 'sandbox')
-                runTest('recreate', 'sandbox')
-                runTest('affinity', 'sandbox')
-                runTest('demand-backup', 'sandbox')
-                ShutdownCluster('sandbox')
+            parallel {
+                stage('E2E Basic tests') {
+                    steps {
+                        CreateCluster('sandbox')
+                        runTest('init-deploy', 'sandbox')
+                        runTest('scaling', 'sandbox')
+                        runTest('recreate', 'sandbox')
+                        runTest('affinity', 'sandbox')
+                        runTest('monitoring', 'sandbox')
+                        ShutdownCluster('sandbox')
+                    }
+                }
+                stage('E2E Backups') {
+                    steps {
+                        CreateCluster('backups')
+                        runTest('demand-backup', 'backups')
+                        ShutdownCluster('backups')
+                    }
+                }
+                stage('E2E Data migration') {
+                    steps {
+                        CreateCluster('upstream')
+                        CreateCluster('migration')
+                        runTest('data-migration-gcs', 'migration')
+                        ShutdownCluster('migration')
+                        ShutdownCluster('upstream')
+                    }
+                }
             }
         }
     }
