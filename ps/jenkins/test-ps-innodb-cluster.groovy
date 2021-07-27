@@ -112,6 +112,7 @@ pipeline {
         stage("Set up") {
             steps {
                 installDependencies()
+                runMoleculeAction("destroy", params.TEST_DIST)
             }
         }
 
@@ -134,11 +135,11 @@ pipeline {
         }
     }
 
-    post {
-        always {
-            script {
-                runMoleculeAction("destroy", params.TEST_DIST)
-            }
-        }
-    }
+    // post {
+    //     always {
+    //         script {
+    //             runMoleculeAction("destroy", params.TEST_DIST)
+    //         }
+    //     }
+    // }
 }
