@@ -98,9 +98,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         sudo mkdir -p \${build_dir}/var
         sudo chmod 777 \${build_dir}/var
         sudo ln -s \${build_dir}/var var
-        sudo sed -i '3446s:mkpath:#mkpath:' ./mtr
-        sudo sed -i '3995s:remove:#remove:' ./mtr
-        sudo sed -i '3437s:mkpath:#mkpath:' ./mtr
         sudo touch mtr_rocksdbzenfs_debug.log
         sudo chown 1000:1000 mtr_rocksdbzenfs_debug.log        
 
