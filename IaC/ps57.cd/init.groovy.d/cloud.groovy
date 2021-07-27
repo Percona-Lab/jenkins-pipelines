@@ -21,19 +21,19 @@ netMap['eu-central-1b'] = 'subnet-0f06a2ce06ea122c8'
 netMap['eu-central-1c'] = 'subnet-01d902b8d64d9b0dc'
 
 imageMap = [:]
-imageMap['eu-central-1a.docker']            = 'ami-043097594a7df80ec'
-imageMap['eu-central-1a.docker-32gb']       = 'ami-043097594a7df80ec'
-imageMap['eu-central-1a.docker2']           = 'ami-043097594a7df80ec'
-imageMap['eu-central-1a.micro-amazon']      = 'ami-043097594a7df80ec'
-imageMap['eu-central-1a.min-amazon-2-x64']  = 'ami-043097594a7df80ec'
+imageMap['eu-central-1a.docker']            = 'ami-00f22f6155d6d92c5'
+imageMap['eu-central-1a.docker-32gb']       = 'ami-00f22f6155d6d92c5'
+imageMap['eu-central-1a.docker2']           = 'ami-00f22f6155d6d92c5'
+imageMap['eu-central-1a.micro-amazon']      = 'ami-00f22f6155d6d92c5'
+imageMap['eu-central-1a.min-amazon-2-x64']  = 'ami-00f22f6155d6d92c5'
 imageMap['eu-central-1a.min-centos-8-x64']  = 'ami-032025b3afcbb6b34'
 imageMap['eu-central-1a.min-centos-7-x64']  = 'ami-04cf43aca3e6f3de3'
 imageMap['eu-central-1a.fips-centos-7-x64'] = 'ami-0837950ffca9ae6e8'
 imageMap['eu-central-1a.min-centos-6-x64']  = 'ami-01fc903dce948db3f'
-imageMap['eu-central-1a.min-buster-x64']    = 'ami-0245697ee3e07e755'
-imageMap['eu-central-1a.min-focal-x64']     = 'ami-0980c5102b5ef10cc'
-imageMap['eu-central-1a.min-bionic-x64']    = 'ami-0cf753d919a2dffc4'
-imageMap['eu-central-1a.min-stretch-x64']   = 'ami-0272845fadadae97d'
+imageMap['eu-central-1a.min-buster-x64']    = 'ami-07ff19108bbd78105'
+imageMap['eu-central-1a.min-focal-x64']     = 'ami-0bdbe51a2e8070ff2'
+imageMap['eu-central-1a.min-bionic-x64']    = 'ami-073375fc9e17516d6'
+imageMap['eu-central-1a.min-stretch-x64']   = 'ami-0b138c2aca6657b47'
 imageMap['eu-central-1a.min-xenial-x64']    = 'ami-0a86f18b52e547759'
 
 imageMap['eu-central-1b.docker']            = imageMap['eu-central-1a.docker']
@@ -130,7 +130,7 @@ initMap['docker'] = '''
             echo try again
         done
 
-        7za -o/tmp x /tmp/awscliv2.zip 
+        7za -aoa -o/tmp x /tmp/awscliv2.zip 
         cd /tmp/aws && sudo ./install
     fi
 
@@ -238,7 +238,7 @@ initMap['rpmMap'] = '''
                 echo try again
             done
 
-            7za -o/tmp x /tmp/awscliv2.zip 
+            7za -aoa -o/tmp x /tmp/awscliv2.zip 
             cd /tmp/aws && sudo ./install
         fi
     fi
