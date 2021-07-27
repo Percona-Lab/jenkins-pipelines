@@ -35,6 +35,7 @@ imageMap['min-xenial-x64']   = 'ami-0ce448b1704085256'
 imageMap['min-buster-x64']   = 'ami-0528712befcd5d885'
 imageMap['docker']           = 'ami-0577b787189839998'
 imageMap['docker-32gb']      = imageMap['docker']
+imageMap['min-bullseye-x64'] = 'ami-0530fb16aab9b92fd'
 
 imageMap['ramdisk-centos-6-x64'] = imageMap['min-centos-6-x64']
 imageMap['ramdisk-centos-7-x64'] = imageMap['min-centos-7-x64']
@@ -70,6 +71,7 @@ userMap['fips-centos-7-x64'] = 'centos'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
 userMap['min-xenial-x64']    = 'ubuntu'
+userMap['min-bullseye-x64']  = 'admin'
 
 userMap['ramdisk-centos-6-x64'] = userMap['min-centos-6-x64']
 userMap['ramdisk-centos-7-x64'] = userMap['min-centos-7-x64']
@@ -281,7 +283,7 @@ initMap['debMap'] = '''
         echo try again
     done
     DEB_VER=$(lsb_release -sc)
-    if [[ ${DEB_VER} == "buster" ]]; then
+    if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]]; then
         JAVA_VER="openjdk-11-jre-headless"
     else
         JAVA_VER="openjdk-8-jre-headless"
@@ -386,6 +388,7 @@ typeMap['min-centos-6-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-bullseye-x64'] = typeMap['min-centos-7-x64']
 
 typeMap['ramdisk-centos-6-x64'] = typeMap['docker-32gb']
 typeMap['ramdisk-centos-7-x64'] = typeMap['docker-32gb']
@@ -410,6 +413,7 @@ execMap['fips-centos-7-x64'] = '1'
 execMap['min-buster-x64'] = '1'
 execMap['min-stretch-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
+execMap['min-bullseye-x64'] = '1'
 
 execMap['ramdisk-centos-6-x64'] = execMap['docker-32gb']
 execMap['ramdisk-centos-7-x64'] = execMap['docker-32gb']
@@ -434,6 +438,7 @@ devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-buster-x64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-bullseye-x64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 
@@ -462,6 +467,7 @@ labelMap['fips-centos-7-x64'] = 'fips-centos-7-x64'
 labelMap['min-stretch-x64']   = 'min-stretch-x64'
 labelMap['min-buster-x64']    = 'min-buster-x64'
 labelMap['min-xenial-x64']    = 'min-xenial-x64'
+labelMap['min-bullseye-x64']  = 'min-bullseye-x64'
 
 labelMap['ramdisk-centos-6-x64'] = 'ramdisk-centos-6-x64'
 labelMap['ramdisk-centos-7-x64'] = 'ramdisk-centos-7-x64'
@@ -491,6 +497,7 @@ maxUseMap['fips-centos-7-x64'] = maxUseMap['singleUse']
 maxUseMap['min-stretch-x64']   = maxUseMap['singleUse']
 maxUseMap['min-buster-x64']    = maxUseMap['singleUse']
 maxUseMap['min-xenial-x64']    = maxUseMap['singleUse']
+maxUseMap['min-bullseye-x64']  = maxUseMap['singleUse']
 
 maxUseMap['ramdisk-centos-6-x64'] = maxUseMap['singleUse']
 maxUseMap['ramdisk-centos-7-x64'] = maxUseMap['singleUse']
@@ -580,6 +587,7 @@ String region = 'us-west-1'
             getTemplate('min-centos-8-x64', "${region}${it}"),
             getTemplate('min-stretch-x64',  "${region}${it}"),
             getTemplate('min-buster-x64',   "${region}${it}"),
+            getTemplate('min-bullseye-x64', "${region}${it}"),
             getTemplate('min-xenial-x64',   "${region}${it}"),
             getTemplate('min-bionic-x64',   "${region}${it}"),
             getTemplate('min-focal-x64',    "${region}${it}"),
