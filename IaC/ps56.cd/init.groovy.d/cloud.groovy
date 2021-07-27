@@ -27,6 +27,7 @@ imageMap['us-west-1a.micro-amazon']      = 'ami-0ed05376b59b90e46'
 imageMap['us-west-1a.min-centos-7-x64']  = 'ami-08d2d8b00f270d03b'
 imageMap['us-west-1a.fips-centos-7-x64'] = 'ami-0f472ecc4a3e9620c'
 imageMap['us-west-1a.min-centos-6-x64']  = 'ami-ade6e5cd'
+imageMap['us-west-1a.min-bullseye-x64']  = 'ami-0530fb16aab9b92fd'
 imageMap['us-west-1a.min-buster-x64']    = 'ami-0462fab5ea5a8f709'
 imageMap['us-west-1a.min-stretch-x64']   = 'ami-0e6b87a6c1ea9add1'
 imageMap['us-west-1a.min-bionic-x64']    = 'ami-0558dde970ca91ee5'
@@ -38,6 +39,7 @@ imageMap['us-west-1b.micro-amazon']      = imageMap['us-west-1a.micro-amazon']
 imageMap['us-west-1b.min-centos-7-x64']  = imageMap['us-west-1a.min-centos-7-x64']
 imageMap['us-west-1b.fips-centos-7-x64'] = imageMap['us-west-1a.fips-centos-7-x64']
 imageMap['us-west-1b.min-centos-6-x64']  = imageMap['us-west-1a.min-centos-6-x64']
+imageMap['us-west-1b.min-bullseye-x64']  = imageMap['us-west-1a.min-bullseye-x64']
 imageMap['us-west-1b.min-buster-x64']    = imageMap['us-west-1a.min-buster-x64']
 imageMap['us-west-1b.min-bionic-x64']    = imageMap['us-west-1a.min-bionic-x64']
 imageMap['us-west-1b.min-stretch-x64']   = imageMap['us-west-1a.min-stretch-x64']
@@ -49,6 +51,7 @@ imageMap['us-west-1c.micro-amazon']      = imageMap['us-west-1a.micro-amazon']
 imageMap['us-west-1c.min-centos-7-x64']  = imageMap['us-west-1a.min-centos-7-x64']
 imageMap['us-west-1c.fips-centos-7-x64'] = imageMap['us-west-1a.fips-centos-7-x64']
 imageMap['us-west-1c.min-centos-6-x64']  = imageMap['us-west-1a.min-centos-6-x64']
+imageMap['us-west-1c.min-bullseye-x64']  = imageMap['us-west-1a.min-bullseye-x64']
 imageMap['us-west-1c.min-buster-x64']    = imageMap['us-west-1a.min-buster-x64']
 imageMap['us-west-1c.min-bionic-x64']    = imageMap['us-west-1a.min-bionic-x64']
 imageMap['us-west-1c.min-stretch-x64']   = imageMap['us-west-1a.min-stretch-x64']
@@ -74,6 +77,7 @@ userMap['min-centos-7-x64']  = 'centos'
 userMap['fips-centos-7-x64'] = 'centos'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
+userMap['min-bullseye-x64']  = 'admin'
 
 initMap = [:]
 initMap['docker'] = '''
@@ -247,7 +251,7 @@ initMap['debMap'] = '''
         echo try again
     done
     DEB_VER=$(lsb_release -sc)
-    if [[ ${DEB_VER} == "buster" ]]; then
+    if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]]; then
         JAVA_VER="openjdk-11-jre-headless"
     else
         JAVA_VER="openjdk-8-jre-headless"
@@ -263,6 +267,7 @@ initMap['fips-centos-7-x64'] = initMap['rpmMap']
 initMap['min-centos-6-x32']  = initMap['rpmMap']
 
 initMap['min-bionic-x64']  = initMap['debMap']
+initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-buster-x64']  = initMap['debMap']
 initMap['min-bionic-x64']  = initMap['debMap']
 initMap['min-stretch-x64'] = initMap['debMap']
@@ -282,6 +287,7 @@ typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
+typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32']  = 'm1.medium'
 typeMap['min-centos-6-x64']  = 'm4.xlarge'
 typeMap['min-stretch-x64']   = typeMap['docker']
@@ -300,6 +306,7 @@ execMap['fips-centos-7-x64'] = '1'
 execMap['min-stretch-x64']   = '1'
 execMap['min-xenial-x64']    = '1'
 execMap['min-buster-x64']    = '1'
+execMap['min-bullseye-x64']  = '1'
 
 devMap = [:]
 devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -314,6 +321,7 @@ devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-buster-x64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-bullseye-x64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 
 labelMap = [:]
 labelMap['docker']            = ''
@@ -328,6 +336,7 @@ labelMap['fips-centos-7-x64'] = ''
 labelMap['min-stretch-x64']   = ''
 labelMap['min-xenial-x64']    = ''
 labelMap['min-buster-x64']    = ''
+labelMap['min-bullseye-x64']  = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -404,6 +413,7 @@ String region = 'us-west-1'
             getTemplate('fips-centos-7-x64',  "${region}${it}"),
             getTemplate('min-centos-6-x64',   "${region}${it}"),
             getTemplate('min-bionic-x64',     "${region}${it}"),
+            getTemplate('min-bullseye-x64',   "${region}${it}"),
             getTemplate('min-buster-x64',     "${region}${it}"),
             getTemplate('min-stretch-x64',    "${region}${it}"),
             getTemplate('min-xenial-x64',     "${region}${it}"),
