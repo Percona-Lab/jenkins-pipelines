@@ -31,6 +31,7 @@ imageMap['eu-central-1a.min-centos-7-x64']  = 'ami-04cf43aca3e6f3de3'
 imageMap['eu-central-1a.fips-centos-7-x64'] = 'ami-0837950ffca9ae6e8'
 imageMap['eu-central-1a.min-centos-6-x64']  = 'ami-01fc903dce948db3f'
 imageMap['eu-central-1a.min-buster-x64']    = 'ami-07ff19108bbd78105'
+imageMap['eu-central-1a.min-bullseye-x64']  = 'ami-007428d10865c9957'
 imageMap['eu-central-1a.min-focal-x64']     = 'ami-0bdbe51a2e8070ff2'
 imageMap['eu-central-1a.min-bionic-x64']    = 'ami-073375fc9e17516d6'
 imageMap['eu-central-1a.min-stretch-x64']   = 'ami-0b138c2aca6657b47'
@@ -50,6 +51,7 @@ imageMap['eu-central-1b.min-focal-x64']     = imageMap['eu-central-1a.min-focal-
 imageMap['eu-central-1b.min-bionic-x64']    = imageMap['eu-central-1a.min-bionic-x64']
 imageMap['eu-central-1b.min-stretch-x64']   = imageMap['eu-central-1a.min-stretch-x64']
 imageMap['eu-central-1b.min-xenial-x64']    = imageMap['eu-central-1a.min-xenial-x64']
+imageMap['eu-central-1b.min-bullseye-x64']  = imageMap['eu-central-1a.min-bullseye-x64']
 
 imageMap['eu-central-1c.docker']            = imageMap['eu-central-1a.docker']
 imageMap['eu-central-1c.docker-32gb']       = imageMap['eu-central-1a.docker-32gb']
@@ -65,6 +67,7 @@ imageMap['eu-central-1c.min-focal-x64']     = imageMap['eu-central-1a.min-focal-
 imageMap['eu-central-1c.min-bionic-x64']    = imageMap['eu-central-1a.min-bionic-x64']
 imageMap['eu-central-1c.min-stretch-x64']   = imageMap['eu-central-1a.min-stretch-x64']
 imageMap['eu-central-1c.min-xenial-x64']    = imageMap['eu-central-1a.min-xenial-x64']
+imageMap['eu-central-1c.min-bullseye-x64']  = imageMap['eu-central-1a.min-bullseye-x64']
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
@@ -94,6 +97,7 @@ userMap['fips-centos-7-x64'] = 'centos'
 userMap['min-centos-8-x64']  = 'centos'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
+userMap['min-bullseye-x64']  = 'admin'
 
 initMap = [:]
 initMap['docker'] = '''
@@ -267,7 +271,7 @@ initMap['debMap'] = '''
         echo try again
     done
     DEB_VER=$(lsb_release -sc)
-    if [[ ${DEB_VER} == "buster" ]]; then
+    if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]]; then
         JAVA_VER="openjdk-11-jre-headless"
     else
         JAVA_VER="openjdk-8-jre-headless"
@@ -288,6 +292,7 @@ initMap['min-centos-8-x64']  = initMap['rpmMap']
 initMap['min-centos-6-x32']  = initMap['rpmMap']
 
 initMap['min-bionic-x64']  = initMap['debMap']
+initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-buster-x64']  = initMap['debMap']
 initMap['min-focal-x64']   = initMap['debMap']
 initMap['min-stretch-x64'] = initMap['debMap']
@@ -316,6 +321,7 @@ typeMap['min-centos-6-x64']  = 'm4.xlarge'
 typeMap['min-stretch-x64']   = typeMap['docker']
 typeMap['min-xenial-x64']    = typeMap['docker']
 typeMap['min-amazon-2-x64']  = typeMap['micro-amazon']
+typeMap['min-bullseye-x64']  = typeMap['docker']
 
 execMap = [:]
 execMap['docker']            = '1'
@@ -333,6 +339,7 @@ execMap['fips-centos-7-x64'] = '1'
 execMap['min-stretch-x64']   = '1'
 execMap['min-xenial-x64']    = '1'
 execMap['min-buster-x64']    = '1'
+execMap['min-bullseye-x64']  = '1'
 
 devMap = [:]
 devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:100:true:gp2'
@@ -350,6 +357,7 @@ devMap['min-stretch-x64']   = 'xvda=:30:true:gp2,xvdd=:80:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-centos-6-x32']  = '/dev/sda=:30:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-buster-x64']    = '/dev/xvda=:30:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-bullseye-x64']  = '/dev/xvda=:30:true:gp2,/dev/xvdd=:80:true:gp2'
 
 labelMap = [:]
 labelMap['docker']            = ''
@@ -367,6 +375,7 @@ labelMap['fips-centos-7-x64'] = ''
 labelMap['min-stretch-x64']   = ''
 labelMap['min-xenial-x64']    = ''
 labelMap['min-buster-x64']    = ''
+labelMap['min-bullseye-x64']  = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -449,6 +458,7 @@ String region = 'eu-central-1'
             getTemplate('min-buster-x64',     "${region}${it}"),
             getTemplate('min-stretch-x64',    "${region}${it}"),
             getTemplate('min-xenial-x64',     "${region}${it}"),
+            getTemplate('min-bullseye-x64',   "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
