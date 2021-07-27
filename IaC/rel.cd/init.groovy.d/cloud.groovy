@@ -31,6 +31,7 @@ imageMap['eu-west-1a.min-centos-6-x32']  = 'ami-25839351'
 imageMap['eu-west-1a.min-centos-7-x64']  = 'ami-04f5641b0d178a27a'
 imageMap['eu-west-1a.fips-centos-7-x64'] = 'ami-04f5641b0d178a27a'
 imageMap['eu-west-1a.min-centos-8-x64']  = 'ami-0a75a5a43b05b4d5f'
+imageMap['eu-west-1a.min-bullseye-x64']  = 'ami-0cd196596beb8dd4d'
 imageMap['eu-west-1a.min-buster-x64']    = 'ami-04e1d2f88740af5e1'
 imageMap['eu-west-1a.min-stretch-x64']   = 'ami-097672ef083ca4411'
 imageMap['eu-west-1a.min-focal-x64']     = 'ami-03caf24deed650e2c'
@@ -50,6 +51,7 @@ imageMap['eu-west-1b.min-centos-6-x64'] = imageMap['eu-west-1a.min-centos-6-x64'
 imageMap['eu-west-1b.min-centos-6-x32'] = imageMap['eu-west-1a.min-centos-6-x32']
 imageMap['eu-west-1b.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64']
 imageMap['eu-west-1b.min-centos-8-x64'] = imageMap['eu-west-1a.min-centos-8-x64']
+imageMap['eu-west-1b.min-bullseye-x64'] = imageMap['eu-west-1a.min-bullseye-x64']
 imageMap['eu-west-1b.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
 imageMap['eu-west-1b.min-focal-x64']    = imageMap['eu-west-1a.min-focal-x64'] 
 imageMap['eu-west-1b.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
@@ -69,6 +71,7 @@ imageMap['eu-west-1c.min-centos-6-x64'] = imageMap['eu-west-1a.min-centos-6-x64'
 imageMap['eu-west-1c.min-centos-6-x32'] = imageMap['eu-west-1a.min-centos-6-x32']
 imageMap['eu-west-1c.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64']
 imageMap['eu-west-1c.min-centos-8-x64'] = imageMap['eu-west-1a.min-centos-8-x64']
+imageMap['eu-west-1c.min-bullseye-x64'] = imageMap['eu-west-1a.min-bullseye-x64']
 imageMap['eu-west-1c.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
 imageMap['eu-west-1c.min-focal-x64']    = imageMap['eu-west-1a.min-focal-x64'] 
 imageMap['eu-west-1c.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
@@ -103,6 +106,7 @@ userMap['min-centos-8-x64']  = 'centos'
 userMap['fips-centos-7-x64'] = 'centos'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
+userMap['min-bullseye-x64']  = 'admin'
 userMap['min-hirsute-x64-zenfs']    = 'ubuntu'
 
 initMap = [:]
@@ -335,6 +339,7 @@ initMap['min-buster-x64'] = '''
 '''
 initMap['min-focal-x64'] = initMap['min-bionic-x64']
 initMap['min-stretch-x64'] = initMap['min-bionic-x64']
+initMap['min-bullseye-x64'] = initMap['min-buster-x64']
 initMap['min-xenial-x64'] = initMap['min-bionic-x64']
 initMap['min-xenial-x32'] = initMap['min-bionic-x64']
 initMap['min-hirsute-x64-zenfs'] = initMap['min-bionic-x64']
@@ -358,6 +363,7 @@ typeMap['min-focal-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32']  = 'm1.medium'
 typeMap['min-centos-6-x64']  = typeMap['min-centos-7-x64']
+typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
@@ -380,6 +386,7 @@ execMap['min-stretch-x64']   = '1'
 execMap['min-xenial-x64']    = '1'
 execMap['min-xenial-x32']    = '1'
 execMap['min-buster-x64']    = '1'
+execMap['min-bullseye-x64']  = '1'
 execMap['min-hirsute-x64-zenfs'] = '1'
 
 devMap = [:]
@@ -398,6 +405,7 @@ devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-xenial-x32']    = '/dev/sda1=:10:false:gp2,/dev/sdd=:180:false:gp2'
 devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:180:true:gp2'
 devMap['min-buster-x64']    = devMap['docker']
+devMap['min-bullseye-x64']  = devMap['docker']
 devMap['min-hirsute-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
 
 labelMap = [:]
@@ -416,6 +424,7 @@ labelMap['min-stretch-x64']   = ''
 labelMap['min-xenial-x64']    = ''
 labelMap['min-xenial-x32']    = ''
 labelMap['min-buster-x64']    = ''
+labelMap['min-bullseye-x64']  = ''
 labelMap['min-hirsute-x64-zenfs']    = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
@@ -499,6 +508,7 @@ String region = 'eu-west-1'
             getTemplate('min-centos-7-x64',     "${region}${it}"),
             getTemplate('min-centos-6-x64',     "${region}${it}"),
             getTemplate('min-centos-6-x32',     "${region}${it}"),
+            getTemplate('min-bullseye-x64',     "${region}${it}"),
             getTemplate('min-hirsute-x64-zenfs', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
