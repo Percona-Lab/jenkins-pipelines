@@ -31,6 +31,7 @@ imageMap['eu-west-1a.fips-centos-7-x64'] = 'ami-0ff760d16d9497662'
 
 imageMap['eu-west-1a.min-centos-6-x64'] = 'ami-0451e9d3427711cb1'
 imageMap['eu-west-1a.min-centos-7-x64'] = 'ami-04f5641b0d178a27a'
+imageMap['eu-west-1a.min-bullseye-x64'] = 'ami-0cd196596beb8dd4d'
 imageMap['eu-west-1a.min-buster-x64']   = 'ami-04e1d2f88740af5e1'
 imageMap['eu-west-1a.min-bionic-x64']   = 'ami-0c259a97cbf621daf'
 imageMap['eu-west-1a.min-stretch-x64']  = 'ami-097672ef083ca4411'
@@ -45,6 +46,7 @@ imageMap['eu-west-1b.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64'
 imageMap['eu-west-1b.fips-centos-7-x64'] = imageMap['eu-west-1a.fips-centos-7-x64']
 
 imageMap['eu-west-1b.min-centos-6-x64'] = imageMap['eu-west-1a.min-centos-6-x64']
+imageMap['eu-west-1b.min-bullseye-x64'] = imageMap['eu-west-1a.min-bullseye-x64']
 imageMap['eu-west-1b.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
 imageMap['eu-west-1b.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
 imageMap['eu-west-1b.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
@@ -59,6 +61,7 @@ imageMap['eu-west-1c.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64'
 imageMap['eu-west-1c.fips-centos-7-x64'] = imageMap['eu-west-1a.fips-centos-7-x64']
 
 imageMap['eu-west-1c.min-centos-6-x64'] = imageMap['eu-west-1a.min-centos-6-x64']
+imageMap['eu-west-1c.min-bullseye-x64'] = imageMap['eu-west-1a.min-bullseye-x64']
 imageMap['eu-west-1c.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
 imageMap['eu-west-1c.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
 imageMap['eu-west-1c.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
@@ -84,6 +87,7 @@ userMap['min-centos-6-x32']  = 'root'
 userMap['min-centos-6-x64']  = 'centos'
 userMap['min-centos-7-x64']  = 'centos'
 userMap['fips-centos-7-x64'] = 'centos'
+userMap['min-bullseye-x64']  = 'admin'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
 userMap['docker-32gb-hirsute'] = 'ubuntu'
@@ -309,7 +313,7 @@ initMap['debMap'] = '''
 
     DEB_VER=$(lsb_release -sc)
 
-    if [[ ${DEB_VER} == "buster" ]]; then
+    if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]]; then
         JAVA_VER="openjdk-11-jre-headless"
     else
         JAVA_VER="openjdk-8-jre-headless"
@@ -328,6 +332,7 @@ initMap['min-centos-6-x64'] = initMap['rpmMap']
 initMap['min-centos-7-x64'] = initMap['rpmMap']
 initMap['fips-centos-7-x64'] = initMap['rpmMap']
 
+initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-buster-x64']  = initMap['debMap']
 initMap['min-bionic-x64']  = initMap['debMap']
 initMap['min-stretch-x64'] = initMap['debMap']
@@ -347,6 +352,7 @@ typeMap['docker2']           = 'c5d.xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
+typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32']  = 'm1.medium'
 typeMap['min-centos-6-x64']  = 'm4.xlarge'
@@ -368,6 +374,7 @@ execMap['min-stretch-x64']   = '1'
 execMap['min-xenial-x64']    = '1'
 execMap['min-buster-x64']    = '1'
 execMap['docker-32gb-hirsute'] = '1'
+execMap['min-bullseye-x64']  = '1'
 
 devMap = [:]
 devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -384,6 +391,7 @@ devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-buster-x64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb-hirsute'] = devMap['docker']
+devMap['min-bullseye-x64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 
 labelMap = [:]
 labelMap['docker']            = ''
@@ -399,6 +407,7 @@ labelMap['min-stretch-x64']   = ''
 labelMap['min-xenial-x64']    = ''
 labelMap['min-buster-x64']    = ''
 labelMap['docker-32gb-hirsute'] = ''
+labelMap['min-bullseye-x64']  = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -476,6 +485,7 @@ String region = 'eu-west-1'
             getTemplate('min-centos-6-x64',   "${region}${it}"),
             getTemplate('min-bionic-x64',     "${region}${it}"),
             getTemplate('min-buster-x64',     "${region}${it}"),
+            getTemplate('min-bullseye-x64',   "${region}${it}"),
             getTemplate('min-stretch-x64',    "${region}${it}"),
             getTemplate('min-xenial-x64',     "${region}${it}"),
             getTemplate('docker-32gb-hirsute', "${region}${it}"),
