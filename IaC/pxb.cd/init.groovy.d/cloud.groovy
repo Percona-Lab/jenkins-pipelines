@@ -34,6 +34,7 @@ imageMap['min-buster-x64']   = 'ami-0c7ea5497c02abcaf'
 imageMap['min-xenial-x64']   = 'ami-0dd273d94ed0540c0'
 imageMap['min-xenial-x32']   = 'ami-0697ba3ee1b641c90'
 imageMap['min-focal-x64']    = 'ami-0fc272c9b2d204826'
+imageMap['min-bullseye-x64'] = 'ami-05f9dcaa9ddb9a15e'
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
@@ -58,6 +59,7 @@ userMap['min-buster-x64'] = 'admin'
 userMap['min-focal-x64'] = 'ubuntu'
 userMap['min-xenial-x64'] = 'ubuntu'
 userMap['min-xenial-x32'] = 'ubuntu'
+userMap['min-bullseye-x64'] = 'debian'
 
 initMap = [:]
 initMap['docker'] = '''
@@ -226,7 +228,7 @@ initMap['debMap'] = '''
         echo try again
     done
     DEB_VER=$(lsb_release -sc)
-    if [[ ${DEB_VER} == "buster" ]]; then
+    if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]]; then
         JAVA_VER="openjdk-11-jre-headless"
     else
         JAVA_VER="openjdk-8-jre-headless"
@@ -244,6 +246,7 @@ initMap['min-centos-6-x32'] = initMap['rpmMap']
 
 initMap['min-stretch-x64'] = initMap['debMap']
 initMap['min-buster-x64'] = initMap['debMap']
+initMap['min-bullseye-x64'] = initMap['debMap']
 
 initMap['min-xenial-x64'] = initMap['debMap']
 initMap['min-xenial-x32'] = initMap['debMap']
@@ -272,6 +275,7 @@ typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x32'] = 'm1.medium'
+typeMap['min-bullseye-x64'] = typeMap['min-centos-7-x64']
 
 execMap = [:]
 execMap['docker'] = '1'
@@ -288,6 +292,7 @@ execMap['min-buster-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
 execMap['min-xenial-x32'] = '1'
 execMap['min-focal-x64'] = '1'
+execMap['min-bullseye-x64'] = '1'
 
 devMap = [:]
 devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -301,6 +306,7 @@ devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-centos-8-x64'] = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-stretch-x64'] = 'xvda=:30:true:gp2,xvdd=:80:true:gp2'
 devMap['min-buster-x64'] = '/dev/xvda=:30:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-bullseye-x64'] = '/dev/xvda=:30:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-xenial-x64'] = devMap['min-bionic-x64']
 devMap['min-xenial-x32'] = '/dev/sda1=:10:false:gp2,/dev/sdd=:80:false:gp2'
 devMap['min-centos-6-x32'] = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
@@ -320,6 +326,7 @@ labelMap['min-stretch-x64'] = ''
 labelMap['min-buster-x64'] = ''
 labelMap['min-xenial-x64'] = ''
 labelMap['min-xenial-x32'] = ''
+labelMap['min-bullseye-x64'] = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -401,6 +408,7 @@ String region = 'us-west-2'
             getTemplate('min-xenial-x32', "${region}${it}"),
             getTemplate('min-bionic-x64', "${region}${it}"),
             getTemplate('min-focal-x64', "${region}${it}"),
+            getTemplate('min-bullseye-x64', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
        '',
        ''
