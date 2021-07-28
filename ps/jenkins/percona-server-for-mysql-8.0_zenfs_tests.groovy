@@ -100,7 +100,9 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         sudo ln -s \${build_dir}/var var
         sudo touch mtr_rocksdbzenfs_debug.log
         sudo chown 1000:1000 mtr_rocksdbzenfs_debug.log        
-
+        sudo sed -i "3533s:mkpath:#mkpath:" ./mtr
+        sudo sed -i "4090s:remove:#remove:" ./mtr
+        sudo sed -i "3524s:mkpath:#mkpath:" ./mtr
         ./mtr --debug-server --force --retry=0 --max-test-fail=0 --testcase-timeout=45 \
   --after-failure-hook='rm -rf /tmp/zenfs_disk_dir_1 /tmp/zenfs_disk_dir_0; /usr/bin/zenfs mkfs --zbd nullb0 --aux_path /tmp/zenfs_disk_dir_0 --force; /usr/bin/zenfs mkfs --zbd nullb1 --aux_path /tmp/zenfs_disk_dir_1 --force' \
   --defaults-extra-file=include/zenfs_nullb_emulated.cnf --suite=rocksdb | tee mtr_rocksdbzenfs_debug.log
