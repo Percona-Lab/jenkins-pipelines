@@ -23,17 +23,17 @@ netMap['us-west-1b'] = 'subnet-01d9a7d6b4722eb43'
 netMap['us-west-1c'] = 'subnet-0550c1d2ffd688021'
 
 imageMap = [:]
-imageMap['micro-amazon']     = 'ami-0b2ca94b5b49e0132'
-imageMap['min-bionic-x64']   = 'ami-0f5b07b31937d4275'
-imageMap['min-focal-x64']    = 'ami-04d9ce6b8cf0f422c'
+imageMap['micro-amazon']     = 'ami-04b6c97b14c54de18'
+imageMap['min-bionic-x64']   = 'ami-0558dde970ca91ee5'
+imageMap['min-focal-x64']    = 'ami-04b61997e51f6d5c7'
 imageMap['min-centos-6-x32'] = 'ami-67e3cd22'
 imageMap['min-centos-6-x64'] = 'ami-8adb3fe9'
 imageMap['min-centos-7-x64'] = 'ami-08d2d8b00f270d03b'
 imageMap['min-centos-8-x64'] = 'ami-04adf3fcbc8a45c54'
-imageMap['min-stretch-x64']  = 'ami-055e7bfa2167b7399'
-imageMap['min-xenial-x64']   = 'ami-0ce448b1704085256'
-imageMap['min-buster-x64']   = 'ami-0528712befcd5d885'
-imageMap['docker']           = 'ami-0577b787189839998'
+imageMap['min-stretch-x64']  = 'ami-07bbec0b6b6baa7de'
+imageMap['min-xenial-x64']   = 'ami-0fdf8b5989f22a4e0'
+imageMap['min-buster-x64']   = 'ami-0c053f1d5f22eb09f'
+imageMap['docker']           = 'ami-04b6c97b14c54de18'
 imageMap['docker-32gb']      = imageMap['docker']
 imageMap['min-bullseye-x64'] = 'ami-0530fb16aab9b92fd'
 
@@ -324,6 +324,7 @@ initMap['min-centos-6-x32']  = initMap['rpmMap']
 
 initMap['min-buster-x64']  = initMap['debMap']
 initMap['min-bionic-x64']  = initMap['debMap']
+initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-focal-x64']   = initMap['debMap']
 initMap['min-stretch-x64'] = initMap['debMap']
 initMap['min-xenial-x64']  = initMap['debMap']
@@ -481,8 +482,8 @@ labelMap['ramdisk-buster-x64']   = 'ramdisk-buster-x64'
 labelMap['performance-centos-6-x64'] = 'perf-centos-6-x64'
 
 maxUseMap = [:]
-maxUseMap['singleUse'] = '1'
-maxUseMap['multipleUse'] = '-1'
+maxUseMap['singleUse'] = 1
+maxUseMap['multipleUse'] = -1
 
 maxUseMap['docker']            = maxUseMap['multipleUse']
 maxUseMap['docker-32gb']       = maxUseMap['multipleUse']
