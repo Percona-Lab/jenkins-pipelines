@@ -11,6 +11,40 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::119175775298:policy/jenkins-artifactory
       - arn:aws:iam::aws:policy/AmazonElasticContainerRegistryPublicReadOnly
+      Policies:
+        - PolicyName: ECRPrivateAccess
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource: 'arn:aws:ecr:us-east-1:119175775298:repository/perconalab/percona-postgresql-operator'
+                Action:
+                - ecr:GetAuthorizationToken
+                - ecr:BatchCheckLayerAvailability
+                - ecr:GetDownloadUrlForLayer
+                - ecr:GetRepositoryPolicy
+                - ecr:DescribeRepositories
+                - ecr:ListImages
+                - ecr:DescribeImages
+                - ecr:BatchGetImage
+                - ecr:GetLifecyclePolicy
+                - ecr:GetLifecyclePolicyPreview
+                - ecr:ListTagsForResource
+                - ecr:DescribeImageScanFindings
+                - ecr:InitiateLayerUpload
+                - ecr:UploadLayerPart
+                - ecr:CompleteLayerUpload
+                - ecr:PutImage
+        - PolicyName: GetAuthToken
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Resource:
+              - '*'    
+              Action:
+              - ecr:GetAuthorizationToken
+              - sts:GetServiceBearerToken
       Tags:
       - Key: iit-billing-tag
         Value: jenkins-artifactory-user

@@ -35,6 +35,7 @@
         name: LABEL
         choices:
         - docker
+        - docker-32gb
         description: Run build on specified instance type. 
     axes:
     - axis:
