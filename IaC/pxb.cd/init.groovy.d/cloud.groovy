@@ -23,6 +23,7 @@ netMap['us-west-2c'] = 'subnet-00b0d1d8bd8af5c07'
 
 imageMap = [:]
 imageMap['docker'] = 'ami-0a78fb1467aab24f9'
+imageMap['docker-32gb'] = 'ami-0a78fb1467aab24f9'
 imageMap['micro-amazon'] = 'ami-0a78fb1467aab24f9'
 imageMap['min-centos-6-x32'] = 'ami-cb1382fb'
 imageMap['min-centos-6-x64'] = 'ami-6fcc8f17'
@@ -397,6 +398,7 @@ String region = 'us-west-2'
         '240',                                   // String instanceCapStr
         [
             getTemplate('docker', "${region}${it}"),
+            getTemplate('docker-32gb', "${region}${it}"),
             getTemplate('micro-amazon', "${region}${it}"),
             getTemplate('min-centos-6-x32', "${region}${it}"),
             getTemplate('min-centos-6-x64', "${region}${it}"),
