@@ -290,6 +290,26 @@ Resources:
             Resource:
             - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucketName ]]
             - !Join [ '', [ 'arn:aws:s3:::', !Ref CacheBucketName, '/*' ]]
+          - Effect: Allow
+            Action:
+            - ecr:GetAuthorizationToken
+            - ecr:BatchCheckLayerAvailability
+            - ecr:GetDownloadUrlForLayer
+            - ecr:GetRepositoryPolicy
+            - ecr:DescribeRepositories
+            - ecr:ListImages
+            - ecr:DescribeImages
+            - ecr:BatchGetImage
+            - ecr:GetLifecyclePolicy
+            - ecr:GetLifecyclePolicyPreview
+            - ecr:ListTagsForResource
+            - ecr:DescribeImageScanFindings
+            - ecr:InitiateLayerUpload
+            - ecr:UploadLayerPart
+            - ecr:CompleteLayerUpload
+            - ecr:PutImage
+            Resource:
+            - 'arn:aws:ecr:us-east-1:119175775298:repository/perconalab/percona-postgresql-operator'
 
   JWorkerProfile: # create Profile for jenkins workers (needed for assign tags)
     Type: AWS::IAM::InstanceProfile
