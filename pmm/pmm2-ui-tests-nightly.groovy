@@ -28,16 +28,6 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
-void runClusterStaging(String PMM_QA_GIT_BRANCH) {
-    clusterJob = build job: 'kubernetes-cluster-staging', parameters: [
-        string(name: 'NOTIFY', value: 'false'),
-        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'DAYS', value: '1')
-    ]
-    env.CLUSTER_IP = clusterJob.buildVariables.IP
-    env.KUBECONFIG = clusterJob.buildVariables.KUBECONFIG
-}
-
 void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
@@ -206,11 +196,6 @@ pipeline {
         }
         stage('Setup PMM Client and Kubernetes Cluster') {
             parallel {
-                stage('Start PMM Cluster Staging Instance') {
-                    steps {
-                        runClusterStaging('master')
-                    }
-                }
                 stage('Start Client Instance - ps-replication') {
                     steps {
                         runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2 --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP, 'mysql-node')
@@ -266,10 +251,6 @@ pipeline {
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        export kubeconfig_minikube="${KUBECONFIG}"
-                        echo "${KUBECONFIG}" > kubeconfig
-                        export KUBECONFIG=./kubeconfig
-                        kubectl get nodes
                         ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly'
                     """
                 }
@@ -300,10 +281,6 @@ pipeline {
                 if(env.VM_CLIENT_NAME_PXC)
                 {
                     destroyStaging(VM_CLIENT_NAME_PXC)
-                }
-                if(env.CLUSTER_IP)
-                {
-                    destroyStaging(CLUSTER_IP)
                 }
             }
             script {
