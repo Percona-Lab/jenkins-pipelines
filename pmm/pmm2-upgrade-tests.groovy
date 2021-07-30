@@ -91,7 +91,7 @@ pipeline {
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.21.0',
+            defaultValue: '2.20.0',
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
@@ -181,8 +181,9 @@ pipeline {
                     sh """
                         set -o errexit
                         set -o xtrace
+                        docker exec pmm-server yum update -y percona-release
                         docker exec pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-                        docker exec pmm-server percona-release enable percona testing
+                        docker exec pmm-server percona-release enable original testing
                         docker exec pmm-server yum clean all
                     """
                     setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'yes', 'yes', 'compose_setup')
@@ -198,8 +199,9 @@ pipeline {
                     sh """
                         set -o errexit
                         set -o xtrace
+                        docker exec pmm-server yum update -y percona-release
                         docker exec pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-                        docker exec pmm-server percona-release enable percona experimental
+                        docker exec pmm-server percona-release enable original experimental
                         docker exec pmm-server yum clean all
                     """
                     setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup')
