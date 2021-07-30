@@ -42,13 +42,34 @@ void runMoleculeAction(String action, String scenario) {
             export MOLECULE_DEBUG=1
             cd package-testing/molecule/ps-innodb-cluster
             cd server
+            export INSTANCE_PRIVATE_IP=\${SERVER_INSTANCE_PRIVATE_IP}
             molecule ${action} -s ${scenario}
             cd -
             cd router
+            export INSTANCE_PRIVATE_IP=\${ROUTER_INSTANCE_PRIVATE_IP}
             molecule ${action} -s ${scenario}
             cd -
         """
     }
+}
+
+void setInstancePrivateIPEnvironment() {
+    env.PS_NODE1_IP = sh(
+        script: 'echo -n "10.177.1.50"',
+        returnStdout: true
+    )
+    env.PS_NODE2_IP = sh(
+        script: 'echo -n "10.177.1.51"',
+        returnStdout: true
+    )
+    env.PS_NODE3_IP = sh(
+        script: 'echo -n "10.177.1.52"',
+        returnStdout: true
+    )
+    env.MYSQL_ROUTER_IP = sh(
+        script: 'echo -n "10.177.1.53"',
+        returnStdout: true
+    )
 }
 
 pipeline {
@@ -61,10 +82,8 @@ pipeline {
     }
 
     environment {
-        PS_NODE1_IP = "10.177.1.50"
-        PS_NODE2_IP = "10.177.1.51"
-        PS_NODE3_IP = "10.177.1.52"
-        MYSQL_ROUTER_IP = "10.177.1.53"
+        SERVER_INSTANCE_PRIVATE_IP = "${WORKSPACE}/server_instance_private_ip.json"
+        ROUTER_INSTANCE_PRIVATE_IP = "${WORKSPACE}/router_instance_private_ip.json"
     }
 
     parameters {
@@ -118,6 +137,7 @@ pipeline {
         stage("Create") {
             steps {
                 runMoleculeAction("create", params.TEST_DIST)
+                setInstancePrivateIPEnvironment()
             }
         }
 
