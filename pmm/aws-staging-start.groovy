@@ -201,7 +201,7 @@ pipeline {
                         sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-25.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum -y install git svn docker sysbench
-                        sudo yum -y install https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm 
+                        sudo yum -y install https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm
                         sudo yum -y install php php-mysqlnd php-pdo mysql-community-server
                         sudo amazon-linux-extras install epel -y
                         sudo yum -y install bats
@@ -220,7 +220,7 @@ pipeline {
                 script {
                     def node = Jenkins.instance.getNode(env.VM_NAME)
                     Jenkins.instance.removeNode(node)
-                    Jenkins.instance.addNode(node)                   
+                    Jenkins.instance.addNode(node)
                 }
                 archiveArtifacts 'IP'
             }
@@ -309,6 +309,7 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
+                                docker exec \${VM_NAME}-server yum update -y percona-release
                                 docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
                                 docker exec \${VM_NAME}-server percona-release enable percona testing
                                 docker exec \${VM_NAME}-server yum clean all
@@ -333,6 +334,7 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
+                                docker exec \${VM_NAME}-server yum update -y percona-release
                                 docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
                                 docker exec \${VM_NAME}-server percona-release enable percona experimental
                                 docker exec \${VM_NAME}-server yum clean all
