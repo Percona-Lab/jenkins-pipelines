@@ -6,7 +6,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 void installDependencies() {
     sh '''
         export PATH=${PATH}:~/.local/bin
-        sudo yum install -y git python3-pip
+        sudo yum install -y git python3-pip jq
         python3 -m venv venv
         source venv/bin/activate
         python3 -m pip install --upgrade pip setuptools wheel
@@ -55,21 +55,21 @@ void runMoleculeAction(String action, String scenario) {
 
 void setInstancePrivateIPEnvironment() {
     env.PS_NODE1_IP = sh(
-        script: 'echo -n "10.177.1.50"',
+        script: 'jq -r \'.[] | select(.instance | startswith("ps-node1")).private_ip\' ${SERVER_INSTANCE_PRIVATE_IP}',
         returnStdout: true
-    )
+    ).trim()
     env.PS_NODE2_IP = sh(
-        script: 'echo -n "10.177.1.51"',
+        script: 'jq -r \'.[] | select(.instance | startswith("ps-node2")).private_ip\' ${SERVER_INSTANCE_PRIVATE_IP}',
         returnStdout: true
-    )
+    ).trim()
     env.PS_NODE3_IP = sh(
-        script: 'echo -n "10.177.1.52"',
+        script: 'jq -r \'.[] | select(.instance | startswith("ps-node3")).private_ip\' ${SERVER_INSTANCE_PRIVATE_IP}',
         returnStdout: true
-    )
+    ).trim()
     env.MYSQL_ROUTER_IP = sh(
-        script: 'echo -n "10.177.1.53"',
+        script: 'jq -r \'.[] | select(.instance | startswith("mysql-router")).private_ip\' ${ROUTER_INSTANCE_PRIVATE_IP}',
         returnStdout: true
-    )
+    ).trim()
 }
 
 pipeline {
