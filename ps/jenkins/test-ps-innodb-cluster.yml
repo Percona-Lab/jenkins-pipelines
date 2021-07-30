@@ -4,6 +4,7 @@
     description: |
         Work in progress, please ignore
         Do not edit this job through the web!
+    concurrent: true
     properties:
         - build-discarder:
             artifact-days-to-keep: -1
