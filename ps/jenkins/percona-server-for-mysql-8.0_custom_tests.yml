@@ -8,7 +8,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'CUSTOM-83'
+            - 'CUSTOM-84'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: ps/jenkins/percona-server-for-mysql-8.0_custom_tests.groovy
