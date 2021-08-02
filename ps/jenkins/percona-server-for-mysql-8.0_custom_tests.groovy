@@ -29,7 +29,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         cd \${build_dir}
         mkdir debs
         cd debs
-        wget https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/libperconaserverclient21-dev_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/libperconaserverclient21_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/percona-mysql-router_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/percona-server-client_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/percona-server-common_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/percona-server-dbg_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/percona-server-rocksdb_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/percona-server-server_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/percona-server-source_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/percona-server-test_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/percona-server-tokudb_8.0.25-15-2.stretch_amd64.deb 
+        wget https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/libperconaserverclient21-dev_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/libperconaserverclient21_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/percona-mysql-router_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/percona-server-client_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/percona-server-common_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/percona-server-dbg_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/percona-server-server_8.0.25-15-2.stretch_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM84/percona-server-test_8.0.25-15-2.stretch_amd64.deb
         export DEBIAN_FRONTEND="noninteractive"
         sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ./*.deb
 
@@ -50,7 +50,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         sudo sed -i "3533s:mkpath:#mkpath:" ./mtr
         sudo sed -i "4090s:remove:#remove:" ./mtr
         sudo sed -i "3524s:mkpath:#mkpath:" ./mtr
-        ./mtr --force --parallel=4 --max-test-fail=0 --testcase-timeout=45 --retry=0
+        ./mtr --force --parallel=4 --testcase-timeout=45 --retry=3
 
     """
 }
