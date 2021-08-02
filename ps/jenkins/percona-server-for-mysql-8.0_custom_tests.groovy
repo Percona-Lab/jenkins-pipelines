@@ -72,7 +72,7 @@ pipeline {
     stages {
         stage('Run tests') {
             parallel {
-                stage('Debian9') {
+                stage('Debian Stretch') {
                     agent {
                         label 'min-stretch-x64'
                     }
