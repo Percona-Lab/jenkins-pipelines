@@ -93,7 +93,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             sudo rm -rf \${build_dir}/var
         fi
         if [ -f mtr_rocksdbzenfs_debug.log ]; then
-            rm -f mtr_rocksdbzenfs_debug.log
+            sudo rm -f mtr_rocksdbzenfs_debug.log
         fi
         sudo touch /usr/lib/mysql/plugin/component_keyring_file.cnf
         sudo touch /usr/sbin/mysqld.my
