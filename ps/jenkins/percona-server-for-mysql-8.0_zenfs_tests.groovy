@@ -96,9 +96,11 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             sudo rm -f mtr_rocksdbzenfs_debug.log
         fi
         sudo touch /usr/lib/mysql/plugin/component_keyring_file.cnf
+        sudo touch /usr/lib/mysql/plugin/debug/component_keyring_file.cnf
         sudo touch /usr/sbin/mysqld.my
         sudo chmod 777 /usr/lib/mysql/plugin/component_keyring_file.cnf
         sudo chmod 777 /usr/sbin/mysqld.my
+        sudo chmod 777 /usr/lib/mysql/plugin/debug/component_keyring_file.cnf
         sudo mkdir -p \${build_dir}/var
         sudo chmod 777 \${build_dir}/var
         sudo ln -s \${build_dir}/var var
