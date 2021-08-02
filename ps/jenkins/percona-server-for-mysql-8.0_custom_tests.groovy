@@ -74,12 +74,12 @@ pipeline {
             parallel {
                 stage('Debian9') {
                     agent {
-                        label 'min-buster-x64'
+                        label 'min-stretch-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
-                        buildStage("debian:buster", "--build_deb=1")
+                        buildStage("debian:stretch", "--build_deb=1")
                     }
                 }
             }
