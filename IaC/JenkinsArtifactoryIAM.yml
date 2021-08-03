@@ -35,13 +35,32 @@ Resources:
                 - ecr:UploadLayerPart
                 - ecr:CompleteLayerUpload
                 - ecr:PutImage
+              - Effect: Allow
+                Resource: 'arn:aws:ecr:us-east-1:119175775298:repository/percona/percona-postgresql-operator'
+                Action:
+                - ecr:GetAuthorizationToken
+                - ecr:BatchCheckLayerAvailability
+                - ecr:GetDownloadUrlForLayer
+                - ecr:GetRepositoryPolicy
+                - ecr:DescribeRepositories
+                - ecr:ListImages
+                - ecr:DescribeImages
+                - ecr:BatchGetImage
+                - ecr:GetLifecyclePolicy
+                - ecr:GetLifecyclePolicyPreview
+                - ecr:ListTagsForResource
+                - ecr:DescribeImageScanFindings
+                - ecr:InitiateLayerUpload
+                - ecr:UploadLayerPart
+                - ecr:CompleteLayerUpload
+                - ecr:PutImage
         - PolicyName: GetAuthToken
           PolicyDocument:
             Version: 2012-10-17
             Statement:
             - Effect: Allow
               Resource:
-              - '*'    
+              - '*'
               Action:
               - ecr:GetAuthorizationToken
               - sts:GetServiceBearerToken
