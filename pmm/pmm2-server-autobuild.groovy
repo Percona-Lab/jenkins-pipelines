@@ -157,7 +157,7 @@ pipeline {
         stage('Build server docker') {
             steps {
                 installAWSv2()
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'ECRRWUser', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
                         sg docker -c "
                             set -o errexit

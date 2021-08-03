@@ -180,7 +180,7 @@ pipeline {
                         "
                     """
                 }
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'ECRRWUser', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
                         VERSION=\$(cat VERSION)
                         TOP_VER=\$(cat VERSION | cut -d. -f1)

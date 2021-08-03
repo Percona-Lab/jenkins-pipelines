@@ -15,7 +15,7 @@ def call() {
             echo try again
         done
         7za -aoa -o/tmp x /tmp/awscliv2.zip 
-        cd /tmp/aws && sudo ./install
+        cd /tmp/aws && sudo ./install --update
         sudo rm -rf /tmp/aws* || true
     '''
 }
