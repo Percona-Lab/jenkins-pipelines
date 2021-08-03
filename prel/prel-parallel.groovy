@@ -4,7 +4,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def moleculeDir = "molecule/prel"
-def operatingSystems = ['centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
+def operatingSystems = ['centos-7', 'centos-8', 'debian-9', 'debian-10', 'debian-11', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal']
 
 pipeline {
   agent {
