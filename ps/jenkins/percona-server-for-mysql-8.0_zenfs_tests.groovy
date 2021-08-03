@@ -26,7 +26,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget https://raw.githubusercontent.com/EvgeniyPatlan/percona-server/dev/PS-7757-8.0-zenfs/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || https://raw.githubusercontent.com/EvgeniyPatlan/percona-server/dev/PS-7757-8.0-zenfs/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
+        wget https://raw.githubusercontent.com/percona-ysorokin/percona-server/dev/PS-7757-8.0-zenfs/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh
         export build_dir=\$(pwd -P)
         set -o xtrace
         cd \${build_dir}
