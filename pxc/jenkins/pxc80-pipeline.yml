@@ -65,6 +65,12 @@
         - "yes"
         - "no"
         description: Run mysql-test-run.pl
+    - choice:
+        name: WITH_ASAN
+        choices:
+        - "no"
+        - "yes"
+        description: Build with ASAN
     - string:
         name: PARALLEL_RUN
         default: "4"
