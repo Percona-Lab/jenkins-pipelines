@@ -31,7 +31,7 @@ pipeline {
             description: 'Pass an URL for downloading bootstrap.sh, If empty will use from repository you specified in PXB24_REPO',
             name: 'BOOTSTRAP_URL')
         choice(
-            choices: 'docker\ndocker-32gb',
+            choices: 'docker-32gb\ndocker',
             description: 'Run build on specified instance type',
             name: 'LABEL')
     }

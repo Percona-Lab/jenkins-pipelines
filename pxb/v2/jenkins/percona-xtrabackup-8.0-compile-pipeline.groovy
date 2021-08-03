@@ -29,7 +29,7 @@ pipeline {
             description: 'make options, like VERBOSE=1',
             name: 'MAKE_OPTS')
         choice(
-            choices: 'docker\ndocker-32gb',
+            choices: 'docker-32gb\ndocker',
             description: 'Run build on specified instance type',
             name: 'LABEL')
     }
