@@ -317,16 +317,21 @@ pipeline {
                 VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
                 CLUSTER_NAME = sh(script: "echo jenkins-param-pgo-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
                 PGO_K8S_NAME = "${env.CLUSTER_NAME}-upstream"
+                ECR = "119175775298.dkr.ecr.us-east-1.amazonaws.com"
             }
             parallel {
                 stage('E2E Basic tests') {
                     steps {
                         CreateCluster('sandbox')
-                        runTest('init-deploy', 'sandbox')
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            runTest('init-deploy', 'sandbox')
+                        }
                         runTest('scaling', 'sandbox')
                         runTest('recreate', 'sandbox')
                         runTest('affinity', 'sandbox')
                         runTest('monitoring', 'sandbox')
+                        runTest('self-healing', 'sandbox')
+                        runTest('clone-cluster', 'sandbox')
                         ShutdownCluster('sandbox')
                     }
                 }
