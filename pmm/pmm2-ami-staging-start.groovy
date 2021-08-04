@@ -81,14 +81,14 @@ pipeline {
             }
         }
         stage('Run VM with PMM server') {
-            steps 
+            steps
             {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID',  credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         export VM_NAME=\$(cat VM_NAME)
                         export OWNER=\$(cat OWNER)
                         export AWS_DEFAULT_REGION=us-east-1
-                        
+
                         export SG1=\$(
                             aws ec2 describe-security-groups \
                                 --region us-east-1 \
@@ -142,10 +142,10 @@ pipeline {
                             --tags Key=Name,Value=$INSTANCE_NAME \
                             Key=iit-billing-tag,Value=qa \
                             Key=stop-after-days,Value=${DAYS}
-                           
+
                         echo "INSTANCE_NAME: $INSTANCE_NAME"
-                        
-                        
+
+
 
                        IP_PUBLIC=\$(
                               aws ec2 describe-instances \
@@ -155,9 +155,9 @@ pipeline {
                               --query 'Reservations[].Instances[].PublicIpAddress' \
                              | tee IP
                              )
-                        
+
                         echo \$IP_PUBLIC > IP_PUBLIC
-                         
+
 
                          IP_PRIVATE=\$(
                             aws ec2 describe-instances \
@@ -211,8 +211,8 @@ pipeline {
                     env.INSTANCE_ID  = sh(returnStdout: true, script: "cat INSTANCE_ID").trim()
                     env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
                 }
-                archiveArtifacts 'IP'  
-                archiveArtifacts 'INSTANCE_ID' 
+                archiveArtifacts 'IP'
+                archiveArtifacts 'INSTANCE_ID'
             }
         }
         stage('Enable Testing Repo') {
@@ -223,6 +223,7 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) '
+                            sudo yum update -y percona-release
                             sudo sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
                             sudo percona-release enable percona testing
                             sudo yum clean all
@@ -239,6 +240,7 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) '
+                            sudo yum update -y percona-release
                             sudo sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
                             sudo percona-release enable percona experimental
                             sudo yum clean all
@@ -284,7 +286,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                 sh '''
                     export INSTANCE_ID=\$(cat INSTANCE_ID)
-                    
+
                     if [ -n "$INSTANCE_ID" ]; then
                       aws ec2 --region us-east-1 terminate-instances --instance-ids \$INSTANCE_ID
                     fi

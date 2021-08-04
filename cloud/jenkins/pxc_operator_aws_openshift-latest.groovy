@@ -300,6 +300,16 @@ pipeline {
                 runTest('security-context')
             }
         }
+        stage('E2E SelfHealing') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
+            steps {
+                runTest('self-healing-chaos')
+                runTest('self-healing-advanced-chaos')
+                runTest('operator-self-healing-chaos')
+            }
+        }
         stage('E2E Backups') {
             options {
                 timeout(time: 3, unit: 'HOURS')

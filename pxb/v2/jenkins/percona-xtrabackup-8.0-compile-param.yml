@@ -34,8 +34,8 @@
     - choice:
         name: LABEL
         choices:
-        - docker
         - docker-32gb
+        - docker
         description: Run build on specified instance type. 
     axes:
       - axis:
@@ -50,7 +50,6 @@
          values:
          - centos:7
          - centos:8
-         - ubuntu:xenial
          - ubuntu:bionic
          - ubuntu:focal
          - debian:stretch
