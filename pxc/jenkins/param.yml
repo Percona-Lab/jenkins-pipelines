@@ -1,5 +1,5 @@
 - job:
-    name: pxc-8.0-param
+    name: wip-noemi-pxc-8.0-param
     project-type: matrix
     defaults: global
     description: |
@@ -114,7 +114,7 @@
           - debian:buster
     builders:
     - trigger-builds:
-      - project: pxc-8.0-pipeline
+      - project: wip-noemi-pxc-8.0-pipeline
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${DOCKER_OS}
@@ -127,12 +127,12 @@
     - shell: |
         sudo find . -name "*.xml" -o -name "*.log" -delete
     - copyartifact:
-        project: pxc-8.0-pipeline
+        project: wip-noemi-pxc-8.0-pipeline
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_8_0_pipeline}"
+        build-number: "${TRIGGERED_BUILD_NUMBERS_wip_noemi_pxc_8_0_pipeline}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_pxc_8_0_pipeline}" > PIPELINE_BUILD_NUMBER
+        echo "${TRIGGERED_BUILD_NUMBERS_wip_noemi_pxc_8_0_pipeline}" > PIPELINE_BUILD_NUMBER
     publishers:
     - junit:
         results: "**/*.xml"
