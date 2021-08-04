@@ -301,6 +301,7 @@ EOF
                 runTest('scaling')
                 runTest('recreate')
                 runTest('affinity')
+                runTest('monitoring')
                 runTest('demand-backup')
             }
         }

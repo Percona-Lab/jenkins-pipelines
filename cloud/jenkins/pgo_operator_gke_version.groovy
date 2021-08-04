@@ -316,15 +316,41 @@ pipeline {
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                 VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
                 CLUSTER_NAME = sh(script: "echo jenkins-param-pgo-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                PGO_K8S_NAME = "${env.CLUSTER_NAME}-upstream"
+                ECR = "119175775298.dkr.ecr.us-east-1.amazonaws.com"
             }
-            steps {
-                CreateCluster('sandbox')
-                runTest('init-deploy', 'sandbox')
-                runTest('scaling', 'sandbox')
-                runTest('recreate', 'sandbox')
-                runTest('affinity', 'sandbox')
-                runTest('demand-backup', 'sandbox')
-                ShutdownCluster('sandbox')
+            parallel {
+                stage('E2E Basic tests') {
+                    steps {
+                        CreateCluster('sandbox')
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            runTest('init-deploy', 'sandbox')
+                        }
+                        runTest('scaling', 'sandbox')
+                        runTest('recreate', 'sandbox')
+                        runTest('affinity', 'sandbox')
+                        runTest('monitoring', 'sandbox')
+                        runTest('self-healing', 'sandbox')
+                        runTest('clone-cluster', 'sandbox')
+                        ShutdownCluster('sandbox')
+                    }
+                }
+                stage('E2E Backups') {
+                    steps {
+                        CreateCluster('backups')
+                        runTest('demand-backup', 'backups')
+                        ShutdownCluster('backups')
+                    }
+                }
+                stage('E2E Data migration') {
+                    steps {
+                        CreateCluster('upstream')
+                        CreateCluster('migration')
+                        runTest('data-migration-gcs', 'migration')
+                        ShutdownCluster('migration')
+                        ShutdownCluster('upstream')
+                    }
+                }
             }
         }
     }
@@ -337,7 +363,7 @@ pipeline {
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
                     gcloud config set project $GCP_PROJECT
-                    gcloud alpha container clusters delete --zone us-central1-a $CLUSTER_NAME-sandbox || true
+                    gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone us-central1-a --quiet || true
                 '''
             }
             sh '''

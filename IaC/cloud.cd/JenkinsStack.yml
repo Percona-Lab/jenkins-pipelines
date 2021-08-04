@@ -310,6 +310,7 @@ Resources:
             - ecr:PutImage
             Resource:
             - 'arn:aws:ecr:us-east-1:119175775298:repository/perconalab/percona-postgresql-operator'
+            - 'arn:aws:ecr:us-east-1:119175775298:repository/percona/percona-postgresql-operator'
 
   JWorkerProfile: # create Profile for jenkins workers (needed for assign tags)
     Type: AWS::IAM::InstanceProfile
