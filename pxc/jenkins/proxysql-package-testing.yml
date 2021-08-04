@@ -1,0 +1,56 @@
+- job:
+    name: proxysql-package-testing
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    properties:
+        - build-discarder:
+            num-to-keep: 15
+    concurrent: true
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                branches:
+                    - 'master'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: pxc/jenkins/proxysql-package-testing.groovy
+    parameters:
+        - choice:
+            name: product_to_test
+            choices:
+                - "proxysql"
+                - "proxysql2"
+            description: 'Choose the product version to test: Pproxysql OR proxysql2'
+        - choice:
+            name: node_to_test
+            choices:
+                - 'min-centos-7-x64'
+                - 'min-centos-8-x64'
+                - 'min-xenial-x64'
+                - 'min-bionic-x64'
+                - 'min-focal-x64'
+                - 'min-stretch-x64'
+                - 'min-buster-x64'
+            description: 'Node to run tests'
+        - choice:
+            name: install_repo
+            choices:
+                - "testing"
+                - "main"
+                - "experimental"
+            description: 'Choose the repo to install packages and run the tests'
+        - choice:
+            name: client_to_test
+            choices:
+                - "pxc57"
+                - "pxc80"
+                - "ps57"
+                - "ps80"
+            description: 'Choose client_test playbook which checks that only client packages can be installed'
+        - string:
+            name: git_repo
+            default: 'https://github.com/Percona-QA/package-testing.git'
+            description: ""
+            trim: false
