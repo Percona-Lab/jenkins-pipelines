@@ -82,9 +82,10 @@ if [ -f /usr/bin/yum ]; then
     perl-JSON MySQL-python perl-Digest perl-Digest-MD5 \
     numactl-devel git which make rpm-build ccache libtool redhat-lsb-core sudo libasan lz4-devel \
     libzstd-devel tzdata check-devel scons libgcrypt-devel libev-devel zlib-devel libaio-devel \
-    ncurses-devel readline-devel pam-devel socat vim-common openssl perl-CPAN rsync libcurl-devel \
+    ncurses-devel readline-devel pam-devel vim-common openssl perl-CPAN rsync libcurl-devel \
     python3 sysbench perl-DBD-mysql \
     patchelf lsof automake bzip2 gnutls gnutls-devel patch lsof socat qpress perl-XML-Simple \
+    stunnel \
     "
 
     if [[ ${RHVER} -eq 8 ]]; then
@@ -196,6 +197,7 @@ if [ -f /usr/bin/apt-get ]; then
         libpam-dev vim-common python3-pip libboost-all-dev rsync \
         python3 sysbench libdbd-mysql-perl \
         patchelf lynx librtmp-dev lsof socat qpress libncurses5 libtinfo5 libxml-simple-perl python3-sphinx \
+        stunnel \
     "
     
     if [[ ${DIST} != 'focal' ]]; then
