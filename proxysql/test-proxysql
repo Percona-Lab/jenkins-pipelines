@@ -72,14 +72,14 @@ if [ -f /usr/bin/yum ]; then
 
   if [[ "${PXC_VERSION}" == "PXC80" ]]; then
 # Downloading PXC-8.0 tarball package
-    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_8.0.22-13.1_Linux.x86_64.glibc2.17-minimal.tar.gz https://www.percona.com/downloads/Percona-XtraDB-Cluster-LATEST/Percona-XtraDB-Cluster-8.0.22/binary/tarball/Percona-XtraDB-Cluster_8.0.22-13.1_Linux.x86_64.glibc2.17-minimal.tar.gz
+    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_8.0.23-14.1_Linux.x86_64.glibc2.17-minimal.tar.gz https://www.percona.com/downloads/Percona-XtraDB-Cluster-LATEST/Percona-XtraDB-Cluster-8.0.23/binary/tarball/Percona-XtraDB-Cluster_8.0.23-14.1_Linux.x86_64.glibc2.17-minimal.tar.gz
 
 # Installing PXC-8.0 client package
     enable_repo pxc-80 release
     install_package percona-xtradb-cluster-client
   elif [[ "${PXC_VERSION}" == "PXC57" ]]; then
 # Downloading PXC-5.7 tarball package
-    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster-5.7.33-rel36-49.1.Linux.x86_64.glibc2.12-minimal.tar.gz  https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.33-31.49/binary/tarball/Percona-XtraDB-Cluster-5.7.33-rel36-49.1.Linux.x86_64.glibc2.12-minimal.tar.gz
+    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster-5.7.34-rel37-51.1.Linux.x86_64.glibc2.12-minimal.tar.gz  https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.34-31.51/binary/tarball/Percona-XtraDB-Cluster-5.7.34-rel37-51.1.Linux.x86_64.glibc2.12-minimal.tar.gz
 
 # Installing PXC-5.7 client package
     enable_repo pxc-57 release
@@ -99,14 +99,14 @@ elif [ -f /usr/bin/apt ]; then
 
   if [[ "${PXC_VERSION}" == "PXC80" ]]; then
 # Downloading PXC-8.0 tarball package
-    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_8.0.22-13.1_Linux.x86_64.glibc2.17-minimal.tar.gz https://www.percona.com/downloads/Percona-XtraDB-Cluster-LATEST/Percona-XtraDB-Cluster-8.0.22/binary/tarball/Percona-XtraDB-Cluster_8.0.22-13.1_Linux.x86_64.glibc2.17-minimal.tar.gz
+    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_8.0.23-14.1_Linux.x86_64.glibc2.17-minimal.tar.gz https://www.percona.com/downloads/Percona-XtraDB-Cluster-LATEST/Percona-XtraDB-Cluster-8.0.23/binary/tarball/Percona-XtraDB-Cluster_8.0.23-14.1_Linux.x86_64.glibc2.17-minimal.tar.gz
 
 # Installing PXC-8.0 client package
     enable_repo pxc-80 release
     install_package percona-xtradb-cluster-client
   elif [[ "${PXC_VERSION}" == "PXC57" ]]; then
 # Downloading PXC-5.7 tarball package
-    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster-5.7.33-rel36-49.1.Linux.x86_64.glibc2.12-minimal.tar.gz  https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.33-31.49/binary/tarball/Percona-XtraDB-Cluster-5.7.33-rel36-49.1.Linux.x86_64.glibc2.12-minimal.tar.gz
+    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster-5.7.34-rel37-51.1.Linux.x86_64.glibc2.12-minimal.tar.gz  https://www.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.34-31.51/binary/tarball/Percona-XtraDB-Cluster-5.7.34-rel37-51.1.Linux.x86_64.glibc2.12-minimal.tar.gz
 
 # Installing PXC-5.7 client
     enable_repo pxc-57 release
