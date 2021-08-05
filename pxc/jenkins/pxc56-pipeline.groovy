@@ -60,6 +60,10 @@ pipeline {
             choices: 'yes\nno',
             description: 'Run mysql-test-run.pl',
             name: 'DEFAULT_TESTING')
+        choice(
+            choices: 'no\nyes',
+            description: 'Build with ASAN',
+            name: 'WITH_ASAN')
         string(
             defaultValue: '--unit-tests-report --big-test --suite=galera,galera_3nodes,sys_vars',
             description: 'mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report',
