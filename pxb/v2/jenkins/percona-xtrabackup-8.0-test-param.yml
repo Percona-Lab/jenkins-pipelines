@@ -11,9 +11,9 @@
     properties:
     - build-discarder:
         days-to-keep: -1
-        num-to-keep: 50
+        num-to-keep: 30
         artifact-days-to-keep: -1
-        artifact-num-to-keep: 50
+        artifact-num-to-keep: 30
     parameters:
     - string:
         name: BOOTSTRAP_URL
@@ -92,3 +92,5 @@
         artifacts: 'PIPELINE_BUILD_NUMBER'
     - archive:
         artifacts: 'junit.xml'
+    - archive:
+        artifacts: 'results.tar.gz'

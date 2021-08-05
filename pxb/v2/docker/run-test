@@ -34,6 +34,6 @@ docker run --rm \
 
     bash -x /tmp/scripts/test-binary /tmp/results
 
-    sudo mv /tmp/results/*.xml /tmp/results/*.output /tmp/results/test_results.subunit /tmp/results/PXB/percona-xtrabackup-*/results/* /tmp/pxb/results/ || true
+    sudo mv /tmp/results/*.xml /tmp/results/*.output /tmp/results/test_results.subunit /tmp/results/results/ /tmp/pxb/results/ || true
     sudo chown $(id -u):$(id -g) -R /tmp/pxb/results/
 "
