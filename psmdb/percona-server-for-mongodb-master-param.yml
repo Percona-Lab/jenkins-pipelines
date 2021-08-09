@@ -32,6 +32,11 @@
         name: PSM_BRANCH
         trim: true
     - string:
+        default: 100.4.1
+        description: ''
+        name: MONGO_TOOLS_TAG
+        trim: true
+    - string:
         default: 'auto'
         description: <h3>Number of parallel jobs for running tests, auto=number of
           cores or specify exact number like 8,4,2,1</h3>
@@ -91,7 +96,7 @@
         artifact-days-to-keep: -1
         artifact-num-to-keep: -1
         days-to-keep: -1
-        num-to-keep: 30
+        num-to-keep: 15
     - disk-usage
     publishers:
     - raw:

@@ -2,12 +2,12 @@
     block-downstream: false
     block-upstream: false
     builders:
-    - builders-from: percona-server-for-mongodb-4.0-template
+    - builders-from: percona-server-for-mongodb-5.0-template
     concurrent: true
     description: null
     disabled: false
-    name: !!python/unicode 'percona-server-for-mongodb-4.0-param'
-    node: psmdb || mongodb-xenial-x64
+    name: !!python/unicode 'percona-server-for-mongodb-5.0-param'
+    node: psmdb-bionic
     parameters:
     - choice:
         choices:
@@ -27,9 +27,14 @@
         name: PSM_REPO
         trim: true
     - string:
-        default: v4.0
+        default: v5.0
         description: ''
         name: PSM_BRANCH
+        trim: true
+    - string:
+        default: 100.4.1
+        description: ''
+        name: MONGO_TOOLS_TAG
         trim: true
     - string:
         default: 'auto'
@@ -38,15 +43,14 @@
         name: JOBS
         trim: true
     - string:
-        default: resmoke_psmdb_4.0_big
+        default: resmoke_psmdb_5.0_medium
         description: |-
           <h3>AVAILABLE OPTIONS:<br>
-          resmoke_psmdb_4.0_big<br>
-          resmoke_psmdb_4.0_big_wiredTiger<br>
-          resmoke_psmdb_4.0_big_inMemory<br>
-          resmoke_psmdb_4.0_big_nommap<br>
-          resmoke_psmdb_4.0_big_special<br>
-          resmoke_psmdb_4.0_medium<br>
+          resmoke_psmdb_5.0_big<br>
+          resmoke_psmdb_5.0_big_wiredTiger<br>
+          resmoke_psmdb_5.0_big_inMemory<br>
+          resmoke_psmdb_5.0_special<br>
+          resmoke_psmdb_5.0_medium<br>
           This is test suite from psmdb-misc-scripts/suite_sets and needs to be without .txt extension</h3>
         name: SUITE
         trim: true
@@ -55,8 +59,8 @@
         description: |-
           <h3>With this you can specify a custom suite content which will be generated and passed to resmoke script.<br>
           EXAMPLE CONTENT:<br>
-          aggregation|mmapv1|wiredTiger|inMemory<br>
-          core|mmapv1|wiredTiger|inMemory<br>
+          aggregation|wiredTiger|inMemory<br>
+          core|wiredTiger|inMemory<br>
           sharding --excludeWithAnyTags=requires_persistence,requires_journaling|inMemory</h3>
         name: CUSTOM_SUITE
         trim: false
