@@ -32,7 +32,7 @@
         name: PSM_BRANCH
         trim: true
     - string:
-        default: 100.3.1
+        default: 100.4.1
         description: ''
         name: MONGO_TOOLS_TAG
         trim: true
