@@ -44,7 +44,7 @@ void runTest(String TEST_NAME) {
             GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
             PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-            FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.KUBER_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"
+            FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"
             testsReportMap[TEST_NAME] = 'failure'
 
             popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
@@ -171,7 +171,7 @@ pipeline {
         string(
             defaultValue: 'v1.14.8',
             description: 'Kubernetes Version',
-            name: 'KUBER_VERSION',
+            name: 'PLATFORM_VER',
             trim: true)
     }
     agent {
@@ -249,7 +249,7 @@ pipeline {
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
                         export CHANGE_MINIKUBE_NONE_USER=true
-                        sudo -E /usr/local/bin/minikube start --vm-driver=none --kubernetes-version ${KUBER_VERSION}
+                        sudo -E /usr/local/bin/minikube start --vm-driver=none --kubernetes-version ${PLATFORM_VER}
                         sudo mv /root/.kube /root/.minikube $HOME
                         sudo chown -R $USER $HOME/.kube $HOME/.minikube
                         sed -i s:/root:$HOME:g $HOME/.kube/config

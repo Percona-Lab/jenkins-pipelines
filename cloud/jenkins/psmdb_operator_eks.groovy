@@ -42,11 +42,11 @@ void runTest(String TEST_NAME) {
             testsReportMap[TEST_NAME] = 'failure'
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
 
-            popArtifactFile("$VERSION-$TEST_NAME-$MDB_TAG")
+            popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
 
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
                 sh """
-                    if [ -f "$VERSION-$TEST_NAME-$MDB_TAG" ]; then
+                    if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG" ]; then
                         echo Skip $TEST_NAME test
                     else
                         cd ./source
@@ -76,7 +76,7 @@ void runTest(String TEST_NAME) {
                     fi
                 """
             }
-            pushArtifactFile("$VERSION-$TEST_NAME-$MDB_TAG")
+            pushArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
@@ -112,7 +112,7 @@ pipeline {
         string(
             defaultValue: '1.20',
             description: 'EKS kubernetes version',
-            name: 'EKS_VERSION')
+            name: 'PLATFORM_VER')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
@@ -205,7 +205,7 @@ kind: ClusterConfig
 metadata:
     name: eks-psmdb-cluster
     region: eu-west-3
-    version: "$EKS_VERSION"
+    version: "$PLATFORM_VER"
 
 nodeGroups:
     - name: ng-1

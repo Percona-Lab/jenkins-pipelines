@@ -48,12 +48,12 @@ void runTest(String TEST_NAME) {
             VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
             testsReportMap[TEST_NAME] = 'failure'
 
-            popArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+            popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
 
             timeout(time: 90, unit: 'MINUTES') {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
                     sh """
-                        if [ -f "$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
+                        if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                             echo Skip $TEST_NAME test
                         else
                             cd ./source
@@ -96,7 +96,7 @@ void runTest(String TEST_NAME) {
                     """
                 }
             }
-            pushArtifactFile("$VERSION-$TEST_NAME-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+            pushArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
@@ -132,7 +132,7 @@ pipeline {
         string(
             defaultValue: '1.20',
             description: 'EKS kubernetes version',
-            name: 'EKS_VERSION')
+            name: 'PLATFORM_VER')
         choice(
             choices: 'NO\nYES',
             description: 'Run tests with cluster wide',
@@ -242,7 +242,7 @@ kind: ClusterConfig
 metadata:
     name: eks-pxc-cluster
     region: eu-west-3
-    version: "$EKS_VERSION"
+    version: "$PLATFORM_VER"
 
 nodeGroups:
     - name: ng-1

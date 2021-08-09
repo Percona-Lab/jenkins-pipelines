@@ -8,7 +8,7 @@ void CreateCluster(String CLUSTER_SUFFIX) {
                 ret_val=0
                 gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version ${params.GKE_VERSION} --zone us-central1-a --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --enable-autoscaling --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} && \
+                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version ${params.PLATFORM_VER} --zone us-central1-a --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --enable-autoscaling --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -69,11 +69,11 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
             PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             testsReportMap[TEST_NAME] = 'failure'
 
-            popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+            popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
-                    if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
+                    if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                         echo Skip $TEST_NAME test
                     else
                         cd ./source
@@ -113,7 +113,7 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
                     fi
                 """
             }
-            pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+            pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
@@ -153,7 +153,7 @@ pipeline {
         string(
             defaultValue: 'latest',
             description: 'GKE version',
-            name: 'GKE_VERSION')
+            name: 'PLATFORM_VER')
         string(
             defaultValue: 'sergey.pronin',
             description: 'Slack user to notify on failures',

@@ -29,7 +29,7 @@
         default: main
         description: Tag/Branch for percona/percona-xtradb-cluster-operator repository
     - string:
-        name: GKE_VERSION
+        name: PLATFORM_VER
         default: '1.12'
         description: GKE version
     - string:

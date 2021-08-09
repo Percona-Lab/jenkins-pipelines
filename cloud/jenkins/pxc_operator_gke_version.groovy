@@ -23,7 +23,7 @@ void runGKEcluster(String CLUSTER_PREFIX) {
                 ret_val=0
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud container clusters create --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version $GKE_VERSION --machine-type n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade && \
+                gcloud container clusters create --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version $PLATFORM_VER --machine-type n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade && \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -42,7 +42,7 @@ void runGKEclusterAlpha(String CLUSTER_PREFIX) {
                 ret_val=0
                 gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version $GKE_VERSION --zone us-central1-a --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --enable-autoscaling --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} && \
+                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version $PLATFORM_VER --zone us-central1-a --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --enable-autoscaling --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -103,11 +103,11 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             testsReportMap[TEST_NAME] = 'failure'
 
-            popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+            popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
-                    if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
+                    if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                         echo Skip $TEST_NAME test
                     else
                         cd ./source
@@ -147,7 +147,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                     fi
                 """
             }
-            pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+            pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
@@ -185,9 +185,9 @@ pipeline {
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.15',
+            defaultValue: '1.20',
             description: 'GKE version',
-            name: 'GKE_VERSION')
+            name: 'PLATFORM_VER')
         choice(
             choices: 'NO\nYES',
             description: 'Run tests with cluster wide',

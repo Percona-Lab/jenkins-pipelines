@@ -29,7 +29,7 @@
         default: main
         description: Tag/Branch for percona/percona-server-mongodb-operator repository
     - string:
-        name: LKE_VERSION
+        name: PLATFORM_VER
         default: '1.16'
         description: LKE version
 

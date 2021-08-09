@@ -20,7 +20,7 @@ void CreateCluster(String CLUSTER_PREFIX) {
             done
         }
 
-        CLUSTER_ID="$(linode-cli lke cluster-create --k8s_version \$LKE_VERSION --label \$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' --region us-central --node_pools.count 3 --tags jenkins,\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' --node_pools.type g6-standard-6 --json | jq '.[].id')"
+        CLUSTER_ID="$(linode-cli lke cluster-create --k8s_version \$PLATFORM_VER --label \$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' --region us-central --node_pools.count 3 --tags jenkins,\$CLUSTER_NAME-''' + CLUSTER_PREFIX + ''' --node_pools.type g6-standard-6 --json | jq '.[].id')"
         if [[ x\$CLUSTER_ID == "x" ]]; then
            echo "No cluster created. Exiting."
            exit 1
@@ -85,11 +85,11 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
         try {
             echo "The $TEST_NAME test was started!"
             PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
-            popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
-            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"] = 'failure'
+            popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"] = 'failure'
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
-                    if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
+                    if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                         echo Skip $TEST_NAME test
                     else
                         cd ./source
@@ -128,8 +128,8 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                     fi
                 """
             }
-            pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
-            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.LKE_VERSION}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"] = 'passed'
+            pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"] = 'passed'
             return true
         }
         catch (exc) {
@@ -181,7 +181,7 @@ pipeline {
         string(
             defaultValue: '1.16',
             description: 'LKE version',
-            name: 'LKE_VERSION')
+            name: 'PLATFORM_VER')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-xtradb-cluster-operator:main',
