@@ -15,6 +15,10 @@ def call(String REPO_NAME, String DESTINATION) {
                         set -o xtrace
 
                         pushd ${path_to_build}/binary
+                            if [ "x${REPO_NAME}" == "xpsmdb-50" ]; then
+                                createrepo_opts=" --no-database "
+                            fi
+
                             for rhel in `ls -1 redhat`; do
                                 export rpm_dest_path=/srv/repo-copy/${REPO_NAME}/yum/${DESTINATION}/\${rhel}
 
@@ -26,7 +30,7 @@ def call(String REPO_NAME, String DESTINATION) {
                                     if [ `ls redhat/\${rhel}/\${arch}/*.rpm | wc -l` -gt 0 ]; then
                                         rsync -aHv redhat/\${rhel}/\${arch}/*.rpm \${repo_path}/
                                     fi
-                                    createrepo --update \${repo_path}
+                                    createrepo --update \${createrepo_opts} \${repo_path}
                                     if [ -f \${repo_path}/repodata/repomd.xml.asc ]; then
                                         rm -f \${repo_path}/repodata/repomd.xml.asc
                                     fi
@@ -38,7 +42,7 @@ def call(String REPO_NAME, String DESTINATION) {
                                 if [ `find ../source/redhat -name '*.src.rpm' | wc -l` -gt 0 ]; then
                                     cp -v `find ../source/redhat -name '*.src.rpm' \${find_exclude}` \${rpm_dest_path}/SRPMS/
                                 fi
-                                createrepo --update \${rpm_dest_path}/SRPMS
+                                createrepo --update \${createrepo_opts} \${rpm_dest_path}/SRPMS
                                 if [ -f \${rpm_dest_path}/SRPMS/repodata/repomd.xml.asc ]; then
                                     rm -f \${rpm_dest_path}/SRPMS/repodata/repomd.xml.asc
                                 fi
