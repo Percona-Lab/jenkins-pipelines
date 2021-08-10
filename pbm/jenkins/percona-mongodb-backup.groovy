@@ -212,6 +212,19 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Debian Bullseye(11)') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bullseye", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Centos 7 tarball') {
                     agent {
                         label 'docker'
@@ -245,6 +258,9 @@ pipeline {
     post {
         success {
             slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH}")
+            script {
+                currentBuild.description = "Built on ${GIT_BRANCH}"
+            }
             deleteDir()
         }
         failure {
