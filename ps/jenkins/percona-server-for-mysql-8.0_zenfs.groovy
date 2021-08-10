@@ -131,7 +131,21 @@ parameters {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Binary tarball') {
+                stage('Ubuntu Focal(20.04)') {
+                    agent {
+                        label 'min-focal-x64-zenfs'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:focal", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Binary tarball 21.04') {
                     agent {
                         label 'min-hirsute-x64-zenfs'
                     }
@@ -140,6 +154,20 @@ parameters {
                         installCli("deb")
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:hirsute", "--build_tarball=1")
+
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Binary tarball 20.04') {
+                    agent {
+                        label 'min-focal-x64-zenfs'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:focal", "--build_tarball=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
