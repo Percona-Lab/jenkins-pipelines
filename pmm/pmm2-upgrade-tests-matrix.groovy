@@ -26,7 +26,7 @@ pipeline {
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: '2.20.0',
+            defaultValue: '2.21.0',
             description: 'RC PMM Server Version',
             name: 'PMM_SERVER_RC')
         choice(
@@ -44,24 +44,10 @@ pipeline {
     stages {
         stage('Run Upgrade Matrix-1') {
             parallel {
-                stage('Upgrade from 2.7.0'){
+                stage('Upgrade from 2.20.0'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.7.0', '2.7.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.8.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.8.0', '2.8.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.9.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.9.0', '2.9.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.20.0', '2.20.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
                         }
                     }
                 }
