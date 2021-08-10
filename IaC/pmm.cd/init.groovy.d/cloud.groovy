@@ -75,7 +75,7 @@ userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-xenial-x64']    = 'ubuntu'
 userMap['min-buster-x64']    = 'admin'
 userMap['min-stretch-x64']   = 'admin'
-userMap['min-bullseye-x64']   = 'admin'
+userMap['min-bullseye-x64']  = 'admin'
 userMap['micro-amazon']      = 'ec2-user'
 userMap['large-amazon']      = userMap['micro-amazon']
 userMap['docker']            = userMap['micro-amazon']
@@ -203,7 +203,7 @@ initMap['min-focal-x64']    = initMap['debMap']
 initMap['min-bionic-x64']   = initMap['debMap']
 initMap['min-xenial-x64']   = initMap['debMap']
 initMap['min-stretch-x64']  = initMap['debMap']
-initMap['min-bullseye-x64']  = initMap['debMap']
+initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-buster-x64']   = initMap['debMap']
 
 initMap['docker'] = '''
