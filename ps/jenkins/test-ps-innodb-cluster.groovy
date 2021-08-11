@@ -109,6 +109,7 @@ pipeline {
                 'ubuntu-focal',
                 'ubuntu-bionic',
                 'ubuntu-xenial',
+                'debian-11',
                 'debian-10',
                 'debian-9',
                 'centos-8',
