@@ -38,6 +38,7 @@
                 - "all"
                 - "min-stretch-x64"
                 - "min-buster-x64"
+                - "min-bullseye-x64"
                 - "min-centos-6-x64"
                 - "min-centos-7-x64"
                 - "min-centos-8-x64"
