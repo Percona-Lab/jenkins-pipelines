@@ -34,25 +34,10 @@ pipeline {
                 sh '''
                     set -o errexit
 
-                    curdir=$(pwd)
-                    cd ../
-                    wget https://github.com/git-lfs/git-lfs/releases/download/v2.7.1/git-lfs-linux-amd64-v2.7.1.tar.gz
-                    tar -zxvf git-lfs-linux-amd64-v2.7.1.tar.gz
-                    rm git-lfs-linux-amd64-v2.7.1.tar.gz
-                    sudo ./install.sh
-                    cd $curdir
-
                     git reset --hard
                     git clean -xdf
                     git submodule update --init --jobs 10
                     git submodule status
-
-                    # install git-lfs to download binary packages from git
-                    pushd sources/pmm-server
-                    git lfs install
-                    git lfs pull
-                    git lfs checkout
-                    popd
 
                     git rev-parse --short HEAD > shortCommit
                     echo "UPLOAD/pmm2-components/yum/${DESTINATION}/${JOB_NAME}/pmm/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
