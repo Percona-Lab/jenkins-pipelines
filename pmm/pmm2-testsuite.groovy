@@ -42,6 +42,7 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
             export PMM_VERSION=${PMM_VERSION}
 
             sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
+            sudo yum install -y jq
             export CLIENT_VERSION=${CLIENT_VERSION}
             if [[ \$CLIENT_VERSION == http* ]]; then
                 export PATH="/home/ec2-user/workspace/aws-staging-start/pmm2-client/bin:$PATH"
@@ -132,7 +133,6 @@ pipeline {
     triggers {
         upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
-
     stages {
         stage('Prepare') {
             steps {
@@ -167,6 +167,16 @@ pipeline {
                 runTAP("ps", "ps", "2", "5.7")
             }
         }
+        stage('Test: MDB_4_2') {
+            steps {
+                runTAP("modb", "modb", "3", "4.2")
+            }
+        }
+        stage('Test: MDB_4_0') {
+            steps {
+                runTAP("modb", "modb", "3", "4.0")
+            }
+        }
         stage('Test: PSMDB_4_0') {
             steps {
                 runTAP("mo", "psmdb", "3", "4.0")
@@ -177,19 +187,9 @@ pipeline {
                 runTAP("ps", "ps", "2", "8.0")
             }
         }
-        stage('Test: PSMDB_3_6') {
+        stage('Test: PSMDB_4_4') {
             steps {
-                runTAP("mo", "psmdb", "3", "3.6")
-            }
-        }
-        stage('Test: MDB_4_2') {
-            steps {
-                runTAP("modb", "modb", "3", "4.2")
-            }
-        }
-        stage('Test: MDB_4_0') {
-            steps {
-                runTAP("modb", "modb", "3", "4.0")
+                runTAP("mo", "psmdb", "3", "4.4")
             }
         }
         stage('Test: HAPROXY') {
@@ -220,6 +220,11 @@ pipeline {
         stage('Test: PXC') {
             steps {
                 runTAP("pxc", "pxc", "1", "5.7")
+            }
+        }
+        stage('Test: Generic') {
+            steps {
+                runTAP("generic", "admin", "1", "2")
             }
         }
         stage('Check Results') {
