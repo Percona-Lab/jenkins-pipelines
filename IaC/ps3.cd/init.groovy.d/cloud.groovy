@@ -37,7 +37,7 @@ imageMap['eu-west-1a.min-bionic-x64']   = 'ami-0c259a97cbf621daf'
 imageMap['eu-west-1a.min-stretch-x64']  = 'ami-097672ef083ca4411'
 imageMap['eu-west-1a.min-xenial-x64']   = 'ami-038d7b856fe7557b3'
 imageMap['eu-west-1a.docker-32gb-hirsute'] = 'ami-03c54cffe1a147d6c'
-imageMap['eu-west-1a.docker-32gb-focal'] = 'ami-02d7fe93ba8353d4e'
+imageMap['eu-west-1a.docker-32gb-focal'] = 'ami-05a657c9227900694'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
@@ -148,7 +148,7 @@ initMap['docker'] = '''
     echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
     sudo sed -i.bak -e 's/nofile=1024:4096/nofile=900000:900000/; s/DAEMON_MAXFILES=.*/DAEMON_MAXFILES=990000/' /etc/sysconfig/docker
     echo 'DOCKER_STORAGE_OPTIONS="--data-root=/mnt/docker"' | sudo tee -a /etc/sysconfig/docker-storage
-    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service
     sudo systemctl daemon-reload
     sudo install -o root -g root -d /mnt/docker
     sudo usermod -aG docker $(id -u -n)
@@ -216,7 +216,7 @@ initMap['docker-32gb-hirsute'] = '''
     sudo sysctl -w fs.aio-max-nr=1048576 || true
     sudo sysctl -w fs.file-max=6815744 || true
     echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
-    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service
     sudo systemctl daemon-reload
     sudo install -o root -g root -d /mnt/docker
     sudo usermod -aG docker $(id -u -n)
