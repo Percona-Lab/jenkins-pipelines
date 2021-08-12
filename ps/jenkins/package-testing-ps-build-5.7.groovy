@@ -66,6 +66,7 @@ void setup_package_tests() {
 List all_nodes = node_setups.keySet().collect()
 
 List ps56_excluded_nodes = [
+    "min-bullseye-x64",
     "min-centos-8-x64",
     "min-focal-x64",
 ]
