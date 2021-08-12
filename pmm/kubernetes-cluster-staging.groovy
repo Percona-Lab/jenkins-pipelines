@@ -154,8 +154,9 @@ pipeline {
                                 rm ~/.kube/config && minikube delete
                                 minikube config set cpus 8
                                 minikube config set memory 29000
-                                minikube config set kubernetes-version 1.16.15
+                                minikube config set kubernetes-version 1.20.1
                                 export CHANGE_MINIKUBE_NONE_USER=true
+                                sudo yum install -y conntrack
                                 minikube start --driver=none
                                 sudo chown -R $USER $HOME/.kube $HOME/.minikube
                                 sed -i s:/root:$HOME:g $HOME/.kube/config
