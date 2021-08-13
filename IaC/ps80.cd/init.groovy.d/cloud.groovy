@@ -24,7 +24,7 @@ imageMap = [:]
 imageMap['us-west-2a.docker']            = 'ami-0dc8f589abe99f538'
 imageMap['us-west-2a.docker-32gb']       = 'ami-0dc8f589abe99f538'
 imageMap['us-west-2a.docker-32gb-hirsute'] = 'ami-0cbdf6c0f39fd3950'
-imageMap['us-west-2a.docker-32gb-focal']  = 'ami-08b2b29626aa5b87f'
+imageMap['us-west-2a.docker-32gb-focal']  = 'ami-0ebe6e463e9912d81'
 imageMap['us-west-2a.docker2']           = 'ami-0dc8f589abe99f538'
 imageMap['us-west-2a.micro-amazon']      = 'ami-0dc8f589abe99f538'
 imageMap['us-west-2a.min-amazon-2-x64']  = 'ami-0dc8f589abe99f538'
@@ -195,7 +195,7 @@ initMap['docker'] = '''
     echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
     sudo sed -i.bak -e 's/nofile=1024:4096/nofile=900000:900000/; s/DAEMON_MAXFILES=.*/DAEMON_MAXFILES=990000/' /etc/sysconfig/docker
     echo 'DOCKER_STORAGE_OPTIONS="--data-root=/mnt/docker"' | sudo tee -a /etc/sysconfig/docker-storage
-    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service
     sudo systemctl daemon-reload
     sudo install -o root -g root -d /mnt/docker
     sudo usermod -aG docker $(id -u -n)
@@ -264,7 +264,7 @@ initMap['docker-32gb-hirsute'] = '''
     sudo sysctl -w fs.aio-max-nr=1048576 || true
     sudo sysctl -w fs.file-max=6815744 || true
     echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
-    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service
     sudo systemctl daemon-reload
     sudo install -o root -g root -d /mnt/docker
     sudo usermod -aG docker $(id -u -n)
