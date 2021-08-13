@@ -42,7 +42,6 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
             export PMM_VERSION=${PMM_VERSION}
 
             sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
-            sudo yum install -y jq
             export CLIENT_VERSION=${CLIENT_VERSION}
             if [[ \$CLIENT_VERSION == http* ]]; then
                 export PATH="/home/ec2-user/workspace/aws-staging-start/pmm2-client/bin:$PATH"
