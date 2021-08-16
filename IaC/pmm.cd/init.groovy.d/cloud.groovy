@@ -29,30 +29,33 @@ imageMap['us-east-2a.min-bionic-x64']   = 'ami-025227bc8f4c2cbdd'
 imageMap['us-east-2a.min-xenial-x64']   = 'ami-0d563aeddd4be7fff'
 imageMap['us-east-2a.min-buster-x64']   = 'ami-03f292d90762e3745'
 imageMap['us-east-2a.min-stretch-x64']  = 'ami-0b746c0dbef2b000e'
+imageMap['us-east-2a.min-bullseye-x64'] = 'ami-06b70852fb28ee885'
 imageMap['us-east-2a.micro-amazon']     = 'ami-0233c2d874b811deb'
-imageMap['us-east-2a.large-amazon']     = imageMap['us-east-2a.micro-amazon'] 
-imageMap['us-east-2a.docker']           = imageMap['us-east-2a.micro-amazon'] 
+imageMap['us-east-2a.large-amazon']     = imageMap['us-east-2a.micro-amazon']
+imageMap['us-east-2a.docker']           = imageMap['us-east-2a.micro-amazon']
 
 imageMap['us-east-2b.min-centos-6-x64'] = imageMap['us-east-2a.min-centos-6-x64']
 imageMap['us-east-2b.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
-imageMap['us-east-2b.min-centos-8-x64'] = imageMap['us-east-2a.min-centos-8-x64'] 
+imageMap['us-east-2b.min-centos-8-x64'] = imageMap['us-east-2a.min-centos-8-x64']
 imageMap['us-east-2b.min-focal-x64']    = imageMap['us-east-2a.min-focal-x64']
 imageMap['us-east-2b.min-bionic-x64']   = imageMap['us-east-2a.min-bionic-x64']
 imageMap['us-east-2b.min-xenial-x64']   = imageMap['us-east-2a.min-xenial-x64']
 imageMap['us-east-2b.min-buster-x64']   = imageMap['us-east-2a.min-buster-x64']
 imageMap['us-east-2b.min-stretch-x64']  = imageMap['us-east-2a.min-stretch-x64']
+imageMap['us-east-2b.min-bullseye-x64'] = imageMap['us-east-2a.min-bullseye-x64']
 imageMap['us-east-2b.micro-amazon']     = imageMap['us-east-2a.micro-amazon']
 imageMap['us-east-2b.large-amazon']     = imageMap['us-east-2a.large-amazon']
 imageMap['us-east-2b.docker']           = imageMap['us-east-2a.docker']
 
 imageMap['us-east-2c.min-centos-6-x64'] = imageMap['us-east-2a.min-centos-6-x64']
 imageMap['us-east-2c.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
-imageMap['us-east-2c.min-centos-8-x64'] = imageMap['us-east-2a.min-centos-8-x64'] 
+imageMap['us-east-2c.min-centos-8-x64'] = imageMap['us-east-2a.min-centos-8-x64']
 imageMap['us-east-2c.min-focal-x64']    = imageMap['us-east-2a.min-focal-x64']
 imageMap['us-east-2c.min-bionic-x64']   = imageMap['us-east-2a.min-bionic-x64']
 imageMap['us-east-2c.min-xenial-x64']   = imageMap['us-east-2a.min-xenial-x64']
 imageMap['us-east-2c.min-buster-x64']   = imageMap['us-east-2a.min-buster-x64']
 imageMap['us-east-2c.min-stretch-x64']  = imageMap['us-east-2a.min-stretch-x64']
+imageMap['us-east-2b.min-bullseye-x64'] = imageMap['us-east-2a.min-bullseye-x64']
 imageMap['us-east-2c.micro-amazon']     = imageMap['us-east-2a.micro-amazon']
 imageMap['us-east-2c.large-amazon']     = imageMap['us-east-2a.large-amazon']
 imageMap['us-east-2c.docker']           = imageMap['us-east-2a.docker']
@@ -72,6 +75,7 @@ userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-xenial-x64']    = 'ubuntu'
 userMap['min-buster-x64']    = 'admin'
 userMap['min-stretch-x64']   = 'admin'
+userMap['min-bullseye-x64']  = 'admin'
 userMap['micro-amazon']      = 'ec2-user'
 userMap['large-amazon']      = userMap['micro-amazon']
 userMap['docker']            = userMap['micro-amazon']
@@ -82,7 +86,7 @@ initMap['rpmMap'] = '''
     set -o xtrace
     RHVER=$(rpm --eval %rhel)
     SYSREL=$(cat /etc/system-release | tr -dc '0-9.'|awk -F'.' {'print $1'})
-    
+
     if ! mountpoint -q /mnt; then
         for DEVICE_NAME in $(lsblk -ndbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
             if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
@@ -106,7 +110,7 @@ initMap['rpmMap'] = '''
         else
             PKGLIST="epel-release"
         fi
-        until sudo yum -y install ${PKGLIST}; do    
+        until sudo yum -y install ${PKGLIST}; do
             sleep 1
             echo try again
         done
@@ -147,7 +151,7 @@ initMap['rpmMap'] = '''
                 echo try again
             done
 
-            7za -o/tmp x /tmp/awscliv2.zip 
+            7za -o/tmp x /tmp/awscliv2.zip
             cd /tmp/aws && sudo ./install
         fi
     fi
@@ -181,7 +185,7 @@ initMap['debMap'] = '''
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
     DEB_VER=$(lsb_release -sc)
-    if [[ ${DEB_VER} == "buster" ]]; then
+    if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]]; then
         JAVA_VER="openjdk-11-jre-headless"
     else
         JAVA_VER="openjdk-8-jre-headless"
@@ -199,6 +203,7 @@ initMap['min-focal-x64']    = initMap['debMap']
 initMap['min-bionic-x64']   = initMap['debMap']
 initMap['min-xenial-x64']   = initMap['debMap']
 initMap['min-stretch-x64']  = initMap['debMap']
+initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-buster-x64']   = initMap['debMap']
 
 initMap['docker'] = '''
@@ -237,7 +242,7 @@ initMap['docker'] = '''
             echo try again
         done
 
-        7za -o/tmp x /tmp/awscliv2.zip 
+        7za -o/tmp x /tmp/awscliv2.zip
         cd /tmp/aws && sudo ./install
     fi
 
@@ -279,6 +284,7 @@ typeMap['min-bionic-x64']    = typeMap['min-centos-6-x64']
 typeMap['min-xenial-x64']    = typeMap['min-centos-6-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-6-x64']
 typeMap['min-stretch-x64']   = typeMap['min-centos-6-x64']
+typeMap['min-bullseye-x64']  = typeMap['min-centos-6-x64']
 typeMap['micro-amazon']      = 't3.large'
 typeMap['large-amazon']      = 't3.xlarge'
 typeMap['docker']            = 't3.xlarge'
@@ -292,6 +298,7 @@ execMap['min-bionic-x64']    = '1'
 execMap['min-xenial-x64']    = '1'
 execMap['min-buster-x64']    = '1'
 execMap['min-stretch-x64']   = '1'
+execMap['min-bullseye-x64']  = '1'
 execMap['micro-amazon']      = '4'
 execMap['large-amazon']      = '1'
 execMap['docker']            = '1'
@@ -305,6 +312,7 @@ devMap['min-bionic-x64']    = devMap['min-centos-6-x64']
 devMap['min-xenial-x64']    = devMap['min-centos-6-x64']
 devMap['min-buster-x64']    = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
 devMap['min-stretch-x64']   = 'xvda=:80:true:gp2,xvdd=:20:true:gp2'
+devMap['min-bullseye-x64']  = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
 devMap['micro-amazon']      = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['large-amazon']      = '/dev/xvda=:100:true:gp2'
 devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -318,6 +326,7 @@ labelMap['min-bionic-x64']    = 'min-bionic-x64'
 labelMap['min-xenial-x64']    = 'min-xenial-x64'
 labelMap['min-buster-x64']    = 'min-buster-x64'
 labelMap['min-stretch-x64']   = 'min-stretch-x64'
+labelMap['min-bullseye-x64']  = 'min-bullseye-x64'
 labelMap['micro-amazon']      = 'micro-amazon nodejs master awscli'
 labelMap['large-amazon']      = 'large-amazon'
 labelMap['docker']            = ''
@@ -398,6 +407,7 @@ String region = 'us-east-2'
             getTemplate('min-xenial-x64',       "${region}${it}"),
             getTemplate('min-buster-x64',       "${region}${it}"),
             getTemplate('min-stretch-x64',      "${region}${it}"),
+            getTemplate('min-bullseye-x64',     "${region}${it}"),
             getTemplate('micro-amazon',         "${region}${it}"),
             getTemplate('large-amazon',         "${region}${it}"),
             getTemplate('docker',               "${region}${it}"),

@@ -100,7 +100,7 @@ if [[ ${CMAKE_BUILD_TYPE} == "Debug" ]]; then
 fi
 ./run.sh ${XBTR_ARGS} -f | tee -a ${WORKDIR_ABS}/xbtr.output
 cat results/setup
-sudo cp -r ${TEST_DIR}/results/* ${WORKDIR_ABS}/
+sudo cp -r ${TEST_DIR}/results/ ${WORKDIR_ABS}/
 cp test_results.subunit ${WORKDIR_ABS}
 iconv -t UTF-8 test_results.subunit | PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml > ${WORKDIR_ABS}/junit.xml || true
 exit $status
