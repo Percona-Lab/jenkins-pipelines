@@ -73,7 +73,7 @@ pipeline {
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: 'perconalab/pmm-server:dev-latest',
+            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
             description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
             name: 'PMM_SERVER_TAG')
         string(
