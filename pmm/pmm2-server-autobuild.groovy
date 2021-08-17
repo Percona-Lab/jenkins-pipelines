@@ -142,6 +142,13 @@ pipeline {
         stage('Build server docker') {
             steps {
                 installAWSv2()
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh """
+                        sg docker -c "
+                            echo "${PASS}" | docker login -u "${USER}" --password-stdin
+                        "
+                    """
+                }
                 withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'ECRRWUser', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
                         sg docker -c "
