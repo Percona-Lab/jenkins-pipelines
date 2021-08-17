@@ -113,8 +113,10 @@ pipeline {
                             "
                             echo Archive test: \$(date -u "+%s")
                             gzip sources/results/* || true
-                            tar -zcvf results.tar.gz sources/results/results/
-                            mv results.tar.gz sources/results/ 
+                            if [[ -d sources/results/results/ ]]; then
+                                tar -zcvf results.tar.gz sources/results/results/
+                                mv results.tar.gz sources/results/
+                            fi
                             until aws s3 sync --no-progress --acl public-read --exclude 'binary.tar.gz' ./sources/results/ s3://pxb-build-cache/${BUILD_TAG}/; do
                                 sleep 5
                             done
