@@ -25,11 +25,11 @@ pipeline {
         string(
             defaultValue: 'pdmdb-4.2.8',
             description: 'PDMDB Version for tests',
-            name: 'VERSION')
+            name: 'PDMDB_VERSION')
         string(
-            defaultValue: '1.3.0',
+            defaultValue: '1.6.0',
             description: 'PBM Version for tests',
-            name: 'PBM_VERSION')
+            name: 'VERSION')
   }
   options {
           withCredentials(creds)
