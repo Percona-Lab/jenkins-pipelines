@@ -66,6 +66,18 @@ pipeline {
                     }
                 }
 
+                stage('Debian Bullseye') {
+                    steps {
+                        script{
+                            if (env.product_to_test == 'proxysql') {
+                                echo 'Proxysql is not available for Debian Bullseye'
+                            } else {
+                                runNodeBuild('min-bullseye-x64')
+                            }
+                        }
+                    }
+                }
+
                 stage('Ubuntu Bionic') {
                     steps {
                         runNodeBuild('min-bionic-x64')
@@ -83,6 +95,7 @@ pipeline {
                         }
                     }
                 }
+
                 stage('Centos 7') {
                     steps {
                         runNodeBuild('min-centos-7-x64')
