@@ -120,7 +120,9 @@ pipeline {
                                 ./docker/run-test ${DOCKER_OS}
                             "
                             echo Archive test: \$(date -u "+%s")
-                            gzip sources/results/*
+                            gzip sources/results/* || true
+                            tar -zcvf results.tar.gz sources/results/results/
+                            mv results.tar.gz sources/results/ 
                             until aws s3 sync --no-progress --acl public-read --exclude 'binary.tar.gz' ./sources/results/ s3://pxb-build-cache/${BUILD_TAG}/; do
                                 sleep 5
                             done
@@ -139,12 +141,13 @@ pipeline {
                         aws s3 cp --no-progress s3://pxb-build-cache/${BUILD_TAG}/xbtr.output.gz ./ || true
                         aws s3 cp --no-progress s3://pxb-build-cache/${BUILD_TAG}/junit.xml.gz ./ || true
                         aws s3 cp --no-progress s3://pxb-build-cache/${BUILD_TAG}/test_results.subunit.gz ./ || true
+                        aws s3 cp --no-progress s3://pxb-build-cache/${BUILD_TAG}/results.tar.gz ./ || true
                         gunzip < xbtr.output.gz > xbtr.output || true
                         gunzip < junit.xml.gz > junit.xml || true
                         gunzip < test_results.subunit.gz > test_results.subunit || true
                     '''
                 }
-                archiveArtifacts allowEmptyArchive: true, followSymlinks: false, onlyIfSuccessful: true, artifacts: 'xbtr.output,junit.xml,test_results.subunit'
+                archiveArtifacts allowEmptyArchive: true, followSymlinks: false, onlyIfSuccessful: true, artifacts: 'xbtr.output,junit.xml,test_results.subunit,results.tar.gz'
                 step([$class: 'JUnitResultArchiver', testResults: 'junit.xml', healthScaleFactor: 1.0])
                 }
             }

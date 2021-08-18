@@ -37,6 +37,7 @@ imageMap['eu-west-1a.min-bionic-x64']   = 'ami-0c259a97cbf621daf'
 imageMap['eu-west-1a.min-stretch-x64']  = 'ami-097672ef083ca4411'
 imageMap['eu-west-1a.min-xenial-x64']   = 'ami-038d7b856fe7557b3'
 imageMap['eu-west-1a.docker-32gb-hirsute'] = 'ami-03c54cffe1a147d6c'
+imageMap['eu-west-1a.docker-32gb-focal'] = 'ami-05a657c9227900694'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
@@ -52,6 +53,7 @@ imageMap['eu-west-1b.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
 imageMap['eu-west-1b.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
 imageMap['eu-west-1b.min-xenial-x64']   = imageMap['eu-west-1a.min-xenial-x64']
 imageMap['eu-west-1b.docker-32gb-hirsute'] = imageMap['eu-west-1a.docker-32gb-hirsute']
+imageMap['eu-west-1b.docker-32gb-focal'] = imageMap['eu-west-1a.docker-32gb-focal']
 
 imageMap['eu-west-1c.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1c.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
@@ -67,6 +69,7 @@ imageMap['eu-west-1c.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
 imageMap['eu-west-1c.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
 imageMap['eu-west-1c.min-xenial-x64']   = imageMap['eu-west-1a.min-xenial-x64']
 imageMap['eu-west-1c.docker-32gb-hirsute'] = imageMap['eu-west-1a.docker-32gb-hirsute']
+imageMap['eu-west-1c.docker-32gb-focal'] = imageMap['eu-west-1a.docker-32gb-focal']
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
@@ -91,6 +94,7 @@ userMap['min-bullseye-x64']  = 'admin'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
 userMap['docker-32gb-hirsute'] = 'ubuntu'
+userMap['docker-32gb-focal'] = 'ubuntu'
 
 userMap['psmdb'] = userMap['min-xenial-x64']
 
@@ -144,7 +148,7 @@ initMap['docker'] = '''
     echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
     sudo sed -i.bak -e 's/nofile=1024:4096/nofile=900000:900000/; s/DAEMON_MAXFILES=.*/DAEMON_MAXFILES=990000/' /etc/sysconfig/docker
     echo 'DOCKER_STORAGE_OPTIONS="--data-root=/mnt/docker"' | sudo tee -a /etc/sysconfig/docker-storage
-    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service
     sudo systemctl daemon-reload
     sudo install -o root -g root -d /mnt/docker
     sudo usermod -aG docker $(id -u -n)
@@ -212,7 +216,7 @@ initMap['docker-32gb-hirsute'] = '''
     sudo sysctl -w fs.aio-max-nr=1048576 || true
     sudo sysctl -w fs.file-max=6815744 || true
     echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
-    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service
     sudo systemctl daemon-reload
     sudo install -o root -g root -d /mnt/docker
     sudo usermod -aG docker $(id -u -n)
@@ -221,6 +225,7 @@ initMap['docker-32gb-hirsute'] = '''
     sudo systemctl restart docker
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
+initMap['docker-32gb-focal'] = initMap['docker-32gb-hirsute']
 
 initMap['rpmMap'] = '''
     set -o xtrace
@@ -359,6 +364,7 @@ typeMap['min-centos-6-x64']  = 'm4.xlarge'
 typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
 typeMap['docker-32gb-hirsute'] = 'm4.2xlarge'
+typeMap['docker-32gb-focal'] = 'm4.2xlarge'
 
 execMap = [:]
 execMap['docker']            = '1'
@@ -374,6 +380,7 @@ execMap['min-stretch-x64']   = '1'
 execMap['min-xenial-x64']    = '1'
 execMap['min-buster-x64']    = '1'
 execMap['docker-32gb-hirsute'] = '1'
+execMap['docker-32gb-focal'] = '1'
 execMap['min-bullseye-x64']  = '1'
 
 devMap = [:]
@@ -391,6 +398,7 @@ devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-buster-x64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb-hirsute'] = devMap['docker']
+devMap['docker-32gb-focal'] = devMap['docker']
 devMap['min-bullseye-x64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 
 labelMap = [:]
@@ -407,6 +415,7 @@ labelMap['min-stretch-x64']   = ''
 labelMap['min-xenial-x64']    = ''
 labelMap['min-buster-x64']    = ''
 labelMap['docker-32gb-hirsute'] = ''
+labelMap['docker-32gb-focal'] = ''
 labelMap['min-bullseye-x64']  = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
@@ -489,6 +498,7 @@ String region = 'eu-west-1'
             getTemplate('min-stretch-x64',    "${region}${it}"),
             getTemplate('min-xenial-x64',     "${region}${it}"),
             getTemplate('docker-32gb-hirsute', "${region}${it}"),
+            getTemplate('docker-32gb-focal', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''

@@ -83,11 +83,11 @@ pipeline {
             description: 'Tag/Branch for UI Tests Repo repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: ['2.6.0', '2.6.1', '2.7.0', '2.8.0', '2.9.0', '2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0'],
+            choices: ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0'],
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_VERSION')
         choice(
-            choices: ['2.6.0', '2.6.1', '2.7.0', '2.8.0', '2.9.0', '2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0'],
+            choices: ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0'],
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
@@ -95,7 +95,7 @@ pipeline {
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: 'perconalab/pmm-server:dev-latest',
+            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
             description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
             name: 'PMM_SERVER_TAG')
         string(
@@ -155,9 +155,13 @@ pipeline {
         }
         stage('Start Server Instance') {
             steps {
-                sh """
-                    PWD=\$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:\${DOCKER_VERSION} docker-compose up -d
-                """
+                installAWSv2()
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh """
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                        PWD=\$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:\${DOCKER_VERSION} docker-compose up -d
+                    """
+                }
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
                 waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
                 waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")

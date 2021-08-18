@@ -213,27 +213,31 @@ pipeline {
                     sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
                 """
                 installRpms()
-                sh '''
-                    if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-                        rm -rf $HOME/google-cloud-sdk
-                        curl https://sdk.cloud.google.com | bash
-                    fi
+                withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+                    sh '''
+                        if [ ! -d $HOME/google-cloud-sdk/bin ]; then
+                            rm -rf $HOME/google-cloud-sdk
+                            curl https://sdk.cloud.google.com | bash
+                        fi
 
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    gcloud components update kubectl
-                    gcloud version
+                        source $HOME/google-cloud-sdk/path.bash.inc
+                        gcloud components update kubectl
+                        gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
+                        gcloud config set project $GCP_PROJECT
+                        gcloud version
 
-                    curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
-                        | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+                        curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                            | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
-                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OS_VERSION/openshift-client-linux-$OS_VERSION.tar.gz \
-                        | sudo tar -C /usr/local/bin --wildcards -zxvpf -
-                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OS_VERSION/openshift-install-linux-$OS_VERSION.tar.gz \
-                        | sudo tar -C /usr/local/bin  --wildcards -zxvpf -
+                        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OS_VERSION/openshift-client-linux-$OS_VERSION.tar.gz \
+                            | sudo tar -C /usr/local/bin --wildcards -zxvpf -
+                        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OS_VERSION/openshift-install-linux-$OS_VERSION.tar.gz \
+                            | sudo tar -C /usr/local/bin  --wildcards -zxvpf -
 
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
-                    sudo chmod +x /usr/local/bin/yq
-                '''
+                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                        sudo chmod +x /usr/local/bin/yq
+                    '''
+                }
 
             }
         }
@@ -291,6 +295,7 @@ pipeline {
                 runTest('scaling')
                 runTest('recreate')
                 runTest('affinity')
+                runTest('monitoring')
                 runTest('demand-backup')
             }
         }

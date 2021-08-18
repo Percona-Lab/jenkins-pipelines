@@ -24,6 +24,7 @@ imageMap = [:]
 imageMap['us-west-2a.docker']            = 'ami-0dc8f589abe99f538'
 imageMap['us-west-2a.docker-32gb']       = 'ami-0dc8f589abe99f538'
 imageMap['us-west-2a.docker-32gb-hirsute'] = 'ami-0cbdf6c0f39fd3950'
+imageMap['us-west-2a.docker-32gb-focal']  = 'ami-0ebe6e463e9912d81'
 imageMap['us-west-2a.docker2']           = 'ami-0dc8f589abe99f538'
 imageMap['us-west-2a.micro-amazon']      = 'ami-0dc8f589abe99f538'
 imageMap['us-west-2a.min-amazon-2-x64']  = 'ami-0dc8f589abe99f538'
@@ -41,6 +42,7 @@ imageMap['us-west-2a.min-bullseye-x64']  = 'ami-05f9dcaa9ddb9a15e'
 imageMap['us-west-2b.docker']            = imageMap['us-west-2a.docker']
 imageMap['us-west-2b.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
 imageMap['us-west-2b.docker-32gb-hirsute'] = imageMap['us-west-2a.docker-32gb-hirsute']
+imageMap['us-west-2b.docker-32gb-focal'] = imageMap['us-west-2a.docker-32gb-focal']
 imageMap['us-west-2b.docker2']           = imageMap['us-west-2a.docker2']
 imageMap['us-west-2b.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
 imageMap['us-west-2b.min-amazon-2-x64']  = imageMap['us-west-2a.min-amazon-2-x64']
@@ -58,6 +60,7 @@ imageMap['us-west-2b.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64
 imageMap['us-west-2c.docker']            = imageMap['us-west-2a.docker']
 imageMap['us-west-2c.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
 imageMap['us-west-2c.docker-32gb-hirsute'] = imageMap['us-west-2a.docker-32gb-hirsute']
+imageMap['us-west-2c.docker-32gb-focal'] = imageMap['us-west-2a.docker-32gb-focal']
 imageMap['us-west-2c.docker2']           = imageMap['us-west-2a.docker2']
 imageMap['us-west-2c.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
 imageMap['us-west-2c.min-amazon-2-x64']  = imageMap['us-west-2a.min-amazon-2-x64']
@@ -75,6 +78,7 @@ imageMap['us-west-2c.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64
 imageMap['us-west-2d.docker']            = imageMap['us-west-2a.docker']
 imageMap['us-west-2d.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
 imageMap['us-west-2d.docker-32gb-hirsute'] = imageMap['us-west-2d.docker-32gb-hirsute']
+imageMap['us-west-2d.docker-32gb-focal'] = imageMap['us-west-2d.docker-32gb-focal']
 imageMap['us-west-2d.docker2']           = imageMap['us-west-2a.docker2']
 imageMap['us-west-2d.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
 imageMap['us-west-2d.min-amazon-2-x64']  = imageMap['us-west-2a.min-amazon-2-x64']
@@ -105,6 +109,7 @@ userMap = [:]
 userMap['docker']            = 'ec2-user'
 userMap['docker-32gb']       = userMap['docker']
 userMap['docker-32gb-hirsute'] = 'ubuntu'
+userMap['docker-32gb-focal'] = 'ubuntu'
 userMap['docker2']           = userMap['docker']
 userMap['micro-amazon']      = userMap['docker']
 userMap['min-amazon-2-x64']  = userMap['docker']
@@ -125,6 +130,7 @@ modeMap = [:]
 modeMap['docker']            = 'Node.Mode.NORMAL'
 modeMap['docker-32gb']       = modeMap['docker']
 modeMap['docker-32gb-hirsute']       = modeMap['docker']
+modeMap['docker-32gb-focal']       = modeMap['docker']
 modeMap['docker2']           = modeMap['docker']
 modeMap['micro-amazon']      = modeMap['docker']
 modeMap['min-amazon-2-x64']  = modeMap['docker']
@@ -189,7 +195,7 @@ initMap['docker'] = '''
     echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
     sudo sed -i.bak -e 's/nofile=1024:4096/nofile=900000:900000/; s/DAEMON_MAXFILES=.*/DAEMON_MAXFILES=990000/' /etc/sysconfig/docker
     echo 'DOCKER_STORAGE_OPTIONS="--data-root=/mnt/docker"' | sudo tee -a /etc/sysconfig/docker-storage
-    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service
     sudo systemctl daemon-reload
     sudo install -o root -g root -d /mnt/docker
     sudo usermod -aG docker $(id -u -n)
@@ -258,7 +264,7 @@ initMap['docker-32gb-hirsute'] = '''
     sudo sysctl -w fs.aio-max-nr=1048576 || true
     sudo sysctl -w fs.file-max=6815744 || true
     echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
-    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service
     sudo systemctl daemon-reload
     sudo install -o root -g root -d /mnt/docker
     sudo usermod -aG docker $(id -u -n)
@@ -267,7 +273,7 @@ initMap['docker-32gb-hirsute'] = '''
     sudo systemctl status docker || sudo systemctl start docker
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
-
+initMap['docker-32gb-focal'] = initMap['docker-32gb-hirsute']
 initMap['docker2'] = initMap['docker']
 initMap['micro-amazon'] = '''
     set -o xtrace
@@ -391,6 +397,7 @@ typeMap['micro-amazon']      = 't2.small'
 typeMap['docker']            = 'c3.xlarge'
 typeMap['docker-32gb']       = 'm5a.2xlarge'
 typeMap['docker-32gb-hirsute'] = 'm4.2xlarge'
+typeMap['docker-32gb-focal'] = 'm4.2xlarge'
 typeMap['docker2']           = 'r4.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['min-centos-8-x64']  = typeMap['docker']
@@ -408,6 +415,7 @@ execMap = [:]
 execMap['docker']            = '1'
 execMap['docker-32gb']       = execMap['docker']
 execMap['docker-32gb-hirsute'] = execMap['docker']
+execMap['docker-32gb-focal'] = execMap['docker']
 execMap['docker2']           = execMap['docker']
 execMap['micro-amazon']      = '30'
 execMap['min-amazon-2-x64']  = '1'
@@ -427,6 +435,7 @@ devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['docker2']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb']       = devMap['docker']
 devMap['docker-32gb-hirsute'] = devMap['docker']
+devMap['docker-32gb-focal'] = devMap['docker']
 devMap['micro-amazon']      = '/dev/xvda=:30:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-amazon-2-x64']  = '/dev/xvda=:30:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['min-bionic-x64']    = '/dev/sda1=:30:true:gp2,/dev/sdd=:120:true:gp2'
@@ -444,6 +453,7 @@ labelMap = [:]
 labelMap['docker']            = ''
 labelMap['docker-32gb']       = ''
 labelMap['docker-32gb-hirsute'] = ''
+labelMap['docker-32gb-focal'] = ''
 labelMap['docker2']           = ''
 labelMap['micro-amazon']      = 'master'
 labelMap['min-amazon-2-x64']  = ''
@@ -529,6 +539,7 @@ String region = 'us-west-2'
             getTemplate('docker',             "${region}${it}"),
             getTemplate('docker-32gb',        "${region}${it}"),
             getTemplate('docker-32gb-hirsute', "${region}${it}"),
+            getTemplate('docker-32gb-focal', "${region}${it}"),
             getTemplate('micro-amazon',       "${region}${it}"),
             getTemplate('min-amazon-2-x64',   "${region}${it}"),
             getTemplate('min-centos-8-x64',   "${region}${it}"),

@@ -57,7 +57,7 @@ pipeline {
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
         string(
-            defaultValue: 'perconalab/pmm-server:dev-latest',
+            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
@@ -201,7 +201,7 @@ pipeline {
         }
         stage('Run UI Tests Docker') {
             options {
-                timeout(time: 70, unit: "MINUTES")
+                timeout(time: 90, unit: "MINUTES")
             }
             when {
                 expression { env.OVF_TEST == "no" }

@@ -1,12 +1,21 @@
+GKERegion='us-central1-c'
+
 void CreateCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             source $HOME/google-cloud-sdk/path.bash.inc
-            gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
-            gcloud config set project $GCP_PROJECT
-            gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone us-central1-a --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --enable-autoscaling --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX}
-            kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
+            ret_num=0
+            while [ \${ret_num} -lt 15 ]; do
+                ret_val=0
+                gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE && \
+                gcloud config set project $GCP_PROJECT && \
+                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone ${GKERegion} --cluster-version $GKE_VERSION --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --enable-autoscaling --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} && \
+                kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
+                if [ \${ret_val} -eq 0 ]; then break; fi
+                ret_num=\$((ret_num + 1))
+            done
+            if [ \${ret_num} -eq 15 ]; then exit 1; fi
         """
    }
 }
@@ -17,7 +26,7 @@ void ShutdownCluster(String CLUSTER_SUFFIX) {
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-${CLUSTER_SUFFIX}
+            gcloud container clusters delete --zone ${GKERegion} $CLUSTER_NAME-${CLUSTER_SUFFIX}
         """
    }
 }
@@ -266,15 +275,36 @@ pipeline {
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                 VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
                 CLUSTER_NAME = sh(script: "echo jenkins-latest-pgo-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                PGO_K8S_NAME = "${env.CLUSTER_NAME}-upstream"
             }
-            steps {
-                CreateCluster('sandbox')
-                runTest('init-deploy', 'sandbox')
-                runTest('scaling', 'sandbox')
-                runTest('recreate', 'sandbox')
-                runTest('affinity', 'sandbox')
-                runTest('demand-backup', 'sandbox')
-                ShutdownCluster('sandbox')
+            parallel {
+                stage('E2E Basic tests') {
+                    steps {
+                        CreateCluster('sandbox')
+                        runTest('init-deploy', 'sandbox')
+                        runTest('scaling', 'sandbox')
+                        runTest('recreate', 'sandbox')
+                        runTest('affinity', 'sandbox')
+                        runTest('monitoring', 'sandbox')
+                        ShutdownCluster('sandbox')
+                    }
+                }
+                stage('E2E Backups') {
+                    steps {
+                        CreateCluster('backups')
+                        runTest('demand-backup', 'backups')
+                        ShutdownCluster('backups')
+                    }
+                }
+                stage('E2E Data migration') {
+                    steps {
+                        CreateCluster('upstream')
+                        CreateCluster('migration')
+                        runTest('data-migration-gcs', 'migration')
+                        ShutdownCluster('migration')
+                        ShutdownCluster('upstream')
+                    }
+                }
             }
         }
     }
@@ -293,7 +323,7 @@ pipeline {
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
                     gcloud config set project $GCP_PROJECT
-                    gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone us-central1-a --quiet || true
+                    gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone ${GKERegion} --quiet || true
                 '''
             }
             sh '''

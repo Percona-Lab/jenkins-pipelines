@@ -17,7 +17,7 @@ pipeline {
             description: 'publish pmm2-server packages from testing repository',
             name: 'UPDATER_REPO')
         string(
-            defaultValue: 'perconalab/pmm-server:dev-latest',
+            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
             description: 'pmm-server container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
@@ -44,8 +44,14 @@ pipeline {
             }
             steps {
                 installDocker()
+                installAWSv2()
                 slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
-                sh "sg docker -c 'docker run ${DOCKER_VERSION} /usr/bin/rpm -qa' > rpms.list"
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                sh """
+                    aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                    sg docker -c 'docker run ${DOCKER_VERSION} /usr/bin/rpm -qa' > rpms.list
+                """
+                }
                 stash includes: 'rpms.list', name: 'rpms'
             }
         }
@@ -166,6 +172,7 @@ pipeline {
             steps {
                 unstash 'version_file'
                 installDocker()
+                installAWSv2()
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
                         sg docker -c "
@@ -173,56 +180,59 @@ pipeline {
                         "
                     """
                 }
-                sh """
-                    VERSION=\$(cat VERSION)
-                    TOP_VER=\$(cat VERSION | cut -d. -f1)
-                    MID_VER=\$(cat VERSION | cut -d. -f2)
-                    DOCKER_MID="\$TOP_VER.\$MID_VER"
-                    sg docker -c "
-                        set -ex
-                        # push pmm-server
-                        docker pull \${DOCKER_VERSION}
-                        docker tag \${DOCKER_VERSION} percona/pmm-server:latest
-                        docker push percona/pmm-server:latest
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'ECRRWUser', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh """
+                        VERSION=\$(cat VERSION)
+                        TOP_VER=\$(cat VERSION | cut -d. -f1)
+                        MID_VER=\$(cat VERSION | cut -d. -f2)
+                        DOCKER_MID="\$TOP_VER.\$MID_VER"
+                        sg docker -c "
+                            set -ex
+                            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                            # push pmm-server
+                            docker pull \${DOCKER_VERSION}
+                            docker tag \${DOCKER_VERSION} percona/pmm-server:latest
+                            docker push percona/pmm-server:latest
 
-                        docker tag \${DOCKER_VERSION} percona/pmm-server:\${TOP_VER}
-                        docker tag \${DOCKER_VERSION} percona/pmm-server:\${DOCKER_MID}
-                        docker tag \${DOCKER_VERSION} percona/pmm-server:\${VERSION}
-                        docker push percona/pmm-server:\${TOP_VER}
-                        docker push percona/pmm-server:\${DOCKER_MID}
-                        docker push percona/pmm-server:\${VERSION}
+                            docker tag \${DOCKER_VERSION} percona/pmm-server:\${TOP_VER}
+                            docker tag \${DOCKER_VERSION} percona/pmm-server:\${DOCKER_MID}
+                            docker tag \${DOCKER_VERSION} percona/pmm-server:\${VERSION}
+                            docker push percona/pmm-server:\${TOP_VER}
+                            docker push percona/pmm-server:\${DOCKER_MID}
+                            docker push percona/pmm-server:\${VERSION}
 
-                        docker tag \${DOCKER_VERSION} perconalab/pmm-server:\${TOP_VER}
-                        docker tag \${DOCKER_VERSION} perconalab/pmm-server:\${DOCKER_MID}
-                        docker tag \${DOCKER_VERSION} perconalab/pmm-server:\${VERSION}
-                        docker push perconalab/pmm-server:\${TOP_VER}
-                        docker push perconalab/pmm-server:\${DOCKER_MID}
-                        docker push perconalab/pmm-server:\${VERSION}
+                            docker tag \${DOCKER_VERSION} perconalab/pmm-server:\${TOP_VER}
+                            docker tag \${DOCKER_VERSION} perconalab/pmm-server:\${DOCKER_MID}
+                            docker tag \${DOCKER_VERSION} perconalab/pmm-server:\${VERSION}
+                            docker push perconalab/pmm-server:\${TOP_VER}
+                            docker push perconalab/pmm-server:\${DOCKER_MID}
+                            docker push perconalab/pmm-server:\${VERSION}
 
-                        docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
+                            docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
 
-                        # push pmm-client
-                        docker pull \${DOCKER_CLIENT_VERSION}
-                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:latest
-                        docker push percona/pmm-client:latest
+                            # push pmm-client
+                            docker pull \${DOCKER_CLIENT_VERSION}
+                            docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:latest
+                            docker push percona/pmm-client:latest
 
-                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${TOP_VER}
-                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${DOCKER_MID}
-                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${VERSION}
-                        docker push percona/pmm-client:\${TOP_VER}
-                        docker push percona/pmm-client:\${DOCKER_MID}
-                        docker push percona/pmm-client:\${VERSION}
+                            docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${TOP_VER}
+                            docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${DOCKER_MID}
+                            docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${VERSION}
+                            docker push percona/pmm-client:\${TOP_VER}
+                            docker push percona/pmm-client:\${DOCKER_MID}
+                            docker push percona/pmm-client:\${VERSION}
 
-                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${TOP_VER}
-                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${DOCKER_MID}
-                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${VERSION}
-                        docker push perconalab/pmm-client:\${TOP_VER}
-                        docker push perconalab/pmm-client:\${DOCKER_MID}
-                        docker push perconalab/pmm-client:\${VERSION}
+                            docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${TOP_VER}
+                            docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${DOCKER_MID}
+                            docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${VERSION}
+                            docker push perconalab/pmm-client:\${TOP_VER}
+                            docker push perconalab/pmm-client:\${DOCKER_MID}
+                            docker push perconalab/pmm-client:\${VERSION}
 
-                        docker save percona/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}.docker
-                    "
-                """
+                            docker save percona/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}.docker
+                        "
+                    """
+                }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         set -ex

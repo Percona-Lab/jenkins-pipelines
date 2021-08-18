@@ -2,97 +2,20 @@
     block-downstream: false
     block-upstream: false
     builders:
-    - builders-from: percona-server-for-mongodb-4.0-template
+    - builders-from: percona-server-for-mongodb-5.0-template
     concurrent: true
-    description: null
+    description: This job is currently running <b>resmoke_psmdb_5.0_big</b> test
+      suite on the <b>v5.0</b> branch.
     disabled: false
-    name: !!python/unicode 'percona-server-for-mongodb-4.0-param'
-    node: psmdb || mongodb-xenial-x64
-    parameters:
-    - choice:
-        choices:
-        - release
-        - debug
-        description: Choose how the binaries will be built
-        name: BUILD_TYPE
-    - string:
-        default: ''
-        description: Build description which will be visible in build history on the
-          right side.
-        name: DESCRIPTION
-        trim: true
-    - string:
-        default: https://github.com/percona/percona-server-mongodb.git
-        description: ''
-        name: PSM_REPO
-        trim: true
-    - string:
-        default: v4.0
-        description: ''
-        name: PSM_BRANCH
-        trim: true
-    - string:
-        default: 'auto'
-        description: <h3>Number of parallel jobs for running tests, auto=number of
-          cores or specify exact number like 8,4,2,1</h3>
-        name: JOBS
-        trim: true
-    - string:
-        default: resmoke_psmdb_4.0_big
-        description: |-
-          <h3>AVAILABLE OPTIONS:<br>
-          resmoke_psmdb_4.0_big<br>
-          resmoke_psmdb_4.0_big_wiredTiger<br>
-          resmoke_psmdb_4.0_big_inMemory<br>
-          resmoke_psmdb_4.0_big_nommap<br>
-          resmoke_psmdb_4.0_big_special<br>
-          resmoke_psmdb_4.0_medium<br>
-          This is test suite from psmdb-misc-scripts/suite_sets and needs to be without .txt extension</h3>
-        name: SUITE
-        trim: true
-    - text:
-        default: ''
-        description: |-
-          <h3>With this you can specify a custom suite content which will be generated and passed to resmoke script.<br>
-          EXAMPLE CONTENT:<br>
-          aggregation|mmapv1|wiredTiger|inMemory<br>
-          core|mmapv1|wiredTiger|inMemory<br>
-          sharding --excludeWithAnyTags=requires_persistence,requires_journaling|inMemory</h3>
-        name: CUSTOM_SUITE
-        trim: false
-    - string:
-        default: '1'
-        description: Number of trials to execute - makes sense if you wish to execute
-          1 suite some number of times because of flapping tests.
-        name: NUM_TRIALS
-        trim: true
-    - string:
-        default: https://github.com/Percona-QA/psmdb-misc-scripts.git
-        description: Use this if you wish to use another psmdb-misc-repo for testing
-          purposes.
-        name: MISC_SCRIPTS_REPO
-        trim: true
-    - string:
-        default: master
-        description: Set to whatever needs to be checked out from psmdb-misc-scripts repo
-        name: MISC_SCRIPTS_BRANCH
-        trim: true
-    - bool:
-        default: false
-        description: Don't build the binaries from github but copy the latest binaries
-          from the release job and run tests on them
-        name: RELEASE_TEST
-    - bool:
-        default: true
-        description: This enables killer.sh to monitor and kill stalled tests
-        name: ENABLE_KILLER
+    name: !!python/unicode 'percona-server-for-mongodb-5.0-trunk'
+    node: psmdb-bionic
     project-type: freestyle
     properties:
     - build-discarder:
         artifact-days-to-keep: -1
         artifact-num-to-keep: -1
         days-to-keep: -1
-        num-to-keep: 15
+        num-to-keep: 5
     - disk-usage
     publishers:
     - raw:
@@ -146,12 +69,25 @@
     - git:
         basedir: percona-server-mongodb
         branches:
-        - ${PSM_BRANCH}
-        url: ${PSM_REPO}
+        - '*/v5.0'
+        url: https://github.com/percona/percona-server-mongodb.git
         wipe-workspace: true
-    triggers: []
+    triggers:
+    - pollscm:
+        cron: H 12 * * 5
+        ignore-post-commit-hooks: false
     wrappers:
     - timestamps
     - inject:
         properties-content: |
-            WORKFLOW_TYPE=param
+            WORKFLOW_TYPE=trunk
+            BUILD_TYPE=release
+            PSM_REPO=https://github.com/percona/percona-server-mongodb.git
+            PSM_BRANCH=v5.0
+            JOBS=auto
+            SUITE=resmoke_psmdb_5.0_big
+            RELEASE_TEST=false
+            NUM_TRIALS=1
+            MISC_SCRIPTS_REPO=https://github.com/Percona-QA/psmdb-misc-scripts.git
+            MISC_SCRIPTS_BRANCH=master
+            ENABLE_KILLER=true

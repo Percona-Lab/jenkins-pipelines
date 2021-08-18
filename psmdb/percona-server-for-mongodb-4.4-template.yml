@@ -85,7 +85,7 @@
         rm -rf psmdb-misc-scripts
         git clone ${MISC_SCRIPTS_REPO} --branch ${MISC_SCRIPTS_BRANCH} --depth 1
 
-        bash -x psmdb_builder.sh --builddir=$(pwd)/test --repo=${PSM_REPO} --branch=${PSM_BRANCH} --jenkins_mode=1 --get_sources=1
+        bash -x psmdb_builder.sh --builddir=$(pwd)/test --repo=${PSM_REPO} --branch=${PSM_BRANCH} --mongo_tools_tag=${MONGO_TOOLS_TAG} --get_sources=1
     - shell: |-
         if [ "${RELEASE_TEST}" != "true" ]; then
             # build binaries
@@ -144,6 +144,7 @@
             ln -fs ${PSMDIR_ABS} /tmp/${PSMDIR}
             cd /tmp
 
+            unset CI
             export CFLAGS="${CFLAGS:-} -fno-omit-frame-pointer"
             export CXXFLAGS="${CFLAGS}"
             export INSTALLDIR=${WORKSPACE}/install
@@ -181,13 +182,14 @@
         rm -rf $SOURSE_TAR_MDB
 
 
-        SOURS_DIR=$(ls)
+        SOURS_DIR=$(basename $(find . -iname 'percona-server*' -type d))
         cd $(ls)
         mv ./jstests ../
         mv ./buildscripts ../
 
         mv $WORKSPACE/test/$SOURS_DIR/build ../
         mv $WORKSPACE/test/$SOURS_DIR/src  ../
+        mv $WORKSPACE/test/$SOURS_DIR/etc  ../
 
         cd ${WORKSPACE}
         TAR_MDB=$(basename $(find $WORKSPACE/test/$TARBALL -name 'percona-server-mongodb*.tar.gz' | sort | tail -n1))
@@ -195,13 +197,14 @@
         tar -xzf $TAR_MDB
         rm -rf $TAR_MDB
 
-        MONGO_DB_DIR=$(ls)
+        MONGO_DB_DIR=$(basename $(find . -iname 'percona-server*' -type d))
         mv ./$MONGO_DB_DIR ./percona-server-mongodb
         cd ./percona-server-mongodb
         mv $WORKSPACE/test/source_tarball/jstests ./bin/
         mv $WORKSPACE/test/source_tarball/buildscripts ./bin/
         mv $WORKSPACE/test/source_tarball/build ./bin/
         mv $WORKSPACE/test/source_tarball/src ./bin/
+        mv $WORKSPACE/test/source_tarball/etc ./bin/
 
         PSMDIR=$(basename $(pwd))
         PSMDIR_ABS=$PWD

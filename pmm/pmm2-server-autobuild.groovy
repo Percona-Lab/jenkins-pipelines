@@ -34,25 +34,10 @@ pipeline {
                 sh '''
                     set -o errexit
 
-                    curdir=$(pwd)
-                    cd ../
-                    wget https://github.com/git-lfs/git-lfs/releases/download/v2.7.1/git-lfs-linux-amd64-v2.7.1.tar.gz
-                    tar -zxvf git-lfs-linux-amd64-v2.7.1.tar.gz
-                    rm git-lfs-linux-amd64-v2.7.1.tar.gz
-                    sudo ./install.sh
-                    cd $curdir
-
                     git reset --hard
                     git clean -xdf
                     git submodule update --init --jobs 10
                     git submodule status
-
-                    # install git-lfs to download binary packages from git
-                    pushd sources/pmm-server
-                    git lfs install
-                    git lfs pull
-                    git lfs checkout
-                    popd
 
                     git rev-parse --short HEAD > shortCommit
                     echo "UPLOAD/pmm2-components/yum/${DESTINATION}/${JOB_NAME}/pmm/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
@@ -156,6 +141,7 @@ pipeline {
         }
         stage('Build server docker') {
             steps {
+                installAWSv2()
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
                         sg docker -c "
@@ -163,27 +149,33 @@ pipeline {
                         "
                     """
                 }
-                sh '''
-                    sg docker -c "
-                        set -o errexit
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'ECRRWUser', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh '''
+                        sg docker -c "
+                            set -o errexit
+                            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                        export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
+                            export PUSH_DOCKER=1
+                            export DOCKER_TAG=public.ecr.aws/e7j3v3n0/pmm-server:$(date -u '+%Y%m%d%H%M')
 
-                        ./build/bin/build-server-docker
+                            ./build/bin/build-server-docker
 
-                        if [ ! -z \${DOCKER_RC_TAG+x} ]; then
-                            docker tag  \\${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
-                            docker push perconalab/pmm-server:\${DOCKER_RC_TAG}
-                            docker rmi perconalab/pmm-server:\${DOCKER_RC_TAG}
-                        fi
-                        docker tag  \\${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                        docker push \\${DOCKER_TAG}
-                        docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                        docker rmi  \\${DOCKER_TAG}
-                        docker rmi  perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                    "
-                '''
+                            if [ ! -z \${DOCKER_RC_TAG+x} ]; then
+                                docker tag  \\${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
+                                docker push perconalab/pmm-server:\${DOCKER_RC_TAG}
+                                docker rmi perconalab/pmm-server:\${DOCKER_RC_TAG}
+                            fi
+                            docker tag \\${DOCKER_TAG} public.ecr.aws/e7j3v3n0/pmm-server:${DOCKER_LATEST_TAG}
+                            docker tag \\${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
+                            docker push \\${DOCKER_TAG}
+                            docker push public.ecr.aws/e7j3v3n0/pmm-server:${DOCKER_LATEST_TAG}
+                            docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
+                            docker rmi  \\${DOCKER_TAG}
+                            docker rmi public.ecr.aws/e7j3v3n0/pmm-server:${DOCKER_LATEST_TAG}
+                            docker rmi perconalab/pmm-server:${DOCKER_LATEST_TAG}
+                        "
+                    '''
+                }
                 stash includes: 'results/docker/TAG', name: 'IMAGE'
                 archiveArtifacts 'results/docker/TAG'
             }

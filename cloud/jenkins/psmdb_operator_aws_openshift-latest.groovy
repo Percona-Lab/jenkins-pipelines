@@ -42,10 +42,10 @@ void runTest(String TEST_NAME) {
             testsReportMap[TEST_NAME] = 'failure'
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
 
-            popArtifactFile("$VERSION-$TEST_NAME-$MDB_TAG")
+            popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
 
             sh """
-                if [ -f "$VERSION-$TEST_NAME-$MDB_TAG" ]; then
+                if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG" ]; then
                     echo Skip $TEST_NAME test
                 else
                     cd ./source
@@ -74,7 +74,7 @@ void runTest(String TEST_NAME) {
                     ./e2e-tests/$TEST_NAME/run
                 fi
             """
-            pushArtifactFile("$VERSION-$TEST_NAME-$MDB_TAG")
+            pushArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
@@ -102,7 +102,7 @@ pipeline {
         string(
             defaultValue: 'latest',
             description: 'OpenShift version to use',
-            name: 'OS_VERSION')
+            name: 'PLATFORM_VER')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
@@ -166,9 +166,9 @@ pipeline {
                     curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
-                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OS_VERSION/openshift-client-linux.tar.gz \
+                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz \
                         | sudo tar -C /usr/local/bin --wildcards -zxvpf -
-                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OS_VERSION/openshift-install-linux.tar.gz \
+                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz \
                         | sudo tar -C /usr/local/bin  --wildcards -zxvpf -
 
                     sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"

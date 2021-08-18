@@ -39,6 +39,8 @@ imageMap['eu-west-1a.min-bionic-x64']    = 'ami-0c259a97cbf621daf'
 imageMap['eu-west-1a.min-xenial-x64']    = 'ami-038d7b856fe7557b3'
 imageMap['eu-west-1a.min-xenial-x32']    = 'ami-0d842b54e0120f205'
 imageMap['eu-west-1a.min-hirsute-x64-zenfs'] = 'ami-02469e1cc9f95b137'
+imageMap['eu-west-1a.min-focal-x64-zenfs']   = 'ami-05a657c9227900694'
+imageMap['eu-west-1a.min-bionic-x64-zenfs']  = 'ami-02d7fe93ba8353d4e'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
@@ -59,6 +61,8 @@ imageMap['eu-west-1b.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
 imageMap['eu-west-1b.min-xenial-x64']   = imageMap['eu-west-1a.min-xenial-x64']
 imageMap['eu-west-1b.min-xenial-x32']   = imageMap['eu-west-1a.min-xenial-x32']
 imageMap['eu-west-1b.min-hirsute-x64-zenfs'] = imageMap['eu-west-1a.min-hirsute-x64-zenfs']
+imageMap['eu-west-1b.min-focal-x64-zenfs'] = imageMap['eu-west-1a.min-focal-x64-zenfs']
+imageMap['eu-west-1b.min-bionic-x64-zenfs']  = imageMap['eu-west-1a.min-bionic-x64-zenfs']
 
 imageMap['eu-west-1c.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1c.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
@@ -79,6 +83,8 @@ imageMap['eu-west-1c.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
 imageMap['eu-west-1c.min-xenial-x64']   = imageMap['eu-west-1a.min-xenial-x64']
 imageMap['eu-west-1c.min-xenial-x32']   = imageMap['eu-west-1a.min-xenial-x32']
 imageMap['eu-west-1c.min-hirsute-x64-zenfs'] = imageMap['eu-west-1a.min-hirsute-x64-zenfs']
+imageMap['eu-west-1c.min-focal-x64-zenfs'] = imageMap['eu-west-1a.min-focal-x64-zenfs']
+imageMap['eu-west-1c.min-bionic-x64-zenfs']  = imageMap['eu-west-1a.min-bionic-x64-zenfs']
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
@@ -108,6 +114,8 @@ userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
 userMap['min-bullseye-x64']  = 'admin'
 userMap['min-hirsute-x64-zenfs']    = 'ubuntu'
+userMap['min-focal-x64-zenfs']    = 'ubuntu'
+userMap['min-bionic-x64-zenfs']   = 'ubuntu'
 
 initMap = [:]
 initMap['docker'] = '''
@@ -343,6 +351,8 @@ initMap['min-bullseye-x64'] = initMap['min-buster-x64']
 initMap['min-xenial-x64'] = initMap['min-bionic-x64']
 initMap['min-xenial-x32'] = initMap['min-bionic-x64']
 initMap['min-hirsute-x64-zenfs'] = initMap['min-bionic-x64']
+initMap['min-focal-x64-zenfs'] = initMap['min-bionic-x64']
+initMap['min-bionic-x64-zenfs'] = initMap['min-bionic-x64']
 
 capMap = [:]
 capMap['c5.xlarge']  = '60'
@@ -369,6 +379,8 @@ typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x32']    = 'm1.medium'
 typeMap['min-hirsute-x64-zenfs'] = typeMap['min-centos-7-x64']
+typeMap['min-focal-x64-zenfs'] = typeMap['min-centos-7-x64']
+typeMap['min-focal-x64-zenfs'] = typeMap['min-centos-7-x64']
 
 execMap = [:]
 execMap['docker']            = '1'
@@ -388,6 +400,8 @@ execMap['min-xenial-x32']    = '1'
 execMap['min-buster-x64']    = '1'
 execMap['min-bullseye-x64']  = '1'
 execMap['min-hirsute-x64-zenfs'] = '1'
+execMap['min-focal-x64-zenfs'] = '1'
+execMap['min-bionic-x64-zenfs'] = '1'
 
 devMap = [:]
 devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:180:true:gp2'
@@ -407,6 +421,8 @@ devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:180:true:gp2'
 devMap['min-buster-x64']    = devMap['docker']
 devMap['min-bullseye-x64']  = devMap['docker']
 devMap['min-hirsute-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
+devMap['min-focal-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
+devMap['min-bionic-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
 
 labelMap = [:]
 labelMap['docker']            = ''
@@ -426,6 +442,8 @@ labelMap['min-xenial-x32']    = ''
 labelMap['min-buster-x64']    = ''
 labelMap['min-bullseye-x64']  = ''
 labelMap['min-hirsute-x64-zenfs']    = ''
+labelMap['min-focal-x64-zenfs']    = ''
+labelMap['min-bionic-x64-zenfs']    = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -510,6 +528,8 @@ String region = 'eu-west-1'
             getTemplate('min-centos-6-x32',     "${region}${it}"),
             getTemplate('min-bullseye-x64',     "${region}${it}"),
             getTemplate('min-hirsute-x64-zenfs', "${region}${it}"),
+            getTemplate('min-focal-x64-zenfs', "${region}${it}"),
+            getTemplate('min-bionic-x64-zenfs', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
