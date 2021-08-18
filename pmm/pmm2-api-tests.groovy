@@ -9,8 +9,8 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'master',
-            description: 'Tag/Branch for pmm-api-tests repository',
+            defaultValue: 'PMM-2.0',
+            description: 'Tag/Branch for pmm-managed repository',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '',
@@ -51,13 +51,12 @@ pipeline {
     triggers {
         upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
-
     stages {
         stage('Prepare') {
             steps {
                 // clean up workspace and fetch pmm-api-tests repository
                 deleteDir()
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-Lab/pmm-api-tests'
+                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-managed'
                 slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
@@ -71,12 +70,8 @@ pipeline {
         }
         stage('Setup') {
             steps {
-                sh '''
-                    sudo curl -L https://github.com/docker/compose/releases/download/1.29.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/bin/docker-compose > /dev/null
-                    sudo chmod +x /usr/bin/docker-compose
-                    docker-compose --version
-                '''
-                installAWSv2()
+                installDocker()
+                setupDockerCompose()
             }
         }
         stage('API Tests Setup')
@@ -98,14 +93,11 @@ pipeline {
                         -v \${PWD}/testdata/checks:/srv/checks \
                         \${DOCKER_VERSION}
 
+                        cd api-tests
                         docker build -t pmm-api-tests .
-                        git clone --single-branch --branch \${GIT_BRANCH_PMM_AGENT} https://github.com/percona/pmm-agent
-                        cd pmm-agent
                         docker-compose up test_db
                         MYSQL_IMAGE=\${MYSQL_IMAGE} docker-compose up -d mysql
                         MONGO_IMAGE=\${MONGO_IMAGE} docker-compose up -d mongo
-                        MONGO_IMAGE=\${MONGO_IMAGE} docker-compose up -d mongo_with_ssl
-                        MONGO_IMAGE=\${MONGO_IMAGE} docker-compose up -d mongonoauth
                         POSTGRES_IMAGE=\${POSTGRES_IMAGE} docker-compose up -d postgres
                         docker-compose up -d sysbench
                         cd ../
@@ -134,16 +126,16 @@ pipeline {
     post {
         always {
             sh '''
-                docker cp ${BUILD_TAG}:/go/src/github.com/Percona-Lab/pmm-api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml || true
+                docker cp ${BUILD_TAG}:/go/src/github.com/percona/pmm-managed/api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml || true
                 docker stop ${BUILD_TAG} || true
                 docker rm ${BUILD_TAG} || true
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-                cd pmm-agent
+                cd api-tests
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
                 cd ../
-                sudo chown -R ec2-user:ec2-user pmm-agent || true
+                sudo chown -R ec2-user:ec2-user api-tests || true
             '''
             junit '${BUILD_TAG}.xml'
             script {
