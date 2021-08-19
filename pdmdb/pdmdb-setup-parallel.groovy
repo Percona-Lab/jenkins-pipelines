@@ -24,6 +24,10 @@ pipeline {
             defaultValue: '1.6.0',
             description: 'PBM Version for tests',
             name: 'VERSION')
+        string(
+            defaultValue: 'master',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH')
   }
   options {
           withCredentials(creds)
@@ -33,7 +37,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                git poll: false, branch: 'master', url: 'https://github.com/Percona-QA/package-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
             }
         }
         stage ('Prepare') {
