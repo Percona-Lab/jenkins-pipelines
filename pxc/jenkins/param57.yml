@@ -4,6 +4,8 @@
     defaults: global
     description: |
         Do not edit this job through the web!
+    triggers:
+    - timed: "@weekly"
     disabled: false
     concurrent: true
     auth-token: pxc57testmtr
