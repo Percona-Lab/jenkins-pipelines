@@ -1,7 +1,12 @@
-def call(String DESTINATION, String SYNC_PMM_CLIENT) {
+def call(String DESTINATION, String SYNC_PMM_CLIENT, boolean ONLY_LATEST=false) {
     node('master') {
         unstash 'uploadPath'
         def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
+        def repopush_args = ''
+
+        if (ONLY_LATEST) {
+            repopush_args = '--remove-package'
+        }
 
         withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
             withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
@@ -36,7 +41,7 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                                     if [ -f \${repo_path}/repodata/repomd.xml.asc ]; then
                                         rm -f \${repo_path}/repodata/repomd.xml.asc
                                     fi
-                                    gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} \${repo_path}/repodata/repomd.xml 
+                                    gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} \${repo_path}/repodata/repomd.xml
                                 done
 
                                 # SRPMS
@@ -48,18 +53,13 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                                 if [ -f \${dest_path}/SRPMS/repodata/repomd.xml.asc ]; then
                                     rm -f \${dest_path}/SRPMS/repodata/repomd.xml.asc
                                 fi
-                                gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} \${dest_path}/SRPMS/repodata/repomd.xml 
+                                gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} \${dest_path}/SRPMS/repodata/repomd.xml
                             done
 
                             for dist in \$(ls -1 debian); do
                                 for deb in \$(find debian/\${dist} -name '*.deb'); do
-                                    repopush --remove-package --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/apt
+                                    repopush ${repopush_args} --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/apt
                                 done
-
-                                # source deb
-                                #for dsc in \$(find ../source -name '*.dsc'); do
-                                #    repopush --remove-package --gpg-pass ${SIGN_PASSWORD} --package \${dsc} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/apt
-                                #done
                             done
                         popd
 

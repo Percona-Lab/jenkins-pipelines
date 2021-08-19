@@ -17,7 +17,7 @@ pipeline {
             description: 'publish pmm2-server packages from testing repository',
             name: 'UPDATER_REPO')
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'pmm-server container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
@@ -36,8 +36,18 @@ pipeline {
             defaultValue: '2.0.0',
             description: 'PMM2 Server version',
             name: 'VERSION')
+        string(
+            defaultValue: ''
+            description: 'Path '
+            name: 'CLIENT_UPLOAD_PATH')
     }
     stages {
+        stage('Push client to public repository') {
+            steps {
+                sync2ProdPMM('release', 'no', false)
+            }
+        }
+
         stage('Get Docker RPMs') {
             agent {
                 label 'min-centos-7-x64'
@@ -55,6 +65,7 @@ pipeline {
                 stash includes: 'rpms.list', name: 'rpms'
             }
         }
+
         stage('Get repo RPMs') {
             steps {
                 unstash 'rpms'
@@ -188,7 +199,6 @@ pipeline {
                         DOCKER_MID="\$TOP_VER.\$MID_VER"
                         sg docker -c "
                             set -ex
-                            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                             # push pmm-server
                             docker pull \${DOCKER_VERSION}
                             docker tag \${DOCKER_VERSION} percona/pmm-server:latest
