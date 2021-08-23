@@ -15,6 +15,8 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+      OLDVERSIONS = "VERSION=${params.FROM_PBM_VERSION} PDMDB_VERSION=${params.FROM_PDMDB_VERSION}"
+      NEWVERSIONS = "VERSION=${params.TO_PBM_VERSION} PDMDB_VERSION=${params.TO_PDMDB_VERSION}"
   }
   parameters {
         choice(
@@ -32,7 +34,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'pdmdb-4.2.8',
+            defaultValue: 'pdmdb-4.2.15',
             description: 'From this version PDMDB will be updated',
             name: 'FROM_PDMDB_VERSION'
         )
@@ -51,7 +53,7 @@ pipeline {
             name: 'TO_PDMDB_VERSION'
         )
         string(
-            defaultValue: '1.2.0',
+            defaultValue: '1.5.0',
             description: 'From this version PBM will be updated',
             name: 'FROM_PBM_VERSION'
         )
@@ -107,28 +109,28 @@ pipeline {
     stage ('Run playbook for test with old version') {
       steps {
           script{
-              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "converge", env.PLATFORM, "VERSION", env.FROM_PBM_VERSION)
+              moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "converge", env.PLATFORM, env.OLDVERSIONS)              
             }
         }
     }
     stage ('Start testinfra tests for old version') {
       steps {
             script{
-              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "verify", env.PLATFORM, "VERSION", env.FROM_PBM_VERSION)
+              moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "verify", env.PLATFORM, env.OLDVERSIONS)
             }
         }
     }
     stage ('Run playbook for test with new version') {
       steps {
           script{
-              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "side-effect", env.PLATFORM, "VERSION", env.TO_PBM_VERSION)
+              moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "side-effect", env.PLATFORM, env.NEWVERSIONS)
             }
         }
     }
     stage ('Start testinfra tests for new version') {
       steps {
             script{
-              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "verify", env.PLATFORM, "VERSION", env.TO_PBM_VERSION)
+              moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "verify", env.PLATFORM, env.NEWVERSIONS)
             }
         }
     }
