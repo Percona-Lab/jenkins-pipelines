@@ -15,6 +15,8 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+      OLDVERSIONS = "VERSION=${params.FROM_PBM_VERSION} PDMDB_VERSION=${params.FROM_PDMDB_VERSION}"
+      NEWVERSIONS = "VERSION=${params.TO_PBM_VERSION} PDMDB_VERSION=${params.TO_PDMDB_VERSION}"
   }
   parameters {
         choice(
@@ -96,24 +98,21 @@ pipeline {
         stage('Install old version') {
           steps {
                 script {
-                    def variableList = "VERSION=${env.FROM_PBM_VERSION} PDMDB_VERSION=${env.FROM_PDMDB_VERSION}"
-                    runMoleculeCommandParallelWithVariableList(pdmdbOperatingSystems(), moleculeDir, "converge", variableList)
+                    runMoleculeCommandParallelWithVariableList(pdmdbOperatingSystems(), moleculeDir, "converge", env.OLDVERSIONS)
                 }
             }
          }
         stage('Test old version') {
           steps {
                 script {
-                    def variableList = "VERSION=${env.FROM_PBM_VERSION} PDMDB_VERSION=${env.FROM_PDMDB_VERSION}"
-                    runMoleculeCommandParallelWithVariableList(pdmdbOperatingSystems(), moleculeDir, "verify", variableList)
+                    runMoleculeCommandParallelWithVariableList(pdmdbOperatingSystems(), moleculeDir, "verify", env.OLDVERSIONS)
                 }
             }
          }
         stage('Install new version') {
           steps {
                 script {
-                    def variableList = "VERSION=${env.TO_PBM_VERSION} PDMDB_VERSION=${env.TO_PDMDB_VERSION}"
-                    runMoleculeCommandParallelWithVariableList(pdmdbOperatingSystems(), moleculeDir, "side-effect", variableList)
+                    runMoleculeCommandParallelWithVariableList(pdmdbOperatingSystems(), moleculeDir, "side-effect", env.NEWVERSIONS)
                 }
             }
          }
@@ -121,7 +120,7 @@ pipeline {
           steps {
                 script {
                     def variableList = "VERSION=${env.TO_PBM_VERSION} PDMDB_VERSION=${env.TO_PDMDB_VERSION}"
-                    runMoleculeCommandParallelWithVariableList(pdmdbOperatingSystems(), moleculeDir, "verify", variableList)
+                    runMoleculeCommandParallelWithVariableList(pdmdbOperatingSystems(), moleculeDir, "verify", env.NEWVERSIONS)
                 }
             }
          }

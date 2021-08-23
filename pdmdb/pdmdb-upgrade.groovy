@@ -15,6 +15,8 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+      OLDVERSIONS = "VERSION=${params.FROM_PBM_VERSION} PDMDB_VERSION=${params.FROM_PDMDB_VERSION}"
+      NEWVERSIONS = "VERSION=${params.TO_PBM_VERSION} PDMDB_VERSION=${params.TO_PDMDB_VERSION}"
   }
   parameters {
         choice(
@@ -107,32 +109,28 @@ pipeline {
     stage ('Run playbook for test with old version') {
       steps {
           script{
-              def variableList = "VERSION=${env.FROM_PBM_VERSION} PDMDB_VERSION=${env.FROM_PDMDB_VERSION}"
-              moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "converge", env.PLATFORM, variableList)              
+              moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "converge", env.PLATFORM, env.OLDVERSIONS)              
             }
         }
     }
     stage ('Start testinfra tests for old version') {
       steps {
             script{
-              def variableList = "VERSION=${env.FROM_PBM_VERSION} PDMDB_VERSION=${env.FROM_PDMDB_VERSION}"
-              moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "verify", env.PLATFORM, variableList)
+              moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "verify", env.PLATFORM, env.OLDVERSIONS)
             }
         }
     }
     stage ('Run playbook for test with new version') {
       steps {
           script{
-              def variableList = "VERSION=${env.TO_PBM_VERSION} PDMDB_VERSION=${env.TO_PDMDB_VERSION}"
-              moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "side-effect", env.PLATFORM, variableList)
+              moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "side-effect", env.PLATFORM, env.NEWVERSIONS)
             }
         }
     }
     stage ('Start testinfra tests for new version') {
       steps {
             script{
-              def variableList = "VERSION=${env.TO_PBM_VERSION} PDMDB_VERSION=${env.TO_PDMDB_VERSION}"
-              moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "verify", env.PLATFORM, variableList)
+              moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "verify", env.PLATFORM, env.NEWVERSIONS)
             }
         }
     }
