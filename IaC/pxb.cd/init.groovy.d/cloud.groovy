@@ -258,7 +258,7 @@ initMap['min-focal-x64'] = initMap['debMap']
 capMap = [:]
 capMap['c5.xlarge'] = '40'
 capMap['m4.xlarge'] = '10'
-capMap['m4.2xlarge'] = '10'
+capMap['m4.2xlarge'] = '40'
 capMap['m1.medium'] = '10'
 
 typeMap = [:]
