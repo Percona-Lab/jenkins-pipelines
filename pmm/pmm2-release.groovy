@@ -51,8 +51,18 @@ pipeline {
                                 set -x
                                 set -e
                                 #
-                                REPOS_PATH='repo-copy/percona/yum repo-copy/tools/yum repo-copy/pmm2-client/yum'
-                                for REPOPATH in \$REPOS_PATH; do
+                                REPOS='PERCONA TOOLS PMM2-CLIENT'
+
+                                for REPOSITORY in \$REPOS; do
+                                    if [[ \${REPOSITORY} = PERCONA ]]; then
+                                        REPOPATH=repo-copy/percona/yum
+                                    fi
+                                    if [[ \${REPOSITORY} = TOOLS ]]; then
+                                        REPOPATH=repo-copy/tools/yum
+                                    fi
+                                    if [[ \${REPOSITORY} = PMM2-CLIENT ]]; then
+                                        REPOPATH=repo-copy/pmm2-client/yum
+                                    fi
                                     cd /srv/UPLOAD/${PATH_TO_CLIENT}
                                     #
                                     # getting the list of RH systems
