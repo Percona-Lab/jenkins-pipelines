@@ -45,7 +45,10 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         jq openssl libxml-simple-perl 
 
         cd debs
-        wget https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_1/libperconaserverclient21-dev_8.0.25-15-3.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_1/libperconaserverclient21_8.0.25-15-3.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_1/percona-server-client-zenfs_8.0.25-15-3.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_1/percona-server-common-zenfs_8.0.25-15-3.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_1/percona-server-dbg-zenfs_8.0.25-15-3.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_1/percona-server-rocksdb-zenfs_8.0.25-15-3.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_1/percona-server-server-zenfs_8.0.25-15-3.hirsute_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_1/percona-server-test-zenfs_8.0.25-15-3.hirsute_amd64.deb 
+        wget https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_2/Percona-Server-8.0.25-15-Linux.x86_64.glibc2.31-zenfs-minimal.tar.gz https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_2/libperconaserverclient21-dev_8.0.25-15-4.focal_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_2/libperconaserverclient21_8.0.25-15-4.focal_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_2/percona-mysql-router-zenfs_8.0.25-15-4.focal_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_2/percona-server-client-zenfs_8.0.25-15-4.focal_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_2/percona-server-common-zenfs_8.0.25-15-4.focal_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_2/percona-server-dbg-zenfs_8.0.25-15-4.focal_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_2/percona-server-rocksdb-zenfs_8.0.25-15-4.focal_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_2/percona-server-server-zenfs_8.0.25-15-4.focal_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_2/percona-server-source-zenfs_8.0.25-15-4.focal_amd64.deb https://downloads.percona.com/downloads/TESTING/issue-CUSTOM83_2/percona-server-test-zenfs_8.0.25-15-4.focal_amd64.deb 
+        tar -xvzf Percona-Server-8.0.25-15-Linux.x86_64.glibc2.31-zenfs-minimal.tar.gz
+        sudo cp Percona-Server-8.0.25-15-Linux.x86_64.glibc2.31-zenfs-minimal/bin/zenfs /usr/bin/
+        rm -rf Percona-Server-8.0.25-15-Linux.x86_64.glibc2.31-zenfs-minimal.tar.gz Percona-Server-8.0.25-15-Linux.x86_64.glibc2.31-zenfs-minimal
         export DEBIAN_FRONTEND="noninteractive"
         sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ./*.deb
         wget https://jenkins.percona.com/downloads/nullblk-zoned.sh
@@ -153,14 +156,14 @@ parameters {
     stages {
         stage('Run tests') {
             parallel {
-                stage('Ubuntu Hirsute(21.04)') {
+                stage('Ubuntu Focal(20.04)') {
                     agent {
-                        label 'min-hirsute-x64-zenfs'
+                        label 'min-focal-x64-zenfs'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
-                        buildStage("ubuntu:hirsute", "--build_deb=1")
+                        buildStage("ubuntu:focal", "--build_deb=1")
                     }
                 }
             }
