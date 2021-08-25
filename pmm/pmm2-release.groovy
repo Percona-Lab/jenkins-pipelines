@@ -97,7 +97,7 @@ pipeline {
                                         done
                                     done
                                 done
-                            ENDSSH
+ENDSSH
                         """
                     }
                 }
@@ -133,11 +133,11 @@ pipeline {
                                         CODENAMES=\$(ls -1 | egrep -v 'cosmic|disco')
                                         echo Distributions are: \${CODENAMES}
                                     popd
-                                    #
+
                                     #######################################
                                     # source pushing, it's a bit specific #
                                     #######################################
-                                    #
+
                                     # pushing sources
                                     if  [ -d /srv/UPLOAD/${PATH_TO_CLIENT}/source/debian ]; then
                                         cd /srv/UPLOAD/${PATH_TO_CLIENT}/source/debian
@@ -155,7 +155,6 @@ pipeline {
                                         done
                                     fi
 
-                                    #
                                     #######################################
                                     # binary pushing                      #
                                     #######################################
@@ -171,7 +170,7 @@ pipeline {
                                     done
                                     #
                                 done
-                            ENDSSH
+ENDSSH
                         """
                     }
                 }
