@@ -2,11 +2,6 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT, boolean ONLY_LATEST=false) 
     node('master') {
         unstash 'uploadPath'
         def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
-        def repopush_args = ''
-
-        if (ONLY_LATEST) {
-            repopush_args = '--remove-package'
-        }
 
         withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
             withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
