@@ -67,11 +67,6 @@ pipeline {
                 }
                 stash includes: 'copy.list', name: 'copy'
                 archiveArtifacts 'copy.list'
-                currentBuild.result = 'FAILURE'
-                // do more stuff here
-
-                // this will terminate the job if result is non-zero
-                // You don't even have to set the result to FAILURE by hand
                 sh "exit 1"
         }
 // Publish RPMs to repo.ci.percona.com
