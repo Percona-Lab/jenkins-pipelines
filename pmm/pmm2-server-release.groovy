@@ -67,6 +67,7 @@ pipeline {
                 }
                 stash includes: 'copy.list', name: 'copy'
                 archiveArtifacts 'copy.list'
+            }
         }
 // Publish RPMs to repo.ci.percona.com
         stage('Copy RPMs to PMM repo') {
