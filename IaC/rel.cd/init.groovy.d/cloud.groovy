@@ -380,7 +380,7 @@ typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x32']    = 'm1.medium'
 typeMap['min-hirsute-x64-zenfs'] = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64-zenfs'] = typeMap['min-centos-7-x64']
-typeMap['min-focal-x64-zenfs'] = typeMap['min-centos-7-x64']
+typeMap['min-bionic-x64-zenfs'] = typeMap['min-centos-7-x64']
 
 execMap = [:]
 execMap['docker']            = '1'
