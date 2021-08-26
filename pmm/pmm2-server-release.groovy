@@ -67,12 +67,12 @@ pipeline {
                 }
                 stash includes: 'copy.list', name: 'copy'
                 archiveArtifacts 'copy.list'
-                sh "exit 1"
         }
 // Publish RPMs to repo.ci.percona.com
         stage('Copy RPMs to PMM repo') {
             steps {
                 unstash 'copy'
+                sh "exit 1"
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         cat copy.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
