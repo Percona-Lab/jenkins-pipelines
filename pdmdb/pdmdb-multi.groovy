@@ -74,13 +74,20 @@ pipeline {
         }
         stage ('Test setup') {
             steps {
-                build job: 'pdmdb-setup', parameters: [
-                string(name: 'PLATFORM', value: "${env.PLATFORM}"),
-                string(name: 'REPO', value: "${env.TO_REPO}"),
-                string(name: 'PDMDB_VERSION', value: "${env.TO_PDMDB_VERSION}"),
-                string(name: 'VERSION', value: "${env.TO_PBM_VERSION}"),
-                string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
-                ]
+                script {
+                    if (env.TO_REPO == 'release') {
+                        build job: 'pdmdb-setup', parameters: [
+                        string(name: 'PLATFORM', value: "${env.PLATFORM}"),
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'PDMDB_VERSION', value: "${env.TO_PDMDB_VERSION}"),
+                        string(name: 'VERSION', value: "${env.TO_PBM_VERSION}"),
+                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
+                        ]
+                    }
+                    else {
+                        echo 'skipped setup on non-release repo'
+                    }
+                }
             }
         }
         stage ('Test upgrade') {
