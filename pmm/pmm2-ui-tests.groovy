@@ -104,7 +104,7 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         text(
-            defaultValue: '--addclient=haproxy,1 --addclient=ps,1 --setup-external-service',
+            defaultValue: '--addclient=haproxy,1 --addclient=ps,1 --setup-external-service --setup-mysql-ssl --setup-mongodb-ssl',
             description: '''
             Configure PMM Clients
             ms - MySQL (ex. --addclient=ms,1),
