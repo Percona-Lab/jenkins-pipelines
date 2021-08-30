@@ -63,9 +63,8 @@ pipeline {
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
   }
-  }
   options {
-          withCredentials(moleculeDistributionJenkinsCreds())
+          withCredentials(moleculePdpxcJenkinsCreds())
           disableConcurrentBuilds()
   }
   stages {
