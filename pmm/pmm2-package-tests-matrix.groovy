@@ -36,7 +36,7 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.21.0',
+            defaultValue: '2.22.0',
             description: 'PMM Version for testing',
             name: 'PMM_VERSION')
         choice(

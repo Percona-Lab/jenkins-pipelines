@@ -83,15 +83,15 @@ pipeline {
             description: 'Tag/Branch for UI Tests Repo repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0'],
+            choices: ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0'],
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_VERSION')
         choice(
-            choices: ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0'],
+            choices: ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0'],
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.21.0',
+            defaultValue: '2.22.0',
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
