@@ -29,7 +29,7 @@ pipeline {
          )
   }
   options {
-          withCredentials(moleculeDistributionJenkinsCreds())
+          withCredentials(moleculePdpsJenkinsCreds())
           disableConcurrentBuilds()
   }
   stages {
