@@ -173,6 +173,7 @@ initMap['docker-32gb-hirsute'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
+    export DEBIAN_FRONTEND=noninteractive
     until sudo apt-get update; do
         sleep 1
         echo try again

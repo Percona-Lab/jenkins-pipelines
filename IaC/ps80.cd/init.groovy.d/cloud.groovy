@@ -220,6 +220,7 @@ initMap['docker-32gb-hirsute'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
+    export DEBIAN_FRONTEND=noninteractive
     until sudo apt-get update; do
         sleep 1
         echo try again
@@ -270,7 +271,7 @@ initMap['docker-32gb-hirsute'] = '''
     sudo usermod -aG docker $(id -u -n)
     sudo mkdir -p /etc/docker
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
-    sudo systemctl status docker || sudo systemctl start docker
+    sudo systemctl restart docker
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 initMap['docker-32gb-focal'] = initMap['docker-32gb-hirsute']
