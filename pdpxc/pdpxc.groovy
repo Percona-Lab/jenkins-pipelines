@@ -30,7 +30,7 @@ pipeline {
         )
         string(
             defaultValue: '8.0.23',
-            description: 'PDMYSQL version for test',
+            description: 'PXC version for test',
             name: 'VERSION'
          )
         string(
@@ -55,11 +55,11 @@ pipeline {
          )
         choice(
             name: 'SCENARIO',
-            description: 'PDMYSQL scenario for test',
+            description: 'Scenario for test',
             choices: pdpxcScenarios()
         )
         string(
-            defaultValue: 'main',
+            defaultValue: 'master',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
   }
