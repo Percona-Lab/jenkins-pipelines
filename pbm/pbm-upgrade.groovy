@@ -60,7 +60,7 @@ pipeline {
             name: 'VERSION'
         )
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
   }

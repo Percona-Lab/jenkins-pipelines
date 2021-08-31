@@ -31,7 +31,7 @@ pipeline {
             description: 'PBM Version for tests',
             name: 'VERSION')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
   }
