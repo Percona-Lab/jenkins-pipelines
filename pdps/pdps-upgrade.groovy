@@ -21,7 +21,7 @@ pipeline {
         )
         choice(
             name: 'FROM_REPO',
-            description: 'From this repo will be upgraded PPG',
+            description: 'Percona Server will be upgraded from this repository',
             choices: [
                 'testing',
                 'experimental',
@@ -39,13 +39,17 @@ pipeline {
         )
         string(
             defaultValue: '8.0.19',
-            description: 'From this version pdmysql will be updated',
+            description: 'Percona Server will be upgraded from this version',
             name: 'FROM_VERSION')
         string(
             defaultValue: '8.0.20',
-            description: 'To this version pdmysql will be updated',
+            description: 'Percona Server will be upgraded to this version',
             name: 'VERSION'
         )
+        string(
+            defaultValue: 'master',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH')
   }
   options {
           withCredentials(moleculePdpsJenkinsCreds())
@@ -62,7 +66,7 @@ pipeline {
     stage('Checkout') {
       steps {
             deleteDir()
-            git poll: false, branch: 'master', url: 'https://github.com/Percona-QA/package-testing.git'
+            git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
         }
     }
     stage ('Prepare') {

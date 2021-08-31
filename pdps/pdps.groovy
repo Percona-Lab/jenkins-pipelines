@@ -30,7 +30,7 @@ pipeline {
         )
         string(
             defaultValue: '8.0.23',
-            description: 'PDMYSQL version for test',
+            description: 'Percona Server version for test',
             name: 'VERSION'
          )
         string(
@@ -50,14 +50,18 @@ pipeline {
          )
         string(
             defaultValue: '3.1.4',
-            description: 'Percona orchestrator version for test',
+            description: 'Percona Orchestrator version for test',
             name: 'ORCHESTRATOR_VERSION'
          )
         choice(
             name: 'SCENARIO',
-            description: 'PDMYSQL scenario for test',
+            description: 'Scenario for test',
             choices: pdpsScenarios()
         )
+        string(
+            defaultValue: 'master',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH')
   }
   options {
           withCredentials(moleculePdpsJenkinsCreds())
@@ -74,7 +78,7 @@ pipeline {
     stage('Checkout') {
       steps {
             deleteDir()
-            git poll: false, branch: 'master', url: 'https://github.com/Percona-QA/package-testing.git'
+            git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
         }
     }
     stage ('Prepare') {
