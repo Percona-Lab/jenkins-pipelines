@@ -31,6 +31,10 @@ pipeline {
             description: 'Pass an URL for downloading bootstrap.sh, If empty will use from repository you specified in PXB24_REPO',
             name: 'BOOTSTRAP_URL')
         choice(
+            choices: 'OFF\nON',
+            description: 'Starts Microsoft Azurite emulator and tests xbcloud against it',
+            name: 'WITH_AZURITE')
+        choice(
             choices: 'docker-32gb\ndocker',
             description: 'Run build on specified instance type',
             name: 'LABEL')
@@ -107,6 +111,7 @@ pipeline {
                             sg docker -c "
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                     docker ps -q | xargs docker stop --time 1 || :
+                                    docker rm --force azurite || :
                                 fi
                                 ulimit -a
                                 ./docker/run-test ${DOCKER_OS}

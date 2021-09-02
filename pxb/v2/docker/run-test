@@ -11,12 +11,23 @@ if [[ ${SOURCE_IMAGE} == 'asan' ]]; then
     SOURCE_IMAGE='centos:7'
 fi
 
+if [[ ${WITH_AZURITE} == "ON" ]]; then
+    if [[ $(docker network list | grep bridge-azurite) != *bridge-azurite* ]]; then
+        docker network create bridge-azurite
+    fi
+    docker run -d -p 10000:10000 -p 10001:10001 --name azurite --network bridge-azurite mcr.microsoft.com/azure-storage/azurite:3.14.0
+
+    AZURITE_DOCKER_FLAG="--network bridge-azurite"
+fi
+
+
 XTRABACKUP_TARGET_VERSION=$(set | grep -i $XTRABACKUP_TARGET'_VERSION' | awk -F '=' '{print $2}')
 
 docker run --rm \
     --security-opt seccomp=unconfined \
     --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxb \
     --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
+    ${AZURITE_DOCKER_FLAG} \
     public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
     sh -c "
     set -o errexit
@@ -27,6 +38,7 @@ docker run --rm \
     export XTRABACKUP_TARGET='${XTRABACKUP_TARGET}'
     export XTRABACKUP_TARGET_VERSION='${XTRABACKUP_TARGET_VERSION}'
     export BOOTSTRAP_URL='${BOOTSTRAP_URL}'
+    export WITH_AZURITE='${WITH_AZURITE}'
     export LANG=en_AU.UTF-8
 
     mkdir /tmp/results
