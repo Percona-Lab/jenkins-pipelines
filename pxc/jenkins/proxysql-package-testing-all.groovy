@@ -12,6 +12,7 @@ void runNodeBuild(String node_to_test) {
             string(name: 'node_to_test', value: node_to_test),
             string(name: 'git_repo', value: params.git_repo),
             string(name: 'client_to_test', value: params.client_to_test),
+            string(name: 'repo_for_client_to_test', value: params.repo_for_client_to_test)
         ],
         propagate: true,
         wait: true
