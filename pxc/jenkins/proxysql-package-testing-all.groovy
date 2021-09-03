@@ -60,12 +60,6 @@ pipeline {
                     }
                 }
 
-                stage('Ubuntu Xenial') {
-                    steps {
-                        runNodeBuild('min-xenial-x64')
-                    }
-                }
-
                 stage('Debian Bullseye') {
                     steps {
                         script{
@@ -75,6 +69,12 @@ pipeline {
                                 runNodeBuild('min-bullseye-x64')
                             }
                         }
+                    }
+                }
+
+                stage('Ubuntu Xenial') {
+                    steps {
+                        runNodeBuild('min-xenial-x64')
                     }
                 }
 
