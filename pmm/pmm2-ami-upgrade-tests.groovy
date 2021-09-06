@@ -266,7 +266,7 @@ pipeline {
         }
         stage('Start Client Instance') {
             steps {
-                runStagingClient(CLIENT_VERSION, '--addclient=ps,1 --setup-with-custom-queries --setup-remote-db', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO)
+                runStagingClient(CLIENT_VERSION, '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-queries --setup-remote-db', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO)
             }
         }
         stage('Sleep') {
