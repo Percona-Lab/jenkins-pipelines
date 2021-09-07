@@ -47,7 +47,6 @@ def pmm_submodules() {
         "pmm-update",
         "pmm-server",
         "grafana-dashboards",
-        "pmm-api-tests",
         "pmm-ui-tests",
         "pmm-qa",
         "mysqld_exporter",
