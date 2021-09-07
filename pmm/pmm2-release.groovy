@@ -116,6 +116,7 @@ ENDSSH
                                 for REPOSITORY in \$REPOS; do
                                     if [[ \${REPOSITORY} = PERCONA ]]; then
                                         REPOPATH=/srv/repo-copy/percona/apt
+                                        export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin
                                     fi
                                     #
                                     if [[ \${REPOSITORY} = TOOLS ]]; then
