@@ -3,7 +3,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "molecule/pbm/install"
+def moleculeDir = "pbm/install"
 
 pipeline {
   agent {
@@ -27,11 +27,11 @@ pipeline {
             description: 'PSMDB for testing. Valid values: psmdb-4*, psmdb-36',
             name: 'psmdb_to_test')
         string(
-            defaultValue: '1.3.4',
+            defaultValue: '1.6.0',
             description: 'PBM Version for tests',
             name: 'VERSION')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
   }
@@ -43,7 +43,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
             }
         }
         stage ('Prepare') {

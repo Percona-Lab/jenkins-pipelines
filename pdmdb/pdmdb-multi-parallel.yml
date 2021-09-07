@@ -1,5 +1,5 @@
 - job:
-    name: orchestrator
+    name: pdmdb-multi-parallel
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pdmysql/orchestrator.groovy
+      script-path: pdmdb/pdmdb-multi-parallel.groovy

@@ -26,7 +26,7 @@ pipeline {
         )
         string(
             defaultValue: '8.0.23',
-            description: 'PDMYSQL version for test',
+            description: 'PXC version for test',
             name: 'VERSION'
          )
         string(
@@ -49,19 +49,18 @@ pipeline {
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
          )
-        string(
-            defaultValue: '3.1.4',
-            description: 'Percona orchestrator version for test',
-            name: 'ORCHESTRATOR_VERSION'
-         )
         choice(
             name: 'SCENARIO',
-            description: 'PDMYSQL scenario for test',
-            choices: pdmysqlScenarios()
+            description: 'Scenario for test',
+            choices: pdpxcScenarios()
         )
+        string(
+            defaultValue: 'master',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH')
   }
   options {
-          withCredentials(moleculeDistributionJenkinsCreds())
+          withCredentials(moleculePdpxcJenkinsCreds())
           disableConcurrentBuilds()
   }
     stages {
@@ -75,7 +74,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                git poll: false, branch: 'master', url: 'https://github.com/Percona-QA/package-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
             }
         }
         stage ('Prepare') {

@@ -22,11 +22,11 @@ pipeline {
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '2.21.0',
+            defaultValue: '2.22.0',
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: '2.21.0',
+            defaultValue: '2.22.0',
             description: 'RC PMM Server Version',
             name: 'PMM_SERVER_RC')
         choice(
@@ -48,6 +48,13 @@ pipeline {
                     steps {
                         script {
                             runUpgradeJob(GIT_BRANCH,'2.20.0', '2.20.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                        }
+                    }
+                }
+                stage('Upgrade from 2.21.0'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.21.0', '2.21.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
                         }
                     }
                 }

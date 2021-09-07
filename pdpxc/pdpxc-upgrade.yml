@@ -1,5 +1,5 @@
 - job:
-    name: pdmysql
+    name: pdpxc-upgrade
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pdmysql/pdmysql.groovy
+      script-path: pdpxc/pdpxc-upgrade.groovy

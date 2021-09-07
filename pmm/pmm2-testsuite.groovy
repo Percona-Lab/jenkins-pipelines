@@ -132,7 +132,7 @@ pipeline {
             description: 'Commit hash for pmm-qa branch',
             name: 'PMM_QA_GIT_COMMIT_HASH')
         string(
-            defaultValue: '2.21.0',
+            defaultValue: '2.22.0',
             description: 'pmm2-client latest version',
             name: 'PMM_VERSION')
     }
@@ -142,7 +142,6 @@ pipeline {
     triggers {
         upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
-
     stages {
         stage('Prepare') {
             steps {
@@ -177,6 +176,16 @@ pipeline {
                 runTAP("ps", "ps", "2", "5.7")
             }
         }
+        stage('Test: MDB_4_2') {
+            steps {
+                runTAP("modb", "modb", "3", "4.2")
+            }
+        }
+        stage('Test: MDB_4_0') {
+            steps {
+                runTAP("modb", "modb", "3", "4.0")
+            }
+        }
         stage('Test: PSMDB_4_0') {
             steps {
                 runTAP("mo", "psmdb", "3", "4.0")
@@ -187,19 +196,9 @@ pipeline {
                 runTAP("ps", "ps", "2", "8.0")
             }
         }
-        stage('Test: PSMDB_3_6') {
+        stage('Test: PSMDB_4_4') {
             steps {
-                runTAP("mo", "psmdb", "3", "3.6")
-            }
-        }
-        stage('Test: MDB_4_2') {
-            steps {
-                runTAP("modb", "modb", "3", "4.2")
-            }
-        }
-        stage('Test: MDB_4_0') {
-            steps {
-                runTAP("modb", "modb", "3", "4.0")
+                runTAP("mo", "psmdb", "3", "4.4")
             }
         }
         stage('Test: HAPROXY') {
@@ -230,6 +229,11 @@ pipeline {
         stage('Test: PXC') {
             steps {
                 runTAP("pxc", "pxc", "1", "5.7")
+            }
+        }
+        stage('Test: Generic') {
+            steps {
+                runTAP("generic", "admin", "1", "2")
             }
         }
         stage('Check Results') {

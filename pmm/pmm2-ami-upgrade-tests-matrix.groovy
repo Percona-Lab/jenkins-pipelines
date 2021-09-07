@@ -27,7 +27,7 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
-            defaultValue: '2.21.0',
+            defaultValue: '2.22.0',
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         choice(
@@ -49,6 +49,13 @@ pipeline {
                     steps {
                         script {
                             runAMIUpgradeJob(GIT_BRANCH,'2.20.0', '2.20.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_GIT_BRANCH);
+                        }
+                    }
+                }
+                stage('Upgrade from 2.21.0'){
+                    steps {
+                        script {
+                            runAMIUpgradeJob(GIT_BRANCH,'2.21.0', '2.21.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_GIT_BRANCH);
                         }
                     }
                 }

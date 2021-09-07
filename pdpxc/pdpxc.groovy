@@ -20,16 +20,7 @@ pipeline {
             choices: operatingSystems
         )
         choice(
-            name: 'FROM_REPO',
-            description: 'From this repo will be upgraded PPG',
-            choices: [
-                'testing',
-                'experimental',
-                'release'
-            ]
-        )
-        choice(
-            name: 'TO_REPO',
+            name: 'REPO',
             description: 'Repo for testing',
             choices: [
                 'testing',
@@ -38,36 +29,56 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.19',
-            description: 'From this version pdmysql will be updated',
-            name: 'FROM_VERSION')
-        string(
-            defaultValue: '8.0.20',
-            description: 'To this version pdmysql will be updated',
+            defaultValue: '8.0.23',
+            description: 'PXC version for test',
             name: 'VERSION'
-        )
+         )
+        string(
+            defaultValue: '2.0.18',
+            description: 'Proxysql version for test',
+            name: 'PROXYSQL_VERSION'
+         )
+        string(
+            defaultValue: '2.3.10',
+            description: 'HAProxy version for test',
+            name: 'HAPROXY_VERSION'
+         )
+        string(
+            defaultValue: '8.0.23',
+            description: 'PXB version for test',
+            name: 'PXB_VERSION'
+         )
+        string(
+            defaultValue: '3.3.1',
+            description: 'Percona toolkit version for test',
+            name: 'PT_VERSION'
+         )
         choice(
             name: 'SCENARIO',
-            description: 'PDMYSQL version for test',
-            choices: pdmysqlScenarios()
+            description: 'Scenario for test',
+            choices: pdpxcScenarios()
         )
+        string(
+            defaultValue: 'master',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH')
   }
   options {
-          withCredentials(moleculeDistributionJenkinsCreds())
+          withCredentials(moleculePdpxcJenkinsCreds())
           disableConcurrentBuilds()
   }
   stages {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-${env.MOLECULE_DIR}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-${env.SCENARIO}"
                 }
             }
         }
     stage('Checkout') {
       steps {
             deleteDir()
-            git poll: false, branch: 'master', url: 'https://github.com/Percona-QA/package-testing.git'
+            git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
         }
     }
     stage ('Prepare') {
@@ -84,7 +95,7 @@ pipeline {
             }
         }
     }
-    stage ('Run playbook for test') {env.MOLECULE_DIR
+    stage ('Run playbook for test') {
       steps {
           script{
               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
@@ -96,7 +107,6 @@ pipeline {
             script{
               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
             }
-            junit "${MOLECULE_DIR}/report.xml"
         }
     }
     stage ('Start Cleanup ') {
@@ -110,7 +120,7 @@ pipeline {
   post {
     always {
           script {
-             moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.PLATFORM)
+             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
         }
     }
   }

@@ -3,11 +3,8 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "molecule/pdmdb/pdmdb-setup"
-def creds = [sshUserPrivateKey(credentialsId: 'MOLECULE_AWS_PRIVATE_KEY', keyFileVariable: 'MOLECULE_AWS_PRIVATE_KEY', passphraseVariable: '', usernameVariable: ''),
-             string(credentialsId: 'GCP_SECRET_KEY', variable: 'GCP_SECRET_KEY'), string(credentialsId: 'GCP_ACCESS_KEY', variable: 'GCP_ACCESS_KEY'),
-             [$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '4462f2e5-f01c-4e3f-9586-2ffcf5bf366a', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'],
-             [$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'S3_ACCESS_KEY_ID', credentialsId: '2a84aea7-32a0-4598-9e8d-5153179097a9', secretKeyVariable: 'S3_SECRET_ACCESS_KEY']]
+def moleculeDir = "pdmdb/pdmdb-setup"
+
 pipeline {
   agent {
       label 'min-centos-7-x64'
@@ -25,19 +22,19 @@ pipeline {
             description: 'PBM Version for tests',
             name: 'VERSION')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
   }
   options {
-          withCredentials(creds)
+          withCredentials(moleculePbmJenkinsCreds())
           disableConcurrentBuilds()
   }
     stages {
         stage('Checkout') {
             steps {
                 deleteDir()
-                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
             }
         }
         stage ('Prepare') {

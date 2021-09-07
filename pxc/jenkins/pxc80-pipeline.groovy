@@ -64,6 +64,10 @@ pipeline {
             choices: 'yes\nno',
             description: 'Run mysql-test-run.pl',
             name: 'DEFAULT_TESTING')
+        choice(
+            choices: 'no\nyes',
+            description: 'Build with ASAN',
+            name: 'WITH_ASAN')
         string(
             defaultValue: '4',
             description: 'mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for all test suites except Galera specific suites.',

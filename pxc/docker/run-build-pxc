@@ -25,6 +25,7 @@ docker run --rm \
     export TAG='${TAG}'
     export DIST_NAME='${DIST_NAME}'
     export SSL_VER='${SSL_VER}'
+    export WITH_ASAN='${WITH_ASAN}'
 
     mkdir /tmp/results
    

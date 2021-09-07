@@ -54,7 +54,7 @@ pipeline {
             description: "Percona Server for MySQL version",
             name: 'PS_VERSION')
         choice(
-            choices: ['5.7', '8.0', '5.6'],
+            choices: ['8.0', '5.7', '5.6'],
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
@@ -202,7 +202,7 @@ pipeline {
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum -y install git svn docker sysbench
                         sudo yum -y install https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm
-                        sudo yum -y install php php-mysqlnd php-pdo mysql-community-server
+                        sudo yum -y install php php-mysqlnd php-pdo mysql-community-server jq
                         sudo amazon-linux-extras install epel -y
                         sudo yum -y install bats
                         sudo usermod -aG docker ec2-user

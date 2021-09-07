@@ -30,18 +30,13 @@ pipeline {
         )
         string(
             defaultValue: '8.0.23',
-            description: 'PDMYSQL version for test',
+            description: 'Percona Server version for test',
             name: 'VERSION'
          )
         string(
             defaultValue: '2.0.18',
             description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
-         )
-        string(
-            defaultValue: '2.3.10',
-            description: 'HAProxy version for test',
-            name: 'HAPROXY_VERSION'
          )
         string(
             defaultValue: '8.0.23',
@@ -55,17 +50,21 @@ pipeline {
          )
         string(
             defaultValue: '3.1.4',
-            description: 'Percona orchestrator version for test',
+            description: 'Percona Orchestrator version for test',
             name: 'ORCHESTRATOR_VERSION'
          )
         choice(
             name: 'SCENARIO',
-            description: 'PDMYSQL scenario for test',
-            choices: pdmysqlScenarios()
+            description: 'Scenario for test',
+            choices: pdpsScenarios()
         )
+        string(
+            defaultValue: 'master',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH')
   }
   options {
-          withCredentials(moleculeDistributionJenkinsCreds())
+          withCredentials(moleculePdpsJenkinsCreds())
           disableConcurrentBuilds()
   }
   stages {
@@ -79,7 +78,7 @@ pipeline {
     stage('Checkout') {
       steps {
             deleteDir()
-            git poll: false, branch: 'master', url: 'https://github.com/Percona-QA/package-testing.git'
+            git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
         }
     }
     stage ('Prepare') {

@@ -12,19 +12,11 @@ pipeline {
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
       MOLECULE_DIR = "molecule/pdmysql/${SCENARIO}";
+
   }
   parameters {
         choice(
-            name: 'FROM_REPO',
-            description: 'From this repo will be upgraded PPG',
-            choices: [
-                'testing',
-                'experimental',
-                'release'
-            ]
-        )
-        choice(
-            name: 'TO_REPO',
+            name: 'REPO',
             description: 'Repo for testing',
             choices: [
                 'testing',
@@ -33,22 +25,42 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.19',
-            description: 'From this version pdmysql will be updated',
-            name: 'FROM_VERSION')
-        string(
-            defaultValue: '8.0.20',
-            description: 'To this version pdmysql will be updated',
+            defaultValue: '8.0.23',
+            description: 'PDMYSQL version for test',
             name: 'VERSION'
-        )
+         )
+        string(
+            defaultValue: '2.0.18',
+            description: 'Proxysql version for test',
+            name: 'PROXYSQL_VERSION'
+         )
+        string(
+            defaultValue: '8.0.23',
+            description: 'PXB version for test',
+            name: 'PXB_VERSION'
+         )
+        string(
+            defaultValue: '3.3.1',
+            description: 'Percona toolkit version for test',
+            name: 'PT_VERSION'
+         )
+        string(
+            defaultValue: '3.1.4',
+            description: 'Percona orchestrator version for test',
+            name: 'ORCHESTRATOR_VERSION'
+         )
         choice(
             name: 'SCENARIO',
-            description: 'PDMYSQL version for test',
-            choices: pdmysqlScenarios()
+            description: 'PDMYSQL scenario for test',
+            choices: pdpsScenarios()
         )
+        string(
+            defaultValue: 'master',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH')
   }
   options {
-          withCredentials(moleculeDistributionJenkinsCreds())
+          withCredentials(moleculePdpsJenkinsCreds())
           disableConcurrentBuilds()
   }
     stages {
@@ -62,7 +74,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                git poll: false, branch: 'master', url: 'https://github.com/Percona-QA/package-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
             }
         }
         stage ('Prepare') {
