@@ -70,16 +70,16 @@ pipeline {
                                     #
                                     # source processing
                                     if [ -d source/redhat ]; then
-                                    SRCRPM=\$(find source/redhat -name '*.src.rpm')
-                                    for rhel in \${RHVERS}; do
-                                        mkdir -p /srv/\${REPOPATH}/release/\${rhel}/SRPMS
-                                        cp -v \${SRCRPM} /srv/\${REPOPATH}/release/\${rhel}/SRPMS
-                                        createrepo --update /srv/\${REPOPATH}/release/\${rhel}/SRPMS
-                                        if [ -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc ]; then
-                                            rm -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc
-                                        fi
-                                        gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml
-                                    done
+                                        SRCRPM=\$(find source/redhat -name '*.src.rpm')
+                                        for rhel in \${RHVERS}; do
+                                            mkdir -p /srv/\${REPOPATH}/release/\${rhel}/SRPMS
+                                            cp -v \${SRCRPM} /srv/\${REPOPATH}/release/\${rhel}/SRPMS
+                                            createrepo --update /srv/\${REPOPATH}/release/\${rhel}/SRPMS
+                                            if [ -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc ]; then
+                                                rm -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc
+                                            fi
+                                            gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml
+                                        done
                                     fi
 
                                     # binary processing
@@ -116,7 +116,7 @@ ENDSSH
                                 for REPOSITORY in \$REPOS; do
                                     if [[ \${REPOSITORY} = PERCONA ]]; then
                                         REPOPATH=/srv/repo-copy/percona/apt
-                                        export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin
+                                        export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/opt/puppetlabs/bin
                                     fi
                                     #
                                     if [[ \${REPOSITORY} = TOOLS ]]; then
