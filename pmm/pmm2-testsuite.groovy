@@ -110,7 +110,7 @@ void fetchAgentLog(String CLIENT_VERSION) {
     }
 }
 
-def latestVersion = '2.23.0'
+def latestVersion = pmmLatestVersion()
 
 pipeline {
     agent {
