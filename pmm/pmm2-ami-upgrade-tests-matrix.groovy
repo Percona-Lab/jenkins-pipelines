@@ -13,6 +13,8 @@ void runAMIUpgradeJob(String GIT_BRANCH, SERVER_VERSION, CLIENT_VERSION, PMM_SER
     ]
 }
 
+def latestVersion = '2.23.0'
+
 pipeline {
     agent {
         label 'large-amazon'
@@ -27,7 +29,7 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
-            defaultValue: '2.23.0',
+            defaultValue: latestVersion,
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         choice(
