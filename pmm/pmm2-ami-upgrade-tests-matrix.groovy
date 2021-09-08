@@ -13,7 +13,7 @@ void runAMIUpgradeJob(String GIT_BRANCH, SERVER_VERSION, CLIENT_VERSION, PMM_SER
     ]
 }
 
-def latestVersion = '2.23.0'
+def latestVersion = pmmLatestVersion()
 
 pipeline {
     agent {
