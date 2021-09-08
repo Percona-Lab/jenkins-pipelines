@@ -14,6 +14,8 @@ void runPackageTestingJob(String GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM
     ]
 }
 
+def latestVersion = '2.23.0'
+
 pipeline {
     agent {
         label 'micro-amazon'
@@ -36,7 +38,7 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.22.0',
+            defaultValue: latestVersion,
             description: 'PMM Version for testing',
             name: 'PMM_VERSION')
         choice(
@@ -52,8 +54,8 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-    triggers { 
-        cron('0 4 * * *') 
+    triggers {
+        cron('0 4 * * *')
     }
     stages {
         stage('Integration Playbook'){

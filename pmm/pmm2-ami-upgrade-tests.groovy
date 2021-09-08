@@ -36,12 +36,6 @@ void customSetupAMIInstance(INSTANCE_IP) {
 
 void setInstanceAMIId(PMM_VERSION) {
     switch(PMM_VERSION) {
-        case "2.15.0":
-            env.AMI_ID = "ami-086a3a95eefa9567f"
-            break;
-        case "2.15.1":
-            env.AMI_ID = "ami-073928dbea8c7ebc3"
-            break;
         case "2.16.0":
             env.AMI_ID = "ami-01097b383f63f7db5"
             break;
@@ -59,6 +53,9 @@ void setInstanceAMIId(PMM_VERSION) {
             break;
         case "2.21.0":
             env.AMI_ID = "ami-0605d9dbdc9d6a233"
+            break;
+        case "2.22.0":
+            env.AMI_ID = "ami-0c1521c259375cb43"
             break;
         case "custom":
             env.AMI_ID = env.AMI_ID_CUSTOM
@@ -159,6 +156,9 @@ void fetchAgentLog(String CLIENT_VERSION) {
     }
 }
 
+def latestVersion = '2.23.0'
+def versionsList = ['2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0', '2.22.0']
+
 pipeline {
     agent {
         label 'large-amazon'
@@ -201,15 +201,15 @@ pipeline {
             description: 'PMM Server AMI ID',
             name: 'AMI_ID_CUSTOM')
         choice(
-            choices: ['2.15.0','2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0', 'custom'],
+            choices: versionsList + ['custom'],
             description: 'PMM Server AMI ID to test for Upgrade',
             name: 'SERVER_VERSION')
         choice(
-            choices: ['2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0'],
+            choices: versionsList,
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.22.0',
+            defaultValue: latestVersion,
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
