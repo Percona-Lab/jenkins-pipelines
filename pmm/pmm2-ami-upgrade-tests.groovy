@@ -36,6 +36,12 @@ void customSetupAMIInstance(INSTANCE_IP) {
 
 void setInstanceAMIId(PMM_VERSION) {
     switch(PMM_VERSION) {
+        case "2.15.0":
+            env.AMI_ID = "ami-086a3a95eefa9567f"
+            break;
+        case "2.15.1":
+            env.AMI_ID = "ami-073928dbea8c7ebc3"
+            break;
         case "2.16.0":
             env.AMI_ID = "ami-01097b383f63f7db5"
             break;

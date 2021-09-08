@@ -75,6 +75,13 @@ pipeline {
                         }
                     }
                 }
+                stage('Upgrade from 2.15.1'){
+                    steps {
+                        script {
+                            runAMIUpgradeJob(GIT_BRANCH,'2.15.1', '2.15.1', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_GIT_BRANCH);
+                        }
+                    }
+                }
                 stage('Upgrade from 2.16.0'){
                     steps {
                         script {
