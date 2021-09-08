@@ -41,7 +41,7 @@
                 - "testing"
                 - "main"
                 - "experimental"
-            description: 'Choose the repo from which to install proxysql packages and run the tests'
+            description: 'Choose the repo to install proxysql packages from'
         - choice:
             name: client_to_test
             choices:
@@ -56,7 +56,7 @@
                 - "testing"
                 - "main"
                 - "experimental"
-            description: 'Choose repo from which to install client'
+            description: 'Choose the repo to install client packages from'
         - string:
             name: git_repo
             default: 'https://github.com/Percona-QA/package-testing.git'

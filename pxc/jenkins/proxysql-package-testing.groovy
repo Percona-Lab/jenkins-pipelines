@@ -113,7 +113,7 @@ pipeline {
         )
         choice(
             choices: ['testing', 'main', 'experimental'],
-            description: 'Choose the repo to install packages and run the tests',
+            description: 'Choose the repo to install proxysql packages from',
             name: 'install_repo'
         )
         string(
