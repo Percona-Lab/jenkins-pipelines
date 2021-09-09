@@ -55,8 +55,7 @@ void runAMIUpgradeTests(DOCKER_VERSION, CLIENT_VERSION, GIT_BRANCH, PMM_QA_GIT_B
     ]
 }
 
-// TODO make shared list in library
-def versionsList = ['2.19.0', '2.18.0', '2.17.0', '2.20.0', '2.21.0', '2.22.0']
+def versionsList = pmmActualVersions()
 
 pipeline {
     agent {

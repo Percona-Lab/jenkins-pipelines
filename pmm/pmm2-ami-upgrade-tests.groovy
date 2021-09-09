@@ -163,7 +163,7 @@ void fetchAgentLog(String CLIENT_VERSION) {
 }
 
 def latestVersion = pmmLatestVersion()
-def versionsList = ['2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0', '2.22.0']
+def versionsList = pmmActualVersions()
 
 pipeline {
     agent {
