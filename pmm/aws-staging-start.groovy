@@ -379,8 +379,9 @@ pipeline {
                             if [[ \$CLIENT_INSTANCE == no ]]; then
                                 export SERVER_IP=\$IP;
                             fi
-                            yum install -y net-tools
-                            netstat -tupln
+                            sudo yum install -y net-tools
+                            sudo netstat -tupln
+                            sudo ps axu
                             bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                                 --ms-version  ${MS_VERSION} \
                                 --mo-version  ${MO_VERSION} \
