@@ -12,6 +12,8 @@ void runUpgradeJob(String GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_SERVER
     ]
 }
 
+def latestVersion = pmmLatestVersion()
+
 pipeline {
     agent {
         label 'large-amazon'
@@ -22,11 +24,11 @@ pipeline {
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '2.22.0',
+            defaultValue: latestVersion,
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: '2.22.0',
+            defaultValue: latestVersion,
             description: 'RC PMM Server Version',
             name: 'PMM_SERVER_RC')
         choice(
@@ -38,8 +40,8 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-    triggers { 
-        cron('0 3 * * *') 
+    triggers {
+        cron('0 3 * * *')
     }
     stages {
         stage('Run Upgrade Matrix-1') {
@@ -55,6 +57,13 @@ pipeline {
                     steps {
                         script {
                             runUpgradeJob(GIT_BRANCH,'2.21.0', '2.21.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                        }
+                    }
+                }
+                stage('Upgrade from 2.22.0'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.22.0', '2.22.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
                         }
                     }
                 }

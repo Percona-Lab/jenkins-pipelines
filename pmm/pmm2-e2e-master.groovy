@@ -55,17 +55,19 @@ void runAMIUpgradeTests(DOCKER_VERSION, CLIENT_VERSION, GIT_BRANCH, PMM_QA_GIT_B
     ]
 }
 
+def versionsList = pmmActualVersions()
+
 pipeline {
     agent {
         label 'large-amazon'
     }
     parameters {
         choice(
-            choices: ['2.19.0', '2.18.0', '2.17.0', '2.20.0', '2.21.0'],
+            choices: versionsList,
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_VERSION')
         choice(
-            choices: ['2.19.0', '2.18.0', '2.17.0', '2.20.0', '2.21.0'],
+            choices: versionsList,
             description: 'PMM2 Client version',
             name: 'CLIENT_VERSION')
         string(
