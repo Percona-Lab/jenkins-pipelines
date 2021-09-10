@@ -66,7 +66,7 @@ void setInstanceAMIId(PMM_VERSION) {
     }
 }
 
-void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO) {
+void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, NODE_TYPE) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
@@ -77,8 +77,14 @@ void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_Q
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
     ]
-    env.VM_CLIENT_IP = stagingJob.buildVariables.IP
-    env.VM_CLIENT_NAME = stagingJob.buildVariables.VM_NAME
+    if ( NODE_TYPE == 'remote-node' ) {
+        env.VM_CLIENT_IP = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME = stagingJob.buildVariables.VM_NAME
+    } else {
+        env.VM_CLIENT_IP_DB = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_DB = stagingJob.buildVariables.VM_NAME
+    }
+
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
         env.PMM_URL = "http://admin:admin@${SERVER_IP}"
@@ -112,7 +118,7 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
 void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP} '
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP_DB} '
                 export PMM_VERSION=${PMM_VERSION}
                 echo "Upgrading pmm2-client";
                 sudo yum clean all
@@ -129,7 +135,7 @@ void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
 void fetchAgentLog(String CLIENT_VERSION) {
      withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP} '
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP_DB} '
                 set -o errexit
                 set -o xtrace
                 export CLIENT_VERSION=${CLIENT_VERSION}
@@ -143,7 +149,7 @@ void fetchAgentLog(String CLIENT_VERSION) {
             '
             if [[ \$CLIENT_VERSION != http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
-                    ${USER}@${VM_CLIENT_IP}:pmm-agent.log \
+                    ${USER}@${VM_CLIENT_IP_DB}:pmm-agent.log \
                     pmm-agent.log
             fi
         """
@@ -152,7 +158,7 @@ void fetchAgentLog(String CLIENT_VERSION) {
         sh """
             if [[ \$CLIENT_VERSION == http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
-                    ${USER}@${VM_CLIENT_IP}:workspace/aws-staging-start/pmm-agent.log \
+                    ${USER}@${VM_CLIENT_IP_DB}:workspace/aws-staging-start/pmm-agent.log \
                     pmm-agent.log
             fi
         """
@@ -264,9 +270,18 @@ pipeline {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
-        stage('Start Client Instance') {
-            steps {
-                runStagingClient(CLIENT_VERSION, '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-queries --setup-remote-db', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO)
+        stage('Setup PMM Client Instances, Remote and Actual DB clients') {
+            parallel {
+                stage('Start Client Instance Remote Instance') {
+                    steps {
+                        runStagingClient(CLIENT_VERSION, '--setup-remote-db', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, 'remote-node')
+                    }
+                }
+                stage('Start Client Instance DB connect Instance') {
+                    steps {
+                        runStagingClient(CLIENT_VERSION, '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-queries', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, 'db-node')
+                    }
+                }
             }
         }
         stage('Sleep') {
@@ -323,6 +338,10 @@ pipeline {
                 if(env.VM_CLIENT_NAME)
                 {
                     destroyStaging(VM_CLIENT_IP)
+                }
+                if(env.VM_CLIENT_NAME_DB)
+                {
+                    destroyStaging(VM_CLIENT_IP_DB)
                 }
             }
             sh '''
