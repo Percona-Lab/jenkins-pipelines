@@ -97,6 +97,7 @@ pipeline {
                                         done
                                     done
                                 done
+                                date +%s > /srv/repo-copy/version
 ENDSSH
                         """
                     }
@@ -171,6 +172,7 @@ ENDSSH
                                     done
                                     #
                                 done
+                                date +%s > /srv/repo-copy/version
 ENDSSH
                         """
                     }
