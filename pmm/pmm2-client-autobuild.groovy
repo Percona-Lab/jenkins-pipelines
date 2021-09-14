@@ -74,6 +74,8 @@ pipeline {
                         env
                         ./build/bin/build-client-binary
                     "
+                    aws s3 cp --acl public-read results/tarball/pmm2-client-*.tar.gz \
+                        s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz
                 '''
                 stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
                 uploadTarball('binary')
@@ -185,7 +187,9 @@ pipeline {
                     if ("${DESTINATION}" == "testing")
                     {
                       currentBuild.description = "Release Candidate Build"
-                      slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished"
+                      slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: """[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished\n
+                      Client Tarbar: https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz
+                      """
                     }
                 } else {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
