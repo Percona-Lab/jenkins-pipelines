@@ -97,7 +97,6 @@ pipeline {
                                         done
                                     done
                                 done
-                                date +%s > /srv/repo-copy/version
 ENDSSH
                         """
                     }
@@ -172,7 +171,6 @@ ENDSSH
                                     done
                                     #
                                 done
-                                date +%s > /srv/repo-copy/version
 ENDSSH
                         """
                     }
@@ -253,6 +251,8 @@ ENDSSH
                                 /srv/repo-copy/pmm2-components/yum/release \
                                 10.10.9.209:/www/repo.percona.com/htdocs/pmm2-components/yum/
                             bash +x /usr/local/bin/clear_cdn_cache.sh
+                            date +%s > /srv/repo-copy/version
+                            rsync /srv/repo-copy/version 10.10.9.209:/www/repo.percona.com/htdocs/
                         "
                     """
                 }
