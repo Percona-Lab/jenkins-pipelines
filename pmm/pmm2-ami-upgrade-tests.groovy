@@ -327,6 +327,12 @@ pipeline {
         stage('Check Client Upgrade') {
             steps {
                 checkClientAfterUpgrade(PMM_SERVER_LATEST, "post");
+                sh """
+                    export PWD=\$(pwd);
+                    export CHROMIUM_PATH=/usr/bin/chromium
+                    sleep 30
+                    ./node_modules/.bin/codeceptjs run --debug --steps -c pr.codecept.js --grep '(?=.*@post-client-upgrade)(?=.*@ami-upgrade)'
+                """
             }
         }
     }
