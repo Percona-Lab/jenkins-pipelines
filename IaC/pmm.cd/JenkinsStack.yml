@@ -27,7 +27,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: illia
+    Default: nikita-beleteskii
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
@@ -212,19 +212,11 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 176.37.55.60/32
+        CidrIp: 176.37.55.60/32 # mykola home IP
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
         CidrIp: 188.163.20.103/32
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
-        CidrIp: 213.159.239.48/32
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
-        CidrIp: 46.149.86.84/32
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
@@ -236,15 +228,11 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 95.27.48.91/32
+        CidrIp: 95.27.48.91/32 # Alex Tymchuk
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 93.81.255.68/32
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
-        CidrIp: 195.91.212.140/32
+        CidrIp: 93.81.255.68/32 # Alex Tymchuk
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
@@ -388,7 +376,7 @@ Resources:
             - ec2:DescribeSubnets
             - ec2:DescribeInstanceStatus
             - ec2:ModifyInstanceAttribute
-  
+
   JMasterRole: # create Role for jenkins master (needed for run workers)
     Type: AWS::IAM::Role
     Properties:
@@ -833,7 +821,7 @@ Resources:
                 LIST_ALLOWED_KEY="ssh-ed25519,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,ssh-rsa,ssh-dss"
                 LIST_ALLOWED_ENC="aes128-gcm@openssh.com,chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr"
                 LIST_ALLOWED_MAC="hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com"
-                
+
                 sed -i 's/Ciphers .*//g; s/HostKeyAlgorithms .*//g; s/KexAlgorithms .*//g; s/MACs .*//g' /etc/ssh/sshd_config
                 echo "Ciphers $LIST_ALLOWED_ENC" | tee -a /etc/ssh/sshd_config
                 echo "HostKeyAlgorithms $LIST_ALLOWED_KEY" | tee -a /etc/ssh/sshd_config
@@ -847,7 +835,6 @@ Resources:
                            mykola.marzhan \
                            evgeniy.patlan \
                            slava.sarzhan \
-                           illia.pshonkin \
                            alex.miroshnychenko \
                            eduardo.casarero \
                            santiago.ruiz \
