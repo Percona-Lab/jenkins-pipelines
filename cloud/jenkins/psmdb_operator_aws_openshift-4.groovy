@@ -130,6 +130,7 @@ pipeline {
     }
     environment {
         TF_IN_AUTOMATION = 'true'
+        CLEAN_NAMESPACE = 1
     }
     agent {
          label 'docker'
