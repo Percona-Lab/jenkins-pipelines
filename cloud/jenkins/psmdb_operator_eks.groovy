@@ -130,6 +130,9 @@ pipeline {
             description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
             name: 'IMAGE_PMM')
     }
+    environment {
+        CLEAN_NAMESPACE = 1
+    }
     agent {
          label 'docker'
     }

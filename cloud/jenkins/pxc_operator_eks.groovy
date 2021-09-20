@@ -166,6 +166,9 @@ pipeline {
             description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
             name: 'IMAGE_LOGCOLLECTOR')
     }
+    environment {
+        CLEAN_NAMESPACE = 1
+    }
     agent {
          label 'docker'
     }
