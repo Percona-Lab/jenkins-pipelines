@@ -215,6 +215,20 @@ pipeline {
                         }
                     }
                 }
+                stage('bullseye-x64') {
+                    agent {
+                        label 'min-bullseye-x64'
+                    }
+                    steps {
+                        setup_debian_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
             }
         }
     }
