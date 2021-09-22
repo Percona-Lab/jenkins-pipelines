@@ -308,6 +308,8 @@ EOF
                 runTest('monitoring')
                 runTest('demand-backup')
                 runTest('scheduled-backup')
+                runTest('self-healing')
+                runTest('operator-self-healing')
                 runTest('clone-cluster')
                 runTest('tls-check')
                 runTest('upgrade')
