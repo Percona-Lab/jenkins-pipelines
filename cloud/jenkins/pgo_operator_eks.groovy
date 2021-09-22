@@ -307,6 +307,10 @@ EOF
                 runTest('affinity')
                 runTest('monitoring')
                 runTest('demand-backup')
+                runTest('scheduled-backup')
+                runTest('clone-cluster')
+                runTest('tls-check')
+                runTest('upgrade')
             }
         }
         stage('Make report') {

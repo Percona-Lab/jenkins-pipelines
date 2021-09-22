@@ -347,7 +347,10 @@ pipeline {
                         runTest('affinity', 'sandbox')
                         runTest('monitoring', 'sandbox')
                         runTest('self-healing', 'sandbox')
+                        runTest('operator-self-healing', 'sandbox')
                         runTest('clone-cluster', 'sandbox')
+                        runTest('tls-check', 'sandbox')
+                        runTest('upgrade', 'sandbox')
                         ShutdownCluster('sandbox')
                     }
                 }
@@ -355,6 +358,7 @@ pipeline {
                     steps {
                         CreateCluster('backups')
                         runTest('demand-backup', 'backups')
+                        runTest('scheduled-backup', 'backups')
                         ShutdownCluster('backups')
                     }
                 }

@@ -296,7 +296,13 @@ pipeline {
                 runTest('recreate')
                 runTest('affinity')
                 runTest('monitoring')
+                runTest('self-healing')
+                runTest('operator-self-healing')
                 runTest('demand-backup')
+                runTest('scheduled-backup')
+                runTest('clone-cluster')
+                runTest('tls-check')
+                runTest('upgrade')
             }
         }
         stage('Make report') {
