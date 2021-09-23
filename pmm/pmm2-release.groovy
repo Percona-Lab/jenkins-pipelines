@@ -37,8 +37,8 @@ pipeline {
             description: 'PMM2 Server version',
             name: 'VERSION')
         string(
-            defaultValue: ''
-            description: 'Path '
+            defaultValue: '',
+            description: 'Path ',
             name: 'PATH_TO_CLIENT')
     }
     stages {
