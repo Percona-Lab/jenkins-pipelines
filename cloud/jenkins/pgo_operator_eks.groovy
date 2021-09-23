@@ -43,74 +43,76 @@ void runTest(String TEST_NAME) {
             popArtifactFile("${params.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-$PPG_TAG")
 
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
-                sh """
-                    if [ -f "${params.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-$PPG_TAG" ]; then
-                        echo Skip $TEST_NAME test
-                    else
-                        cd ./source
-                        if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
-                            export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
+                timeout(time: 90, unit: 'MINUTES') {
+                    sh """
+                        if [ -f "${params.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-$PPG_TAG" ]; then
+                            echo Skip $TEST_NAME test
                         else
-                            export IMAGE_OPERATOR=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-postgres-operator
+                            cd ./source
+                            if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
+                                export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
+                            else
+                                export IMAGE_OPERATOR=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-postgres-operator
+                            fi
+
+                            if [ -n "${PGO_APISERVER_IMAGE}" ]; then
+                                export IMAGE_APISERVER=${PGO_APISERVER_IMAGE}
+                            else
+                                export IMAGE_APISERVER=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-apiserver
+                            fi
+
+                            if [ -n "${PGO_EVENT_IMAGE}" ]; then
+                                export IMAGE_PGOEVENT=${PGO_EVENT_IMAGE}
+                            else
+                                export IMAGE_PGOEVENT=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-event
+                            fi
+
+                            if [ -n "${PGO_RMDATA_IMAGE}" ]; then
+                                export IMAGE_RMDATA=${PGO_RMDATA_IMAGE}
+                            else
+                                export IMAGE_RMDATA=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-rmdata
+                            fi
+
+                            if [ -n "${PGO_SCHEDULER_IMAGE}" ]; then
+                                export IMAGE_SCHEDULER=${PGO_SCHEDULER_IMAGE}
+                            else
+                                export IMAGE_SCHEDULER=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-scheduler
+                            fi
+
+                            if [ -n "${PGO_DEPLOYER_IMAGE}" ]; then
+                                export IMAGE_DEPLOYER=${PGO_DEPLOYER_IMAGE}
+                            else
+                                export IMAGE_DEPLOYER=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-deployer
+                            fi
+
+                            if [ -n "${PGO_PGBOUNCER_IMAGE}" ]; then
+                                export IMAGE_PGBOUNCER=${PGO_PGBOUNCER_IMAGE}
+                            fi
+
+                            if [ -n "${PGO_POSTGRES_HA_IMAGE}" ]; then
+                                export IMAGE_PG_HA=${PGO_POSTGRES_HA_IMAGE}
+                            fi
+
+                            if [ -n "${PGO_BACKREST_IMAGE}" ]; then
+                                export IMAGE_BACKREST=${PGO_BACKREST_IMAGE}
+                            fi
+
+                            if [ -n "${PGO_BACKREST_REPO_IMAGE}" ]; then
+                                export IMAGE_BACKREST_REPO=${PGO_BACKREST_REPO_IMAGE}
+                            fi
+
+                            if [ -n "${PGO_PGBADGER_IMAGE}" ]; then
+                                export IMAGE_PGBADGER=${PGO_PGBADGER_IMAGE}
+                            fi
+
+                            export PATH=/home/ec2-user/.local/bin:$PATH
+                            source $HOME/google-cloud-sdk/path.bash.inc
+                            export KUBECONFIG=~/.kube/config
+
+                            ./e2e-tests/$TEST_NAME/run
                         fi
-
-                        if [ -n "${PGO_APISERVER_IMAGE}" ]; then
-                            export IMAGE_APISERVER=${PGO_APISERVER_IMAGE}
-                        else
-                            export IMAGE_APISERVER=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-apiserver
-                        fi
-
-                        if [ -n "${PGO_EVENT_IMAGE}" ]; then
-                            export IMAGE_PGOEVENT=${PGO_EVENT_IMAGE}
-                        else
-                            export IMAGE_PGOEVENT=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-event
-                        fi
-
-                        if [ -n "${PGO_RMDATA_IMAGE}" ]; then
-                            export IMAGE_RMDATA=${PGO_RMDATA_IMAGE}
-                        else
-                            export IMAGE_RMDATA=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-rmdata
-                        fi
-
-                        if [ -n "${PGO_SCHEDULER_IMAGE}" ]; then
-                            export IMAGE_SCHEDULER=${PGO_SCHEDULER_IMAGE}
-                        else
-                            export IMAGE_SCHEDULER=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-scheduler
-                        fi
-
-                        if [ -n "${PGO_DEPLOYER_IMAGE}" ]; then
-                            export IMAGE_DEPLOYER=${PGO_DEPLOYER_IMAGE}
-                        else
-                            export IMAGE_DEPLOYER=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-deployer
-                        fi
-
-                        if [ -n "${PGO_PGBOUNCER_IMAGE}" ]; then
-                            export IMAGE_PGBOUNCER=${PGO_PGBOUNCER_IMAGE}
-                        fi
-
-                        if [ -n "${PGO_POSTGRES_HA_IMAGE}" ]; then
-                            export IMAGE_PG_HA=${PGO_POSTGRES_HA_IMAGE}
-                        fi
-
-                        if [ -n "${PGO_BACKREST_IMAGE}" ]; then
-                            export IMAGE_BACKREST=${PGO_BACKREST_IMAGE}
-                        fi
-
-                        if [ -n "${PGO_BACKREST_REPO_IMAGE}" ]; then
-                            export IMAGE_BACKREST_REPO=${PGO_BACKREST_REPO_IMAGE}
-                        fi
-
-                        if [ -n "${PGO_PGBADGER_IMAGE}" ]; then
-                            export IMAGE_PGBADGER=${PGO_PGBADGER_IMAGE}
-                        fi
-
-                        export PATH=/home/ec2-user/.local/bin:$PATH
-                        source $HOME/google-cloud-sdk/path.bash.inc
-                        export KUBECONFIG=~/.kube/config
-
-                        ./e2e-tests/$TEST_NAME/run
-                    fi
-                """
+                    """
+                }
             }
             pushArtifactFile("${params.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-$PPG_TAG")
             testsReportMap[TEST_NAME] = 'passed'
