@@ -163,7 +163,7 @@ ENDSSH
 
                                     for _codename in \${CODENAMES}; do
                                         pushd \${_codename}
-                                            DEBS=$(find . -type f -name '*.*deb' )
+                                            DEBS=\$(find . -type f -name '*.*deb' )
                                             for _deb in \${DEBS}; do
                                                 repopush --gpg-pass=$SIGN_PASSWORD --package=\${_deb} --repo-path=\${REPOPATH} --component=main --codename=\${_codename} --verbose
                                             done
