@@ -86,7 +86,7 @@ pipeline {
                                     pushd binary
                                     for rhel in \${RHVERS}; do
                                         mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS
-                                        for arch in $(ls -1 redhat/\${rhel}); do
+                                        for arch in \$(ls -1 redhat/\${rhel}); do
                                             mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}
                                             cp -av redhat/\${rhel}/\${arch}/*.rpm /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
                                             createrepo --update /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
