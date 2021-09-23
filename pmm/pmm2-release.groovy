@@ -159,13 +159,13 @@ ENDSSH
                                     #######################################
                                     # binary pushing                      #
                                     #######################################
-                                    cd /srv/UPLOAD/${PATH_TO_CLIENT}/binary/debian
+                                    cd /srv/UPLOAD/$PATH_TO_CLIENT/binary/debian
 
                                     for _codename in \${CODENAMES}; do
                                         pushd \${_codename}
                                             DEBS=$(find . -type f -name '*.*deb' )
                                             for _deb in \${DEBS}; do
-                                                repopush --gpg-pass=${SIGN_PASSWORD} --package=\${_deb} --repo-path=\${REPOPATH} --component=main --codename=\${_codename} --verbose
+                                                repopush --gpg-pass=$SIGN_PASSWORD --package=\${_deb} --repo-path=\${REPOPATH} --component=main --codename=\${_codename} --verbose
                                             done
                                         popd
                                     done
