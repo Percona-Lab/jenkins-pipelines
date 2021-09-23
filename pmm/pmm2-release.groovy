@@ -78,7 +78,7 @@ pipeline {
                                             if [ -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc ]; then
                                                 rm -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc
                                             fi
-                                            gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml
+                                            gpg --detach-sign --armor --passphrase $SIGN_PASSWORD /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml
                                         done
                                     fi
 
