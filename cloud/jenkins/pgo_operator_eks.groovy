@@ -140,6 +140,10 @@ void installRpms() {
 pipeline {
     parameters {
         string(
+            defaultValue: '1.21',
+            description: 'Kubernetes target version',
+            name: 'VERSION')
+        string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-postgresql-operator repository',
             name: 'GIT_BRANCH')
@@ -271,11 +275,14 @@ kind: ClusterConfig
 metadata:
     name: eks-pgo-cluster
     region: eu-west-3
+    version: '$VERSION'
 
 nodeGroups:
     - name: ng-1
       minSize: 3
       maxSize: 5
+      amiFamily: AmazonLinux2
+      containerRuntime: containerd
       instancesDistribution:
         maxPrice: 0.15
         instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
