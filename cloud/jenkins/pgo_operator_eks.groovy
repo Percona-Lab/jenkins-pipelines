@@ -142,7 +142,7 @@ pipeline {
         string(
             defaultValue: '1.21',
             description: 'Kubernetes target version',
-            name: 'VERSION')
+            name: 'KUBEVERSION')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-postgresql-operator repository',
@@ -275,7 +275,7 @@ kind: ClusterConfig
 metadata:
     name: eks-pgo-cluster
     region: eu-west-3
-    version: '$VERSION'
+    version: '$KUBEVERSION'
 
 nodeGroups:
     - name: ng-1
