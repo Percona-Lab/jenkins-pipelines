@@ -43,7 +43,7 @@ void runTest(String TEST_NAME) {
             popArtifactFile("${params.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-$PPG_TAG")
 
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
-                timeout(time: 90, unit: 'MINUTES') {
+                timeout(time: 120, unit: 'MINUTES') {
                     sh """
                         if [ -f "${params.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-$PPG_TAG" ]; then
                             echo Skip $TEST_NAME test
