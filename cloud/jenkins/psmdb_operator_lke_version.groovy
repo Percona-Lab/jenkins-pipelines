@@ -274,6 +274,7 @@ pipeline {
                         runTest('liveness', 'basic')
                         runTest('users', 'basic')
                         runTest('data-sharded', 'basic')
+                        runTest('non-voting', 'basic')
                         ShutdownCluster('basic')
                     }
                 }
