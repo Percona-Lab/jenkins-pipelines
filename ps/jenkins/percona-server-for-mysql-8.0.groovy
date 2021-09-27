@@ -62,7 +62,7 @@ parameters {
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
         choice(
-            choices: 'OFF\nON',
+            choices: 'ON\nOFF',
             description: 'Compile with ZenFS support?, only affects Ubuntu Hirsute',
             name: 'ENABLE_ZENFS')
         choice(
@@ -185,21 +185,6 @@ parameters {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu Xenial(16.04)') {
-                    agent {
-                        label 'min-xenial-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:xenial", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Ubuntu Bionic(18.04)') {
                     agent {
                         label 'min-bionic-x64'
@@ -230,9 +215,9 @@ parameters {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu Hirsute(21.04)') {
+                stage('Ubuntu Focal(20.04) zenfs') {
                     agent {
-                        label 'min-hirsute-x64-zenfs'
+                        label 'min-focal-x64-zenfs'
                     }
                     when {
                         expression { env.ENABLE_ZENFS == "ON" }
@@ -242,22 +227,7 @@ parameters {
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:hirsute", "--build_deb=1 --with_zenfs=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Debian Stretch(9)') {
-                    agent {
-                        label 'min-stretch-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:stretch", "--build_deb=1")
+                        buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
@@ -338,9 +308,9 @@ parameters {
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Ubuntu Hirsute(21.04) ZenFS tarball') {
+                stage('Ubuntu Focal(20.04) ZenFS tarball') {
                     agent {
-                        label 'min-hirsute-x64-zenfs'
+                        label 'min-focal-x64-zenfs'
                     }
                     when {
                         expression { env.ENABLE_ZENFS == "ON" }
@@ -350,7 +320,7 @@ parameters {
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:hirsute", "--build_tarball=1 --with_zenfs=1")
+                        buildStage("ubuntu:focal", "--build_tarball=1 --with_zenfs=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
