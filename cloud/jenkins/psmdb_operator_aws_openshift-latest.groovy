@@ -241,7 +241,15 @@ pipeline {
                 runTest('liveness')
                 runTest('users')
                 runTest('data-sharded')
+                runTest('monitoring-2-0')
+                runTest('non-voting')
            }
+        }
+        stage('E2E SelfHealing') {
+            steps {
+                runTest('self-healing-chaos')
+                runTest('operator-self-healing-chaos')
+            }
         }
         stage('E2E Backups') {
             steps {

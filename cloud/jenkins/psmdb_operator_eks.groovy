@@ -256,6 +256,7 @@ EOF
                 runTest('liveness')
                 runTest('users')
                 runTest('data-sharded')
+                runTest('non-voting')
            }
         }
         stage('E2E SelfHealing') {
