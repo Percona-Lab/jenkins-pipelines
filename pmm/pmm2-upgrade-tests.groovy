@@ -185,7 +185,7 @@ pipeline {
         }
         stage('Enable Testing Repo') {
             when {
-                expression { env.ENABLE_TESTING_REPO == "yes" }
+                expression { env.ENABLE_TESTING_REPO == "yes" && env.ENABLE_EXPERIMENTAL_REPO == "no" }
             }
             steps {
                 script {
@@ -203,7 +203,7 @@ pipeline {
         }
         stage('Enable Experimental Repo') {
             when {
-                expression { env.ENABLE_EXPERIMENTAL_REPO == "yes" }
+                expression { env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
             }
             steps {
                 script {
