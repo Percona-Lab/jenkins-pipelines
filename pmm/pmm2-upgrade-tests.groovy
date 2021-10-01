@@ -110,6 +110,10 @@ pipeline {
             description: 'Enable Testing Repo, for RC testing',
             name: 'ENABLE_TESTING_REPO')
         choice(
+            choices: ['yes', 'no'],
+            description: 'Enable Experimental, for Dev Latest testing',
+            name: 'ENABLE_EXPERIMENTAL_REPO')
+        choice(
             choices: ['no', 'yes'],
             description: 'Perform Docker-way Upgrade?',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
@@ -181,7 +185,7 @@ pipeline {
         }
         stage('Enable Testing Repo') {
             when {
-                expression { env.ENABLE_TESTING_REPO == "yes" }
+                expression { env.ENABLE_TESTING_REPO == "yes" && env.ENABLE_EXPERIMENTAL_REPO == "no" }
             }
             steps {
                 script {
@@ -199,7 +203,7 @@ pipeline {
         }
         stage('Enable Experimental Repo') {
             when {
-                expression { env.ENABLE_TESTING_REPO == "no" }
+                expression { env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
             }
             steps {
                 script {
@@ -212,6 +216,16 @@ pipeline {
                         docker exec pmm-server yum clean all
                     """
                     setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup')
+                }
+            }
+        }
+        stage('Enable Release Repo') {
+            when {
+                expression { env.ENABLE_EXPERIMENTAL_REPO == "no" && env.ENABLE_TESTING_REPO == "no" }
+            }
+            steps {
+                script {
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup')
                 }
             }
         }
