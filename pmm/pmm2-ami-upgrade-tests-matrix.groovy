@@ -25,7 +25,7 @@ pipeline {
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(

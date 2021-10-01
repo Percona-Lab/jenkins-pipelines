@@ -30,7 +30,7 @@ pipeline {
             description: 'Enable Slack notification (option for high level pipelines)',
             name: 'NOTIFY')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(

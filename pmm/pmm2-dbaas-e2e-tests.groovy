@@ -81,7 +81,7 @@ pipeline {
             description: 'Value for Server Public IP, to use this instance just as client',
             name: 'SERVER_IP')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         text(

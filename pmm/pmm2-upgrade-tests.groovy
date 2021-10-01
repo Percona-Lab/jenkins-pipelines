@@ -102,7 +102,7 @@ pipeline {
             description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
             name: 'PMM_SERVER_TAG')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
