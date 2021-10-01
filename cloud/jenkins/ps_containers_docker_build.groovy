@@ -10,16 +10,15 @@ void checkImageForDocker(String IMAGE_POSTFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             sg docker -c '
-                IMAGE_NAME='percona-server-mysql-operator'
                 docker login -u '${USER}' -p '${PASS}'
 
-                TrityHightLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_POSTFIX}.log"
-                TrityCriticaltLog="$WORKSPACE/trivy-critical-\$IMAGE_NAME-${IMAGE_POSTFIX}.log"
+                TrityHightLog="$WORKSPACE/trivy-hight-percona-server-mysql-operator-${IMAGE_POSTFIX}.log"
+                TrityCriticaltLog="$WORKSPACE/trivy-critical-percona-server-mysql-operator-${IMAGE_POSTFIX}.log"
                 /usr/local/bin/trivy -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH --quiet \
-                    --auto-refresh perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}
+                    --auto-refresh perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}
 
                 /usr/local/bin/trivy -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL --quiet \
-                    --auto-refresh perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}
+                    --auto-refresh perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}
 
                 if [ ! -s \$TrityHightLog ]; then
                     rm -rf \$TrityHightLog
