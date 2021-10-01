@@ -116,7 +116,7 @@ pipeline {
             description: 'Please change the default Value for Server Public IP, When you need to use this instance just as client',
             name: 'SERVER_IP')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
