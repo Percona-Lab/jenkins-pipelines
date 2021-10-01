@@ -40,6 +40,7 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
+        timeout(time: 8, unit: 'MINUTES')
     }
 
     stages {
