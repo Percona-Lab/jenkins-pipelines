@@ -69,14 +69,16 @@ pipeline {
         }
         stage('Build client binary') {
             steps {
-                sh '''
-                    sg docker -c "
-                        env
-                        ./build/bin/build-client-binary
-                    "
-                    aws s3 cp --acl public-read results/tarball/pmm2-client-*.tar.gz \
-                        s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz
-                '''
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh '''
+                        sg docker -c "
+                            env
+                            ./build/bin/build-client-binary
+                        "
+                        aws s3 cp --acl public-read results/tarball/pmm2-client-*.tar.gz \
+                            s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz
+                    '''
+                }
                 stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
                 uploadTarball('binary')
             }
