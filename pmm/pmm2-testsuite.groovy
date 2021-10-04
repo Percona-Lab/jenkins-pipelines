@@ -110,6 +110,8 @@ void fetchAgentLog(String CLIENT_VERSION) {
     }
 }
 
+def latestVersion = pmmLatestVersion()
+
 pipeline {
     agent {
         label 'large-amazon'
@@ -124,7 +126,7 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
@@ -132,7 +134,7 @@ pipeline {
             description: 'Commit hash for pmm-qa branch',
             name: 'PMM_QA_GIT_COMMIT_HASH')
         string(
-            defaultValue: '2.22.0',
+            defaultValue: latestVersion,
             description: 'pmm2-client latest version',
             name: 'PMM_VERSION')
     }

@@ -13,6 +13,8 @@ void runAMIUpgradeJob(String GIT_BRANCH, SERVER_VERSION, CLIENT_VERSION, PMM_SER
     ]
 }
 
+def latestVersion = pmmLatestVersion()
+
 pipeline {
     agent {
         label 'large-amazon'
@@ -23,11 +25,11 @@ pipeline {
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
-            defaultValue: '2.22.0',
+            defaultValue: latestVersion,
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         choice(
@@ -45,6 +47,13 @@ pipeline {
     stages {
         stage('Run AMI Upgrade Matrix') {
             parallel {
+                stage('Upgrade from 2.22.0'){
+                    steps {
+                        script {
+                            runAMIUpgradeJob(GIT_BRANCH,'2.22.0', '2.22.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_GIT_BRANCH);
+                        }
+                    }
+                }
                 stage('Upgrade from 2.20.0'){
                     steps {
                         script {

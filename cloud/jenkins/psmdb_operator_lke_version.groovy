@@ -242,6 +242,7 @@ pipeline {
         stage('Run Tests') {
             environment {
                 CLOUDSDK_CORE_DISABLE_PROMPTS = 1
+                CLEAN_NAMESPACE = 1
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                 VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
                 CLUSTER_NAME = sh(script: "echo jenkins-psmdb-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
@@ -273,6 +274,7 @@ pipeline {
                         runTest('liveness', 'basic')
                         runTest('users', 'basic')
                         runTest('data-sharded', 'basic')
+                        runTest('non-voting', 'basic')
                         ShutdownCluster('basic')
                     }
                 }

@@ -40,7 +40,7 @@ void setup_debian_package_tests()
         echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
         sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
         sudo apt update -y
-        sudo apt-get install -y ansible git wget 
+        sudo apt-get install -y ansible git wget
     '''
 }
 
@@ -50,7 +50,7 @@ void setup_ubuntu_package_tests()
         sudo apt update -y
         sudo apt install -y software-properties-common
         sudo apt-add-repository --yes --update ppa:ansible/ansible
-        sudo apt-get install -y ansible git wget 
+        sudo apt-get install -y ansible git wget
     '''
 }
 
@@ -67,6 +67,9 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
         --limit 127.0.0.1 playbooks/\${TESTS}.yml
     '''
 }
+
+def latestVersion = pmmLatestVersion()
+
 pipeline {
     agent any
     parameters {
@@ -87,7 +90,7 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.22.0',
+            defaultValue: latestVersion,
             description: 'PMM Version for testing',
             name: 'PMM_VERSION')
         choice(
@@ -203,6 +206,20 @@ pipeline {
                         label 'min-stretch-x64'
                     }
                     steps{
+                        setup_debian_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('bullseye-x64') {
+                    agent {
+                        label 'min-bullseye-x64'
+                    }
+                    steps {
                         setup_debian_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
                     }

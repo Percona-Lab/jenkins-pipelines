@@ -59,12 +59,19 @@ def call(String DESTINATION) {
                         if [ "x${DESTINATION}" == "xmain" ]; then
                             DESTINATION=release
                         fi
+
+                        # Update /srv/repo-copy/version
+                        date +%s > /srv/repo-copy/version
+
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/tools/yum/${DESTINATION}/ \
                             10.10.9.209:/www/repo.percona.com/htdocs/tools/yum/${DESTINATION}/
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/tools/apt/ \
                             10.10.9.209:/www/repo.percona.com/htdocs/tools/apt/
+                        rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
+                            /srv/repo-copy/version \
+                            10.10.9.209:/www/repo.percona.com/htdocs/
 
                         # Clean CDN cache for repo.percona.com
                         bash -xe /usr/local/bin/clear_cdn_cache.sh

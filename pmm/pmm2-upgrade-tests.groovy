@@ -45,6 +45,9 @@ void fetchAgentLog(String CLIENT_VERSION) {
     """
 }
 
+def latestVersion = pmmLatestVersion()
+def versionsList = ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0', '2.22.0']
+
 pipeline {
     agent {
         label 'docker'
@@ -83,15 +86,15 @@ pipeline {
             description: 'Tag/Branch for UI Tests Repo repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0'],
+            choices: versionsList,
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_VERSION')
         choice(
-            choices: ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0'],
+            choices: versionsList,
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.22.0',
+            defaultValue: latestVersion,
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
@@ -99,7 +102,7 @@ pipeline {
             description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
             name: 'PMM_SERVER_TAG')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
@@ -107,11 +110,15 @@ pipeline {
             description: 'Enable Testing Repo, for RC testing',
             name: 'ENABLE_TESTING_REPO')
         choice(
+            choices: ['yes', 'no'],
+            description: 'Enable Experimental, for Dev Latest testing',
+            name: 'ENABLE_EXPERIMENTAL_REPO')
+        choice(
             choices: ['no', 'yes'],
             description: 'Perform Docker-way Upgrade?',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
         text(
-            defaultValue: '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-settings --setup-alertmanager',
+            defaultValue: '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-settings --setup-alertmanager --setup-external-service',
             description: '''
             Configure PMM Clients
             ms - MySQL (ex. --addclient=ms,1),
@@ -178,14 +185,14 @@ pipeline {
         }
         stage('Enable Testing Repo') {
             when {
-                expression { env.ENABLE_TESTING_REPO == "yes" }
+                expression { env.ENABLE_TESTING_REPO == "yes" && env.ENABLE_EXPERIMENTAL_REPO == "no" }
             }
             steps {
                 script {
                     sh """
                         set -o errexit
                         set -o xtrace
-                        docker exec pmm-server yum update -y percona-release
+                        docker exec pmm-server yum update -y percona-release || true
                         docker exec pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
                         docker exec pmm-server percona-release enable percona testing
                         docker exec pmm-server yum clean all
@@ -196,19 +203,29 @@ pipeline {
         }
         stage('Enable Experimental Repo') {
             when {
-                expression { env.ENABLE_TESTING_REPO == "no" }
+                expression { env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
             }
             steps {
                 script {
                     sh """
                         set -o errexit
                         set -o xtrace
-                        docker exec pmm-server yum update -y percona-release
+                        docker exec pmm-server yum update -y percona-release || true
                         docker exec pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
                         docker exec pmm-server percona-release enable percona experimental
                         docker exec pmm-server yum clean all
                     """
                     setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup')
+                }
+            }
+        }
+        stage('Enable Release Repo') {
+            when {
+                expression { env.ENABLE_EXPERIMENTAL_REPO == "no" && env.ENABLE_TESTING_REPO == "no" }
+            }
+            steps {
+                script {
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup')
                 }
             }
         }
@@ -301,6 +318,12 @@ pipeline {
         stage('Check Client Upgrade') {
             steps {
                 checkClientAfterUpgrade(PMM_SERVER_LATEST, "post");
+                sh """
+                    export PWD=\$(pwd);
+                    export CHROMIUM_PATH=/usr/bin/chromium
+                    sleep 30
+                    ./node_modules/.bin/codeceptjs run --debug --steps -c pr.codecept.js --grep '@post-client-upgrade'
+                """
             }
         }
     }

@@ -62,7 +62,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['13.3', '12.7', '11.12'],
+            choices: ['13.4', '12.8', '11.13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -116,7 +116,7 @@ pipeline {
             description: 'Please change the default Value for Server Public IP, When you need to use this instance just as client',
             name: 'SERVER_IP')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(

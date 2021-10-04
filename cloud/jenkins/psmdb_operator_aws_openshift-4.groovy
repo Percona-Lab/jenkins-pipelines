@@ -130,6 +130,7 @@ pipeline {
     }
     environment {
         TF_IN_AUTOMATION = 'true'
+        CLEAN_NAMESPACE = 1
     }
     agent {
          label 'docker'
@@ -237,6 +238,7 @@ pipeline {
                 runTest('users')
                 runTest('data-sharded')
                 runTest('monitoring-2-0')
+                runTest('non-voting')
            }
         }
         stage('E2E SelfHealing') {

@@ -55,7 +55,7 @@ pipeline {
             description: 'Use this AMI Setup as PMM-client',
             name: 'SETUP_CLIENT')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for percona-qa repository',
             name: 'GIT_BRANCH')
     }
@@ -99,7 +99,7 @@ pipeline {
         }
     }
     post {
-        
+
         success {
             runAMIStaginStop("${env.AMI_INSTANCE_ID}")
             script {

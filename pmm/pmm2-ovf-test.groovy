@@ -64,7 +64,7 @@ pipeline {
             description: 'Postgre SQL Server version',
             name: 'PGSQL_VERSION')
         string(
-            defaultValue: '--addclient=haproxy,1 --setup-external-service',
+            defaultValue: '--addclient=haproxy,1 --setup-external-service --mongo-replica-for-backup',
             description: 'Configure PMM Clients. ps - Percona Server for MySQL, pxc - Percona XtraDB Cluster, ms - MySQL Community Server, md - MariaDB Server, MO - Percona Server for MongoDB, pgsql - Postgre SQL Server',
             name: 'CLIENTS')
         string(
@@ -217,21 +217,6 @@ pipeline {
                     env.OWNER   = sh(returnStdout: true, script: "cat OWNER | cut -d . -f 1").trim()
                 }
                 setupPMMClient(env.PUBLIC_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'ovf_setup')
-                sh """
-                    set -o errexit
-                    set -o xtrace
-                    export PATH=\$PATH:/usr/sbin
-                    if [[ \$CLIENT_VERSION != dev-latest ]]; then
-                        export PATH="`pwd`/pmm2-client/bin:$PATH"
-                    fi
-                    bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
-                        --download \
-                        ${CLIENTS} \
-                        --pmm2 \
-                        --pmm2-server-ip=\$PUBLIC_IP
-                    sleep 10
-                    pmm-admin list
-                """
                 archiveArtifacts 'PUBLIC_IP'
                 archiveArtifacts 'VM_NAME'
             }
