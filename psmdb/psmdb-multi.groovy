@@ -53,7 +53,7 @@ pipeline {
     stages {
         stage ('Test All') {
             parallel {
-                stage ('fuctional tests') {
+                stage ('functional tests') {
                     steps {
                         build job: 'psmdb', parameters: [
                         string(name: 'PLATFORM', value: "${env.PLATFORM}"),
