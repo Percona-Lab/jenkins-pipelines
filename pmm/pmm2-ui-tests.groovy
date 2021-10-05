@@ -11,6 +11,14 @@ void uploadAllureArtifacts() {
         """
     }
 }
+
+void printBackupRestoreLogs() {
+    sh 'Fetching jobs from pmm-server'
+    sh 'docker exec pmm-server psql -Upmm-managed -c \'select error,data,created_at,updated_at from jobs ORDER BY updated_at DESC LIMIT 100;\''
+    sh 'Fetching job logs from pmm-server'
+    sh 'docker exec pmm-server psql -Upmm-managed -c \'select * from job_logs ORDER BY job_id LIMIT 1000;\''
+}
+
 pipeline {
     agent {
         label 'docker'
@@ -297,6 +305,10 @@ pipeline {
                 ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/mochawesome-merge tests/output/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
+                echo Fetching jobs from pmm-server
+                docker exec pmm-server psql -Upmm-managed -c 'select error,data,created_at,updated_at from jobs ORDER BY updated_at DESC LIMIT 1000;' || true
+                echo Fetching job logs from pmm-server
+                docker exec pmm-server psql -Upmm-managed -c 'select * from job_logs ORDER BY job_id LIMIT 1000;'
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
