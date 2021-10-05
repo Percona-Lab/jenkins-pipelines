@@ -1,0 +1,34 @@
+- job:
+    name: test-results-aggregator
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: false
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 30
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 30
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - master
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: cloud/jenkins/test_results_aggregator.groovy
+    parameters:
+    - choice:
+        name: PRODUCT
+        choices:
+          - PSMDB
+          - PXC
+          - PG
+        description: Product for which test results should be collected
+    - string:
+        name: GIT_COMMIT
+        default: xxxyyyzz 
+        description: Short git commit hash for which test results should be collected
+

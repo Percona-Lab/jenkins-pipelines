@@ -136,7 +136,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
 
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
                     source $HOME/google-cloud-sdk/path.bash.inc
-                    # ./e2e-tests/$TEST_NAME/run
+                    ./e2e-tests/$TEST_NAME/run
                 fi
             """
             pushArtifactFile("${params.GIT_BRANCH}#${env.GIT_SHORT_COMMIT}#$TEST_NAME#${params.PLATFORM_VER}#$MDB_TAG")
