@@ -12,13 +12,6 @@ void uploadAllureArtifacts() {
     }
 }
 
-void printBackupRestoreLogs() {
-    sh 'Fetching jobs from pmm-server'
-    sh 'docker exec pmm-server psql -Upmm-managed -c \'select error,data,created_at,updated_at from jobs ORDER BY updated_at DESC LIMIT 100;\''
-    sh 'Fetching job logs from pmm-server'
-    sh 'docker exec pmm-server psql -Upmm-managed -c \'select * from job_logs ORDER BY job_id LIMIT 1000;\''
-}
-
 pipeline {
     agent {
         label 'docker'
