@@ -136,8 +136,9 @@ void fetchAgentLog(String CLIENT_VERSION) {
 def latestVersion = pmmLatestVersion()
 def versionsList = pmmActualVersions()
 def amiList = pmmActualVersions(includeAMI=true)
-def amiID = amiList.getOrDefault(SERVER_VERSION, env.AMI_ID_CUSTOM)
+def amiID = amiList.get(SERVER_VERSION, env.AMI_ID_CUSTOM)
 
+currentBuild.rawBuild.project.description = "AMI: $amiID"
 
 pipeline {
     agent {
