@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 void runAMIStagingStart(AMI_ID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, AMI_UPGRADE_TESTING_INSTANCE) {
     amiStagingJob = build job: 'pmm2-ami-staging-start', parameters: [
-        string(name: 'AMI_ID', value: AMI_ID),
+        string(name: 'AMI_ID', value: amiID),
         string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'AMI_UPGRADE_TESTING_INSTANCE', value: AMI_UPGRADE_TESTING_INSTANCE)
@@ -136,6 +136,8 @@ void fetchAgentLog(String CLIENT_VERSION) {
 def latestVersion = pmmLatestVersion()
 def versionsList = pmmActualVersions()
 def amiList = pmmActualVersions(includeAMI=true)
+def amiID = amiList.getOrDefault(SERVER_VERSION, env.AMI_ID_CUSTOM)
+
 
 pipeline {
     agent {
@@ -215,7 +217,6 @@ pipeline {
 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 installDocker()
-                env.AMI_ID = amiList.getOrDefault(SERVER_VERSION, env.AMI_ID_CUSTOM)
                 sh '''
                     sudo yum -y install jq svn
                     sudo mkdir -p /srv/pmm-qa || :
@@ -233,7 +234,7 @@ pipeline {
         }
         stage('Start AMI Server') {
             steps {
-                runAMIStagingStart(AMI_ID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, AMI_UPGRADE_TESTING_INSTANCE)
+                runAMIStagingStart(amiID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, AMI_UPGRADE_TESTING_INSTANCE)
                 customSetupAMIInstance(AMI_INSTANCE_IP)
             }
         }
