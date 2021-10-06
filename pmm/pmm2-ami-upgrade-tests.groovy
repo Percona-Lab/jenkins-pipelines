@@ -137,8 +137,8 @@ def latestVersion = pmmLatestVersion()
 def versionsList = pmmActualVersions()
 Map amiList = pmmActualVersions(true)
 
-def amiID = amiList.contains(SERVER_VERSION.trim()) ? amiList[SERVER_VERSION.trim()] : AMI_ID_CUSTOM
-currentBuild.rawBuild.project.description = "AMI: $amiID"
+def amiID = amiList.containsKey(SERVER_VERSION.trim()) ? amiList[SERVER_VERSION.trim()] : AMI_ID_CUSTOM
+currentBuild.description = "AMI: $amiID"
 
 pipeline {
     agent {
