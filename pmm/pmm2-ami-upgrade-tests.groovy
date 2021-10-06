@@ -34,41 +34,6 @@ void customSetupAMIInstance(INSTANCE_IP) {
     }
 }
 
-void setInstanceAMIId(PMM_VERSION) {
-    switch(PMM_VERSION) {
-        case "2.15.0":
-            env.AMI_ID = "ami-086a3a95eefa9567f"
-            break;
-        case "2.15.1":
-            env.AMI_ID = "ami-073928dbea8c7ebc3"
-            break;
-        case "2.16.0":
-            env.AMI_ID = "ami-01097b383f63f7db5"
-            break;
-        case "2.17.0":
-            env.AMI_ID = "ami-03af848f3557ff8d0"
-            break;
-        case "2.18.0":
-            env.AMI_ID = "ami-0184c7b18b45d2a7b"
-            break;
-        case "2.19.0":
-            env.AMI_ID = "ami-0d3c21da426d248d3"
-            break;
-        case "2.20.0":
-            env.AMI_ID = "ami-04ad85dd7364bba21"
-            break;
-        case "2.21.0":
-            env.AMI_ID = "ami-0605d9dbdc9d6a233"
-            break;
-        case "2.22.0":
-            env.AMI_ID = "ami-0c1521c259375cb43"
-            break;
-        case "custom":
-            env.AMI_ID = env.AMI_ID_CUSTOM
-            break;
-    }
-}
-
 void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, NODE_TYPE) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -170,6 +135,7 @@ void fetchAgentLog(String CLIENT_VERSION) {
 
 def latestVersion = pmmLatestVersion()
 def versionsList = pmmActualVersions()
+def amiList = pmmActualVersions(includeAMI=true)
 
 pipeline {
     agent {
@@ -249,7 +215,7 @@ pipeline {
 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 installDocker()
-                setInstanceAMIId(SERVER_VERSION)
+                env.AMI_ID_CUSTOM = amiList.getOrDefault(SERVER_VERSION, env.AMI_ID_CUSTOM)
                 sh '''
                     sudo yum -y install jq svn
                     sudo mkdir -p /srv/pmm-qa || :

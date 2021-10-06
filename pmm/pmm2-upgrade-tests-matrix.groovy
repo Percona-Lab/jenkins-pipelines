@@ -67,6 +67,13 @@ pipeline {
                         }
                     }
                 }
+                stage('Upgrade from 2.23.0'){
+                    steps {
+                        script {
+                            runUpgradeJob(GIT_BRANCH,'2.23.0', '2.23.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                        }
+                    }
+                }
                 stage('Upgrade from 2.9.1'){
                     steps {
                         script {
