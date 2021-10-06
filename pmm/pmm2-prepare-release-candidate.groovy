@@ -162,52 +162,58 @@ void deleteBranch(String SUBMODULE, String BRANCH)
     }
 }
 
+String DEFAULT_BRANCH = 'PMM-2.0'
+
 pipeline {
     agent {
         label 'micro-amazon'
     }
     parameters {
         string(
-            defaultValue: 'PMM-2.0',
+            defaultValue: DEFAULT_BRANCH,
             description: 'Prepare Submodules from pmm-submodules branch',
             name: 'SUBMODULES_GIT_BRANCH')
-        string(
-            defaultValue: '',
-            description: 'Release Version',
-            name: 'VERSION')
         choice(
             choices: ['no', 'yes'],
-            description: 'Remove Release branches, Option to be used only to recreate release branches',
+            description: 'Recreate Release branches, Option to be used only to recreate release branches',
             name: 'REMOVE_RELEASE_BRANCH')
     }
     stages {
-        stage('Check if Release Branch Exist') {
-            steps {
-                deleteDir()
-                script {
-                    env.RELEASE_BRANCH = 'pmm-' + VERSION
-                    env.EXIST = sh (
-                        script: 'git ls-remote --heads https://github.com/Percona-Lab/pmm-submodules pmm-\${VERSION} | wc -l',
-                        returnStdout: true
-                    ).trim()
-                }
-            }
-        }
+        // stage('Check if Release Branch Exist') {
+        //     steps {
+        //         deleteDir()
+        //         script {
+        //             env.VERSION = env.CUSTOM_VERSION
+        //             env.RELEASE_BRANCH = 'pmm-' + VERSION
+        //             env.EXIST = sh (
+        //                 script: 'git ls-remote --heads https://github.com/Percona-Lab/pmm-submodules pmm-\${VERSION} | wc -l',
+        //                 returnStdout: true
+        //             ).trim()
+        //         }
+        //     }
+        // }
         stage('Remove Release branches for submodules') {
             when {
-                expression { env.EXIST.toInteger() == 1 && env.REMOVE_RELEASE_BRANCH == "yes"}
+                expression { env.REMOVE_RELEASE_BRANCH == "yes" && env.SUBMODULES_GIT_BRANCH != DEFAULT_BRANCH}
             }
             steps {
-                git branch: env.RELEASE_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
-                deleteReleaseBranches(VERSION)
+                git branch: env.SUBMODULES_GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
+                env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+                deleteReleaseBranches(env.SUBMODULES_GIT_BRANCH)
             }
         }
         stage('Checkout Submodules and Prepare for creating branches') {
             when {
-                expression { env.EXIST.toInteger() == 0 }
+                expression { env.SUBMODULES_GIT_BRANCH == DEFAULT_BRANCH }
             }
             steps {
+                env.EXIST = sh (
+                    script: 'git ls-remote --heads https://github.com/Percona-Lab/pmm-submodules pmm-\${VERSION} | wc -l',
+                    returnStdout: true
+                ).trim()
                 git branch: SUBMODULES_GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
+                env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+
                 sh """
                     sudo yum install -y git wget jq
                     git config --global user.email "dev-services@percona.com"
