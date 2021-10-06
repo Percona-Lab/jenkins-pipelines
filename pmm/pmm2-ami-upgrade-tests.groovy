@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@PMM-7-new-pmm-rc', retriever: modernS
 
 void runAMIStagingStart(AMI_ID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, AMI_UPGRADE_TESTING_INSTANCE) {
     amiStagingJob = build job: 'pmm2-ami-staging-start', parameters: [
-        string(name: 'AMI_ID', value: amiID),
+        string(name: 'AMI_ID', value: AMI_ID),
         string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'AMI_UPGRADE_TESTING_INSTANCE', value: AMI_UPGRADE_TESTING_INSTANCE)
@@ -135,9 +135,9 @@ void fetchAgentLog(String CLIENT_VERSION) {
 
 def latestVersion = pmmLatestVersion()
 def versionsList = pmmActualVersions()
-def amiList = pmmActualVersions(includeAMI=true).withDefault { env.AMI_ID_CUSTOM}
-def amiID = amiList[SERVER_VERSION]
+Map amiList = pmmActualVersions(true)
 
+def amiID = amiList[SERVER_VERSION.trim()]
 currentBuild.rawBuild.project.description = "AMI: $amiID"
 
 pipeline {

@@ -1,5 +1,5 @@
 def call(includeAMI=false) {
-  versions = [
+  HashMap<String, String> versions = [
     '2.15.0': 'ami-086a3a95eefa9567f',
     '2.15.1': 'ami-073928dbea8c7ebc3',
     '2.16.0': 'ami-01097b383f63f7db5',
@@ -14,6 +14,7 @@ def call(includeAMI=false) {
   if (includeAMI) {
     return versions
   } else {
-    return versions.keySet()
+    List<String> versionList = new ArrayList<>(versions.keySet());
+    return versionList
   }
 }
