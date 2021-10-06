@@ -215,7 +215,7 @@ pipeline {
 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 installDocker()
-                env.AMI_ID_CUSTOM = amiList.getOrDefault(SERVER_VERSION, env.AMI_ID_CUSTOM)
+                env.AMI_ID = amiList.getOrDefault(SERVER_VERSION, env.AMI_ID_CUSTOM)
                 sh '''
                     sudo yum -y install jq svn
                     sudo mkdir -p /srv/pmm-qa || :
