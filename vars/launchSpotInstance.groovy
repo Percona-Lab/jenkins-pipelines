@@ -7,7 +7,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
             export VOLUME=${VOLUME}
 
             if [ "$SPOT_PRICE" = "FAIR" ]; then
-                export SPOT_PRICE=$(
+                export SPOT_PRICE=\$(
                     aws ec2 describe-spot-price-history
                         --instance-types \$INSTANCE_TYPE
                         --region us-east-2 --output text
