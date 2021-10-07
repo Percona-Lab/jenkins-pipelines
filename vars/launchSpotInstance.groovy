@@ -99,7 +99,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
             echo \$REQUEST_ID > REQUEST_ID
 
             until [ -s IP ]; do
-                sleep 10
+                sleep 5
                 aws ec2 describe-instances \
                     --filters "Name=spot-instance-request-id,Values=\${REQUEST_ID}" \
                     --query 'Reservations[].Instances[].PublicIpAddress' \
