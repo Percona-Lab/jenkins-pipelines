@@ -8,9 +8,9 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
 
             if [ "$SPOT_PRICE" = "FAIR" ]; then
                 export SPOT_PRICE=\$(
-                    aws ec2 describe-spot-price-history
-                        --instance-types \$INSTANCE_TYPE
-                        --region us-east-2 --output text
+                    aws ec2 describe-spot-price-history \
+                        --instance-types \$INSTANCE_TYPE \
+                        --region us-east-2 --output text \
                         --product-description "Linux/UNIX (Amazon VPC)" | head -n 1 | awk '{ print \$5}'
                 )
             else
