@@ -71,6 +71,7 @@ pipeline {
         stage('Run VM') {
             steps {
                 launchSpotInstance('c5n.4xlarge', 'FAIR', 70)
+                currentBuild.description = "PRICE: $SPOT_PRICE"
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) 'java -version; sudo yum install -y java-1.8.0-openjdk; sudo /usr/sbin/alternatives --set java /usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java; java -version;' ; do
@@ -224,6 +225,9 @@ pipeline {
 
     post {
         always {
+            def SPOT_PRICE = sh(returnStdout: true, script: "cat SPOT_PRICE").trim()
+            currentBuild.description = "Price: $SPOT_PRICE"
+
             script {
                 def node = Jenkins.instance.getNode(env.VM_NAME)
                 Jenkins.instance.removeNode(node)
@@ -236,6 +240,8 @@ pipeline {
                     def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
+
+                    currentBuild.description = currentBuild.description + "IP: ${PUBLIC_IP}"
 
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: cluster creation finished, owner: @${OWNER_FULL}, Cluster IP: ${PUBLIC_IP}, Build: ${BUILD_URL}"
                     slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: cluster creation finished - Cluster IP: ${PUBLIC_IP}, Build: ${BUILD_URL}"

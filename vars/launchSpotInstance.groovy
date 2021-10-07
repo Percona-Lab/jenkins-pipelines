@@ -13,6 +13,8 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                         --region us-east-2 --output text \
                         --product-description "Linux/UNIX (Amazon VPC)" | head -n 1 | awk '{ print \$5}'
                 )
+                echo SET PRICE: \$SPOT_PRICE
+                echo \$SPOT_PRICE > SPOT_PRICE
             else
                 export SPOT_PRICE=${SPOT_PRICE}
             fi
