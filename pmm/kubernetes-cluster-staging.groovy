@@ -225,10 +225,9 @@ pipeline {
 
     post {
         always {
-            def SPOT_PRICE = sh(returnStdout: true, script: "cat SPOT_PRICE").trim()
-            currentBuild.description = "Price: $SPOT_PRICE"
-
             script {
+                def SPOT_PRICE = sh(returnStdout: true, script: "cat SPOT_PRICE").trim()
+                currentBuild.description = "Price: $SPOT_PRICE"
                 def node = Jenkins.instance.getNode(env.VM_NAME)
                 Jenkins.instance.removeNode(node)
             }
