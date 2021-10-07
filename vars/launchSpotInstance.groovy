@@ -4,8 +4,19 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
             export VM_NAME=\$(cat VM_NAME)
             export OWNER=\$(cat OWNER_FULL)
             export INSTANCE_TYPE=${INSTANCE_TYPE}
-            export SPOT_PRICE=${SPOT_PRICE}
             export VOLUME=${VOLUME}
+
+            if [ "$SPOT_PRICE" = "FAIR" ]; then
+                export SPOT_PRICE=$(
+                    aws ec2 describe-spot-price-history
+                        --instance-types \$INSTANCE_TYPE
+                        --region us-east-2 --output text
+                        --product-description "Linux/UNIX (Amazon VPC)" | head -n 1 | awk '{ print \$5}'
+                )
+            else
+                export SPOT_PRICE=${SPOT_PRICE}
+            fi
+
             export SUBNET=\$(
                 aws ec2 describe-subnets \
                     --region us-east-2 \
@@ -86,7 +97,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
             echo \$REQUEST_ID > REQUEST_ID
 
             until [ -s IP ]; do
-                sleep 5
+                sleep 10
                 aws ec2 describe-instances \
                     --filters "Name=spot-instance-request-id,Values=\${REQUEST_ID}" \
                     --query 'Reservations[].Instances[].PublicIpAddress' \
