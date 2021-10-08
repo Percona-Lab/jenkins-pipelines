@@ -35,6 +35,10 @@ pipeline {
             choices: ['no', 'yes'],
             description: 'Enable Testing Repo for RC',
             name: 'ENABLE_TESTING_REPO')
+        choice(
+            choices: ['yes', 'no'],
+            description: 'Enable EXPERIMENTAL Repo for Dev-latest',
+            name: 'ENABLE_EXPERIMENTAL_REPO')
     }
     options {
         skipDefaultCheckout()
@@ -49,126 +53,126 @@ pipeline {
                 stage('Upgrade from 2.20.0'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.20.0', '2.20.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.20.0', '2.20.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.21.0'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.21.0', '2.21.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.21.0', '2.21.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.22.0'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.22.0', '2.22.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.22.0', '2.22.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.23.0'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.23.0', '2.23.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.23.0', '2.23.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.9.1'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.9.1', '2.9.1', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.9.1', '2.9.1', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.10.0'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.10.0', '2.10.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.10.0', '2.10.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.10.1'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.10.1', '2.10.1', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.10.1', '2.10.1', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.11.0'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.11.0', '2.11.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.11.0', '2.11.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.11.1'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.11.1', '2.11.1', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.11.1', '2.11.1', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.12.0'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.12.0', '2.12.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.12.0', '2.12.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.13.0'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.13.0', '2.13.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.13.0', '2.13.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.14.0'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.14.0', '2.14.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.14.0', '2.14.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.15.0'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.15.0', '2.15.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.15.0', '2.15.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.15.1'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.15.1', '2.15.1', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.15.1', '2.15.1', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.16.0'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.16.0', '2.16.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.16.0', '2.16.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.17.0'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.17.0', '2.17.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.17.0', '2.17.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.18.0'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.18.0', '2.18.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.18.0', '2.18.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
                 stage('Upgrade from 2.19.0'){
                     steps {
                         script {
-                            runUpgradeJob(GIT_BRANCH,'2.19.0', '2.19.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
+                            runUpgradeJob(GIT_BRANCH,'2.19.0', '2.19.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO );
                         }
                     }
                 }
