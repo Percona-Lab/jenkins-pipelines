@@ -70,7 +70,7 @@ pipeline {
 
         stage('Run VM') {
             steps {
-                launchSpotInstance('c5n.4xlarge', '0.180', 70)
+                launchSpotInstance('c5n.4xlarge', 'FAIR', 70)
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) 'java -version; sudo yum install -y java-1.8.0-openjdk; sudo /usr/sbin/alternatives --set java /usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java; java -version;' ; do
@@ -81,6 +81,9 @@ pipeline {
                 script {
                     env.IP      = sh(returnStdout: true, script: "cat IP").trim()
                     env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
+                    def SPOT_PRICE = sh(returnStdout: true, script: "cat SPOT_PRICE").trim()
+
+                    currentBuild.description = "PRICE: $SPOT_PRICE IP: $env.IP"
 
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'aws-jenkins')
                     DumbSlave node = new DumbSlave(env.VM_NAME, "spot instance job", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
