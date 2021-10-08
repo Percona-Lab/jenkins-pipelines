@@ -153,7 +153,7 @@ pipeline {
                         expression { env.OVF_TEST == "no" }
                     }
                     steps {
-                        runClusterStaging('master')
+                        runClusterStaging('main')
                     }
                 }
             }
