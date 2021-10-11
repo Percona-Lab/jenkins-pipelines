@@ -42,7 +42,7 @@ pipeline {
             description: 'PMM Version for testing',
             name: 'PMM_VERSION')
         choice(
-            choices: ['experimental', 'testing', 'main'],
+            choices: ['experimental', 'testing', 'main', 'tools_main', 'pmm2_client_main'],
             description: 'Enable Repo for Client Nodes',
             name: 'INSTALL_REPO')
         choice(

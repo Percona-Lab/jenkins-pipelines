@@ -98,7 +98,7 @@ pipeline {
             description: 'Type of Tests?',
             name: 'TESTS')
         choice(
-            choices: ['testing', 'experimental', 'main'],
+            choices: ['testing', 'experimental', 'main', 'tools_main', 'pmm2_client_main'],
             description: 'Enable Repo for Client Nodes',
             name: 'INSTALL_REPO')
         choice(
@@ -216,6 +216,9 @@ pipeline {
                     }
                 }
                 stage('bullseye-x64') {
+                    when {
+                        expression { env.TESTS != "pmm2-client_integration_upgrade" || env.TESTS != "pmm2-client_integration" }
+                    }
                     agent {
                         label 'min-bullseye-x64'
                     }
