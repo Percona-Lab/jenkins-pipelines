@@ -7,7 +7,7 @@
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/AgileStas/jenkins-pipelines.git
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
             - 'master'
             wipe-workspace: false
