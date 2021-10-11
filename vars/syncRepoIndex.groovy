@@ -6,7 +6,7 @@ def call() {
 
             wget http://repo.percona.com/index.html -O ./index.html
             # TODO Should we raise error here?
-            cmp -s ./index.html ./new-index.html && exit
+            cmp -s ./index.html ./new-index.html && exit 0
             #cat ./new-index.html
 
             scp -o StrictHostKeyChecking=no -i ${KEY_PATH} ./new-index.html ${USER}@repo.ci.percona.com:/srv/repo-copy/
@@ -30,7 +30,8 @@ def call() {
                     mv new-index.html index.html
                     echo "Calling index.html sync script"
                     #ls -la
-                    cat rsync-index.sh
+                    #cat rsync-index.sh
+                    ./rsync-index.sh
                 popd
             '
         '''
