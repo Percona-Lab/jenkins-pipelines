@@ -29,7 +29,8 @@ def call() {
                     mv index.html index.html_$DTSTR
                     mv new-index.html index.html
                     echo "Calling index.html sync script"
-                    ls -la
+                    #ls -la
+                    cat rsync-index.sh
                 popd
             '
         '''
