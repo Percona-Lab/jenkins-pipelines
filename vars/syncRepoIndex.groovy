@@ -10,7 +10,7 @@ def call() {
             #cat ./new-index.html
 
             scp -o StrictHostKeyChecking=no -i ${KEY_PATH} ./new-index.html ${USER}@repo.ci.percona.com:/srv/repo-copy/
-            ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com ' \
+            ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com '\
                 set -o errexit
                 set -o xtrace
 
@@ -31,6 +31,7 @@ def call() {
                     echo "Calling index.html sync script"
                     ls -la
                 popd
+            '
         '''
     }
 }
