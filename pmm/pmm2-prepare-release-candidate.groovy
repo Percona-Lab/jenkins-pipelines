@@ -183,13 +183,13 @@ pipeline {
             steps {
                 script {
                     git branch: env.SUBMODULES_GIT_BRANCH,
-                                credentialsId: 'GitHub SSH Key',
-                                poll: false,
-                                url: 'git@github.com:Percona-Lab/pmm-submodules'
+                        credentialsId: 'GitHub SSH Key',
+                        poll: false,
+                        url: 'git@github.com:Percona-Lab/pmm-submodules'
                     env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
                     env.RELEASE_BRANCH = 'pmm-' + VERSION
+                    currentBuild.description = "$VERSION"
                 }
-                deleteDir()
             }
         }
         stage('Remove Release branches for submodules') {
@@ -197,7 +197,10 @@ pipeline {
                 expression { env.REMOVE_RELEASE_BRANCH == "yes" && env.SUBMODULES_GIT_BRANCH != DEFAULT_BRANCH}
             }
             steps {
-                git branch: env.SUBMODULES_GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
+                git branch: env.SUBMODULES_GIT_BRANCH,
+                    credentialsId: 'GitHub SSH Key',
+                    poll: false,
+                    url: 'git@github.com:Percona-Lab/pmm-submodules'
                 env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
                 deleteReleaseBranches(env.SUBMODULES_GIT_BRANCH)
             }
