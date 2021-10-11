@@ -7,6 +7,7 @@ pipeline {
     //agent {
     //    label 'source-builder'
     //}
+    agent any
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
