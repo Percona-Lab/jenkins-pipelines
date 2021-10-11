@@ -27,6 +27,8 @@ pipeline {
                 syncRepoIndex()
             }
         }
-
+        stage('Cleanup') {
+            deleteDir()
+        }
     }
 }
