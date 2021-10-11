@@ -28,7 +28,9 @@ pipeline {
             }
         }
         stage('Cleanup') {
-            deleteDir()
+            steps {
+                deleteDir()
+            }
         }
     }
 }
