@@ -194,7 +194,7 @@ pipeline {
         }
         stage('Remove Release branches for submodules') {
             when {
-                expression { env.REMOVE_RELEASE_BRANCH == "yes" && env.SUBMODULES_GIT_BRANCH != DEFAULT_BRANCH}
+                expression { env.REMOVE_RELEASE_BRANCH == "yes" && env.SUBMODULES_GIT_BRANCH != DEFAULT_BRANCH }
             }
             steps {
                 git branch: env.SUBMODULES_GIT_BRANCH,
@@ -276,7 +276,7 @@ pipeline {
     post {
         always {
             sh 'sudo rm -r /tmp/'
-            cleanWs()
+            deleteDir()
         }
     }
 }
