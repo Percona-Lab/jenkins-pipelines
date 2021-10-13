@@ -217,7 +217,7 @@ pipeline {
                 }
                 stage('bullseye-x64') {
                     when {
-                        expression { env.TESTS != "pmm2-client_integration_upgrade" || env.TESTS != "pmm2-client_integration" }
+                        expression { env.TESTS == "pmm2-client" || env.TESTS == "pmm2-client_upgrade" }
                     }
                     agent {
                         label 'min-bullseye-x64'
