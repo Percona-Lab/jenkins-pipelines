@@ -161,15 +161,15 @@ pipeline {
                     
                     tar xvf \$VM_NAME.ova
                     export ovf_name=$(find -type f -name '*.ovf');
-                    VBoxManage import \$ovf_name --vsys 0 --memory 2048 --vmname \$VM_NAME > /dev/null
+                    VBoxManage import \$ovf_name --vsys 0 --memory 4000 --vmname \$VM_NAME > /dev/null
                     VBoxManage modifyvm \$VM_NAME \
-                        --memory 2048 \
+                        --memory 4000 \
                         --audio none \
                         --natpf1 "guestssh,tcp,,80,,80" \
                         --uart1 0x3F8 4 --uartmode1 file /tmp/\$VM_NAME-console.log \
                         --groups "/\$OWNER,/${JOB_NAME}"
                     VBoxManage modifyvm \$VM_NAME --natpf1 "guesthttps,tcp,,443,,443"
-                    for p in $(seq 0 10); do
+                    for p in $(seq 0 15); do
                         VBoxManage modifyvm \$VM_NAME --natpf1 "guestexporters\$p,tcp,,4200\$p,,4200\$p"
                     done
                     VBoxManage startvm --type headless \$VM_NAME
