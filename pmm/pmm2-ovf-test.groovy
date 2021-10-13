@@ -161,9 +161,10 @@ pipeline {
                     
                     tar xvf \$VM_NAME.ova
                     export ovf_name=$(find -type f -name '*.ovf');
-                    VBoxManage import \$ovf_name --vsys 0 --memory 4000 --vmname \$VM_NAME > /dev/null
+                    export VM_MEMORY=4096
+                    VBoxManage import \$ovf_name --vsys 0 --memory \$VM_MEMORY --vmname \$VM_NAME > /dev/null
                     VBoxManage modifyvm \$VM_NAME \
-                        --memory 4000 \
+                        --memory \$VM_MEMORY \
                         --audio none \
                         --natpf1 "guestssh,tcp,,80,,80" \
                         --uart1 0x3F8 4 --uartmode1 file /tmp/\$VM_NAME-console.log \
