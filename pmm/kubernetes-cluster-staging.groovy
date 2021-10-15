@@ -21,10 +21,6 @@ pipeline {
             choices: '1\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
-        choice(
-            choices: ['1.7.0', '1.6.0'],
-            description: 'Operator Version to be used for Deployment',
-            name: 'OPERATOR_VERSION')
         string(
             defaultValue: 'true',
             description: 'Enable Slack notification (option for high level pipelines)',
