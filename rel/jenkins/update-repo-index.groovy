@@ -8,6 +8,12 @@ pipeline {
     //    label 'source-builder'
     //}
     agent any
+    parameters {
+        string(
+            defaultValue: '',
+            description: 'Enter comma-separated names for additional repos to create links to (i.e. psmdb-50,ppg-14.0)',
+            name: 'REPO_LINKS')
+    }
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
@@ -17,7 +23,7 @@ pipeline {
     stages {
         stage('Get updated index.html') {
             steps {
-                updateRepoIndex()
+                updateRepoIndex(REPO_LINKS.split(','))
                 stash allowEmpty: true, includes: "new-index.html", name: "NewIndexHtml"
             }
         }
