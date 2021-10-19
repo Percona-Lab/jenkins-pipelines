@@ -74,12 +74,12 @@ pipeline {
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
 
                     echo """
-                        INFRA_BRANCH:   ${GIT_BRANCH}
-                        AUTHED_TAG:     ${AUTHED_TAG}
-                        ORGD_TAG:       ${ORGD_TAG}
-                        TELEMETRYD_TAG: ${TELEMETRYD_TAG}
-                        CHECKED_TAG:    ${CHECKED_TAG}
-                        SAAS_UI_TAG:    ${SAAS_UI_TAG}
+                        INFRA_BRANCH:   \${GIT_BRANCH}
+                        AUTHED_TAG:     \${AUTHED_TAG}
+                        ORGD_TAG:       \${ORGD_TAG}
+                        TELEMETRYD_TAG: \${TELEMETRYD_TAG}
+                        CHECKED_TAG:    \${CHECKED_TAG}
+                        SAAS_UI_TAG:    \${SAAS_UI_TAG}
                     """
                 }
             }
