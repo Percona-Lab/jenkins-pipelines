@@ -42,18 +42,23 @@ pipeline {
             defaultValue: 'latest',
             description: 'Docker tag for saas-ui service',
             name: 'SAAS_UI_TAG')
+        string(
+            defaultValue: '1',
+            description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
+            name: 'DAYS')
+        string(
+            defaultValue: 'true',
+            description: 'notify',
+            name: 'NOTIFY')
     }
 
     environment {
-        OAUTH_ISSUER_URL='https://id-dev.percona.com/oauth2/aus15pi5rjdtfrcH51d7';
         OKTA_TOKEN=credentials('OKTA_TOKEN');
         OAUTH_CLIENT_ID=credentials('OAUTH_CLIENT_ID');
         OAUTH_CLIENT_SECRET=credentials('OAUTH_CLIENT_SECRET');
         OAUTH_PMM_CLIENT_ID=credentials('OAUTH_PMM_CLIENT_ID');
         OAUTH_PMM_CLIENT_SECRET=credentials('OAUTH_PMM_CLIENT_SECRET');
-        OAUTH_SCOPES='percona';
-        DOCKER_REGISTRY_USERNAME='percona-robot';
-        DOCKER_REGISTRY_PASSWORD=credentials('GITHUB_API_TOKEN');
+        DOCKER_REGISTRY_PASSWORD=credentials('github-api-token');
     }
 
     stages {
@@ -74,25 +79,28 @@ pipeline {
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
 
                     echo """
-                        INFRA_BRANCH:   \${GIT_BRANCH}
-                        AUTHED_TAG:     \${AUTHED_TAG}
-                        ORGD_TAG:       \${ORGD_TAG}
-                        TELEMETRYD_TAG: \${TELEMETRYD_TAG}
-                        CHECKED_TAG:    \${CHECKED_TAG}
-                        SAAS_UI_TAG:    \${SAAS_UI_TAG}
+                        INFRA_BRANCH:   ${GIT_BRANCH}
+                        AUTHED_TAG:     ${AUTHED_TAG}
+                        ORGD_TAG:       ${ORGD_TAG}
+                        TELEMETRYD_TAG: ${TELEMETRYD_TAG}
+                        CHECKED_TAG:    ${CHECKED_TAG}
+                        SAAS_UI_TAG:    ${SAAS_UI_TAG}
                     """
                 }
+                sh 'printenv'
             }
         }
 
         stage('Run VM') {
             steps {
-                launchSpotInstance('t3.large', '0.040', 20)
+                launchSpotInstance('m5.2xlarge', 'FAIR', 20)
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) 'java -version; sudo yum install -y java-1.8.0-openjdk; sudo /usr/sbin/alternatives --set java /usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java; java -version;' ; do
                             sleep 5
                         done
+
+                        pwd
                     """
                 }
                 script {
@@ -105,6 +113,7 @@ pipeline {
                     Jenkins.instance.addNode(node)
                 }
                 node(env.VM_NAME){
+                    sh 'printenv'
                     sh """
                         set -o errexit
                         set -o xtrace
@@ -149,25 +158,40 @@ pipeline {
         }
         stage('Configure and start minikube') {
             steps {
-                git branch: 'main', credentialsId: 'GitHub SSH Key', url: 'git@github.com:percona-platform/infra.git'
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                         sh """
-                        export IP=\$(cat IP)
-                        export VM_NAME=\$(cat VM_NAME)
+                        pwd
 
-                        # Setting minikube related env vars
-                        export AUTHED_TAG=${AUTHED_TAG}
-                        export ORGD_TAG=${ORGD_TAG}
-                        export TELEMETRYD_TAG=${TELEMETRYD_TAG}
-                        export CHECKED_TAG=${CHECKED_TAG}
-                        export SAAS_UI_TAG=${SAAS_UI_TAG}
+                        echo \$IP
+                        echo \$VM_NAME
                         """
                         node(env.VM_NAME){
+                            git branch: 'main', credentialsId: 'GitHub SSH Key', url: 'git@github.com:percona-platform/infra.git'
+                            sh 'printenv'
                             sh """
                                 set -o errexit
                                 set -o xtrace
 
+                                # Setting minikube related env vars
+                                export AUTHED_TAG=${AUTHED_TAG}
+                                export ORGD_TAG=${ORGD_TAG}
+                                export TELEMETRYD_TAG=${TELEMETRYD_TAG}
+                                export CHECKED_TAG=${CHECKED_TAG}
+                                export SAAS_UI_TAG=${SAAS_UI_TAG}
+
+                                export DOCKER_REGISTRY_USERNAME=percona-robot
+                                export DOCKER_REGISTRY_PASSWORD=\$DOCKER_REGISTRY_PASSWORD
+
+                                export OKTA_TOKEN=\$OKTA_TOKEN
+                                
+                                export OAUTH_ISSUER_URL=https://id-dev.percona.com/oauth2/aus15pi5rjdtfrcH51d7
+                                export OAUTH_CLIENT_ID=\$OAUTH_CLIENT_ID
+                                export OAUTH_CLIENT_SECRET=\$OAUTH_CLIENT_SECRET
+                                export OAUTH_PMM_CLIENT_ID=\$OAUTH_PMM_CLIENT_ID
+                                export OAUTH_PMM_CLIENT_SECRET=\$OAUTH_PMM_CLIENT_SECRET
+                                export OAUTH_SCOPES=percona
+                                
                                 # Configure minikube
                                 minikube delete --all --purge
                                 rm -rf ~/.minikube
@@ -191,12 +215,11 @@ pipeline {
         success {
             script {
                 if ("${NOTIFY}" == "true") {
-                    def PUBLIC_IP = sh(returnStdout: true, script: "cat IP").trim()
                     def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
 
-                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
+                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${env.IP}"
                 }
             }
         }
