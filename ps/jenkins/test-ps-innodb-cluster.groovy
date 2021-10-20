@@ -130,6 +130,10 @@ pipeline {
     stages {
         stage("Set up") {
             steps {
+	        script {
+                   currentBuild.displayName = "#${BUILD_NUMBER}-${UPSTREAM_VERSION}-${PS_VERSION}-${TEST_DIST}"
+                   currentBuild.description = "${PS_REVISION}-${INSTALL_REPO}"
+                }
                 installDependencies()
             }
         }
