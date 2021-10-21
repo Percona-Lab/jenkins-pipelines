@@ -34,8 +34,11 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 if [[ \$ENABLE_TESTING_REPO = yes ]]; then
                     sudo percona-release enable-only original testing
                     sleep 15
-                else
+                elif [[ \$ENABLE_TESTING_REPO = no ]]; then
                     sudo percona-release enable-only original experimental
+                    sleep 15
+                else
+                    sudo percona-release enable-only original release
                     sleep 15
                 fi
             elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then

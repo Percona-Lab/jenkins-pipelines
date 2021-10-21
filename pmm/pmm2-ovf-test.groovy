@@ -64,7 +64,7 @@ pipeline {
             description: 'Postgre SQL Server version',
             name: 'PGSQL_VERSION')
         string(
-            defaultValue: '--addclient=haproxy,1 --setup-external-service',
+            defaultValue: '--addclient=haproxy,1 --setup-external-service --mongo-replica-for-backup',
             description: 'Configure PMM Clients. ps - Percona Server for MySQL, pxc - Percona XtraDB Cluster, ms - MySQL Community Server, md - MariaDB Server, MO - Percona Server for MongoDB, pgsql - Postgre SQL Server',
             name: 'CLIENTS')
         string(
@@ -161,15 +161,16 @@ pipeline {
                     
                     tar xvf \$VM_NAME.ova
                     export ovf_name=$(find -type f -name '*.ovf');
-                    VBoxManage import \$ovf_name --vsys 0 --memory 2048 --vmname \$VM_NAME > /dev/null
+                    export VM_MEMORY=4096
+                    VBoxManage import \$ovf_name --vsys 0 --memory \$VM_MEMORY --vmname \$VM_NAME > /dev/null
                     VBoxManage modifyvm \$VM_NAME \
-                        --memory 2048 \
+                        --memory \$VM_MEMORY \
                         --audio none \
                         --natpf1 "guestssh,tcp,,80,,80" \
                         --uart1 0x3F8 4 --uartmode1 file /tmp/\$VM_NAME-console.log \
                         --groups "/\$OWNER,/${JOB_NAME}"
                     VBoxManage modifyvm \$VM_NAME --natpf1 "guesthttps,tcp,,443,,443"
-                    for p in $(seq 0 10); do
+                    for p in $(seq 0 15); do
                         VBoxManage modifyvm \$VM_NAME --natpf1 "guestexporters\$p,tcp,,4200\$p,,4200\$p"
                     done
                     VBoxManage startvm --type headless \$VM_NAME
@@ -226,7 +227,7 @@ pipeline {
                     fi
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --download \
-                        ${CLIENTS} \
+                        --addclient=haproxy,1 --setup-external-service \
                         --pmm2 \
                         --pmm2-server-ip=\$PUBLIC_IP
                     sleep 10

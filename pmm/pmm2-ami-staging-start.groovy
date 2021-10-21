@@ -32,7 +32,7 @@ pipeline {
             description: 'Enable to setup Docker-compose for remote instances',
             name: 'AMI_UPGRADE_TESTING_INSTANCE')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(

@@ -46,7 +46,7 @@ void fetchAgentLog(String CLIENT_VERSION) {
 }
 
 def latestVersion = pmmLatestVersion()
-def versionsList = ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0', '2.22.0']
+def versionsList = ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0', '2.22.0', '2.23.0']
 
 pipeline {
     agent {
@@ -102,13 +102,17 @@ pipeline {
             description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
             name: 'PMM_SERVER_TAG')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
             choices: ['no', 'yes'],
             description: 'Enable Testing Repo, for RC testing',
             name: 'ENABLE_TESTING_REPO')
+        choice(
+            choices: ['yes', 'no'],
+            description: 'Enable Experimental, for Dev Latest testing',
+            name: 'ENABLE_EXPERIMENTAL_REPO')
         choice(
             choices: ['no', 'yes'],
             description: 'Perform Docker-way Upgrade?',
@@ -181,7 +185,7 @@ pipeline {
         }
         stage('Enable Testing Repo') {
             when {
-                expression { env.ENABLE_TESTING_REPO == "yes" }
+                expression { env.ENABLE_TESTING_REPO == "yes" && env.ENABLE_EXPERIMENTAL_REPO == "no" }
             }
             steps {
                 script {
@@ -199,7 +203,7 @@ pipeline {
         }
         stage('Enable Experimental Repo') {
             when {
-                expression { env.ENABLE_TESTING_REPO == "no" }
+                expression { env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
             }
             steps {
                 script {
@@ -212,6 +216,16 @@ pipeline {
                         docker exec pmm-server yum clean all
                     """
                     setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup')
+                }
+            }
+        }
+        stage('Enable Release Repo') {
+            when {
+                expression { env.ENABLE_EXPERIMENTAL_REPO == "no" && env.ENABLE_TESTING_REPO == "no" }
+            }
+            steps {
+                script {
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup')
                 }
             }
         }

@@ -67,8 +67,8 @@ pipeline {
                         python3 ci.py
                         . ./.git-sources
                         curl -s https://api.github.com/repos/percona/pmm-managed/commits/${pmm_managed_commit} | grep 'name' | awk -F '"' '{print $4}' | head -1 > OWNER
-                        echo $pmm_api_tests_commit > apiCommitSha
-                        echo $pmm_api_tests_branch > apiBranch
+                        echo $pmm_managed_commit > apiCommitSha
+                        echo $pmm_managed_branch > apiBranch
                         echo $pmm_qa_branch > pmmQABranch
                         echo $pmm_qa_commit > pmmQACommitSha
                         echo $pmm_ui_tests_branch > pmmUITestBranch

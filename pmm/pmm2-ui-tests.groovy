@@ -11,6 +11,7 @@ void uploadAllureArtifacts() {
         """
     }
 }
+
 pipeline {
     agent {
         label 'docker'
@@ -100,11 +101,11 @@ pipeline {
             description: 'Percona Server MongoDb Docker Container Image',
             name: 'MONGO_IMAGE')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         text(
-            defaultValue: '--addclient=haproxy,1 --addclient=ps,1 --setup-external-service --setup-mysql-ssl --setup-mongodb-ssl',
+            defaultValue: '--addclient=haproxy,1 --addclient=ps,1 --setup-external-service --setup-mysql-ssl --setup-mongodb-ssl --mongo-replica-for-backup',
             description: '''
             Configure PMM Clients
             ms - MySQL (ex. --addclient=ms,1),
@@ -256,6 +257,10 @@ pipeline {
                     sh """
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
+                        export PATH=\$PATH:/usr/sbin
+                        if [[ \$CLIENT_VERSION != dev-latest ]]; then
+                           export PATH="`pwd`/pmm2-client/bin:$PATH"
+                        fi
                         export CHROMIUM_PATH=/usr/bin/chromium
                         ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@not-ovf)^(?!.*@qan)^(?!.*@dbaas)^(?!.*@dashboards)'
                     """
@@ -274,6 +279,10 @@ pipeline {
                     sh """
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
+                        export PATH=\$PATH:/usr/sbin
+                        if [[ \$CLIENT_VERSION != dev-latest ]]; then
+                           export PATH="`pwd`/pmm2-client/bin:$PATH"
+                        fi
                         export CHROMIUM_PATH=/usr/bin/chromium
                         ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@dbaas)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@qan)^(?!.*@nightly)'
                     """
@@ -289,6 +298,10 @@ pipeline {
                 ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/mochawesome-merge tests/output/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
+                echo --- Jobs from pmm-server --- >> job_logs.txt
+                docker exec pmm-server psql -Upmm-managed -c 'select error,data,created_at,updated_at from jobs ORDER BY updated_at DESC LIMIT 1000;' >> job_logs.txt || true
+                echo --- Job logs from pmm-server --- >> job_logs.txt
+                docker exec pmm-server psql -Upmm-managed -c 'select * from job_logs ORDER BY job_id LIMIT 1000;' >> job_logs.txt || true
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
@@ -314,12 +327,14 @@ pipeline {
                     junit env.PATH_TO_REPORT_RESULTS
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
                     archiveArtifacts artifacts: 'logs.zip'
+                    archiveArtifacts artifacts: 'job_logs.txt'
                 } else {
                     junit env.PATH_TO_REPORT_RESULTS
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
+                    archiveArtifacts artifacts: 'job_logs.txt'
                     archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
                     archiveArtifacts artifacts: 'tests/output/*.png'
                 }

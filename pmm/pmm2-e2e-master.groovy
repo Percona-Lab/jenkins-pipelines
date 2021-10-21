@@ -83,7 +83,7 @@ pipeline {
             description: 'PMM Client Tag, which client to be installed',
             name: 'PMM_CLIENT_TAG')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
     }

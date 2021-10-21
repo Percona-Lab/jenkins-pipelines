@@ -41,6 +41,10 @@ pipeline {
             description: 'PG version for test',
             choices: ppgUpgradeScenarios()
         )
+        string(
+            defaultValue: 'main',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH')
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
@@ -61,7 +65,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                git poll: false, branch: 'master', url: 'https://github.com/Percona-QA/ppg-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/ppg-testing.git'
             }
         }
         stage ('Prepare') {

@@ -32,7 +32,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'GIT_BRANCH')
         string(
@@ -77,7 +77,7 @@ pipeline {
                         cd pmm-qa
                         npm install > /dev/null
                     "
-                    set -x                
+                    set -x
                 """
             }
         }
@@ -98,7 +98,7 @@ pipeline {
                                 sed -i "s~{PMM_URL_HERE}~${env.PMM_URL}~" codecept.json
                                 cat codecept.json
                                 ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi --grep '(?=.*)^(?!.*@visual-test)'
-                                
+
                             "
                             set -x
                         """

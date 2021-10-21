@@ -21,16 +21,12 @@ pipeline {
             choices: '1\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
-        choice(
-            choices: ['1.7.0', '1.6.0'],
-            description: 'Operator Version to be used for Deployment',
-            name: 'OPERATOR_VERSION')
         string(
             defaultValue: 'true',
             description: 'Enable Slack notification (option for high level pipelines)',
             name: 'NOTIFY')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
@@ -40,6 +36,7 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
+        timeout(time: 8, unit: 'MINUTES')
     }
 
     stages {
@@ -69,7 +66,7 @@ pipeline {
 
         stage('Run VM') {
             steps {
-                launchSpotInstance('c5n.4xlarge', '0.170', 70)
+                launchSpotInstance('c5n.4xlarge', 'FAIR', 70)
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) 'java -version; sudo yum install -y java-1.8.0-openjdk; sudo /usr/sbin/alternatives --set java /usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java; java -version;' ; do
@@ -80,6 +77,9 @@ pipeline {
                 script {
                     env.IP      = sh(returnStdout: true, script: "cat IP").trim()
                     env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
+                    def SPOT_PRICE = sh(returnStdout: true, script: "cat SPOT_PRICE").trim()
+
+                    currentBuild.description = "PRICE: $SPOT_PRICE IP: $env.IP"
 
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'aws-jenkins')
                     DumbSlave node = new DumbSlave(env.VM_NAME, "spot instance job", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)

@@ -48,7 +48,7 @@ pipeline {
     stages {
         stage ('Test All') {
             parallel {
-                stage ('fuctional tests') {
+                stage ('functional tests') {
                     steps {
                         build job: 'psmdb-parallel', parameters: [
                         string(name: 'REPO', value: "${env.REPO}"),

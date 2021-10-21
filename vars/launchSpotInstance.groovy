@@ -4,8 +4,21 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
             export VM_NAME=\$(cat VM_NAME)
             export OWNER=\$(cat OWNER_FULL)
             export INSTANCE_TYPE=${INSTANCE_TYPE}
-            export SPOT_PRICE=${SPOT_PRICE}
             export VOLUME=${VOLUME}
+
+            if [ "$SPOT_PRICE" = "FAIR" ]; then
+                export SPOT_PRICE=\$(
+                    aws ec2 describe-spot-price-history \
+                        --instance-types \$INSTANCE_TYPE \
+                        --region us-east-2 --output text \
+                        --product-description "Linux/UNIX (Amazon VPC)" | head -n 1 | awk '{ print \$5}'
+                )
+                echo SET PRICE: \$SPOT_PRICE
+                echo \$SPOT_PRICE > SPOT_PRICE
+            else
+                export SPOT_PRICE=${SPOT_PRICE}
+            fi
+
             export SUBNET=\$(
                 aws ec2 describe-subnets \
                     --region us-east-2 \
@@ -49,7 +62,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                         }
                     ],
                     "EbsOptimized": false,
-                    "ImageId": "ami-0a0ad6b70e61be944",
+                    "ImageId": "ami-00dfe2c7ce89a450b",
                     "UserData": "c3VkbyB5dW0gaW5zdGFsbCAteSBqYXZhLTEuOC4wLW9wZW5qZGsKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhIC91c3IvbGliL2p2bS9qcmUtMS44LjAtb3Blbmpkay54ODZfNjQvYmluL2phdmEKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhYyAvdXNyL2xpYi9qdm0vanJlLTEuOC4wLW9wZW5qZGsueDg2XzY0L2Jpbi9qYXZhYwoKc3VkbyB5dW0gcmVtb3ZlIGphdmEtMS43Cg==",
                     "InstanceType": "INSTANCE_TYPE",
                     "KeyName": "jenkins",

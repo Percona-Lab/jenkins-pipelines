@@ -271,6 +271,7 @@ pipeline {
                         runTest('liveness', 'basic')
                         runTest('users', 'basic')
                         runTest('data-sharded', 'basic')
+                        runTest('non-voting', 'basic')
                         ShutdownCluster('basic')
                     }
                 }
@@ -279,7 +280,9 @@ pipeline {
                         CreateCluster('selfhealing')
                         runTest('storage', 'selfhealing')
                         runTest('self-healing', 'selfhealing')
+                        runTest('self-healing-chaos', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
+                        runTest('operator-self-healing-chaos', 'selfhealing')
                         ShutdownCluster('selfhealing')
                     }
                 }

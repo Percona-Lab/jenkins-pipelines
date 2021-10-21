@@ -14,7 +14,7 @@ pipeline {
             name: 'GIT_BRANCH')
         choice(
             // default is choices.get(0) - experimental
-            choices: ['experimental', 'testing'],
+            choices: ['experimental', 'testing', 'laboratory'],
             description: 'Repo component to push packages to',
             name: 'DESTINATION')
     }

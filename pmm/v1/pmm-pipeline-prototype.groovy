@@ -23,7 +23,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'GIT_BRANCH')
         string(
@@ -39,28 +39,22 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-
     stages {
         stage('Prepare') {
             steps {
                 // clean up workspace and fetch pmm-qa repository
                 deleteDir()
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/pmm-qa.git'
+                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
 
                 slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
 
-                sh '''
-                    curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
-                    sudo yum -y install nodejs
-
-                    export PATH=$PATH:/usr/local/node/bin
-                    npm install
-                '''
+                // run any preparation steps on pmm-qa repo
+                sh 'ls -la'
             }
         }
         stage('Start staging') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --addclient=mo,2 --with-replica  --addclient=pgsql,1')
+                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1')
             }
         }
         stage('Sanity check') {
@@ -70,19 +64,44 @@ pipeline {
         }
         stage('Sleep') {
             steps {
-                sleep 120
+                sleep 60
             }
         }
-        stage('Run Grafana Test') {
+        stage('Run Test') {
             steps {
-                sauce('SauceLabsKey') {
-                    sauceconnect(options: '', sauceConnectPath: '') {
-                        sh """
-                            sed -i 's/{SAUCE_USER_KEY}/${SAUCE_ACCESS_KEY}/g' codecept.json
-                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -o '{ "helpers": {"WebDriverIO": {"url": "${PMM_URL}"}}}' --grep '(?=.*)^(?!.*@visual-test)'
-                            ./node_modules/.bin/codeceptjs run --steps -o '{ "helpers": {"WebDriverIO": {"url": "${PMM_URL}"}}}' --grep @visual-test
-                        """
-                    }
+                // run some command on jenkins node
+                sh """
+                    echo bash on jenkins node
+
+                    # generete fake test result
+                    echo "ok 1\nok 2\n1..2" > result.tap
+                """
+
+                // run some command inside VM
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} "
+                            set -o xtrace
+
+                            echo bash inside VM
+                            sudo pmm-admin list
+                        "
+                    """
+                }
+
+
+                // run some command inside Docker
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} "
+                            docker exec -i ${VM_NAME}-server sh -c '
+                                set -o xtrace
+
+                                echo bash inside docker
+                                supervisorctl restart consul
+                            '
+                        "
+                    """
                 }
             }
         }
@@ -91,22 +110,18 @@ pipeline {
         always {
             // stop staging
             destroyStaging(VM_NAME)
-            sh '''
-                ls -la
-            '''
+
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    saucePublisher()
-                    junit 'tests/output/parallel_chunk*/chrome_report.xml'
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'parallel_chunk1__browser_chrome__1/result.html, parallel_chunk2__browser_chrome__2/result.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished"
+
+                    // proccess test result
+                    archiveArtifacts '*.tap'
+                    step([$class: "TapPublisher", testResults: '*.tap'])
                 } else {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
                 }
             }
-            sh '''
-                sudo rm -r node_modules/
-            '''
             deleteDir()
         }
     }

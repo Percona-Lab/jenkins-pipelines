@@ -25,7 +25,7 @@ pipeline {
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
@@ -47,6 +47,13 @@ pipeline {
     stages {
         stage('Run AMI Upgrade Matrix') {
             parallel {
+                stage('Upgrade from 2.23.0'){
+                    steps {
+                        script {
+                            runAMIUpgradeJob(GIT_BRANCH,'2.23.0', '2.23.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_GIT_BRANCH);
+                        }
+                    }
+                }
                 stage('Upgrade from 2.22.0'){
                     steps {
                         script {
@@ -72,13 +79,6 @@ pipeline {
                     steps {
                         script {
                             runAMIUpgradeJob(GIT_BRANCH,'2.19.0', '2.19.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_GIT_BRANCH);
-                        }
-                    }
-                }
-                stage('Upgrade from 2.15.1'){
-                    steps {
-                        script {
-                            runAMIUpgradeJob(GIT_BRANCH,'2.15.1', '2.15.1', PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_GIT_BRANCH);
                         }
                     }
                 }
