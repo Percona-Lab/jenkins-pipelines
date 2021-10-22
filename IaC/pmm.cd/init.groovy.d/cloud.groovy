@@ -30,7 +30,7 @@ imageMap['us-east-2a.min-xenial-x64']   = 'ami-01685d240b8fbbfeb'
 imageMap['us-east-2a.min-buster-x64']   = 'ami-0d90bed76900e679a'
 imageMap['us-east-2a.min-stretch-x64']  = 'ami-0c729632334a74b05'
 imageMap['us-east-2a.min-bullseye-x64'] = 'ami-0b14b9cbf60877fad'
-imageMap['us-east-2a.micro-amazon']     = 'ami-02e136e904f3da870'
+imageMap['us-east-2a.micro-amazon']     = 'ami-074cce78125f09d61'
 imageMap['us-east-2a.large-amazon']     = imageMap['us-east-2a.micro-amazon']
 imageMap['us-east-2a.docker']           = imageMap['us-east-2a.micro-amazon']
 

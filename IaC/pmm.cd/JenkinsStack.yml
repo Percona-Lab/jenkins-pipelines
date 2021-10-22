@@ -43,11 +43,11 @@ Parameters:
 Mappings:
   AmazonLinux2:
     us-east-1:
-      x64: ami-0dc2d3e4c0f9ebd18
+      x64: ami-02e136e904f3da870
     us-east-2:
-      x64: ami-0233c2d874b811deb
+      x64: ami-074cce78125f09d61
     us-west-2:
-      x64: ami-0dc8f589abe99f538
+      x64: ami-013a129d325529d4d
 
 Resources:
 
