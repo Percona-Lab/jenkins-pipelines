@@ -508,7 +508,7 @@ Resources:
         Value: !Ref JShortName
       - Key: Name
         Value: !Join [ ' ', [ !Ref JShortName, 'DATA, do not remove' ]]
-      VolumeType: gp2
+      VolumeType: gp3
 
   JMasterInstance: # create jenkins master as spot instance
     Type: AWS::EC2::SpotFleet
