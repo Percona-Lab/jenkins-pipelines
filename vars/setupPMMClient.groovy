@@ -73,8 +73,8 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     pwd
                     cd ../
                     export PMM_CLIENT_BASEDIR=`ls -1td pmm2-client 2>/dev/null | grep -v ".tar" | head -n1`
-                    export PATH="`pwd`/pmm2-client/bin:$PATH"
-                    echo "export PATH=`pwd`/pmm2-client/bin:$PATH" >> ~/.bash_profile
+                    export PATH="`pwd`/pmm2-client/bin:\$PATH"
+                    echo "export PATH=`pwd`/pmm2-client/bin:\$PATH" >> ~/.bash_profile
                     source ~/.bash_profile
                     pmm-admin --version
                     if [[ \$CLIENT_INSTANCE == yes ]]; then
