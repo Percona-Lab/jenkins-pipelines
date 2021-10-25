@@ -170,5 +170,23 @@ pipeline {
                 }
             }
         }
+        stage ('Test Percona Components with Vanila Postgresql') {
+            steps {
+                script {
+                    try {
+                        build job: 'ppg-parallel', parameters: [
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'VERSION', value: "${env.TO_PBM_VERSION}"),
+                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-components-with-vanila"),
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'Test Percona Components with Vanila Postgresql' failed, but we continue"
+                    }
+                }
+            }
+        }
   }
 }
