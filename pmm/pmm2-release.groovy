@@ -3,6 +3,15 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+void runPackageTests(String PMM_VERSION, String REPO) {
+    build job: 'package-testing', parameters: [
+        string(name: 'DOCKER_VERSION', value: "percona/pmm-server:${PMM_VERSION}"),
+        string(name: 'CLIENT_VERSION', value: PMM_VERSION),
+        string(name: 'TESTS', value: 'pmm2-client'),
+        string(name: 'INSTALL_REPO', value: REPO)
+    ]
+}
+
 pipeline {
     agent {
         label 'master'
@@ -537,6 +546,39 @@ ENDSSH
                 """
             }
         }
+
+
+        stage('Tests Execution') {
+            parallel {
+                stage('Test: Upgrade from main repo') {
+                    steps {
+                        build job: 'pmm2-upgrade-tests', parameters: [
+                            string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no'),
+                            string(name: 'ENABLE_TESTING_REPO', value: 'no'),
+                            string(name: 'DOCKER_VERSION', value: '2.20.0'),
+                            string(name: 'CLIENT_VERSION', value: '2.20.0'),
+                            string(name: 'PMM_SERVER_LATEST', value: VERSION)
+                        ]
+                    }
+                }
+                stage('Test: Package testing with main repo') {
+                    steps {
+                        runPackageTests(VERSION, 'main')
+                    }
+                }
+                stage('Test: Package testing with tools-main repo') {
+                    steps {
+                        runPackageTests(VERSION, 'tools-main')
+                    }
+                }
+                stage('Test: Upgrade from pmm2-client-main repo') {
+                    steps {
+                        runPackageTests(VERSION, 'pmm2-client-main')
+                    }
+                }
+            }
+        }
+
     }
     post {
         always {
@@ -547,19 +589,6 @@ ENDSSH
             script {
                 def IMAGE = sh(returnStdout: true, script: "cat copy.list").trim()
             }
-            build job: 'package-testing', parameters: [
-                string(name: 'DOCKER_VERSION', value: SERVER_IMAGE),
-                string(name: 'CLIENT_VERSION', value: VERSION),
-                string(name: 'TESTS', value: 'pmm2-client'),
-                string(name: 'INSTALL_REPO', value: 'main')
-            ]
-            build job: 'pmm2-upgrade-tests', parameters: [
-                string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no'),
-                string(name: 'ENABLE_TESTING_REPO', value: 'no'),
-                string(name: 'DOCKER_VERSION', value: '2.20.0'),
-                string(name: 'TESTS', value: 'pmm2-client'),
-                string(name: 'INSTALL_REPO', value: 'main')
-            ]
             slackSend botUser: true,
                         channel: '#pmm-dev',
                         color: '#00FF00',
