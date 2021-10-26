@@ -550,7 +550,7 @@ ENDSSH
 
         stage('Tests Execution') {
             parallel {
-                stage('Test: Upgrade from main repo') {
+                stage('Test: Upgrade from 2.20.0 version') {
                     steps {
                         build job: 'pmm2-upgrade-tests', parameters: [
                             string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no'),
