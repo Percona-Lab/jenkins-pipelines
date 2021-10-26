@@ -302,6 +302,8 @@ pipeline {
                 docker exec pmm-server psql -Upmm-managed -c 'select error,data,created_at,updated_at from jobs ORDER BY updated_at DESC LIMIT 1000;' >> job_logs.txt || true
                 echo --- Job logs from pmm-server --- >> job_logs.txt
                 docker exec pmm-server psql -Upmm-managed -c 'select * from job_logs ORDER BY job_id LIMIT 1000;' >> job_logs.txt || true
+                echo --- pmm-managed logs from pmm-server --- >> pmm-managed-full.log
+                docker exec pmm-server cat /srv/logs/pmm-managed.log > pmm-managed-full.log || true
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
@@ -328,6 +330,7 @@ pipeline {
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'job_logs.txt'
+                    archiveArtifacts artifacts: 'pmm-managed-full.log'
                 } else {
                     junit env.PATH_TO_REPORT_RESULTS
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
@@ -335,6 +338,7 @@ pipeline {
                     archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'job_logs.txt'
+                    archiveArtifacts artifacts: 'pmm-managed-full.log'
                     archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
                     archiveArtifacts artifacts: 'tests/output/*.png'
                 }
