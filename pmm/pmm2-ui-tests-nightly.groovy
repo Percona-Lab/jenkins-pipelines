@@ -28,7 +28,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
-void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE) {
+void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -37,7 +37,16 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'QUERY_SOURCE', value: 'slowlog'),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1')
+        string(name: 'DAYS', value: '1'),
+        string(name: 'PXC_VERSION', value: PXC_VERSION),
+        string(name: 'PS_VERSION', value: PS_VERSION),
+        string(name: 'MS_VERSION', value: MS_VERSION),
+        string(name: 'PGSQL_VERSION', value: PGSQL_VERSION),
+        string(name: 'PDPGSQL_VERSION', value: PDPGSQL_VERSION),
+        string(name: 'MD_VERSION', value: MD_VERSION),
+        string(name: 'MO_VERSION', value: MO_VERSION),
+        string(name: 'MODB_VERSION', value: MODB_VERSION),
+        string(name: 'QUERY_SOURCE', value: QUERY_SOURCE)
     ]
     if ( NODE_TYPE == 'mysql-node' ) {
         env.VM_CLIENT_IP_MYSQL = stagingJob.buildVariables.IP
@@ -145,6 +154,42 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
+        choice(
+            choices: ['8.0','5.7'],
+            description: 'Percona XtraDB Cluster version',
+            name: 'PXC_VERSION')
+        choice(
+            choices: ['8.0', '5.7', '5.7.30', '5.6'],
+            description: "Percona Server for MySQL version",
+            name: 'PS_VERSION')
+        choice(
+            choices: ['8.0', '5.7', '5.6'],
+            description: 'MySQL Community Server version',
+            name: 'MS_VERSION')
+        choice(
+            choices: ['13', '12', '11', '10.8'],
+            description: "Which version of PostgreSQL",
+            name: 'PGSQL_VERSION')
+        choice(
+            choices: ['13.4', '12.8', '11.13'],
+            description: 'Percona Distribution for PostgreSQL',
+            name: 'PDPGSQL_VERSION')
+        choice(
+            choices: ['10.5', '10.4', '10.3', '10.2'],
+            description: "MariaDB Server version",
+            name: 'MD_VERSION')
+        choice(
+            choices: ['4.4', '4.2', '4.0', '3.6'],
+            description: "Percona Server for MongoDB version",
+            name: 'MO_VERSION')
+        choice(
+            choices: ['4.4', '4.2', '4.0', '5.0.2'],
+            description: "Official MongoDB version from MongoDB Inc",
+            name: 'MODB_VERSION')
+        choice(
+            choices: ['perfschema', 'slowlog'],
+            description: "Query Source for Monitoring",
+            name: 'QUERY_SOURCE')
     }
     options {
         skipDefaultCheckout()
@@ -198,17 +243,17 @@ pipeline {
             parallel {
                 stage('Start Client Instance - ps-replication') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2 --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP, 'mysql-node')
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2 --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP, 'mysql-node', PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
                     }
                 }
                 stage('Start Client Instance - ms/md/pxc') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=md,1 --addclient=pxc,3 --with-proxysql --pmm2', 'yes', env.VM_IP, 'pxc-node')
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=md,1 --addclient=pxc,3 --with-proxysql --pmm2', 'yes', env.VM_IP, 'pxc-node', PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
                     }
                 }
                 stage('Start Client Instance - mongo/postgresql') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pdpgsql,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --pmm2', 'yes', env.VM_IP, 'mongo-postgres-node')
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pdpgsql,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --pmm2', 'yes', env.VM_IP, 'mongo-postgres-node', PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
                     }
                 }
             }
