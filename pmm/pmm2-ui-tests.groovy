@@ -302,7 +302,7 @@ pipeline {
                 docker exec pmm-server psql -Upmm-managed -c 'select error,data,created_at,updated_at from jobs ORDER BY updated_at DESC LIMIT 1000;' >> job_logs.txt || true
                 echo --- Job logs from pmm-server --- >> job_logs.txt
                 docker exec pmm-server psql -Upmm-managed -c 'select * from job_logs ORDER BY job_id LIMIT 1000;' >> job_logs.txt || true
-                echo --- Job logs from pmm-server --- >> pmm-managed-full.log
+                echo --- pmm-managed logs from pmm-server --- >> pmm-managed-full.log
                 docker exec -it pmm-server cat /srv/logs/pmm-managed.log > pmm-managed-full.log || true
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
