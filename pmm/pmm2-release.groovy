@@ -195,7 +195,7 @@ ENDSSH
                             ls /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64 \
                             > repo.list
                         cat rpms.list \
-                            | grep -v 'pmm2-client' | grep -v 'victoriametrics' \
+                            | grep -v 'pmm2-client' \
                             | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
                             | xargs -n 1 -I {} grep "^{}.rpm" repo.list \
                             | sort \
@@ -547,7 +547,27 @@ ENDSSH
             script {
                 def IMAGE = sh(returnStdout: true, script: "cat copy.list").trim()
             }
-
+            build job: 'package-testing', parameters: [
+                string(name: 'DOCKER_VERSION', value: SERVER_IMAGE),
+                string(name: 'CLIENT_VERSION', value: VERSION),
+                string(name: 'TESTS', value: 'pmm2-client'),
+                string(name: 'INSTALL_REPO', value: 'main')
+            ]
+            build job: 'pmm2-upgrade-tests', parameters: [
+                string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no'),
+                string(name: 'ENABLE_TESTING_REPO', value: 'no'),
+                string(name: 'DOCKER_VERSION', value: '2.20.0'),
+                string(name: 'TESTS', value: 'pmm2-client'),
+                string(name: 'INSTALL_REPO', value: 'main')
+            ]
+            slackSend botUser: true,
+                        channel: '#pmm-dev',
+                        color: '#00FF00',
+                        message: "PMM ${VERSION} was released!"
+            slackSend botUser: true,
+                      channel: '#releases',
+                      color: '#00FF00',
+                      message: "PMM ${VERSION} was released!"
         }
         failure {
             slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
