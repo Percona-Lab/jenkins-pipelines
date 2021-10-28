@@ -18,7 +18,7 @@ pipeline {
         string(name: 'mongo_tools', defaultValue: '100.4.1', description: 'Mongo tools tag (mongo_tools_tag) to build image from sources')
         string(name: 'srctarball', defaultValue: 'https://downloads.percona.com/downloads/percona-server-mongodb-LATEST/percona-server-mongodb-4.4.9-10/source/tarball/percona-server-mongodb-4.4.9-10.tar.gz', description: 'Tarball with sources to build image from ready tarballs')
         string(name: 'bintarball', defaultValue: 'https://downloads.percona.com/downloads/percona-server-mongodb-LATEST/percona-server-mongodb-4.4.9-10/binary/tarball/percona-server-mongodb-4.4.9-10-x86_64.glibc2.17.tar.gz', description: 'Tarball with binaries to build image from ready tarballs')
-        string(name: 'tag', defaultValue: '4.4.9', description: 'Docker image tag to push/pull to/from registry')
+        string(name: 'tag', defaultValue: '4.4.9', description: 'Docker image tag to push/pull to/from registry, should be defined manually')
         string(name: 'parallelexecutors', defaultValue: '1', description: 'Number of parallel executors')
         string(name: 'testsuites', defaultValue: 'core', description: 'Comma-separated list of testuites')
         string(name: 'listsuites', defaultValue: '', description: 'URL with list of testuites')
@@ -141,7 +141,7 @@ pipeline {
                                                     sh """ 
                                                         echo "start suite ${suiteName}"
                                                         docker run -v `pwd`/test_results:/work -w /work --rm -i ${image} bash -c 'rm -rf *'
-                                                        docker run -v `pwd`/test_results:/work --rm ${image} bash -c "${script} && python buildscripts/resmoke.py run --suite ${suite} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log" || true
+                                                        docker run -v `pwd`/test_results:/work --rm ${image} bash -c "${script} && python buildscripts/resmoke.py run --suite ${suite} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
                                                         docker run -v `pwd`/test_results:/work -w /work --rm  ${image} bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py && chmod -R 777 /work'
                                                         echo "finish suite ${suiteName}"
                                                     """
@@ -150,7 +150,7 @@ pipeline {
                                                     sh """
                                                         echo "start suite ${suiteName}" 
                                                         docker run -v `pwd`/test_results:/work -w /work --rm -i ${image} bash -c 'rm -rf *'
-                                                        docker run -v `pwd`/test_results:/work --rm ${image} bash -c "python buildscripts/resmoke.py run --suite $suite --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log" || true
+                                                        docker run -v `pwd`/test_results:/work --rm ${image} bash -c "python buildscripts/resmoke.py run --suite $suite --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
                                                         docker run -v `pwd`/test_results:/work -w /work --rm  ${image} bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py && chmod -R 777 /work'
                                                         echo "finish suite ${suiteName}"
                                                     """
