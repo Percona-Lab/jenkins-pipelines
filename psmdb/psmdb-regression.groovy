@@ -37,8 +37,10 @@ pipeline {
                 environment name: 'image', value: 'build'
             }
             steps {
+                git poll: false, branch: branch, url: 'https://github.com/percona/percona-server-mongodb.git'
                 withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                      sh """
+                         rm -rf *
                          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
                          if [ -f "/usr/bin/yum" ] ; then sudo yum install -y unzip ; else sudo apt-get update && apt-get -y install unzip ; fi
                          unzip -o awscliv2.zip
