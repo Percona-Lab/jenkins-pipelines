@@ -9,7 +9,7 @@ pipeline {
         specName = 'PMM2-AMI'
     }
     agent {
-        label 'awscli'
+        label 'docker-percona'
     }
     parameters {
         string(
@@ -89,6 +89,78 @@ pipeline {
         always {
             deleteDir()
         }
+        success {
+            script {
+                unstash 'IMAGE'
+                def IMAGE = sh(returnStdout: true, script: "cat IMAGE").trim()
+                runPmm2AmiUITests(IMAGE)
+                if ("${RELEASE_CANDIDATE}" == "yes")
+                {
+                    currentBuild.description = "Release Candidate Build"
+                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${specName}]: ${BUILD_URL} Release Candidate build finished - ${IMAGE}"
+                }
+                else
+                {
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
+                }
+            }
+        }
+        failure {
+            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
+        }
+    }
+}
+
+
+
+void runPmm2AmiUITests(String AMI_ID) {
+    stagingJob = build job: 'pmm2-ami-test', parameters: [
+        string(name: 'AMI_ID', value: AMI_ID),
+    ]
+}
+
+pipeline {
+    agent {
+        label 'docker-farm'
+    }
+    parameters {
+        string(
+            defaultValue: 'main',
+            description: 'Tag/Branch for pmm-server repository',
+            name: 'PMM_SERVER_BRANCH')
+        choice(
+            choices: ['no', 'yes'],
+            description: "Build Release Candidate?",
+            name: 'RELEASE_CANDIDATE')
+    }
+    triggers {
+        upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
+    }
+    stages {
+        stage('Prepare') {
+            steps {
+                git poll: true, branch: 'PMM-9082-migrate-to-new-farm', url: "https://github.com/percona/pmm-server.git"
+            }
+        }
+
+        stage('Build Image Release Candidate') {
+            when {
+                expression { env.RELEASE_CANDIDATE == "yes" }
+            }
+            steps {
+                sh 'make pmm2-ami-rc'
+            }
+        }
+        stage('Build Image Dev-Latest') {
+            when {
+                expression { env.RELEASE_CANDIDATE == "no" }
+            }
+            steps {
+                sh 'make pmm2-ami'
+            }
+        }
+    }
+    post {
         success {
             script {
                 unstash 'IMAGE'
