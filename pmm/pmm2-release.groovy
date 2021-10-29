@@ -3,23 +3,42 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+void runPackageTest(String PMM_VERSION, String REPO) {
+    build job: 'package-testing', parameters: [
+        string(name: 'DOCKER_VERSION', value: "percona/pmm-server:${PMM_VERSION}"),
+        string(name: 'CLIENT_VERSION', value: PMM_VERSION),
+        string(name: 'TESTS', value: 'pmm2-client'),
+        string(name: 'INSTALL_REPO', value: REPO)
+    ]
+}
+
+void runUpgradeTest(String FROM_VERSION, String CURRENT_VERSION) {
+    build job: 'pmm2-upgrade-tests', propagate: false, parameters: [
+        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no'),
+        string(name: 'ENABLE_TESTING_REPO', value: 'no'),
+        string(name: 'DOCKER_VERSION', value: FROM_VERSION),
+        string(name: 'CLIENT_VERSION', value: FROM_VERSION),
+        string(name: 'PMM_SERVER_LATEST', value: CURRENT_VERSION)
+    ]
+}
+
 pipeline {
-    environment {
-        specName = 'pmm2-release'
-    }
     agent {
         label 'master'
     }
+
+    environment {
+        specName = 'pmm2-release'
+        CLIENT_IMAGE = "perconalab/pmm-client:${VERSION}-rc"
+        SERVER_IMAGE = "perconalab/pmm-server:${VERSION}-rc"
+        PATH_TO_CLIENT = "testing/pmm2-client-autobuilds/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT}"
+    }
+
     parameters {
-        choice(
-            // default choice should be testing, since we publish RC on testing Repo
-            choices: ['testing', 'experimental'],
-            description: 'publish pmm2-server packages from testing repository',
-            name: 'UPDATER_REPO')
         string(
-            defaultValue: 'perconalab/pmm-server:dev-latest',
-            description: 'pmm-server container version (image-name:version-tag)',
-            name: 'DOCKER_VERSION')
+            defaultValue: '2.0.0',
+            description: 'PMM2 Server version',
+            name: 'VERSION')
         string(
             defaultValue: '',
             description: 'OVA image filename',
@@ -29,21 +48,16 @@ pipeline {
             description: 'Amazon Machine Image (AMI) ID',
             name: 'AMI_ID')
         string(
-            defaultValue: 'perconalab/pmm-client:dev-latest',
-            description: 'pmm-client docker container version (image-name:version-tag)',
-            name: 'DOCKER_CLIENT_VERSION')
-        string(
-            defaultValue: '2.0.0',
-            description: 'PMM2 Server version',
-            name: 'VERSION')
-        string(
-            defaultValue: ''
-            description: 'Path '
+            defaultValue: '',
+            description: 'Path to client packages in testing repo. Example: 12aec0c9/3052',
             name: 'PATH_TO_CLIENT')
     }
     stages {
         stage('Push PRM client to public repository') {
             steps {
+                script {
+                    currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>PATH_TO_CLIENT: ${PATH_TO_CLIENT}"
+                }
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
@@ -78,7 +92,7 @@ pipeline {
                                             if [ -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc ]; then
                                                 rm -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc
                                             fi
-                                            gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml
+                                            gpg --detach-sign --armor --passphrase $SIGN_PASSWORD /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml
                                         done
                                     fi
 
@@ -86,7 +100,7 @@ pipeline {
                                     pushd binary
                                     for rhel in \${RHVERS}; do
                                         mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS
-                                        for arch in $(ls -1 redhat/\${rhel}); do
+                                        for arch in \$(ls -1 redhat/\${rhel}); do
                                             mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}
                                             cp -av redhat/\${rhel}/\${arch}/*.rpm /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
                                             createrepo --update /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
@@ -159,13 +173,13 @@ ENDSSH
                                     #######################################
                                     # binary pushing                      #
                                     #######################################
-                                    cd /srv/UPLOAD/${PATH_TO_CLIENT}/binary/debian
+                                    cd /srv/UPLOAD/$PATH_TO_CLIENT/binary/debian
 
                                     for _codename in \${CODENAMES}; do
                                         pushd \${_codename}
-                                            DEBS=$(find . -type f -name '*.*deb' )
+                                            DEBS=\$(find . -type f -name '*.*deb' )
                                             for _deb in \${DEBS}; do
-                                                repopush --gpg-pass=${SIGN_PASSWORD} --package=\${_deb} --repo-path=\${REPOPATH} --component=main --codename=\${_codename} --verbose
+                                                repopush --gpg-pass=$SIGN_PASSWORD --package=\${_deb} --repo-path=\${REPOPATH} --component=main --codename=\${_codename} --verbose
                                             done
                                         popd
                                     done
@@ -186,7 +200,7 @@ ENDSSH
             steps {
                 installDocker()
                 slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
-                sh "sg docker -c 'docker run ${DOCKER_VERSION} /usr/bin/rpm -qa' > rpms.list"
+                sh "sg docker -c 'docker run ${SERVER_IMAGE} /usr/bin/rpm -qa' > rpms.list"
                 stash includes: 'rpms.list', name: 'rpms'
             }
         }
@@ -197,7 +211,7 @@ ENDSSH
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            ls /srv/repo-copy/pmm2-components/yum/${UPDATER_REPO}/7/RPMS/x86_64 \
+                            ls /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64 \
                             > repo.list
                         cat rpms.list \
                             | grep -v 'pmm2-client' \
@@ -218,7 +232,7 @@ ENDSSH
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         cat copy.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            "cat - | xargs -I{} cp -v /srv/repo-copy/pmm2-components/yum/${UPDATER_REPO}/7/RPMS/x86_64/{} /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/{}"
+                            "cat - | xargs -I{} cp -v /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64/{} /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/{}"
                     '''
                 }
             }
@@ -325,20 +339,20 @@ ENDSSH
                     sg docker -c "
                         set -ex
                         # push pmm-server
-                        docker pull \${DOCKER_VERSION}
-                        docker tag \${DOCKER_VERSION} percona/pmm-server:latest
+                        docker pull \${SERVER_IMAGE}
+                        docker tag \${SERVER_IMAGE} percona/pmm-server:latest
                         docker push percona/pmm-server:latest
 
-                        docker tag \${DOCKER_VERSION} percona/pmm-server:\${TOP_VER}
-                        docker tag \${DOCKER_VERSION} percona/pmm-server:\${DOCKER_MID}
-                        docker tag \${DOCKER_VERSION} percona/pmm-server:\${VERSION}
+                        docker tag \${SERVER_IMAGE} percona/pmm-server:\${TOP_VER}
+                        docker tag \${SERVER_IMAGE} percona/pmm-server:\${DOCKER_MID}
+                        docker tag \${SERVER_IMAGE} percona/pmm-server:\${VERSION}
                         docker push percona/pmm-server:\${TOP_VER}
                         docker push percona/pmm-server:\${DOCKER_MID}
                         docker push percona/pmm-server:\${VERSION}
 
-                        docker tag \${DOCKER_VERSION} perconalab/pmm-server:\${TOP_VER}
-                        docker tag \${DOCKER_VERSION} perconalab/pmm-server:\${DOCKER_MID}
-                        docker tag \${DOCKER_VERSION} perconalab/pmm-server:\${VERSION}
+                        docker tag \${SERVER_IMAGE} perconalab/pmm-server:\${TOP_VER}
+                        docker tag \${SERVER_IMAGE} perconalab/pmm-server:\${DOCKER_MID}
+                        docker tag \${SERVER_IMAGE} perconalab/pmm-server:\${VERSION}
                         docker push perconalab/pmm-server:\${TOP_VER}
                         docker push perconalab/pmm-server:\${DOCKER_MID}
                         docker push perconalab/pmm-server:\${VERSION}
@@ -346,20 +360,20 @@ ENDSSH
                         docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
 
                         # push pmm-client
-                        docker pull \${DOCKER_CLIENT_VERSION}
-                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:latest
+                        docker pull \${CLIENT_IMAGE}
+                        docker tag \${CLIENT_IMAGE} percona/pmm-client:latest
                         docker push percona/pmm-client:latest
 
-                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${TOP_VER}
-                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${DOCKER_MID}
-                        docker tag \${DOCKER_CLIENT_VERSION} percona/pmm-client:\${VERSION}
+                        docker tag \${CLIENT_IMAGE} percona/pmm-client:\${TOP_VER}
+                        docker tag \${CLIENT_IMAGE} percona/pmm-client:\${DOCKER_MID}
+                        docker tag \${CLIENT_IMAGE} percona/pmm-client:\${VERSION}
                         docker push percona/pmm-client:\${TOP_VER}
                         docker push percona/pmm-client:\${DOCKER_MID}
                         docker push percona/pmm-client:\${VERSION}
 
-                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${TOP_VER}
-                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${DOCKER_MID}
-                        docker tag \${DOCKER_CLIENT_VERSION} perconalab/pmm-client:\${VERSION}
+                        docker tag \${CLIENT_IMAGE} perconalab/pmm-client:\${TOP_VER}
+                        docker tag \${CLIENT_IMAGE} perconalab/pmm-client:\${DOCKER_MID}
+                        docker tag \${CLIENT_IMAGE} perconalab/pmm-client:\${VERSION}
                         docker push perconalab/pmm-client:\${TOP_VER}
                         docker push perconalab/pmm-client:\${DOCKER_MID}
                         docker push perconalab/pmm-client:\${VERSION}
@@ -542,6 +556,43 @@ ENDSSH
                 """
             }
         }
+
+
+        stage('Tests Execution') {
+            parallel {
+                stage('Test: Upgrade from 2.22.0 version') {
+                    steps {
+                        runUpgradeTest('2.22.0', VERSION)
+                    }
+                }
+                stage('Test: Upgrade from 2.21.0 version') {
+                    steps {
+                        runUpgradeTest('2.21.0', VERSION)
+                    }
+                }
+                stage('Test: Upgrade from 2.20.0 version') {
+                    steps {
+                        runUpgradeTest('2.20.0', VERSION)
+                    }
+                }
+                stage('Test: Package testing with main repo') {
+                    steps {
+                        runPackageTest(VERSION, 'main')
+                    }
+                }
+                stage('Test: Package testing with tools-main repo') {
+                    steps {
+                        runPackageTest(VERSION, 'tools-main')
+                    }
+                }
+                stage('Test: Upgrade from pmm2-client-main repo') {
+                    steps {
+                        runPackageTest(VERSION, 'pmm2-client-main')
+                    }
+                }
+            }
+        }
+
     }
     post {
         always {
@@ -551,8 +602,15 @@ ENDSSH
             unstash 'copy'
             script {
                 def IMAGE = sh(returnStdout: true, script: "cat copy.list").trim()
-                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
             }
+            slackSend botUser: true,
+                        channel: '#pmm-dev',
+                        color: '#00FF00',
+                        message: "PMM ${VERSION} was released!"
+            slackSend botUser: true,
+                      channel: '#releases',
+                      color: '#00FF00',
+                      message: "PMM ${VERSION} was released!"
         }
         failure {
             slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
