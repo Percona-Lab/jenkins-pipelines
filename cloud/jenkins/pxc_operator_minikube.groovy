@@ -107,6 +107,17 @@ void runTest(String TEST_NAME) {
 
     echo "The $TEST_NAME test was finished!"
 }
+
+void conditionalRunTest(String TEST_NAME) {
+    if ( TEST_NAME == 'default-cr' ) {
+        if ( params.GIT_BRANCH.contains('release-') ) {
+            runTest(TEST_NAME)
+        }
+        return 0
+    }
+    runTest(TEST_NAME)
+}
+
 void installRpms() {
     sh '''
         cat <<EOF > /tmp/kubernetes.repo
@@ -263,6 +274,7 @@ pipeline {
                     }
 
                     installRpms()
+                    conditionalRunTest('default-cr')
                     runTest('affinity')
                     runTest('auto-tuning')
                     runTest('limits')
