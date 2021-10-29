@@ -171,11 +171,11 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['13.4', '12.8', '11.13'],
+            choices: ['14.0', '13.4', '12.8', '11.13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
-            choices: ['10.5', '10.4', '10.3', '10.2'],
+            choices: ['10.6', '10.5', '10.4', '10.3', '10.2'],
             description: "MariaDB Server version",
             name: 'MD_VERSION')
         choice(
@@ -187,7 +187,7 @@ pipeline {
             description: "Official MongoDB version from MongoDB Inc",
             name: 'MODB_VERSION')
         choice(
-            choices: ['perfschema', 'slowlog'],
+            choices: ['slowlog', 'perfschema'],
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
     }
