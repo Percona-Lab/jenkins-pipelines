@@ -18,7 +18,7 @@ pipeline {
             name: 'PROXYSQL_PACKAGE_REPO',
             trim: true)
         string(
-            defaultValue: 'v2',
+            defaultValue: 'v2.1',
             description: 'Tag/Branch for ProxySQL package repository',
             name: 'PROXYSQL_PACKAGE_BRANCH',
             trim: true)

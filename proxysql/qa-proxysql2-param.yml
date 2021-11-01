@@ -29,7 +29,7 @@
         description: URL to ProxySQL pacakge repository
     - string:
         name: PROXYSQL_PACKAGE_BRANCH
-        default: v2
+        default: v2.1
         description: Tag/Branch for ProxySQL pacakge repository
     - string:
         name: PXC57_REPO
