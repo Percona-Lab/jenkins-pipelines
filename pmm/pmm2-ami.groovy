@@ -60,17 +60,17 @@ pipeline {
                 if ("${RELEASE_CANDIDATE}" == "yes")
                 {
                     currentBuild.description = "Release Candidate Build: ${AMI_ID}"
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${specName}]: ${BUILD_URL} Release Candidate build finished - ${AMI_ID}"
+                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${AMI_ID}]: ${BUILD_URL} Release Candidate build finished - ${AMI_ID}"
                 }
                 else
                 {
                     currentBuild.description = AMI_ID
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - ${AMI_ID}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${AMI_ID}]: build finished - ${AMI_ID}"
                 }
             }
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
+            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${AMI_ID}]: build failed"
         }
     }
 }
