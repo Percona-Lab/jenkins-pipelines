@@ -26,7 +26,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git poll: true, branch: 'PMM-9082-migrate-to-new-farm', url: "https://github.com/percona/pmm-server.git"
+                git poll: true, branch: 'main', url: "https://github.com/percona/pmm-server.git"
             }
         }
 
