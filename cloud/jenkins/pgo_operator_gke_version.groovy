@@ -102,6 +102,9 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                         echo Skip $TEST_NAME test
                     else
                         cd ./source
+                        if [ -n "${PG_VERSION}" ]; then
+                            export PG_VER=${PG_VERSION}
+                        fi
                         if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
                             export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
                         else
@@ -205,6 +208,10 @@ pipeline {
             defaultValue: '1.19',
             description: 'GKE version',
             name: 'GKE_VERSION')
+        string(
+            defaultValue: '',
+            description: 'PG version',
+            name: 'PG_VERSION')
         choice(
             choices: 'NO\nYES',
             description: 'GKE alpha/stable',
