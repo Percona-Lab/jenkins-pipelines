@@ -205,7 +205,7 @@ pipeline {
                 deleteReleaseBranches(env.SUBMODULES_GIT_BRANCH)
             }
         }
-        stage('Check if Release Branch Exist') {
+        stage('Check if Release Branch Exists') {
             steps {
                 deleteDir()
                 script {
