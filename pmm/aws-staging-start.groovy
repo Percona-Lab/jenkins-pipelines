@@ -39,8 +39,8 @@ pipeline {
             name: 'ENABLE_EXPERIMENTAL_REPO')
         choice(
             choices: ['no', 'yes'],
-            description: 'Enable Push Mode, if you are using this instance as Client Node',
-            name: 'ENABLE_PUSH_MODE')
+            description: 'Enable Pull Mode, if you are using this instance as Client Node',
+            name: 'ENABLE_PULL_MODE')
         choice(
             choices: '1\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
@@ -351,7 +351,7 @@ pipeline {
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
-                    setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PUSH_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging')
+                    setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging')
                     sh """
                         set -o errexit
                         set -o xtrace
