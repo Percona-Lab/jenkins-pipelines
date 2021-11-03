@@ -188,7 +188,6 @@ pipeline {
                         url: 'git@github.com:Percona-Lab/pmm-submodules'
                     env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
                     env.RELEASE_BRANCH = 'pmm-' + VERSION
-                    currentBuild.description = "$VERSION"
                 }
             }
         }
@@ -201,7 +200,10 @@ pipeline {
                     credentialsId: 'GitHub SSH Key',
                     poll: false,
                     url: 'git@github.com:Percona-Lab/pmm-submodules'
-                env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+                script {
+                    env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+                    env.RELEASE_BRANCH = 'pmm-' + VERSION
+                }
                 deleteReleaseBranches(env.SUBMODULES_GIT_BRANCH)
             }
         }
@@ -209,6 +211,7 @@ pipeline {
             steps {
                 deleteDir()
                 script {
+                    currentBuild.description = "$VERSION"
                     env.EXIST = sh (
                         script: 'git ls-remote --heads https://github.com/Percona-Lab/pmm-submodules pmm-\${VERSION} | wc -l',
                         returnStdout: true
