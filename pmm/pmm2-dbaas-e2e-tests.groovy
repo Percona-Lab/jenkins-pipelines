@@ -153,7 +153,7 @@ pipeline {
                         expression { env.OVF_TEST == "no" }
                     }
                     steps {
-                        runClusterStaging('master')
+                        runClusterStaging('main')
                     }
                 }
             }
@@ -201,7 +201,7 @@ pipeline {
         }
         stage('Run UI Tests Docker') {
             options {
-                timeout(time: 90, unit: "MINUTES")
+                timeout(time: 120, unit: "MINUTES")
             }
             when {
                 expression { env.OVF_TEST == "no" }

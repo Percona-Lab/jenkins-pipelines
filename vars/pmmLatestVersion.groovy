@@ -1,3 +1,3 @@
 def call() {
-  return '2.23.0'
+  return '2.24.0'
 }

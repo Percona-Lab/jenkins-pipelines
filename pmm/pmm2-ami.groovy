@@ -4,12 +4,11 @@ void runPmm2AmiUITests(String AMI_ID) {
     ]
 }
 
+String AMI_ID = ''
+
 pipeline {
-    environment {
-        specName = 'PMM2-AMI'
-    }
     agent {
-        label 'awscli'
+        label 'docker-farm'
     }
     parameters {
         string(
@@ -21,23 +20,13 @@ pipeline {
             description: "Build Release Candidate?",
             name: 'RELEASE_CANDIDATE')
     }
-    options {
-        skipDefaultCheckout()
-        disableConcurrentBuilds()
-    }
     triggers {
         upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
-
     stages {
         stage('Prepare') {
             steps {
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
-                git poll: true, branch: PMM_SERVER_BRANCH, url: "https://github.com/percona/pmm-server.git"
-                sh """
-                    make clean
-                    make deps
-                """
+                git poll: true, branch: 'main', url: "https://github.com/percona/pmm-server.git"
             }
         }
 
@@ -46,20 +35,10 @@ pipeline {
                 expression { env.RELEASE_CANDIDATE == "yes" }
             }
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        set -o pipefail
-                        ~/bin/packer build \
-                        -var 'pmm_client_repos=original testing' \
-                        -var 'pmm_client_repo_name=percona-testing-x86_64' \
-                        -var 'pmm2_server_repo=testing' \
-                        -only amazon-ebs -color=false packer/pmm2.json \
-                            | tee build.log
-                    """
+                sh 'make pmm2-ami-rc'
+                script {
+                    AMI_ID = sh(script: 'jq -r \'.builds[-1].artifact_id\' manifest.json | cut -d ":" -f2', returnStdout: true)
                 }
-                sh 'tail build.log | grep us-east-1 | cut -d " " -f 2 > IMAGE'
-                stash includes: 'IMAGE', name: 'IMAGE'
-                archiveArtifacts 'IMAGE'
             }
         }
         stage('Build Image Dev-Latest') {
@@ -67,46 +46,31 @@ pipeline {
                 expression { env.RELEASE_CANDIDATE == "no" }
             }
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        set -o pipefail
-                        ~/bin/packer build \
-                        -var 'pmm_client_repos=original experimental' \
-                        -var 'pmm_client_repo_name=percona-experimental-x86_64' \
-                        -var 'pmm2_server_repo=experimental' \
-                        -only amazon-ebs -color=false packer/pmm2.json \
-                            | tee build.log
-                    """
+                sh 'make pmm2-ami'
+                script {
+                    AMI_ID = sh(script: 'jq -r \'.builds[-1].artifact_id\' manifest.json | cut -d ":" -f2', returnStdout: true)
                 }
-                sh 'tail build.log | grep us-east-1 | cut -d " " -f 2 > IMAGE'
-                stash includes: 'IMAGE', name: 'IMAGE'
-                archiveArtifacts 'IMAGE'
             }
         }
     }
-
     post {
-        always {
-            deleteDir()
-        }
         success {
             script {
-                unstash 'IMAGE'
-                def IMAGE = sh(returnStdout: true, script: "cat IMAGE").trim()
-                runPmm2AmiUITests(IMAGE)
+                runPmm2AmiUITests(AMI_ID)
                 if ("${RELEASE_CANDIDATE}" == "yes")
                 {
-                    currentBuild.description = "Release Candidate Build"
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${specName}]: ${BUILD_URL} Release Candidate build finished - ${IMAGE}"
+                    currentBuild.description = "Release Candidate Build: ${AMI_ID}"
+                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${AMI_ID}]: ${BUILD_URL} Release Candidate build finished - ${AMI_ID}"
                 }
                 else
                 {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - ${IMAGE}"
+                    currentBuild.description = AMI_ID
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${AMI_ID}]: build finished - ${AMI_ID}"
                 }
             }
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
+            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${AMI_ID}]: build failed"
         }
     }
 }

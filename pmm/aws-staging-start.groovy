@@ -39,8 +39,8 @@ pipeline {
             name: 'ENABLE_EXPERIMENTAL_REPO')
         choice(
             choices: ['no', 'yes'],
-            description: 'Enable Push Mode, if you are using this instance as Client Node',
-            name: 'ENABLE_PUSH_MODE')
+            description: 'Enable Pull Mode, if you are using this instance as Client Node',
+            name: 'ENABLE_PULL_MODE')
         choice(
             choices: '1\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
@@ -62,15 +62,15 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['13.4', '12.8', '11.13'],
+            choices: ['14.0', '13.4', '13.2', '13.1', '12.8', '11.13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
-            choices: ['10.5', '10.4', '10.3', '10.2'],
+            choices: ['10.6', '10.5', '10.4', '10.3', '10.2'],
             description: "MariaDB Server version",
             name: 'MD_VERSION')
         choice(
-            choices: ['4.2', '4.4', '4.0', '3.6'],
+            choices: ['4.4', '4.2', '4.0', '3.6'],
             description: "Percona Server for MongoDB version",
             name: 'MO_VERSION')
         choice(
@@ -186,6 +186,7 @@ pipeline {
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'aws-jenkins')
                     DumbSlave node = new DumbSlave(env.VM_NAME, "spot instance job", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
 
+                    currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME}"
                     Jenkins.instance.addNode(node)
                 }
                 node(env.VM_NAME){
@@ -351,7 +352,7 @@ pipeline {
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
-                    setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PUSH_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging')
+                    setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging')
                     sh """
                         set -o errexit
                         set -o xtrace

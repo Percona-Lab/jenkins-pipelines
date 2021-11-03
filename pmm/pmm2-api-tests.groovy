@@ -93,8 +93,8 @@ pipeline {
                         -v \${PWD}/testdata/checks:/srv/checks \
                         \${DOCKER_VERSION}
 
-                        cd api-tests
                         docker build -t pmm-api-tests .
+                        cd api-tests
                         docker-compose up test_db
                         MYSQL_IMAGE=\${MYSQL_IMAGE} docker-compose up -d mysql
                         MONGO_IMAGE=\${MONGO_IMAGE} docker-compose up -d mongo
