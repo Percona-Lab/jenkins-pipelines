@@ -210,6 +210,7 @@ pipeline {
                     env.IP  = sh(returnStdout: true, script: "cat IP_PUBLIC").trim()
                     env.INSTANCE_ID  = sh(returnStdout: true, script: "cat INSTANCE_ID").trim()
                     env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
+                    currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME}"
                 }
                 archiveArtifacts 'IP'
                 archiveArtifacts 'INSTANCE_ID'
