@@ -10,7 +10,7 @@ def call(includeAMI=false) {
     '2.21.0': 'ami-0605d9dbdc9d6a233',
     '2.22.0': 'ami-0fb9ae57bc30787cd',
     '2.23.0': 'ami-012c6702ff13e97d0',
-    '2.24.0': ''
+    '2.24.0': 'ami-08cc000ab4a98ee07'
   ]
   if (includeAMI) {
     return versions
