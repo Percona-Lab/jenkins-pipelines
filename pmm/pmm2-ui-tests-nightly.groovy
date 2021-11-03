@@ -28,7 +28,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
-void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE) {
+void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -36,6 +36,7 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
         string(name: 'QUERY_SOURCE', value: 'slowlog'),
         string(name: 'SERVER_IP', value: SERVER_IP),
+        string(name: 'ENABLE_PULL_MODE', value: ENABLE_PULL_MODE),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
         string(name: 'PXC_VERSION', value: PXC_VERSION),
@@ -146,6 +147,10 @@ pipeline {
             defaultValue: '',
             description: 'AMI Instance ID',
             name: 'AMI_INSTANCE_ID')
+        choice(
+            choices: ['no', 'yes'],
+            description: 'Enable Pull Mode, if you are using this instance as Client Node',
+            name: 'ENABLE_PULL_MODE')
         string (
             defaultValue: '',
             description: 'Value for Server Public IP, to use this instance just as client',
@@ -243,17 +248,17 @@ pipeline {
             parallel {
                 stage('Start Client Instance - ps-replication') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2 --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP, 'mysql-node', PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2 --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
                     }
                 }
                 stage('Start Client Instance - ms/md/pxc') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=md,1 --addclient=pxc,3 --with-proxysql --pmm2', 'yes', env.VM_IP, 'pxc-node', PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=md,1 --addclient=pxc,3 --with-proxysql --pmm2', 'yes', env.VM_IP, 'pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
                     }
                 }
                 stage('Start Client Instance - mongo/postgresql') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pdpgsql,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --pmm2', 'yes', env.VM_IP, 'mongo-postgres-node', PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pdpgsql,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --pmm2', 'yes', env.VM_IP, 'mongo-postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
                     }
                 }
             }
