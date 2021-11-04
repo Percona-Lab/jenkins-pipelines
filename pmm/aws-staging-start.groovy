@@ -81,6 +81,12 @@ pipeline {
             choices: ['perfschema', 'slowlog'],
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
+        string(
+            defaultValue: '',
+            description: '''
+            Docker image for version service, needs if you want to run your own version service.
+            ''',
+            name: 'VERSION_SERVICE_IMAGE')
         text(
             defaultValue: '',
             description: '''
@@ -160,6 +166,7 @@ pipeline {
                         QUERY_SOURCE:   ${QUERY_SOURCE}
                         CLIENTS:        ${CLIENTS}
                         OWNER:          ${OWNER}
+                        VERSION_SERVICE: ${VERSION_SERVICE_IMAGE}
                     """
                     if ("${NOTIFY}" == "true") {
                         slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
@@ -261,6 +268,10 @@ pipeline {
                                             --name \${VM_NAME}-data \
                                             ${DOCKER_VERSION} /bin/true
 
+                                        if [ -n "$VERSION_SERVICE_IMAGE" ]; then
+                                            DOCKER_ENV_VARIABLE = "${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=http://\${VM_NAME}-version-service/versions/v1"
+                                        fi
+
                                         docker run -d \
                                             -p 80:80 \
                                             -p 443:443 \
@@ -294,6 +305,31 @@ pipeline {
                                     fi
                                 """
                             }
+                        }
+                    }
+                }
+            }
+        }
+        stage('Run version service') {
+            when {
+                expression { env.VERSION_SERVICE_IMAGE != "" }
+            }
+            steps {
+                script {
+                    withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
+                        sh """
+                            export IP=\$(cat IP)
+                            export VM_NAME=\$(cat VM_NAME)
+                        """
+                        node(env.VM_NAME){
+                            sh """
+                                set -o errexit
+                                set -o xtrace
+                                docker run --name \${VM_NAME}-version-service --hostname=\${VM_NAME}-version-service -e SERVE_HTTP=true -e GW_PORT=80 ${VERSION_SERVICE_IMAGE}
+                                docker network create \${VM_NAME}-network
+                                docker connect \${VM_NAME}-network \${VM_NAME}-version-service
+                                docker connect \${VM_NAME}-network \${VM_NAME}-server
+                            """
                         }
                     }
                 }
