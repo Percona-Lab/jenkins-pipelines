@@ -149,9 +149,8 @@ pipeline {
             steps {
                 deleteDir()
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                setupNodejs()
                 sh '''
-                    curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
-                    sudo yum -y install nodejs
                     npm install tap-junit
                 '''
             }
