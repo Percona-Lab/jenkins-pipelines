@@ -14,7 +14,7 @@ pipeline {
     }
     environment {
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
-        DOCKER_TAG = sh(script: "echo ${GIT_BRANCH} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+        DOCKER_TAG = sh(script: "echo ${GIT_BRANCH} | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
     }
     options {
         skipDefaultCheckout()
@@ -46,11 +46,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
                         cd ./source/
-                        sg docker -c "
-                            docker login -u '${USER}' -p '${PASS}'
-                            RHEL=1 ./e2e-tests/build
-                            docker logout
-                        "
+                        DOCKER_PUSH=0 ./e2e-tests/build
                         sudo rm -rf ./build
                     '''
                 }
