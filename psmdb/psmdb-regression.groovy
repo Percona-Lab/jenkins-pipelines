@@ -24,6 +24,7 @@ pipeline {
         string(name: 'listsuites', defaultValue: '', description: 'URL with list of testuites')
         choice(name: 'instance', choices: ['docker','docker-32gb'], description: 'Ec2 instance type for running suites')
         string(name: 'paralleljobs', defaultValue: '2', description: 'Number of parallel jobs passed to resmoke.py')
+        booleanParam(name: 'unittests',defaultValue: false, description: 'Check if list of suites contains unittests')
     }
     options {
         withCredentials(moleculePbmJenkinsCreds())
@@ -112,7 +113,7 @@ pipeline {
                                         Collections.shuffle(Arrays.asList(suites))
                                         for (int j=0; j<suites.size(); j++) {
                                             def fullsuite = suites[j]
-                                            if ( !checklist.contains(fullsuite) && !fullsuite.startsWith(" ") ) {
+                                            if ( !checklist.contains(fullsuite) && !fullsuite.startsWith(" ") && !fullsuite.startsWith("unittests")) {
                                                 checklist.add(fullsuite)
                                                 def suiteArray = fullsuite.split('\\|',-1)
                                                 def suite = suiteArray[0]
@@ -152,6 +153,90 @@ pipeline {
                                                         docker run -v `pwd`/test_results:/work -w /work --rm -i ${image} bash -c 'rm -rf *'
                                                         docker run -v `pwd`/test_results:/work --rm ${image} bash -c "python buildscripts/resmoke.py run --suite $suite --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
                                                         docker run -v `pwd`/test_results:/work -w /work --rm  ${image} bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py && chmod -R 777 /work'
+                                                        echo "finish suite ${suiteName}"
+                                                    """
+                                                }
+                                                junit testResults: "test_results/junit.xml", keepLongStdio: true
+                                                sh """
+                                                    rm -rf test_results
+                                                """                                                
+                                            } 
+                                            else if ( !checklist.contains(fullsuite) && fullsuite.startsWith(" ") ) {
+                                                checklist.add(fullsuite)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (unittests) {
+                        runners["unittests"] = {
+                            node("docker-32gb") {
+                                stage ("node ${env.NODE_NAME}") {
+                                    sh """
+                                        echo -e '{\n  "experimental": true,\n  "ipv6": true,\n  "fixed-cidr-v6": "2001:db8:1::/64"\n}' | sudo tee /etc/docker/daemon.json
+                                        sudo systemctl restart docker
+                                    """
+                                    script {
+                                        def image = "public.ecr.aws/e7j3v3n0/psmdb-build:" + params.tag
+                                        sh """
+                                            docker pull ${image}
+                                            docker run -v `pwd`/build:/opt/percona-server-mongodb/build -i --rm ${image} bash -c 'buildscripts/scons.py CC=/usr/bin/gcc-8 CXX=/usr/bin/g++-8 --disable-warnings-as-errors --release --ssl --opt=size -j6 --use-sasl-client --wiredtiger --audit --inmemory --hotbackup CPPPATH=/usr/local/include LIBPATH="/usr/local/lib /usr/local/lib64" --install-action=symlink install-unittests'
+                                        """  
+                                        def suites = []
+                                        if ( params.listsuites != '') {
+                                            sh """
+                                               curl -o suites.txt "${params.listsuites}"
+                                            """
+                                            suites = readFile(file: 'suites.txt').split('\n')
+                                        }
+                                        else {
+                                            suites = "${params.testsuites}".split(',')
+                                        }
+                                        Collections.shuffle(Arrays.asList(suites))
+                                        for (int j=0; j<suites.size(); j++) {
+                                            def fullsuite = suites[j]
+                                            if ( !checklist.contains(fullsuite) && fullsuite.startsWith("unittests")) {
+                                                checklist.add(fullsuite)
+                                                def suiteArray = fullsuite.split('\\|',-1)
+                                                def suite = suiteArray[0]
+                                                def storage = ''
+                                                def script = ''
+                                                if ( suiteArray.size() >= 2 ) {
+                                                    storage = suiteArray[1]
+                                                } 
+                                                if ( suiteArray.size() >= 3 ) {
+                                                    script = suiteArray[2]
+                                                }
+                                                def suiteName = suite.split(' ')[0]
+                                                suite += " --continueOnFailure --shuffle"
+                                                if ( !suite.contains('--jobs') ) {
+                                                    suite += " --jobs=${params.paralleljobs}"
+                                                }
+                                                if ( storage == 'wiredTiger' ) {
+                                                    suite += " --storageEngine=wiredTiger --storageEngineCacheSizeGB=1 --excludeWithAnyTags=requires_mmapv1"
+                                                    suiteName += "-wiredTiger" 
+                                                }
+                                                if ( storage == 'inMemory' ) {
+                                                    suite += " --storageEngine=inMemory --storageEngineCacheSizeGB=4 --excludeWithAnyTags=requires_persistence,requires_journaling,requires_mmapv1,uses_transactions"
+                                                    suiteName +="-inMemory"
+                                                }
+                                                if ( script ) {
+                                                    sh """ 
+                                                        echo "start suite ${suiteName}"
+                                                        docker run -v `pwd`/test_results:/work -v `pwd`/build:/opt/percona-server-mongodb/build -w /work --rm -i ${image} bash -c 'rm -rf *'
+                                                        docker run -v `pwd`/test_results:/work -v `pwd`/build:/opt/percona-server-mongodb/build --rm ${image} bash -c "${script} && python buildscripts/resmoke.py run --suite ${suite} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
+                                                        docker run -v `pwd`/test_results:/work -v `pwd`/build:/opt/percona-server-mongodb/build -w /work --rm  ${image} bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py && chmod -R 777 /work'
+                                                        echo "finish suite ${suiteName}"
+                                                    """
+                                                }
+                                                else {
+                                                    sh """
+                                                        echo "start suite ${suiteName}" 
+                                                        docker run -v `pwd`/test_results:/work -v `pwd`/build:/opt/percona-server-mongodb/build -w /work --rm -i ${image} bash -c 'rm -rf *'
+                                                        docker run -v `pwd`/test_results:/work -v `pwd`/build:/opt/percona-server-mongodb/build --rm ${image} bash -c "python buildscripts/resmoke.py run --suite $suite --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
+                                                        docker run -v `pwd`/test_results:/work -v `pwd`/build:/opt/percona-server-mongodb/build -w /work --rm  ${image} bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py && chmod -R 777 /work'
                                                         echo "finish suite ${suiteName}"
                                                     """
                                                 }
