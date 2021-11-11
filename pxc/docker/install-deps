@@ -86,6 +86,7 @@ if [ -f /usr/bin/yum ]; then
     python3 sysbench perl-DBD-mysql \
     patchelf lsof automake bzip2 gnutls gnutls-devel patch lsof socat qpress perl-XML-Simple \
     stunnel \
+    cyrus-sasl-scram \
     "
 
     if [[ ${RHVER} -eq 8 ]]; then
@@ -198,6 +199,7 @@ if [ -f /usr/bin/apt-get ]; then
         python3 sysbench libdbd-mysql-perl \
         patchelf lynx librtmp-dev lsof socat qpress libncurses5 libtinfo5 libxml-simple-perl python3-sphinx \
         stunnel \
+        libkrb5-dev libsasl2-dev libsasl2-modules-gssapi-mit \
     "
     
     if [[ ${DIST} != 'focal' ]]; then
