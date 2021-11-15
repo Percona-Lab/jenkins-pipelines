@@ -50,7 +50,7 @@ def versionsList = ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '
 
 pipeline {
     agent {
-        label 'docker'
+        label 'docker-farm'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -139,16 +139,12 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                // clean up workspace and fetch pmm-ui-tests repository
-                deleteDir()
+                // fetch pmm-ui-tests repository
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                installDocker()
-                setupDockerCompose()
                 sh '''
-                    sudo yum -y install jq svn mysql
-                    docker-compose --version
+                    sudo yum -y install svn mysql
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
@@ -265,9 +261,7 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    setupNodejs()
                     sh """
-                        sudo yum install -y gettext
                         envsubst < env.list > env.generated.list
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
@@ -283,9 +277,7 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    setupNodejs()
                     sh """
-                        sudo yum install -y gettext
                         envsubst < env.list > env.generated.list
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
