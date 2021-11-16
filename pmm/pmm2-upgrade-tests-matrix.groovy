@@ -47,7 +47,7 @@ pipeline {
             description: 'Perform Docker way Upgrade using this option',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
             name: 'PMM_SERVER_TAG')
     }
