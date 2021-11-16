@@ -177,7 +177,7 @@ if [ -f /usr/bin/apt-get ]; then
     percona-release enable tools testing
 
     DIST=$(lsb_release -sc)
-    if [[ ${DIST} != 'focal' ]]; then
+    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' ]]; then
         echo "deb http://jenkins.percona.com/apt-repo/ ${DIST} main" > /etc/apt/sources.list.d/percona-dev.list
         wget -q -O - http://jenkins.percona.com/apt-repo/8507EFA5.pub | apt-key add -
         wget -q -O - http://jenkins.percona.com/apt-repo/CD2EFD2A.pub | apt-key add -
