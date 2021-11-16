@@ -202,7 +202,7 @@ if [ -f /usr/bin/apt-get ]; then
         libkrb5-dev libsasl2-dev libsasl2-modules-gssapi-mit \
     "
     
-    if [[ ${DIST} != 'focal' ]]; then
+    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' ]]; then
         PKGLIST+=" python-mysqldb"
     else
         PKGLIST+=" python3-mysqldb"
