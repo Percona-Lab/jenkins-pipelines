@@ -254,7 +254,11 @@ if [ -f /usr/bin/apt-get ]; then
 	pip3 install mysql-connector
     apt-get -y install build-essential devscripts
     # deps from spec files
-    apt-get -y install debhelper pkg-config cmake dh-systemd
+    if [[ ${DIST} != 'bullseye' ]]; then
+        apt-get -y install debhelper pkg-config cmake dh-systemd
+    else
+        apt-get -y install debhelper pkg-config cmake
+    fi
     # missing build deps
     apt-get -y install libssl-dev gawk lynx zlib1g-dev
     apt-get -y purge librtmp-dev || true
