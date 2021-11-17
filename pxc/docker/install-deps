@@ -191,7 +191,7 @@ if [ -f /usr/bin/apt-get ]; then
     PKGLIST=" \
         curl bison cmake make perl libssl-dev gcc g++ libaio-dev libldap2-dev libwrap0-dev gdb unzip gawk \
         libmecab-dev libncurses5-dev libreadline-dev libpam-dev zlib1g-dev libcurl4-openssl-dev build-essential \
-        libnuma-dev libjemalloc-dev libc6-dbg valgrind libjson-perl libevent-dev pkg-config dh-systemd \
+        libnuma-dev libjemalloc-dev libc6-dbg valgrind libjson-perl libevent-dev pkg-config \
         libmecab2 mecab mecab-ipadic git autoconf libgsasl7 libsasl2-dev libsasl2-modules devscripts \
         debconf debhelper fakeroot po-debconf psmisc ccache libtool sudo liblz4-dev liblz4-tool libedit-dev libssl-dev \
         tzdata check scons libreadline-dev libgcrypt-dev libev-dev zlib1g-dev libasio-dev ncurses-dev \
@@ -201,6 +201,10 @@ if [ -f /usr/bin/apt-get ]; then
         stunnel \
         libkrb5-dev libsasl2-dev libsasl2-modules-gssapi-mit \
     "
+
+    if [[ ${DIST} != 'bullseye' ]]; then
+        PKGLIST+=" dh-systemd"
+    fi
     
     if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' ]]; then
         PKGLIST+=" python-mysqldb"
