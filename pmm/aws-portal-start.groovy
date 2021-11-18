@@ -165,6 +165,12 @@ pipeline {
             steps {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
+                        sh """
+                        pwd
+
+                        echo \$IP
+                        echo \$VM_NAME
+                        """
                         node(env.VM_NAME){
                             git branch: GIT_BRANCH, credentialsId: 'GitHub SSH Key', url: 'git@github.com:percona-platform/infra.git'
                             sh """
