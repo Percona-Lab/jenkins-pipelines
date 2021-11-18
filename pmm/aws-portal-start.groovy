@@ -58,7 +58,16 @@ pipeline {
         OAUTH_CLIENT_SECRET=credentials('OAUTH_CLIENT_SECRET');
         OAUTH_PMM_CLIENT_ID=credentials('OAUTH_PMM_CLIENT_ID');
         OAUTH_PMM_CLIENT_SECRET=credentials('OAUTH_PMM_CLIENT_SECRET');
-        DOCKER_REGISTRY_PASSWORD=credentials('github-api-token');
+        DOCKER_REGISTRY_PASSWORD=credentials('DOCKER_REGISTRY_PASSWORD');
+        ORGD_SES_KEY=credentials('ORGD_SES_KEY');
+        ORGD_SES_SECRET=credentials('ORGD_SES_SECRET');
+        ORGD_SERVICENOW_PASSWORD=credentials('ORGD_SERVICENOW_PASSWORD');
+        OAUTH_ISSUER_URL="https://id-dev.percona.com/oauth2/aus15pi5rjdtfrcH51d7";
+        DOCKER_REGISTRY_USERNAME="percona-robot";
+        OKTA_URL_DEV="id-dev.percona.com";
+        OAUTH_SCOPES="percona";
+        MINIKUBE_MEM=16384;
+        MINIKUBE_CPU=8;
     }
 
     stages {
@@ -69,7 +78,7 @@ pipeline {
                     sh """
                         echo "\${BUILD_USER_EMAIL}" > OWNER_EMAIL
                         echo "\${BUILD_USER_EMAIL}" | awk -F '@' '{print \$1}' > OWNER_FULL
-                        echo "pmm-\$(cat OWNER_FULL)-\$(date -u '+%Y%m%d%H%M%S')-${BUILD_NUMBER}" \
+                        echo "portal-\$(cat OWNER_FULL)-\$(date -u '+%Y%m%d%H%M%S')-${BUILD_NUMBER}" \
                             > VM_NAME
                     """
                 }
@@ -77,23 +86,13 @@ pipeline {
                     def OWNER = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
-
-                    echo """
-                        INFRA_BRANCH:   ${GIT_BRANCH}
-                        AUTHED_TAG:     ${AUTHED_TAG}
-                        ORGD_TAG:       ${ORGD_TAG}
-                        TELEMETRYD_TAG: ${TELEMETRYD_TAG}
-                        CHECKED_TAG:    ${CHECKED_TAG}
-                        SAAS_UI_TAG:    ${SAAS_UI_TAG}
-                    """
                 }
-                sh 'printenv'
             }
         }
 
         stage('Run VM') {
             steps {
-                launchSpotInstance('m5.2xlarge', 'FAIR', 20)
+                launchSpotInstance('m5.2xlarge', '0.43', 20)
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) 'java -version; sudo yum install -y java-1.8.0-openjdk; sudo /usr/sbin/alternatives --set java /usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java; java -version;' ; do
@@ -113,7 +112,6 @@ pipeline {
                     Jenkins.instance.addNode(node)
                 }
                 node(env.VM_NAME){
-                    sh 'printenv'
                     sh """
                         set -o errexit
                         set -o xtrace
@@ -129,10 +127,7 @@ pipeline {
                         sudo systemctl start docker
 
                         # Install golang, conntrack, nss-tools and minisign
-                        sudo yum install golang -y
-                        sudo yum install conntrack -y
-                        sudo yum install nss-tools -y
-                        sudo yum install minisign -y
+                        sudo yum install golang conntrack nss-tools minisign -y
 
                         # Install mkcert
                         curl -sSL https://github.com/FiloSottile/mkcert/releases/download/v1.4.1/mkcert-v1.4.1-linux-amd64 > mkcert && chmod +x mkcert
@@ -146,6 +141,16 @@ pipeline {
                         curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube
                         sudo mv ./minikube /usr/local/bin
                         minikube version
+                        
+                        
+                        # Install direnv
+                        wget -O direnv https://github.com/direnv/direnv/releases/download/v2.6.0/direnv.linux-amd64
+                        chmod +x direnv
+                        sudo mv direnv /usr/local/bin/
+                        
+                        # direnv hook
+                        echo 'eval "\$(direnv hook bash)"' >> ~/.bashrc
+                        source ~/.bashrc
                     """
                 }
                 script {
@@ -160,44 +165,69 @@ pipeline {
             steps {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        sh """
-                        pwd
-
-                        echo \$IP
-                        echo \$VM_NAME
-                        """
                         node(env.VM_NAME){
-                            git branch: 'main', credentialsId: 'GitHub SSH Key', url: 'git@github.com:percona-platform/infra.git'
-                            sh 'printenv'
+                            git branch: GIT_BRANCH, credentialsId: 'GitHub SSH Key', url: 'git@github.com:percona-platform/infra.git'
                             sh """
                                 set -o errexit
                                 set -o xtrace
-
-                                # Setting minikube related env vars
-                                export AUTHED_TAG=${AUTHED_TAG}
-                                export ORGD_TAG=${ORGD_TAG}
-                                export TELEMETRYD_TAG=${TELEMETRYD_TAG}
-                                export CHECKED_TAG=${CHECKED_TAG}
-                                export SAAS_UI_TAG=${SAAS_UI_TAG}
-
-                                export DOCKER_REGISTRY_USERNAME=percona-robot
-                                export DOCKER_REGISTRY_PASSWORD=\$DOCKER_REGISTRY_PASSWORD
-
-                                export OKTA_TOKEN=\$OKTA_TOKEN
                                 
-                                export OAUTH_ISSUER_URL=https://id-dev.percona.com/oauth2/aus15pi5rjdtfrcH51d7
-                                export OAUTH_CLIENT_ID=\$OAUTH_CLIENT_ID
-                                export OAUTH_CLIENT_SECRET=\$OAUTH_CLIENT_SECRET
-                                export OAUTH_PMM_CLIENT_ID=\$OAUTH_PMM_CLIENT_ID
-                                export OAUTH_PMM_CLIENT_SECRET=\$OAUTH_PMM_CLIENT_SECRET
-                                export OAUTH_SCOPES=percona
-                                
+                                export PATH="/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin:/home/ec2-user/bin"
                                 # Configure minikube
                                 minikube delete --all --purge
                                 rm -rf ~/.minikube
-                                minikube config set cpus 2
-                                minikube config set memory 4096
+                                
+                                pushd k8s/platform-saas/local
+                                
+                                cat <<EOF > .envrc
+echo LOCAL MINIKUBE
+
+# Login into GitHub registry to pull private images (authed, checked, orgd and etc.)
+#
+export DOCKER_REGISTRY_USERNAME=$DOCKER_REGISTRY_USERNAME
+export DOCKER_REGISTRY_PASSWORD=$DOCKER_REGISTRY_PASSWORD
+
+
+# OKTA config
+#
+export OKTA_TOKEN=$OKTA_TOKEN
+export OKTA_URL_DEV=$OKTA_URL_DEV
+
+export OAUTH_ISSUER_URL=$OAUTH_ISSUER_URL
+export OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID
+export OAUTH_CLIENT_SECRET=$OAUTH_CLIENT_SECRET
+export OAUTH_SCOPES=$OAUTH_SCOPES
+
+
+# AWS SES credentials
+#
+export ORGD_SES_KEY=$ORGD_SES_KEY
+export ORGD_SES_SECRET=$ORGD_SES_SECRET
+
+
+# ServiceNow credentials
+#
+export ORGD_SERVICENOW_PASSWORD=$ORGD_SERVICENOW_PASSWORD
+
+
+# Control of docker image tags, which will be pulled during 'make env-up'
+#
+export AUTHED_TAG=$AUTHED_TAG
+export CHECKED_TAG=$CHECKED_TAG
+export ORGD_TAG=$ORGD_TAG
+export SAAS_UI_TAG=$SAAS_UI_TAG
+export TELEMETRYD_TAG=$TELEMETRYD_TAG
+
+export MINIKUBE_MEM=$MINIKUBE_MEM
+export MINIKUBE_CPU=$MINIKUBE_CPU
+EOF
+                            direnv allow
+                            make env-up
+                            sudo -E chown -R \$(stat --format="%U:%G" \${HOME}) /etc/hosts
+                            make tunnel-background
                             """
+                            script {
+                                env.MINIKUBE_IP = sh(returnStdout: true, script: "awk -F _ 'END{print}' /etc/hosts | cut -d' ' -f 1").trim()
+                            }
                         }
                     }
                 }
@@ -218,8 +248,14 @@ pipeline {
                     def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
+                    def SLACK_MESSAGE = """[${JOB_NAME}]: build finished - ${env.IP}. In order to access the instance you need:
+1. make sure that `/etc/hosts` file on your machine contains the following line
+```127.0.0.1 platform.localhost check.localhost pmm.localhost```
+2. execute this command in your terminal
+```sudo ssh -L :443:${env.MINIKUBE_IP}:443 -L :80:${env.MINIKUBE_IP}:80 ec2-user@${env.IP}```
+3. open https://platform.localhost URL in your browser"""
 
-                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${env.IP}"
+                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "${SLACK_MESSAGE}"
                 }
             }
         }
@@ -240,7 +276,6 @@ pipeline {
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
 
-                    // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER_FULL}"
                     slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
                 }
             }
