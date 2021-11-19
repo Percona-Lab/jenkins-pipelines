@@ -259,7 +259,10 @@ EOF
 ```127.0.0.1 platform.localhost check.localhost pmm.localhost```
 2. execute this command in your terminal
 ```sudo ssh -L :443:${env.MINIKUBE_IP}:443 -L :80:${env.MINIKUBE_IP}:80 ec2-user@${env.IP}```
-3. open https://platform.localhost URL in your browser"""
+3. open https://platform.localhost URL in your browser
+4. to allow accessing the unstance for another person please run this command in terminal
+```ssh ec2-user@${env.IP} 'echo "NEW_PERSON_SSH_KEY" >> ~/.ssh/authorized_keys'```
+*Note new user should also execute through 1-2 steps*"""
 
                     slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "${SLACK_MESSAGE}"
                 }
