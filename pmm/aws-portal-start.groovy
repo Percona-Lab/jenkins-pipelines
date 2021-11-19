@@ -16,7 +16,7 @@ pipeline {
     parameters {
         string(
             defaultValue: '',
-            description: 'public ssh key for "ec2-user" user, please set if you need ssh access',
+            description: 'public ssh key for "ec2-user" user for accessing portal',
             name: 'SSH_KEY')
         string(
             defaultValue: 'main',
