@@ -145,6 +145,8 @@ if [ -f /usr/bin/yum ]; then
     if [[ ${RHVER} -eq 8 ]]; then
         yum -y install python2 libtool
         update-alternatives --set python /usr/bin/python2
+#       this is workaround for https://jira.percona.com/browse/PXC-3816
+        pip3 install --upgrade docutils==0.17
     fi
 
     if [[ ${RHVER} -eq 6 ]]; then
