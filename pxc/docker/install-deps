@@ -145,14 +145,17 @@ if [ -f /usr/bin/yum ]; then
     if [[ ${RHVER} -eq 8 ]]; then
         yum -y install python2 libtool
         update-alternatives --set python /usr/bin/python2
-#       this is workaround for https://jira.percona.com/browse/PXC-3816
-        pip3 install --upgrade docutils==0.17
     fi
 
     if [[ ${RHVER} -eq 6 ]]; then
         yum -y install http://repo.okay.com.mx/centos/6/x86_64/release/okay-release-1-1.noarch.rpm || true
         yum -y upgrade automake autoconf
 	fi
+
+#   this is workaround for https://jira.percona.com/browse/PXC-3816
+    if [[ ${RHVER} -gt 6 ]]; then
+        pip3 install --upgrade docutils==0.17
+    fi
 	
 #   this is workaround for https://bugs.mysql.com/bug.php?id=95222 as soon as the issue is fixed we need to remove it 
     if [ -f '/anaconda-post.log' ]; then
