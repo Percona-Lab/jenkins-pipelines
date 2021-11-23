@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'docker'
+        label 'docker-farm'
     }
     parameters {
         string(
@@ -17,7 +17,7 @@ pipeline {
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
@@ -54,10 +54,15 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                // clean up workspace and fetch pmm-api-tests repository
-                deleteDir()
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-managed'
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                // fetch pmm-api-tests repository
+                git poll: false,
+                    branch: GIT_BRANCH,
+                    url: 'https://github.com/percona/pmm-managed'
+
+                slackSend botUser: true,
+                          channel: '#pmm-ci',
+                          color: '#FFFF00',
+                          message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
         stage('Checkout Commit') {
@@ -68,18 +73,15 @@ pipeline {
                 sh 'git checkout ' + env.GIT_COMMIT_HASH
             }
         }
-        stage('Setup') {
-            steps {
-                installDocker()
-                setupDockerCompose()
-            }
-        }
+
         stage('API Tests Setup')
         {
             steps{
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                 credentialsId: 'AMI/OVF',
+                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]
+                                 ) {
                     sh '''
-                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                         docker run -d \
                         -e ENABLE_ALERTING=1 \
                         -e PMM_DEBUG=1 \
@@ -118,7 +120,12 @@ pipeline {
         stage('Run API Test') {
             steps {
                 sh '''
-                    docker run -e PMM_SERVER_URL=\${PMM_URL} -e PMM_RUN_UPDATE_TEST=1 -e PMM_RUN_STT_TESTS=0 --name ${BUILD_TAG} --network host pmm-api-tests
+                    docker run -e PMM_SERVER_URL=\${PMM_URL} \
+                               -e PMM_RUN_UPDATE_TEST=1 \
+                               -e PMM_RUN_STT_TESTS=0 \
+                               --name ${BUILD_TAG} \
+                               --network host \
+                               pmm-api-tests
                 '''
             }
         }
@@ -127,26 +134,24 @@ pipeline {
         always {
             sh '''
                 docker cp ${BUILD_TAG}:/go/src/github.com/percona/pmm-managed/api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml || true
-                docker stop ${BUILD_TAG} || true
-                docker rm ${BUILD_TAG} || true
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-                cd api-tests
-                docker-compose down
-                docker rm -f $(sudo docker ps -a -q) || true
-                docker volume rm $(sudo docker volume ls -q) || true
-                cd ../
                 sudo chown -R ec2-user:ec2-user api-tests || true
             '''
             junit '${BUILD_TAG}.xml'
             script {
                 archiveArtifacts artifacts: 'logs.zip'
                 if (currentBuild.result == 'SUCCESS') {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                    slackSend botUser: true,
+                              channel: '#pmm-ci',
+                              color: '#00FF00',
+                              message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                 } else {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, owner: @${OWNER}"
+                    slackSend botUser: true,
+                              channel: '#pmm-ci',
+                              color: '#FF0000',
+                              message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, owner: @${OWNER}"
                 }
             }
-            deleteDir()
         }
     }
 }

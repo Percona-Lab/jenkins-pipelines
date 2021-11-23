@@ -4,7 +4,12 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 void uploadAllureArtifacts() {
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+    withCredentials([sshUserPrivateKey(
+                    credentialsId: 'aws-jenkins',
+                    keyFileVariable: 'KEY_PATH',
+                    passphraseVariable: '',
+                    usernameVariable: 'USER'
+    )]) {
         sh """
             scp -r -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                 tests/output/allure aws-jenkins@${MONITORING_HOST}:/home/aws-jenkins/allure-reports
@@ -69,7 +74,7 @@ pipeline {
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
@@ -120,9 +125,6 @@ pipeline {
             ''',
             name: 'CLIENTS')
     }
-    options {
-        skipDefaultCheckout()
-    }
     triggers {
         upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
@@ -130,15 +132,11 @@ pipeline {
         stage('Prepare') {
             steps {
                 // clean up workspace and fetch pmm-ui-tests repository
-                deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                installDocker()
-                setupDockerCompose()
                 sh '''
                     docker-compose --version
-                    sudo yum -y update --security
-                    sudo yum -y install php php-mysqlnd php-pdo jq svn bats mysql
+                    sudo yum -y install php php-mysqlnd php-pdo svn bats
                     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
                     sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
                     sudo amazon-linux-extras install epel -y
@@ -168,8 +166,10 @@ pipeline {
                         expression { env.CLIENT_INSTANCE == "no" }
                     }
                     steps {
-                        installAWSv2()
-                        withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                        withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                         credentialsId: 'AMI/OVF',
+                                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                                         )]) {
                             sh """
                                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                                 PWD=\$(pwd) MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
