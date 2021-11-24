@@ -84,7 +84,7 @@ pipeline {
         string(
             defaultValue: '',
             description: '''
-            Docker image for version service, needs if you want to run your own version service.
+            Docker image for version service, use it if you want to run your own version service.
             ''',
             name: 'VERSION_SERVICE_IMAGE')
         text(
