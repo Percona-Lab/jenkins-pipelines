@@ -19,7 +19,7 @@ void uploadAllureArtifacts() {
 
 pipeline {
     agent {
-        label 'docker'
+        label 'docker-farm'
     }
     environment {
         AZURE_CLIENT_ID=credentials('AZURE_CLIENT_ID');
