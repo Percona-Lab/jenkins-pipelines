@@ -31,7 +31,6 @@ void destroyStaging(IP) {
 
 void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
     node(env.VM_NAME){
-        installAWSv2()
         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
             sh """
                 set -o errexit
@@ -114,7 +113,7 @@ def latestVersion = pmmLatestVersion()
 
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'docker-farm'
     }
     parameters {
         string(
