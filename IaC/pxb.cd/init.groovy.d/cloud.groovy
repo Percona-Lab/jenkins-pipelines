@@ -35,7 +35,7 @@ imageMap['min-buster-x64']   = 'ami-090cd3aed687b1ee1'
 imageMap['min-xenial-x64']   = 'ami-079e7a3f57cc8e0d0'
 imageMap['min-xenial-x32']   = 'ami-0697ba3ee1b641c90'
 imageMap['min-focal-x64']    = 'ami-01773ce53581acf22'
-imageMap['min-bullseye-x64'] = 'ami-05f9dcaa9ddb9a15e'
+imageMap['min-bullseye-x64'] = 'ami-0d0f7602aa5c2425d'
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
