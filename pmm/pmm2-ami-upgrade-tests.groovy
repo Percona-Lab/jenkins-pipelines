@@ -271,12 +271,8 @@ pipeline {
         stage('Run UI Upgrade Tests') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    setupNodejs()
                     sh """
-                        curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
-                        sudo yum -y install nodejs
-                        npm install
-                        node -v
-                        npm -v
                         sudo yum install -y gettext
                         envsubst < env.list > env.generated.list
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js

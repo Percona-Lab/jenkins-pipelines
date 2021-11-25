@@ -90,6 +90,17 @@ void runTest(String TEST_NAME) {
 
     echo "The $TEST_NAME test was finished!"
 }
+
+void conditionalRunTest(String TEST_NAME) {
+    if ( TEST_NAME == 'default-cr' ) {
+        if ( params.GIT_BRANCH.contains('release-') ) {
+            runTest(TEST_NAME)
+        }
+        return 0
+    }
+    runTest(TEST_NAME)
+}
+
 void installRpms() {
     sh """
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
@@ -97,6 +108,7 @@ void installRpms() {
         sudo yum install -y percona-xtrabackup-80 jq | true
     """
 }
+
 pipeline {
     parameters {
         string(
@@ -231,6 +243,7 @@ pipeline {
         }
         stage('E2E Basic Tests') {
             steps {
+                conditionalRunTest('default-cr')
                 runTest('one-pod')
                 runTest('arbiter')
                 runTest('service-per-pod')

@@ -47,6 +47,9 @@ void runTest(String TEST_NAME) {
                     echo Skip $TEST_NAME test
                 else
                     cd ./source
+                    if [ -n "${PG_VERSION}" ]; then
+                        export PG_VER=${PG_VERSION}
+                    fi
                     if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
                         export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
                     else
@@ -147,6 +150,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-postgresql-operator',
             description: 'percona-postgresql-operator repository',
             name: 'GIT_REPO')
+        string(
+            defaultValue: '',
+            description: 'PG version',
+            name: 'PG_VERSION')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-postgresql-operator:main-postgres-operator',

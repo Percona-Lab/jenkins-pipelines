@@ -209,24 +209,6 @@ parameters {
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Ubuntu Focal(20.04) zenfs') {
-                    agent {
-                        label 'min-focal-x64-zenfs'
-                    }
-                    when {
-                        expression { env.ENABLE_ZENFS == "ON" }
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
@@ -257,7 +239,7 @@ parameters {
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:bullseye", "--build_deb=1")
+                        buildStage("debian:bullseye", "--build_deb=1 --with_zenfs=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
@@ -325,10 +307,7 @@ parameters {
                 }
                 stage('Ubuntu Focal(20.04) ZenFS tarball') {
                     agent {
-                        label 'min-focal-x64-zenfs'
-                    }
-                    when {
-                        expression { env.ENABLE_ZENFS == "ON" }
+                        label 'min-focal-x64'
                     }
                     steps {
                         cleanUpWS()

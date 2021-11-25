@@ -110,6 +110,17 @@ void runTest(String TEST_NAME) {
 
     echo "The $TEST_NAME test was finished!"
 }
+
+void conditionalRunTest(String TEST_NAME) {
+    if ( TEST_NAME == 'default-cr' ) {
+        if ( params.GIT_BRANCH.contains('release-') ) {
+            runTest(TEST_NAME)
+        }
+        return 0
+    }
+    runTest(TEST_NAME)
+}
+
 void installRpms() {
     sh """
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
@@ -276,6 +287,7 @@ pipeline {
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
+                conditionalRunTest('default-cr')
                 runTest('init-deploy')
                 runTest('limits')
                 runTest('affinity')
@@ -320,8 +332,8 @@ pipeline {
                 runTest('restore-to-encrypted-cluster')
                 runTest('demand-backup')
                 runTest('demand-backup-encrypted-with-tls')
-                runTest('scheduled-backup')
                 runTest('pitr')
+                runTest('scheduled-backup')
             }
         }
         stage('E2E BigData') {

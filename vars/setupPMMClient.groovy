@@ -1,4 +1,4 @@
-def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENABLE_PUSH_MODE, String ENABLE_TESTING_REPO, String CLIENT_INSTANCE, String SETUP_TYPE) {
+def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENABLE_PULL_MODE, String ENABLE_TESTING_REPO, String CLIENT_INSTANCE, String SETUP_TYPE) {
    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             set -o errexit
@@ -9,7 +9,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             export SERVER_IP=${SERVER_IP}
             export CLIENT_VERSION=${CLIENT_VERSION}
             export PMM_VERSION=${PMM_VERSION}
-            export ENABLE_PUSH_MODE=${ENABLE_PUSH_MODE}
+            export ENABLE_PULL_MODE=${ENABLE_PULL_MODE}
             export ENABLE_TESTING_REPO=${ENABLE_TESTING_REPO}
             export CLIENT_INSTANCE=${CLIENT_INSTANCE}
             export SETUP_TYPE=${SETUP_TYPE}
@@ -73,13 +73,13 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     pwd
                     cd ../
                     export PMM_CLIENT_BASEDIR=`ls -1td pmm2-client 2>/dev/null | grep -v ".tar" | head -n1`
-                    export PATH="`pwd`/pmm2-client/bin:$PATH"
-                    echo "export PATH=`pwd`/pmm2-client/bin:$PATH" >> ~/.bash_profile
+                    export PATH="`pwd`/pmm2-client/bin:\$PATH"
+                    echo "export PATH=`pwd`/pmm2-client/bin:\$PATH" >> ~/.bash_profile
                     source ~/.bash_profile
                     pmm-admin --version
                     if [[ \$CLIENT_INSTANCE == yes ]]; then
-                        if [[ \$ENABLE_PUSH_MODE == yes ]]; then
-                            pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin --metrics-mode=push \$IP
+                        if [[ \$ENABLE_PULL_MODE == yes ]]; then
+                            pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin --metrics-mode=pull \$IP
                         else
                             pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
                         fi
@@ -98,8 +98,8 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 if [[ \$CLIENT_VERSION == dev-latest ]] || [[ \$CLIENT_VERSION == pmm2-latest ]] || [[ \$CLIENT_VERSION == pmm2-rc ]] || [[ \$CLIENT_VERSION == 2* ]]; then
                     pmm-admin --version
                     if [[ \$CLIENT_INSTANCE == yes ]]; then
-                        if [[ \$ENABLE_PUSH_MODE == yes ]]; then
-                            sudo pmm-admin config --server-url=https://admin:admin@\$SERVER_IP:443 --server-insecure-tls --metrics-mode=push \$IP
+                        if [[ \$ENABLE_PULL_MODE == yes ]]; then
+                            sudo pmm-admin config --server-url=https://admin:admin@\$SERVER_IP:443 --server-insecure-tls --metrics-mode=pull \$IP
                         else
                             sudo pmm-admin config --server-url=https://admin:admin@\$SERVER_IP:443 --server-insecure-tls \$IP
                         fi

@@ -69,12 +69,16 @@ pipeline {
         }
         stage('Build client binary') {
             steps {
-                sh '''
-                    sg docker -c "
-                        env
-                        ./build/bin/build-client-binary
-                    "
-                '''
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh '''
+                        sg docker -c "
+                            env
+                            ./build/bin/build-client-binary
+                        "
+                        aws s3 cp --acl public-read results/tarball/pmm2-client-*.tar.gz \
+                            s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz
+                    '''
+                }
                 stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
                 uploadTarball('binary')
             }
@@ -136,7 +140,7 @@ pipeline {
 
         stage('Build client source deb') {
             steps {
-                sh 'sg docker -c "./build/bin/build-client-sdeb ubuntu:xenial"'
+                sh 'sg docker -c "./build/bin/build-client-sdeb ubuntu:bionic"'
                 stash includes: 'results/source_deb/*', name: 'debs'
                 uploadDEB()
             }
@@ -147,7 +151,6 @@ pipeline {
                 sh 'sg docker -c "./build/bin/build-client-deb debian:stretch"'
                 sh 'sg docker -c "./build/bin/build-client-deb debian:bullseye"'
                 sh 'sg docker -c "./build/bin/build-client-deb ubuntu:bionic"'
-                sh 'sg docker -c "./build/bin/build-client-deb ubuntu:xenial"'
                 sh 'sg docker -c "./build/bin/build-client-deb ubuntu:focal"'
                 stash includes: 'results/deb/*.deb', name: 'debs'
                 uploadDEB()
@@ -184,8 +187,11 @@ pipeline {
                     slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo"
                     if ("${DESTINATION}" == "testing")
                     {
-                      currentBuild.description = "Release Candidate Build"
-                      slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished"
+                      currentBuild.description = "Release Candidate Build: "
+                      slackSend botUser: true,
+                                channel: '#pmm-qa',
+                                color: '#00FF00',
+                                message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished\nClient Tarball: https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz"
                     }
                 } else {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
