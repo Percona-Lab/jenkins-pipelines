@@ -37,7 +37,7 @@ imageMap['us-west-2a.min-focal-x64']     = 'ami-01773ce53581acf22'
 imageMap['us-west-2a.min-bionic-x64']    = 'ami-0bdef2eb518663879'
 imageMap['us-west-2a.min-stretch-x64']   = 'ami-025f3bcb64ebe6e83'
 imageMap['us-west-2a.min-xenial-x64']    = 'ami-079e7a3f57cc8e0d0'
-imageMap['us-west-2a.min-bullseye-x64']  = 'ami-05f9dcaa9ddb9a15e'
+imageMap['us-west-2a.min-bullseye-x64']  = 'ami-0d0f7602aa5c2425d'
 
 imageMap['us-west-2b.docker']            = imageMap['us-west-2a.docker']
 imageMap['us-west-2b.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
