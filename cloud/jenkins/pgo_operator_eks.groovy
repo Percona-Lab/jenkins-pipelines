@@ -313,7 +313,13 @@ EOF
                 runTest('recreate')
                 runTest('affinity')
                 runTest('monitoring')
+                runTest('self-healing')
+                runTest('operator-self-healing')
                 runTest('demand-backup')
+                runTest('scheduled-backup')
+                runTest('smart-update')
+                runTest('version-service')
+                runTest('users')
             }
         }
         stage('Make report') {
