@@ -38,6 +38,7 @@ imageMap['eu-west-1a.min-stretch-x64']  = 'ami-0551f7baf789290a4'
 imageMap['eu-west-1a.min-xenial-x64']   = 'ami-016ee74f2cf016914'
 imageMap['eu-west-1a.docker-32gb-hirsute'] = 'ami-03c54cffe1a147d6c'
 imageMap['eu-west-1a.docker-32gb-focal'] = 'ami-05a657c9227900694'
+imageMap['eu-west-1a.docker-32gb-bullseye'] = imageMap['eu-west-1a.min-bullseye-x64']
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
@@ -54,6 +55,7 @@ imageMap['eu-west-1b.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
 imageMap['eu-west-1b.min-xenial-x64']   = imageMap['eu-west-1a.min-xenial-x64']
 imageMap['eu-west-1b.docker-32gb-hirsute'] = imageMap['eu-west-1a.docker-32gb-hirsute']
 imageMap['eu-west-1b.docker-32gb-focal'] = imageMap['eu-west-1a.docker-32gb-focal']
+imageMap['eu-west-1b.docker-32gb-bullseye'] = imageMap['eu-west-1a.min-bullseye-x64']
 
 imageMap['eu-west-1c.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1c.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
@@ -70,14 +72,15 @@ imageMap['eu-west-1c.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
 imageMap['eu-west-1c.min-xenial-x64']   = imageMap['eu-west-1a.min-xenial-x64']
 imageMap['eu-west-1c.docker-32gb-hirsute'] = imageMap['eu-west-1a.docker-32gb-hirsute']
 imageMap['eu-west-1c.docker-32gb-focal'] = imageMap['eu-west-1a.docker-32gb-focal']
+imageMap['eu-west-1c.docker-32gb-bullseye'] = imageMap['eu-west-1a.min-bullseye-x64']
 
 priceMap = [:]
-priceMap['t2.medium'] = '0.02'
+priceMap['t2.medium'] = '0.03'
 priceMap['t2.large'] = '0.07'
-priceMap['t3a.2xlarge'] = '0.13'
-priceMap['t3.2xlarge'] = '0.15'
+priceMap['t3a.2xlarge'] = '0.17'
+priceMap['t3.2xlarge'] = '0.18'
 priceMap['m5zn.3xlarge'] = '0.27'
-priceMap['t2.2xlarge'] = '0.17'
+priceMap['t2.2xlarge'] = '0.18'
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -95,6 +98,7 @@ userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
 userMap['docker-32gb-hirsute'] = 'ubuntu'
 userMap['docker-32gb-focal'] = 'ubuntu'
+userMap['docker-32gb-bullseye']  = 'admin'
 
 userMap['psmdb'] = userMap['min-xenial-x64']
 
@@ -227,6 +231,67 @@ initMap['docker-32gb-hirsute'] = '''
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 initMap['docker-32gb-focal'] = initMap['docker-32gb-hirsute']
+
+initMap['docker-32gb-bullseye'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext2 ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
+    fi
+    export DEBIAN_FRONTEND=noninteractive
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+    until sudo apt-get -y install openjdk-11-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
+        sleep 1
+        echo try again
+    done
+    curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    until sudo apt-get update; do
+        sleep 1
+        echo try again
+    done
+    until sudo apt-get -y install docker-ce docker-ce-cli containerd.io; do
+        sleep 1
+        echo try again
+    done
+    if ! $(aws --version | grep -q 'aws-cli/2'); then
+        find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
+            sleep 1
+            echo try again
+        done
+        unzip -o /tmp/awscliv2.zip -d /tmp
+        cd /tmp/aws && sudo ./install
+    fi
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+    sudo sysctl net.ipv4.tcp_fin_timeout=15
+    sudo sysctl net.ipv4.tcp_tw_reuse=1
+    sudo sysctl net.ipv6.conf.all.disable_ipv6=1
+    sudo sysctl net.ipv6.conf.default.disable_ipv6=1
+    sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
+    sudo sysctl -w fs.aio-max-nr=1048576 || true
+    sudo sysctl -w fs.file-max=6815744 || true
+    echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service
+    sudo systemctl daemon-reload
+    sudo install -o root -g root -d /mnt/docker
+    sudo usermod -aG docker $(id -u -n)
+    sudo mkdir -p /etc/docker
+    echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
+    sudo systemctl restart docker
+    echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+'''
 
 initMap['rpmMap'] = '''
     set -o xtrace
@@ -366,6 +431,7 @@ typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
 typeMap['docker-32gb-hirsute'] = 'm5zn.3xlarge'
 typeMap['docker-32gb-focal'] = 'm5zn.3xlarge'
+typeMap['docker-32gb-bullseye'] = 'm5zn.3xlarge'
 
 execMap = [:]
 execMap['docker']            = '1'
@@ -383,6 +449,7 @@ execMap['min-buster-x64']    = '1'
 execMap['docker-32gb-hirsute'] = '1'
 execMap['docker-32gb-focal'] = '1'
 execMap['min-bullseye-x64']  = '1'
+execMap['docker-32gb-bullseye']  = '1'
 
 devMap = [:]
 devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -401,6 +468,7 @@ devMap['min-buster-x64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb-hirsute'] = devMap['docker']
 devMap['docker-32gb-focal'] = devMap['docker']
 devMap['min-bullseye-x64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker-32gb-bullseye']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 
 labelMap = [:]
 labelMap['docker']            = ''
@@ -418,6 +486,7 @@ labelMap['min-buster-x64']    = ''
 labelMap['docker-32gb-hirsute'] = ''
 labelMap['docker-32gb-focal'] = ''
 labelMap['min-bullseye-x64']  = ''
+labelMap['docker-32gb-bullseye']  = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -487,19 +556,20 @@ String region = 'eu-west-1'
         sshKeysCredentialsId,                   // String sshKeysCredentialsId
         '240',                                   // String instanceCapStr
         [
-            getTemplate('docker',             "${region}${it}"),
-            getTemplate('docker-32gb',        "${region}${it}"),
-            getTemplate('micro-amazon',       "${region}${it}"),
-            getTemplate('min-centos-7-x64',   "${region}${it}"),
-            getTemplate('fips-centos-7-x64',  "${region}${it}"),
-            getTemplate('min-centos-6-x64',   "${region}${it}"),
-            getTemplate('min-bionic-x64',     "${region}${it}"),
-            getTemplate('min-buster-x64',     "${region}${it}"),
-            getTemplate('min-bullseye-x64',   "${region}${it}"),
-            getTemplate('min-stretch-x64',    "${region}${it}"),
-            getTemplate('min-xenial-x64',     "${region}${it}"),
-            getTemplate('docker-32gb-hirsute', "${region}${it}"),
-            getTemplate('docker-32gb-focal', "${region}${it}"),
+            getTemplate('docker',               "${region}${it}"),
+            getTemplate('docker-32gb',          "${region}${it}"),
+            getTemplate('micro-amazon',         "${region}${it}"),
+            getTemplate('min-centos-7-x64',     "${region}${it}"),
+            getTemplate('fips-centos-7-x64',    "${region}${it}"),
+            getTemplate('min-centos-6-x64',     "${region}${it}"),
+            getTemplate('min-bionic-x64',       "${region}${it}"),
+            getTemplate('min-buster-x64',       "${region}${it}"),
+            getTemplate('min-bullseye-x64',     "${region}${it}"),
+            getTemplate('min-stretch-x64',      "${region}${it}"),
+            getTemplate('min-xenial-x64',       "${region}${it}"),
+            getTemplate('docker-32gb-hirsute',  "${region}${it}"),
+            getTemplate('docker-32gb-focal',    "${region}${it}"),
+            getTemplate('docker-32gb-bullseye', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
