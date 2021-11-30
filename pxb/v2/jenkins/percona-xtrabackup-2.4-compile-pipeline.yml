@@ -32,6 +32,7 @@
         - ubuntu:focal
         - debian:stretch
         - debian:buster
+        - debian:bullseye
         - asan
         description: OS version for compilation
     - choice:
@@ -52,4 +53,4 @@
         name: LABEL
         choices:
         - docker
-        description: Run build on specified instance type. 
+        description: Run build on specified instance type.

@@ -102,6 +102,9 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                         echo Skip $TEST_NAME test
                     else
                         cd ./source
+                        if [ -n "${PG_VERSION}" ]; then
+                            export PG_VER=${PG_VERSION}
+                        fi
                         if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
                             export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
                         else
@@ -144,6 +147,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
 
                         if [ -n "${PGO_POSTGRES_HA_IMAGE}" ]; then
                             export IMAGE_PG_HA=${PGO_POSTGRES_HA_IMAGE}
+                            export PG_VER=\$(echo \${IMAGE_PG_HA} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                         fi
 
                         if [ -n "${PGO_BACKREST_IMAGE}" ]; then
@@ -205,6 +209,10 @@ pipeline {
             defaultValue: '1.19',
             description: 'GKE version',
             name: 'GKE_VERSION')
+        string(
+            defaultValue: '',
+            description: 'PG version',
+            name: 'PG_VERSION')
         choice(
             choices: 'NO\nYES',
             description: 'GKE alpha/stable',
@@ -347,7 +355,12 @@ pipeline {
                         runTest('affinity', 'sandbox')
                         runTest('monitoring', 'sandbox')
                         runTest('self-healing', 'sandbox')
+                        runTest('operator-self-healing', 'sandbox')
                         runTest('clone-cluster', 'sandbox')
+                        runTest('tls-check', 'sandbox')
+                        runTest('smart-update', 'sandbox')
+                        runTest('version-service', 'sandbox')
+                        runTest('users', 'sandbox')
                         ShutdownCluster('sandbox')
                     }
                 }
@@ -355,6 +368,7 @@ pipeline {
                     steps {
                         CreateCluster('backups')
                         runTest('demand-backup', 'backups')
+                        runTest('scheduled-backup', 'backups')
                         ShutdownCluster('backups')
                     }
                 }

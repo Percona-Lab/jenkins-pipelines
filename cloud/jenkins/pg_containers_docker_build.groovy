@@ -1,7 +1,7 @@
 void build(String IMAGE_POSTFIX){
     sh """
         cd ./source/
-        for PG_VER in 13 12; do
+        for PG_VER in 14 13 12; do
             docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} \
                 -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX} \
                 -f ./postgresql-containers/build/${IMAGE_POSTFIX}/Dockerfile ./postgresql-containers
@@ -14,14 +14,14 @@ void checkImageForDocker(String IMAGE_POSTFIX){
             sg docker -c '
                 IMAGE_NAME='percona-postgresql-operator'
                 docker login -u '${USER}' -p '${PASS}'
-                for PG_VER in 13 12; do
+                for PG_VER in 14 13 12; do
                     TrityHightLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-ppg\${PG_VER}-${IMAGE_POSTFIX}.log"
                     TrityCriticaltLog="$WORKSPACE/trivy-critical-\$IMAGE_NAME-ppg\${PG_VER}-${IMAGE_POSTFIX}.log"
                     /usr/local/bin/trivy -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH --quiet \
-                        --auto-refresh perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
+                        perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
 
                     /usr/local/bin/trivy -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL --quiet \
-                        --auto-refresh perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
+                        perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
 
                     if [ ! -s \$TrityHightLog ]; then
                         rm -rf \$TrityHightLog
@@ -47,7 +47,7 @@ void pushImageToDocker(String IMAGE_POSTFIX){
 
                 docker login -u '${USER}' -p '${PASS}'
                 export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                for PG_VER in 13 12; do
+                for PG_VER in 14 13 12; do
                     docker trust sign perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
                     docker push perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
                 done

@@ -164,6 +164,16 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     echo "The $TEST_NAME test was finished!"
 }
 
+void conditionalRunTest(String TEST_NAME, String CLUSTER_PREFIX) {
+    if ( TEST_NAME == 'default-cr' ) {
+        if ( params.GIT_BRANCH.contains('release-') ) {
+            runTest(TEST_NAME, CLUSTER_PREFIX)
+        }
+        return 0
+    }
+    runTest(TEST_NAME, CLUSTER_PREFIX)
+}
+
 void installRpms() {
     sh '''
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
@@ -319,6 +329,7 @@ pipeline {
                 stage('E2E Basic Tests') {
                     steps {
                         CreateCluster('basic')
+                        conditionalRunTest('default-cr', 'basic')
                         runTest('init-deploy', 'basic')
                         runTest('limits', 'basic')
                         runTest('monitoring-2-0', 'basic')
@@ -364,8 +375,8 @@ pipeline {
                         runTest('restore-to-encrypted-cluster', 'backups')
                         runTest('demand-backup', 'backups')
                         runTest('demand-backup-encrypted-with-tls', 'backups')
-                        runTest('scheduled-backup', 'backups')
                         runTest('pitr','backups')
+                        runTest('scheduled-backup', 'backups')
                         ShutdownCluster('backups')
                     }
                 }

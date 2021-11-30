@@ -28,7 +28,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
-void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE) {
+void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -36,6 +36,7 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
         string(name: 'QUERY_SOURCE', value: 'slowlog'),
         string(name: 'SERVER_IP', value: SERVER_IP),
+        string(name: 'ENABLE_PULL_MODE', value: ENABLE_PULL_MODE),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
         string(name: 'PXC_VERSION', value: PXC_VERSION),
@@ -73,6 +74,19 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
+void checkClientNodesAgentStatus(String VM_CLIENT_IP) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP} '
+                set -o errexit
+                set -o xtrace
+                echo "Checking Agent Status on Client Nodes";
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/agent_status.sh
+                bash -xe /srv/pmm-qa/pmm-tests/agent_status.sh
+            '
+        """
+    }
+}
 
 void destroyStaging(IP) {
     build job: 'aws-staging-stop', parameters: [
@@ -146,6 +160,10 @@ pipeline {
             defaultValue: '',
             description: 'AMI Instance ID',
             name: 'AMI_INSTANCE_ID')
+        choice(
+            choices: ['no', 'yes'],
+            description: 'Enable Pull Mode, if you are using this instance as Client Node',
+            name: 'ENABLE_PULL_MODE')
         string (
             defaultValue: '',
             description: 'Value for Server Public IP, to use this instance just as client',
@@ -171,11 +189,11 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['13.4', '12.8', '11.13'],
+            choices: ['14.0', '13.4', '12.8', '11.13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
-            choices: ['10.5', '10.4', '10.3', '10.2'],
+            choices: ['10.6', '10.5', '10.4', '10.3', '10.2'],
             description: "MariaDB Server version",
             name: 'MD_VERSION')
         choice(
@@ -187,7 +205,7 @@ pipeline {
             description: "Official MongoDB version from MongoDB Inc",
             name: 'MODB_VERSION')
         choice(
-            choices: ['perfschema', 'slowlog'],
+            choices: ['slowlog', 'perfschema'],
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
     }
@@ -243,17 +261,17 @@ pipeline {
             parallel {
                 stage('Start Client Instance - ps-replication') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2 --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP, 'mysql-node', PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2 --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
                     }
                 }
                 stage('Start Client Instance - ms/md/pxc') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=md,1 --addclient=pxc,3 --with-proxysql --pmm2', 'yes', env.VM_IP, 'pxc-node', PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=md,1 --addclient=pxc,3 --with-proxysql --pmm2', 'yes', env.VM_IP, 'pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
                     }
                 }
                 stage('Start Client Instance - mongo/postgresql') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pdpgsql,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --pmm2', 'yes', env.VM_IP, 'mongo-postgres-node', PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pdpgsql,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --pmm2', 'yes', env.VM_IP, 'mongo-postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
                     }
                 }
             }
@@ -265,16 +283,10 @@ pipeline {
         }
         stage('Setup Node') {
             steps {
+                setupNodejs()
                 sh """
-                    curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
-                    sudo yum -y install nodejs
-
-                    npm install
-                    node -v
-                    npm -v
                     sudo yum install -y gettext
                     envsubst < env.list > env.generated.list
-
                 """
             }
         }
@@ -283,22 +295,42 @@ pipeline {
                 sleep 300
             }
         }
-        stage('Run UI - Tests') {
-            options {
-                timeout(time: 35, unit: "MINUTES")
-            }
-            when {
-                expression { env.AMI_TEST == "no" }
-            }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        export PWD=\$(pwd);
-                        export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly'
-                    """
+        stage('Run Tests') {
+            parallel {
+                stage('Run UI - Tests') {
+                    options {
+                        timeout(time: 35, unit: "MINUTES")
+                    }
+                    when {
+                        expression { env.AMI_TEST == "no" }
+                    }
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh """
+                                sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                                export PWD=\$(pwd);
+                                export CHROMIUM_PATH=/usr/bin/chromium
+                                ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly'
+                            """
+                        }
+                    }
                 }
+                stage('Check Agent Status on ps & replication node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_MYSQL)
+                    }
+                }
+                stage('Check Agent Status on ms/md/pxc node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PXC)
+                    }
+                }
+                stage('Check Agent Status on mongo/postgresql node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_MONGO)
+                    }
+                }
+
             }
         }
     }

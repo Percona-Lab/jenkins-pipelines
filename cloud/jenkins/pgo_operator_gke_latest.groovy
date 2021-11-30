@@ -108,6 +108,7 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
 
                         if [ -n "${PGO_POSTGRES_HA_IMAGE}" ]; then
                             export IMAGE_PG_HA=${PGO_POSTGRES_HA_IMAGE}
+                            export PG_VER=\$(echo \${IMAGE_PG_HA} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                         fi
 
                         if [ -n "${PGO_BACKREST_IMAGE}" ]; then
@@ -281,11 +282,17 @@ pipeline {
                 stage('E2E Basic tests') {
                     steps {
                         CreateCluster('sandbox')
-                        runTest('init-deploy', 'sandbox')
                         runTest('scaling', 'sandbox')
                         runTest('recreate', 'sandbox')
                         runTest('affinity', 'sandbox')
                         runTest('monitoring', 'sandbox')
+                        runTest('self-healing', 'sandbox')
+                        runTest('operator-self-healing', 'sandbox')
+                        runTest('clone-cluster', 'sandbox')
+                        runTest('tls-check', 'sandbox')
+                        runTest('smart-update', 'sandbox')
+                        runTest('version-service', 'sandbox')
+                        runTest('users', 'sandbox')
                         ShutdownCluster('sandbox')
                     }
                 }
@@ -293,6 +300,7 @@ pipeline {
                     steps {
                         CreateCluster('backups')
                         runTest('demand-backup', 'backups')
+                        runTest('scheduled-backup', 'backups')
                         ShutdownCluster('backups')
                     }
                 }

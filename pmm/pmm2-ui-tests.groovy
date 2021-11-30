@@ -231,13 +231,8 @@ pipeline {
                 }
                 stage('Setup Node') {
                     steps {
+                        setupNodejs()
                         sh """
-                            curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
-                            sudo yum -y install nodejs
-
-                            npm install
-                            node -v
-                            npm -v
                             sudo yum install -y gettext
                             envsubst < env.list > env.generated.list
                         """
@@ -299,7 +294,7 @@ pipeline {
                 ./node_modules/.bin/mochawesome-merge tests/output/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
                 echo --- Jobs from pmm-server --- >> job_logs.txt
-                docker exec pmm-server psql -Upmm-managed -c 'select error,data,created_at,updated_at from jobs ORDER BY updated_at DESC LIMIT 1000;' >> job_logs.txt || true
+                docker exec pmm-server psql -Upmm-managed -c 'select id,error,data,created_at,updated_at from jobs ORDER BY updated_at DESC LIMIT 1000;' >> job_logs.txt || true
                 echo --- Job logs from pmm-server --- >> job_logs.txt
                 docker exec pmm-server psql -Upmm-managed -c 'select * from job_logs ORDER BY job_id LIMIT 1000;' >> job_logs.txt || true
                 echo --- pmm-managed logs from pmm-server --- >> pmm-managed-full.log

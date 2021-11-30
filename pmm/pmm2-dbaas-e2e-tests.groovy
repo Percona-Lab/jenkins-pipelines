@@ -167,13 +167,8 @@ pipeline {
                 }
                 stage('Setup Node') {
                     steps {
+                        setupNodejs()
                         sh """
-                            curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
-                            sudo yum -y install nodejs
-
-                            npm install
-                            node -v
-                            npm -v
                             sudo yum install -y gettext
                             envsubst < env.list > env.generated.list
                         """
@@ -201,7 +196,7 @@ pipeline {
         }
         stage('Run UI Tests Docker') {
             options {
-                timeout(time: 120, unit: "MINUTES")
+                timeout(time: 150, unit: "MINUTES")
             }
             when {
                 expression { env.OVF_TEST == "no" }
