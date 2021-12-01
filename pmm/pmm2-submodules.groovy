@@ -298,8 +298,9 @@ pipeline {
                                 "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/issues/${CHANGE_ID}/comments"
                         """
                         // fail job if tests are skipped from the execution
-                        if (env.EXECUTE_TESTS == "false")
+                        if (env.EXECUTE_TESTS == "false") {
                             exit 1
+                        }
                     }
                 }
             }
