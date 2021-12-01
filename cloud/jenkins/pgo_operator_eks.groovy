@@ -142,6 +142,10 @@ void installRpms() {
 pipeline {
     parameters {
         string(
+            defaultValue: '1.21',
+            description: 'Kubernetes target version',
+            name: 'KUBEVERSION')
+        string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-postgresql-operator repository',
             name: 'GIT_BRANCH')
@@ -277,6 +281,7 @@ kind: ClusterConfig
 metadata:
     name: eks-pgo-cluster
     region: eu-west-3
+    version: '$KUBEVERSION'
 
 nodeGroups:
     - name: ng-1
