@@ -297,7 +297,7 @@ pipeline {
                                 -d "{\\"body\\":\\"server docker - ${IMAGE}\\nclient docker - ${CLIENT_IMAGE}\\nclient - ${CLIENT_URL}\\nCreate Staging Instance: https://pmm.cd.percona.com/job/aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}\\"}" \
                                 "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/issues/${CHANGE_ID}/comments"
                         """
-                        # fail job if tests are skipped from the execution
+                        // fail job if tests are skipped from the execution
                         if (env.EXECUTE_TESTS == "true")
                             exit 1
                     }
