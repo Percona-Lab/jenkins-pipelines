@@ -318,6 +318,7 @@ EOF
                 runTest('operator-self-healing')
                 runTest('demand-backup')
                 runTest('scheduled-backup')
+                runTest('upgrade')
                 runTest('smart-update')
                 runTest('version-service')
                 runTest('users')
