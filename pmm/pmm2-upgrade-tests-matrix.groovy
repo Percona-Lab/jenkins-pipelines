@@ -15,33 +15,33 @@ void runUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TES
     ]
 }
 
-def doUpgradeTests(){
-    versions =  ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0', '2.22.0', '2.23.0', '2.24.0', '2.25.0']
-    upgradeTests = [:]
-    for (v in versions) {
-        upgradeTests["${v}"] = {
-            node {
-                stage("${v}") {
-                    runUpgradeJob(
-                        GIT_BRANCH,
-                        VERSION,
-                        PMM_SERVER_LATEST,
-                        ENABLE_TESTING_REPO,
-                        ENABLE_EXPERIMENTAL_REPO,
-                        PERFORM_DOCKER_WAY_UPGRADE,
-                        PMM_SERVER_TAG
-                    )
-                }
-            }
+
+def versions = pmmVersion('full_list')
+def parallelStagesMatrix = versions.collectEntries {
+    ["${it}" : generateStage(it)]
+}
+
+def generateStage(VERSION) {
+    return {
+        stage("${VERSION}") {
+            runUpgradeJob(
+                GIT_BRANCH,
+                VERSION,
+                PMM_SERVER_LATEST,
+                ENABLE_TESTING_REPO,
+                ENABLE_EXPERIMENTAL_REPO,
+                PERFORM_DOCKER_WAY_UPGRADE,
+                PMM_SERVER_TAG
+            )
         }
-    parallel upgradeTests
+    }
 }
 
 def latestVersion = pmmVersion()
 
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'docker-farm'
     }
     parameters {
         string(
@@ -84,7 +84,7 @@ pipeline {
         stage('Upgrade Matrix'){
             steps{
                 script {
-                    doUpgradeTests()
+                    parallel parallelStagesMatrix
                 }
             }
         }
