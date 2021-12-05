@@ -13,7 +13,7 @@ void runAMIUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_
     ]
 }
 
-def latestVersion = pmmLatestVersion()
+def latestVersion = pmmVersion()
 
 pipeline {
     agent {

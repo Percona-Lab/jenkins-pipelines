@@ -15,7 +15,7 @@ void runUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TES
     ]
 }
 
-def latestVersion = pmmLatestVersion()
+def latestVersion = pmmVersion()
 
 pipeline {
     agent {
@@ -65,7 +65,7 @@ pipeline {
                 axes {
                     axis {
                         name 'VERSION'
-                        values '2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0', '2.22.0', '2.23.0', '2.24.0'
+                        values '2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0', '2.22.0', '2.23.0', '2.24.0', '2.25.0'
                     }
                 }
                 stages {

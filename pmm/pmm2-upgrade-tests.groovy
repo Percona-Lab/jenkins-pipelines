@@ -45,8 +45,8 @@ void fetchAgentLog(String CLIENT_VERSION) {
     """
 }
 
-def latestVersion = pmmLatestVersion()
-def versionsList = ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0', '2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0', '2.22.0', '2.23.0', '2.24.0']
+def latestVersion = pmmVersion()
+def versionsList = pmmVersion('full_list')
 
 pipeline {
     agent {
