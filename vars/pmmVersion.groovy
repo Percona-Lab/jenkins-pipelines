@@ -22,7 +22,7 @@ def call(type='latest') {
       return versions
     case 'list':
       return versionsList
-    case 'full_list':
+    case 'list_with_old':
       return oldVersions + versionsList
   }
 }
