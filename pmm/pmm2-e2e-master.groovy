@@ -55,7 +55,7 @@ void runAMIUpgradeTests(DOCKER_VERSION, CLIENT_VERSION, GIT_BRANCH, PMM_QA_GIT_B
     ]
 }
 
-def versionsList = pmmActualVersions()
+def versionsList = pmmVersion('list')
 
 pipeline {
     agent {

@@ -133,9 +133,9 @@ void fetchAgentLog(String CLIENT_VERSION) {
     }
 }
 
-def latestVersion = pmmLatestVersion()
-def versionsList = pmmActualVersions()
-Map amiList = pmmActualVersions(true)
+def latestVersion = pmmVersion()
+def versionsList = pmmVersion('list')
+Map amiList = pmmVersion('ami')
 
 def amiID = amiList.containsKey(SERVER_VERSION.trim()) ? amiList[SERVER_VERSION.trim()] : AMI_ID_CUSTOM
 currentBuild.description = "AMI: $amiID"
