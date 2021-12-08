@@ -62,7 +62,6 @@
         - ubuntu:focal
         - debian:stretch
         - debian:buster
-        - debian:bullseye
         - asan
     - axis:
         name: XTRABACKUP_TARGET

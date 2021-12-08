@@ -92,6 +92,7 @@ void runTest(String TEST_NAME) {
 
                     if [ -n "${PGO_POSTGRES_HA_IMAGE}" ]; then
                         export IMAGE_PG_HA=${PGO_POSTGRES_HA_IMAGE}
+                        export PG_VER=\$(echo \${IMAGE_PG_HA} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                     fi
 
                     if [ -n "${PGO_BACKREST_IMAGE}" ]; then
@@ -303,7 +304,14 @@ pipeline {
                 runTest('recreate')
                 runTest('affinity')
                 runTest('monitoring')
+                runTest('self-healing')
+                runTest('operator-self-healing')
                 runTest('demand-backup')
+                runTest('scheduled-backup')
+                runTest('upgrade')
+                runTest('smart-update')
+                runTest('version-service')
+                runTest('users')
             }
         }
         stage('Make report') {

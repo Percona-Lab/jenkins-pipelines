@@ -151,7 +151,7 @@ if [ -f /usr/bin/yum ]; then
         yum -y install http://repo.okay.com.mx/centos/6/x86_64/release/okay-release-1-1.noarch.rpm || true
         yum -y upgrade automake autoconf
 	fi
-	
+
 #   this is workaround for https://bugs.mysql.com/bug.php?id=95222 as soon as the issue is fixed we need to remove it 
     if [ -f '/anaconda-post.log' ]; then
         rm /anaconda-post.log
@@ -293,12 +293,18 @@ if [ -f /usr/bin/yum ]; then
     if [[ ${RHVER} -eq 6 ]]; then
         source /opt/rh/rh-python36/enable
         pip install --upgrade sphinx==1.4
+        pip install --upgrade docutils==0.16
         ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-build /usr/local/bin/sphinx-build
         ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-autogen /usr/local/bin/sphinx-autogen
         ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-quickstart /usr/local/bin/sphinx-quickstart
         ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-apidoc /usr/local/bin/sphinx-apidoc
     else
         pip3 install --upgrade sphinx==1.4
+        if [[ ${RHVER} -eq 7 ]]; then
+            pip3 install --upgrade docutils==0.16
+        else
+            pip3 install --upgrade docutils==0.17
+        fi
     fi
 fi
 

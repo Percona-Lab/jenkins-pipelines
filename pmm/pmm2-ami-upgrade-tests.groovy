@@ -108,8 +108,8 @@ void fetchAgentLog(String CLIENT_VERSION) {
                 set -o xtrace
                 export CLIENT_VERSION=${CLIENT_VERSION}
                 if [[ \$CLIENT_VERSION != http* ]]; then
-                    journalctl -u pmm-agent.service > /var/log/pmm-agent.log
-                    sudo chmod 777 /var/log/pmm-agent.log
+                    sudo journalctl -u pmm-agent.service > /var/log/pmm-agent.log
+                    sudo chown ec2-user:ec2-user /var/log/pmm-agent.log
                 fi
                 if [[ -e /var/log/pmm-agent.log ]]; then
                     cp /var/log/pmm-agent.log .
@@ -133,9 +133,9 @@ void fetchAgentLog(String CLIENT_VERSION) {
     }
 }
 
-def latestVersion = pmmLatestVersion()
-def versionsList = pmmActualVersions()
-Map amiList = pmmActualVersions(true)
+def latestVersion = pmmVersion()
+def versionsList = pmmVersion('list')
+Map amiList = pmmVersion('ami')
 
 def amiID = amiList.containsKey(SERVER_VERSION.trim()) ? amiList[SERVER_VERSION.trim()] : AMI_ID_CUSTOM
 currentBuild.description = "AMI: $amiID"

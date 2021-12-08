@@ -54,7 +54,6 @@
          - ubuntu:focal
          - debian:stretch
          - debian:buster
-         - debian:bullseye
          - asan
     builders:
     - trigger-builds:

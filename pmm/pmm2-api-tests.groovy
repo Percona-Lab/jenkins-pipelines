@@ -79,9 +79,32 @@ pipeline {
             steps{
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
-                        sg docker -c "echo "${PASS}" | docker login -u "${USER}" --password-stdin"
+                        echo "${PASS}" | docker login -u "${USER}" --password-stdin
                     """
                 }
+                sh '''
+                    docker run -d \
+                    -e ENABLE_ALERTING=1 \
+                    -e PMM_DEBUG=1 \
+                    -e PERCONA_TEST_CHECKS_INTERVAL=10s \
+                    -e ENABLE_BACKUP_MANAGEMENT=1 \
+                    -e PERCONA_TEST_DBAAS=0 \
+                    -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com \
+                    -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
+                    -p 80:80 \
+                    -p 443:443 \
+                    -v \${PWD}/testdata/checks:/srv/checks \
+                    \${DOCKER_VERSION}
+
+                    docker build -t pmm-api-tests .
+                    cd api-tests
+                    docker-compose up test_db
+                    MYSQL_IMAGE=\${MYSQL_IMAGE} docker-compose up -d mysql
+                    MONGO_IMAGE=\${MONGO_IMAGE} docker-compose up -d mongo
+                    POSTGRES_IMAGE=\${POSTGRES_IMAGE} docker-compose up -d postgres
+                    docker-compose up -d sysbench
+                    cd ../
+                '''
                 sh '''
                     docker run -d \
                     -e ENABLE_ALERTING=1 \

@@ -14,7 +14,7 @@ void runPackageTestingJob(String GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM
     ]
 }
 
-def latestVersion = pmmLatestVersion()
+def latestVersion = pmmVersion()
 
 pipeline {
     agent {
