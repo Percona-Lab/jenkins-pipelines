@@ -17,7 +17,7 @@ def call(type='latest') {
   List<String> versionsList = new ArrayList<>(versions.keySet());
   switch(type) {
     case 'latest':
-      return versions.keySet().last()
+      return '2.26.0'
     case 'ami':
       return versions
     case 'list':
