@@ -160,14 +160,16 @@ pipeline {
                         expression { env.CLIENT_INSTANCE == "no" }
                     }
                     steps {
-                        withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                                         credentialsId: 'AMI/OVF',
-                                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                                         )]) {
+                        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                             sh """
-                                PWD=\$(pwd) MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
+                                sg docker -c "
+                                    echo "${PASS}" | docker login -u "${USER}" --password-stdin
+                                "
                             """
                         }
+                        sh """
+                            PWD=\$(pwd) MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
+                        """
                         waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
                         waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
                         waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
