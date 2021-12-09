@@ -74,7 +74,6 @@ pipeline {
             name: 'PMM_SERVER_TAG')
     }
     options {
-        skipDefaultCheckout()
         disableConcurrentBuilds()
     }
     triggers {
