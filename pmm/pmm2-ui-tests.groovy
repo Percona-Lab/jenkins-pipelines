@@ -162,9 +162,7 @@ pipeline {
                     steps {
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                             sh """
-                                sg docker -c "
-                                    echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                                "
+                                echo "${PASS}" | docker login -u "${USER}" --password-stdin
                             """
                         }
                         sh """
@@ -226,8 +224,8 @@ pipeline {
                 }
                 stage('Setup Node') {
                     steps {
-                        setupNodejs()
                         sh """
+                            npm install
                             envsubst < env.list > env.generated.list
                         """
                     }
@@ -242,7 +240,8 @@ pipeline {
                 expression { env.OVF_TEST == "yes" }
             }
             steps {
-                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                withCredentials([aws(
+                    accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
@@ -264,7 +263,8 @@ pipeline {
                 expression { env.OVF_TEST == "no" }
             }
             steps {
-                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                withCredentials([aws(
+                    accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY',credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
@@ -307,8 +307,6 @@ pipeline {
                 {
                     destroyStaging(VM_CLIENT_NAME)
                 }
-            }
-            script {
                 if (env.OVF_TEST == "no") {
                     env.PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
                 } else {
