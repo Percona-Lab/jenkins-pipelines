@@ -128,6 +128,9 @@ pipeline {
     triggers {
         upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
+    options {
+        skipDefaultCheckout()
+    }
     stages {
         stage('Prepare') {
             steps {
