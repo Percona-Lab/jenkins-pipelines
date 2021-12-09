@@ -108,11 +108,8 @@ void fetchAgentLog(String CLIENT_VERSION) {
                 set -o xtrace
                 export CLIENT_VERSION=${CLIENT_VERSION}
                 if [[ \$CLIENT_VERSION != http* ]]; then
-                    sudo journalctl -u pmm-agent.service > /var/log/pmm-agent.log
-                    sudo chown ec2-user:ec2-user /var/log/pmm-agent.log
-                fi
-                if [[ -e /var/log/pmm-agent.log ]]; then
-                    cp /var/log/pmm-agent.log .
+                    journalctl -u pmm-agent.service > pmm-agent.log
+                    sudo chown ec2-user:ec2-user pmm-agent.log
                 fi
             '
             if [[ \$CLIENT_VERSION != http* ]]; then
