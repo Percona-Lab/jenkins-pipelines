@@ -261,7 +261,7 @@ initMap['min-centos-6-x32'] = '''
     fi
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
-    sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
+    sudo curl -k https://jenkins.percona.com/downloads/cent6/centos6-eol-s3.repo --output /etc/yum.repos.d/CentOS-Base.repo
 
     until sudo yum makecache; do
         sleep 1
