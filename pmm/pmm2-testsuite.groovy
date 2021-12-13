@@ -31,7 +31,6 @@ void destroyStaging(IP) {
 
 void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
     node(env.VM_NAME){
-        installAWSv2()
         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
             sh """
                 set -o errexit
@@ -110,15 +109,15 @@ void fetchAgentLog(String CLIENT_VERSION) {
     }
 }
 
-def latestVersion = pmmLatestVersion()
+def latestVersion = pmmVersion()
 
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'docker-farm'
     }
     parameters {
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
@@ -147,11 +146,10 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                deleteDir()
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend channel: '#pmm-ci',
+                          color: '#FFFF00',
+                          message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
-                    curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
-                    sudo yum -y install nodejs
                     npm install tap-junit
                 '''
             }

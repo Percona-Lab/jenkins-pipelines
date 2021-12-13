@@ -83,14 +83,9 @@ pipeline {
         }
         stage('Setup Node') {
             steps {
+                setupNodejs()
                 sh """
-                    curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
-                    sudo yum -y install nodejs
-
                     pushd pmm-app/
-                    npm install
-                    node -v
-                    npm -v
                     sudo yum install -y gettext
                     envsubst < env.list > env.generated.list
                     popd

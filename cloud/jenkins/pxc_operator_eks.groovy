@@ -349,8 +349,8 @@ EOF
                 runTest('restore-to-encrypted-cluster')
                 runTest('demand-backup')
                 runTest('demand-backup-encrypted-with-tls')
-                runTest('scheduled-backup')
                 runTest('pitr')
+                runTest('scheduled-backup')
             }
         }
         stage('E2E BigData') {

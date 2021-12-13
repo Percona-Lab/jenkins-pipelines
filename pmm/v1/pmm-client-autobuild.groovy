@@ -99,7 +99,7 @@ pipeline {
         }
         stage('Build client source rpm') {
             steps {
-                sh 'sg docker -c "./build/bin/build-client-srpm centos:6"'
+                sh 'sg docker -c "./build/bin/build-client-srpm centos:7"'
                 stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
                 uploadRPM()
             }
@@ -109,7 +109,6 @@ pipeline {
                 sh '''
                     sg docker -c "
                         export pmm_version=$(cat VERSION)
-                        ./build/bin/build-client-rpm centos:6
                         ./build/bin/build-client-rpm centos:7
                         ./build/bin/build-client-rpm centos:8
                     "
@@ -121,7 +120,7 @@ pipeline {
 
         stage('Build client source deb') {
             steps {
-                sh 'sg docker -c "./build/bin/build-client-sdeb ubuntu:xenial"'
+                sh 'sg docker -c "./build/bin/build-client-sdeb ubuntu:focal"'
                 stash includes: 'results/source_deb/*', name: 'debs'
                 uploadDEB()
             }
@@ -131,7 +130,6 @@ pipeline {
                 sh 'sg docker -c "./build/bin/build-client-deb debian:buster"'
                 sh 'sg docker -c "./build/bin/build-client-deb debian:stretch"'
                 sh 'sg docker -c "./build/bin/build-client-deb ubuntu:bionic"'
-                sh 'sg docker -c "./build/bin/build-client-deb ubuntu:xenial"'
                 sh 'sg docker -c "./build/bin/build-client-deb ubuntu:focal"'
                 stash includes: 'results/deb/*.deb', name: 'debs'
                 uploadDEB()

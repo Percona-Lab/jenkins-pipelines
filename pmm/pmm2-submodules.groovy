@@ -55,6 +55,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                 sh '''
                     set -o errexit
                     if [ -s ci.yml ]
@@ -109,6 +110,7 @@ pipeline {
                         cd $curdir
                     fi
                 '''
+                }
                 installDocker()
                 script {
                     env.PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()

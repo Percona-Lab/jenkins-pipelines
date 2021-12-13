@@ -108,11 +108,8 @@ void fetchAgentLog(String CLIENT_VERSION) {
                 set -o xtrace
                 export CLIENT_VERSION=${CLIENT_VERSION}
                 if [[ \$CLIENT_VERSION != http* ]]; then
-                    journalctl -u pmm-agent.service > /var/log/pmm-agent.log
-                    sudo chmod 777 /var/log/pmm-agent.log
-                fi
-                if [[ -e /var/log/pmm-agent.log ]]; then
-                    cp /var/log/pmm-agent.log .
+                    journalctl -u pmm-agent.service > pmm-agent.log
+                    sudo chown ec2-user:ec2-user pmm-agent.log
                 fi
             '
             if [[ \$CLIENT_VERSION != http* ]]; then
@@ -133,9 +130,9 @@ void fetchAgentLog(String CLIENT_VERSION) {
     }
 }
 
-def latestVersion = pmmLatestVersion()
-def versionsList = pmmActualVersions()
-Map amiList = pmmActualVersions(true)
+def latestVersion = pmmVersion()
+def versionsList = pmmVersion('list')
+Map amiList = pmmVersion('ami')
 
 def amiID = amiList.containsKey(SERVER_VERSION.trim()) ? amiList[SERVER_VERSION.trim()] : AMI_ID_CUSTOM
 currentBuild.description = "AMI: $amiID"
@@ -271,12 +268,8 @@ pipeline {
         stage('Run UI Upgrade Tests') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    setupNodejs()
                     sh """
-                        curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
-                        sudo yum -y install nodejs
-                        npm install
-                        node -v
-                        npm -v
                         sudo yum install -y gettext
                         envsubst < env.list > env.generated.list
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js

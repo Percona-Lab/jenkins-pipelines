@@ -86,6 +86,7 @@ if [ -f /usr/bin/yum ]; then
     python3 sysbench perl-DBD-mysql \
     patchelf lsof automake bzip2 gnutls gnutls-devel patch lsof socat qpress perl-XML-Simple \
     stunnel \
+    cyrus-sasl-scram \
     "
 
     if [[ ${RHVER} -eq 8 ]]; then
@@ -150,7 +151,7 @@ if [ -f /usr/bin/yum ]; then
         yum -y install http://repo.okay.com.mx/centos/6/x86_64/release/okay-release-1-1.noarch.rpm || true
         yum -y upgrade automake autoconf
 	fi
-	
+
 #   this is workaround for https://bugs.mysql.com/bug.php?id=95222 as soon as the issue is fixed we need to remove it 
     if [ -f '/anaconda-post.log' ]; then
         rm /anaconda-post.log
@@ -176,7 +177,7 @@ if [ -f /usr/bin/apt-get ]; then
     percona-release enable tools testing
 
     DIST=$(lsb_release -sc)
-    if [[ ${DIST} != 'focal' ]]; then
+    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' ]]; then
         echo "deb http://jenkins.percona.com/apt-repo/ ${DIST} main" > /etc/apt/sources.list.d/percona-dev.list
         wget -q -O - http://jenkins.percona.com/apt-repo/8507EFA5.pub | apt-key add -
         wget -q -O - http://jenkins.percona.com/apt-repo/CD2EFD2A.pub | apt-key add -
@@ -190,7 +191,7 @@ if [ -f /usr/bin/apt-get ]; then
     PKGLIST=" \
         curl bison cmake make perl libssl-dev gcc g++ libaio-dev libldap2-dev libwrap0-dev gdb unzip gawk \
         libmecab-dev libncurses5-dev libreadline-dev libpam-dev zlib1g-dev libcurl4-openssl-dev build-essential \
-        libnuma-dev libjemalloc-dev libc6-dbg valgrind libjson-perl libevent-dev pkg-config dh-systemd \
+        libnuma-dev libjemalloc-dev libc6-dbg valgrind libjson-perl libevent-dev pkg-config \
         libmecab2 mecab mecab-ipadic git autoconf libgsasl7 libsasl2-dev libsasl2-modules devscripts \
         debconf debhelper fakeroot po-debconf psmisc ccache libtool sudo liblz4-dev liblz4-tool libedit-dev libssl-dev \
         tzdata check scons libreadline-dev libgcrypt-dev libev-dev zlib1g-dev libasio-dev ncurses-dev \
@@ -198,9 +199,14 @@ if [ -f /usr/bin/apt-get ]; then
         python3 sysbench libdbd-mysql-perl \
         patchelf lynx librtmp-dev lsof socat qpress libncurses5 libtinfo5 libxml-simple-perl python3-sphinx \
         stunnel \
+        libkrb5-dev libsasl2-dev libsasl2-modules-gssapi-mit \
     "
+
+    if [[ ${DIST} != 'bullseye' ]]; then
+        PKGLIST+=" dh-systemd"
+    fi
     
-    if [[ ${DIST} != 'focal' ]]; then
+    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' ]]; then
         PKGLIST+=" python-mysqldb"
     else
         PKGLIST+=" python3-mysqldb"
@@ -248,7 +254,11 @@ if [ -f /usr/bin/apt-get ]; then
 	pip3 install mysql-connector
     apt-get -y install build-essential devscripts
     # deps from spec files
-    apt-get -y install debhelper pkg-config cmake dh-systemd
+    if [[ ${DIST} != 'bullseye' ]]; then
+        apt-get -y install debhelper pkg-config cmake dh-systemd
+    else
+        apt-get -y install debhelper pkg-config cmake
+    fi
     # missing build deps
     apt-get -y install libssl-dev gawk lynx zlib1g-dev
     apt-get -y purge librtmp-dev || true
@@ -283,12 +293,18 @@ if [ -f /usr/bin/yum ]; then
     if [[ ${RHVER} -eq 6 ]]; then
         source /opt/rh/rh-python36/enable
         pip install --upgrade sphinx==1.4
+        pip install --upgrade docutils==0.16
         ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-build /usr/local/bin/sphinx-build
         ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-autogen /usr/local/bin/sphinx-autogen
         ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-quickstart /usr/local/bin/sphinx-quickstart
         ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-apidoc /usr/local/bin/sphinx-apidoc
     else
         pip3 install --upgrade sphinx==1.4
+        if [[ ${RHVER} -eq 7 ]]; then
+            pip3 install --upgrade docutils==0.16
+        else
+            pip3 install --upgrade docutils==0.17
+        fi
     fi
 fi
 

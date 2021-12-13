@@ -48,6 +48,9 @@ void runTest(String TEST_NAME) {
                         echo Skip $TEST_NAME test
                     else
                         cd ./source
+                        if [ -n "${PG_VERSION}" ]; then
+                            export PG_VER=${PG_VERSION}
+                        fi
                         if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
                             export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
                         else
@@ -90,6 +93,7 @@ void runTest(String TEST_NAME) {
 
                         if [ -n "${PGO_POSTGRES_HA_IMAGE}" ]; then
                             export IMAGE_PG_HA=${PGO_POSTGRES_HA_IMAGE}
+                            export PG_VER=\$(echo \${IMAGE_PG_HA} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                         fi
 
                         if [ -n "${PGO_BACKREST_IMAGE}" ]; then
@@ -138,6 +142,10 @@ void installRpms() {
 pipeline {
     parameters {
         string(
+            defaultValue: '1.21',
+            description: 'Kubernetes target version',
+            name: 'KUBEVERSION')
+        string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-postgresql-operator repository',
             name: 'GIT_BRANCH')
@@ -145,6 +153,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-postgresql-operator',
             description: 'percona-postgresql-operator repository',
             name: 'GIT_REPO')
+        string(
+            defaultValue: '',
+            description: 'PG version',
+            name: 'PG_VERSION')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-postgresql-operator:main-postgres-operator',
@@ -269,6 +281,7 @@ kind: ClusterConfig
 metadata:
     name: eks-pgo-cluster
     region: eu-west-3
+    version: '$KUBEVERSION'
 
 nodeGroups:
     - name: ng-1
@@ -306,7 +319,14 @@ EOF
                 runTest('recreate')
                 runTest('affinity')
                 runTest('monitoring')
+                runTest('self-healing')
+                runTest('operator-self-healing')
                 runTest('demand-backup')
+                runTest('scheduled-backup')
+                runTest('upgrade')
+                runTest('smart-update')
+                runTest('version-service')
+                runTest('users')
             }
         }
         stage('Make report') {

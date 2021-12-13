@@ -14,8 +14,6 @@ Resources:
     Properties:
       DisplayName: SNS Topic for EC2 Spot Instance Interruption Notices
       Subscription:
-      - Endpoint: "illia.pshonkin@percona.com"
-        Protocol: email
       - Endpoint: "mykola.marzhan@percona.com"
         Protocol: email
       - Endpoint: "slava.sarzhan@percona.com"
@@ -31,19 +29,13 @@ Resources:
     Properties:
       DisplayName: SNS Topic for EC2 Spot Instance Interruption Notices
       Subscription:
-      - Endpoint: "illia.pshonkin@percona.com"
-        Protocol: email
-      - Endpoint: "mykola.marzhan@percona.com"
-        Protocol: email
-      - Endpoint: "slava.sarzhan@percona.com"
-        Protocol: email
       - Endpoint: "evgeniy.patlan@percona.com"
         Protocol: email
       - Endpoint: "oleksandr.miroshnychenko@percona.com"
         Protocol: email
       - Endpoint: "alexander.tymchuk@percona.com"
         Protocol: email
-      - Endpoint: "aly.kafoury@percona.com"
+      - Endpoint: "nikita.beletskii@percona.com"
         Protocol: email
 
   TerminationSNSPolicy:

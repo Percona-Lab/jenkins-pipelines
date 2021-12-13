@@ -2,11 +2,11 @@ pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
+            description: 'Tag/Branch for percona/percona-server-mysql-operator repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator',
-            description: 'percona-xtradb-cluster-operator repository',
+            defaultValue: 'https://github.com/percona/percona-server-mysql-operator',
+            description: 'percona-server-mysql-operator repository',
             name: 'GIT_REPO')
     }
     agent {
@@ -63,21 +63,21 @@ pipeline {
 
                             docker login -u '${USER}' -p '${PASS}'
                             export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                            docker trust sign perconalab/percona-xtradb-cluster-operator:${DOCKER_TAG}
-                            docker push perconalab/percona-xtradb-cluster-operator:${DOCKER_TAG}
+                            docker trust sign perconalab/percona-server-mysql-operator:${DOCKER_TAG}
+                            docker push perconalab/percona-server-mysql-operator:${DOCKER_TAG}
                             docker logout
                         "
                     '''
                 }
             }
         }
-        stage('Check PXC docker image') {
+        stage('Check PSMO docker image') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
-                        IMAGE_NAME='percona-xtradb-cluster-operator'
-                        TrityHightLog="$WORKSPACE/trivy-hight-pxc.log"
-                        TrityCriticaltLog="$WORKSPACE/trivy-critical-pxc.log"
+                        IMAGE_NAME='percona-server-mysql-operator'
+                        TrityHightLog="$WORKSPACE/trivy-hight-psmo.log"
+                        TrityCriticaltLog="$WORKSPACE/trivy-critical-psmo.log"
 
                         sg docker -c "
                             docker login -u '${USER}' -p '${PASS}'
@@ -100,11 +100,11 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: '*-pxc.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: '*-psmo.log', allowEmptyArchive: true
             deleteDir()
         }
         failure {
-            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PXC image failed. Please check the log ${BUILD_URL}"
+            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PSMO image failed. Please check the log ${BUILD_URL}"
         }
     }
 }

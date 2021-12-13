@@ -274,7 +274,6 @@ pipeline {
                     }
 
                     installRpms()
-                    conditionalRunTest('default-cr')
                     runTest('affinity')
                     runTest('auto-tuning')
                     runTest('limits')

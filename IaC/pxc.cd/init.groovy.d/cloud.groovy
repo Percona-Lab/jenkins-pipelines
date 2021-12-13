@@ -35,7 +35,7 @@ imageMap['min-xenial-x64']   = 'ami-0fdf8b5989f22a4e0'
 imageMap['min-buster-x64']   = 'ami-0c053f1d5f22eb09f'
 imageMap['docker']           = 'ami-04b6c97b14c54de18'
 imageMap['docker-32gb']      = imageMap['docker']
-imageMap['min-bullseye-x64'] = 'ami-0530fb16aab9b92fd'
+imageMap['min-bullseye-x64'] = 'ami-09b4378b1d3387f81'
 
 imageMap['ramdisk-centos-6-x64'] = imageMap['min-centos-6-x64']
 imageMap['ramdisk-centos-7-x64'] = imageMap['min-centos-7-x64']

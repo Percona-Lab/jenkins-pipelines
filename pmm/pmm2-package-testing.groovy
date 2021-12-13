@@ -68,7 +68,7 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
     '''
 }
 
-def latestVersion = pmmLatestVersion()
+def latestVersion = pmmVersion()
 
 pipeline {
     agent any
@@ -162,20 +162,6 @@ pipeline {
                 stage('bionic-x64') {
                     agent {
                         label 'min-bionic-x64'
-                    }
-                    steps{
-                        setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
-                stage('xenial-x64') {
-                    agent {
-                        label 'min-xenial-x64'
                     }
                     steps{
                         setup_ubuntu_package_tests()
