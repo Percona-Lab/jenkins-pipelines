@@ -227,6 +227,11 @@ pipeline {
                 }
                 stage('Setup Node') {
                     steps {
+                        sh '''
+                            sudo rm -r node_modules/
+                            sudo rm -r tests/output
+                        '''
+                        deleteDir()
                         sh """
                             npm install
                             envsubst < env.list > env.generated.list
