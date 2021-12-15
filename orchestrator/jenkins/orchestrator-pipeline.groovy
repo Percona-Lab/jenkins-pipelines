@@ -41,7 +41,7 @@ pipeline {
         stage('Integration Tests') {
             agent { label 'docker-32gb' }
             steps {
-                git branch: 'DISTMYSQL-140', url: 'https://github.com/kamil-holubicki/jenkins-pipelines'
+                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 echo 'Run Orchestrator integration tests'
                 sh '''
                     # sudo is needed for better node recovery after compilation failure
@@ -58,7 +58,7 @@ pipeline {
         stage('System Tests') {
             agent { label 'docker-32gb' }
             steps {
-                git branch: 'DISTMYSQL-140', url: 'https://github.com/kamil-holubicki/jenkins-pipelines'
+                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 echo 'Run Orchestrator system tests'
                 sh '''
                     # sudo is needed for better node recovery after compilation failure
