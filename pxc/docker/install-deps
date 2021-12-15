@@ -293,7 +293,7 @@ if [ -f /usr/bin/yum ]; then
     if [[ ${RHVER} -eq 6 ]]; then
         source /opt/rh/rh-python36/enable
         pip install --upgrade sphinx==1.4
-        pip install --upgrade docutils==0.17
+        pip install --upgrade docutils==0.16
         ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-build /usr/local/bin/sphinx-build
         ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-autogen /usr/local/bin/sphinx-autogen
         ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-quickstart /usr/local/bin/sphinx-quickstart
