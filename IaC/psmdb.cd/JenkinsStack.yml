@@ -27,14 +27,14 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: illia
+    Default: jenkins-master
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
 Mappings:
   AmazonLinux2:
     us-west-2:
-      x64: ami-0a78fb1467aab24f9
+      x64: ami-0e21d4d9303512b8e
 
 Resources:
 
@@ -386,7 +386,7 @@ Resources:
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true
-        SpotPrice: 0.13
+        SpotPrice: 0.15
         TargetCapacity: 1
         TerminateInstancesWithExpiration: false
         Type: maintain
@@ -395,16 +395,16 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !GetAtt JMasterTemplate.LatestVersionNumber
           Overrides:
-          - InstanceType: m4.large
+          - InstanceType: m5d.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: m5.large
+          - InstanceType: r5ad.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5.large
+          - InstanceType: r5d.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5d.large
+          - InstanceType: m5ad.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
 
@@ -678,7 +678,7 @@ Resources:
               }
 
               setup_ssh_keys() {
-                KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan illia.pshonkin alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen"
+                KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets"
 
                 for KEY in $KEYS_LIST; do
                     RETRY="3"

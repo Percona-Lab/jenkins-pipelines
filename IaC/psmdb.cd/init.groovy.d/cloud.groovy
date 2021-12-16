@@ -22,24 +22,27 @@ netMap['us-west-2b'] = 'subnet-03136d8c244f56036'
 netMap['us-west-2c'] = 'subnet-09103aa8678a054f7'
 
 imageMap = [:]
-imageMap['micro-amazon']     = 'ami-083ac7c7ecf9bb9b0'
-imageMap['min-centos-6-x64'] = 'ami-0362922178e02e9f3'
+imageMap['micro-amazon']     = 'ami-0e21d4d9303512b8e'
+imageMap['min-centos-6-x64'] = 'ami-052ff42ae3be02b6a'
 imageMap['min-centos-7-x64'] = 'ami-0686851c4e7b1a8e1'
+imageMap['min-centos-8-x64'] = 'ami-0155c31ea13d4abd2'
 imageMap['min-bullseye-x64'] = 'ami-0d0f7602aa5c2425d'
-imageMap['min-stretch-x64']  = 'ami-0c729632334a74b05'
+imageMap['min-buster-x64']   = 'ami-013e2c587714af230'
+imageMap['min-stretch-x64']  = 'ami-01bc069bbdca81d56'
 imageMap['min-xenial-x64']   = 'ami-079e7a3f57cc8e0d0'
-imageMap['min-bionic-x64']   = 'ami-0864290505bf6b170'
+imageMap['min-bionic-x64']   = 'ami-074251216af698218'
+imageMap['min-focal-x64']    = 'ami-0892d3c7ee96c0bf7'
 imageMap['psmdb']            = imageMap['min-xenial-x64']
 imageMap['psmdb-bionic']     = imageMap['min-bionic-x64']
 imageMap['docker']           = imageMap['micro-amazon']
 imageMap['docker-32gb']      = imageMap['micro-amazon']
 
 priceMap = [:]
-priceMap['t2.small']   = '0.01'
-priceMap['c5.xlarge']  = '0.10'
-priceMap['m4.xlarge']  = '0.10'
-priceMap['m4.2xlarge'] = '0.20'
-priceMap['m5a.2xlarge'] = '0.25'
+priceMap['t2.medium']   = '0.03'
+priceMap['c5ad.2xlarge']  = '0.18'
+priceMap['m3.2xlarge']  = '0.17'
+priceMap['m5zn.2xlarge'] = '0.22'
+priceMap['m5zn.3xlarge'] = '0.27'
 
 userMap = [:]
 userMap['docker']           = 'ec2-user'
@@ -47,9 +50,12 @@ userMap['docker-32gb']      = userMap['docker']
 userMap['micro-amazon']     = userMap['docker']
 userMap['min-centos-6-x64'] = 'centos'
 userMap['min-centos-7-x64'] = 'centos'
+userMap['min-centos-8-x64'] = 'centos'
 userMap['min-stretch-x64']  = 'admin'
+userMap['min-buster-x64']   = 'admin'
 userMap['min-xenial-x64']   = 'ubuntu'
 userMap['min-bionic-x64']   = 'ubuntu'
+userMap['min-focal-x64']    = 'ubuntu'
 userMap['min-bullseye-x64'] = 'admin'
 userMap['psmdb']            = userMap['min-xenial-x64']
 userMap['psmdb-bionic']     = userMap['min-xenial-x64']
@@ -215,7 +221,7 @@ initMap['debMap'] = '''
             fi
         done
         if [ -n "${DEVICE}" ]; then
-            sudo apt-get -y install xfsprogs
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install xfsprogs
             sudo mkfs.xfs ${DEVICE}
             sudo mount ${DEVICE} /mnt
         fi
@@ -223,11 +229,11 @@ initMap['debMap'] = '''
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
-    until sudo apt-get update; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
         echo try again
     done
-    until sudo apt-get install -y lsb-release; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get install -y lsb-release; do
         sleep 1
         echo try again
     done
@@ -237,7 +243,7 @@ initMap['debMap'] = '''
     else
         JAVA_VER="openjdk-8-jre-headless"
     fi
-    sudo apt-get -y install ${JAVA_VER} git
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ${JAVA_VER} git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 
@@ -245,31 +251,37 @@ initMap['debMap'] = '''
 initMap['micro-amazon']      = initMap['rpmMap']
 initMap['min-centos-6-x64']  = initMap['rpmMap']
 initMap['min-centos-7-x64']  = initMap['rpmMap']
+initMap['min-centos-8-x64']  = initMap['rpmMap']
 
 initMap['min-bullseye-x64'] = initMap['debMap']
-initMap['min-stretch-x64'] = initMap['debMap']
+initMap['min-stretch-x64']  = initMap['debMap']
+initMap['min-buster-x64']   = initMap['debMap']
 
+initMap['min-focal-x64']   = initMap['debMap']
 initMap['min-bionic-x64']  = initMap['debMap']
 initMap['min-xenial-x64']  = initMap['debMap']
 initMap['psmdb']           = initMap['debMap']
 initMap['psmdb-bionic']    = initMap['debMap']
 
 capMap = [:]
-capMap['c5.xlarge'] = '60'
-capMap['m4.xlarge'] = '60'
-capMap['m4.2xlarge'] = '10'
-capMap['m5a.2xlarge'] = '10'
+capMap['c5ad.2xlarge'] = '60'
+capMap['m3.2xlarge'] = '60'
+capMap['m5zn.2xlarge'] = '60'
+capMap['m5zn.3xlarge'] = '80'
 
 typeMap = [:]
-typeMap['micro-amazon']      = 't2.small'
-typeMap['docker']            = 'c5.xlarge'
-typeMap['docker-32gb']       = 'm5a.2xlarge'
+typeMap['micro-amazon']      = 't2.medium'
+typeMap['docker']            = 'c5ad.2xlarge'
+typeMap['docker-32gb']       = 'm5zn.3xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
-typeMap['min-centos-6-x64']  = 'm5a.2xlarge'
+typeMap['min-centos-6-x64']  = 'm3.2xlarge'
+typeMap['min-centos-8-x64']  = typeMap['docker-32gb']
 typeMap['min-bullseye-x64']  = typeMap['docker-32gb']
 typeMap['min-stretch-x64']   = typeMap['docker-32gb']
+typeMap['min-buster-x64']    = typeMap['docker-32gb']
 typeMap['min-xenial-x64']    = typeMap['docker-32gb']
 typeMap['min-bionic-x64']    = typeMap['docker-32gb']
+typeMap['min-focal-x64']     = typeMap['docker-32gb']
 typeMap['psmdb']             = typeMap['docker-32gb']
 typeMap['psmdb-bionic']      = typeMap['docker-32gb']
 
@@ -279,10 +291,13 @@ execMap['docker-32gb']      = execMap['docker']
 execMap['micro-amazon']     = '30'
 execMap['min-centos-6-x64'] = '1'
 execMap['min-centos-7-x64'] = '1'
+execMap['min-centos-8-x64'] = '1'
 execMap['min-bullseye-x64'] = '1'
 execMap['min-stretch-x64']  = '1'
+execMap['min-buster-x64']   = '1'
 execMap['min-xenial-x64']   = '1'
 execMap['min-bionic-x64']   = '1'
+execMap['min-focal-x64']    = '1'
 execMap['psmdb']            = '1'
 execMap['psmdb-bionic']     = '1'
 
@@ -294,10 +309,13 @@ devMap['docker-32gb']      = devMap['docker']
 devMap['micro-amazon']     = devMap['docker']
 devMap['min-centos-6-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:400:true:gp2'
 devMap['min-centos-7-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:400:true:gp2'
+devMap['min-centos-8-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:400:true:gp2'
 devMap['min-bullseye-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:400:true:gp2'
+devMap['min-buster-x64']   = '/dev/xvda=:8:true:gp2,/dev/xvdd=:400:true:gp2'
 devMap['min-stretch-x64']  = 'xvda=:8:true:gp2,xvdd=:400:true:gp2'
 devMap['min-xenial-x64']   = '/dev/sda1=:8:true:gp2,/dev/sdd=:400:true:gp2'
 devMap['min-bionic-x64']   = '/dev/sda1=:8:true:gp2,/dev/sdd=:400:true:gp2'
+devMap['min-focal-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:400:true:gp2'
 
 labelMap = [:]
 labelMap['docker']           = ''
@@ -305,10 +323,13 @@ labelMap['docker-32gb']      = ''
 labelMap['micro-amazon']     = 'master'
 labelMap['min-centos-6-x64'] = ''
 labelMap['min-centos-7-x64'] = ''
+labelMap['min-centos-8-x64'] = ''
 labelMap['min-bullseye-x64'] = ''
 labelMap['min-stretch-x64']  = ''
+labelMap['min-buster-x64']   = ''
 labelMap['min-xenial-x64']   = ''
 labelMap['min-bionic-x64']   = ''
+labelMap['min-focal-x64']    = ''
 labelMap['psmdb']            = ''
 labelMap['psmdb-bionic']     = ''
 
@@ -380,14 +401,17 @@ String region = 'us-west-2'
         sshKeysCredentialsId,                   // String sshKeysCredentialsId
         '240',                                   // String instanceCapStr
         [
-            getTemplate('docker', "${region}${it}"),
-            getTemplate('docker-32gb', "${region}${it}"),
-            getTemplate('psmdb',  "${region}${it}"),
-            getTemplate('psmdb-bionic',  "${region}${it}"),
+            getTemplate('docker',           "${region}${it}"),
+            getTemplate('docker-32gb',      "${region}${it}"),
+            getTemplate('psmdb',            "${region}${it}"),
+            getTemplate('psmdb-bionic',     "${region}${it}"),
             getTemplate('min-centos-6-x64', "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
+            getTemplate('min-centos-8-x64', "${region}${it}"),
+            getTemplate('min-buster-x64',   "${region}${it}"),
             getTemplate('min-stretch-x64',  "${region}${it}"),
             getTemplate('min-bullseye-x64', "${region}${it}"),
+            getTemplate('min-focal-x64',    "${region}${it}"),
             getTemplate('min-bionic-x64',   "${region}${it}"),
             getTemplate('min-xenial-x64',   "${region}${it}"),
             getTemplate('micro-amazon',     "${region}${it}"),
