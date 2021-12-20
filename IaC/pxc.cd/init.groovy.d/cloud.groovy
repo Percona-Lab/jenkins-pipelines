@@ -23,11 +23,11 @@ netMap['us-west-1b'] = 'subnet-01d9a7d6b4722eb43'
 netMap['us-west-1c'] = 'subnet-0550c1d2ffd688021'
 
 imageMap = [:]
-imageMap['micro-amazon']     = 'ami-04b6c97b14c54de18'
+imageMap['micro-amazon']     = 'ami-028f2b5ee08012131'
 imageMap['min-bionic-x64']   = 'ami-0558dde970ca91ee5'
 imageMap['min-focal-x64']    = 'ami-04b61997e51f6d5c7'
 imageMap['min-centos-6-x32'] = 'ami-67e3cd22'
-imageMap['min-centos-6-x64'] = 'ami-8adb3fe9'
+imageMap['min-centos-6-x64'] = 'ami-0d282a216ae4c0c42'
 imageMap['min-centos-7-x64'] = 'ami-08d2d8b00f270d03b'
 imageMap['min-centos-8-x64'] = 'ami-04adf3fcbc8a45c54'
 imageMap['min-stretch-x64']  = 'ami-07bbec0b6b6baa7de'
@@ -52,10 +52,8 @@ priceMap = [:]
 priceMap['t2.small'] = '0.01'
 priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
-priceMap['m4.xlarge'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
-priceMap['m5d.2xlarge'] = '0.20'
-priceMap['r3.2xlarge'] = '0.20'
+priceMap['m5zn.2xlarge'] = '0.22'
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -274,11 +272,11 @@ initMap['debMap'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
-    until sudo apt-get update; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
         echo try again
     done
-    until sudo apt-get install -y lsb-release; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get install -y lsb-release; do
         sleep 1
         echo try again
     done
@@ -288,7 +286,7 @@ initMap['debMap'] = '''
     else
         JAVA_VER="openjdk-8-jre-headless"
     fi
-    sudo apt-get -y install ${JAVA_VER} git
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ${JAVA_VER} git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 
@@ -297,11 +295,11 @@ initMap['debMapRamdisk'] = '''
     if ! mountpoint -q /mnt; then
         sudo mount -t tmpfs -o size=20G tmpfs /mnt
     fi
-    until sudo apt-get update; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
         echo try again
     done
-    until sudo apt-get install -y lsb-release; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get install -y lsb-release; do
         sleep 1
         echo try again
     done
@@ -311,7 +309,7 @@ initMap['debMapRamdisk'] = '''
     else
         JAVA_VER="openjdk-8-jre-headless"
     fi
-    sudo apt-get -y install ${JAVA_VER} git
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ${JAVA_VER} git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 
@@ -368,14 +366,13 @@ initMap['performance-centos-6-x64']  = '''
 
 capMap = [:]
 capMap['c4.xlarge'] = '40'
-capMap['m4.xlarge'] = '40'
 capMap['m4.2xlarge'] = '40'
-capMap['r3.2xlarge'] = '10'
+capMap['m5zn.2xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
 typeMap['docker']       = 'c4.xlarge'
-typeMap['docker-32gb']  = 'm4.2xlarge'
+typeMap['docker-32gb']  = 'm5zn.2xlarge'
 
 typeMap['performance-centos-6-x64'] = typeMap['docker-32gb']
 
