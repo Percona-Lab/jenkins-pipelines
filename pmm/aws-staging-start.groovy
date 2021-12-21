@@ -14,8 +14,8 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
-            description: 'PMM Server docker container version (image-name:version-tag ex. public.ecr.aws/e7j3v3n0/pmm-server:dev-latest or perconalab/pmm-server:pmm1-dev-latest)',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
+            description: 'PMM Server docker container version (image-name:version-tag ex. perconalab/pmm-server:dev-latest or perconalab/pmm-server:pmm1-dev-latest)',
             name: 'DOCKER_VERSION')
         string(
             defaultValue: 'dev-latest',
