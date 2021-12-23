@@ -91,6 +91,8 @@ if [ -f /usr/bin/yum ]; then
 
     if [[ ${RHVER} -eq 8 ]]; then
         PKGLIST+=" lz4 perl-Memoize perl-open valgrind-devel libubsan rpcgen libtirpc-devel boost-devel"
+	# At least PXB build fails if libudev-devel is absent
+        PKGLIST+=" libudev-devel"
         DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-gcc-c++ gcc-toolset-10-binutils"
         DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-valgrind gcc-toolset-10-valgrind-devel gcc-toolset-10-libatomic-devel"
         DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-libasan-devel gcc-toolset-10-libubsan-devel"
