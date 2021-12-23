@@ -87,12 +87,11 @@ if [ -f /usr/bin/yum ]; then
     patchelf lsof automake bzip2 gnutls gnutls-devel patch lsof socat qpress perl-XML-Simple \
     stunnel \
     cyrus-sasl-scram \
+    libudev-devel \
     "
 
     if [[ ${RHVER} -eq 8 ]]; then
         PKGLIST+=" lz4 perl-Memoize perl-open valgrind-devel libubsan rpcgen libtirpc-devel boost-devel"
-	# At least PXB build fails if libudev-devel is absent
-        PKGLIST+=" libudev-devel"
         DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-gcc-c++ gcc-toolset-10-binutils"
         DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-valgrind gcc-toolset-10-valgrind-devel gcc-toolset-10-libatomic-devel"
         DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-libasan-devel gcc-toolset-10-libubsan-devel"
@@ -202,6 +201,7 @@ if [ -f /usr/bin/apt-get ]; then
         patchelf lynx librtmp-dev lsof socat qpress libncurses5 libtinfo5 libxml-simple-perl python3-sphinx \
         stunnel \
         libkrb5-dev libsasl2-dev libsasl2-modules-gssapi-mit \
+        libudev-dev \
     "
 
     if [[ ${DIST} != 'bullseye' ]]; then
