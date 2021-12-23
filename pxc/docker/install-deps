@@ -87,6 +87,7 @@ if [ -f /usr/bin/yum ]; then
     patchelf lsof automake bzip2 gnutls gnutls-devel patch lsof socat qpress perl-XML-Simple \
     stunnel \
     cyrus-sasl-scram \
+    libudev-devel \
     "
 
     if [[ ${RHVER} -eq 8 ]]; then
@@ -200,6 +201,7 @@ if [ -f /usr/bin/apt-get ]; then
         patchelf lynx librtmp-dev lsof socat qpress libncurses5 libtinfo5 libxml-simple-perl python3-sphinx \
         stunnel \
         libkrb5-dev libsasl2-dev libsasl2-modules-gssapi-mit \
+        libudev-dev \
     "
 
     if [[ ${DIST} != 'bullseye' ]]; then
