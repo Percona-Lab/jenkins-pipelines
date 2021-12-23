@@ -49,7 +49,7 @@ imageMap['ramdisk-buster-x64']   = imageMap['min-buster-x64']
 imageMap['performance-centos-6-x64']   = imageMap['min-centos-7-x64']
 
 priceMap = [:]
-priceMap['t2.small'] = '0.01'
+priceMap['t3a.medium'] = '0.015'
 priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
@@ -370,7 +370,7 @@ capMap['m4.2xlarge'] = '40'
 capMap['m5zn.2xlarge'] = '40'
 
 typeMap = [:]
-typeMap['micro-amazon'] = 't2.small'
+typeMap['micro-amazon'] = 't3a.medium'
 typeMap['docker']       = 'c4.xlarge'
 typeMap['docker-32gb']  = 'm5zn.2xlarge'
 

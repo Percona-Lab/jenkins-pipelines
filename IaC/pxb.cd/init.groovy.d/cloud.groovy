@@ -38,7 +38,7 @@ imageMap['min-focal-x64']    = 'ami-01773ce53581acf22'
 imageMap['min-bullseye-x64'] = 'ami-0d0f7602aa5c2425d'
 
 priceMap = [:]
-priceMap['t2.small'] = '0.01'
+priceMap['t3a.medium'] = '0.015'
 priceMap['m1.medium'] = '0.05'
 priceMap['c5ad.2xlarge'] = '0.18'
 priceMap['m3.2xlarge'] = '0.17'
@@ -263,7 +263,7 @@ capMap['m5zn.3xlarge'] = '80'
 capMap['m1.medium'] = '10'
 
 typeMap = [:]
-typeMap['micro-amazon'] = 't2.small'
+typeMap['micro-amazon'] = 't3a.medium'
 typeMap['docker'] = 'c5ad.2xlarge'
 typeMap['docker-32gb'] = 'm5zn.3xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
