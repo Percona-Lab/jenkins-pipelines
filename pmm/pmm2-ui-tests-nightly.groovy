@@ -288,7 +288,7 @@ pipeline {
                     sudo yum install -y gettext
                     envsubst < env.list > env.generated.list
                     ## https://jira.percona.com/browse/PMM-8804 bug in PMM causing postgres metrics gap on our infrastructure with standard resolution
-                    curl "${PMM_URL}/v1/Settings/Change" --data-raw '{"metrics_resolutions":{"lr":"60s","mr":"60s","hr":"60s"}}' --compressed --insecure
+                    curl "${PMM_URL}/v1/Settings/Change" --data-raw '{"metrics_resolutions":{"lr":"120s","mr":"120s","hr":"90s"}}' --compressed --insecure
                 """
             }
         }
