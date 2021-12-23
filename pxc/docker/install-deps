@@ -102,7 +102,7 @@ if [ -f /usr/bin/yum ]; then
 # Percona-Server
     if [[ ${RHVER} -eq 6 ]]; then
         wget -O /etc/yum.repos.d/slc6-devtoolset.repo http://linuxsoft.cern.ch/cern/devtoolset/slc6-devtoolset.repo
-        wget -O /etc/pki/rpm-gpg/RPM-GPG-KEY-cern https://raw.githubusercontent.com/cms-sw/cms-docker/master/slc6-installer/RPM-GPG-KEY-cern
+        wget -O /etc/pki/rpm-gpg/RPM-GPG-KEY-cern https://raw.githubusercontent.com/cms-sw/cms-docker/master/slc6/RPM-GPG-KEY-cern
         wget -O /etc/yum.repos.d/percona-dev.repo http://jenkins.percona.com/yum-repo/percona-dev.repo
         PKGLIST+=" devtoolset-2-gcc-c++ devtoolset-2-binutils"
         PKGLIST+=" devtoolset-2-libasan-devel"
