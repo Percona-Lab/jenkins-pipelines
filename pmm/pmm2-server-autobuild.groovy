@@ -140,7 +140,7 @@ pipeline {
                         set -o errexit
 
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server/:$(date -u '+%Y%m%d%H%M')
+                        export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
 
                         ./build/bin/build-server-docker
 
