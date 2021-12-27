@@ -143,11 +143,10 @@ Map<String, Permission> permissionIds = Permission.all.findAll { permission ->
 authz_strategy_config = [
     strategy: 'GlobalMatrixAuthorizationStrategy',
     user_permissions: [
-        'percona*Build Engineers': ['Overall Administer'],
+        'percona*build-engineers': ['Overall Administer'],
         'percona*iit': ['Overall Administer'],
         'percona*pmm-devs': ['Overall Read','Agent Build','Agent Configure','Agent Connect','Agent Create','Agent Delete','Agent Disconnect','Job Build','Job Cancel','Job Configure','Job Create','Job Delete','Job Discover','Job Move','Job Read','Job Workspace','Run Delete','Run Update','Run Replay','View Configure','View Create','View Delete','View Read','SCM Tag'],
-        'percona*External Contractors': ['Overall Read','Agent Build','Agent Configure','Agent Connect','Agent Create','Agent Delete','Agent Disconnect','Job Build','Job Cancel','Job Configure','Job Create','Job Delete','Job Discover','Job Move','Job Read','Job Workspace','Run Delete','Run Update','Run Replay','View Configure','View Create','View Delete','View Read','SCM Tag'],
-        'percona*PMM Contributors': ['Overall Read','Agent Build','Job Build','Job Cancel','Job Discover','Job Read','View Read'],
+        'percona*external-contractors': ['Overall Read','Agent Build','Agent Configure','Agent Connect','Agent Create','Agent Delete','Agent Disconnect','Job Build','Job Cancel','Job Configure','Job Create','Job Delete','Job Discover','Job Move','Job Read','Job Workspace','Run Delete','Run Update','Run Replay','View Configure','View Create','View Delete','View Read','SCM Tag'],
         'atymchuk': ['Overall Administer'],
     ]
 ]

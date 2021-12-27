@@ -30,7 +30,7 @@ variable "hostedzone" {
 
 variable "key_name" {
   description = "Name of AWS key pair for jenkins master"
-  default     = "illia"
+  default     = "jenkins-master"
 }
 
 data "aws_ami" "amazon-linux-2" {

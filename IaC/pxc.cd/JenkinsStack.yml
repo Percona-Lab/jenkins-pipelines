@@ -27,7 +27,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: illia
+    Default: jenkins-master
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
     
@@ -43,7 +43,7 @@ Parameters:
 Mappings:
   AmazonLinux2:
     us-west-1:
-      x64: ami-04b6c97b14c54de18
+      x64: ami-028f2b5ee08012131
 
 Resources:
 
@@ -756,7 +756,9 @@ Resources:
               }
 
               setup_ssh_keys() {
-                KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan illia.pshonkin alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen"
+                KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets"
+
+
 
                 for KEY in $KEYS_LIST; do
                     RETRY="3"

@@ -138,10 +138,9 @@ pipeline {
                     )]) {
                     sh '''
                         set -o errexit
-                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=public.ecr.aws/e7j3v3n0/pmm-server:$(date -u '+%Y%m%d%H%M')
+                        export DOCKER_TAG=perconalab/pmm-server/pmm-server:$(date -u '+%Y%m%d%H%M')
 
                         ./build/bin/build-server-docker
 
@@ -150,13 +149,10 @@ pipeline {
                             docker push perconalab/pmm-server:\${DOCKER_RC_TAG}
                             docker rmi perconalab/pmm-server:\${DOCKER_RC_TAG}
                         fi
-                        docker tag \\${DOCKER_TAG} public.ecr.aws/e7j3v3n0/pmm-server:${DOCKER_LATEST_TAG}
                         docker tag \\${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
                         docker push \\${DOCKER_TAG}
-                        docker push public.ecr.aws/e7j3v3n0/pmm-server:${DOCKER_LATEST_TAG}
                         docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
                         docker rmi  \\${DOCKER_TAG}
-                        docker rmi public.ecr.aws/e7j3v3n0/pmm-server:${DOCKER_LATEST_TAG}
                         docker rmi perconalab/pmm-server:${DOCKER_LATEST_TAG}
                     '''
                 }
