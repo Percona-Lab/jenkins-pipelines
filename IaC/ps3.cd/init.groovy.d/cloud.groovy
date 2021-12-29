@@ -247,7 +247,11 @@ initMap['rpmMap'] = '''
     fi
 
     if [[ ${RHVER} -eq 6 ]]; then
-        sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
+        if [[ ${ARCH} == "x86_64" ]]; then
+            sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
+        else
+            sudo curl -k https://jenkins.percona.com/downloads/cent6/centos6-eol-s3.repo --output /etc/yum.repos.d/CentOS-Base.repo
+        fi
         until sudo yum makecache; do
             sleep 1
             echo try again
