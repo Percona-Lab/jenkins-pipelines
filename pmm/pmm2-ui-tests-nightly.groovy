@@ -130,6 +130,24 @@ pipeline {
         MAILOSAUR_API_KEY=credentials('MAILOSAUR_API_KEY')
         MAILOSAUR_SERVER_ID=credentials('MAILOSAUR_SERVER_ID')
         MAILOSAUR_SMTP_PASSWORD=credentials('MAILOSAUR_SMTP_PASSWORD')
+        GCP_MYSQL57_HOST=credentials('GCP_MYSQL57_HOST');
+        GCP_MYSQL57_USER=credentials('GCP_MYSQL57_USER');
+        GCP_MYSQL57_PASSWORD=credentials('GCP_MYSQL57_PASSWORD');
+        GCP_MYSQL80_HOST=credentials('GCP_MYSQL80_HOST');
+        GCP_MYSQL80_USER=credentials('GCP_MYSQL80_USER');
+        GCP_MYSQL80_PASSWORD=credentials('GCP_MYSQL80_PASSWORD');
+        GCP_PGSQL13_HOST=credentials('GCP_PGSQL13_HOST');
+        GCP_PGSQL13_USER=credentials('GCP_PGSQL13_USER');
+        GCP_PGSQL13_PASSWORD=credentials('GCP_PGSQL13_PASSWORD');
+        GCP_PGSQL12_HOST=credentials('GCP_PGSQL12_HOST');
+        GCP_PGSQL12_USER=credentials('GCP_PGSQL12_USER');
+        GCP_PGSQL12_PASSWORD=credentials('GCP_PGSQL12_PASSWORD');
+        GCP_PGSQL14_HOST=credentials('GCP_PGSQL14_HOST');
+        GCP_PGSQL14_USER=credentials('GCP_PGSQL14_USER');
+        GCP_PGSQL14_PASSWORD=credentials('GCP_PGSQL14_PASSWORD');
+        GCP_PGSQL11_HOST=credentials('GCP_PGSQL11_HOST');
+        GCP_PGSQL11_USER=credentials('GCP_PGSQL11_USER');
+        GCP_PGSQL11_PASSWORD=credentials('GCP_PGSQL11_PASSWORD');
     }
     parameters {
         string(
