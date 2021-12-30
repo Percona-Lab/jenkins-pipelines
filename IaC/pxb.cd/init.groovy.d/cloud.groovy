@@ -22,11 +22,11 @@ netMap['us-west-2b'] = 'subnet-011f09cf273aeef73'
 netMap['us-west-2c'] = 'subnet-00b0d1d8bd8af5c07'
 
 imageMap = [:]
-imageMap['docker'] = 'ami-0dc8f589abe99f538'
-imageMap['docker-32gb'] = 'ami-0dc8f589abe99f538'
-imageMap['micro-amazon'] = 'ami-0dc8f589abe99f538'
+imageMap['docker'] = 'ami-0e21d4d9303512b8e'
+imageMap['docker-32gb'] = imageMap['docker']
+imageMap['micro-amazon'] = imageMap['docker']
 imageMap['min-centos-6-x32'] = 'ami-cb1382fb'
-imageMap['min-centos-6-x64'] = 'ami-6fcc8f17'
+imageMap['min-centos-6-x64'] = 'ami-0e025868cef8764d8'
 imageMap['min-centos-7-x64'] = 'ami-0686851c4e7b1a8e1'
 imageMap['min-centos-8-x64'] = 'ami-0155c31ea13d4abd2'
 imageMap['min-bionic-x64']   = 'ami-0bdef2eb518663879'
@@ -38,12 +38,12 @@ imageMap['min-focal-x64']    = 'ami-01773ce53581acf22'
 imageMap['min-bullseye-x64'] = 'ami-0d0f7602aa5c2425d'
 
 priceMap = [:]
-priceMap['t2.small'] = '0.01'
+priceMap['t3a.medium'] = '0.015'
 priceMap['m1.medium'] = '0.05'
-priceMap['c5.xlarge'] = '0.10'
-priceMap['m4.xlarge'] = '0.10'
-priceMap['m4.2xlarge'] = '0.20'
-priceMap['m5d.2xlarge'] = '0.20'
+priceMap['c5ad.2xlarge'] = '0.18'
+priceMap['m3.2xlarge'] = '0.17'
+priceMap['m5zn.2xlarge'] = '0.22'
+priceMap['m5zn.3xlarge'] = '0.27'
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
@@ -220,11 +220,11 @@ initMap['debMap'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
-    until sudo apt-get update; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
         echo try again
     done
-    until sudo apt-get install -y lsb-release; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get install -y lsb-release; do
         sleep 1
         echo try again
     done
@@ -234,7 +234,7 @@ initMap['debMap'] = '''
     else
         JAVA_VER="openjdk-8-jre-headless"
     fi
-    sudo apt-get -y install ${JAVA_VER} git
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ${JAVA_VER} git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 
@@ -256,22 +256,23 @@ initMap['min-focal-x64'] = initMap['debMap']
 
 
 capMap = [:]
-capMap['c5.xlarge'] = '40'
-capMap['m4.xlarge'] = '10'
-capMap['m4.2xlarge'] = '40'
+capMap['c5ad.2xlarge'] = '60'
+capMap['m3.2xlarge'] = '60'
+capMap['m5zn.2xlarge'] = '60'
+capMap['m5zn.3xlarge'] = '80'
 capMap['m1.medium'] = '10'
 
 typeMap = [:]
-typeMap['micro-amazon'] = 't2.small'
-typeMap['docker'] = 'c5.xlarge'
-typeMap['docker-32gb'] = 'm4.2xlarge'
+typeMap['micro-amazon'] = 't3a.medium'
+typeMap['docker'] = 'c5ad.2xlarge'
+typeMap['docker-32gb'] = 'm5zn.3xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-8-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32'] = 'm1.medium'
-typeMap['min-centos-6-x64'] = 'm4.xlarge'
+typeMap['min-centos-6-x64'] = 'm3.2xlarge'
 typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']

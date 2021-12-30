@@ -81,7 +81,7 @@ pipeline {
             description: 'Run mtr suites based on variable MTR_SUITES if the value is `no`. Otherwise the full mtr will be perfomed.',
             name: 'FULL_MTR')
         string(
-            defaultValue: 'galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars',
+            defaultValue: 'galera,galera_3nodes,galera_sr,galera_3nodes_sr,sys_vars,galera_nbo,galera_3nodes_nbo',
             description: 'mysql-test-run.pl suite names',
             name: 'MTR_SUITES')
         string(

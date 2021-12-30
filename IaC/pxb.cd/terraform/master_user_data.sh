@@ -236,7 +236,7 @@ EOF
 }
 
 setup_ssh_keys() {
-    KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan illia.pshonkin alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen"
+    KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets"
 
     for KEY in $KEYS_LIST; do
         RETRY="3"
