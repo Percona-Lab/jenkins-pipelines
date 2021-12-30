@@ -21,7 +21,7 @@ netMap['eu-central-1b'] = 'subnet-085deaca8c1c59a4f'
 netMap['eu-central-1c'] = 'subnet-0643c0784b4e3cedd'
 
 imageMap = [:]
-imageMap['eu-central-1a.micro-amazon'] = 'ami-00f22f6155d6d92c5'
+imageMap['eu-central-1a.micro-amazon'] = 'ami-099ccc441b2ef41ec'
 imageMap['eu-central-1b.micro-amazon'] = imageMap['eu-central-1a.micro-amazon']
 imageMap['eu-central-1c.micro-amazon'] = imageMap['eu-central-1a.micro-amazon']
 imageMap['eu-central-1a.min-centos-7-x64'] = 'ami-08b6d44b4f6f7b279'
@@ -30,7 +30,7 @@ imageMap['eu-central-1c.min-centos-7-x64'] = imageMap['eu-central-1a.min-centos-
 
 
 priceMap = [:]
-priceMap['t2.small'] = '0.01'
+priceMap['t2.medium'] = '0.05'
 priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
@@ -77,8 +77,8 @@ capMap['r4.4xlarge'] = '40'
 capMap['c5d.xlarge'] = '10'
 
 typeMap = [:]
-typeMap['micro-amazon'] = 't2.small'
-typeMap['min-centos-7-x64'] = 't2.small'
+typeMap['micro-amazon'] = 't2.medium'
+typeMap['min-centos-7-x64'] = 't2.medium'
 
 execMap = [:]
 execMap['micro-amazon'] = '30'
