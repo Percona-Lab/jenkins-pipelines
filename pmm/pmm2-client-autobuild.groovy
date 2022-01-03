@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'docker-farm'
     }
     parameters {
         string(
@@ -57,12 +57,7 @@ pipeline {
         }
         stage('Build client source') {
             steps {
-                sh '''
-                    sg docker -c "
-                        env
-                        ./build/bin/build-client-source
-                    "
-                '''
+                sh './build/bin/build-client-source'
                 stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
                 uploadTarball('source')
             }
@@ -71,10 +66,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        sg docker -c "
-                            env
-                            ./build/bin/build-client-binary
-                        "
+                        ./build/bin/build-client-binary
                         aws s3 cp --acl public-read results/tarball/pmm2-client-*.tar.gz \
                             s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz
                     '''
@@ -87,31 +79,27 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
-                        sg docker -c "
-                            docker login -u "${USER}" -p "${PASS}"
-                        "
+                        docker login -u "${USER}" -p "${PASS}"
                     """
                 }
                 sh '''
-                    sg docker -c "
-                        set -o xtrace
+                    set -o xtrace
 
-                        export PUSH_DOCKER=1
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')
+                    export PUSH_DOCKER=1
+                    export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')
 
-                        ./build/bin/build-client-docker
+                    ./build/bin/build-client-docker
 
-                        if [ ! -z \${DOCKER_RC_TAG+x} ]; then
-                            docker tag  \\${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_RC_TAG}
-                            docker push perconalab/pmm-client:\${DOCKER_RC_TAG}
-                            docker rmi perconalab/pmm-client:\${DOCKER_RC_TAG}
-                        fi
-                        docker tag  \\${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_LATEST_TAG}
-                        docker push \\${DOCKER_CLIENT_TAG}
-                        docker push perconalab/pmm-client:\${DOCKER_LATEST_TAG}
-                        docker rmi  \\${DOCKER_CLIENT_TAG}
-                        docker rmi  perconalab/pmm-client:\${DOCKER_LATEST_TAG}
-                    "
+                    if [ ! -z \${DOCKER_RC_TAG+x} ]; then
+                        docker tag  \\${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_RC_TAG}
+                        docker push perconalab/pmm-client:\${DOCKER_RC_TAG}
+                        docker rmi perconalab/pmm-client:\${DOCKER_RC_TAG}
+                    fi
+                    docker tag  \\${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_LATEST_TAG}
+                    docker push \\${DOCKER_CLIENT_TAG}
+                    docker push perconalab/pmm-client:\${DOCKER_LATEST_TAG}
+                    docker rmi  \\${DOCKER_CLIENT_TAG}
+                    docker rmi  perconalab/pmm-client:\${DOCKER_LATEST_TAG}
                 '''
                 stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
                 archiveArtifacts 'results/docker/CLIENT_TAG'
@@ -119,20 +107,17 @@ pipeline {
         }
         stage('Build client source rpm') {
             steps {
-                sh 'sg docker -c "./build/bin/build-client-srpm centos:7"'
+                sh './build/bin/build-client-srpm centos:7'
                 stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
                 uploadRPM()
             }
         }
         stage('Build client binary rpm') {
             steps {
-                sh '''
-                    sg docker -c "
-                        env
-                        ./build/bin/build-client-rpm centos:7
-                        ./build/bin/build-client-rpm centos:8
-                    "
-                '''
+                sh '
+                    ./build/bin/build-client-rpm centos:7
+                    ./build/bin/build-client-rpm centos:8
+                '
                 stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
                 uploadRPM()
             }
@@ -140,18 +125,18 @@ pipeline {
 
         stage('Build client source deb') {
             steps {
-                sh 'sg docker -c "./build/bin/build-client-sdeb ubuntu:bionic"'
+                sh '/build/bin/build-client-sdeb ubuntu:bionic'
                 stash includes: 'results/source_deb/*', name: 'debs'
                 uploadDEB()
             }
         }
         stage('Build client binary debs') {
             steps {
-                sh 'sg docker -c "./build/bin/build-client-deb debian:buster"'
-                sh 'sg docker -c "./build/bin/build-client-deb debian:stretch"'
-                sh 'sg docker -c "./build/bin/build-client-deb debian:bullseye"'
-                sh 'sg docker -c "./build/bin/build-client-deb ubuntu:bionic"'
-                sh 'sg docker -c "./build/bin/build-client-deb ubuntu:focal"'
+                sh './build/bin/build-client-deb debian:buster'
+                sh './build/bin/build-client-deb debian:stretch'
+                sh './build/bin/build-client-deb debian:bullseye'
+                sh './build/bin/build-client-deb ubuntu:bionic'
+                sh './build/bin/build-client-deb ubuntu:focal'
                 stash includes: 'results/deb/*.deb', name: 'debs'
                 uploadDEB()
             }
@@ -171,11 +156,8 @@ pipeline {
                 sync2ProdPMM(DESTINATION, 'yes')
 
                 // upload tarball
-                deleteDir()
                 unstash 'binary.tarball'
-                sh '''
-                    scp -i ~/.ssh/id_rsa_downloads -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no results/tarball/*.tar.* jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
-                '''
+                sh 'scp -i ~/.ssh/id_rsa_downloads -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no results/tarball/*.tar.* jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/'
             }
         }
     }
