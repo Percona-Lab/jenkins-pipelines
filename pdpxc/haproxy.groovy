@@ -33,7 +33,7 @@ pipeline {
             name: 'TESTING_BRANCH')
   }
   options {
-          withCredentials(moleculePdpsJenkinsCreds())
+          withCredentials(moleculePdpxcJenkinsCreds())
           disableConcurrentBuilds()
   }
   stages {
