@@ -115,8 +115,8 @@ pipeline {
             description: "Run Tests for OVF supported Features",
             name: 'OVF_TEST')
         string(
-            defaultValue: "'@gcp'",
-            description: "Run Tests for Specific Areas or cloud providers example: '@gcp|@aws|@instances'",
+            defaultValue: '',
+            description: "Run Tests for Specific Areas or cloud providers example: @gcp|@aws|@instances",
             name: 'TAG')
         choice(
             choices: ['no', 'yes'],
@@ -334,6 +334,9 @@ pipeline {
                 expression { env.OVF_TEST == "no" && env.RUN_TAGGED_TEST == "yes" }
             }
             steps {
+                script {
+                            env.CODECEPT_TAG = "'" + "${TAG}" + "'"
+                }
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
@@ -343,7 +346,7 @@ pipeline {
                            export PATH="`pwd`/pmm2-client/bin:$PATH"
                         fi
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep ${TAG}
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep ${CODECEPT_TAG}
                     """
                 }
             }
