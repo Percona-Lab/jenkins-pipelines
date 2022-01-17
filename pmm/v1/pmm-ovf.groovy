@@ -7,8 +7,8 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: '1.x',
-            description: 'Tag/Branch for pmm-server repository',
+            defaultValue: 'master',
+            description: 'Tag/Branch for percona-images repository',
             name: 'GIT_BRANCH')
     }
     options {
@@ -23,7 +23,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
-                git poll: true, branch: GIT_BRANCH, url: "https://github.com/percona/pmm-server.git"
+                git poll: true, branch: GIT_BRANCH, url: "https://github.com/Percona-Lab/percona-images.git"
                 sh """
                     make clean
                     make fetch
