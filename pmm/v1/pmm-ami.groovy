@@ -33,13 +33,11 @@ pipeline {
 
         stage('Build Image') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        set -o pipefail
-                        ~/bin/packer build -only amazon-ebs -color=false packer/pmm.json \
-                            | tee build.log
-                    """
-                }
+                sh """
+                    set -o pipefail
+                    ~/bin/packer build -only amazon-ebs -color=false packer/pmm.json \
+                        | tee build.log
+                """
                 sh 'tail build.log | grep us-east-1 | cut -d " " -f 2 > IMAGE'
                 stash includes: 'IMAGE', name: 'IMAGE'
                 archiveArtifacts 'IMAGE'
