@@ -7,7 +7,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: 'pmm-1.x',
             description: 'Tag/Branch for percona-images repository',
             name: 'GIT_BRANCH')
     }
