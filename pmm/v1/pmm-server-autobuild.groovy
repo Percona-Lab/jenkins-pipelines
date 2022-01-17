@@ -12,7 +12,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: '1.x',
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
     }
