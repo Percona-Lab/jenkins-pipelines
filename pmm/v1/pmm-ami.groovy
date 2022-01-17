@@ -3,7 +3,7 @@ pipeline {
         specName = 'AMI'
     }
     agent {
-        label 'awscli'
+        label 'docker-farm'
     }
     parameters {
         string(
