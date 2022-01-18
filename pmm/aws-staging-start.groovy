@@ -214,7 +214,6 @@ pipeline {
                         sudo amazon-linux-extras install php7.2 -y
                         sudo yum -y install bats
                         sudo usermod -aG docker ec2-user
-                        sudo systemctl start mysqld
                         sudo systemctl start docker
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
