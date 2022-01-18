@@ -217,7 +217,7 @@ pipeline {
                     env.PUB_KEY = sh(returnStdout: true, script: "cat PUB_KEY").trim()
                     env.OWNER   = sh(returnStdout: true, script: "cat OWNER | cut -d . -f 1").trim()
                 }
-                setupPMMClient(env.PUBLIC_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'ovf_setup')
+                setupPMMClient(env.PUBLIC_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'ovf_setup', 'admin')
                 sh """
                     set -o errexit
                     set -o xtrace

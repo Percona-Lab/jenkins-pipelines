@@ -94,7 +94,7 @@ pipeline {
             description: 'PMM Version for testing',
             name: 'PMM_VERSION')
         choice(
-            choices: ['pmm2-client', 'pmm2-client_upgrade', 'pmm2-client_integration_upgrade', 'pmm2-client_integration'],
+            choices: ['pmm2-client', 'pmm2-client_upgrade', 'pmm2-client_integration_upgrade', 'pmm2-client_integration', 'pmm2-client_integration_custom_path', 'pmm2-client_integration_upgrade_custom_path'],
             description: 'Type of Tests?',
             name: 'TESTS')
         choice(

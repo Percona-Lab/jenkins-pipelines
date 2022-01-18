@@ -246,7 +246,7 @@ pipeline {
         }
         stage('Setup Client for PMM-Server') {
             steps {
-                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'compose_setup')
+                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'compose_setup', 'admin')
                 sh """
                     set -o errexit
                     set -o xtrace
