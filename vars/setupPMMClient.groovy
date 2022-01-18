@@ -1,4 +1,4 @@
-def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENABLE_PULL_MODE, String ENABLE_TESTING_REPO, String CLIENT_INSTANCE, String SETUP_TYPE, String PASSWORD) {
+def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENABLE_PULL_MODE, String ENABLE_TESTING_REPO, String CLIENT_INSTANCE, String SETUP_TYPE, String ADMIN_PASSWORD) {
    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             set -o errexit
@@ -13,7 +13,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             export ENABLE_TESTING_REPO=${ENABLE_TESTING_REPO}
             export CLIENT_INSTANCE=${CLIENT_INSTANCE}
             export SETUP_TYPE=${SETUP_TYPE}
-            export ADMIN_PASSWORD=${PASSWORD}
+            export ADMIN_PASSWORD=${ADMIN_PASSWORD}
             if [[ \$SETUP_TYPE == compose_setup ]]; then
                 export IP=192.168.0.1
             fi
