@@ -209,9 +209,9 @@ pipeline {
                         sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-25.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum -y install git svn docker sysbench
-                        sudo yum -y install https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm
-                        sudo yum -y install php php-mysqlnd php-pdo mysql-community-server jq
+                        sudo yum -y install mysql-community-server jq
                         sudo amazon-linux-extras install epel -y
+                        sudo amazon-linux-extras install php7.2 -y
                         sudo yum -y install bats
                         sudo usermod -aG docker ec2-user
                         sudo systemctl start mysqld
