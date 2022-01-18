@@ -12,7 +12,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: '1.x',
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
     }
@@ -69,7 +69,7 @@ pipeline {
         }
         stage('Build client source rpm') {
             steps {
-                sh 'sg docker -c "./build/bin/build-client-srpm centos:6"'
+                sh 'sg docker -c "./build/bin/build-client-srpm centos:7"'
                 stash includes: 'results/srpm/pmm-client-*.src.rpm', name: 'rpms'
                 uploadRPM()
             }
