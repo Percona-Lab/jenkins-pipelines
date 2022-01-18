@@ -1,4 +1,4 @@
-def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENABLE_PULL_MODE, String ENABLE_TESTING_REPO, String CLIENT_INSTANCE, String SETUP_TYPE) {
+def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENABLE_PULL_MODE, String ENABLE_TESTING_REPO, String CLIENT_INSTANCE, String SETUP_TYPE, String PASSWORD) {
    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             set -o errexit
@@ -13,8 +13,12 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             export ENABLE_TESTING_REPO=${ENABLE_TESTING_REPO}
             export CLIENT_INSTANCE=${CLIENT_INSTANCE}
             export SETUP_TYPE=${SETUP_TYPE}
+            export ADMIN_PASSWORD=${PASSWORD}
             if [[ \$SETUP_TYPE == compose_setup ]]; then
                 export IP=192.168.0.1
+            fi
+            if [ -z "$ADMIN_PASSWORD" ]; then
+                export ADMIN_PASSWORD=admin
             fi
             sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
             sudo yum clean all
@@ -79,12 +83,12 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     pmm-admin --version
                     if [[ \$CLIENT_INSTANCE == yes ]]; then
                         if [[ \$ENABLE_PULL_MODE == yes ]]; then
-                            pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin --metrics-mode=pull \$IP
+                            pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD --metrics-mode=pull \$IP
                         else
-                            pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
+                            pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD \$IP
                         fi
                     else
-                        pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=admin \$IP
+                        pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD \$IP
                     fi
                     sleep 10
                     JENKINS_NODE_COOKIE=dontKillMe nohup bash -c 'pmm-agent --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
@@ -99,12 +103,12 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     pmm-admin --version
                     if [[ \$CLIENT_INSTANCE == yes ]]; then
                         if [[ \$ENABLE_PULL_MODE == yes ]]; then
-                            sudo pmm-admin config --server-url=https://admin:admin@\$SERVER_IP:443 --server-insecure-tls --metrics-mode=pull \$IP
+                            sudo pmm-admin config --server-url=https://admin:\$ADMIN_PASSWORD@\$SERVER_IP:443 --server-insecure-tls --metrics-mode=pull \$IP
                         else
-                            sudo pmm-admin config --server-url=https://admin:admin@\$SERVER_IP:443 --server-insecure-tls \$IP
+                            sudo pmm-admin config --server-url=https://admin:\$ADMIN_PASSWORD@\$SERVER_IP:443 --server-insecure-tls \$IP
                         fi
                     else
-                        sudo pmm-admin config --server-url=https://admin:admin@\$SERVER_IP:443 --server-insecure-tls \$IP
+                        sudo pmm-admin config --server-url=https://admin:\$ADMIN_PASSWORD@\$SERVER_IP:443 --server-insecure-tls \$IP
                     fi
                     sleep 10
                     pmm-admin list
