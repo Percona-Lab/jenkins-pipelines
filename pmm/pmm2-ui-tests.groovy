@@ -226,8 +226,9 @@ pipeline {
                         """
                         script {
                             env.SERVER_IP = "127.0.0.1"
+                            env.ADMIN_PASSWORD = "admin"
                             env.PMM_UI_URL = "http://${env.SERVER_IP}/"
-                            env.PMM_URL = "http://admin:admin@${env.SERVER_IP}"
+                            env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
                         }
                     }
                 }
@@ -246,7 +247,7 @@ pipeline {
         }
         stage('Setup Client for PMM-Server') {
             steps {
-                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'compose_setup', 'admin')
+                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'compose_setup', env.ADMIN_PASSWORD)
                 sh """
                     set -o errexit
                     set -o xtrace

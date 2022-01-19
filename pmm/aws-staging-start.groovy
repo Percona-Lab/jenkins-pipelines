@@ -212,6 +212,7 @@ pipeline {
                         sudo yum -y install mysql-community-server jq
                         sudo amazon-linux-extras install epel -y
                         sudo amazon-linux-extras install php7.2 -y
+                        sudo yum install mysql-client -y
                         sudo yum -y install bats
                         sudo usermod -aG docker ec2-user
                         sudo systemctl start docker
