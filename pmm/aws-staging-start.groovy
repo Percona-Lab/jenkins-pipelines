@@ -25,6 +25,10 @@ pipeline {
             defaultValue: '',
             description: 'public ssh key for "ec2-user" user, please set if you need ssh access',
             name: 'SSH_KEY')
+        string(
+            defaultValue: 'admin',
+            description: 'pmm-server admin user default password',
+            name: 'ADMIN_PASSWORD')
         choice(
             choices: ['pmm2', 'pmm1'],
             description: 'Which Version of PMM-Server',
@@ -388,7 +392,7 @@ pipeline {
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
-                    setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', 'admin')
+                    setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
                     sh """
                         set -o errexit
                         set -o xtrace
