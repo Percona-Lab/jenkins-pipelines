@@ -93,9 +93,9 @@ pipeline {
             defaultValue: latestVersion,
             description: 'PMM Version for testing',
             name: 'PMM_VERSION')
-        choice(
-            choices: ['pmm2-client', 'pmm2-client_upgrade', 'pmm2-client_integration_upgrade', 'pmm2-client_integration', 'pmm2-client_integration_custom_path', 'pmm2-client_integration_upgrade_custom_path'],
-            description: 'Type of Tests?',
+        string(
+            defaultValue: 'pmm2-client',
+            description: 'Name of Playbook? ex: pmm2-client_integration, pmm2-client_integration_custom_path',
             name: 'TESTS')
         choice(
             choices: ['testing', 'experimental', 'main', 'tools-main', 'pmm2-client-main'],

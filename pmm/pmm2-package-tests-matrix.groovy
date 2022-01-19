@@ -72,6 +72,13 @@ pipeline {
                 }
             }
         }
+        stage('Integration Upgrade Playbook with Custom Path'){
+            steps {
+                script {
+                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, 'pmm2-client_integration_upgrade_custom_path', METRICS_MODE, INSTALL_REPO);
+                }
+            }
+        }
     }
     post {
         always {
