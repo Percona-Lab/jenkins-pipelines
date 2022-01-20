@@ -284,7 +284,7 @@ EOF
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     unstash 'cluster_conf'
                     sh """
-                        eksctl delete cluster -f cluster.yaml --wait
+                        eksctl delete cluster -f cluster.yaml --wait --force
                     """
                 }
 
