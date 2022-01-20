@@ -170,8 +170,9 @@ pipeline {
                 """
                 script {
                     env.SERVER_IP = "127.0.0.1"
+                    env.ADMIN_PASSWORD = "admin"
                     env.PMM_UI_URL = "http://${env.SERVER_IP}/"
-                    env.PMM_URL = "http://admin:admin@${env.SERVER_IP}"
+                    env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
                 }
             }
         }
@@ -189,7 +190,7 @@ pipeline {
                         docker exec pmm-server percona-release enable percona testing
                         docker exec pmm-server yum clean all
                     """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'yes', 'yes', 'compose_setup')
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'yes', 'yes', 'compose_setup', env.ADMIN_PASSWORD)
                 }
             }
         }
@@ -207,7 +208,7 @@ pipeline {
                         docker exec pmm-server percona-release enable percona experimental
                         docker exec pmm-server yum clean all
                     """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup')
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup', env.ADMIN_PASSWORD)
                 }
             }
         }
@@ -217,7 +218,7 @@ pipeline {
             }
             steps {
                 script {
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup')
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup', env.ADMIN_PASSWORD)
                 }
             }
         }

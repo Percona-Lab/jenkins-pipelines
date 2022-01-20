@@ -20,7 +20,8 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, PMM_QA_GIT_BRANC
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "http://admin:admin@${VM_IP}"
+    env.ADMIN_PASSWORD = "admin"
+    env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
 }
 
 void destroyStaging(IP) {
