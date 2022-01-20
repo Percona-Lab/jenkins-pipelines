@@ -12,12 +12,13 @@ def call(type='latest') {
     '2.22.0': 'ami-0fb9ae57bc30787cd',
     '2.23.0': 'ami-012c6702ff13e97d0',
     '2.24.0': 'ami-0e688a9b5dca3b3d2',
-    '2.25.0': 'ami-04ba67eb15e6e089e'
+    '2.25.0': 'ami-09931a649be4b90e8',
+    '2.26.0': 'ami-0f4dc7ab1c2d9d81c'
   ]
   List<String> versionsList = new ArrayList<>(versions.keySet());
   switch(type) {
     case 'latest':
-      return '2.26.0'
+      return '2.27.0'
     case 'ami':
       return versions
     case 'list':

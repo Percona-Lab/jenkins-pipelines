@@ -14,8 +14,8 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
-            description: 'PMM Server docker container version (image-name:version-tag ex. public.ecr.aws/e7j3v3n0/pmm-server:dev-latest or perconalab/pmm-server:pmm1-dev-latest)',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
+            description: 'PMM Server docker container version (image-name:version-tag ex. perconalab/pmm-server:dev-latest or perconalab/pmm-server:pmm1-dev-latest)',
             name: 'DOCKER_VERSION')
         string(
             defaultValue: 'dev-latest',
@@ -25,6 +25,10 @@ pipeline {
             defaultValue: '',
             description: 'public ssh key for "ec2-user" user, please set if you need ssh access',
             name: 'SSH_KEY')
+        string(
+            defaultValue: 'admin',
+            description: 'pmm-server admin user default password',
+            name: 'ADMIN_PASSWORD')
         choice(
             choices: ['pmm2', 'pmm1'],
             description: 'Which Version of PMM-Server',
@@ -62,7 +66,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['14.1', '14.0', '13.4', '13.2', '13.1', '12.8', '11.13'],
+            choices: ['14.1', '14.0', '13.5', '13.4', '13.2', '13.1', '12.9', '12.8', '11.14', '11.13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -209,12 +213,12 @@ pipeline {
                         sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-25.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum -y install git svn docker sysbench
-                        sudo yum -y install https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm
-                        sudo yum -y install php php-mysqlnd php-pdo mysql-community-server jq
+                        sudo yum -y install mysql-community-server jq
                         sudo amazon-linux-extras install epel -y
+                        sudo amazon-linux-extras install php7.2 -y
+                        sudo yum install mysql-client -y
                         sudo yum -y install bats
                         sudo usermod -aG docker ec2-user
-                        sudo systemctl start mysqld
                         sudo systemctl start docker
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
@@ -388,7 +392,7 @@ pipeline {
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
-                    setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging')
+                    setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
                     sh """
                         set -o errexit
                         set -o xtrace

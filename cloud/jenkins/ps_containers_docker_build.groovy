@@ -88,7 +88,7 @@ pipeline {
                 stash includes: "cloud/**", name: "cloud"
             }
         }
-        stage('Build pxc docker images') {
+        stage('Build ps docker images') {
             steps {
                 sh '''
                     sudo rm -rf cloud

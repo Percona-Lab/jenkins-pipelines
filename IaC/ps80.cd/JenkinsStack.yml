@@ -27,7 +27,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: illia
+    Default: jenkins-master
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
@@ -43,11 +43,11 @@ Parameters:
 Mappings:
   AmazonLinux2:
     eu-west-1:
-      x64: ami-058b1b7fe545997ae
+      x64: ami-04632f3cef5083854
     eu-central-1:
-      x64: ami-00f22f6155d6d92c5
+      x64: ami-099ccc441b2ef41ec
     us-west-2:
-      x64: ami-0dc8f589abe99f538
+      x64: ami-0e21d4d9303512b8e
 
 Resources:
 
@@ -442,7 +442,7 @@ Resources:
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true
-        SpotPrice: 0.10
+        SpotPrice: 0.15
         TargetCapacity: 1
         TerminateInstancesWithExpiration: false
         Type: maintain
@@ -451,16 +451,16 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !GetAtt JMasterTemplate.LatestVersionNumber
           Overrides:
-          - InstanceType: m4.large
+          - InstanceType: m5d.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: m5.large
+          - InstanceType: r5ad.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5.large
+          - InstanceType: r5d.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5d.large
+          - InstanceType: m5ad.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
           
@@ -767,6 +767,7 @@ Resources:
 
               setup_ssh_keys() {
                 KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan illia.pshonkin alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen"
+                KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets"
 
                 for KEY in $KEYS_LIST; do
                     RETRY="3"

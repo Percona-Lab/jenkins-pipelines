@@ -16,14 +16,15 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
+    env.ADMIN_PASSWORD = "admin"
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
-        env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
     }
     else
     {
-        env.PMM_URL = "http://admin:admin@${VM_IP}"
+        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
         env.PMM_UI_URL = "http://${VM_IP}/"
     }
 }
@@ -63,13 +64,14 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         env.VM_CLIENT_NAME_MONGO = stagingJob.buildVariables.VM_NAME
     }
     def clientInstance = "yes";
+    env.ADMIN_PASSWORD = "admin"
     if ( CLIENT_INSTANCE == clientInstance ) {
-        env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
     }
     else
     {
-        env.PMM_URL = "http://admin:admin@${VM_IP}"
+        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
         env.PMM_UI_URL = "http://${VM_IP}/"
     }
 }
@@ -130,6 +132,24 @@ pipeline {
         MAILOSAUR_API_KEY=credentials('MAILOSAUR_API_KEY')
         MAILOSAUR_SERVER_ID=credentials('MAILOSAUR_SERVER_ID')
         MAILOSAUR_SMTP_PASSWORD=credentials('MAILOSAUR_SMTP_PASSWORD')
+        GCP_MYSQL57_HOST=credentials('GCP_MYSQL57_HOST');
+        GCP_MYSQL57_USER=credentials('GCP_MYSQL57_USER');
+        GCP_MYSQL57_PASSWORD=credentials('GCP_MYSQL57_PASSWORD');
+        GCP_MYSQL80_HOST=credentials('GCP_MYSQL80_HOST');
+        GCP_MYSQL80_USER=credentials('GCP_MYSQL80_USER');
+        GCP_MYSQL80_PASSWORD=credentials('GCP_MYSQL80_PASSWORD');
+        GCP_PGSQL13_HOST=credentials('GCP_PGSQL13_HOST');
+        GCP_PGSQL13_USER=credentials('GCP_PGSQL13_USER');
+        GCP_PGSQL13_PASSWORD=credentials('GCP_PGSQL13_PASSWORD');
+        GCP_PGSQL12_HOST=credentials('GCP_PGSQL12_HOST');
+        GCP_PGSQL12_USER=credentials('GCP_PGSQL12_USER');
+        GCP_PGSQL12_PASSWORD=credentials('GCP_PGSQL12_PASSWORD');
+        GCP_PGSQL14_HOST=credentials('GCP_PGSQL14_HOST');
+        GCP_PGSQL14_USER=credentials('GCP_PGSQL14_USER');
+        GCP_PGSQL14_PASSWORD=credentials('GCP_PGSQL14_PASSWORD');
+        GCP_PGSQL11_HOST=credentials('GCP_PGSQL11_HOST');
+        GCP_PGSQL11_USER=credentials('GCP_PGSQL11_USER');
+        GCP_PGSQL11_PASSWORD=credentials('GCP_PGSQL11_PASSWORD');
     }
     parameters {
         string(
@@ -141,7 +161,7 @@ pipeline {
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
@@ -189,7 +209,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['14.1', '14.0', '13.4', '12.8', '11.13'],
+            choices: ['14.1', '14.0', '13.5', '13.4', '12.9', '12.8', '11.14', '11.13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(

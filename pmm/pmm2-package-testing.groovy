@@ -82,7 +82,7 @@ pipeline {
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
@@ -93,9 +93,9 @@ pipeline {
             defaultValue: latestVersion,
             description: 'PMM Version for testing',
             name: 'PMM_VERSION')
-        choice(
-            choices: ['pmm2-client', 'pmm2-client_upgrade', 'pmm2-client_integration_upgrade', 'pmm2-client_integration'],
-            description: 'Type of Tests?',
+        string(
+            defaultValue: 'pmm2-client',
+            description: 'Name of Playbook? ex: pmm2-client_integration, pmm2-client_integration_custom_path',
             name: 'TESTS')
         choice(
             choices: ['testing', 'experimental', 'main', 'tools-main', 'pmm2-client-main'],

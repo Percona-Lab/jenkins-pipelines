@@ -3,12 +3,12 @@ pipeline {
         specName = 'AMI'
     }
     agent {
-        label 'awscli'
+        label 'docker-farm'
     }
     parameters {
         string(
-            defaultValue: '1.x',
-            description: 'Tag/Branch for pmm-server repository',
+            defaultValue: 'pmm-1.x',
+            description: 'Tag/Branch for percona-images repository',
             name: 'GIT_BRANCH')
     }
     options {
@@ -23,7 +23,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
-                git poll: true, branch: GIT_BRANCH, url: "https://github.com/percona/pmm-server.git"
+                git poll: true, branch: GIT_BRANCH, url: "https://github.com/Percona-Lab/percona-images.git"
                 sh """
                     make clean
                     make deps
@@ -33,13 +33,11 @@ pipeline {
 
         stage('Build Image') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        set -o pipefail
-                        ~/bin/packer build -only amazon-ebs -color=false packer/pmm.json \
-                            | tee build.log
-                    """
-                }
+                sh """
+                    set -o pipefail
+                    ~/bin/packer build -only amazon-ebs -color=false packer/pmm.json \
+                        | tee build.log
+                """
                 sh 'tail build.log | grep us-east-1 | cut -d " " -f 2 > IMAGE'
                 stash includes: 'IMAGE', name: 'IMAGE'
                 archiveArtifacts 'IMAGE'

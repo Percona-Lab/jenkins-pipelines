@@ -30,9 +30,39 @@ pipeline {
         GCP_SERVER_IP=credentials('GCP_SERVER_IP');
         GCP_USER=credentials('GCP_USER');
         GCP_USER_PASSWORD=credentials('GCP_USER_PASSWORD');
+        GCP_MYSQL57_HOST=credentials('GCP_MYSQL57_HOST');
+        GCP_MYSQL57_USER=credentials('GCP_MYSQL57_USER');
+        GCP_MYSQL57_PASSWORD=credentials('GCP_MYSQL57_PASSWORD');
+        GCP_MYSQL80_HOST=credentials('GCP_MYSQL80_HOST');
+        GCP_MYSQL80_USER=credentials('GCP_MYSQL80_USER');
+        GCP_MYSQL80_PASSWORD=credentials('GCP_MYSQL80_PASSWORD');
+        GCP_MYSQL56_HOST=credentials('GCP_MYSQL56_HOST');
+        GCP_MYSQL56_USER=credentials('GCP_MYSQL56_USER');
+        GCP_MYSQL56_PASSWORD=credentials('GCP_MYSQL56_PASSWORD');
+        GCP_PGSQL13_HOST=credentials('GCP_PGSQL13_HOST');
+        GCP_PGSQL13_USER=credentials('GCP_PGSQL13_USER');
+        GCP_PGSQL13_PASSWORD=credentials('GCP_PGSQL13_PASSWORD');
+        GCP_PGSQL12_HOST=credentials('GCP_PGSQL12_HOST');
+        GCP_PGSQL12_USER=credentials('GCP_PGSQL12_USER');
+        GCP_PGSQL12_PASSWORD=credentials('GCP_PGSQL12_PASSWORD');
+        GCP_PGSQL14_HOST=credentials('GCP_PGSQL14_HOST');
+        GCP_PGSQL14_USER=credentials('GCP_PGSQL14_USER');
+        GCP_PGSQL14_PASSWORD=credentials('GCP_PGSQL14_PASSWORD');
+        GCP_PGSQL11_HOST=credentials('GCP_PGSQL11_HOST');
+        GCP_PGSQL11_USER=credentials('GCP_PGSQL11_USER');
+        GCP_PGSQL11_PASSWORD=credentials('GCP_PGSQL11_PASSWORD');
+        GCP_PGSQL10_HOST=credentials('GCP_PGSQL10_HOST');
+        GCP_PGSQL10_USER=credentials('GCP_PGSQL10_USER');
+        GCP_PGSQL10_PASSWORD=credentials('GCP_PGSQL10_PASSWORD');
+        GCP_PGSQL96_HOST=credentials('GCP_PGSQL96_HOST');
+        GCP_PGSQL96_USER=credentials('GCP_PGSQL96_USER');
+        GCP_PGSQL96_PASSWORD=credentials('GCP_PGSQL96_PASSWORD');
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
         REMOTE_AWS_MYSQL_PASSWORD=credentials('pmm-dev-remote-password')
         REMOTE_AWS_MYSQL57_HOST=credentials('pmm-dev-mysql57-remote-host')
+        REMOTE_AWS_MYSQL80_HOST=credentials('REMOTE_AWS_MYSQL80_HOST')
+        REMOTE_AWS_MYSQL80_USER=credentials('REMOTE_AWS_MYSQL80_USER')
+        REMOTE_AWS_MYSQL80_PASSWORD=credentials('REMOTE_AWS_MYSQL80_PASSWORD')
         REMOTE_AWS_POSTGRES12_USER=credentials('pmm-qa-postgres-12-user')
         REMOTE_AWS_POSTGRES12_PASSWORD=credentials('pmm-qa-postgres-12-password')
         REMOTE_MYSQL_HOST=credentials('mysql-remote-host')
@@ -69,7 +99,7 @@ pipeline {
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
@@ -84,22 +114,34 @@ pipeline {
             choices: ['no', 'yes'],
             description: "Run Tests for OVF supported Features",
             name: 'OVF_TEST')
+        string(
+            defaultValue: '',
+            description: "Run Tests for Specific Areas or cloud providers example: @gcp|@aws|@instances",
+            name: 'TAG')
+        choice(
+            choices: ['no', 'yes'],
+            description: "Run Specified Tagged Tests",
+            name: 'RUN_TAGGED_TEST')
         string (
             defaultValue: '',
             description: 'Value for Server Public IP, to use this instance just as client',
             name: 'SERVER_IP')
         string(
-            defaultValue: 'percona:5.7.30',
+            defaultValue: 'percona:5.7',
             description: 'Percona Server Docker Container Image',
             name: 'MYSQL_IMAGE')
         string(
-            defaultValue: 'perconalab/percona-distribution-postgresql:13.2-2',
+            defaultValue: 'perconalab/percona-distribution-postgresql:14.1',
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
         string(
-            defaultValue: 'percona/percona-server-mongodb:4.2.8',
+            defaultValue: 'percona/percona-server-mongodb:4.4',
             description: 'Percona Server MongoDb Docker Container Image',
             name: 'MONGO_IMAGE')
+        string(
+            defaultValue: 'proxysql/proxysql:2.3.0',
+            description: 'ProxySQL Docker Container Image',
+            name: 'PROXYSQL_IMAGE')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
@@ -172,7 +214,7 @@ pipeline {
                         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                             sh """
                                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-                                PWD=\$(pwd) MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
+                                PWD=\$(pwd) MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PROXYSQL_IMAGE=\${PROXYSQL_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
                             """
                         }
                         waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
@@ -184,8 +226,9 @@ pipeline {
                         """
                         script {
                             env.SERVER_IP = "127.0.0.1"
+                            env.ADMIN_PASSWORD = "admin"
                             env.PMM_UI_URL = "http://${env.SERVER_IP}/"
-                            env.PMM_URL = "http://admin:admin@${env.SERVER_IP}"
+                            env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
                         }
                     }
                 }
@@ -204,7 +247,7 @@ pipeline {
         }
         stage('Setup Client for PMM-Server') {
             steps {
-                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'compose_setup')
+                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'compose_setup', env.ADMIN_PASSWORD)
                 sh """
                     set -o errexit
                     set -o xtrace
@@ -267,7 +310,7 @@ pipeline {
                 timeout(time: 60, unit: "MINUTES")
             }
             when {
-                expression { env.OVF_TEST == "no" }
+                expression { env.OVF_TEST == "no" && env.RUN_TAGGED_TEST == "no" }
             }
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
@@ -280,6 +323,31 @@ pipeline {
                         fi
                         export CHROMIUM_PATH=/usr/bin/chromium
                         ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@dbaas)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@qan)^(?!.*@nightly)'
+                    """
+                }
+            }
+        }
+        stage('Run UI Tests Tagged') {
+            options {
+                timeout(time: 60, unit: "MINUTES")
+            }
+            when {
+                expression { env.OVF_TEST == "no" && env.RUN_TAGGED_TEST == "yes" }
+            }
+            steps {
+                script {
+                            env.CODECEPT_TAG = "'" + "${TAG}" + "'"
+                }
+                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh """
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        export PWD=\$(pwd);
+                        export PATH=\$PATH:/usr/sbin
+                        if [[ \$CLIENT_VERSION != dev-latest ]]; then
+                           export PATH="`pwd`/pmm2-client/bin:$PATH"
+                        fi
+                        export CHROMIUM_PATH=/usr/bin/chromium
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep ${CODECEPT_TAG}
                     """
                 }
             }
@@ -299,6 +367,8 @@ pipeline {
                 docker exec pmm-server psql -Upmm-managed -c 'select * from job_logs ORDER BY job_id LIMIT 1000;' >> job_logs.txt || true
                 echo --- pmm-managed logs from pmm-server --- >> pmm-managed-full.log
                 docker exec pmm-server cat /srv/logs/pmm-managed.log > pmm-managed-full.log || true
+                echo --- pmm-agent logs from pmm-server --- >> pmm-agent-full.log
+                docker exec pmm-server cat /srv/logs/pmm-agent.log > pmm-agent-full.log || true
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
@@ -320,20 +390,18 @@ pipeline {
                 } else {
                     env.PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
                 }
+                archiveArtifacts artifacts: 'pmm-managed-full.log'
+                archiveArtifacts artifacts: 'pmm-agent-full.log'
+                archiveArtifacts artifacts: 'logs.zip'
+                archiveArtifacts artifacts: 'job_logs.txt'
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit env.PATH_TO_REPORT_RESULTS
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'job_logs.txt'
-                    archiveArtifacts artifacts: 'pmm-managed-full.log'
                 } else {
                     junit env.PATH_TO_REPORT_RESULTS
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'tests/output/combine_results.html'
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'job_logs.txt'
-                    archiveArtifacts artifacts: 'pmm-managed-full.log'
                     archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
                     archiveArtifacts artifacts: 'tests/output/*.png'
                 }

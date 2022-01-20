@@ -1,0 +1,36 @@
+- job:
+    name: mysql-orchestrator-pipeline
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: true
+    parameters:
+    - string:
+        name: GIT_REPO
+        default: "https://github.com/percona/orchestrator"
+        description: URL to the Orchestrator repository
+    - string:
+        name: BRANCH
+        default: "master"
+        description: Tag/Branch for the Orchestrator repository
+    - string:
+        name: PS_TARBALL
+        default: "https://downloads.percona.com/downloads/Percona-Server-8.0/Percona-Server-8.0.26-16/binary/tarball/Percona-Server-8.0.26-16-Linux.x86_64.glibc2.12-minimal.tar.gz"
+        description: PS tarball to be used for testing
+    - string:
+        name: CI_ENV_GIT_REPO
+        default: "https://github.com/percona/orchestrator-ci-env.git"
+        description: URL to the Orchestrator CI repository
+    - string:
+        name: CI_ENV_BRANCH
+        default: "master"
+        description: Tag/Branch for the Orchestrator CI repository
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'master'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: orchestrator/jenkins/orchestrator-pipeline.groovy

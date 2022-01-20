@@ -8,7 +8,8 @@ void runPackageTest(String PMM_VERSION, String REPO) {
         string(name: 'DOCKER_VERSION', value: "percona/pmm-server:${PMM_VERSION}"),
         string(name: 'CLIENT_VERSION', value: PMM_VERSION),
         string(name: 'TESTS', value: 'pmm2-client'),
-        string(name: 'INSTALL_REPO', value: REPO)
+        string(name: 'INSTALL_REPO', value: REPO),
+        string(name: 'PMM_VERSION', value: PMM_VERSION)
     ]
 }
 

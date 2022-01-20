@@ -14,7 +14,8 @@ void runUITests(CLIENT_VERSION, CLIENT_INSTANCE, SERVER_IP, GIT_BRANCH, CLIENTS)
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+    env.ADMIN_PASSWORD = "admin"
+    env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
     env.PMM_UI_URL = "https://${SERVER_IP}"
 }
 
@@ -216,8 +217,9 @@ pipeline {
                     env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
                     env.PUB_KEY = sh(returnStdout: true, script: "cat PUB_KEY").trim()
                     env.OWNER   = sh(returnStdout: true, script: "cat OWNER | cut -d . -f 1").trim()
+                    env.ADMIN_PASSWORD = "admin"
                 }
-                setupPMMClient(env.PUBLIC_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'ovf_setup')
+                setupPMMClient(env.PUBLIC_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'ovf_setup', env.ADMIN_PASSWORD)
                 sh """
                     set -o errexit
                     set -o xtrace
