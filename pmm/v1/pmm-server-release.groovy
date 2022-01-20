@@ -103,7 +103,6 @@ pipeline {
                             rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                                 /srv/repo-copy/pmm/ \
                                 10.10.9.209:/www/repo.percona.com/htdocs/pmm/
-                            bash +x /usr/local/bin/clear_cdn_cache.sh
                         "
                     """
                 }
