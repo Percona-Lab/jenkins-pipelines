@@ -15,9 +15,6 @@ def call(String REPO_NAME) {
                     rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                         /srv/repo-copy/version \
                         10.10.9.209:/www/repo.percona.com/htdocs/
-
-                    # Clean CDN cache for repo.percona.com
-                    bash -xe /usr/local/bin/clear_cdn_cache.sh
                 '
             """
         }
