@@ -54,6 +54,15 @@ void popArtifactFile(String FILE_NAME) {
 
 testsResultsMap = [:]
 
+TestsReport = '<testsuite name=\\"PSMDB\\">\n'
+
+void makeReport() {
+    for ( test in testsResultsMap ) {
+        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
+    }
+    TestsReport = TestsReport + '</testsuite>\n'
+}
+
 void setTestsresults() {
     testsResultsMap.each { file ->
         pushArtifactFile("${file.key}")
@@ -301,22 +310,19 @@ pipeline {
                         ShutdownCluster('backups')
                     }
                 }
-                stage('Make report') {
-                    steps {
-                        makeReport()
-                        sh """
-                        echo "${TestsReport}" > TestsReport.xml
-                        """
-                        step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-                        archiveArtifacts '*.xml'
-                    }
-                }
             }
         }
     }
     post {
         always {
             setTestsresults()
+            makeReport()
+            sh """
+                echo "${TestsReport}" > TestsReport.xml
+            """
+            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            archiveArtifacts '*.xml'
+
             script {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
