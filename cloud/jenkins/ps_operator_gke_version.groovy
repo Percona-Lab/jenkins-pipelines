@@ -292,10 +292,12 @@ pipeline {
             }
             steps {
                 CreateCluster('basic')
+                runTest('config', 'basic')
                 runTest('init-deploy', 'basic')
                 runTest('monitoring', 'basic')
                 runTest('semi-sync', 'basic')
                 runTest('sidecars', 'basic')
+                runTest('users', 'basic')
                 ShutdownCluster('basic')
             }
         }

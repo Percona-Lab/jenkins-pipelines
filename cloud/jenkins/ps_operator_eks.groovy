@@ -261,10 +261,12 @@ EOF
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
+                runTest('config')
                 runTest('init-deploy')
                 runTest('monitoring')
                 runTest('semi-sync')
                 runTest('sidecars')
+                runTest('users')
             }
         }
         stage('Make report') {
