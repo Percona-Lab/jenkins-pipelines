@@ -54,19 +54,19 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
-testsReportMap = [:]
+testsResultsMap = [:]
 
 TestsReport = '<testsuite name=\\"PGO\\">\n'
 
 void makeReport() {
-    for ( test in testsReportMap ) {
+    for ( test in testsResultsMap ) {
         TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
     }
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
 void setTestsresults() {
-    testsReportMap.each { file ->
+    testsResultsMap.each { file ->
         pushArtifactFile("${file.key}")
     }
 }
@@ -139,7 +139,7 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
                 """
             }
             pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG")
-            testsReportMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG"] = 'passed'
+            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG"] = 'passed'
             return true
         }
         catch (exc) {
