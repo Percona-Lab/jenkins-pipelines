@@ -244,12 +244,12 @@ pipeline {
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
-                runTest('init-deploy')
-                runTest('users')
-                runTest('monitoring')
                 runTest('config')
-                runTest('sidecars')
+                runTest('init-deploy')
+                runTest('monitoring')
                 runTest('semi-sync')
+                runTest('sidecars')
+                runTest('users')
             }
         }
         stage('Make report') {
