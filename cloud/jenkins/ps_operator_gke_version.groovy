@@ -9,9 +9,6 @@ void runGKEcluster(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             NODES_NUM=3
-            if [ ${CLUSTER_PREFIX} == 'backups' ]; then
-                NODES_NUM=4
-            fi
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             source $HOME/google-cloud-sdk/path.bash.inc
             ret_num=0
@@ -65,8 +62,8 @@ void pushArtifactFile(String FILE_NAME) {
         sh """
             touch ${FILE_NAME}
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${env.GIT_SHORT_COMMIT}
-            aws s3 ls \$S3_PATH/${FILE_NAME}
-            aws s3 cp ${FILE_NAME} \$S3_PATH/${FILE_NAME}
+            aws s3 ls \$S3_PATH/${FILE_NAME} || :
+            aws s3 cp ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
         """
     }
 }
@@ -77,7 +74,7 @@ void popArtifactFile(String FILE_NAME) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${env.GIT_SHORT_COMMIT}
-            aws s3 cp \$S3_PATH/${FILE_NAME} ${FILE_NAME}
+            aws s3 cp \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
         """
     }
 }
@@ -98,10 +95,13 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             echo "The $TEST_NAME test was started!"
             testsReportMap[TEST_NAME] = 'failure'
 
+            FILE_NAME = "$VERSION-$TEST_NAME-gke-${env.PLATFORM_VER}"
+            popArtifactFile("$FILE_NAME")
+
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
-                    if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}" ]; then
-                        echo Skip $TEST_NAME test
+                    if [ -f "$FILE_NAME" ]; then
+                        echo "Skipping $TEST_NAME test because it passed in previous run."
                     else
                         cd ./source
                         if [ -n "${OPERATOR_IMAGE}" ]; then
@@ -130,6 +130,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                     fi
                 """
             }
+            pushArtifactFile("$FILE_NAME")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
@@ -317,7 +318,7 @@ pipeline {
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
                     gcloud config set project $GCP_PROJECT
-                    gcloud alpha container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups $CLUSTER_NAME-bigdata $CLUSTER_NAME-upgrade | true
+                    gcloud alpha container clusters delete --zone us-central1-a $CLUSTER_NAME-basic | true
                 '''
             }
             sh '''

@@ -36,15 +36,16 @@ void runTest(String TEST_NAME) {
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
-
-            VERSION = "${env.GIT_BRANCH}"
             testsReportMap[TEST_NAME] = 'failure'
+
+            FILE_NAME = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-eks-${env.PLATFORM_VER}"
+            popArtifactFile("$FILE_NAME")
 
             timeout(time: 90, unit: 'MINUTES') {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
                     sh """
-                        if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}" ]; then
-                            echo Skip $TEST_NAME test
+                        if [ -f "$FILE_NAME" ]; then
+                            echo "Skipping $TEST_NAME test because it passed in previous run."
                         else
                             cd ./source
                             if [ -n "${OPERATOR_IMAGE}" ]; then
@@ -74,6 +75,7 @@ void runTest(String TEST_NAME) {
                     """
                 }
             }
+            pushArtifactFile("$FILE_NAME")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
@@ -257,6 +259,9 @@ EOF
             }
         }
         stage('E2E Basic Tests') {
+            environment {
+                GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+            }
             options {
                 timeout(time: 3, unit: 'HOURS')
             }
