@@ -69,6 +69,14 @@ void popArtifactFile(String FILE_NAME) {
 }
 
 testsResultsMap = [:]
+TestsReport = '<testsuite name=\\"PSMDB\\">\n'
+
+void makeReport() {
+    for ( test in testsResultsMap ) {
+        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
+    }
+    TestsReport = TestsReport + '</testsuite>\n'
+}
 
 void setTestsresults() {
     testsResultsMap.each { file ->
@@ -309,6 +317,13 @@ pipeline {
     post {
         always {
             setTestsresults()
+            makeReport()
+            sh """
+                echo "${TestsReport}" > TestsReport.xml
+            """
+            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            archiveArtifacts '*.xml'
+
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./*
