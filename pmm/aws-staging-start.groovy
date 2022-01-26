@@ -273,7 +273,9 @@ pipeline {
                                             ${DOCKER_VERSION} /bin/true
 
                                         if [ -n "$VERSION_SERVICE_IMAGE" ]; then
-                                            DOCKER_ENV_VARIABLE = "${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=http://\${VM_NAME}-version-service/versions/v1"
+                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=http://\${VM_NAME}-version-service/versions/v1"
+                                        else
+                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
                                         fi
 
                                         docker run -d \
@@ -283,7 +285,7 @@ pipeline {
                                             --volumes-from \${VM_NAME}-data \
                                             --name \${VM_NAME}-server \
                                             --restart always \
-                                            ${DOCKER_ENV_VARIABLE} \
+                                            \${ENV_VARIABLE} \
                                             ${DOCKER_VERSION}
                                         sleep 10
                                         docker logs \${VM_NAME}-server
@@ -329,10 +331,10 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                docker run --name \${VM_NAME}-version-service --hostname=\${VM_NAME}-version-service -e SERVE_HTTP=true -e GW_PORT=80 ${VERSION_SERVICE_IMAGE}
+                                docker run --name \${VM_NAME}-version-service -d --hostname=\${VM_NAME}-version-service -e SERVE_HTTP=true -e GW_PORT=80 ${VERSION_SERVICE_IMAGE}
                                 docker network create \${VM_NAME}-network
-                                docker connect \${VM_NAME}-network \${VM_NAME}-version-service
-                                docker connect \${VM_NAME}-network \${VM_NAME}-server
+                                docker network connect \${VM_NAME}-network \${VM_NAME}-version-service
+                                docker network connect \${VM_NAME}-network \${VM_NAME}-server
                             """
                         }
                     }
