@@ -82,6 +82,20 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
+void enable_logging() {
+    sh """
+        temp_dir=$(mktemp -d)
+        BASH_VER=$(echo "$BASH_VERSION" | cut -d . -f 1,2)
+    	if (($(echo "$BASH_VER >= 4.1" | bc -l))); then
+    		exec 5>"$tmp_dir/$TEST_RESULT_LOG_FILE_NAME"
+    		BASH_XTRACEFD=5
+    		set -o xtrace
+    		echo "Log: $tmp_dir/$TEST_RESULT_LOG_FILE_NAME"
+    	fi
+    """
+    pushArtifactFile("$TEST_RESULT_LOG_FILE_NAME")
+
+}
 TestsReport = '<testsuite name=\\"PSMO\\">\n'
 testsReportMap = [:]
 void makeReport() {
@@ -294,10 +308,10 @@ pipeline {
                 CreateCluster('basic')
                 runTest('config', 'basic')
                 runTest('init-deploy', 'basic')
-                runTest('monitoring', 'basic')
-                runTest('semi-sync', 'basic')
-                runTest('sidecars', 'basic')
-                runTest('users', 'basic')
+//                 runTest('monitoring', 'basic')
+//                 runTest('semi-sync', 'basic')
+//                 runTest('sidecars', 'basic')
+//                 runTest('users', 'basic')
                 ShutdownCluster('basic')
             }
         }
@@ -310,7 +324,19 @@ pipeline {
             """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml'
-
+            TEST_RESULT_LOG_FILE_NAME="TestResultLog#PS#${params.PLATFORM_VER}#${params.GIT_BRANCH}#${GIT_SHORT_COMMIT}#${MDB_TAG}.log"
+            enable_logging("$TEST_RESULT_LOG_FILE_NAME")
+            script {
+                TEST_RESULT_LOG_FILE_NAME="TestResultLogScript#PS#${params.PLATFORM_VER}#${params.GIT_BRANCH}#${GIT_SHORT_COMMIT}#${MDB_TAG}.log"
+                def logContent = Jenkins.getInstance()
+                .getItemByFullName(env.JOB_NAME)
+                .getBuildByNumber(
+                Integer.parseInt(env.BUILD_NUMBER))
+                .logFile.text
+                // copy the log in the job's own workspace
+                writeFile file: "$TEST_RESULT_LOG_FILE_NAME", text: logContent
+                pushArtifactFile("$TEST_RESULT_LOG_FILE_NAME")
+            }
             withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                 sh '''
                     export CLUSTER_NAME=$(echo jenkins-par-psmo-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
