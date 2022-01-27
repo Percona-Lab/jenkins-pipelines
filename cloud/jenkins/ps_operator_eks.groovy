@@ -270,6 +270,7 @@ EOF
                 runTest('init-deploy')
                 runTest('monitoring')
                 runTest('semi-sync')
+                runTest('service-per-pod')
                 runTest('sidecars')
                 runTest('users')
             }
