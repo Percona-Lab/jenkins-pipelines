@@ -449,7 +449,7 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !GetAtt JMasterTemplate.LatestVersionNumber
           Overrides:
-          - InstanceType: t3.xlarge
+          - InstanceType: m4.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
           - InstanceType: c5a.xlarge
