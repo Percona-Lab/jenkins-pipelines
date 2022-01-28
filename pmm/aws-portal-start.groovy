@@ -12,7 +12,7 @@ pipeline {
     agent {
         label 'awscli'
     }
-
+    
     parameters {
         string(
             defaultValue: '',
@@ -46,10 +46,10 @@ pipeline {
             defaultValue: '1',
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
-        string(
-            defaultValue: 'true',
-            description: 'notify',
-            name: 'NOTIFY')
+        choice(
+            name: 'NOTIFY',
+            choices: ['PM', 'channel', 'disable'],
+            description: '')
     }
 
     environment {
@@ -136,18 +136,18 @@ pipeline {
                         # Install kubectl
                         curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl && chmod +x ./kubectl
                         sudo mv ./kubectl /usr/local/bin/kubectl
-
-                        # Install minikube
+                        
+                        # Install minikube 
                         curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube
                         sudo mv ./minikube /usr/local/bin
                         minikube version
-
-
+                        
+                        
                         # Install direnv
                         wget -O direnv https://github.com/direnv/direnv/releases/download/v2.6.0/direnv.linux-amd64
                         chmod +x direnv
                         sudo mv direnv /usr/local/bin/
-
+                        
                         # direnv hook
                         echo 'eval "\$(direnv hook bash)"' >> ~/.bashrc
                         source ~/.bashrc
@@ -156,7 +156,7 @@ pipeline {
                 script {
                     def node = Jenkins.instance.getNode(env.VM_NAME)
                     Jenkins.instance.removeNode(node)
-                    Jenkins.instance.addNode(node)
+                    Jenkins.instance.addNode(node)                   
                 }
                 archiveArtifacts 'IP'
             }
@@ -176,14 +176,14 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
-
+                                
                                 export PATH="/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin:/home/ec2-user/bin"
                                 # Configure minikube
                                 minikube delete --all --purge
                                 rm -rf ~/.minikube
-
+                                
                                 pushd k8s/platform-saas/local
-
+                                
                                 cat <<EOF > .envrc
 echo LOCAL MINIKUBE
 
@@ -244,28 +244,36 @@ EOF
     post {
         always {
             script {
+                node(env.VM_NAME){
+                    sh """
+                    make -C k8s/platform-saas/local collect-debugdata || true
+                    """
+                    // archiveArtifacts artifacts: 'k8s/platform-saas/local/debugdata'
+                }
                 def node = Jenkins.instance.getNode(env.VM_NAME)
                 Jenkins.instance.removeNode(node)
             }
         }
         success {
             script {
-                if ("${NOTIFY}" == "true") {
+                if ("${NOTIFY}" != "disable") {
                     def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
                     def SLACK_MESSAGE = """[${JOB_NAME}]: build finished - ${env.IP}. In order to access the instance you need:
 1. make sure that `/etc/hosts` file on your machine contains the following line
-```127.0.0.1 platform.localhost check.localhost pmm.localhost```
+```127.0.0.1 portal.localhost check.localhost pmm.localhost```
 2. execute this command in your terminal
 ```sudo ssh -L :443:${env.MINIKUBE_IP}:443 -L :80:${env.MINIKUBE_IP}:80 ec2-user@${env.IP}```
-3. open https://platform.localhost URL in your browser
+3. open https://portal.localhost URL in your browser
 4. to allow accessing the unstance for another person please run this command in terminal
 ```ssh ec2-user@${env.IP} 'echo "NEW_PERSON_SSH_KEY" >> ~/.ssh/authorized_keys'```
 *Note new user should also execute through 1-2 steps*"""
-
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "${SLACK_MESSAGE}"
-                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "${SLACK_MESSAGE}"
+                    if ("${NOTIFY}" == "PM") {
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "${SLACK_MESSAGE}"
+                    } else {
+                        slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "${SLACK_MESSAGE}"
+                    }
                 }
             }
         }
@@ -281,13 +289,16 @@ EOF
                 '''
             }
             script {
-                if ("${NOTIFY}" == "true") {
+                if ("${NOTIFY}" != "disable") {
                     def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
-
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
-                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                    
+                    if ("${NOTIFY}" == "PM") {
+                        slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                    } else {
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                    }
                 }
             }
         }
