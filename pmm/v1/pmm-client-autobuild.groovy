@@ -90,7 +90,7 @@ pipeline {
                         docker push \\${DOCKER_CLIENT_TAG}
                         docker push perconalab/pmm-client:pmm1-dev-latest
                         docker rmi  \\${DOCKER_CLIENT_TAG}
-                        docker rmi  perconalab/pmm-client:pmm1-dev-latestgit c
+                        docker rmi  perconalab/pmm-client:pmm1-dev-latest
                     "
                 '''
                 stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
