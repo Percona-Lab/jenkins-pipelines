@@ -9,7 +9,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: '1.x',
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(
@@ -86,11 +86,11 @@ pipeline {
 
                         ./build/bin/build-client-docker
 
-                        docker tag  \\${DOCKER_CLIENT_TAG} perconalab/pmm-client:dev-latest
+                        docker tag  \\${DOCKER_CLIENT_TAG} perconalab/pmm-client:pmm1-dev-latest
                         docker push \\${DOCKER_CLIENT_TAG}
-                        docker push perconalab/pmm-client:dev-latest
+                        docker push perconalab/pmm-client:pmm1-dev-latest
                         docker rmi  \\${DOCKER_CLIENT_TAG}
-                        docker rmi  perconalab/pmm-client:dev-latest
+                        docker rmi  perconalab/pmm-client:pmm1-dev-latest
                     "
                 '''
                 stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
