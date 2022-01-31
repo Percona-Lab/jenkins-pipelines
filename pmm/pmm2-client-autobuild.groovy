@@ -161,6 +161,7 @@ pipeline {
                 sh 'scp -i ~/.ssh/id_rsa_downloads -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no results/tarball/*.tar.* jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/'
             }
         }
+    }
     post {
         always {
             script {
