@@ -92,14 +92,14 @@ pipeline {
                             ./build/bin/build-client-docker
 
                             if [ ! -z \${DOCKER_RC_TAG+x} ]; then
-                                docker tag  \\${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_RC_TAG}
+                                docker tag  \${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_RC_TAG}
                                 docker push perconalab/pmm-client:\${DOCKER_RC_TAG}
                                 docker rmi perconalab/pmm-client:\${DOCKER_RC_TAG}
                             fi
-                            docker tag  \\${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_LATEST_TAG}
-                            docker push \\${DOCKER_CLIENT_TAG}
+                            docker tag  \${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_LATEST_TAG}
+                            docker push \${DOCKER_CLIENT_TAG}
                             docker push perconalab/pmm-client:\${DOCKER_LATEST_TAG}
-                            docker rmi  \\${DOCKER_CLIENT_TAG}
+                            docker rmi  \${DOCKER_CLIENT_TAG}
                             docker rmi  perconalab/pmm-client:\${DOCKER_LATEST_TAG}
                         '''
                         stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
