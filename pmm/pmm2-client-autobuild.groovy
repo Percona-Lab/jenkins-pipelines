@@ -124,7 +124,7 @@ pipeline {
 
                 stage('Build client source deb') {
                     steps {
-                        sh '/build/bin/build-client-sdeb ubuntu:bionic'
+                        sh './build/bin/build-client-sdeb ubuntu:bionic'
                         stash includes: 'results/source_deb/*', name: 'debs'
                         uploadDEB()
                     }
