@@ -116,10 +116,8 @@ pipeline {
             }
             stage('Build client binary rpm') {
                 steps {
-                    sh '
-                        ./build/bin/build-client-rpm centos:7
-                        ./build/bin/build-client-rpm centos:8
-                    '
+                    sh './build/bin/build-client-rpm centos:7'
+                    sh './build/bin/build-client-rpm centos:8'
                     stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
                     uploadRPM()
                 }
