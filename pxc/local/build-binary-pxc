@@ -109,7 +109,7 @@ PERCONA_SERVER_VERSION="$(echo $MYSQL_VERSION_EXTRA | sed 's/^-//')"
 PRODUCT="Percona-XtraDB-Cluster_$MYSQL_VERSION-$PERCONA_SERVER_VERSION"
 TOKUDB_BACKUP_VERSION="${MYSQL_VERSION}${MYSQL_VERSION_EXTRA}"
 PRODUCT_FULL="Percona-XtraDB-Cluster_${MYSQL_VERSION}-${PERCONA_SERVER_VERSION}${BUILD_COMMENT}-${TAG}$(uname -s)${DIST_NAME}.${TARGET_ARCH}${SSL_VER}"
-COMMENT="Percona XtraDB Cluster binar  (GPL), Release ${MYSQL_VERSION_EXTRA#-}, Revision ${REVISION:-}${BUILD_COMMENT}"
+COMMENT="Percona XtraDB Cluster binary  (GPL), Release ${MYSQL_VERSION_EXTRA#-}, Revision ${REVISION:-}${BUILD_COMMENT}"
 if [[ -n "$(which git)" ]] && [[ -f "$SOURCEDIR/percona-xtradb-cluster-galera/.git" ]]; then
     pushd $SOURCEDIR/percona-xtradb-cluster-galera
     GALERA_REVISION=$(git rev-parse --short HEAD)

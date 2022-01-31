@@ -82,6 +82,15 @@ void popArtifactFile(String FILE_NAME) {
 
 testsResultsMap = [:]
 
+TestsReport = '<testsuite name=\\"PGO\\">\n'
+
+void makeReport() {
+    for ( test in testsResultsMap ) {
+        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
+    }
+    TestsReport = TestsReport + '</testsuite>\n'
+}
+
 void setTestsresults() {
     testsResultsMap.each { file ->
         pushArtifactFile("${file.key}")
@@ -358,10 +367,8 @@ pipeline {
                         runTest('operator-self-healing', 'sandbox')
                         runTest('clone-cluster', 'sandbox')
                         runTest('tls-check', 'sandbox')
-                        runTest('upgrade', 'sandbox')
-                        runTest('smart-update', 'sandbox')
-                        runTest('version-service', 'sandbox')
                         runTest('users', 'sandbox')
+                        runTest('ns-mode', 'sandbox')
                         ShutdownCluster('sandbox')
                     }
                 }
@@ -373,13 +380,13 @@ pipeline {
                         ShutdownCluster('backups')
                     }
                 }
-                stage('E2E Data migration') {
+                stage('E2E Upgrade') {
                     steps {
-                        CreateCluster('upstream')
-                        CreateCluster('migration')
-                        runTest('data-migration-gcs', 'migration')
-                        ShutdownCluster('migration')
-                        ShutdownCluster('upstream')
+                        CreateCluster('upgrade')
+                        runTest('upgrade', 'upgrade')
+                        runTest('smart-update', 'upgrade')
+                        runTest('version-service', 'upgrade')
+                        ShutdownCluster('upgrade')
                     }
                 }
             }
@@ -388,6 +395,14 @@ pipeline {
     post {
         always {
             setTestsresults()
+
+            makeReport()
+            sh """
+                echo "${TestsReport}" > TestsReport.xml
+            """
+            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            archiveArtifacts '*.xml'
+
             withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                 sh '''
                     export CLUSTER_NAME=$(echo jkns-ver-pgo-${PG_VERSION}-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')

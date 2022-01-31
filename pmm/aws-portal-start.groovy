@@ -12,7 +12,7 @@ pipeline {
     agent {
         label 'awscli'
     }
-    
+
     parameters {
         string(
             defaultValue: '',
@@ -136,18 +136,18 @@ pipeline {
                         # Install kubectl
                         curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl && chmod +x ./kubectl
                         sudo mv ./kubectl /usr/local/bin/kubectl
-                        
-                        # Install minikube 
+
+                        # Install minikube
                         curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube
                         sudo mv ./minikube /usr/local/bin
                         minikube version
-                        
-                        
+
+
                         # Install direnv
                         wget -O direnv https://github.com/direnv/direnv/releases/download/v2.6.0/direnv.linux-amd64
                         chmod +x direnv
                         sudo mv direnv /usr/local/bin/
-                        
+
                         # direnv hook
                         echo 'eval "\$(direnv hook bash)"' >> ~/.bashrc
                         source ~/.bashrc
@@ -156,7 +156,7 @@ pipeline {
                 script {
                     def node = Jenkins.instance.getNode(env.VM_NAME)
                     Jenkins.instance.removeNode(node)
-                    Jenkins.instance.addNode(node)                   
+                    Jenkins.instance.addNode(node)
                 }
                 archiveArtifacts 'IP'
             }
@@ -176,14 +176,14 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                
+
                                 export PATH="/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin:/home/ec2-user/bin"
                                 # Configure minikube
                                 minikube delete --all --purge
                                 rm -rf ~/.minikube
-                                
+
                                 pushd k8s/platform-saas/local
-                                
+
                                 cat <<EOF > .envrc
 echo LOCAL MINIKUBE
 
@@ -264,6 +264,7 @@ EOF
 ```ssh ec2-user@${env.IP} 'echo "NEW_PERSON_SSH_KEY" >> ~/.ssh/authorized_keys'```
 *Note new user should also execute through 1-2 steps*"""
 
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "${SLACK_MESSAGE}"
                     slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "${SLACK_MESSAGE}"
                 }
             }
@@ -285,6 +286,7 @@ EOF
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
 
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
                     slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
                 }
             }

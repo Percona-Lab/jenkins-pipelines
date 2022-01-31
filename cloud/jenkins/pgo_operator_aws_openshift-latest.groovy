@@ -294,6 +294,7 @@ pipeline {
                 runTest('smart-update')
                 runTest('version-service')
                 runTest('users')
+                runTest('ns-mode')
             }
         }
         stage('Make report') {

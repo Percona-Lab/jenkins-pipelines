@@ -43,9 +43,9 @@ Parameters:
 Mappings:
   AmazonLinux2:
     eu-west-1:
-      x64: ami-09d4a659cdd8677be
+      x64: ami-096f7a9ab885b50f4
     eu-central-1:
-      x64: ami-030e490c34394591b
+      x64: ami-095e0f8062e0e8216
 
 Resources:
 
@@ -449,7 +449,7 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !GetAtt JMasterTemplate.LatestVersionNumber
           Overrides:
-          - InstanceType: t2.xlarge
+          - InstanceType: m4.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
           - InstanceType: c5a.xlarge
@@ -550,7 +550,7 @@ Resources:
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                   amazon-linux-extras install epel -y
                   yum -y update --security
-                  yum -y install java-1.8.0-openjdk jenkins-2.319.1 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install java-1.8.0-openjdk jenkins-2.319.2 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
