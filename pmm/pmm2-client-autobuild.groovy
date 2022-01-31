@@ -4,9 +4,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 pipeline {
-    agent {
-        label none
-    }
+    agent none
     parameters {
         string(
             defaultValue: 'PMM-2.0',
