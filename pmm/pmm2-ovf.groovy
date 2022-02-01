@@ -68,7 +68,6 @@ pipeline {
                             -only virtualbox-ovf -color=false packer/pmm2.json \
                                 | tee build.log
                         """
-                        }
                         sh 'ls */*.ova | cut -d "/" -f 2 > IMAGE'
                         stash includes: 'IMAGE', name: 'IMAGE'
                         archiveArtifacts 'IMAGE'
@@ -93,10 +92,12 @@ pipeline {
                                 PMM2-Server-dev-latest.ova \
                                 s3://percona-vm/PMM2-Server-dev-latest.ova
                         '''
-                        }
                     }
                 }
             }
+        }
+    }
+
 
     post {
         always {
