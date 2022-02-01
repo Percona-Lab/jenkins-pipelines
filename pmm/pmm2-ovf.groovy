@@ -18,7 +18,7 @@ pipeline {
         upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
 
-    stages {
+    stages { // all stages will be run at the same agent
         stage('Build OVA Image') {
             agent {
                 label 'docker-farm'
@@ -34,6 +34,11 @@ pipeline {
                         git poll: true,
                             branch: PMM_SERVER_BRANCH,
                             url: "https://github.com/percona/pmm-server.git"
+
+                        sh """
+                            make clean
+                            make fetch
+                        """
                     }
                 }
 
