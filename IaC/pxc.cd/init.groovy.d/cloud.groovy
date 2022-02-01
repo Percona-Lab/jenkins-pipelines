@@ -23,19 +23,19 @@ netMap['us-west-1b'] = 'subnet-01d9a7d6b4722eb43'
 netMap['us-west-1c'] = 'subnet-0550c1d2ffd688021'
 
 imageMap = [:]
-imageMap['micro-amazon']     = 'ami-028f2b5ee08012131'
-imageMap['min-bionic-x64']   = 'ami-0558dde970ca91ee5'
-imageMap['min-focal-x64']    = 'ami-04b61997e51f6d5c7'
+imageMap['micro-amazon']     = 'ami-0ff7fc535d3457221'
+imageMap['min-bionic-x64']   = 'ami-00753573f3369dd7c'
+imageMap['min-focal-x64']    = 'ami-066c6938fb715719f'
 imageMap['min-centos-6-x32'] = 'ami-67e3cd22'
 imageMap['min-centos-6-x64'] = 'ami-0d282a216ae4c0c42'
 imageMap['min-centos-7-x64'] = 'ami-08d2d8b00f270d03b'
 imageMap['min-centos-8-x64'] = 'ami-04adf3fcbc8a45c54'
-imageMap['min-stretch-x64']  = 'ami-07bbec0b6b6baa7de'
-imageMap['min-xenial-x64']   = 'ami-0fdf8b5989f22a4e0'
-imageMap['min-buster-x64']   = 'ami-0c053f1d5f22eb09f'
-imageMap['docker']           = 'ami-04b6c97b14c54de18'
+imageMap['min-stretch-x64']  = 'ami-0280d841fec0493e6'
+imageMap['min-xenial-x64']   = 'ami-0454207e5367abf01'
+imageMap['min-buster-x64']   = 'ami-024fe42989cf9e876'
+imageMap['docker']           = 'ami-0ff7fc535d3457221'
 imageMap['docker-32gb']      = imageMap['docker']
-imageMap['min-bullseye-x64'] = 'ami-09b4378b1d3387f81'
+imageMap['min-bullseye-x64'] = 'ami-07af5f877b3db9f73'
 
 imageMap['ramdisk-centos-6-x64'] = imageMap['min-centos-6-x64']
 imageMap['ramdisk-centos-7-x64'] = imageMap['min-centos-7-x64']
@@ -49,11 +49,11 @@ imageMap['ramdisk-buster-x64']   = imageMap['min-buster-x64']
 imageMap['performance-centos-6-x64']   = imageMap['min-centos-7-x64']
 
 priceMap = [:]
-priceMap['t3a.medium'] = '0.015'
-priceMap['m1.medium'] = '0.05'
-priceMap['c4.xlarge'] = '0.10'
+priceMap['t3.xlarge'] = '0.09'
+priceMap['m1.medium'] = '0.07'
+priceMap['c4.2xlarge'] = '0.15'
 priceMap['m4.2xlarge'] = '0.20'
-priceMap['m5zn.2xlarge'] = '0.22'
+priceMap['r5.2xlarge'] = '0.23'
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -369,14 +369,14 @@ initMap['performance-centos-6-x64']  = '''
 '''
 
 capMap = [:]
-capMap['c4.xlarge'] = '40'
+capMap['c4.2xlarge'] = '40'
 capMap['m4.2xlarge'] = '40'
-capMap['m5zn.2xlarge'] = '40'
+capMap['r5.2xlarge'] = '40'
 
 typeMap = [:]
-typeMap['micro-amazon'] = 't3a.medium'
-typeMap['docker']       = 'c4.xlarge'
-typeMap['docker-32gb']  = 'm5zn.2xlarge'
+typeMap['micro-amazon'] = 't3.xlarge'
+typeMap['docker']       = 'c4.2xlarge'
+typeMap['docker-32gb']  = 'r5.2xlarge'
 
 typeMap['performance-centos-6-x64'] = typeMap['docker-32gb']
 
