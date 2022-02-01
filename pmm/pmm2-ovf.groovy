@@ -1,10 +1,5 @@
 pipeline {
-    environment {
-        specName = 'OVF'
-    }
-    agent {
-        label 'virtualbox'
-    }
+    agent none
     parameters {
         string(
             defaultValue: 'main',
@@ -24,81 +19,84 @@ pipeline {
     }
 
     stages {
-        stage('Prepare') {
-            steps {
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
-                git poll: true, branch: PMM_SERVER_BRANCH, url: "https://github.com/percona/pmm-server.git"
-                sh """
-                    make clean
-                    make fetch
-                """
+        stage('Build OVA Image') {
+            agent {
+                label 'docker-farm'
             }
-        }
+            stages {
+                stage('Prepare') {
+                    steps {
+                        slackSend botUser: true,
+                                channel: '#pmm-ci',
+                                color: '#FFFF00',
+                                message: "[OVF]: build started - ${BUILD_URL}"
 
-        stage('Build Image Release Candidate') {
-            when {
-                expression { env.RELEASE_CANDIDATE == "yes" }
-            }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        packer build \
-                        -var 'pmm_client_repos=original testing' \
-                        -var 'pmm_client_repo_name=percona-testing-x86_64' \
-                        -var 'pmm2_server_repo=testing' \
-                        -only virtualbox-ovf -color=false packer/pmm2.json \
-                            | tee build.log
-                    """
+                        git poll: true,
+                            branch: PMM_SERVER_BRANCH,
+                            url: "https://github.com/percona/pmm-server.git"
+                    }
                 }
-                sh 'ls */*.ova | cut -d "/" -f 2 > IMAGE'
-                stash includes: 'IMAGE', name: 'IMAGE'
-                archiveArtifacts 'IMAGE'
-            }
-        }
-        stage('Build Image Dev-Latest') {
-            when {
-                expression { env.RELEASE_CANDIDATE == "no" }
-            }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        packer build \
-                        -var 'pmm_client_repos=original experimental' \
-                        -var 'pmm_client_repo_name=percona-experimental-x86_64' \
-                        -var 'pmm2_server_repo=experimental' \
-                        -only virtualbox-ovf -color=false packer/pmm2.json \
-                            | tee build.log
-                    """
-                }
-                sh 'ls */*.ova | cut -d "/" -f 2 > IMAGE'
-                stash includes: 'IMAGE', name: 'IMAGE'
-                archiveArtifacts 'IMAGE'
-            }
-        }
 
-        stage('Upload') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        FILE=\$(ls */*.ova)
-                        NAME=\$(basename \${FILE})
-                        aws s3 cp \
-                            --only-show-errors \
-                            --acl public-read \
-                            \${FILE} \
-                            s3://percona-vm/\${NAME}
+                stage('Build Image Release Candidate') {
+                    when {
+                        expression { env.RELEASE_CANDIDATE == "yes" }
+                    }
+                    steps {
+                        sh '''
+                            packer build \
+                            -var 'pmm_client_repos=original testing' \
+                            -var 'pmm_client_repo_name=percona-testing-x86_64' \
+                            -var 'pmm2_server_repo=testing' \
+                            -only virtualbox-ovf -color=false packer/pmm2.json \
+                                | tee build.log
+                        '''
+                        sh 'ls */*.ova | cut -d "/" -f 2 > IMAGE'
+                        stash includes: 'IMAGE', name: 'IMAGE'
+                        archiveArtifacts 'IMAGE'
+                    }
+                }
+                stage('Build Image Dev-Latest') {
+                    when {
+                        expression { env.RELEASE_CANDIDATE == "no" }
+                    }
+                    steps {
+                        sh """
+                            packer build \
+                            -var 'pmm_client_repos=original experimental' \
+                            -var 'pmm_client_repo_name=percona-experimental-x86_64' \
+                            -var 'pmm2_server_repo=experimental' \
+                            -only virtualbox-ovf -color=false packer/pmm2.json \
+                                | tee build.log
+                        """
+                        }
+                        sh 'ls */*.ova | cut -d "/" -f 2 > IMAGE'
+                        stash includes: 'IMAGE', name: 'IMAGE'
+                        archiveArtifacts 'IMAGE'
+                    }
+                }
 
-                        echo /\${NAME} > PMM2-Server-dev-latest.ova
-                        aws s3 cp \
-                            --only-show-errors \
-                            --website-redirect /\${NAME} \
-                            PMM2-Server-dev-latest.ova \
-                            s3://percona-vm/PMM2-Server-dev-latest.ova
-                    """
+                stage('Upload') {
+                    steps {
+                        sh '''
+                            FILE=\$(ls */*.ova)
+                            NAME=\$(basename \${FILE})
+                            aws s3 cp \
+                                --only-show-errors \
+                                --acl public-read \
+                                \${FILE} \
+                                s3://percona-vm/\${NAME}
+
+                            echo /\${NAME} > PMM2-Server-dev-latest.ova
+                            aws s3 cp \
+                                --only-show-errors \
+                                --website-redirect /\${NAME} \
+                                PMM2-Server-dev-latest.ova \
+                                s3://percona-vm/PMM2-Server-dev-latest.ova
+                        '''
+                        }
+                    }
                 }
             }
-        }
-    }
 
     post {
         always {
@@ -111,16 +109,25 @@ pipeline {
                 if ("${RELEASE_CANDIDATE}" == "yes")
                 {
                     currentBuild.description = "Release Candidate Build"
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${specName}]: ${BUILD_URL} Release Candidate build finished - ${IMAGE}"
+                    slackSend botUser: true,
+                              channel: '#pmm-qa',
+                              color: '#00FF00',
+                              message: "[OVF]: ${BUILD_URL} Release Candidate build finished - ${IMAGE}"
                 }
                 else
                 {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - http://percona-vm.s3-website-us-east-1.amazonaws.com/${IMAGE}"
+                    slackSend botUser: true,
+                              channel: '#pmm-ci',
+                              color: '#00FF00',
+                              message: "[OVF]: build finished - http://percona-vm.s3-website-us-east-1.amazonaws.com/${IMAGE}"
                 }
             }
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
+            slackSend botUser: true,
+                      channel: '#pmm-ci',
+                      color: '#FF0000',
+                      message: "[OVF]: build failed"
         }
     }
 }
