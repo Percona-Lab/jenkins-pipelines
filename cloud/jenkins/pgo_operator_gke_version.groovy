@@ -81,11 +81,11 @@ void popArtifactFile(String FILE_NAME) {
 }
 
 testsResultsMap = [:]
-
+testsReportMap = [:]
 TestsReport = '<testsuite name=\\"PGO\\">\n'
 
 void makeReport() {
-    for ( test in testsResultsMap ) {
+    for ( test in testsReportMap ) {
         TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
     }
     TestsReport = TestsReport + '</testsuite>\n'
@@ -102,6 +102,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
+            testsReportMap[TEST_NAME] = 'failure'
             PPG_TAG = sh(script: "if [ -n \"\${PGO_POSTGRES_HA_IMAGE}\" ] ; then echo ${PGO_POSTGRES_HA_IMAGE} | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' ; else echo 'main-ppg13'; fi", , returnStdout: true).trim()
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG")
 
@@ -179,6 +180,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             }
             pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG")
             testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG"] = 'passed'
+            testsReportMap[TEST_NAME] = 'passed'
             return true
         }
         catch (exc) {
