@@ -16,6 +16,10 @@ pipeline {
             defaultValue: false, 
             description: 'Check only if you pass PR number to BRANCH field',
             name: 'USE_PR') 
+        booleanParam(
+            defaultValue: true,
+            description: 'If checked, the PXB80_BRANCH will be ignored and latest available version will be used',
+            name: 'PXB80_LATEST')
         string(
             defaultValue: 'https://github.com/percona/percona-xtrabackup',
             description: 'URL to PXB80 repository',
@@ -28,8 +32,8 @@ pipeline {
             trim: true)
         booleanParam(
             defaultValue: true, 
-            description: 'If checked, the PXB80_BRANCH will be ignored and latest available version will be used',
-            name: 'PXB80_LATEST') 
+            description: 'If checked, the PXB24_BRANCH will be ignored and latest available version will be used',
+            name: 'PXB24_LATEST')
         string(
             defaultValue: 'https://github.com/percona/percona-xtrabackup',
             description: 'URL to PXB24 repository',
@@ -142,10 +146,40 @@ pipeline {
                     fi
                     rm -f ${WORKSPACE}/VERSION-${BUILD_NUMBER}
                 '''
+                sh '''
+                echo 'Getting percona-xtrabackup repo'
+                if [ -f /usr/bin/yum ]; then
+                    sudo yum -y install git
+                else
+                    sudo apt-get install -y git
+                fi
+                if [ ! -d "percona-xtrabackup" ]; then
+                    git clone https://github.com/percona/percona-xtrabackup
+                fi
+                if [[ ${PXB80_LATEST} == "true" ]]; then
+                    echo 'Parameter PXB80_LATEST is enabled.'
+                    echo 'Getting the latest version ...'
+                    pushd percona-xtrabackup
+                    PXB80_BRANCH=$(git tag --sort=-version:refname -l percona-xtrabackup-8.0* | head -1)
+                    echo ${PXB80_BRANCH} > ../pxb80.ver
+                    popd
+                fi
+                if [[ ${PXB24_LATEST} == "true" ]]; then
+                    echo 'Parameter PXB24_LATEST is enabled'
+                    echo 'Getting the latest version ...'
+                    pushd percona-xtrabackup
+                    PXB24_BRANCH=$(git tag --sort=-version:refname -l percona-xtrabackup-2.4* | head -1)
+                    echo ${PXB24_BRANCH} > ../pxb24.ver
+                    popd
+                fi
+                '''
                 echo 'Checking PXB80 branch version'
                 sh '''
                     MY_BRANCH_BASE_MAJOR=8
                     MY_BRANCH_BASE_MINOR=0
+                    if [ -f pxb80.ver ]; then
+                        PXB80_BRANCH=$(cat pxb80.ver)
+                    fi
                     RAW_VERSION_LINK=$(echo ${PXB80_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
                     REPLY=$(curl -Is ${RAW_VERSION_LINK}/${PXB80_BRANCH}/XB_VERSION | head -n 1 | awk '{print $2}')
                     if [[ ${REPLY} == 200 ]]; then
@@ -161,12 +195,15 @@ pipeline {
                         rm -f ${WORKSPACE}/VERSION-${BUILD_NUMBER}
                         exit 1
                     fi
-                    rm -f ${WORKSPACE}/VERSION-${BUILD_NUMBER}     
+                    rm -f ${WORKSPACE}/VERSION-${BUILD_NUMBER}
                 '''
                 echo 'Checking PXB24 branch version'
                 sh '''
                     MY_BRANCH_BASE_MAJOR=2
                     MY_BRANCH_BASE_MINOR=4
+                    if [ -f pxb24.ver ]; then
+                        PXB24_BRANCH=$(cat pxb24.ver)
+                    fi
                     RAW_VERSION_LINK=$(echo ${PXB24_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
                     REPLY=$(curl -Is ${RAW_VERSION_LINK}/${PXB24_BRANCH}/XB_VERSION | head -n 1 | awk '{print $2}')
                     if [[ ${REPLY} == 200 ]]; then
