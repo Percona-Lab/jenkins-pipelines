@@ -124,7 +124,7 @@ pipeline {
                     set -o errexit
                     set -o xtrace
                     export PATH=\$PATH:/usr/sbin
-                    if [[ \$CLIENT_VERSION != dev-latest ]]; then
+                    if [[ \$CLIENT_VERSION == http* ]]; then
                         export PATH="`pwd`/pmm2-client/bin:$PATH"
                     fi
                     sleep 10
