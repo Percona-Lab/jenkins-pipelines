@@ -6,6 +6,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 void runAPItests(String DOCKER_IMAGE_VERSION, BRANCH_NAME, GIT_COMMIT_HASH, CLIENT_VERSION, OWNER) {
     apiTestJob = build job: 'pmm2-api-tests', propagate: false, parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_IMAGE_VERSION),
+        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'GIT_BRANCH', value: BRANCH_NAME),
         string(name: 'OWNER', value: OWNER),
         string(name: 'GIT_COMMIT_HASH', value: GIT_COMMIT_HASH)
