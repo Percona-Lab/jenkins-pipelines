@@ -126,6 +126,10 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
+            defaultValue: 'perconalab/pmm-client:dev-latest',
+            description: 'PMM Client Docker tag',
+            name: 'CLIENT_DOCKER_VERSION')
+        string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
