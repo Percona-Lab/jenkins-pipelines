@@ -335,6 +335,24 @@ pipeline {
                         }
                     }
                 }
+                stage('Run left menu UI Tests') {
+                    options {
+                        timeout(time: 90, unit: "MINUTES")
+                    }
+                    when {
+                        expression { env.AMI_TEST == "no" }
+                    }
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh """
+                                sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                                export PWD=\$(pwd);
+                                export CHROMIUM_PATH=/usr/bin/chromium
+                                ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@menu' --override '{ "helpers": {"Playwright": {"browser": "firefox"}}}'
+                            """
+                        }
+                    }
+                }
                 stage('Check Agent Status on ps & replication node') {
                     steps {
                         checkClientNodesAgentStatus(env.VM_CLIENT_IP_MYSQL)
