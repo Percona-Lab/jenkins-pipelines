@@ -23,7 +23,7 @@ pipeline {
         upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
     }
     stages {
-        stage('Build PMM-Server') {
+        stage('Build PMM Client') {
             agent {
                 label 'docker-farm'
             }
