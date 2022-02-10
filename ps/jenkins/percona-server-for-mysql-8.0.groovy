@@ -79,13 +79,13 @@ parameters {
     stages {
         stage('Create PS source tarball') {
             agent {
-               label 'min-xenial-x64'
+               label 'min-bionic-x64'
             }
             steps {
                 slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH}")
                 cleanUpWS()
                 installCli("deb")
-                buildStage("ubuntu:xenial", "--get_sources=1")
+                buildStage("ubuntu:bionic", "--get_sources=1")
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-8.0.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
@@ -123,14 +123,14 @@ parameters {
                 }
                 stage('Build PS generic source deb') {
                     agent {
-                        label 'min-xenial-x64'
+                        label 'min-bionic-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:xenial", "--build_source_deb=1")
+                        buildStage("ubuntu:bionic", "--build_source_deb=1")
 
                         pushArtifactFolder("source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
