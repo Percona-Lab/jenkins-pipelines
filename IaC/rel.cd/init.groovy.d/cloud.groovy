@@ -203,6 +203,13 @@ initMap['micro-amazon'] = '''
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
+    if [ -f /etc/redhat-release ]; then
+        if grep -q 'CentOS.* 8\\.' /etc/redhat-release; then
+            sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-*
+            sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Linux-*
+        fi
+    fi
+
     until sudo yum makecache; do
         sleep 1
         echo try again
