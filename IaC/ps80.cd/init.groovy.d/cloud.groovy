@@ -21,14 +21,14 @@ netMap['us-west-2b'] = 'subnet-0c0b7f0b15c1d68be'
 netMap['us-west-2c'] = 'subnet-024be5829372c4f38'
 
 imageMap = [:]
-imageMap['us-west-2a.docker']            = 'ami-0e21d4d9303512b8e'
-imageMap['us-west-2a.docker-32gb']       = 'ami-0e21d4d9303512b8e'
+imageMap['us-west-2a.docker']            = 'ami-090bc08d7ae1f3881'
+imageMap['us-west-2a.docker-32gb']       = 'ami-090bc08d7ae1f3881'
 imageMap['us-west-2a.docker-32gb-hirsute']  = 'ami-0cbdf6c0f39fd3950'
 imageMap['us-west-2a.docker-32gb-focal']    = 'ami-0ebe6e463e9912d81'
 imageMap['us-west-2a.docker-32gb-bullseye'] = 'ami-0d0f7602aa5c2425d'
-imageMap['us-west-2a.docker2']           = 'ami-0e21d4d9303512b8e'
-imageMap['us-west-2a.micro-amazon']      = 'ami-0e21d4d9303512b8e'
-imageMap['us-west-2a.min-amazon-2-x64']  = 'ami-0e21d4d9303512b8e'
+imageMap['us-west-2a.docker2']           = 'ami-090bc08d7ae1f3881'
+imageMap['us-west-2a.micro-amazon']      = 'ami-090bc08d7ae1f3881'
+imageMap['us-west-2a.min-amazon-2-x64']  = 'ami-090bc08d7ae1f3881'
 imageMap['us-west-2a.min-centos-8-x64']  = 'ami-0155c31ea13d4abd2'
 imageMap['us-west-2a.min-centos-7-x64']  = 'ami-0686851c4e7b1a8e1'
 imageMap['us-west-2a.fips-centos-7-x64'] = 'ami-036d2cdf95d86d256'
@@ -361,6 +361,14 @@ initMap['micro-amazon'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
+
+    if [ -f /etc/redhat-release ]; then
+        if grep -q 'CentOS.* 8\\.' /etc/redhat-release; then
+            sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-*
+            sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Linux-*
+        fi
+    fi
+
     until sudo yum makecache; do
         sleep 1
         echo try again
