@@ -35,7 +35,9 @@ try {
     def propertiesChecksum = new URL("https://raw.githubusercontent.com/AgileStas/jenkins-pipelines/ENG-1078_ol8-p2/IaC/init.groovy.d/ami-defs.properties.sha256").text.trim()
     boolean writeProperties = true
     if (amiProperties.exists()) {
-        if (amiProperties.text.digest('SHA-256') == propertiesChecksum) {
+        // String.digest() is not available in Groovy 2.4 :-(
+        //if (amiProperties.text.digest('SHA-256') == propertiesChecksum) {
+        if (org.apache.commons.codec.digest.DigestUtils.sha256Hex(amiProperties.text) == propertiesChecksum) {
             writeProperties = false
         }
     }
@@ -43,7 +45,8 @@ try {
         def propertiesText = new URL("https://raw.githubusercontent.com/AgileStas/jenkins-pipelines/ENG-1078_ol8-p2/IaC/init.groovy.d/ami-defs.properties").text
         // We should continue with existing properties file, so we can't just assert:
         // assert propertiesText.digest('SHA-256') == propertiesChecksum
-        if (propertiesText.digest('SHA-256') == propertiesChecksum) {
+        //if (propertiesText.digest('SHA-256') == propertiesChecksum) {
+        if (org.apache.commons.codec.digest.DigestUtils.sha256Hex(propertiesText) == propertiesChecksum) {
             if (amiProperties.exists()) {
                 // Looks like we do not need tmpFile here, but let's use it to avoid misunderstanings
                 File tmpFile = new File(amiProperties.toURI())
@@ -99,7 +102,7 @@ imageMap['eu-west-1b.min-stretch-x64']      = imageMap['eu-west-1a.min-stretch-x
 imageMap['eu-west-1b.min-xenial-x64']       = imageMap['eu-west-1a.min-xenial-x64']
 imageMap['eu-west-1b.docker-32gb-hirsute']  = imageMap['eu-west-1a.docker-32gb-hirsute']
 imageMap['eu-west-1b.docker-32gb-focal']    = imageMap['eu-west-1a.docker-32gb-focal']
-imageMap['eu-west-1b.docker-32gb-bullseye'] = imageMap['eu-west-1a.min-bullseye-x64']
+imageMap['eu-west-1b.docker-32gb-bullseye'] = imageMap['eu-west-1a.docker-32gb-bullseye']
 
 imageMap['eu-west-1c.docker']               = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1c.docker-32gb']          = imageMap['eu-west-1a.docker-32gb']
@@ -116,8 +119,8 @@ imageMap['eu-west-1c.min-bionic-x64']       = imageMap['eu-west-1a.min-bionic-x6
 imageMap['eu-west-1c.min-stretch-x64']      = imageMap['eu-west-1a.min-stretch-x64']
 imageMap['eu-west-1c.min-xenial-x64']       = imageMap['eu-west-1a.min-xenial-x64']
 imageMap['eu-west-1c.docker-32gb-hirsute']  = imageMap['eu-west-1a.docker-32gb-hirsute']
-imageMap['eu-west-1c.docker-32gb-focal'] i  = imageMap['eu-west-1a.docker-32gb-focal']
-imageMap['eu-west-1c.docker-32gb-bullseye'] = imageMap['eu-west-1a.min-bullseye-x64']
+imageMap['eu-west-1c.docker-32gb-focal']    = imageMap['eu-west-1a.docker-32gb-focal']
+imageMap['eu-west-1c.docker-32gb-bullseye'] = imageMap['eu-west-1a.docker-32gb-bullseye']
 
 priceMap = [:]
 priceMap['t2.medium'] = '0.03'
@@ -145,7 +148,7 @@ userMap['docker-32gb-hirsute']  = properties.AwsAmi['Ubuntu2104']['user']
 userMap['docker-32gb-focal']    = properties.AwsAmi['Ubuntu2004']['user']
 userMap['docker-32gb-bullseye'] = properties.AwsAmi['Debian11']['user']
 
-userMap['psmdb'] = userMap['min-xenial-x64']
+//userMap['psmdb'] = userMap['min-xenial-x64']
 
 initMap = [:]
 initMap['docker'] = '''
