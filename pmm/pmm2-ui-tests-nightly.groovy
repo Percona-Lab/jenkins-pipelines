@@ -106,7 +106,7 @@ void uploadAllureArtifacts() {
 }
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'min-focal-x64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -241,26 +241,8 @@ pipeline {
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                installDocker()
                 sh '''
-                    sudo yum -y update --security
-                    sudo yum -y install jq svn
-                    sudo usermod -aG docker ec2-user
-                    sudo service docker start
-                    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-                    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-                    sudo curl -L https://github.com/docker/compose/releases/download/1.21.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/local/bin/docker-compose > /dev/null
-                    sudo chmod +x /usr/local/bin/docker-compose
-                    sudo ln -sfn /usr/local/bin/docker-compose /usr/bin/docker-compose
-                    sudo docker-compose --version
-                    sudo mkdir -p /srv/pmm-qa || :
-                    pushd /srv/pmm-qa
-                        sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                        sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
-                        sudo chmod 755 pmm-tests/install-google-chrome.sh
-                        bash ./pmm-tests/install-google-chrome.sh
-                    popd
-                    sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
+                    sudo chmod -R 777 .
                 '''
             }
         }
@@ -303,9 +285,14 @@ pipeline {
         }
         stage('Setup Node') {
             steps {
-                setupNodejs()
                 sh """
-                    sudo yum install -y gettext
+                    curl -sL https://deb.nodesource.com/setup_14.x -o nodesource_setup.sh
+                    sudo bash nodesource_setup.sh
+                    sudo apt install nodejs
+                    sudo apt-get install -y gettext
+                    npm install
+                    npx playwright install
+                    sudo npx playwright install-deps
                     envsubst < env.list > env.generated.list
                 """
             }
@@ -329,30 +316,11 @@ pipeline {
                             sh """
                                 sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                                 export PWD=\$(pwd);
-                                export CHROMIUM_PATH=/usr/bin/chromium
-                                ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@settings'
+                                npx codeceptjs run --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
                             """
                         }
                     }
                 }
-//                 stage('Run left menu UI Tests') {
-//                     options {
-//                         timeout(time: 90, unit: "MINUTES")
-//                     }
-//                     when {
-//                         expression { env.AMI_TEST == "no" }
-//                     }
-//                     steps {
-//                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-//                             sh """
-//                                 sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-//                                 export PWD=\$(pwd);
-//                                 export CHROMIUM_PATH=/usr/bin/chromium
-//                                 ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@menu' --override '{ "helpers": {"Playwright": {"browser": "firefox"}}}'
-//                             """
-//                         }
-//                     }
-//                 }
                 stage('Check Agent Status on ps & replication node') {
                     steps {
                         checkClientNodesAgentStatus(env.VM_CLIENT_IP_MYSQL)
@@ -377,8 +345,6 @@ pipeline {
             // stop staging
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-                ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
-                ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
             '''
             script {
                 if(env.VM_NAME)
@@ -400,18 +366,18 @@ pipeline {
             }
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/parallel_chunk*/*.xml'
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
+                    junit 'tests/output/*.xml'
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'result.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
+                    archiveArtifacts artifacts: 'tests/output/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
-                    junit 'tests/output/parallel_chunk*/*.xml'
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
+                    junit 'tests/output/*.xml'
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'result.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
+                    archiveArtifacts artifacts: 'tests/output/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
+                    archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
             allure([
