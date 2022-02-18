@@ -119,6 +119,10 @@ pipeline {
                     MY_BRANCH_BASE_MAJOR=8
                     MY_BRANCH_BASE_MINOR=0
 
+                    if [ -f /usr/bin/apt ]; then
+                        sudo apt-get update
+                    fi
+
                     if [[ ${USE_PR} == "true" ]]; then
                         if [ -f /usr/bin/yum ]; then
                             sudo yum -y install jq
