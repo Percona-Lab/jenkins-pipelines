@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'docker-farm'
+        label 'cli'
     }
     parameters {
         string(
