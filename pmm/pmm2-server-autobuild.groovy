@@ -94,39 +94,6 @@ pipeline {
             }
         }
         stage('Build server packages') {
-            when {
-                expression { env.BRANCH_NAME == 'PMM-4466-migrate-database-to-postgres' }
-            }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        set -o errexit
-
-                        export PATH=$PATH:$(pwd -P)/build/bin
-
-                        # 1st-party
-                        build-server-rpm percona-dashboards grafana-dashboards
-                        build-server-rpm pmm-managed
-                        build-server-rpm percona-qan-api2 qan-api2
-                        build-server-rpm pmm-server
-                        build-server-rpm pmm-update
-                        build-server-rpm dbaas-controller
-                        build-server-rpm dbaas-tools
-                        # 3rd-party
-                        build-server-rpm victoriametrics
-                        build-server-rpm alertmanager
-                        build-server-rpm grafana
-                        build-server-rpm grafana-db-migrator
-                    '''
-                }
-                stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'
-                uploadRPM()
-            }
-        }
-        stage('Build server packages') {
-            when {
-                expression { env.BRANCH_NAME != 'PMM-4466-migrate-database-to-postgres' }
-            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
