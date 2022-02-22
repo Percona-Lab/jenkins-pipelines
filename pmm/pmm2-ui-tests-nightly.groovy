@@ -242,6 +242,12 @@ pipeline {
 
                 slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
+                    sudo mkdir -p /srv/pmm-qa || :
+                    pushd /srv/pmm-qa
+                        sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                        sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
+                        sudo chmod 755 .
+                    popd
                     sudo chmod -R 777 .
                 '''
             }
