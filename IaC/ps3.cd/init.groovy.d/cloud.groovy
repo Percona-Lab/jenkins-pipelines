@@ -153,8 +153,6 @@ userMap['docker-32gb-hirsute']  = properties.AwsAmi['Ubuntu2104']['user']
 userMap['docker-32gb-focal']    = properties.AwsAmi['Ubuntu2004']['user']
 userMap['docker-32gb-bullseye'] = properties.AwsAmi['Debian11']['user']
 
-//userMap['psmdb'] = userMap['min-xenial-x64']
-
 initMap = [:]
 initMap['docker'] = '''
     set -o xtrace
