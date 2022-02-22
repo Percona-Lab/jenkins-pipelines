@@ -32,7 +32,7 @@ if (!initGroovyDir.exists()) {
 }
 File amiProperties = new File(initGroovyDir, "ami-defs.properties")
 try {
-    def propertiesChecksum = new URL("https://raw.githubusercontent.com/AgileStas/jenkins-pipelines/ENG-1078_ol8-p2/IaC/init.groovy.d/ami-defs.properties.sha256").text.trim()
+    def propertiesChecksum = new URL("https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/ami-defs.properties.sha256").text.trim()
     boolean writeProperties = true
     if (amiProperties.exists()) {
         // String.digest() is not available in Groovy 2.4 :-(
@@ -42,7 +42,7 @@ try {
         }
     }
     if (writeProperties) {
-        def propertiesText = new URL("https://raw.githubusercontent.com/AgileStas/jenkins-pipelines/ENG-1078_ol8-p2/IaC/init.groovy.d/ami-defs.properties").text
+        def propertiesText = new URL("https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d//ami-defs.properties").text
         // We should continue with existing properties file, so we can't just assert:
         // assert propertiesText.digest('SHA-256') == propertiesChecksum
         //if (propertiesText.digest('SHA-256') == propertiesChecksum) {
