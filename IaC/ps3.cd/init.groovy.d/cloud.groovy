@@ -126,6 +126,7 @@ imageMap['eu-west-1c.docker-32gb-focal']    = imageMap['eu-west-1a.docker-32gb-f
 imageMap['eu-west-1c.docker-32gb-bullseye'] = imageMap['eu-west-1a.docker-32gb-bullseye']
 
 priceMap = [:]
+priceMap['t2.micro'] = '0.1' // Dedicated instance type for RHEL
 priceMap['t2.medium'] = '0.03'
 priceMap['t2.large'] = '0.07'
 priceMap['t3a.2xlarge'] = '0.17'
@@ -471,6 +472,7 @@ capMap['t3a.2xlarge'] = '60'
 capMap['t3.2xlarge'] = '60'
 capMap['m5zn.3xlarge'] = '40'
 capMap['t2.2xlarge'] = '10'
+capMap['t2.micro']     = '10'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 't3a.2xlarge'
@@ -480,7 +482,7 @@ typeMap['docker2']           = 't2.2xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-ol-8-x64']      = typeMap['min-centos-7-x64']
-typeMap['min-rhel-9-x64']    = typeMap['min-centos-7-x64']
+typeMap['min-rhel-9-x64']    = 't2.micro'
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
@@ -520,7 +522,7 @@ devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-ol-8-x64']      = devMap['min-bionic-x64']
-devMap['min-rhel-9-x64']    = devMap['min-bionic-x64']
+devMap['min-rhel-9-x64']    = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-jessie-x64']    = devMap['micro-amazon']
 devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
