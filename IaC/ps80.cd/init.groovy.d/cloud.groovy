@@ -20,86 +20,140 @@ netMap = [:]
 netMap['us-west-2b'] = 'subnet-0c0b7f0b15c1d68be'
 netMap['us-west-2c'] = 'subnet-024be5829372c4f38'
 
-imageMap = [:]
-imageMap['us-west-2a.docker']            = 'ami-090bc08d7ae1f3881'
-imageMap['us-west-2a.docker-32gb']       = 'ami-090bc08d7ae1f3881'
-imageMap['us-west-2a.docker-32gb-hirsute']  = 'ami-0cbdf6c0f39fd3950'
-imageMap['us-west-2a.docker-32gb-focal']    = 'ami-0ebe6e463e9912d81'
-imageMap['us-west-2a.docker-32gb-bullseye'] = 'ami-0d0f7602aa5c2425d'
-imageMap['us-west-2a.docker2']           = 'ami-090bc08d7ae1f3881'
-imageMap['us-west-2a.micro-amazon']      = 'ami-090bc08d7ae1f3881'
-imageMap['us-west-2a.min-amazon-2-x64']  = 'ami-090bc08d7ae1f3881'
-imageMap['us-west-2a.min-centos-8-x64']  = 'ami-0155c31ea13d4abd2'
-imageMap['us-west-2a.min-centos-7-x64']  = 'ami-0686851c4e7b1a8e1'
-imageMap['us-west-2a.fips-centos-7-x64'] = 'ami-036d2cdf95d86d256'
-imageMap['us-west-2a.min-centos-6-x64']  = 'ami-052ff42ae3be02b6a'
-imageMap['us-west-2a.min-buster-x64']    = 'ami-013e2c587714af230'
-imageMap['us-west-2a.min-focal-x64']     = 'ami-0892d3c7ee96c0bf7'
-imageMap['us-west-2a.min-bionic-x64']    = 'ami-074251216af698218'
-imageMap['us-west-2a.min-stretch-x64']   = 'ami-01bc069bbdca81d56'
-imageMap['us-west-2a.min-xenial-x64']    = 'ami-079e7a3f57cc8e0d0'
-imageMap['us-west-2a.min-bullseye-x64']  = 'ami-0d0f7602aa5c2425d'
+// ===== Common block of global config starts
+def home_dir = System.properties['JENKINS_HOME']
+assert home_dir != ""
 
-imageMap['us-west-2b.docker']            = imageMap['us-west-2a.docker']
-imageMap['us-west-2b.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
+File initGroovyDir = new File("$home_dir/init.groovy.d")
+if (!initGroovyDir.exists()) {
+    initGroovyDir.mkdirs()
+}
+File amiProperties = new File(initGroovyDir, "ami-defs.properties")
+try {
+    def propertiesChecksum = new URL("https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/ami-defs.properties.sha256").text.trim()
+    boolean writeProperties = true
+    if (amiProperties.exists()) {
+        // String.digest() is not available in Groovy 2.4 :-(
+        //if (amiProperties.text.digest('SHA-256') == propertiesChecksum) {
+        if (org.apache.commons.codec.digest.DigestUtils.sha256Hex(amiProperties.text) == propertiesChecksum) {
+            writeProperties = false
+        }
+    }
+    if (writeProperties) {
+        def propertiesText = new URL("https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d//ami-defs.properties").text
+        // We should continue with existing properties file, so we can't just assert:
+        // assert propertiesText.digest('SHA-256') == propertiesChecksum
+        //if (propertiesText.digest('SHA-256') == propertiesChecksum) {
+        if (org.apache.commons.codec.digest.DigestUtils.sha256Hex(propertiesText) == propertiesChecksum) {
+            if (amiProperties.exists()) {
+                // Looks like we do not need tmpFile here, but let's use it to avoid misunderstanings
+                File tmpFile = new File(amiProperties.toURI())
+                tmpFile.renameTo(new File(initGroovyDir, "ami-defs." + new Date().getTime().toString() + ".properties").absolutePath)
+                //println(tmpFile.toURI().toString())
+            }
+            amiProperties.write(propertiesText)
+        }
+    }
+} catch (Exception ex) {
+    println(ex.toString())
+}
+
+assert amiProperties.exists()
+assert amiProperties.text != ""
+
+def properties = new ConfigSlurper().parse(amiProperties.toURI().toURL())
+//println(properties.toString())
+// ===== Common block of global config ends
+
+imageMap = [:]
+imageMap['us-west-2a.docker']               = properties.AwsAmi['AmazonLinux2']['usWest2']
+imageMap['us-west-2a.docker-32gb']          = properties.AwsAmi['AmazonLinux2']['usWest2']
+imageMap['us-west-2a.docker-32gb-hirsute']  = 'ami-0cbdf6c0f39fd3950' // Owned by me, min-hirsute-x64-zenfs-150621
+imageMap['us-west-2a.docker-32gb-focal']    = 'ami-0ebe6e463e9912d81' // Owned by me, min-focal-x64-zenfs-v2
+imageMap['us-west-2a.docker-32gb-bullseye'] = properties.AwsAmi['Debian11']['usWest2']
+imageMap['us-west-2a.docker2']              = properties.AwsAmi['AmazonLinux2']['usWest2']
+imageMap['us-west-2a.micro-amazon']         = properties.AwsAmi['AmazonLinux2']['usWest2']
+imageMap['us-west-2a.min-amazon-2-x64']     = properties.AwsAmi['AmazonLinux2']['usWest2']
+imageMap['us-west-2a.min-ol-8-x64']         = properties.AwsAmi['OracleLinux8']['usWest2']
+imageMap['us-west-2a.min-rhel-9-x64']       = properties.AwsAmi['RHEL9']['usWest2']
+imageMap['us-west-2a.min-centos-8-x64']     = properties.AwsAmi['Centos8']['usWest2']
+imageMap['us-west-2a.min-centos-7-x64']     = properties.AwsAmi['Centos7']['usWest2']
+imageMap['us-west-2a.fips-centos-7-x64']    = properties.AwsAmi['FipsCentos7']['usWest2']
+imageMap['us-west-2a.min-centos-6-x64']     = properties.AwsAmi['Centos6']['usWest2']
+imageMap['us-west-2a.min-buster-x64']       = properties.AwsAmi['Debian10']['usWest2']
+imageMap['us-west-2a.min-focal-x64']        = properties.AwsAmi['Ubuntu2004']['usWest2']
+imageMap['us-west-2a.min-bionic-x64']       = properties.AwsAmi['Ubuntu1804']['usWest2']
+imageMap['us-west-2a.min-stretch-x64']      = properties.AwsAmi['Debian9']['usWest2']
+imageMap['us-west-2a.min-xenial-x64']       = properties.AwsAmi['Ubuntu1604']['usWest2']
+imageMap['us-west-2a.min-bullseye-x64']     = properties.AwsAmi['Debian11']['usWest2']
+
+imageMap['us-west-2b.docker']               = imageMap['us-west-2a.docker']
+imageMap['us-west-2b.docker-32gb']          = imageMap['us-west-2a.docker-32gb']
 imageMap['us-west-2b.docker-32gb-hirsute']  = imageMap['us-west-2a.docker-32gb-hirsute']
 imageMap['us-west-2b.docker-32gb-focal']    = imageMap['us-west-2a.docker-32gb-focal']
 imageMap['us-west-2b.docker-32gb-bullseye'] = imageMap['us-west-2a.docker-32gb-bullseye']
-imageMap['us-west-2b.docker2']           = imageMap['us-west-2a.docker2']
-imageMap['us-west-2b.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
-imageMap['us-west-2b.min-amazon-2-x64']  = imageMap['us-west-2a.min-amazon-2-x64']
-imageMap['us-west-2b.min-centos-8-x64']  = imageMap['us-west-2a.min-centos-8-x64']
-imageMap['us-west-2b.min-centos-7-x64']  = imageMap['us-west-2a.min-centos-7-x64']
-imageMap['us-west-2b.fips-centos-7-x64'] = imageMap['us-west-2a.fips-centos-7-x64']
-imageMap['us-west-2b.min-centos-6-x64']  = imageMap['us-west-2a.min-centos-6-x64']
-imageMap['us-west-2b.min-buster-x64']    = imageMap['us-west-2a.min-buster-x64']
-imageMap['us-west-2b.min-focal-x64' ]    = imageMap['us-west-2a.min-focal-x64']
-imageMap['us-west-2b.min-bionic-x64']    = imageMap['us-west-2a.min-bionic-x64']
-imageMap['us-west-2b.min-stretch-x64']   = imageMap['us-west-2a.min-stretch-x64']
-imageMap['us-west-2b.min-xenial-x64']    = imageMap['us-west-2a.min-xenial-x64']
-imageMap['us-west-2b.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64'] 
+imageMap['us-west-2b.docker2']              = imageMap['us-west-2a.docker2']
+imageMap['us-west-2b.micro-amazon']         = imageMap['us-west-2a.micro-amazon']
+imageMap['us-west-2b.min-amazon-2-x64']     = imageMap['us-west-2a.min-amazon-2-x64']
+imageMap['us-west-2b.min-ol-8-x64']         = imageMap['us-west-2a.min-ol-8-x64']
+imageMap['us-west-2b.min-rhel-9-x64']       = imageMap['us-west-2a.min-rhel-9-x64']
+imageMap['us-west-2b.min-centos-8-x64']     = imageMap['us-west-2a.min-centos-8-x64']
+imageMap['us-west-2b.min-centos-7-x64']     = imageMap['us-west-2a.min-centos-7-x64']
+imageMap['us-west-2b.fips-centos-7-x64']    = imageMap['us-west-2a.fips-centos-7-x64']
+imageMap['us-west-2b.min-centos-6-x64']     = imageMap['us-west-2a.min-centos-6-x64']
+imageMap['us-west-2b.min-buster-x64']       = imageMap['us-west-2a.min-buster-x64']
+imageMap['us-west-2b.min-focal-x64' ]       = imageMap['us-west-2a.min-focal-x64']
+imageMap['us-west-2b.min-bionic-x64']       = imageMap['us-west-2a.min-bionic-x64']
+imageMap['us-west-2b.min-stretch-x64']      = imageMap['us-west-2a.min-stretch-x64']
+imageMap['us-west-2b.min-xenial-x64']       = imageMap['us-west-2a.min-xenial-x64']
+imageMap['us-west-2b.min-bullseye-x64']     = imageMap['us-west-2a.min-bullseye-x64']
 
-imageMap['us-west-2c.docker']            = imageMap['us-west-2a.docker']
-imageMap['us-west-2c.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
+imageMap['us-west-2c.docker']               = imageMap['us-west-2a.docker']
+imageMap['us-west-2c.docker-32gb']          = imageMap['us-west-2a.docker-32gb']
 imageMap['us-west-2c.docker-32gb-hirsute']  = imageMap['us-west-2a.docker-32gb-hirsute']
 imageMap['us-west-2c.docker-32gb-focal']    = imageMap['us-west-2a.docker-32gb-focal']
 imageMap['us-west-2c.docker-32gb-bullseye'] = imageMap['us-west-2a.docker-32gb-bullseye']
-imageMap['us-west-2c.docker2']           = imageMap['us-west-2a.docker2']
-imageMap['us-west-2c.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
-imageMap['us-west-2c.min-amazon-2-x64']  = imageMap['us-west-2a.min-amazon-2-x64']
-imageMap['us-west-2c.min-centos-8-x64']  = imageMap['us-west-2a.min-centos-8-x64']
-imageMap['us-west-2c.min-centos-7-x64']  = imageMap['us-west-2a.min-centos-7-x64']
-imageMap['us-west-2c.fips-centos-7-x64'] = imageMap['us-west-2a.fips-centos-7-x64']
-imageMap['us-west-2c.min-centos-6-x64']  = imageMap['us-west-2a.min-centos-6-x64']
-imageMap['us-west-2c.min-buster-x64']    = imageMap['us-west-2a.min-buster-x64']
-imageMap['us-west-2c.min-focal-x64' ]    = imageMap['us-west-2a.min-focal-x64']
-imageMap['us-west-2c.min-bionic-x64']    = imageMap['us-west-2a.min-bionic-x64']
-imageMap['us-west-2c.min-stretch-x64']   = imageMap['us-west-2a.min-stretch-x64']
-imageMap['us-west-2c.min-xenial-x64']    = imageMap['us-west-2a.min-xenial-x64']
-imageMap['us-west-2c.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64'] 
+imageMap['us-west-2c.docker2']              = imageMap['us-west-2a.docker2']
+imageMap['us-west-2c.micro-amazon']         = imageMap['us-west-2a.micro-amazon']
+imageMap['us-west-2c.min-amazon-2-x64']     = imageMap['us-west-2a.min-amazon-2-x64']
+imageMap['us-west-2c.min-ol-8-x64']         = imageMap['us-west-2a.min-ol-8-x64']
+imageMap['us-west-2c.min-rhel-9-x64']       = imageMap['us-west-2a.min-rhel-9-x64']
+imageMap['us-west-2c.min-centos-8-x64']     = imageMap['us-west-2a.min-centos-8-x64']
+imageMap['us-west-2c.min-centos-7-x64']     = imageMap['us-west-2a.min-centos-7-x64']
+imageMap['us-west-2c.fips-centos-7-x64']    = imageMap['us-west-2a.fips-centos-7-x64']
+imageMap['us-west-2c.min-centos-6-x64']     = imageMap['us-west-2a.min-centos-6-x64']
+imageMap['us-west-2c.min-buster-x64']       = imageMap['us-west-2a.min-buster-x64']
+imageMap['us-west-2c.min-focal-x64' ]       = imageMap['us-west-2a.min-focal-x64']
+imageMap['us-west-2c.min-bionic-x64']       = imageMap['us-west-2a.min-bionic-x64']
+imageMap['us-west-2c.min-stretch-x64']      = imageMap['us-west-2a.min-stretch-x64']
+imageMap['us-west-2c.min-xenial-x64']       = imageMap['us-west-2a.min-xenial-x64']
+imageMap['us-west-2c.min-bullseye-x64']     = imageMap['us-west-2a.min-bullseye-x64']
 
-imageMap['us-west-2d.docker']            = imageMap['us-west-2a.docker']
-imageMap['us-west-2d.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
+imageMap['us-west-2d.docker']               = imageMap['us-west-2a.docker']
+imageMap['us-west-2d.docker-32gb']          = imageMap['us-west-2a.docker-32gb']
 imageMap['us-west-2d.docker-32gb-hirsute']  = imageMap['us-west-2a.docker-32gb-hirsute']
 imageMap['us-west-2d.docker-32gb-focal']    = imageMap['us-west-2a.docker-32gb-focal']
 imageMap['us-west-2d.docker-32gb-bullseye'] = imageMap['us-west-2a.docker-32gb-bullseye']
-imageMap['us-west-2d.docker2']           = imageMap['us-west-2a.docker2']
-imageMap['us-west-2d.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
-imageMap['us-west-2d.min-amazon-2-x64']  = imageMap['us-west-2a.min-amazon-2-x64']
-imageMap['us-west-2d.min-centos-8-x64']  = imageMap['us-west-2a.min-centos-8-x64']
-imageMap['us-west-2d.min-centos-7-x64']  = imageMap['us-west-2a.min-centos-7-x64']
-imageMap['us-west-2d.fips-centos-7-x64'] = imageMap['us-west-2a.fips-centos-7-x64']
-imageMap['us-west-2d.min-centos-6-x64']  = imageMap['us-west-2a.min-centos-6-x64']
-imageMap['us-west-2d.min-buster-x64']    = imageMap['us-west-2a.min-buster-x64']
-imageMap['us-west-2d.min-focal-x64' ]    = imageMap['us-west-2a.min-focal-x64']
-imageMap['us-west-2d.min-bionic-x64']    = imageMap['us-west-2a.min-bionic-x64']
-imageMap['us-west-2d.min-stretch-x64']   = imageMap['us-west-2a.min-stretch-x64']
-imageMap['us-west-2d.min-xenial-x64']    = imageMap['us-west-2a.min-xenial-x64']
-imageMap['us-west-2d.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64'] 
+imageMap['us-west-2d.docker2']              = imageMap['us-west-2a.docker2']
+imageMap['us-west-2d.micro-amazon']         = imageMap['us-west-2a.micro-amazon']
+imageMap['us-west-2d.min-amazon-2-x64']     = imageMap['us-west-2a.min-amazon-2-x64']
+imageMap['us-west-2d.min-ol-8-x64']         = imageMap['us-west-2a.min-ol-8-x64']
+imageMap['us-west-2d.min-rhel-9-x64']       = imageMap['us-west-2a.min-rhel-9-x64']
+imageMap['us-west-2d.min-centos-8-x64']     = imageMap['us-west-2a.min-centos-8-x64']
+imageMap['us-west-2d.min-centos-7-x64']     = imageMap['us-west-2a.min-centos-7-x64']
+imageMap['us-west-2d.fips-centos-7-x64']    = imageMap['us-west-2a.fips-centos-7-x64']
+imageMap['us-west-2d.min-centos-6-x64']     = imageMap['us-west-2a.min-centos-6-x64']
+imageMap['us-west-2d.min-buster-x64']       = imageMap['us-west-2a.min-buster-x64']
+imageMap['us-west-2d.min-focal-x64' ]       = imageMap['us-west-2a.min-focal-x64']
+imageMap['us-west-2d.min-bionic-x64']       = imageMap['us-west-2a.min-bionic-x64']
+imageMap['us-west-2d.min-stretch-x64']      = imageMap['us-west-2a.min-stretch-x64']
+imageMap['us-west-2d.min-xenial-x64']       = imageMap['us-west-2a.min-xenial-x64']
+imageMap['us-west-2d.min-bullseye-x64']     = imageMap['us-west-2a.min-bullseye-x64']
 
 priceMap = [:]
 priceMap['t2.medium'] = '0.03'
 priceMap['t2.large'] = '0.07'
+priceMap['t3a.2xlarge'] = '0.4' // Dedicated instance type for RHEL
 priceMap['m3.2xlarge'] = '0.17'
 priceMap['c5ad.2xlarge'] = '0.18'
 priceMap['m5zn.3xlarge'] = '0.27'
@@ -109,26 +163,26 @@ priceMap['r5b.2xlarge'] = '0.22'
 priceMap['m5d.xlarge'] = '0.20'
 
 userMap = [:]
-userMap['docker']            = 'ec2-user'
-userMap['docker-32gb']       = userMap['docker']
+userMap['docker']               = properties.AwsAmi['AmazonLinux2']['user']
+userMap['docker-32gb']          = properties.AwsAmi['AmazonLinux2']['user']
 userMap['docker-32gb-hirsute']  = 'ubuntu'
 userMap['docker-32gb-focal']    = 'ubuntu'
-userMap['docker-32gb-bullseye'] = 'admin' // userMap['min-bullseye-x64']
-userMap['docker2']           = userMap['docker']
-userMap['micro-amazon']      = userMap['docker']
-userMap['min-amazon-2-x64']  = userMap['docker']
-userMap['min-focal-x64']     = 'ubuntu'
-userMap['min-bionic-x64']    = 'ubuntu'
-userMap['min-xenial-x64']    = 'ubuntu'
-userMap['min-centos-6-x64']  = 'centos'
-userMap['min-centos-7-x64']  = 'centos'
-userMap['fips-centos-7-x64'] = 'centos'
-userMap['min-centos-8-x64']  = 'centos'
-userMap['min-stretch-x64']   = 'admin'
-userMap['min-buster-x64']    = 'admin'
-userMap['min-bullseye-x64']  = 'admin'
-
-userMap['psmdb'] = userMap['min-xenial-x64']
+userMap['docker-32gb-bullseye'] = properties.AwsAmi['Debian11']['user']
+userMap['docker2']              = properties.AwsAmi['AmazonLinux2']['user']
+userMap['micro-amazon']         = properties.AwsAmi['AmazonLinux2']['user']
+userMap['min-amazon-2-x64']     = properties.AwsAmi['AmazonLinux2']['user']
+userMap['min-focal-x64']        = properties.AwsAmi['Ubuntu2004']['user']
+userMap['min-bionic-x64']       = properties.AwsAmi['Ubuntu1804']['user']
+userMap['min-xenial-x64']       = properties.AwsAmi['Ubuntu1604']['user']
+userMap['min-centos-6-x64']     = properties.AwsAmi['Centos6']['user']
+userMap['min-centos-7-x64']     = properties.AwsAmi['Centos7']['user']
+userMap['fips-centos-7-x64']    = properties.AwsAmi['FipsCentos7']['user']
+userMap['min-centos-8-x64']     = properties.AwsAmi['Centos8']['user']
+userMap['min-ol-8-x64']         = properties.AwsAmi['OracleLinux8']['user']
+userMap['min-rhel-9-x64']       = properties.AwsAmi['RHEL9']['user']
+userMap['min-stretch-x64']      = properties.AwsAmi['Debian9']['user']
+userMap['min-buster-x64']       = properties.AwsAmi['Debian10']['user']
+userMap['min-bullseye-x64']     = properties.AwsAmi['Debian11']['user']
 
 modeMap = [:]
 modeMap['docker']            = 'Node.Mode.NORMAL'
@@ -145,6 +199,8 @@ modeMap['min-xenial-x64']    = modeMap['min-focal-x64']
 modeMap['min-centos-6-x64']  = modeMap['min-focal-x64']
 modeMap['min-centos-7-x64']  = modeMap['min-focal-x64']
 modeMap['min-centos-8-x64']  = modeMap['min-focal-x64']
+modeMap['min-ol-8-x64']         = modeMap['min-focal-x64']
+modeMap['min-rhel-9-x64']       = modeMap['min-focal-x64']
 modeMap['fips-centos-7-x64'] = modeMap['min-focal-x64']
 modeMap['min-stretch-x64']   = modeMap['min-focal-x64']
 modeMap['min-buster-x64']    = modeMap['min-focal-x64']
@@ -413,9 +469,11 @@ initMap['min-centos-6-x64'] = '''
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-centos-7-x64'] = initMap['micro-amazon']
+initMap['min-centos-7-x64']  = initMap['micro-amazon']
 initMap['fips-centos-7-x64'] = initMap['micro-amazon']
-initMap['min-centos-8-x64'] = initMap['micro-amazon']
+initMap['min-centos-8-x64']  = initMap['micro-amazon']
+initMap['min-ol-8-x64']      = initMap['micro-amazon']
+initMap['min-rhel-9-x64']    = initMap['micro-amazon']
 initMap['min-bionic-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -464,6 +522,7 @@ initMap['min-xenial-x64'] = initMap['min-bionic-x64']
 initMap['min-bullseye-x64'] = initMap['min-buster-x64']
 
 capMap = [:]
+capMap['t3a.2xlarge'] = '5'
 capMap['m3.2xlarge'] = '60'
 capMap['c5ad.2xlarge'] = '60'
 capMap['m3.2xlarge'] = '5'
@@ -479,9 +538,11 @@ typeMap['docker-32gb']       = 'm5zn.2xlarge'
 typeMap['docker-32gb-hirsute']  = 'm5zn.3xlarge'
 typeMap['docker-32gb-focal']    = 'm5zn.3xlarge'
 typeMap['docker-32gb-bullseye'] = 'm5zn.3xlarge'
-typeMap['docker2']           = 'r5b.4xlarge'
-typeMap['min-centos-7-x64']  = typeMap['docker']
-typeMap['min-centos-8-x64']  = typeMap['docker']
+typeMap['docker2']              = 'r5b.4xlarge'
+typeMap['min-centos-7-x64']     = typeMap['docker']
+typeMap['min-centos-8-x64']     = typeMap['docker']
+typeMap['min-ol-8-x64']         = typeMap['docker']
+typeMap['min-rhel-9-x64']       = 't3a.2xlarge'
 typeMap['fips-centos-7-x64'] = typeMap['docker-32gb']
 typeMap['min-focal-x64']     = typeMap['docker']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
@@ -507,6 +568,8 @@ execMap['min-centos-6-x64']  = '1'
 execMap['min-centos-7-x64']  = '1'
 execMap['fips-centos-7-x64'] = '1'
 execMap['min-centos-8-x64']  = '1'
+execMap['min-ol-8-x64']         = '1'
+execMap['min-rhel-9-x64']       = '1'
 execMap['min-stretch-x64']   = '1'
 execMap['min-xenial-x64']    = '1'
 execMap['min-buster-x64']    = '1'
@@ -527,6 +590,8 @@ devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-centos-8-x64']  = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-ol-8-x64']         = devMap['min-centos-8-x64']
+devMap['min-rhel-9-x64']       = devMap['min-centos-8-x64']
 devMap['min-stretch-x64']   = 'xvda=:30:true:gp2,xvdd=:120:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-buster-x64']    = '/dev/xvda=:30:true:gp2,/dev/xvdd=:120:true:gp2'
@@ -547,6 +612,8 @@ labelMap['min-centos-6-x64']  = ''
 labelMap['min-centos-7-x64']  = ''
 labelMap['fips-centos-7-x64'] = ''
 labelMap['min-centos-8-x64']  = ''
+labelMap['min-ol-8-x64']         = ''
+labelMap['min-rhel-9-x64']       = ''
 labelMap['min-stretch-x64']   = ''
 labelMap['min-xenial-x64']    = ''
 labelMap['min-buster-x64']    = ''
@@ -627,6 +694,8 @@ String region = 'us-west-2'
             getTemplate('docker-32gb-bullseye', "${region}${it}"),
             getTemplate('micro-amazon',       "${region}${it}"),
             getTemplate('min-amazon-2-x64',   "${region}${it}"),
+            getTemplate('min-ol-8-x64',         "${region}${it}"),
+            getTemplate('min-rhel-9-x64',       "${region}${it}"),
             getTemplate('min-centos-8-x64',   "${region}${it}"),
             getTemplate('min-centos-7-x64',   "${region}${it}"),
             getTemplate('fips-centos-7-x64',  "${region}${it}"),
