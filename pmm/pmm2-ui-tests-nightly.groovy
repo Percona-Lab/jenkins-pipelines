@@ -308,7 +308,7 @@ pipeline {
             parallel {
                 stage('Run UI - Tests') {
                     options {
-                        timeout(time: 120, unit: "MINUTES")
+                        timeout(time: 150, unit: "MINUTES")
                     }
                     when {
                         expression { env.AMI_TEST == "no" }
