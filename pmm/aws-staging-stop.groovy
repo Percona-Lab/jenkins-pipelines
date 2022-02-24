@@ -2,7 +2,7 @@ def VMList = ''
 
 pipeline {
     agent {
-        label 'awscli'
+        label 'cli'
     }
     parameters {
         string(
@@ -15,7 +15,11 @@ pipeline {
         stage('Ask input') {
             steps {
                 script {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    withCredentials([[
+                                $class: 'AmazonWebServicesCredentialsBinding',
+                                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                credentialsId: 'pmm-staging-slave',
+                                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         VMList = sh returnStdout: true, script: '''
                             set +o xtrace
 
@@ -40,7 +44,10 @@ pipeline {
                         """
                         echo "${VMList}"
                         timeout(time:10, unit:'MINUTES') {
-                            VM = input message: 'What VM do you want to stop?', parameters: [string(defaultValue: '', description: '', name: 'Name or IP')]
+                            VM = input message: 'What VM do you want to stop?',
+                                 parameters: [string(defaultValue: '',
+                                 description: '',
+                                 name: 'Name or IP')]
                         }
                     }
                     if ( !VMList.toLowerCase().contains(VM.toLowerCase())) {
@@ -53,7 +60,11 @@ pipeline {
 
         stage('Destroy VM') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                withCredentials([
+                            [$class: 'AmazonWebServicesCredentialsBinding',
+                            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                            credentialsId: 'pmm-staging-slave',
+                            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         set -o errexit
 
