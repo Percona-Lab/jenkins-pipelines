@@ -122,6 +122,10 @@ pipeline {
             choices: ['no', 'yes'],
             description: "Run Specified Tagged Tests",
             name: 'RUN_TAGGED_TEST')
+        choice(
+            choices: ['no', 'yes'],
+            description: 'Enable Pull Mode, if you are using this instance as Client Node',
+            name: 'ENABLE_PULL_MODE')
         string (
             defaultValue: '',
             description: 'Value for Server Public IP, to use this instance just as client',
@@ -247,7 +251,7 @@ pipeline {
         }
         stage('Setup Client for PMM-Server') {
             steps {
-                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'compose_setup', env.ADMIN_PASSWORD)
+                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', ENABLE_PULL_MODE, 'no', 'yes', 'compose_setup', env.ADMIN_PASSWORD)
                 sh """
                     set -o errexit
                     set -o xtrace
