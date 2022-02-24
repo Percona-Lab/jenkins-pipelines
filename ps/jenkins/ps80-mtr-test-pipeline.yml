@@ -1,0 +1,46 @@
+- job:
+    name: ps80-mtr-test-pipeline
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: true
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/mohitj1988/jenkins-pipelines.git
+            branches:
+            - 'PS-8088'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ps/jenkins/ps80-mtr-test-pipeline.groovy
+    parameters:
+    - string:
+        name: VERSION 
+        default: 8.0.26-17
+        description: PS tarball version to download for testing
+    - string:
+        name: PARALLEL_RUN
+        default: "4"
+        description: "mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect."
+    - string:
+        name: MTR_SUITES
+        default: main,innodb 
+        description: "mysql-test-run.pl suite names"
+    - string:
+        name: MTR_ARGS
+        default: --unit-tests-report
+        description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
+    - string:
+        name: MTR_RETRY
+        default: "1"
+        description:  Retry failing MTR tests N number of times, --retry-failure=N
+    axes:
+      - axis:
+         type: user-defined
+         name: DOCKER_OS
+         values:
+          - centos:7
+          - centos:8
+          - ubuntu:bionic
+          - ubuntu:focal
+          - debian:buster
