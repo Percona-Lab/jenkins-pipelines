@@ -6,7 +6,7 @@ pipeline {
         string(
             defaultValue: 'PMM-2.0',
             description: 'Tag/Branch for pmm-submodules repository',
-            name: 'GIT_BRANCH')
+            name: 'SUBMODULES_GIT_BRANCH')
     }
     options {
         skipStagesAfterUnstable()
@@ -16,7 +16,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 git poll: true,
-                    branch: GIT_BRANCH,
+                    branch: SUBMODULES_GIT_BRANCH,
                     url: 'https://github.com/Percona-Lab/pmm-submodules.git'
             }
         }
