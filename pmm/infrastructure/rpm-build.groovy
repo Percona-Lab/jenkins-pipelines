@@ -2,6 +2,12 @@ pipeline {
     agent {
         label 'docker-farm'
     }
+    parameters {
+        string(
+            defaultValue: 'PMM-2.0',
+            description: 'Tag/Branch for pmm-submodules repository',
+            name: 'GIT_BRANCH')
+    }
     options {
         skipStagesAfterUnstable()
         buildDiscarder(logRotator(artifactNumToKeepStr: '10'))
@@ -10,7 +16,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 git poll: true,
-                    branch: 'PMM-2.0',
+                    branch: GIT_BRANCH,
                     url: 'https://github.com/Percona-Lab/pmm-submodules.git'
             }
         }
