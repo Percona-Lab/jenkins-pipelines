@@ -248,6 +248,7 @@ pipeline {
                             build-server-rpm victoriametrics
                             build-server-rpm alertmanager
                             build-server-rpm grafana
+                            build-server-rpm grafana-db-migrator
                         "
                     '''
                 }
