@@ -14,9 +14,6 @@ void installCli(String PLATFORM) {
             sudo apt-get update
             sudo apt-get -y install wget curl unzip
         elif [ ${PLATFORM} = "rpm" ]; then
-            if [ -f /etc/sysctl.conf ]; then
-                cp /etc/sysctl.conf /etc/sysctl.conf_back
-            fi
             echo "net.ipv6.conf.all.disable_ipv6 = 1" > sysctl.conf
             echo "net.ipv6.conf.default.disable_ipv6 = 1" > > sysctl.conf
             sudo cp -f ./sysctl.conf /etc/
