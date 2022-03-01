@@ -14,10 +14,6 @@ void installCli(String PLATFORM) {
             sudo apt-get update
             sudo apt-get -y install wget curl unzip
         elif [ ${PLATFORM} = "rpm" ]; then
-            echo "net.ipv6.conf.all.disable_ipv6 = 1" > sysctl.conf
-            echo "net.ipv6.conf.default.disable_ipv6 = 1" > > sysctl.conf
-            sudo cp -f ./sysctl.conf /etc/
-            sudo sysctl -p
             sudo yum -y install wget curl unzip
         fi
         curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
