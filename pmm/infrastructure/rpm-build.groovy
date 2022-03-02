@@ -32,7 +32,9 @@ pipeline {
                     credentialsId: 'AMI/OVF',
                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
+                        set -o errexit
+                        set -o xtrace
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                         docker push public.ecr.aws/e7j3v3n0/rpmbuild:2
                     """
                 }
