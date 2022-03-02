@@ -32,7 +32,7 @@ pipeline {
                     credentialsId: 'ECRRWUser',
                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        docker login -u AWS -p $(aws ecr get-login-password --region us-east-1) public.ecr.aws/e7j3v3n0
+                        docker login -u AWS -p \$(aws ecr get-login-password --region us-east-1) public.ecr.aws/e7j3v3n0
                         docker push public.ecr.aws/e7j3v3n0/rpmbuild:2
                     """
                 }
