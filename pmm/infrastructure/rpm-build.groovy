@@ -34,6 +34,7 @@ pipeline {
                     sh """
                         set -o errexit
                         set -o xtrace
+                        aws --version
                         aws ecr-public get-login-password --region us-east-1
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                         docker push public.ecr.aws/e7j3v3n0/rpmbuild:2
