@@ -29,7 +29,7 @@ pipeline {
                 withCredentials([[
                     $class: 'AmazonWebServicesCredentialsBinding',
                     accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    credentialsId: 'AMI/OVF',
+                    credentialsId: 'ECRRWUser',
                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         set -o errexit
