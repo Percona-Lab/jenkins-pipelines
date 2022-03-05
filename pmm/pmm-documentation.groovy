@@ -9,7 +9,7 @@ pipeline {
             name: 'BRANCH_NAME')
         choice(
             choices: ['percona.com', 'new.percona.com'],
-            description: 'Publish to production or test server',
+            description: 'Publish to production or staging server',
             name: 'PUBLISH_TARGET')
     }
     options {
