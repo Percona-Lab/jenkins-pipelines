@@ -1,15 +1,15 @@
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'docker-farm'
     }
     parameters {
         string(
             defaultValue: 'publish',
-            description: 'Tag/Branch for build',
+            description: 'Tag/Branch to publish',
             name: 'BRANCH_NAME')
         choice(
-            choices: ['test.percona.com', 'percona.com'],
-            description: 'Publish to test or production server',
+            choices: ['percona.com', 'new.percona.com'],
+            description: 'Publish to production or test server',
             name: 'PUBLISH_TARGET')
     }
     options {
@@ -22,7 +22,7 @@ pipeline {
                 stash name: "html-files", includes: "1.x/**,2.x/**,versions.json,index.html"
             }
         }
-        stage('Doc Publish'){
+        stage('Publish Docs'){
             agent {
                 label 'vbox-01.ci.percona.com'
             }
