@@ -36,6 +36,16 @@ void checkImageForDocker(String IMAGE_POSTFIX){
         """
     }
 }
+void checkImageForCVE(String IMAGE_POSTFIX){
+    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
+        sh """
+            IMAGE_NAME='percona-postgresql-operator'
+            for PG_VER in 14 13 12; do
+                docker run -v \$(pwd):/tmp/pgo --rm quay.io/sysdig/secure-inline-scan:2 perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX} --sysdig-token '${SYSDIG_API_KEY}' --sysdig-url https://us2.app.sysdig.com -r /tmp/pgo
+            done
+        """
+    }
+}
 void pushImageToDocker(String IMAGE_POSTFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
         sh """
@@ -68,7 +78,7 @@ pipeline {
             name: 'GIT_PD_REPO')
     }
     agent {
-         label 'docker' 
+         label 'docker'
     }
     environment {
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
@@ -94,7 +104,7 @@ pipeline {
                 stash includes: "cloud/**", name: "cloud"
             }
         }
-        stage('Build pxc docker images') {
+        stage('Build PG database related docker images') {
             steps {
                 sh '''
                     sudo rm -rf cloud
@@ -147,10 +157,20 @@ pipeline {
                 '''
             }
         }
+        stage('Check PG Docker images for CVE') {
+            steps {
+                checkImageForCVE('pgbackrest-repo')
+                checkImageForCVE('pgbackrest')
+                checkImageForCVE('pgbouncer')
+                checkImageForCVE('postgres-ha')
+                checkImageForCVE('pgbadger')
+            }
+        }
     }
     post {
         always {
             archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: '*.pdf', allowEmptyArchive: true
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
             '''
