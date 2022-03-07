@@ -14,8 +14,6 @@ Resources:
     Properties:
       DisplayName: SNS Topic for EC2 Spot Instance Interruption Notices
       Subscription:
-      - Endpoint: "mykola.marzhan@percona.com"
-        Protocol: email
       - Endpoint: "slava.sarzhan@percona.com"
         Protocol: email
       - Endpoint: "evgeniy.patlan@percona.com"
