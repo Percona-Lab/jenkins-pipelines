@@ -54,8 +54,12 @@ pipeline {
         )
         string(
             defaultValue: 'master',
-            description: 'Branch for testing repository',
+            description: 'Branch for package-testing repository',
             name: 'TESTING_BRANCH')
+        string(
+            defaultValue: 'master',
+            description: 'Tests will be run from branch of  https://github.com/percona/orchestrator',
+            name: 'ORCHESTRATOR_TESTS_VERSION')
   }
   options {
           withCredentials(moleculePdpsJenkinsCreds())
