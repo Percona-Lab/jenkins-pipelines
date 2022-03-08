@@ -22,7 +22,7 @@ netMap['us-east-2c'] = 'subnet-00b3df129e7d8c658'
 
 imageMap = [:]
 imageMap['us-east-2a.min-centos-7-x64'] = 'ami-00f8e2c955f7ffa9b'
-imageMap['us-east-2a.min-centos-8-x64'] = 'ami-0ac6967966621d983'
+imageMap['us-east-2a.min-centos-8-x64'] = 'ami-0c2c9b5652599cf35'
 imageMap['us-east-2a.min-focal-x64']    = 'ami-0629230e074c580f2'
 imageMap['us-east-2a.min-bionic-x64']   = 'ami-0d19dedca87835a9b'
 imageMap['us-east-2a.min-buster-x64']   = 'ami-0d90bed76900e679a'
@@ -62,7 +62,7 @@ priceMap['m4.large']  = '0.03'
 
 userMap = [:]
 userMap['min-centos-7-x64']  = 'centos'
-userMap['min-centos-8-x64']  = userMap['min-centos-7-x64']
+userMap['min-centos-8-x64']  = 'rocky'
 userMap['min-focal-x64']     = 'ubuntu'
 userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-buster-x64']    = 'admin'
