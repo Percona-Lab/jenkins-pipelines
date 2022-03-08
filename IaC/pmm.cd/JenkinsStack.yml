@@ -212,10 +212,6 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 176.37.55.60/32 # mykola home IP
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
         CidrIp: 188.163.20.103/32
       - IpProtocol: tcp
         FromPort: 22
@@ -228,11 +224,7 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 95.27.48.91/32 # Alex Tymchuk
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
-        CidrIp: 93.81.255.68/32 # Alex Tymchuk
+        CidrIp: 51.158.106.12/32
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
@@ -830,7 +822,6 @@ Resources:
               setup_ssh_keys() {
                 KEYS_LIST="alexander.tymchuk \
                            evgeniy.patlan \
-                           slava.sarzhan \
                            alex.miroshnychenko \
                            eduardo.casarero \
                            santiago.ruiz \
