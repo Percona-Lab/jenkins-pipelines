@@ -1,3 +1,11 @@
+void checkImageForCVE(String IMAGE_SUFFIX){
+    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
+        sh """
+            IMAGE_NAME='percona-server-mongodb-operator'
+            docker run -v \$(pwd):/tmp/pgo --rm quay.io/sysdig/secure-inline-scan:2 perconalab/\$IMAGE_NAME:${IMAGE_SUFFIX} --sysdig-token '${SYSDIG_API_KEY}' --sysdig-url https://us2.app.sysdig.com -r /tmp/pgo
+        """
+    }
+}
 void build(String IMAGE_SUFFIX){
     sh """
         cd ./source/
@@ -65,7 +73,7 @@ pipeline {
             name: 'GIT_PD_REPO')
     }
     agent {
-         label 'docker' 
+         label 'docker'
     }
     environment {
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
@@ -192,11 +200,23 @@ pipeline {
                 '''
             }
         }
+        stage('Check PSMDB Docker images for CVE') {
+            steps {
+                checkImageForCVE('main')
+                checkImageForCVE('main-mongod4.0')
+                checkImageForCVE('main-mongod4.0-debug')
+                checkImageForCVE('main-mongod4.2')
+                checkImageForCVE('main-mongod4.2-debug')
+                checkImageForCVE('main-mongod4.4')
+                checkImageForCVE('main-mongod4.4-debug')
+            }
+        }
     }
 
     post {
         always {
             archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: '*.pdf', allowEmptyArchive: true
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./source/build
