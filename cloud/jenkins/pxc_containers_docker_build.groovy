@@ -30,8 +30,8 @@ void checkImageForDocker(String IMAGE_PREFIX){
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH --quiet perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
-                /usr/local/bin/trivy -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL --quiet perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
             "
 
             if [ ! -s \$TrityHightLog ]; then

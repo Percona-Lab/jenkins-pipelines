@@ -17,10 +17,10 @@ void checkImageForDocker(String IMAGE_POSTFIX){
                 for PG_VER in 14 13 12; do
                     TrityHightLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-ppg\${PG_VER}-${IMAGE_POSTFIX}.log"
                     TrityCriticaltLog="$WORKSPACE/trivy-critical-\$IMAGE_NAME-ppg\${PG_VER}-${IMAGE_POSTFIX}.log"
-                    /usr/local/bin/trivy -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH --quiet \
+                    /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH \
                         perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
 
-                    /usr/local/bin/trivy -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL --quiet \
+                    /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL \
                         perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
 
                     if [ ! -s \$TrityHightLog ]; then

@@ -14,10 +14,10 @@ void checkImageForDocker(String IMAGE_POSTFIX){
 
                 TrityHightLog="$WORKSPACE/trivy-hight-percona-server-mysql-operator-${IMAGE_POSTFIX}.log"
                 TrityCriticaltLog="$WORKSPACE/trivy-critical-percona-server-mysql-operator-${IMAGE_POSTFIX}.log"
-                /usr/local/bin/trivy -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH --quiet \
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH \
                     perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}
 
-                /usr/local/bin/trivy -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL --quiet \
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL \
                     perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}
 
                 if [ ! -s \$TrityHightLog ]; then
