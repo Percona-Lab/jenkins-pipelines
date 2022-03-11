@@ -230,7 +230,7 @@ pipeline {
                         waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                         waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
                         sh """
-                            docker exec pmm-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password ${env.ADMIN_PASSWORD}
+                            docker exec pmm-server change-admin-password \${ADMIN_PASSWORD}
                             bash -x testdata/db_setup.sh
                         """
                         script {
@@ -255,7 +255,7 @@ pipeline {
         }
         stage('Setup Client for PMM-Server') {
             steps {
-                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', ENABLE_PULL_MODE, 'no', 'yes', 'compose_setup', env.ADMIN_PASSWORD)
+                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', ENABLE_PULL_MODE, 'no', 'yes', 'compose_setup', ADMIN_PASSWORD)
                 sh """
                     set -o errexit
                     set -o xtrace
