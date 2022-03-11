@@ -131,6 +131,10 @@ pipeline {
             description: 'Value for Server Public IP, to use this instance just as client',
             name: 'SERVER_IP')
         string(
+            defaultValue: 'admin-password',
+            description: 'pmm-server admin user default password',
+            name: 'ADMIN_PASSWORD')  
+        string(
             defaultValue: 'percona:5.7',
             description: 'Percona Server Docker Container Image',
             name: 'MYSQL_IMAGE')
@@ -226,11 +230,11 @@ pipeline {
                         waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                         waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
                         sh """
+                            docker exec pmm-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password ${env.ADMIN_PASSWORD}
                             bash -x testdata/db_setup.sh
                         """
                         script {
                             env.SERVER_IP = "127.0.0.1"
-                            env.ADMIN_PASSWORD = "admin"
                             env.PMM_UI_URL = "http://${env.SERVER_IP}/"
                             env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
                         }
@@ -242,7 +246,7 @@ pipeline {
                     }
                     steps {
                         script {
-                            env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+                            env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${SERVER_IP}"
                             env.PMM_UI_URL = "http://${SERVER_IP}/"
                         }
                     }
