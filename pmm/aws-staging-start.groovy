@@ -289,7 +289,7 @@ pipeline {
                                             ${DOCKER_VERSION}
                                         sleep 10
                                         docker logs \${VM_NAME}-server
-                                        docker exec pmm-server change-admin-password \${ADMIN_PASSWORD}
+                                        docker exec \${VM_NAME}-server change-admin-password \${ADMIN_PASSWORD}
                                     else
                                         docker create \
                                             -v /opt/prometheus/data \
@@ -309,7 +309,7 @@ pipeline {
                                             ${DOCKER_VERSION}
                                         sleep 10
                                         docker logs \${VM_NAME}-server
-                                        docker exec pmm-server change-admin-password \${ADMIN_PASSWORD}
+                                        docker exec \${VM_NAME}-server change-admin-password \${ADMIN_PASSWORD}
                                     fi
                                 """
                             }
