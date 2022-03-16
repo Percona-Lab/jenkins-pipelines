@@ -195,9 +195,9 @@ pipeline {
                 }
             }
         }
-        stage('Change admin password for < 2.26') {
+        stage('Change admin password for <= 2.26') {
             when {
-                expression { getMinorVersion(DOCKER_VERSION) < 26 }
+                expression { getMinorVersion(DOCKER_VERSION) <= 26 }
             }
             steps {
                 sh """
@@ -205,16 +205,6 @@ pipeline {
                 """
                 script {
                     env.ADMIN_PASSWORD = ADMIN_PASSWORD
-                }
-            }
-        }
-        stage('Don\'t set admin password for 2.26') {
-            when {
-                expression { getMinorVersion(DOCKER_VERSION) == 26 }
-            }
-            steps {
-                script {
-                    env.ADMIN_PASSWORD = "admin"
                 }
             }
         }
