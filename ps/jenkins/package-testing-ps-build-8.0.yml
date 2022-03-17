@@ -55,4 +55,5 @@
                 - "install"
                 - "upgrade"
                 - "maj-upgrade-to"
+                - "kmip"
             description: "Action to test on the product"

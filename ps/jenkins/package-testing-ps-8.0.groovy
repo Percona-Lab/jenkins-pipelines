@@ -27,7 +27,7 @@ if (params.node_to_test == "all") {
 
 void runNodeBuild(String node_to_test) {
     build(
-        job: 'package-testing-ps80-build',
+        job: 'package-testing-ps80-build-kmip',
         parameters: [
             string(name: "product_to_test", value: product_to_test),
             string(name: "install_repo", value: params.install_repo),
@@ -63,7 +63,7 @@ pipeline {
 
         choice(
             name: "action_to_test",
-            choices: ["all", "install", "upgrade", "maj-upgrade-to"],
+            choices: ["all", "install", "upgrade", "maj-upgrade-to", "kmip"],
             description: "Action to test on the product"
         )
     }

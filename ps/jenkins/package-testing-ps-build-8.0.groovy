@@ -69,6 +69,7 @@ List all_actions = [
     "install",
     "upgrade",
     "maj-upgrade-to",
+    "kmip",
 ]
 
 product_action_playbooks = [
@@ -76,6 +77,7 @@ product_action_playbooks = [
         install: "ps_80.yml",
         upgrade: "ps_80_upgrade.yml",
         "maj-upgrade-to": "ps_80_major_upgrade_to.yml",
+        kmip: "ps_80_kmip.yml",
     ],
     client_test: [
         install: "client_test.yml",
@@ -217,6 +219,26 @@ pipeline {
 
                     steps {
                         runPlaybook("maj-upgrade-to")
+                    }
+                }
+
+                stage("Kmip") {
+                    agent {
+                        label params.node_to_test
+                    }
+
+                    when {
+                        beforeAgent true
+                        expression {
+                            product_actions[params.product_to_test].contains("kmip")
+                        }
+                        expression {
+                            actions_to_test.contains("kmip")
+                        }
+                    }
+
+                    steps {
+                        runPlaybook("kmip")
                     }
                 }
             }
