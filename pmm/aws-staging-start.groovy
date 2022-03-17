@@ -328,7 +328,7 @@ pipeline {
                                             ${DOCKER_VERSION}
                                         sleep 10
                                         docker logs \${VM_NAME}-server
-                                        docker exec \${VM_NAME}-server change-admin-password \${ADMIN_PASSWORD}
+                                        docker exec \${VM_NAME}-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
                                     fi
                                 """
                             }
