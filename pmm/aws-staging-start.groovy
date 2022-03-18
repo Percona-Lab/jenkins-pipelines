@@ -8,18 +8,18 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-def defineImageVersion(dockerImage) {
+def changeUserPasswordUtility(dockerImage) {
     tag = dockerImage.split(":")[1]
 
     if (tag.startsWith("PR") || tag.startsWith("dev")) 
-        return "new"
+        return "yes"
     
     minorVersion = tag.split("\\.")[1].toInteger()
     
     if (minorVersion < 27)
-        return "old"
+        return "no"
     else 
-        return "new"
+        return "yes"
 }
 
 pipeline {
@@ -257,7 +257,7 @@ pipeline {
             }
             steps {
                 script {
-                    env.DOCKER_IMAGE_VERSION = defineImageVersion(DOCKER_VERSION)
+                    env.CHANGE_USER_PASSWORD_UTILITY = changeUserPasswordUtility(DOCKER_VERSION)
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                         sh """
                         export IP=\$(cat IP)
@@ -304,7 +304,7 @@ pipeline {
                                             ${DOCKER_VERSION}
                                         sleep 10
                                         docker logs \${VM_NAME}-server
-                                        if [ \$DOCKER_IMAGE_VERSION == new ]; then
+                                        if [ \$CHANGE_USER_PASSWORD_UTILITY == yes ]; then
                                             docker exec \${VM_NAME}-server change-admin-password \${ADMIN_PASSWORD}
                                         else
                                             docker exec \${VM_NAME}-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
