@@ -27,7 +27,7 @@ if (params.node_to_test == "all") {
 
 void runNodeBuild(String node_to_test) {
     build(
-        job: 'package-testing-ps80-build-kmip',
+        job: 'package-testing-ps80-build',
         parameters: [
             string(name: "product_to_test", value: product_to_test),
             string(name: "install_repo", value: params.install_repo),
