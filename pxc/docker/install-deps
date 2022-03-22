@@ -212,6 +212,7 @@ if [ -f /usr/bin/apt-get ]; then
         stunnel \
         libkrb5-dev libsasl2-dev libsasl2-modules-gssapi-mit \
         libudev-dev \
+        libprocps-dev \
     "
 
     if [[ ${DIST} != 'bullseye' ]]; then
