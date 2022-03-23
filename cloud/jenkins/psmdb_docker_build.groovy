@@ -1,9 +1,14 @@
 void checkImageForCVE(String IMAGE_SUFFIX){
-    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
-        sh """
-            IMAGE_NAME='percona-server-mongodb-operator'
-            docker run -v \$(pwd):/tmp/pgo --rm quay.io/sysdig/secure-inline-scan:2 perconalab/\$IMAGE_NAME:${IMAGE_SUFFIX} --sysdig-token '${SYSDIG_API_KEY}' --sysdig-url https://us2.app.sysdig.com -r /tmp/pgo
-        """
+    try {
+        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
+            sh """
+                IMAGE_NAME='percona-server-mongodb-operator'
+                docker run -v \$(pwd):/tmp/pgo --rm quay.io/sysdig/secure-inline-scan:2 perconalab/\$IMAGE_NAME:${IMAGE_SUFFIX} --sysdig-token '${SYSDIG_API_KEY}' --sysdig-url https://us2.app.sysdig.com -r /tmp/pgo
+            """
+        }
+    } catch (error) {
+        echo "${IMAGE_SUFFIX} has some CVE error(s) please check the reports."
+        currentBuild.result = 'FAILURE'
     }
 }
 void build(String IMAGE_SUFFIX){
