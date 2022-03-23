@@ -44,6 +44,19 @@ void checkImageForDocker(String IMAGE_PREFIX){
         """
     }
 }
+void checkImageForCVE(String IMAGE_SUFFIX){
+    try {
+        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
+            sh """
+                IMAGE_NAME='percona-xtradb-cluster-operator'
+                docker run -v \$(pwd):/tmp/pgo --rm quay.io/sysdig/secure-inline-scan:2 perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX} --sysdig-token '${SYSDIG_API_KEY}' --sysdig-url https://us2.app.sysdig.com -r /tmp/pgo
+            """
+        }
+    } catch (error) {
+        echo "${IMAGE_SUFFIX} has some CVE error(s) please check the reports."
+        currentBuild.result = 'FAILURE'
+    }
+}
 void pushImageToDocker(String IMAGE_PREFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
         sh """
@@ -75,7 +88,7 @@ pipeline {
             name: 'GIT_PD_REPO')
     }
     agent {
-         label 'docker' 
+         label 'docker'
     }
     environment {
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
@@ -112,7 +125,7 @@ pipeline {
                    export GIT_REPO=$GIT_PD_REPO
                    export GIT_BRANCH=$GIT_PD_BRANCH
                    ./cloud/local/checkout
-                """          
+                """
                 retry(3) {
                     build('pxc5.7-backup')
                 }
@@ -166,6 +179,19 @@ pipeline {
                        exit 1
                    fi
                 '''
+            }
+        }
+        stage('Check Docker images') {
+            steps {
+                checkImageForCVE('pxc5.7')
+                checkImageForCVE('pxc8.0')
+                checkImageForCVE('pxc5.7-debug')
+                checkImageForCVE('pxc8.0-debug')
+                checkImageForCVE('proxysql')
+                checkImageForCVE('pxc5.7-backup')
+                checkImageForCVE('pxc8.0-backup')
+                checkImageForCVE('haproxy')
+                checkImageForCVE('logcollector')
             }
         }
     }
