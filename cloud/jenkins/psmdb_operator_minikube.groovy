@@ -112,8 +112,6 @@ gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cl
 EOF
         sudo mv /tmp/kubernetes.repo /etc/yum.repos.d/
 
-        #sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        #sudo percona-release enable-only tools
         sudo yum clean all || true
         sudo rm -rf /var/cache/yum
         sudo yum install -y jq kubectl socat

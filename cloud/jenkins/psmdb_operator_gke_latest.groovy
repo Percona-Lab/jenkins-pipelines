@@ -136,8 +136,6 @@ void conditionalRunTest(String TEST_NAME, String CLUSTER_SUFFIX) {
 
 void installRpms() {
     sh '''
-        #sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        #sudo percona-release enable-only tools
         sudo yum install -y jq | true
     '''
 }
