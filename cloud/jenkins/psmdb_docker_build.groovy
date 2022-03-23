@@ -7,7 +7,7 @@ void checkImageForCVE(String IMAGE_SUFFIX){
             """
         }
     } catch (error) {
-        echo "${IMAGE_SUFFIX} has some CVE error(s)."
+        echo "${IMAGE_SUFFIX} has some CVE error(s) please check the reports."
         currentBuild.result = 'FAILURE'
     }
 }

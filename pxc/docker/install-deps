@@ -19,8 +19,18 @@ if [ -f /usr/bin/yum ]; then
   RHVER="$(rpm --eval %rhel)"
   rpm --eval %_arch > /etc/yum/vars/basearch
 
+  if [[ ${RHVER} -eq 8 ]]; then
+      sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-*
+      sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Linux-*
+
+      # repo for procps-ng-devel
+      yum install -y https://pkgs.dyn.su/el8/base/x86_64/raven-release-1.0-2.el8.noarch.rpm
+      PKGLIST+=" procps-ng-devel"
+  fi
+
   if [[ ${RHVER} -eq 6 ]]; then
     curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
+    PKGLIST+=" procps-devel"
   fi
 
   yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
@@ -55,7 +65,7 @@ if [ -f /usr/bin/yum ]; then
   fi
 
   if [[ ${RHVER} -lt 8 ]]; then
-      PKGLIST+=" python-docutils"
+      PKGLIST+=" python-docutils procps-ng-devel"
       until yum -y install centos-release-scl; do
         echo "waiting"
         sleep 1
@@ -202,6 +212,7 @@ if [ -f /usr/bin/apt-get ]; then
         stunnel \
         libkrb5-dev libsasl2-dev libsasl2-modules-gssapi-mit \
         libudev-dev \
+        libprocps-dev \
     "
 
     if [[ ${DIST} != 'bullseye' ]]; then
