@@ -151,9 +151,7 @@ repo_gpgcheck=0
 gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
         sudo mv /tmp/kubernetes.repo /etc/yum.repos.d
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 jq python3-pip kubectl || true
+        sudo yum install -y jq python3-pip kubectl || true
     '''
 }
 pipeline {
