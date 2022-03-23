@@ -181,7 +181,7 @@ pipeline {
                 '''
             }
         }
-        stage('Check Docker images') {
+        stage('Check Docker images for CVE') {
             steps {
                 checkImageForCVE('pxc5.7')
                 checkImageForCVE('pxc8.0')
