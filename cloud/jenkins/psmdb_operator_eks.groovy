@@ -295,6 +295,7 @@ EOF
                 runTest('upgrade-sharded')
                 runTest('pitr')
                 runTest('pitr-sharded')
+                runTest('demand-backup-eks-credentials')
             }
         }
         stage('Make report') {
