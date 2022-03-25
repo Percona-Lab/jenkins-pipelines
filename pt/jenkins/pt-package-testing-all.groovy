@@ -27,7 +27,9 @@ void runNodeBuild(String node_to_test) {
 }
 
 pipeline {
-    agent none
+    agent {
+        label 'docker'
+    }
 
     parameters {
         choice(
@@ -109,12 +111,6 @@ pipeline {
                 stage('Debian Bullseye') {
                     steps {
                         runNodeBuild('min-bullseye-x64')
-                    }
-                }
-
-                stage('Ubuntu Xenial') {
-                    steps {
-                        runNodeBuild('min-xenial-x64')
                     }
                 }
 

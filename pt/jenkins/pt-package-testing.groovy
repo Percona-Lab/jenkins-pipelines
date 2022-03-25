@@ -21,9 +21,10 @@ setup_centos_package_tests = { ->
 
 setup_centos8_package_tests = { ->
     sh '''
-        sed -i 's/mirror\.centos\.org/vault\.centos\.org/g;s/\#baseurl=/baseurl=/g;s/mirrorlist=/#mirrorlist=/g' /etc/yum.repos.d/CentOS*.repo
+        sudo sed -i "s/mirror\\.centos\\.org/vault\\.centos\\.org/g;s/\\#baseurl=/baseurl=/g;s/mirrorlist=/#mirrorlist=/g" /etc/yum.repos.d/CentOS*.repo
         sudo yum install -y epel-release
         sudo yum -y update
+        sudo sed -i "s/mirror\\.centos\\.org/vault\\.centos\\.org/g;s/\\#baseurl=/baseurl=/g;s/mirrorlist=/#mirrorlist=/g" /etc/yum.repos.d/CentOS*.repo
         sudo yum install -y ansible
     '''
 }
@@ -61,7 +62,6 @@ node_setups = [
     "min-bullseye-x64": setup_buster_bullseye_package_tests,
     "min-centos-7-x64": setup_centos_package_tests,
     "min-centos-8-x64": setup_centos8_package_tests,
-    "min-xenial-x64": setup_ubuntu_package_tests,
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests
 ]
@@ -96,7 +96,9 @@ void runPlaybook(String action_to_test) {
 
 
 pipeline {
-    agent none
+    agent {
+        label 'docker'
+    }
 
     parameters {
         choice(
@@ -108,7 +110,6 @@ pipeline {
             choices: [
                 'min-centos-7-x64',
                 'min-centos-8-x64',
-                'min-xenial-x64',
                 'min-bionic-x64',
                 'min-focal-x64',
                 'min-stretch-x64',
