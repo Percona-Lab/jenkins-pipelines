@@ -86,7 +86,7 @@ parameters {
     stages {
         stage('Create PS source tarball') {
             agent {
-               label 'min-xenial-x64'
+               label 'min-bionic-x64'
             }
             steps {
                 slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH}")
@@ -114,7 +114,7 @@ parameters {
             parallel {
                 stage('Build PS generic source rpm') {
                     agent {
-                        label 'min-centos-6-x64'
+                        label 'min-centos-7-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -128,7 +128,7 @@ parameters {
                 }
                 stage('Build PS generic source deb') {
                     agent {
-                        label 'min-xenial-x64'
+                        label 'min-bionic-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -144,34 +144,6 @@ parameters {
         } // stage
         stage('Build PS RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Centos 6') {
-                    agent {
-                        label 'min-centos-6-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:6", "--build_rpm=1")
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Centos 6_32') {
-                    agent {
-                        label 'min-centos-6-x32'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:6", "--build_rpm=1")
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Centos 7') {
                     agent {
                         label 'min-centos-7-x64'
@@ -198,34 +170,6 @@ parameters {
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Ubuntu Xenial(16.04)') {
-                    agent {
-                        label 'min-xenial-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:xenial", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Ubuntu Xenial(16.04) 32bit') {
-                    agent {
-                        label 'min-xenial-x32'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli32("deb")
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:xenial", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Bionic(18.04)') {
@@ -256,20 +200,6 @@ parameters {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Stretch(9)') {
-                    agent {
-                        label 'min-stretch-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:stretch", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Debian Buster(10)') {
                     agent {
                         label 'min-buster-x64'
@@ -284,29 +214,29 @@ parameters {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('centos 6 binary tarball') {
+                stage('centos 7 binary tarball') {
                     agent {
-                        label 'min-centos-6-x64'
+                        label 'min-centos-7-x64'
                     }
                     steps {
                         cleanupws()
                         installcli("rpm")
                         popartifactfolder("source_tarball/", aws_stash_path)
-                        buildstage("centos:6", "--build_tarball=1")
+                        buildstage("centos:7", "--build_tarball=1")
 
                         pushartifactfolder("tarball/", aws_stash_path)
                         uploadtarballfromaws("tarball/", aws_stash_path, 'binary')
                     }
                 }
-                stage('centos 6 debug tarball') {
+                stage('centos 7 debug tarball') {
                     agent {
-                        label 'min-centos-6-x64'
+                        label 'min-centos-7-x64'
                     }
                     steps {
                         cleanupws()
                         installcli("rpm")
                         popartifactfolder("source_tarball/", aws_stash_path)
-                        buildstage("centos:6", "--debug=1 --build_tarball=1")
+                        buildstage("centos:7", "--debug=1 --build_tarball=1")
 
                         pushartifactfolder("tarball/", aws_stash_path)
                         uploadtarballfromaws("tarball/", aws_stash_path, 'binary')
