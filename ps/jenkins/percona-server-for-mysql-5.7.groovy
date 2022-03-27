@@ -108,6 +108,7 @@ parameters {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
                 stash includes: 'uploadPath', name: 'uploadPath'
+                stash includes: 'test/percona-server-5.7.properties', name: 'properties'
                 pushArtifactFolder("source_tarball/", AWS_STASH_PATH)
                 uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
             }
@@ -121,6 +122,7 @@ parameters {
                     steps {
                         cleanUpWS()
                         installCli("rpm")
+                        unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("centos:7", "--build_src_rpm=1")
 
@@ -135,6 +137,7 @@ parameters {
                     steps {
                         cleanUpWS()
                         installCli("deb")
+                        unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:bionic", "--build_source_deb=1")
 
@@ -153,6 +156,7 @@ parameters {
                     steps {
                         cleanUpWS()
                         installCli("rpm")
+                        unstash 'properties'
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
                         buildStage("centos:7", "--build_rpm=1")
 
@@ -167,6 +171,7 @@ parameters {
                     steps {
                         cleanUpWS()
                         installCli("rpm")
+                        unstash 'properties'
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
                         buildStage("centos:8", "--build_rpm=1")
 
@@ -181,6 +186,7 @@ parameters {
                     steps {
                         cleanUpWS()
                         installCli("deb")
+                        unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:bionic", "--build_deb=1")
 
@@ -195,6 +201,7 @@ parameters {
                     steps {
                         cleanUpWS()
                         installCli("deb")
+                        unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--build_deb=1")
 
@@ -209,6 +216,7 @@ parameters {
                     steps {
                         cleanUpWS()
                         installCli("deb")
+                        unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         buildStage("debian:buster", "--build_deb=1")
 
@@ -216,32 +224,32 @@ parameters {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('centos 7 binary tarball') {
+                stage('Centos 7 binary tarball') {
                     agent {
                         label 'min-centos-7-x64'
                     }
                     steps {
-                        cleanupws()
-                        installcli("rpm")
-                        popartifactfolder("source_tarball/", aws_stash_path)
-                        buildstage("centos:7", "--build_tarball=1")
-
-                        pushartifactfolder("tarball/", aws_stash_path)
-                        uploadtarballfromaws("tarball/", aws_stash_path, 'binary')
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("centos:7", "--build_tarball=1 ")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('centos 7 debug tarball') {
+                stage('Centos 7 debug tarball') {
                     agent {
                         label 'min-centos-7-x64'
                     }
                     steps {
-                        cleanupws()
-                        installcli()
-                        popartifactfolder("source_tarball/", aws_stash_path)
-                        buildstage("centos:7", "--debug=1 --build_tarball=1")
-
-                        pushartifactfolder("tarball/", aws_stash_path)
-                        uploadtarballfromaws("tarball/", aws_stash_path, 'binary')
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("centos:7", "--debug=1 --build_tarball=1 ")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
             }
