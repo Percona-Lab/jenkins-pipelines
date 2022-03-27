@@ -218,7 +218,8 @@ parameters {
                 }
                 stage('centos 7 binary tarball') {
                     agent {
-                        label 'min-centos-7-x64                    }
+                        label 'min-centos-7-x64'
+                    }
                     steps {
                         cleanupws()
                         installcli("rpm")
@@ -235,7 +236,7 @@ parameters {
                     }
                     steps {
                         cleanupws()
-                        installcli("
+                        installcli()
                         popartifactfolder("source_tarball/", aws_stash_path)
                         buildstage("centos:7", "--debug=1 --build_tarball=1")
 
