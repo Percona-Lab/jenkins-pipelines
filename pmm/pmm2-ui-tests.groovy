@@ -88,6 +88,14 @@ pipeline {
         MAILOSAUR_SMTP_PASSWORD=credentials('MAILOSAUR_SMTP_PASSWORD')
         PORTAL_USER_EMAIL=credentials('PORTAL_USER_EMAIL')
         PORTAL_USER_PASSWORD=credentials('PORTAL_USER_PASSWORD')
+        OKTA_URL_DEV="id-dev.percona.com";
+        OKTA_TOKEN=credentials('OKTA_TOKEN');
+        OAUTH_DEV_HOST=credentials('OKTA_URL_DEV');
+        SERVICENOW_LOGIN=credentials('SERVICENOW_LOGIN');
+        SERVICENOW_PASSWORD=credentials('SERVICENOW_PASSWORD');
+        SERVICENOW_DEV_URL=credentials('SERVICENOW_DEV_URL');
+        OAUTH_DEV_CLIENT_ID=credentials('OAUTH_DEV_CLIENT_ID');
+        PORTAL_BASE_URL=credentials('PORTAL_BASE_URL');
     }
     parameters {
         string(
