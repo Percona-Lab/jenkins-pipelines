@@ -97,29 +97,25 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        sg docker -c "
-                            set -o errexit
+                        set -o errexit
 
-                            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                        export PATH=$PATH:$(pwd -P)/build/bin
 
-                            export PATH=$PATH:$(pwd -P)/build/bin
+                        # 1st-party
+                        build-server-rpm percona-dashboards grafana-dashboards
+                        build-server-rpm pmm-managed
+                        build-server-rpm percona-qan-api2 qan-api2
+                        build-server-rpm pmm-server
+                        build-server-rpm pmm-update
+                        build-server-rpm dbaas-controller
+                        build-server-rpm dbaas-tools
+                        build-server-rpm pmm-dump
 
-                            # 1st-party
-                            build-server-rpm percona-dashboards grafana-dashboards
-                            build-server-rpm pmm-managed
-                            build-server-rpm percona-qan-api2 qan-api2
-                            build-server-rpm pmm-server
-                            build-server-rpm pmm-update
-                            build-server-rpm dbaas-controller
-                            build-server-rpm dbaas-tools
-                            build-server-rpm pmm-dump
-
-                            # 3rd-party
-                            build-server-rpm victoriametrics
-                            build-server-rpm alertmanager
-                            build-server-rpm grafana
-                            build-server-rpm grafana-db-migrator
-                        "
+                        # 3rd-party
+                        build-server-rpm victoriametrics
+                        build-server-rpm alertmanager
+                        build-server-rpm grafana
+                        build-server-rpm grafana-db-migrator
                     '''
                 }
                 stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'
