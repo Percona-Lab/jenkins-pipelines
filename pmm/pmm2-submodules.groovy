@@ -243,6 +243,7 @@ pipeline {
                             build-server-rpm pmm-update
                             build-server-rpm dbaas-controller
                             build-server-rpm dbaas-tools
+                            build-server-rpm pmm-dump
 
                             # 3rd-party
                             build-server-rpm victoriametrics
