@@ -125,7 +125,7 @@ pipeline {
             description: 'Perform Docker-way Upgrade?',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
         text(
-            defaultValue: '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-settings --setup-alertmanager --setup-external-service',
+            defaultValue: '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-settings --setup-alertmanager --setup-external-service --setup-ssl-services',
             description: '''
             Configure PMM Clients
             ms - MySQL (ex. --addclient=ms,1),
