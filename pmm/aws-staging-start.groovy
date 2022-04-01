@@ -304,10 +304,12 @@ pipeline {
                                             ${DOCKER_VERSION}
                                         sleep 10
                                         docker logs \${VM_NAME}-server
-                                        if [ \$CHANGE_USER_PASSWORD_UTILITY == yes ]; then
-                                            docker exec \${VM_NAME}-server change-admin-password \${ADMIN_PASSWORD}
-                                        else
-                                            docker exec \${VM_NAME}-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
+                                        if [ \${ADMIN_PASSWORD} != admin ]; then
+                                            if [ \$CHANGE_USER_PASSWORD_UTILITY == yes ]; then
+                                                docker exec \${VM_NAME}-server change-admin-password \${ADMIN_PASSWORD}
+                                            else
+                                                docker exec \${VM_NAME}-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
+                                            fi
                                         fi
                                     else
                                         docker create \
@@ -328,7 +330,9 @@ pipeline {
                                             ${DOCKER_VERSION}
                                         sleep 10
                                         docker logs \${VM_NAME}-server
-                                        docker exec \${VM_NAME}-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
+                                        if [ \${ADMIN_PASSWORD} != admin ]; then
+                                            docker exec \${VM_NAME}-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
+                                        fi
                                     fi
                                 """
                             }
