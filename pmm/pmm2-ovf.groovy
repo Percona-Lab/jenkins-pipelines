@@ -1,4 +1,4 @@
-def pmmVersion = PMM_SERVER_BRANCH.split('-')]1] //release branch should be in format: pmm-2.25.0
+def pmmVersion = PMM_SERVER_BRANCH.split('-')[1] //release branch should be in format: pmm-2.25.0
 
 pipeline {
     environment {
