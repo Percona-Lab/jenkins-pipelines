@@ -45,7 +45,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                     echo SET PRICE: \$SPOT_PRICE
                     echo \$SPOT_PRICE > SPOT_PRICE
                 else
-                    export SPOT_PRICE="${SPOT_PRICE}"
+                    export SPOT_PRICE="\${SPOT_PRICE}"
                 fi
 
                 echo '{
