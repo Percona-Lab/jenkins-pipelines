@@ -35,7 +35,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
 
             while true
             do
-                if [ "${SPOT_PRICE}" = "FAIR" ]; then
+                if [ "FAIR" = "FAIR" ]; then
                     export SPOT_PRICE=\$(
                         aws ec2 describe-spot-price-history \
                             --instance-types \$INSTANCE_TYPE \
@@ -45,7 +45,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                     echo SET PRICE: \$SPOT_PRICE
                     echo \$SPOT_PRICE > SPOT_PRICE
                 else
-                    export SPOT_PRICE="${SPOT_PRICE}"
+                    export SPOT_PRICE="\${SPOT_PRICE}"
                 fi
 
                 echo '{
