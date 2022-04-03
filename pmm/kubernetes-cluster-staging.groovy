@@ -10,7 +10,7 @@ library changelog: false, identifier: 'lib@PMM-9438-fix-fair-price-for-aws', ret
 
 pipeline {
     agent {
-        label 'cli'
+        label 'awscli'
     }
     parameters {
         string(
