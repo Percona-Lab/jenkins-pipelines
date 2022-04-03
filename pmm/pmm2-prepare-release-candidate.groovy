@@ -59,7 +59,8 @@ def pmm_submodules() {
         "proxysql_exporter",
         "rds_exporter",
         "azure_metrics_exporter",
-        "percona-toolkit"
+        "percona-toolkit",
+        "pmm-dump"
     ]
 }
 
@@ -166,7 +167,7 @@ String DEFAULT_BRANCH = 'PMM-2.0'
 
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'docker-farm'
     }
     parameters {
         string(
