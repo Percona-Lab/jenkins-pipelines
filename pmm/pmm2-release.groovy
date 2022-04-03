@@ -42,10 +42,6 @@ pipeline {
             name: 'VERSION')
         string(
             defaultValue: '',
-            description: 'OVA image filename',
-            name: 'OVF_IMAGE')
-        string(
-            defaultValue: '',
             description: 'Amazon Machine Image (AMI) ID',
             name: 'AMI_ID')
         string(
@@ -434,7 +430,7 @@ ENDSSH
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        aws s3 cp --only-show-errors s3://percona-vm/\${OVF_IMAGE} pmm-server-\${VERSION}.ova
+                        aws s3 cp --only-show-errors s3://percona-vm/PMM2-Server-\${VERSION}.ova pmm-server-\${VERSION}.ova
                     """
                 }
                 sh """
