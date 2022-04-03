@@ -127,7 +127,7 @@ pipeline {
             slackSend botUser: true,
                       channel: '#pmm-ci',
                       color: '#FF0000',
-                      message: "AMI release was failed"
+                      message: "PMM AMI release has failed"
         }
     }
 }
