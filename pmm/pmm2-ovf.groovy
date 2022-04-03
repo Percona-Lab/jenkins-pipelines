@@ -93,11 +93,10 @@ pipeline {
                             \${FILE} \
                             s3://percona-vm/\${NAME}
 
-                        echo /\${NAME} > PMM2-Server-${pmmVersion}.ova
                         aws s3 cp \
                             --only-show-errors \
-                            --website-redirect /\${NAME} \
-                            PMM2-Server-${pmmVersion}.ova \
+                            --acl public-read \
+                            s3://percona-vm/\${NAME} \
                             s3://percona-vm/PMM2-Server-${pmmVersion}.ova
                     """
                 }
