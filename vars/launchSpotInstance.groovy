@@ -110,7 +110,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                         --region us-east-2 \
                         | tee IP
                     ATTEMPS=$((ATTEMPS-1))
-                    if [ $ATTEMPS -eq 0 ]; then
+                    if [ \$ATTEMPS -eq 0 ]; then
                         break
                     fi
                 done
