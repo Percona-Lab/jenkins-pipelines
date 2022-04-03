@@ -40,7 +40,7 @@ pipeline {
                             || :
                         )
                         if [ -z "\$IMAGE_NAME" ]; then
-                            echo Cannot find ${AMI_ID} AMI | tee ami.list
+                            echo Cannot find AMI ID ${AMI_ID} | tee ami.list
                             exit 0
                         fi
                         IMAGE_NAME_REGEX=\$(echo \$IMAGE_NAME | sed -e 's/]\$/*/')
@@ -121,13 +121,13 @@ pipeline {
             slackSend botUser: true,
                         channel: '#pmm-ci',
                         color: '#00FF00',
-                        message: "PMM AMI release was finished"
+                        message: "PMM AMI release has finished"
         }
         failure {
             slackSend botUser: true,
                       channel: '#pmm-ci',
                       color: '#FF0000',
-                      message: "AMI release was failed"
+                      message: "PMM AMI release has failed"
         }
     }
 }
