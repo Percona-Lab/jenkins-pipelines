@@ -105,9 +105,7 @@ void conditionalRunTest(String TEST_NAME) {
 
 void installRpms() {
     sh """
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 jq | true
+        sudo yum install -y jq | true
     """
 }
 pipeline {
@@ -225,6 +223,13 @@ nodeGroups:
     - name: ng-1
       minSize: 3
       maxSize: 5
+      iam:
+        attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
       instancesDistribution:
         maxPrice: 0.15
         instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
@@ -290,6 +295,7 @@ EOF
                 runTest('upgrade-sharded')
                 runTest('pitr')
                 runTest('pitr-sharded')
+                runTest('demand-backup-eks-credentials')
             }
         }
         stage('Make report') {

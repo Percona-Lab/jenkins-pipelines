@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP) {
+void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -12,11 +12,11 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s'),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1')
+        string(name: 'DAYS', value: '1'),
+        string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    env.ADMIN_PASSWORD = "admin"
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
         env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
@@ -29,7 +29,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
-void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE) {
+void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -48,7 +48,8 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'MD_VERSION', value: MD_VERSION),
         string(name: 'MO_VERSION', value: MO_VERSION),
         string(name: 'MODB_VERSION', value: MODB_VERSION),
-        string(name: 'QUERY_SOURCE', value: QUERY_SOURCE)
+        string(name: 'QUERY_SOURCE', value: QUERY_SOURCE),
+        string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
     ]
     if ( NODE_TYPE == 'mysql-node' ) {
         env.VM_CLIENT_IP_MYSQL = stagingJob.buildVariables.IP
@@ -64,7 +65,6 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         env.VM_CLIENT_NAME_MONGO = stagingJob.buildVariables.VM_NAME
     }
     def clientInstance = "yes";
-    env.ADMIN_PASSWORD = "admin"
     if ( CLIENT_INSTANCE == clientInstance ) {
         env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
@@ -106,7 +106,7 @@ void uploadAllureArtifacts() {
 }
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'min-focal-x64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -184,6 +184,10 @@ pipeline {
             choices: ['no', 'yes'],
             description: 'Enable Pull Mode, if you are using this instance as Client Node',
             name: 'ENABLE_PULL_MODE')
+        string(
+            defaultValue: 'admin-password',
+            description: 'pmm-server admin user default password',
+            name: 'ADMIN_PASSWORD')  
         string (
             defaultValue: '',
             description: 'Value for Server Public IP, to use this instance just as client',
@@ -241,26 +245,10 @@ pipeline {
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                installDocker()
                 sh '''
-                    sudo yum -y update --security
-                    sudo yum -y install jq svn
-                    sudo usermod -aG docker ec2-user
-                    sudo service docker start
-                    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-                    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-                    sudo curl -L https://github.com/docker/compose/releases/download/1.21.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/local/bin/docker-compose > /dev/null
-                    sudo chmod +x /usr/local/bin/docker-compose
-                    sudo ln -sfn /usr/local/bin/docker-compose /usr/bin/docker-compose
-                    sudo docker-compose --version
                     sudo mkdir -p /srv/pmm-qa || :
-                    pushd /srv/pmm-qa
-                        sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                        sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
-                        sudo chmod 755 pmm-tests/install-google-chrome.sh
-                        bash ./pmm-tests/install-google-chrome.sh
-                    popd
-                    sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
+                    sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git /srv/pmm-qa
+                    sudo chmod -R 755 /srv/pmm-qa
                 '''
             }
         }
@@ -274,24 +262,24 @@ pipeline {
         }
         stage('Start Server') {
             steps {
-                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service', CLIENT_INSTANCE, '127.0.0.1')
+                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service', CLIENT_INSTANCE, '127.0.0.1', ADMIN_PASSWORD)
             }
         }
         stage('Setup PMM Client and Kubernetes Cluster') {
             parallel {
                 stage('Start Client Instance - ps-replication') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2 --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2 --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
                     }
                 }
                 stage('Start Client Instance - ms/md/pxc') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=md,1 --addclient=pxc,3 --with-proxysql --pmm2', 'yes', env.VM_IP, 'pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=md,1 --addclient=pxc,3 --with-proxysql --pmm2', 'yes', env.VM_IP, 'pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
                     }
                 }
                 stage('Start Client Instance - mongo/postgresql') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pdpgsql,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --pmm2', 'yes', env.VM_IP, 'mongo-postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pdpgsql,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --pmm2', 'yes', env.VM_IP, 'mongo-postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
                     }
                 }
             }
@@ -303,9 +291,14 @@ pipeline {
         }
         stage('Setup Node') {
             steps {
-                setupNodejs()
                 sh """
-                    sudo yum install -y gettext
+                    curl -sL https://deb.nodesource.com/setup_14.x -o nodesource_setup.sh
+                    sudo bash nodesource_setup.sh
+                    sudo apt install nodejs
+                    sudo apt-get install -y gettext
+                    npm install
+                    npx playwright install
+                    sudo npx playwright install-deps
                     envsubst < env.list > env.generated.list
                 """
             }
@@ -319,7 +312,7 @@ pipeline {
             parallel {
                 stage('Run UI - Tests') {
                     options {
-                        timeout(time: 60, unit: "MINUTES")
+                        timeout(time: 150, unit: "MINUTES")
                     }
                     when {
                         expression { env.AMI_TEST == "no" }
@@ -329,8 +322,7 @@ pipeline {
                             sh """
                                 sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                                 export PWD=\$(pwd);
-                                export CHROMIUM_PATH=/usr/bin/chromium
-                                ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@settings'
+                                npx codeceptjs run --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
                             """
                         }
                     }
@@ -359,8 +351,6 @@ pipeline {
             // stop staging
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-                ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
-                ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
             '''
             script {
                 if(env.VM_NAME)
@@ -382,18 +372,18 @@ pipeline {
             }
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/parallel_chunk*/*.xml'
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
+                    junit 'tests/output/*.xml'
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'result.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
+                    archiveArtifacts artifacts: 'tests/output/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
-                    junit 'tests/output/parallel_chunk*/*.xml'
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
+                    junit 'tests/output/*.xml'
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'result.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
+                    archiveArtifacts artifacts: 'tests/output/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
+                    archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
             allure([

@@ -89,9 +89,7 @@ void runTest(String TEST_NAME) {
 }
 void installRpms() {
     sh """
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 jq | true
+        sudo yum install -y jq | true
     """
 }
 pipeline {

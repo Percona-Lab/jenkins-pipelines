@@ -47,6 +47,9 @@ void fetchAgentLog(String CLIENT_VERSION) {
 
 def latestVersion = pmmVersion()
 def versionsList = pmmVersion('list_with_old')
+def getMinorVersion(VERSION) {
+    return VERSION.split("\\.")[1].toInteger()
+}
 
 pipeline {
     agent {
@@ -102,6 +105,10 @@ pipeline {
             description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
             name: 'PMM_SERVER_TAG')
         string(
+            defaultValue: 'admin-password',
+            description: 'pmm-server admin user default password',
+            name: 'ADMIN_PASSWORD')  
+        string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
@@ -118,7 +125,7 @@ pipeline {
             description: 'Perform Docker-way Upgrade?',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
         text(
-            defaultValue: '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-settings --setup-alertmanager --setup-external-service',
+            defaultValue: '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-settings --setup-alertmanager --setup-external-service --setup-ssl-services',
             description: '''
             Configure PMM Clients
             ms - MySQL (ex. --addclient=ms,1),
@@ -170,9 +177,34 @@ pipeline {
                 """
                 script {
                     env.SERVER_IP = "127.0.0.1"
-                    env.ADMIN_PASSWORD = "admin"
                     env.PMM_UI_URL = "http://${env.SERVER_IP}/"
                     env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                }
+            }
+        }
+        stage('Change admin password for >= 2.27') {
+            when {
+                expression { getMinorVersion(DOCKER_VERSION) >= 27 }
+            }
+            steps {
+                sh """
+                    docker exec pmm-server change-admin-password \${ADMIN_PASSWORD}
+                """
+                script {
+                    env.ADMIN_PASSWORD = ADMIN_PASSWORD
+                }
+            }
+        }
+        stage('Change admin password for <= 2.26') {
+            when {
+                expression { getMinorVersion(DOCKER_VERSION) <= 26 }
+            }
+            steps {
+                sh """
+                    docker exec pmm-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
+                """
+                script {
+                    env.ADMIN_PASSWORD = ADMIN_PASSWORD
                 }
             }
         }
@@ -208,7 +240,7 @@ pipeline {
                         docker exec pmm-server percona-release enable percona experimental
                         docker exec pmm-server yum clean all
                     """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup', env.ADMIN_PASSWORD)
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup', ADMIN_PASSWORD)
                 }
             }
         }
@@ -218,7 +250,7 @@ pipeline {
             }
             steps {
                 script {
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup', env.ADMIN_PASSWORD)
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup', ADMIN_PASSWORD)
                 }
             }
         }

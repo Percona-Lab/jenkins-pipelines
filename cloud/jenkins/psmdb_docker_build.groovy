@@ -1,3 +1,16 @@
+void checkImageForCVE(String IMAGE_SUFFIX){
+    try {
+        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
+            sh """
+                IMAGE_NAME='percona-server-mongodb-operator'
+                docker run -v \$(pwd):/tmp/pgo --rm quay.io/sysdig/secure-inline-scan:2 perconalab/\$IMAGE_NAME:${IMAGE_SUFFIX} --sysdig-token '${SYSDIG_API_KEY}' --sysdig-url https://us2.app.sysdig.com -r /tmp/pgo
+            """
+        }
+    } catch (error) {
+        echo "${IMAGE_SUFFIX} has some CVE error(s) please check the reports."
+        currentBuild.result = 'FAILURE'
+    }
+}
 void build(String IMAGE_SUFFIX){
     sh """
         cd ./source/
@@ -16,8 +29,8 @@ void checkImageForDocker(String IMAGE_SUFFIX){
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity CRITICAL perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --timeout 15m0s --ignore-unfixed --exit-code 0 --severity HIGH perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --timeout 15m0s --ignore-unfixed --exit-code 0 --severity CRITICAL perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
             "
 
             if [ ! -s \$TrityHightLog ]; then
@@ -65,7 +78,7 @@ pipeline {
             name: 'GIT_PD_REPO')
     }
     agent {
-         label 'docker' 
+         label 'docker'
     }
     environment {
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
@@ -154,6 +167,9 @@ pipeline {
                 retry(3) {
                     build('mongod4.4')
                 }
+                retry(3) {
+                    build('mongod5.0')
+                }
             }
         }
 
@@ -165,6 +181,8 @@ pipeline {
                 pushImageToDocker('mongod4.2-debug')
                 pushImageToDocker('mongod4.4')
                 pushImageToDocker('mongod4.4-debug')
+                pushImageToDocker('mongod5.0')
+                pushImageToDocker('mongod5.0-debug')
             }
         }
 
@@ -177,6 +195,8 @@ pipeline {
                 checkImageForDocker('main-mongod4.2-debug')
                 checkImageForDocker('main-mongod4.4')
                 checkImageForDocker('main-mongod4.4-debug')
+                checkImageForDocker('main-mongod5.0')
+                checkImageForDocker('main-mongod5.0-debug')
                 sh '''
                    CRITICAL=$(ls trivy-critical-*) || true
                    if [ -n "$CRITICAL" ]; then
@@ -185,11 +205,23 @@ pipeline {
                 '''
             }
         }
+        stage('Check PSMDB Docker images for CVE') {
+            steps {
+                checkImageForCVE('main')
+                checkImageForCVE('main-mongod4.0')
+                checkImageForCVE('main-mongod4.0-debug')
+                checkImageForCVE('main-mongod4.2')
+                checkImageForCVE('main-mongod4.2-debug')
+                checkImageForCVE('main-mongod4.4')
+                checkImageForCVE('main-mongod4.4-debug')
+            }
+        }
     }
 
     post {
         always {
             archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: '*.pdf', allowEmptyArchive: true
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./source/build

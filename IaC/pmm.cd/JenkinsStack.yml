@@ -212,10 +212,6 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 176.37.55.60/32 # mykola home IP
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
         CidrIp: 188.163.20.103/32
       - IpProtocol: tcp
         FromPort: 22
@@ -228,11 +224,7 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 95.27.48.91/32 # Alex Tymchuk
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
-        CidrIp: 93.81.255.68/32 # Alex Tymchuk
+        CidrIp: 51.158.106.12/32
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
@@ -502,7 +494,7 @@ Resources:
       AvailabilityZone:
         Fn::Select: [ 1, !GetAZs '' ]
       Encrypted: false
-      Size: 100
+      Size: 200
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
@@ -625,7 +617,7 @@ Resources:
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                   amazon-linux-extras install epel -y
                   yum -y update --security
-                  yum -y install java-1.8.0-openjdk jenkins-2.319.1 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install java-1.8.0-openjdk jenkins-2.319.3 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -695,9 +687,6 @@ Resources:
                       | tee -a /etc/sysconfig/jenkins
                   systemctl enable jenkins # it will redirect to chkconfig, so enable --now wont work
                   systemctl start jenkins
-
-                  #echo "/usr/bin/aws s3 sync --sse-kms-key-id alias/jenkins-pmm-backup --sse aws:kms --exclude '*/caches/*' --exclude '*/config-history/nodes/*' --exclude '*/secretFiles/*' --delete /mnt/ s3://backup.cd.percona.com/" > /etc/cron.daily/jenkins-backup
-                  #chmod 755 /etc/cron.daily/jenkins-backup
 
                   printf "* * * * * root bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n* * * * * root sleep 30; bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n" > /etc/cron.d/terminate-check
               }
@@ -832,9 +821,7 @@ Resources:
 
               setup_ssh_keys() {
                 KEYS_LIST="alexander.tymchuk \
-                           mykola.marzhan \
                            evgeniy.patlan \
-                           slava.sarzhan \
                            alex.miroshnychenko \
                            eduardo.casarero \
                            santiago.ruiz \

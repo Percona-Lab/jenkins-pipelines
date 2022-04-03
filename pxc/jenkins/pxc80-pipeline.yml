@@ -26,6 +26,10 @@
         name: USE_PR
         default: false
         description: "Check only if you pass PR number to BRANCH field"
+    - bool:
+        name: PXB80_LATEST
+        default: true
+        description: "If checked, the PXB80_BRANCH will be ignored and latest available version will be used"
     - string:
         name: PXB80_REPO
         default: https://github.com/percona/percona-xtrabackup
@@ -35,9 +39,9 @@
         default: percona-xtrabackup-8.0.12
         description: Tag/Branch for PXB80 repository
     - bool:
-        name: PXB80_LATEST
+        name: PXB24_LATEST
         default: true
-        description: "If checked, the PXB80_BRANCH will be ignored and latest available version will be used"
+        description: "If checked, the PXB24_BRANCH will be ignored and latest available version will be used"
     - string:
         name: PXB24_REPO
         default: https://github.com/percona/percona-xtrabackup

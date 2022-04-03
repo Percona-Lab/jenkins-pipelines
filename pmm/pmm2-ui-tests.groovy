@@ -88,6 +88,12 @@ pipeline {
         MAILOSAUR_SMTP_PASSWORD=credentials('MAILOSAUR_SMTP_PASSWORD')
         PORTAL_USER_EMAIL=credentials('PORTAL_USER_EMAIL')
         PORTAL_USER_PASSWORD=credentials('PORTAL_USER_PASSWORD')
+        OKTA_TOKEN=credentials('OKTA_TOKEN')
+        SERVICENOW_LOGIN=credentials('SERVICENOW_LOGIN')
+        SERVICENOW_PASSWORD=credentials('SERVICENOW_PASSWORD')
+        SERVICENOW_DEV_URL=credentials('SERVICENOW_DEV_URL')
+        OAUTH_DEV_CLIENT_ID=credentials('OAUTH_DEV_CLIENT_ID')
+        PORTAL_BASE_URL=credentials('PORTAL_BASE_URL')
     }
     parameters {
         string(
@@ -122,10 +128,18 @@ pipeline {
             choices: ['no', 'yes'],
             description: "Run Specified Tagged Tests",
             name: 'RUN_TAGGED_TEST')
+        choice(
+            choices: ['no', 'yes'],
+            description: 'Enable Pull Mode, if you are using this instance as Client Node',
+            name: 'ENABLE_PULL_MODE')
         string (
             defaultValue: '',
             description: 'Value for Server Public IP, to use this instance just as client',
             name: 'SERVER_IP')
+        string(
+            defaultValue: 'admin-password',
+            description: 'pmm-server admin user default password',
+            name: 'ADMIN_PASSWORD')  
         string(
             defaultValue: 'percona:5.7',
             description: 'Percona Server Docker Container Image',
@@ -222,11 +236,11 @@ pipeline {
                         waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                         waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
                         sh """
+                            docker exec pmm-server change-admin-password \${ADMIN_PASSWORD}
                             bash -x testdata/db_setup.sh
                         """
                         script {
                             env.SERVER_IP = "127.0.0.1"
-                            env.ADMIN_PASSWORD = "admin"
                             env.PMM_UI_URL = "http://${env.SERVER_IP}/"
                             env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
                         }
@@ -238,7 +252,7 @@ pipeline {
                     }
                     steps {
                         script {
-                            env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+                            env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${SERVER_IP}"
                             env.PMM_UI_URL = "http://${SERVER_IP}/"
                         }
                     }
@@ -247,7 +261,7 @@ pipeline {
         }
         stage('Setup Client for PMM-Server') {
             steps {
-                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'compose_setup', env.ADMIN_PASSWORD)
+                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', ENABLE_PULL_MODE, 'no', 'yes', 'compose_setup', ADMIN_PASSWORD)
                 sh """
                     set -o errexit
                     set -o xtrace
