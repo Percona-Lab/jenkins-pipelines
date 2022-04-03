@@ -40,7 +40,7 @@ pipeline {
                             || :
                         )
                         if [ -z "\$IMAGE_NAME" ]; then
-                            echo Cannot find ${AMI_ID} AMI | tee ami.list
+                            echo Cannot find AMI ID ${AMI_ID} | tee ami.list
                             exit 0
                         fi
                         IMAGE_NAME_REGEX=\$(echo \$IMAGE_NAME | sed -e 's/]\$/*/')
