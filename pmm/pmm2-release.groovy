@@ -42,10 +42,6 @@ pipeline {
             name: 'VERSION')
         string(
             defaultValue: '',
-            description: 'Amazon Machine Image (AMI) ID',
-            name: 'AMI_ID')
-        string(
-            defaultValue: '',
             description: 'Path to client packages in testing repo. Example: 12aec0c9/3052',
             name: 'PATH_TO_CLIENT')
     }
