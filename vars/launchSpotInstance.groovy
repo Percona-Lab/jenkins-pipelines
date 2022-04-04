@@ -1,6 +1,8 @@
 def call(String INSTANCE_TYPE, String SPOT_PRICE, Int VOLUME) {
    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-
+        sh """
+            ${SPOT_PRICE}
+        """
         sh """
             export VM_NAME=\$(cat VM_NAME)
             export OWNER=\$(cat OWNER_FULL)
