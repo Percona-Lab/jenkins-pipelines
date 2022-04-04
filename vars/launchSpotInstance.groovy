@@ -6,19 +6,6 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
             export INSTANCE_TYPE=${INSTANCE_TYPE}
             export VOLUME=${VOLUME}
 
-            if [ "$SPOT_PRICE" = "FAIR" ]; then
-                export SPOT_PRICE=\$(
-                    aws ec2 describe-spot-price-history \
-                        --instance-types \$INSTANCE_TYPE \
-                        --region us-east-2 --output text \
-                        --product-description "Linux/UNIX (Amazon VPC)" | head -n 1 | awk '{ print \$5}'
-                )
-                echo SET PRICE: \$SPOT_PRICE
-                echo \$SPOT_PRICE > SPOT_PRICE
-            else
-                export SPOT_PRICE=${SPOT_PRICE}
-            fi
-
             export SUBNET=\$(
                 aws ec2 describe-subnets \
                     --region us-east-2 \
@@ -45,6 +32,19 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                               "Name=group-name,Values=SSH" \
                     --query 'SecurityGroups[].GroupId'
             )
+
+            if [ "$SPOT_PRICE" = "FAIR" ]; then
+                export SPOT_PRICE=\$(
+                    aws ec2 describe-spot-price-history \
+                        --instance-types \$INSTANCE_TYPE \
+                        --region us-east-2 --output text \
+                        --product-description "Linux/UNIX (Amazon VPC)" | head -n 1 | awk '{ print \$5}'
+                )
+                echo SET PRICE: \$SPOT_PRICE
+                echo \$SPOT_PRICE > SPOT_PRICE
+            else
+                export SPOT_PRICE=${SPOT_PRICE}
+            fi
 
             echo '{
                 "DryRun": false,
