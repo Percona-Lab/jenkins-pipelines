@@ -102,7 +102,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                         --query SpotInstanceRequests[].SpotInstanceRequestId
                 )
                 echo \$REQUEST_ID > REQUEST_ID
-                ATTEMPS=10
+                ATTEMPS=1
                 until [ -s IP ]; do
                     sleep 5
                     aws ec2 describe-instances \
