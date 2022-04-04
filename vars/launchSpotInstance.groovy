@@ -1,11 +1,11 @@
 def call(String INSTANCE_TYPE, String SPOT_PRICE, Int VOLUME) {
-   withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    def SPOT_PRICE = SPOT_PRICE
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             export VM_NAME=\$(cat VM_NAME)
             export OWNER=\$(cat OWNER_FULL)
             export INSTANCE_TYPE=${INSTANCE_TYPE}
             export VOLUME=${VOLUME}
-            export SPOT_PRICE=${SPOT_PRICE}
 
             export SUBNET=\$(
                 aws ec2 describe-subnets \
