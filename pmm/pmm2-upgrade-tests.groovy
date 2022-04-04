@@ -349,12 +349,18 @@ pipeline {
             sh '''
                 ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
+                echo --- pmm-managed logs from pmm-server --- >> pmm-managed-full.log
+                docker exec pmm-server cat /srv/logs/pmm-managed.log > pmm-managed-full.log || true
+                docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
+                echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
                 sudo chown -R ec2-user:ec2-user . || true
             '''
             script {
+                archiveArtifacts artifacts: 'pmm-managed-full.log'
+                archiveArtifacts artifacts: 'pmm-update-perform.log'
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'tests/output/parallel_chunk*/*.xml'
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
