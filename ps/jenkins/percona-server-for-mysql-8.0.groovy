@@ -54,13 +54,17 @@ pipeline {
     }
 parameters {
         string(defaultValue: 'https://github.com/percona/percona-server.git', description: 'github repository for build', name: 'GIT_REPO')
-        string(defaultValue: 'release-8.0.22-13', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
-        string(defaultValue: '0', description: 'PerconaFT repository', name: 'PERCONAFT_REPO')
-        string(defaultValue: 'Percona-Server-8.0.22-13', description: 'Tag/Branch for PerconaFT repository', name: 'PERCONAFT_BRANCH')
-        string(defaultValue: '0', description: 'TokuBackup repository', name: 'TOKUBACKUP_REPO')
-        string(defaultValue: 'Percona-Server-8.0.22-13', description: 'Tag/Branch for TokuBackup repository', name: 'TOKUBACKUP_BRANCH')
+        string(defaultValue: 'release-8.0.28-19', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
+        choice(
+            choices: 'OFF\nON',
+            description: 'The TokuDB storage is no longer supported since 8.0.28',
+            name: 'BUILD_TOKUDB_TOKUBACKUP')
+        string(defaultValue: '0', description: 'PerconaFT repository', name: 'PERCONAFT_REPO')
+        string(defaultValue: 'Percona-Server-8.0.27-18', description: 'Tag/Branch for PerconaFT repository', name: 'PERCONAFT_BRANCH')
+        string(defaultValue: '0', description: 'TokuBackup repository', name: 'TOKUBACKUP_REPO')
+        string(defaultValue: 'Percona-Server-8.0.27-18', description: 'Tag/Branch for TokuBackup repository', name: 'TOKUBACKUP_BRANCH')
         choice(
             choices: 'ON\nOFF',
             description: 'Compile with ZenFS support?, only affects Ubuntu Hirsute',
