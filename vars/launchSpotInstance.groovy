@@ -104,7 +104,6 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                 echo \$REQUEST_ID > REQUEST_ID
                 ATTEMPS=10
                 until [ -s IP ]; do
-                    break
                     sleep 5
                     aws ec2 describe-instances \
                         --filters "Name=spot-instance-request-id,Values=\${REQUEST_ID}" \
