@@ -1,13 +1,11 @@
 def call(String INSTANCE_TYPE, String SPOT_PRICE, Int VOLUME) {
    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            echo ${SPOT_PRICE}
-        """
-        sh """
             export VM_NAME=\$(cat VM_NAME)
             export OWNER=\$(cat OWNER_FULL)
             export INSTANCE_TYPE=${INSTANCE_TYPE}
             export VOLUME=${VOLUME}
+            export SPOT_PRICE=${SPOT_PRICE}
 
             export SUBNET=\$(
                 aws ec2 describe-subnets \
@@ -38,7 +36,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, Int VOLUME) {
 
             while true
             do
-                if [ "${SPOT_PRICE}" = "FAIR" ]; then
+                if [ "\$SPOT_PRICE" = "FAIR" ]; then
                     export SPOT_PRICE=\$(
                         aws ec2 describe-spot-price-history \
                             --instance-types \$INSTANCE_TYPE \
@@ -48,7 +46,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, Int VOLUME) {
                     echo SET PRICE: \$SPOT_PRICE
                     echo \$SPOT_PRICE > SPOT_PRICE
                 else
-                    export SPOT_PRICE="${SPOT_PRICE}"
+                    export SPOT_PRICE=\${SPOT_PRICE}
                 fi
 
                 echo '{
