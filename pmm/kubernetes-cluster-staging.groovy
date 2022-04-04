@@ -68,7 +68,6 @@ pipeline {
 
         stage('Run VM') {
             steps {
-                env.SPOT_PRICE = 'FAIR'
                 launchSpotInstance('c5n.4xlarge', 'FAIR', 70)
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
