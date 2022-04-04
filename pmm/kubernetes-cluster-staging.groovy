@@ -38,7 +38,9 @@ pipeline {
         skipDefaultCheckout()
         timeout(time: 8, unit: 'MINUTES')
     }
-
+    environment {
+        SPOT_PRICE = "FAIR"
+    }
     stages {
         stage('Prepare') {
             steps {
