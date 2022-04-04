@@ -33,79 +33,92 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                     --query 'SecurityGroups[].GroupId'
             )
 
-            if [ "$SPOT_PRICE" = "FAIR" ]; then
-                export SPOT_PRICE=\$(
-                    aws ec2 describe-spot-price-history \
-                        --instance-types \$INSTANCE_TYPE \
-                        --region us-east-2 --output text \
-                        --product-description "Linux/UNIX (Amazon VPC)" | head -n 1 | awk '{ print \$5}'
-                )
-                echo SET PRICE: \$SPOT_PRICE
-                echo \$SPOT_PRICE > SPOT_PRICE
-            else
-                export SPOT_PRICE=${SPOT_PRICE}
-            fi
+            while true
+            do
+                if [ "$SPOT_PRICE" = "FAIR" ]; then
+                    export SPOT_PRICE=\$(
+                        aws ec2 describe-spot-price-history \
+                            --instance-types \$INSTANCE_TYPE \
+                            --region us-east-2 --output text \
+                            --product-description "Linux/UNIX (Amazon VPC)" | head -n 1 | awk '{ print \$5}'
+                    )
+                    echo SET PRICE: \$SPOT_PRICE
+                    echo \$SPOT_PRICE > SPOT_PRICE
+                else
+                    export SPOT_PRICE=${SPOT_PRICE}
+                fi
 
-            echo '{
-                "DryRun": false,
-                "InstanceCount": 1,
-                "InstanceInterruptionBehavior": "terminate",
-                "LaunchSpecification": {
-                    "BlockDeviceMappings": [
-                        {
-                            "DeviceName": "/dev/xvda",
-                            "Ebs": {
-                                "DeleteOnTermination": true,
-                                "VolumeSize": VOLUME,
-                                "VolumeType": "gp2"
+                echo '{
+                    "DryRun": false,
+                    "InstanceCount": 1,
+                    "InstanceInterruptionBehavior": "terminate",
+                    "LaunchSpecification": {
+                        "BlockDeviceMappings": [
+                            {
+                                "DeviceName": "/dev/xvda",
+                                "Ebs": {
+                                    "DeleteOnTermination": true,
+                                    "VolumeSize": VOLUME,
+                                    "VolumeType": "gp2"
+                                }
                             }
-                        }
-                    ],
-                    "EbsOptimized": false,
-                    "ImageId": "ami-00dfe2c7ce89a450b",
-                    "UserData": "c3VkbyB5dW0gaW5zdGFsbCAteSBqYXZhLTEuOC4wLW9wZW5qZGsKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhIC91c3IvbGliL2p2bS9qcmUtMS44LjAtb3Blbmpkay54ODZfNjQvYmluL2phdmEKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhYyAvdXNyL2xpYi9qdm0vanJlLTEuOC4wLW9wZW5qZGsueDg2XzY0L2Jpbi9qYXZhYwoKc3VkbyB5dW0gcmVtb3ZlIGphdmEtMS43Cg==",
-                    "InstanceType": "INSTANCE_TYPE",
-                    "KeyName": "jenkins",
-                    "Monitoring": {
-                        "Enabled": false
+                        ],
+                        "EbsOptimized": false,
+                        "ImageId": "ami-00dfe2c7ce89a450b",
+                        "UserData": "c3VkbyB5dW0gaW5zdGFsbCAteSBqYXZhLTEuOC4wLW9wZW5qZGsKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhIC91c3IvbGliL2p2bS9qcmUtMS44LjAtb3Blbmpkay54ODZfNjQvYmluL2phdmEKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhYyAvdXNyL2xpYi9qdm0vanJlLTEuOC4wLW9wZW5qZGsueDg2XzY0L2Jpbi9qYXZhYwoKc3VkbyB5dW0gcmVtb3ZlIGphdmEtMS43Cg==",
+                        "InstanceType": "INSTANCE_TYPE",
+                        "KeyName": "jenkins",
+                        "Monitoring": {
+                            "Enabled": false
+                        },
+                        "IamInstanceProfile": {
+                            "Name": "pmm-staging-slave"
+                        },
+                        "SecurityGroupIds": [
+                            "security-group-id-1",
+                            "security-group-id-2"
+                        ],
+                        "SubnetId": "subnet-id"
                     },
-                    "IamInstanceProfile": {
-                        "Name": "pmm-staging-slave"
-                    },
-                    "SecurityGroupIds": [
-                        "security-group-id-1",
-                        "security-group-id-2"
-                    ],
-                    "SubnetId": "subnet-id"
-                },
-                "SpotPrice": "SPOT_PRICE",
-                "Type": "persistent"
-            }' \
-                | sed -e "s/subnet-id/\${SUBNET}/" \
-                | sed -e "s/security-group-id-1/\${SG1}/" \
-                | sed -e "s/security-group-id-2/\${SG2}/" \
-                | sed -e "s/SPOT_PRICE/\${SPOT_PRICE}/" \
-                | sed -e "s/INSTANCE_TYPE/\${INSTANCE_TYPE}/" \
-                | sed -e "s/VOLUME/\${VOLUME}/" \
-                > config.json
+                    "SpotPrice": "SPOT_PRICE",
+                    "Type": "persistent"
+                }' \
+                    | sed -e "s/subnet-id/\${SUBNET}/" \
+                    | sed -e "s/security-group-id-1/\${SG1}/" \
+                    | sed -e "s/security-group-id-2/\${SG2}/" \
+                    | sed -e "s/SPOT_PRICE/\${SPOT_PRICE}/" \
+                    | sed -e "s/INSTANCE_TYPE/\${INSTANCE_TYPE}/" \
+                    | sed -e "s/VOLUME/\${VOLUME}/" \
+                    > config.json
 
-            REQUEST_ID=\$(
-                aws ec2 request-spot-instances \
-                    --output text \
-                    --region us-east-2 \
-                    --cli-input-json file://config.json \
-                    --query SpotInstanceRequests[].SpotInstanceRequestId
-            )
-            echo \$REQUEST_ID > REQUEST_ID
-
-            until [ -s IP ]; do
-                sleep 5
-                aws ec2 describe-instances \
-                    --filters "Name=spot-instance-request-id,Values=\${REQUEST_ID}" \
-                    --query 'Reservations[].Instances[].PublicIpAddress' \
-                    --output text \
-                    --region us-east-2 \
-                    | tee IP
+                REQUEST_ID=\$(
+                    aws ec2 request-spot-instances \
+                        --output text \
+                        --region us-east-2 \
+                        --cli-input-json file://config.json \
+                        --query SpotInstanceRequests[].SpotInstanceRequestId
+                )
+                echo \$REQUEST_ID > REQUEST_ID
+                ATTEMPS=10
+                until [ -s IP ]; do
+                    sleep 5
+                    aws ec2 describe-instances \
+                        --filters "Name=spot-instance-request-id,Values=\${REQUEST_ID}" \
+                        --query 'Reservations[].Instances[].PublicIpAddress' \
+                        --output text \
+                        --region us-east-2 \
+                        | tee IP
+                    ATTEMPS=\$((ATTEMPS-1))
+                    if [ \$ATTEMPS -eq 0 ]; then
+                        break
+                    fi
+                done
+                if [ -s IP ]; then
+                    break
+                else
+                    aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids \$REQUEST_ID
+                    continue
+                fi
             done
 
             aws ec2 describe-instances \
