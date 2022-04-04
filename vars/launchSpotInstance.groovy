@@ -120,7 +120,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                     break
                 else
                     aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids \$REQUEST_ID
-                    PRICE_MULTIPLIER=$((PRICE_MULTIPLIER+1))
+                    PRICE_MULTIPLIER=\$((PRICE_MULTIPLIER+1))
                     continue
                 fi
             done
