@@ -33,6 +33,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                     --query 'SecurityGroups[].GroupId'
             )
 
+            PRICE_MULTIPLIER=0
             while true
             do
                 if [ "$SPOT_PRICE" = "FAIR" ]; then
@@ -42,6 +43,8 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                             --region us-east-2 --output text \
                             --product-description "Linux/UNIX (Amazon VPC)" | head -n 1 | awk '{ print \$5}'
                     )
+                    # increase price on 10% each time
+                    export SPOT_PRICE=\$(bc -l <<< "scale=2; \$SPOT_PRICE + ((\$SPOT_PRICE / 100) * (10 * \$PRICE_MULTIPLIER))")
                     echo SET PRICE: \$SPOT_PRICE
                     echo \$SPOT_PRICE > SPOT_PRICE
                 else
@@ -117,6 +120,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                     break
                 else
                     aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids \$REQUEST_ID
+                    PRICE_MULTIPLIER=$((PRICE_MULTIPLIER+1))
                     continue
                 fi
             done
