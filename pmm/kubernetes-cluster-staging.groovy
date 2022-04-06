@@ -10,7 +10,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'awscli'
+        label 'cli'
     }
     parameters {
         string(
@@ -38,7 +38,6 @@ pipeline {
         skipDefaultCheckout()
         timeout(time: 8, unit: 'MINUTES')
     }
-
     stages {
         stage('Prepare') {
             steps {
