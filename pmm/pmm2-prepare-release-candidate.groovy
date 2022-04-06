@@ -21,6 +21,7 @@ void runPMM2ClientAutobuild(String SUBMODULES_GIT_BRANCH, String DESTINATION) {
         string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH),
         string(name: 'DESTINATION', value: DESTINATION)
     ]
+    env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL
 }
 
 void runPMM2AMIBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
@@ -28,6 +29,7 @@ void runPMM2AMIBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
         string(name: 'PMM_SERVER_BRANCH', value: SUBMODULES_GIT_BRANCH),
         string(name: 'RELEASE_CANDIDATE', value: RELEASE_CANDIDATE)
     ]
+    env.AMI_ID = pmm2AMI.buildVariables.AMI_ID
 }
 
 void runPMM2OVFBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
@@ -59,7 +61,8 @@ def pmm_submodules() {
         "proxysql_exporter",
         "rds_exporter",
         "azure_metrics_exporter",
-        "percona-toolkit"
+        "percona-toolkit",
+        "pmm-dump"
     ]
 }
 
@@ -83,7 +86,6 @@ void deleteReleaseBranches(String VERSION) {
 }
 
 void setupReleaseBranches(String VERSION) {
-
     sh '''
         git branch \${RELEASE_BRANCH}
         git checkout \${RELEASE_BRANCH}
@@ -166,7 +168,7 @@ String DEFAULT_BRANCH = 'PMM-2.0'
 
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'docker-farm'
     }
     parameters {
         string(
@@ -226,7 +228,6 @@ pipeline {
             steps {
                 git branch: SUBMODULES_GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
                 sh """
-                    sudo yum install -y git wget jq
                     git config --global user.email "dev-services@percona.com"
                     git config --global user.name "PMM Jenkins"
                 """
@@ -280,6 +281,18 @@ pipeline {
         always {
             sh 'sudo rm -r /tmp/'
             deleteDir()
+        }
+        success {
+            slackSend botUser: true,
+                      channel: '#pmm-dev',
+                      color: '#00FF00',
+                      message: """Release candidate build was finished :thisisfine:
+Server: perconalab/pmm-server:${VERSION}-rc
+Client: perconalab/pmm-client:${VERSION}-rc
+OVA: http://percona-vm.s3.amazonaws.com/PMM2-Server-${VERSION}.ova
+AMI: ${env.AMI_ID}
+Tarball: ${env.TARBALL_URL}
+                      """
         }
     }
 }
