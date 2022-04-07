@@ -117,6 +117,7 @@
               PKGLIST="${PKGLIST} libaio-devel perl-DBD-MySQL vim-common ncurses-devel readline-devel"
               PKGLIST="${PKGLIST} zlib-devel libgcrypt-devel bison perl-Digest-MD5"
               PKGLIST="${PKGLIST} socat numactl-libs numactl"
+              PKGLIST="${PKGLIST} libudev-devel"
 
               if [[ ${RHEL} != 8 ]]; then
                   PKGLIST+=" python-sphinx python-docutils"
@@ -168,6 +169,7 @@
               PKGLIST="${PKGLIST} cmake debhelper libaio-dev libncurses-dev libssl-dev libtool libz-dev"
               PKGLIST="${PKGLIST} libgcrypt-dev libev-dev lsb-release python-docutils"
               PKGLIST="${PKGLIST} build-essential rsync libdbd-mysql-perl libnuma1 socat librtmp-dev liblz4-tool liblz4-1 liblz4-dev libtinfo5"
+              PKGLIST="${PKGLIST} libudev-dev"
               if [[ "$DIST" == 'focal' ]]; then
                   PKGLIST="${PKGLIST} python3-sphinx"
               else
