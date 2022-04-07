@@ -10,7 +10,8 @@ void runUITests(CLIENT_VERSION, CLIENT_INSTANCE, SERVER_IP, GIT_BRANCH, CLIENTS)
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'OVF_TEST', value: 'yes'),
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
-        string(name: 'CLIENTS', value: CLIENTS)
+        string(name: 'CLIENTS', value: CLIENTS),
+        string(name: 'ADMIN_PASSWORD', value: "admin")
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
