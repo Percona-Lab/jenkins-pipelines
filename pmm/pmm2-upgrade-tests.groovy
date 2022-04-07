@@ -263,8 +263,7 @@ pipeline {
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --download \
                         ${CLIENTS} \
-                        --pmm2 \
-                        --pmm2-server-ip=\$SERVER_IP
+                        --pmm2
                     sleep 20
                 """
             }
