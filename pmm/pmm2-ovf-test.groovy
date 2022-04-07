@@ -124,10 +124,7 @@ pipeline {
         stage('Run PMM-Server') {
             steps {
                 unstash 'VM_NAME'
-                installDocker()
-                setupDockerCompose()
                 sh """
-                    sudo yum -y install svn git
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone https://github.com/percona/pmm-qa.git .
@@ -145,7 +142,7 @@ pipeline {
                 waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
                 waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                 waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
-                sh """    
+                sh """
                     pushd pmm-ui-tests
                     bash -x testdata/db_setup.sh
                     popd
@@ -160,7 +157,7 @@ pipeline {
                     export BUILD_ID=dear-jenkins-please-dont-kill-virtualbox
                     export JENKINS_NODE_COOKIE=dear-jenkins-please-dont-kill-virtualbox
                     export JENKINS_SERVER_COOKIE=dear-jenkins-please-dont-kill-virtualbox
-                    
+
                     tar xvf \$VM_NAME.ova
                     export ovf_name=$(find -type f -name '*.ovf');
                     export VM_MEMORY=4096
@@ -189,7 +186,6 @@ pipeline {
                     PUBIP=\$(curl ifconfig.me)
                     echo \$PUBIP > PUBLIC_IP
                     cat PUBLIC_IP
-                    
                     if [ "X\$IP" = "X." ]; then
                         echo Error during DHCP configure. exiting
                         exit 1
@@ -198,13 +194,13 @@ pipeline {
                 '''
                 withCredentials([usernamePassword(credentialsId: 'Jenkins API', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
-                        set +x 
+                        set +x
                         export VM_NAME=\$(cat VM_NAME)
-                        
+
                         mkdir -p /tmp/\$VM_NAME
                         rm -rf /tmp/\$VM_NAME/sshkey
                         touch /tmp/\$VM_NAME/sshkey
-                        
+
                         yes y | ssh-keygen -f "/tmp/\$VM_NAME/sshkey" -N "" > /dev/null
                         cat "/tmp/\$VM_NAME/sshkey.pub" > PUB_KEY
                         chmod 600 /tmp/\$VM_NAME/sshkey
