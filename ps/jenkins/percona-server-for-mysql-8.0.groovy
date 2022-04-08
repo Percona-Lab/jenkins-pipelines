@@ -266,6 +266,34 @@ parameters {
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
+                stage('Bionic(18.04) binary tarball') {
+                    agent {
+                        label 'min-bionic-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:bionic", "--build_tarball=1 ")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Bionic(18.04) debug tarball') {
+                    agent {
+                        label 'min-bionic-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:bionic", "--debug=1 --build_tarball=1 ")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
                 stage('Ubuntu Focal(20.04) ZenFS tarball') {
                     agent {
                         label 'min-focal-x64'
