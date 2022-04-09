@@ -3,8 +3,6 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def operatingSystems = ['centos-6', 'centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
-
 pipeline {
   agent {
   label 'min-centos-7-x64'
@@ -17,7 +15,7 @@ pipeline {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: operatingSystems
+            choices: pdpxcOperatingSystems()
         )
         choice(
             name: 'FROM_REPO',

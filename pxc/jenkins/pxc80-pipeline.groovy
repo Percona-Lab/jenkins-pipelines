@@ -112,7 +112,6 @@ pipeline {
                 script {
                     currentBuild.displayName = "${BUILD_NUMBER} ${CMAKE_BUILD_TYPE}/${DOCKER_OS}"
                 }
-
                 sh 'echo Prepare: \$(date -u "+%s")'
                 echo 'Checking PXC branch version'
                 sh '''
@@ -150,6 +149,7 @@ pipeline {
                     fi
                     rm -f ${WORKSPACE}/VERSION-${BUILD_NUMBER}
                 '''
+
                 sh '''
                 echo 'Getting percona-xtrabackup repo'
                 if [ -f /usr/bin/yum ]; then
@@ -160,29 +160,42 @@ pipeline {
                 if [ ! -d "percona-xtrabackup" ]; then
                     git clone https://github.com/percona/percona-xtrabackup
                 fi
-                if [[ ${PXB80_LATEST} == "true" ]]; then
-                    echo 'Parameter PXB80_LATEST is enabled.'
-                    echo 'Getting the latest version ...'
-                    pushd percona-xtrabackup
-                    PXB80_BRANCH=$(git tag --sort=-version:refname -l percona-xtrabackup-8.0* | head -1)
-                    echo ${PXB80_BRANCH} > ../pxb80.ver
-                    popd
-                fi
-                if [[ ${PXB24_LATEST} == "true" ]]; then
-                    echo 'Parameter PXB24_LATEST is enabled'
-                    echo 'Getting the latest version ...'
-                    pushd percona-xtrabackup
-                    PXB24_BRANCH=$(git tag --sort=-version:refname -l percona-xtrabackup-2.4* | head -1)
-                    echo ${PXB24_BRANCH} > ../pxb24.ver
-                    popd
-                fi
                 '''
+                
+                script {
+                    if (env.PXB24_LATEST == "true") {
+                        env.PXB24_BRANCH_LATEST = sh (
+                        script: '''
+                            pushd percona-xtrabackup >> /dev/null
+                            echo $(git tag --sort=-version:refname -l percona-xtrabackup-2.4* | head -1)
+                            popd >> /dev/null
+                            ''',
+                            returnStdout: true
+                        ).trim()
+                        echo "====> PXB2.4 latest branch: ${PXB24_BRANCH_LATEST}"
+                    }
+                }
+
+                script {
+                    if (env.PXB80_LATEST == "true") {
+                        env.PXB80_BRANCH_LATEST = sh (
+                        script: '''
+                             pushd percona-xtrabackup >> /dev/null
+                             echo $(git tag --sort=-version:refname -l percona-xtrabackup-8.0* | head -1)
+                             popd >> /dev/null
+                            ''',
+                            returnStdout: true
+                        ).trim()
+                        echo "====> PXB8.0 latest branch: ${PXB80_BRANCH_LATEST}"
+                    }
+                }
+
                 echo 'Checking PXB80 branch version'
                 sh '''
                     MY_BRANCH_BASE_MAJOR=8
                     MY_BRANCH_BASE_MINOR=0
-                    if [ -f pxb80.ver ]; then
-                        PXB80_BRANCH=$(cat pxb80.ver)
+                    if [ -n "${PXB80_BRANCH_LATEST}" ]; then
+                        PXB80_BRANCH="${PXB80_BRANCH_LATEST}"
                     fi
                     RAW_VERSION_LINK=$(echo ${PXB80_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
                     REPLY=$(curl -Is ${RAW_VERSION_LINK}/${PXB80_BRANCH}/XB_VERSION | head -n 1 | awk '{print $2}')
@@ -201,12 +214,13 @@ pipeline {
                     fi
                     rm -f ${WORKSPACE}/VERSION-${BUILD_NUMBER}
                 '''
+
                 echo 'Checking PXB24 branch version'
                 sh '''
                     MY_BRANCH_BASE_MAJOR=2
                     MY_BRANCH_BASE_MINOR=4
-                    if [ -f pxb24.ver ]; then
-                        PXB24_BRANCH=$(cat pxb24.ver)
+                    if [ -n "${PXB24_BRANCH_LATEST}" ]; then
+                        PXB24_BRANCH="${PXB24_BRANCH_LATEST}"
                     fi
                     RAW_VERSION_LINK=$(echo ${PXB24_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
                     REPLY=$(curl -Is ${RAW_VERSION_LINK}/${PXB24_BRANCH}/XB_VERSION | head -n 1 | awk '{print $2}')
@@ -235,6 +249,9 @@ pipeline {
                         git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                         echo 'Checkout PXB24 sources'
                         sh '''
+                            if [ -n "${PXB24_BRANCH_LATEST}" ]; then
+                               PXB24_BRANCH="${PXB24_BRANCH_LATEST}"
+                            fi
                             # sudo is needed for better node recovery after compilation failure
                             # if building failed on compilation stage directory will have files owned by docker user
                             sudo git reset --hard
@@ -271,6 +288,9 @@ pipeline {
                         git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                         echo 'Checkout PXB80 sources'
                         sh '''
+                           if [ -n "${PXB80_BRANCH_LATEST}" ]; then
+                               PXB80_BRANCH="${PXB80_BRANCH_LATEST}"
+                            fi
                             # sudo is needed for better node recovery after compilation failure
                             # if building failed on compilation stage directory will have files owned by docker user
                             sudo git reset --hard
