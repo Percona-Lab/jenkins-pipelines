@@ -17,6 +17,7 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
+        buildDiscarder(logRotator(numToKeepStr: '30', artifactNumToKeepStr: '30'))
         timeout(time: 1, unit: 'DAYS')
     }
     environment {
