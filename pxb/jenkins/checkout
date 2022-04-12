@@ -42,6 +42,9 @@ if [ "$SOURCE_NAME" == 'PXB80' -o "$SOURCE_NAME" == 'ALL' ]; then
         if [ -n "${PXB80_REPO}" -a -n "${PXB80_BRANCH}" ]; then
             git pull origin ${PXB80_BRANCH}
         fi
+
+        git submodule deinit -f . || true
+        git submodule update --init --recursive
      popd
 fi
 
@@ -69,5 +72,8 @@ if [ "$SOURCE_NAME" == 'PXB24' -o "$SOURCE_NAME" == 'ALL' ]; then
         if [ -n "${PXB24_REPO}" -a -n "${PXB24_BRANCH}" ]; then
             git pull origin ${PXB24_BRANCH}
         fi
+
+        git submodule deinit -f . || true
+        git submodule update --init --recursive
     popd
 fi
