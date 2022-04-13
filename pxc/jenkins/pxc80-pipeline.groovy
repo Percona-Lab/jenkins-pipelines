@@ -247,38 +247,63 @@ pipeline {
                     agent { label 'docker' }
                     steps {
                         git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                        echo 'Checkout PXB24 sources'
-                        sh '''
-                            if [ -n "${PXB24_BRANCH_LATEST}" ]; then
-                               PXB24_BRANCH="${PXB24_BRANCH_LATEST}"
-                            fi
-                            # sudo is needed for better node recovery after compilation failure
-                            # if building failed on compilation stage directory will have files owned by docker user
-                            sudo git reset --hard
-                            sudo git clean -xdf
-                            sudo rm -rf sources
-                            ./pxc/local/checkout PXB24
-                        '''
+                        script {
+                            if (env.PXB24_BRANCH_LATEST) {
+                                env.PXB24_BRANCH = env.PXB24_BRANCH_LATEST
+                            }
+                            env.PXB24_DOWNLOADABLE = sh (
+                            script: '''
+                                echo $(curl -Is https://downloads.percona.com/downloads/Percona-XtraBackup-2.4/Percona-XtraBackup-$(echo ${PXB24_BRANCH} | cut -d '-' -f 3,4)/binary/tarball/${PXB24_BRANCH}-Linux-x86_64.glibc2.12.tar.gz | head -1 | awk {'print $2'})
+                                ''',
+                                returnStdout: true
+                            ).trim()
+                            echo "Status of PXB2.4 package is ${env.PXB24_DOWNLOADABLE}"
+                        }
                         echo 'Build PXB24'
-                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            sh '''
-                                aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-                                sg docker -c "
-                                    if [ \$(docker ps -q | wc -l) -ne 0 ]; then
-                                        docker ps -q | xargs docker stop --time 1 || :
-                                    fi
-                                    ./pxc/docker/run-build-pxb24 ${DOCKER_OS}
-                                " 2>&1 | tee build.log
-                             
-                                if [[ -f \$(ls pxc/sources/pxb24/results/*.tar.gz | head -1) ]]; then
-                                    until aws s3 cp --no-progress --acl public-read pxc/sources/pxb24/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxb24.tar.gz; do
-                                        sleep 5
-                                    done
-                                else
-                                    echo cannot find compiled archive
-                                    exit 1
-                                fi
-                            '''
+                        script {
+                            if (env.PXB24_DOWNLOADABLE == '200') {
+                                sh '''
+                                    echo "====> PXB24 package is availble for downloading from the site"
+                                    mkdir -p pxc/sources/pxb24/results
+                                    wget https://downloads.percona.com/downloads/Percona-XtraBackup-2.4/Percona-XtraBackup-$(echo ${PXB24_BRANCH} | cut -d '-' -f 3,4)/binary/tarball/${PXB24_BRANCH}-Linux-x86_64.glibc2.12.tar.gz -O pxc/sources/pxb24/results/pxb24.tar.gz
+                                '''
+                            }
+                            else {
+                                echo '====> PXB24 package is NOT available for downloading from the site'
+                                echo 'Checkout PXB24 sources'
+                                sh '''
+                                    # sudo is needed for better node recovery after compilation failure
+                                    # if building failed on compilation stage directory will have files owned by docker user
+                                    sudo git reset --hard
+                                    sudo git clean -xdf
+                                    sudo rm -rf sources
+                                    ./pxc/local/checkout PXB24
+                                '''
+                                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                                sh '''
+                                    aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                                    sg docker -c "
+                                        if [ \$(docker ps -q | wc -l) -ne 0 ]; then
+                                            docker ps -q | xargs docker stop --time 1 || :
+                                        fi
+                                        ./pxc/docker/run-build-pxb24 ${DOCKER_OS}
+                                    " 2>&1 | tee build.log
+                                '''
+                                }
+                           }
+                           withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                               sh '''
+                                   if [[ -f \$(ls pxc/sources/pxb24/results/*.tar.gz | head -1) ]]; then
+                                       aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                                       until aws s3 cp --no-progress --acl public-read pxc/sources/pxb24/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxb24.tar.gz; do
+                                           sleep 5
+                                       done
+                                   else
+                                       echo cannot find compiled or downloaded archive
+                                       exit 1
+                                   fi
+                               '''
+                           }
                         }
                     }
                 }
@@ -286,39 +311,63 @@ pipeline {
                     agent { label 'docker-32gb' }
                     steps {
                         git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                        echo 'Checkout PXB80 sources'
-                        sh '''
-                           if [ -n "${PXB80_BRANCH_LATEST}" ]; then
-                               PXB80_BRANCH="${PXB80_BRANCH_LATEST}"
-                            fi
-                            # sudo is needed for better node recovery after compilation failure
-                            # if building failed on compilation stage directory will have files owned by docker user
-                            sudo git reset --hard
-                            sudo git clean -xdf
-                            sudo rm -rf sources
-                            ./pxc/local/checkout PXB80
-                        '''
+                        script {
+                            if (env.PXB80_BRANCH_LATEST) {
+                                env.PXB80_BRANCH = env.PXB80_BRANCH_LATEST
+                            }
+                            env.PXB80_DOWNLOADABLE = sh (
+                            script: '''
+                                echo $(curl -Is https://downloads.percona.com/downloads/Percona-XtraBackup-8.0/Percona-XtraBackup-$(echo ${PXB80_BRANCH} | cut -d '-' -f 3,4)/binary/tarball/${PXB80_BRANCH}-Linux-x86_64.glibc2.12.tar.gz | head -1 | awk {'print $2'})
+                                ''',
+                                returnStdout: true
+                            ).trim()
+                            echo "Status of PXB80 package is ${env.PXB80_DOWNLOADABLE}"
+                        }
                         echo 'Build PXB80'
-                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        script {
+                            if (env.PXB80_DOWNLOADABLE == '200') {
+                                sh '''
+                                    echo "====> PXB80 package is availble for downloading from the site"
+                                    mkdir -p pxc/sources/pxb80/results
+                                    wget https://downloads.percona.com/downloads/Percona-XtraBackup-8.0/Percona-XtraBackup-$(echo ${PXB80_BRANCH} | cut -d '-' -f 3,4)/binary/tarball/${PXB80_BRANCH}-Linux-x86_64.glibc2.12.tar.gz -O pxc/sources/pxb80/results/pxb80.tar.gz
+                               '''
+                            }
+                            else {
+                                echo '====> PXB80 package is NOT available for downloading from the site'
+                                echo 'Checkout PXB80 sources'
+                                sh '''
+                                    # sudo is needed for better node recovery after compilation failure
+                                    # if building failed on compilation stage directory will have files owned by docker user
+                                    sudo git reset --hard
+                                    sudo git clean -xdf
+                                    sudo rm -rf sources
+                                    ./pxc/local/checkout PXB80
+                                '''
+                                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                                sh '''
+                                    aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                                    sg docker -c "
+                                        if [ \$(docker ps -q | wc -l) -ne 0 ]; then
+                                            docker ps -q | xargs docker stop --time 1 || :
+                                        fi
+                                        ./pxc/docker/run-build-pxb80 ${DOCKER_OS}
+                                    " 2>&1 | tee build.log
+                                '''
+                                }
+                            }
+                            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''
-                                aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-                                sg docker -c "
-                                    if [ \$(docker ps -q | wc -l) -ne 0 ]; then
-                                        docker ps -q | xargs docker stop --time 1 || :
-                                    fi
-                                    ./pxc/docker/run-build-pxb80 ${DOCKER_OS}
-                                " 2>&1 | tee build.log
-
                                 if [[ -f \$(ls pxc/sources/pxb80/results/*.tar.gz | head -1) ]]; then
                                     until aws s3 cp --no-progress --acl public-read pxc/sources/pxb80/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxb80.tar.gz; do
                                         sleep 5
                                     done
                                 else
-                                    echo cannot find compiled archive
+                                    echo cannot find compiled or downloaded archive
                                     exit 1
                                 fi
                             '''
-                       }
+                            }
+                        }
                     }
                 }
             }
