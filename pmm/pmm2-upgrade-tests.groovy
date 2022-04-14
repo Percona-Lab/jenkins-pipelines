@@ -250,6 +250,12 @@ pipeline {
             }
             steps {
                 script {
+                    sh """
+                        set -o errexit
+                        set -o xtrace
+                        docker exec pmm-server yum update -y percona-release || true
+                        docker exec pmm-server yum clean all
+                    """
                     setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup', ADMIN_PASSWORD)
                 }
             }
