@@ -8,6 +8,8 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+def DEFAULT_SSH_KEYS = getSHHKeysPMM()
+
 pipeline {
     agent {
         label 'awscli'
@@ -116,6 +118,7 @@ pipeline {
                         set -o errexit
                         set -o xtrace
 
+                        echo '$DEFAULT_SSH_KEYS' >> /home/ec2-user/.ssh/authorized_keys
                         if [ -n "$SSH_KEY" ]; then
                             echo '$SSH_KEY' >> /home/ec2-user/.ssh/authorized_keys
                         fi
