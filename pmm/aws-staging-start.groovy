@@ -214,7 +214,7 @@ pipeline {
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'aws-jenkins')
                     DumbSlave node = new DumbSlave(env.VM_NAME, "spot instance job", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
 
-                    currentBuild.description = "PRICE: ${env.SPOT_PRICE} IP: <a href='https://${env.IP}'>${env.IP}</a> NAME: ${env.VM_NAME}"
+                    currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME} PRICE: ${env.SPOT_PRICE}"
                     Jenkins.instance.addNode(node)
                 }
                 node(env.VM_NAME){
