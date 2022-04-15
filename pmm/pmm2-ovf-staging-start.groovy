@@ -1,3 +1,8 @@
+import hudson.model.Node.Mode
+import hudson.slaves.*
+import jenkins.model.Jenkins
+import hudson.plugins.sshslaves.SSHLauncher
+
 library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
