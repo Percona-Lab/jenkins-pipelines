@@ -29,11 +29,11 @@ pipeline {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
-                        SSH_KEY_ID=$(doctl compute ssh-key list | grep Jenkins | awk '{ print \$1}')
+                        SSH_KEY_ID=\$(doctl compute ssh-key list | grep Jenkins | awk '{ print \$1}')
                         echo "Key ID: \${SSH_KEY_ID}"
-                        IMAGE_ID=$(doctl compute image list | grep pmm-agent | awk '{ print \$1}')
+                        IMAGE_ID=\$(doctl compute image list | grep pmm-agent | awk '{ print \$1}')
                         echo "Image ID: \${IMAGE_ID}"
-                        PUBLIC_IP=$(doctl compute droplet create --region ams3 --image \$IMAGE_ID --wait --ssh-keys \$SSH_KEY_ID --tag-name jenkins-pmm --size s-8vcpu-16gb-intel pmm-staging-0 -o json | jq -r '.[0].networks.v4[0].ip_address')
+                        PUBLIC_IP=\$(doctl compute droplet create --region ams3 --image \$IMAGE_ID --wait --ssh-keys \$SSH_KEY_ID --tag-name jenkins-pmm --size s-8vcpu-16gb-intel pmm-staging-0 -o json | jq -r '.[0].networks.v4[0].ip_address')
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no root@\${PUBLIC_IP}; do
                             sleep 5
                         done
