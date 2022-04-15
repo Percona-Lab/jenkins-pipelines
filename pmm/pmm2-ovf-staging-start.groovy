@@ -7,7 +7,7 @@ String PUBLIC_IP = ''
 
 pipeline {
     agent {
-        label 'ovf-do'
+        label 'cli'
     }
     parameters {
         string(
@@ -25,11 +25,38 @@ pipeline {
         VM_MEMORY = "4096"
     }
     stages {
+        stage('Run staging server') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        SSH_KEY_ID=$(doctl compute ssh-key list | grep Jenkins | awk '{ print \$1}')
+                        echo "Key ID: \${SSH_KEY_ID}"
+                        IMAGE_ID=$(doctl compute image list | grep pmm-agent | awk '{ print \$1}')
+                        echo "Image ID: \${IMAGE_ID}"
+                        PUBLIC_IP=$(doctl compute droplet create --region ams3 --image \$IMAGE_ID --wait --ssh-keys \$SSH_KEY_ID --tag-name jenkins-pmm --size s-8vcpu-16gb-intel pmm-staging-0 -o json | jq -r '.[0].networks.v4[0].ip_address')
+                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no root@\${PUBLIC_IP}; do
+                            sleep 5
+                        done
+                        echo \$IP > IP
+                    """
+                }
+                script {
+                    env.IP      = sh(returnStdout: true, script: "cat IP").trim()
+                    env.VM_NAME = '123'
+
+                    SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e')
+                    DumbSlave node = new DumbSlave('test-db-slace', "test do job", "/root", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
+
+                    currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME}"
+                    Jenkins.instance.addNode(node)
+                }
+            }
+        }
         stage('Run PMM-Server') {
             steps {
                 script {
                     PUBLIC_IP = sh(returnStdout: true, script: 'curl ifconfig.me')
-                    currentBuild.description = "<a href='https://${PUBLIC_IP}'>${PUBLIC_IP}</a>"
+                    currentBuild.description = "${PUBLIC_IP}"
                 }
                 sh "wget -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}"
                 sh """
