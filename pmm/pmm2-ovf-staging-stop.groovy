@@ -17,6 +17,7 @@ pipeline {
     stages {
         stage('Ask input') {
             steps {
+                sh "ls ${getResourceDirPath()}"
                 sh "python ${getResourceDirPath()}/pmm/test.py"
             }
         }
