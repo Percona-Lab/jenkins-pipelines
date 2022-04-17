@@ -1,13 +1,5 @@
-import groovy.transform.SourceURI
-import java.nio.file.Path
-import java.nio.file.Paths
-
-class ScriptSourceUri {
-    @SourceURI
-    static URI uri
-}
-
 def call() {
-    Path resourceLocation = Paths.get(ScriptSourceUri.uri)
-    return resourceLocation.getParent().getParent().toString()
+    final pythonContent = libraryResource('pmm/test.py')
+    writeFile(file: 'test.py', text: pythonContent)
+    sh('python3 ./test.py')
 }
