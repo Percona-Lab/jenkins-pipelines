@@ -17,7 +17,7 @@ pipeline {
     stages {
         stage('Ask input') {
             steps {
-                getResourceDirPath()
+                runPython('test')
             }
         }
 
