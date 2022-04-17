@@ -9,5 +9,5 @@ class ScriptSourceUri {
 
 def call() {
     Path resourceLocation = Paths.get(ScriptSourceUri.uri)
-    return resourceLocation.getParent().getParent().resolve('resources').toString()
+    return resourceLocation.getParent().getParent().toString()
 }
