@@ -10,14 +10,20 @@ pipeline {
     parameters {
         string(
             defaultValue: 'ALL',
-            description: 'Name or IP of VM to stop',
-            name: 'VM_NAME')
+            description: 'Name or IP of VM to stop. ALL means stop all vm older 24 hours',
+            name: 'VM')
     }
-
+    triggers {
+        cron('@daily')
+    }
     stages {
-        stage('Ask input') {
+        stage('Run ') {
             steps {
-                runPython('test')
+                if ( "${VM}" == "ALL" ) {
+                    runPython('do_remove_droplets')
+                else {
+                    runPython('do_remove_droplets', VM)
+                }
             }
         }
 
