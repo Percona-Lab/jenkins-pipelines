@@ -22,7 +22,7 @@ pipeline {
                 script {
                     if ( "${VM}" == "ALL" ) {
                         runPython('do_remove_droplets')
-                    else {
+                    } else {
                         runPython('do_remove_droplets', VM)
                     }
                 }
