@@ -27,7 +27,7 @@ pipeline {
     }
     environment {
         VM_NAME = "pmm-ovf-staging-${BUILD_ID}"
-        VM_MEMORY = "4096"
+        VM_MEMORY = "10240"
     }
     stages {
         stage('Run staging server') {
