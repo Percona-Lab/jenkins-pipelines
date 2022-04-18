@@ -59,6 +59,10 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         env.VM_CLIENT_IP_PXC = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_PXC = stagingJob.buildVariables.VM_NAME
     }
+    else if ( NODE_TYPE == 'postgres-node' ) {
+        env.VM_CLIENT_IP_PGSQL = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_PGSQL = stagingJob.buildVariables.VM_NAME
+    }
     else
     {
         env.VM_CLIENT_IP_MONGO = stagingJob.buildVariables.IP
@@ -277,9 +281,14 @@ pipeline {
                         runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=md,1 --addclient=pxc,3 --with-proxysql --pmm2', 'yes', env.VM_IP, 'pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
                     }
                 }
-                stage('Start Client Instance - mongo/postgresql') {
+                stage('Start Client Instance - mongo') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pdpgsql,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --pmm2', 'yes', env.VM_IP, 'mongo-postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=mo,1 --with-replica --mongomagic --pmm2', 'yes', env.VM_IP, 'mongo-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
+                    }
+                }
+                stage('Start Client Instance - postgresql') {
+                    steps {
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pdpgsql,1 --addclient=pgsql,1 --pmm2', 'yes', env.VM_IP, 'postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
                     }
                 }
             }
@@ -337,9 +346,14 @@ pipeline {
                         checkClientNodesAgentStatus(env.VM_CLIENT_IP_PXC)
                     }
                 }
-                stage('Check Agent Status on mongo/postgresql node') {
+                stage('Check Agent Status on mongo node') {
                     steps {
                         checkClientNodesAgentStatus(env.VM_CLIENT_IP_MONGO)
+                    }
+                }
+                stage('Check Agent Status on postgresql node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PGSQL)
                     }
                 }
 
@@ -368,6 +382,10 @@ pipeline {
                 if(env.VM_CLIENT_NAME_PXC)
                 {
                     destroyStaging(VM_CLIENT_NAME_PXC)
+                }
+                if(env.VM_CLIENT_NAME_PGSQL)
+                {
+                    destroyStaging(VM_CLIENT_NAME_PGSQL)
                 }
             }
             script {
