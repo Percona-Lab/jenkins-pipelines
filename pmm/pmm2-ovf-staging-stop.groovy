@@ -19,10 +19,12 @@ pipeline {
     stages {
         stage('Run ') {
             steps {
-                if ( "${VM}" == "ALL" ) {
-                    runPython('do_remove_droplets')
-                else {
-                    runPython('do_remove_droplets', VM)
+                script {
+                    if ( "${VM}" == "ALL" ) {
+                        runPython('do_remove_droplets')
+                    else {
+                        runPython('do_remove_droplets', VM)
+                    }
                 }
             }
         }
