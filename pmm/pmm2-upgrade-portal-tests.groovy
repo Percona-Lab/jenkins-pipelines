@@ -210,7 +210,7 @@ pipeline {
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-portal-upgrade'
+                    ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-portal-upgrade'  --override '{ "helpers": { "Playwright": { "getPageTimeout": 60000 }}}'
                 """
             }
         }
