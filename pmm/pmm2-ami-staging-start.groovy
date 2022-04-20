@@ -83,92 +83,94 @@ pipeline {
         stage('Run VM with PMM server') {
             steps
             {
-                sh '''
-                    export VM_NAME=\$(cat VM_NAME)
-                    export OWNER=\$(cat OWNER)
-                    export AWS_DEFAULT_REGION=us-east-1
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID',  credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh '''
+                        export VM_NAME=\$(cat VM_NAME)
+                        export OWNER=\$(cat OWNER)
+                        export AWS_DEFAULT_REGION=us-east-1
 
-                    export SG1=\$(
-                        aws ec2 describe-security-groups \
-                            --region us-east-1 \
-                            --output text \
-                            --filters "Name=group-name,Values=pmm" \
-                            --query 'SecurityGroups[].GroupId'
-                    )
-                    export SG2=\$(
-                        aws ec2 describe-security-groups \
-                            --region us-east-1 \
-                            --output text \
-                            --filters "Name=group-name,Values=SSH" \
-                            --query 'SecurityGroups[].GroupId'
-                    )
-
-                    export SS1=\$(
-                        aws ec2 describe-subnets \
-                            --region us-east-1 \
-                            --output text \
-                            --query 'Subnets[].SubnetId' \
-                            --filter 'Name=tag-value,Values=pmm2-ami-staging-start'
-                    )
-
-                    IMAGE_NAME=$(
-                        aws ec2 describe-images \
-                        --image-ids $AMI_ID \
-                        --query 'Images[].Name' \
-                        --output text
+                        export SG1=\$(
+                            aws ec2 describe-security-groups \
+                                --region us-east-1 \
+                                --output text \
+                                --filters "Name=group-name,Values=pmm" \
+                                --query 'SecurityGroups[].GroupId'
                         )
-                    echo "IMAGE_NAME:    $IMAGE_NAME"
-                    aws ec2 describe-key-pairs --key-name nailya
+                        export SG2=\$(
+                            aws ec2 describe-security-groups \
+                                --region us-east-1 \
+                                --output text \
+                                --filters "Name=group-name,Values=SSH" \
+                                --query 'SecurityGroups[].GroupId'
+                        )
 
-                    INSTANCE_ID=\$(
-                        aws ec2 run-instances \
-                        --image-id $AMI_ID \
-                        --security-group-ids $SG1 $SG2\
-                        --instance-type t2.large \
-                        --subnet-id $SS1 \
-                        --region us-east-1 \
-                        --key-name jenkins-admin \
-                        --query Instances[].InstanceId \
-                        --output text
-                    )
+                        export SS1=\$(
+                            aws ec2 describe-subnets \
+                                --region us-east-1 \
+                                --output text \
+                                --query 'Subnets[].SubnetId' \
+                                --filter 'Name=tag-value,Values=pmm2-ami-staging-start'
+                        )
 
-                    echo \$INSTANCE_ID > INSTANCE_ID
+                        IMAGE_NAME=$(
+                            aws ec2 describe-images \
+                            --image-ids $AMI_ID \
+                            --query 'Images[].Name' \
+                            --output text
+                            )
+                        echo "IMAGE_NAME:    $IMAGE_NAME"
+                        aws ec2 describe-key-pairs --key-name nailya
 
-                    INSTANCE_NAME=\$VM_NAME
-                        aws ec2 create-tags  \
-                        --resources $INSTANCE_ID \
-                        --region us-east-1 \
-                        --tags Key=Name,Value=$INSTANCE_NAME \
-                        Key=iit-billing-tag,Value=qa \
-                        Key=stop-after-days,Value=${DAYS}
+                        INSTANCE_ID=\$(
+                            aws ec2 run-instances \
+                            --image-id $AMI_ID \
+                            --security-group-ids $SG1 $SG2\
+                            --instance-type t2.large \
+                            --subnet-id $SS1 \
+                            --region us-east-1 \
+                            --key-name jenkins-admin \
+                            --query Instances[].InstanceId \
+                            --output text
+                        )
 
-                    echo "INSTANCE_NAME: $INSTANCE_NAME"
+                        echo \$INSTANCE_ID > INSTANCE_ID
+
+                        INSTANCE_NAME=\$VM_NAME
+                            aws ec2 create-tags  \
+                            --resources $INSTANCE_ID \
+                            --region us-east-1 \
+                            --tags Key=Name,Value=$INSTANCE_NAME \
+                            Key=iit-billing-tag,Value=qa \
+                            Key=stop-after-days,Value=${DAYS}
+
+                        echo "INSTANCE_NAME: $INSTANCE_NAME"
 
 
 
-                    IP_PUBLIC=\$(
+                       IP_PUBLIC=\$(
+                              aws ec2 describe-instances \
+                              --instance-ids $INSTANCE_ID \
+                              --region us-east-1 \
+                              --output text \
+                              --query 'Reservations[].Instances[].PublicIpAddress' \
+                             | tee IP
+                             )
+
+                        echo \$IP_PUBLIC > IP_PUBLIC
+
+
+                         IP_PRIVATE=\$(
                             aws ec2 describe-instances \
-                            --instance-ids $INSTANCE_ID \
-                            --region us-east-1 \
-                            --output text \
-                            --query 'Reservations[].Instances[].PublicIpAddress' \
-                            | tee IP
-                            )
+                              --instance-ids $INSTANCE_ID \
+                              --region us-east-1 \
+                              --output text \
+                              --query 'Reservations[].Instances[].PrivateIpAddress' \
+                             | tee IP
+                             )
 
-                    echo \$IP_PUBLIC > IP_PUBLIC
-
-
-                        IP_PRIVATE=\$(
-                        aws ec2 describe-instances \
-                            --instance-ids $INSTANCE_ID \
-                            --region us-east-1 \
-                            --output text \
-                            --query 'Reservations[].Instances[].PrivateIpAddress' \
-                            | tee IP
-                            )
-
-                    echo \$IP_PRIVATE > IP_PRIVATE
-                '''
+                        echo \$IP_PRIVATE > IP_PRIVATE
+                    '''
+                }
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) date; do
@@ -282,13 +284,15 @@ pipeline {
             }
         }
         failure {
-            sh '''
-                export INSTANCE_ID=\$(cat INSTANCE_ID)
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                sh '''
+                    export INSTANCE_ID=\$(cat INSTANCE_ID)
 
-                if [ -n "$INSTANCE_ID" ]; then
-                    aws ec2 --region us-east-1 terminate-instances --instance-ids \$INSTANCE_ID
-                fi
-            '''
+                    if [ -n "$INSTANCE_ID" ]; then
+                      aws ec2 --region us-east-1 terminate-instances --instance-ids \$INSTANCE_ID
+                    fi
+                '''
+            }
             script {
                 if ("${NOTIFY}" == "false") {
                     def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
