@@ -190,8 +190,6 @@ pipeline {
                             sudo yum -y install git svn docker
                             sudo systemctl start docker
                             sudo curl -L https://github.com/docker/compose/releases/download/v2.4.1/docker-compose-linux-x86_64 | sudo tee docker-compose > /dev/null
-                            md5sum docker-compose > checkmd5.md5
-                            md5sum -c --strict checkmd5.md5
                             sudo mv docker-compose /usr/bin/docker-compose
                             sudo chmod +x /usr/bin/docker-compose
                             docker-compose --version
