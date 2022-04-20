@@ -1,15 +1,14 @@
 import hudson.model.Node.Mode
 import hudson.slaves.*
-import jenkins.model.Jenkins
 import hudson.plugins.sshslaves.SSHLauncher
 import jenkins.model.*
 
 final jenkins   = Jenkins.getInstanceOrNull()
-final currentJob     = jenkins.getItem(env.JOB_NAME)
+final myJob     = jenkins.getItem("pmm2-ovf-staging-start")
 
-description = "testing"
-currentJob.setDescription(description)
-currentJob.save()
+description = "<h1 style=\"color:green\">The newest build has number ${env.BUILD_NUMBER}</h1>"
+myJob.setDescription(description)
+myJob.save()
 
 library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
