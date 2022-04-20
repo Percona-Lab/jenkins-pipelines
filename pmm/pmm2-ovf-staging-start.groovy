@@ -2,6 +2,14 @@ import hudson.model.Node.Mode
 import hudson.slaves.*
 import jenkins.model.Jenkins
 import hudson.plugins.sshslaves.SSHLauncher
+import jenkins.model.*
+
+final jenkins   = Jenkins.getInstanceOrNull()
+final currentJob     = jenkins.getItem(env.JOB_NAME)
+
+description = "testing"
+currentJob.setDescription(description)
+currentJob.save()
 
 library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
@@ -61,7 +69,6 @@ pipeline {
                 node(env.VM_NAME){
                     script {
                         PUBLIC_IP = sh(returnStdout: true, script: 'curl ifconfig.me')
-                        currentBuild.description = "${PUBLIC_IP}"
                     }
                     sh "wget -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}"
                     sh """
