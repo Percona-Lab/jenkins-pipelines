@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'awscli'
+        label 'cli'
     }
     parameters {
         string(
@@ -45,7 +45,7 @@ pipeline {
             }
         }
         stage('Run VM with PMM server') {
-            steps 
+            steps
             {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID',  credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                    sh """
@@ -53,7 +53,7 @@ pipeline {
                           aws ec2 --region us-east-1 terminate-instances --instance-ids "${AMI_ID}"
                         fi
                     """
-                } 
+                }
             }
         }
     }
