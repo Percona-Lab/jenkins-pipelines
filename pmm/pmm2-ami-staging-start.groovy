@@ -192,7 +192,6 @@ pipeline {
                             sudo curl -L https://github.com/docker/compose/releases/download/v2.4.1/docker-compose-linux-x86_64 | sudo tee docker-compose > /dev/null
                             sudo mv docker-compose /usr/bin/docker-compose
                             sudo chmod +x /usr/bin/docker-compose
-                            docker-compose --version
                             sudo mkdir -p /srv/pmm-qa || :
                             pushd /srv/pmm-qa
                                 sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
