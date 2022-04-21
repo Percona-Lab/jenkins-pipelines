@@ -198,7 +198,7 @@ pipeline {
 
         stage('Run VM') {
             steps {
-                launchSpotInstance('t3.large', 'FAIR', 25)
+                launchSpotInstance('t3.large', 'FAIR', 100)
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) ; do
