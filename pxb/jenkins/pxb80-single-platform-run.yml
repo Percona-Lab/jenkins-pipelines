@@ -95,7 +95,13 @@
               export XBCLOUD_CREDENTIALS="--storage=google --google-access-key=$XBCLOUD_ACCESS_KEY --google-secret-key=$XBCLOUD_SECRET_KEY  $XBCLOUD_EXTRA"
           fi
           rm -rf jenkins-pipelines || true
+          # get git version for debug purpose
+          git --version || true
+
           git clone https://github.com/Percona-Lab/jenkins-pipelines
+          sudo git config --global --unset-all safe.directory || true
+          sudo git config --global --add safe.directory "$(pwd)/jenkins-pipelines"
+
           cd jenkins-pipelines
           if [ -f /usr/bin/yum ]; then
               sudo -E yum -y erase percona-release || true
