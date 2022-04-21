@@ -214,6 +214,8 @@ pipeline {
                 checkImageForCVE('main-mongod4.2-debug')
                 checkImageForCVE('main-mongod4.4')
                 checkImageForCVE('main-mongod4.4-debug')
+                checkImageForCVE('main-mongod5.0')
+                checkImageForCVE('main-mongod5.0-debug')
             }
         }
     }
