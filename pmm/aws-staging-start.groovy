@@ -230,7 +230,6 @@ pipeline {
                         sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-25.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum -y install sysbench
-                        sudo yum -y install mysql-community-server
                         sudo amazon-linux-extras install epel -y
                         sudo amazon-linux-extras install php7.2 -y
                         sudo yum install mysql-client -y
@@ -275,6 +274,7 @@ pipeline {
                         fi
                         """
                         node(env.VM_NAME){
+                            installAWSv2()
                             withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                                 sh """
                                     set -o errexit
