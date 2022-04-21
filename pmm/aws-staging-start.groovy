@@ -274,7 +274,6 @@ pipeline {
                         fi
                         """
                         node(env.VM_NAME){
-                            installAWSv2()
                             withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                                 sh """
                                     set -o errexit
