@@ -236,6 +236,8 @@ pipeline {
                         sudo yum install mysql-client -y
                         sudo yum -y install bats
                         sudo mkdir -p /srv/pmm-qa || :
+                        yum remove mariadb
+                        yum autoremove
                         pushd /srv/pmm-qa
                             sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                             sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
