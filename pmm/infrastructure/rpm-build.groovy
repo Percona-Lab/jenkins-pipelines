@@ -1,7 +1,5 @@
 pipeline {
-    agent {
-        label 'docker-farm'
-    }
+    agent none
     parameters {
         string(
             defaultValue: 'PMM-2.0',
