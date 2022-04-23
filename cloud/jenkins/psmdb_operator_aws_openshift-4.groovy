@@ -270,6 +270,13 @@ pipeline {
                 runTest('pitr-sharded')
             }
         }
+        stage('CrossSite replication') {
+            steps {
+                CreateCluster('cross-site')
+                runTest('cross-site-sharded', 'cross-site')
+                ShutdownCluster('cross-site')
+            }
+        }
         stage('Make report') {
             steps {
                 makeReport()
