@@ -26,7 +26,7 @@ pipeline {
                         if ( "${VM}" == "ALL" ) {
                             runPython('do_remove_droplets')
                         } else {
-                            runPython('do_remove_droplets -o ', VM)
+                            runPython('do_remove_droplets', "-o ${VM}")
                         }
                     }
                 }
