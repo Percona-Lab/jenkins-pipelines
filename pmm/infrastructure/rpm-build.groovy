@@ -32,20 +32,18 @@ pipeline {
                     }
                     stage('Build') {
                         steps {
-                            sh """
-                                cd build/rpmbuild-docker
-                                docker build --pull --squash --tag public.ecr.aws/e7j3v3n0/rpmbuild:2 .
-                            """
-                            withCredentials([[
-                                $class: 'AmazonWebServicesCredentialsBinding',
-                                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                                credentialsId: 'ECRRWUser',
-                                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                                 sh """
-                                    aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-                                    docker push public.ecr.aws/e7j3v3n0/rpmbuild:2
+                                    sg docker -c "
+                                        echo "${PASS}" | docker login -u "${USER}" --password-stdin
+                                    "
                                 """
                             }
+                            sh """
+                                cd build/rpmbuild-docker
+                                docker build --pull --tag perconalab/rpmbuild:2 .
+                                docker push perconalab/rpmbuild:2
+                            """
                         }
                     }
                 }
