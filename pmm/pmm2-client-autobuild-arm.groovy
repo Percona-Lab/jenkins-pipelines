@@ -31,17 +31,7 @@ pipeline {
                             git submodule status
 
                             git rev-parse --short HEAD > shortCommit
-                            echo "UPLOAD/${DESTINATION}/${JOB_NAME}/pmm2/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
                         '''
-                        script {
-                            def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
-                            if ("${DESTINATION}" == "testing") {
-                                env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}"
-                                env.DOCKER_RC_TAG = "${versionTag}-rc"
-                            } else {
-                                env.DOCKER_LATEST_TAG = "dev-latest"
-                            }
-                        }
 
                         archiveArtifacts 'uploadPath'
                         stash includes: 'uploadPath', name: 'uploadPath'
