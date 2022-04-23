@@ -18,7 +18,7 @@ pipeline {
     stages {
         stage('Build PMM Client') {
             agent {
-                label 'docker-farm-arm'
+                label 'agent-arm64'
             }
             stages {
                 stage('Prepare') {
@@ -62,7 +62,7 @@ pipeline {
                             sh '''
                                 ./build/bin/build-client-binary
                                 aws s3 cp --acl public-read results/tarball/pmm2-client-*.tar.gz \
-                                    s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz
+                                    s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-arm-${BUILD_ID}.tar.gz
                             '''
                         }
                         stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
@@ -108,28 +108,6 @@ pipeline {
                         signRPM()
                         signDEB()
                     }
-                }
-            }
-        }
-    }
-    post {
-        always {
-            script {
-                env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz"
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
-                    slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo"
-                    if ("${DESTINATION}" == "testing")
-                    {
-                      currentBuild.description = "Release Candidate Build: "
-                      slackSend botUser: true,
-                                channel: '#pmm-qa',
-                                color: '#00FF00',
-                                message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished\nClient Tarball: ${env.TARBALL_URL}"
-                    }
-                } else {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
             }
         }
