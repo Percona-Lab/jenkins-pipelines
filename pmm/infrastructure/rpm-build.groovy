@@ -38,6 +38,7 @@ pipeline {
                             sh """
                                 cd build/rpmbuild-docker
                                 docker build --pull --squash --tag public.ecr.aws/e7j3v3n0/rpmbuild:2 .
+                                docker tag ${IMAGE_REGISTRY}/rpmbuild:2 ${IMAGE_REGISTRY}/rpmbuild:${ARCH}
                             """
                             withCredentials([[
                                 $class: 'AmazonWebServicesCredentialsBinding',
@@ -50,7 +51,9 @@ pipeline {
                                     docker manifest create ${IMAGE_REGISTRY}/rpmbuild:2 \
                                         ${IMAGE_REGISTRY}/rpmbuild:amd64  \
                                         ${IMAGE_REGISTRY}/rpmbuild:arm64
-                                    docker manifest annotate --arch ${ARCH} ${IMAGE_REGISTRY}/rpmbuild:2 ${IMAGE_REGISTRY}/rpmbuild:${ARCH}
+                                    docker manifest annotate --arch amd64 ${IMAGE_REGISTRY}/rpmbuild:2 ${IMAGE_REGISTRY}/rpmbuild:amd64
+                                    docker manifest annotate --arch arm64 ${IMAGE_REGISTRY}/rpmbuild:2 ${IMAGE_REGISTRY}/rpmbuild:arm64
+
                                     docker manifest push ${IMAGE_REGISTRY}/rpmbuild:2
                                 """
                             }
