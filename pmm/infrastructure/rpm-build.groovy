@@ -10,16 +10,19 @@ pipeline {
         skipStagesAfterUnstable()
         buildDiscarder(logRotator(artifactNumToKeepStr: '10'))
     }
+    environment {
+        IMAGE_REGISTRY = "public.ecr.aws/e7j3v3n0"
+    }
     stages {
         stage('Build rpmbuild image') {
             matrix {
                 agent {
-                    label "${AGENT}"
+                    label "agent-${ARCH}"
                 }
                 axes {
                     axis {
-                        name 'AGENT'
-                        values 'docker-farm', 'docker-farm-arm'
+                        name 'ARCH'
+                        values 'amd64', 'arm64'
                     }
                 }
                 stages {
@@ -32,18 +35,25 @@ pipeline {
                     }
                     stage('Build') {
                         steps {
-                            withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                                sh """
-                                    sg docker -c "
-                                        echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                                    "
-                                """
-                            }
                             sh """
                                 cd build/rpmbuild-docker
-                                docker build --pull --tag perconalab/rpmbuild:2 .
-                                docker push perconalab/rpmbuild:2
+                                docker build --pull --squash --tag public.ecr.aws/e7j3v3n0/rpmbuild:2 .
                             """
+                            withCredentials([[
+                                $class: 'AmazonWebServicesCredentialsBinding',
+                                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                credentialsId: 'ECRRWUser',
+                                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                                sh """
+                                    aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                                    docker push ${IMAGE_REGISTRY}/rpmbuild:${ARCH}
+                                    docker manifest create ${IMAGE_REGISTRY}/rpmbuild:2 \
+                                        ${IMAGE_REGISTRY}/rpmbuild:amd64  \
+                                        ${IMAGE_REGISTRY}/rpmbuild:arm64
+                                    docker manifest annotate --arch ${ARCH} ${IMAGE_REGISTRY}/rpmbuild:2 ${IMAGE_REGISTRY}/rpmbuild:${ARCH}
+                                    docker manifest push ${IMAGE_REGISTRY}/rpmbuild:2
+                                """
+                            }
                         }
                     }
                 }
