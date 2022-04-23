@@ -33,8 +33,6 @@ pipeline {
                             git rev-parse --short HEAD > shortCommit
                         '''
 
-                        archiveArtifacts 'uploadPath'
-                        stash includes: 'uploadPath', name: 'uploadPath'
                         archiveArtifacts 'shortCommit'
                         slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                     }
