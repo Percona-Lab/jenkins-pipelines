@@ -37,8 +37,7 @@ pipeline {
                         steps {
                             sh """
                                 cd build/rpmbuild-docker
-                                docker build --pull --squash --tag public.ecr.aws/e7j3v3n0/rpmbuild:2 .
-                                docker tag ${IMAGE_REGISTRY}/rpmbuild:2 ${IMAGE_REGISTRY}/rpmbuild:${ARCH}
+                                docker build --pull --tag ${IMAGE_REGISTRY}/rpmbuild:${ARCH} .
                             """
                             withCredentials([[
                                 $class: 'AmazonWebServicesCredentialsBinding',
@@ -46,7 +45,7 @@ pipeline {
                                 credentialsId: 'ECRRWUser',
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                                 sh """
-                                    aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                                    aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin ${IMAGE_REGISTRY}
                                     docker push ${IMAGE_REGISTRY}/rpmbuild:${ARCH}
                                     docker manifest create ${IMAGE_REGISTRY}/rpmbuild:2 \
                                         ${IMAGE_REGISTRY}/rpmbuild:amd64  \
