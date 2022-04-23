@@ -10,6 +10,8 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 String PUBLIC_IP = ''
 
+Jenkins.instance.getItemByFullName(env.JOB_NAME).description = 'testtet'
+
 pipeline {
     agent {
         label 'cli'
