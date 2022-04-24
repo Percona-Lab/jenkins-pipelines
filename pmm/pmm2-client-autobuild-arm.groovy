@@ -69,7 +69,7 @@ pipeline {
                     steps {
                         sh './build/bin/build-client-rpm centos:7'
                         sh './build/bin/build-client-rpm rockylinux:8'
-                        sh 'aws s3 cp -r --acl public-read --include "pmm*-client-*.rpm" results/rpm/ \
+                        sh 'aws s3 cp --recursive --acl public-read --include "pmm*-client-*.rpm" results/rpm/ \
                                 s3://pmm-build-cache/pmm2-client/ARM/'
                         stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
                     }
@@ -88,7 +88,7 @@ pipeline {
                         sh './build/bin/build-client-deb debian:bullseye'
                         sh './build/bin/build-client-deb ubuntu:bionic'
                         sh './build/bin/build-client-deb ubuntu:focal'
-                        sh 'aws s3 cp -r --acl public-read --include "*.deb" results/deb/ \
+                        sh 'aws s3 cp --recursive --acl public-read --include "*.deb" results/deb/ \
                                 s3://pmm-build-cache/pmm2-client/ARM/'
                         stash includes: 'results/deb/*.deb', name: 'debs'
                     }
