@@ -15,6 +15,9 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
+    environment {
+        GOARCH = "arm64"
+    }
     stages {
         stage('Build PMM Client') {
             agent {
