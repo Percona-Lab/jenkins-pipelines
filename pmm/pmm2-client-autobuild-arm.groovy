@@ -41,7 +41,6 @@ pipeline {
                     steps {
                         sh './build/bin/build-client-source'
                         stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
-                        uploadTarball('source')
                     }
                 }
                 stage('Build client binary') {
@@ -50,18 +49,16 @@ pipeline {
                             sh '''
                                 ./build/bin/build-client-binary
                                 aws s3 cp --acl public-read results/tarball/pmm2-client-*.tar.gz \
-                                    s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-arm-${BUILD_ID}.tar.gz
+                                    s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-arm-latest-arm-${BUILD_ID}.tar.gz
                             '''
                         }
                         stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
-                        uploadTarball('binary')
                     }
                 }
                 stage('Build client source rpm') {
                     steps {
                         sh './build/bin/build-client-srpm centos:7'
                         stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                        uploadRPM()
                     }
                 }
                 stage('Build client binary rpm') {
@@ -69,7 +66,6 @@ pipeline {
                         sh './build/bin/build-client-rpm centos:7'
                         sh './build/bin/build-client-rpm rockylinux:8'
                         stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
-                        uploadRPM()
                     }
                 }
 
@@ -77,7 +73,6 @@ pipeline {
                     steps {
                         sh './build/bin/build-client-sdeb ubuntu:bionic'
                         stash includes: 'results/source_deb/*', name: 'debs'
-                        uploadDEB()
                     }
                 }
                 stage('Build client binary debs') {
@@ -88,16 +83,10 @@ pipeline {
                         sh './build/bin/build-client-deb ubuntu:bionic'
                         sh './build/bin/build-client-deb ubuntu:focal'
                         stash includes: 'results/deb/*.deb', name: 'debs'
-                        uploadDEB()
-                    }
-                }
-                stage('Sign packages') {
-                    steps {
-                        signRPM()
-                        signDEB()
                     }
                 }
             }
         }
     }
+
 }
