@@ -253,6 +253,10 @@ pipeline {
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                 VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
                 CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                IMAGE_PMM="percona/pmm-client:2.27.0"
+                PMM_SERVER_VER="2.27.0"
+                IMAGE_PMM_SERVER_REPO="percona/pmm-server"
+                IMAGE_PMM_SERVER_TAG="2.27.0"
             }
             parallel {
                 stage('E2E Scaling') {

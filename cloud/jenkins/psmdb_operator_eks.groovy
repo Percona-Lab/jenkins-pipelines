@@ -141,6 +141,10 @@ pipeline {
     }
     environment {
         CLEAN_NAMESPACE = 1
+        IMAGE_PMM="percona/pmm-client:2.27.0"
+        PMM_SERVER_VER="2.27.0"
+        IMAGE_PMM_SERVER_REPO="percona/pmm-server"
+        IMAGE_PMM_SERVER_TAG="2.27.0"
     }
     agent {
          label 'docker'
