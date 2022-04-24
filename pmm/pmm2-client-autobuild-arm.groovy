@@ -52,7 +52,7 @@ pipeline {
                             sh '''
                                 ./build/bin/build-client-binary
                                 aws s3 cp --acl public-read results/tarball/pmm2-client-*.tar.gz \
-                                    s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-arm-latest-arm-${BUILD_ID}.tar.gz
+                                    s3://pmm-build-cache/pmm2-client/ARM/pmm2-client-latest-arm-${BUILD_ID}.tar.gz
                             '''
                         }
                         stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
@@ -60,14 +60,17 @@ pipeline {
                 }
                 stage('Build client source rpm') {
                     steps {
-                        sh './build/bin/build-client-srpm centos:7'
-                        stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
+                        sh '''
+                            ./build/bin/build-client-srpm centos:7
+                        '''
                     }
                 }
                 stage('Build client binary rpm') {
                     steps {
                         sh './build/bin/build-client-rpm centos:7'
                         sh './build/bin/build-client-rpm rockylinux:8'
+                        sh 'aws s3 cp --acl public-read results/rpm/pmm*-client-*.rpm \
+                                s3://pmm-build-cache/pmm2-client/ARM/'
                         stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
                     }
                 }
@@ -85,6 +88,8 @@ pipeline {
                         sh './build/bin/build-client-deb debian:bullseye'
                         sh './build/bin/build-client-deb ubuntu:bionic'
                         sh './build/bin/build-client-deb ubuntu:focal'
+                        sh 'aws s3 cp --acl public-read results/deb/*.deb \
+                                s3://pmm-build-cache/pmm2-client/ARM/'
                         stash includes: 'results/deb/*.deb', name: 'debs'
                     }
                 }
