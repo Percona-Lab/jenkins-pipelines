@@ -10,7 +10,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'ALL',
-            description: 'Name or IP of VM to stop. ALL means stop all vm older 24 hours',
+            description: 'Name or IP of VM to stop. ALL means stop all VMs older than 24 hours',
             name: 'VM')
     }
     triggers {
