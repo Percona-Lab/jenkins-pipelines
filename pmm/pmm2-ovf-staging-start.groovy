@@ -11,7 +11,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 String PUBLIC_IP = ''
 
 Jenkins.instance.getItemByFullName(env.JOB_NAME).description = '''
-With this job you can run OVA image with PMM server on Digital Ocean droplet. We use DO instead AWS here because AWS doesn't support nested virtualization
+With this job you can run an OVA image with PMM server on a Digital Ocean droplet. We use DO instead of AWS here because AWS doesn't support nested virtualization.
 '''
 
 pipeline {
