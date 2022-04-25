@@ -23,4 +23,4 @@ We have [runPython](https://github.com/Percona-Lab/jenkins-pipelines/blob/master
 
 ## The Zen of Jenkinsfile
 1. All pipelines should be stored in this repo.
-2. If your bash code is longer than 10 lines maybe worth using Python
+2. If your bash code is longer than 10 lines it maybe worth using Python
