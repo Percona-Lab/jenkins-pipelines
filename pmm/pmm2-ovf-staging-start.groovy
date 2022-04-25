@@ -100,7 +100,7 @@ pipeline {
                         slackSend botUser: true,
                                 channel: "@${OWNER_SLACK}",
                                 color: '#00FF00',
-                                message: "OVA staging for ${OVA_VERSION} was created. IP: https://${PUBLIC_IP}\nYou can stop instance here: https://pmm.cd.percona.com/job/pmm2-ovf-staging-stop/build"
+                                message: "OVF instance for ${OVA_VERSION} was created. IP: https://${PUBLIC_IP}\nYou can stop it with: https://pmm.cd.percona.com/job/pmm2-ovf-staging-stop/build"
                     }
                 }
             }
