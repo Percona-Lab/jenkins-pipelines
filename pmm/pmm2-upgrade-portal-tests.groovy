@@ -37,7 +37,7 @@ void destroyStaging(IP) {
 
 pipeline {
     agent {
-        label 'docker'
+        label 'agent-amd64'
     }
     environment {
         PORTAL_USER_EMAIL=credentials('PORTAL_USER_EMAIL')
@@ -58,9 +58,9 @@ pipeline {
             defaultValue: '',
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
-        choice(
-            choices: ['2.27.0', '2.26.0', '2.25.0'],
-            description: "PMM Server Version",
+        string(
+            defaultValue: 'perconalab/pmm-server:2.27.0',
+            description: "Docker tag for PMM Server Version",
             name: 'PMM_SERVER_VERSION')
         choice(
             choices: ['2.27.0', '2.26.0', '2.25.0'],
@@ -100,8 +100,6 @@ pipeline {
                 sh '''
                     sudo yum -y update --security
                     sudo yum -y install php php-mysqlnd php-pdo jq svn bats mysql
-                    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-                    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
                     sudo amazon-linux-extras install epel -y
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
@@ -124,21 +122,12 @@ pipeline {
         }
         stage('Start Server') {
             steps {
-                runStagingServer("perconalab/pmm-server:$PMM_SERVER_VERSION", "$PMM_CLIENT_VERSION" , "no", '127.0.0.1', ADMIN_PASSWORD)
+                runStagingServer("$PMM_SERVER_VERSION", "$PMM_CLIENT_VERSION" , "no", '127.0.0.1', ADMIN_PASSWORD)
             }
         }
         stage('Sanity check') {
             steps {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
-            }
-        }
-        stage('Setup Node') {
-            steps {
-                setupNodejs()
-                sh """
-                    sudo yum install -y gettext
-                    envsubst < env.list > env.generated.list
-                """
             }
         }
         stage('Sleep') {
@@ -194,6 +183,7 @@ pipeline {
                         export PATH="`pwd`/pmm2-client/bin:$PATH"
                     fi
                     export CHROMIUM_PATH=/usr/bin/chromium
+                    npm install
                     touch portalCredentials
                     ./node_modules/.bin/codeceptjs run --steps --reporter mocha-multi -c pr.codecept.js --grep '@pre-pmm-portal-upgrade'
                 """
