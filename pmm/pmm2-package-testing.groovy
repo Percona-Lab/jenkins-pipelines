@@ -173,6 +173,20 @@ pipeline {
                         }
                     }
                 }
+                stage('jammy-x64') {
+                    agent {
+                        label 'min-jammy-x64'
+                    }
+                    steps{
+                        setup_ubuntu_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
                 stage('buster-x64') {
                     agent {
                         label 'min-buster-x64'
