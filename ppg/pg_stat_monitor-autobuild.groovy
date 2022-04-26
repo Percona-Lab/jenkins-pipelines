@@ -12,9 +12,9 @@ void installCli(String PLATFORM) {
         fi
         if [ ${PLATFORM} = "deb" ]; then
             sudo apt-get update
-            sudo apt-get -y install wget curl unzip
+            sudo apt-get -y install wget curl unzip gnupg2
         elif [ ${PLATFORM} = "rpm" ]; then
-            sudo yum -y install wget curl unzip
+            sudo yum -y install wget curl unzip gnupg2
         fi
         curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
         unzip awscliv2.zip
@@ -60,14 +60,13 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             sudo wget https://repo.percona.com/apt/percona-release_latest.\$(lsb_release -sc)_all.deb
             sudo dpkg -i percona-release_latest.\$(lsb_release -sc)_all.deb
         fi
-
         sudo percona-release enable ppg-${PG_RELEASE} release
         pwd -P
         export build_dir=\$(pwd -P)
         set -o xtrace
         cd \${build_dir}
         if [ -f ./test/pg-stat-monitor.properties ]; then
-            . ./test/pg-stat-monitor.properties
+            source ./test/pg-stat-monitor.properties
         fi
         sed -i "s:VERSION=\"1.0.0\":VERSION=\"$VERSION\":" psm_builder.sh
         sed -i "s:PG_RELEASE=11:PG_RELEASE=\"${PG_RELEASE}\":" psm_builder.sh
@@ -327,12 +326,8 @@ pipeline {
                 unstash 'properties'
                 popArtifactFolder("rpm/", AWS_STASH_PATH)
                 sh ''' 
-                    ls -la rpm/
                     sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-                    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-                    sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable"
-                    sudo apt-get update
-                    sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+                    sudo apt-get install -y docker.io
                     sudo systemctl status docker
                     git clone https://github.com/percona/percona-docker
                     cp rpm/percona-pg_stat_monitor${PG_RELEASE}-${VERSION}-${RPM_RELEASE}.el8.x86_64.rpm percona-docker/percona-distribution-postgresql-${PG_RELEASE}/
