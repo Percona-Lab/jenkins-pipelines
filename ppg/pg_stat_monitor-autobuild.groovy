@@ -66,7 +66,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         set -o xtrace
         cd \${build_dir}
         if [ -f ./test/pg-stat-monitor.properties ]; then
-            source ./test/pg-stat-monitor.properties
+            . ./test/pg-stat-monitor.properties
         fi
         sed -i "s:VERSION=\"1.0.0\":VERSION=\"$VERSION\":" psm_builder.sh
         sed -i "s:PG_RELEASE=11:PG_RELEASE=\"${PG_RELEASE}\":" psm_builder.sh
