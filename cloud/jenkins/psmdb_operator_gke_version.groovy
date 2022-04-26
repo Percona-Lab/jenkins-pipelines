@@ -337,6 +337,13 @@ pipeline {
                         ShutdownCluster('backups')
                     }
                 }
+                stage('CrossSite replication') {
+                    steps {
+                        CreateCluster('cross-site')
+                        runTest('cross-site-sharded', 'cross-site')
+                        ShutdownCluster('cross-site')
+                    }
+                }
             }
         }
     }
