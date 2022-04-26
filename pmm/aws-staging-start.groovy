@@ -11,20 +11,22 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 def changeUserPasswordUtility(dockerImage) {
     tag = dockerImage.split(":")[1]
 
-    if (tag.startsWith("PR") || tag.startsWith("dev")) 
+    if (tag.startsWith("PR") || tag.startsWith("dev"))
         return "yes"
-    
+
     minorVersion = tag.split("\\.")[1].toInteger()
-    
+
     if (minorVersion < 27)
         return "no"
-    else 
+    else
         return "yes"
 }
 
+def DEFAULT_SSH_KEYS = getSHHKeysPMM()
+
 pipeline {
     agent {
-        label 'awscli'
+        label 'cli'
     }
     parameters {
         string(
@@ -196,7 +198,7 @@ pipeline {
 
         stage('Run VM') {
             steps {
-                launchSpotInstance('t3.large', '0.040', 25)
+                launchSpotInstance('t3.large', 'FAIR', 25)
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) 'java -version; sudo yum install -y java-1.8.0-openjdk; sudo /usr/sbin/alternatives --set java /usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java; java -version;' ; do
@@ -205,13 +207,14 @@ pipeline {
                     """
                 }
                 script {
+                    env.SPOT_PRICE = sh(returnStdout: true, script: "cat SPOT_PRICE").trim()
                     env.IP      = sh(returnStdout: true, script: "cat IP").trim()
                     env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
 
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'aws-jenkins')
                     DumbSlave node = new DumbSlave(env.VM_NAME, "spot instance job", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
 
-                    currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME}"
+                    currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME} PRICE: ${env.SPOT_PRICE}"
                     Jenkins.instance.addNode(node)
                 }
                 node(env.VM_NAME){
@@ -219,6 +222,7 @@ pipeline {
                         set -o errexit
                         set -o xtrace
 
+                        echo '$DEFAULT_SSH_KEYS' >> /home/ec2-user/.ssh/authorized_keys
                         if [ -n "$SSH_KEY" ]; then
                             echo '$SSH_KEY' >> /home/ec2-user/.ssh/authorized_keys
                         fi
