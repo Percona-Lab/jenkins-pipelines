@@ -185,6 +185,11 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                script {
+                    if(env.TAG != "") {
+                        currentBuild.description = env.TAG
+                    }
+                }
                 // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
