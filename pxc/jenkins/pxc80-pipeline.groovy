@@ -299,7 +299,7 @@ pipeline {
                                            sleep 5
                                        done
                                    else
-                                       echo cannot find compiled or downloaded archive
+                                       echo "cannot find compiled or downloaded archive"
                                        exit 1
                                    fi
                                '''
