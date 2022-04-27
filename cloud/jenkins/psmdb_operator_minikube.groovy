@@ -252,7 +252,6 @@ pipeline {
                     runTest('upgrade-consistency')
                     runTest('users')
                     runTest('version-service')
-                    runTest('cross-site-sharded', 'cross-site')
             }
             post {
                 always {

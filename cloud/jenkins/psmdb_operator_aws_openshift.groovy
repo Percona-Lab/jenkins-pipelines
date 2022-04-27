@@ -257,6 +257,7 @@ pipeline {
                 runTest('service-per-pod')
                 runTest('liveness')
                 runTest('users')
+                runTest('cross-site-sharded')
            }
         }
         stage('E2E Backups') {
@@ -279,13 +280,6 @@ pipeline {
                 """
                 step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
                 archiveArtifacts '*.xml'
-            }
-        }
-        stage('CrossSite replication') {
-            steps {
-                CreateCluster('cross-site')
-                runTest('cross-site-sharded', 'cross-site')
-                ShutdownCluster('cross-site')
             }
         }
     }

@@ -254,6 +254,7 @@ pipeline {
                 runTest('data-sharded')
                 runTest('monitoring-2-0')
                 runTest('non-voting')
+                runTest('cross-site-sharded')
            }
         }
         stage('E2E SelfHealing') {
