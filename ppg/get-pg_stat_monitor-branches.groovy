@@ -86,7 +86,7 @@ pipeline {
                         echo ${START_NEW_BUILD}: build is required
                     """
                 }
-                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
+                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
                 build job: 'pg_stat_monitor-autobuild-RELEASE', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'VERSION', value: VERSION), string(name: 'PG_RELEASE', value: '11'), string(name: 'COMPONENT', value: 'testing')]
                 build job: 'pg_stat_monitor-autobuild-RELEASE', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'VERSION', value: VERSION), string(name: 'PG_RELEASE', value: '12'), string(name: 'COMPONENT', value: 'testing')]
                 build job: 'pg_stat_monitor-autobuild-RELEASE', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'VERSION', value: VERSION), string(name: 'PG_RELEASE', value: '13'), string(name: 'COMPONENT', value: 'testing')]
