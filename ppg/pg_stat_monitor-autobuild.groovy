@@ -354,15 +354,27 @@ pipeline {
                 }
             }
         } //stage
+        stage('Sign packages') {
+            steps {
+                signRPM()
+                signDEB()
+            }
+        }
+        stage('Push to public repository') {
+            steps {
+                // sync packages
+                sync2ProdAutoBuild("ppg-${PG_RELEASE}", COMPONENT)
+            }
+        }
     } //stages
     post {
         success {
-              slackNotify("releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for PG${PG_RELEASE}, repo branch: ${BRANCH}")
+              slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for PG${PG_RELEASE}, repo branch: ${BRANCH}")
               deleteDir()
               echo "Success"
         }
         failure {
-              slackNotify("releases", "#FF0000", "[${JOB_NAME}]: build failed for PG${PG_RELEASE}, repo branch: ${BRANCH}")
+              slackNotify("#releases", "#FF0000", "[${JOB_NAME}]: build failed for PG${PG_RELEASE}, repo branch: ${BRANCH}")
               deleteDir()
               echo "Failure"
         }
