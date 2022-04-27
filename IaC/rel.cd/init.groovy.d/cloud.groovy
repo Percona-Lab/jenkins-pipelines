@@ -35,6 +35,7 @@ imageMap['eu-west-1a.min-ol-8-x64']      = 'ami-0f7601d8419fac927'
 imageMap['eu-west-1a.min-bullseye-x64']  = 'ami-01ebd2b650c37e4d6'
 imageMap['eu-west-1a.min-buster-x64']    = 'ami-04e1d2f88740af5e1'
 imageMap['eu-west-1a.min-stretch-x64']   = 'ami-097672ef083ca4411'
+imageMap['eu-west-1a.min-jammy-x64']     = 'ami-00c90dbdc12232b58'
 imageMap['eu-west-1a.min-focal-x64']     = 'ami-03caf24deed650e2c'
 imageMap['eu-west-1a.min-bionic-x64']    = 'ami-0c259a97cbf621daf'
 imageMap['eu-west-1a.min-xenial-x64']    = 'ami-038d7b856fe7557b3'
@@ -57,7 +58,8 @@ imageMap['eu-west-1b.min-centos-8-x64'] = imageMap['eu-west-1a.min-centos-8-x64'
 imageMap['eu-west-1b.min-ol-8-x64']     = imageMap['eu-west-1a.min-ol-8-x64']
 imageMap['eu-west-1b.min-bullseye-x64'] = imageMap['eu-west-1a.min-bullseye-x64']
 imageMap['eu-west-1b.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
-imageMap['eu-west-1b.min-focal-x64']    = imageMap['eu-west-1a.min-focal-x64'] 
+imageMap['eu-west-1b.min-jammy-x64']    = imageMap['eu-west-1a.min-jammy-x64']
+imageMap['eu-west-1b.min-focal-x64']    = imageMap['eu-west-1a.min-focal-x64']
 imageMap['eu-west-1b.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
 imageMap['eu-west-1b.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
 imageMap['eu-west-1b.min-xenial-x64']   = imageMap['eu-west-1a.min-xenial-x64']
@@ -80,6 +82,7 @@ imageMap['eu-west-1c.min-centos-8-x64'] = imageMap['eu-west-1a.min-centos-8-x64'
 imageMap['eu-west-1c.min-ol-8-x64']     = imageMap['eu-west-1a.min-ol-8-x64']
 imageMap['eu-west-1c.min-bullseye-x64'] = imageMap['eu-west-1a.min-bullseye-x64']
 imageMap['eu-west-1c.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
+imageMap['eu-west-1c.min-jammy-x64']    = imageMap['eu-west-1a.min-jammy-x64']
 imageMap['eu-west-1c.min-focal-x64']    = imageMap['eu-west-1a.min-focal-x64'] 
 imageMap['eu-west-1c.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
 imageMap['eu-west-1c.min-stretch-x64']  = imageMap['eu-west-1a.min-stretch-x64']
@@ -104,6 +107,7 @@ userMap['docker']            = 'ec2-user'
 userMap['docker-32gb']       = userMap['docker']
 userMap['docker2']           = userMap['docker']
 userMap['micro-amazon']      = userMap['docker']
+userMap['min-jammy-x64']     = 'ubuntu'
 userMap['min-focal-x64']     = 'ubuntu'
 userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-xenial-x64']    = 'ubuntu'
@@ -357,6 +361,7 @@ initMap['min-buster-x64'] = '''
     sudo apt-get -y install openjdk-11-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
+initMap['min-jammy-x64'] = initMap['min-bionic-x64']
 initMap['min-focal-x64'] = initMap['min-bionic-x64']
 initMap['min-stretch-x64'] = initMap['min-bionic-x64']
 initMap['min-bullseye-x64'] = initMap['min-buster-x64']
@@ -382,6 +387,7 @@ typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
 typeMap['min-centos-8-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-ol-8-x64']      = typeMap['min-centos-7-x64']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-jammy-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32']  = 'm1.medium'
@@ -402,6 +408,7 @@ execMap['docker2']           = execMap['docker']
 execMap['micro-amazon']      = '30'
 execMap['min-bionic-x64']    = '1'
 execMap['min-focal-x64']     = '1'
+execMap['min-jammy-x64']     = '1'
 execMap['min-centos-6-x32']  = '1'
 execMap['min-centos-6-x64']  = '1'
 execMap['min-centos-7-x64']  = '1'
@@ -424,6 +431,7 @@ devMap['docker-32gb']       = devMap['docker']
 devMap['micro-amazon']      = devMap['docker']
 devMap['min-bionic-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:180:true:gp2'
 devMap['min-focal-x64']     = devMap['min-bionic-x64']
+devMap['min-jammy-x64']     = devMap['min-bionic-x64']
 devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
@@ -446,6 +454,7 @@ labelMap['docker2']           = 'docker-32gb'
 labelMap['micro-amazon']      = 'master'
 labelMap['min-bionic-x64']    = 'asan'
 labelMap['min-focal-x64']     = ''
+labelMap['min-jammy-x64']     = ''
 labelMap['min-centos-6-x32']  = ''
 labelMap['min-centos-6-x64']  = ''
 labelMap['min-centos-7-x64']  = ''
@@ -535,6 +544,7 @@ String region = 'eu-west-1'
             getTemplate('min-xenial-x64',     "${region}${it}"),
             getTemplate('min-xenial-x32',     "${region}${it}"),
             getTemplate('min-stretch-x64',     "${region}${it}"),
+            getTemplate('min-jammy-x64',      "${region}${it}"),
             getTemplate('min-focal-x64',      "${region}${it}"),
             getTemplate('min-bionic-x64',     "${region}${it}"),
             getTemplate('min-buster-x64',     "${region}${it}"),
