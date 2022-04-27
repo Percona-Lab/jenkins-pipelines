@@ -17,9 +17,7 @@ void runPackageTestingJob(String GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM
 def latestVersion = pmmVersion()
 
 pipeline {
-    agent {
-        label 'micro-amazon'
-    }
+    agent none
     parameters {
         string(
             defaultValue: 'master',
