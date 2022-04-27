@@ -85,6 +85,7 @@ imageMap['eu-west-1a.min-stretch-x64']      = properties.AwsAmi['Debian9']['euWe
 imageMap['eu-west-1a.min-xenial-x64']       = properties.AwsAmi['Ubuntu1604']['euWest1']
 imageMap['eu-west-1a.docker-32gb-hirsute']  = properties.AwsAmi['Ubuntu2104']['euWest1']
 imageMap['eu-west-1a.docker-32gb-focal']    = properties.AwsAmi['Ubuntu2004']['euWest1']
+imageMap['eu-west-1a.docker-32gb-jammy']    = properties.AwsAmi['Ubuntu2204']['euWest1']
 imageMap['eu-west-1a.docker-32gb-bullseye'] = imageMap['eu-west-1a.min-bullseye-x64']
 
 imageMap['eu-west-1b.docker']               = imageMap['eu-west-1a.docker']
@@ -104,6 +105,7 @@ imageMap['eu-west-1b.min-stretch-x64']      = imageMap['eu-west-1a.min-stretch-x
 imageMap['eu-west-1b.min-xenial-x64']       = imageMap['eu-west-1a.min-xenial-x64']
 imageMap['eu-west-1b.docker-32gb-hirsute']  = imageMap['eu-west-1a.docker-32gb-hirsute']
 imageMap['eu-west-1b.docker-32gb-focal']    = imageMap['eu-west-1a.docker-32gb-focal']
+imageMap['eu-west-1b.docker-32gb-jammy']    = imageMap['eu-west-1a.docker-32gb-jammy']
 imageMap['eu-west-1b.docker-32gb-bullseye'] = imageMap['eu-west-1a.docker-32gb-bullseye']
 
 imageMap['eu-west-1c.docker']               = imageMap['eu-west-1a.docker']
@@ -123,6 +125,7 @@ imageMap['eu-west-1c.min-stretch-x64']      = imageMap['eu-west-1a.min-stretch-x
 imageMap['eu-west-1c.min-xenial-x64']       = imageMap['eu-west-1a.min-xenial-x64']
 imageMap['eu-west-1c.docker-32gb-hirsute']  = imageMap['eu-west-1a.docker-32gb-hirsute']
 imageMap['eu-west-1c.docker-32gb-focal']    = imageMap['eu-west-1a.docker-32gb-focal']
+imageMap['eu-west-1c.docker-32gb-jammy']    = imageMap['eu-west-1a.docker-32gb-jammy']
 imageMap['eu-west-1c.docker-32gb-bullseye'] = imageMap['eu-west-1a.docker-32gb-bullseye']
 
 priceMap = [:]
@@ -131,7 +134,7 @@ priceMap['t2.medium'] = '0.03'
 priceMap['t2.large'] = '0.07'
 priceMap['t3a.2xlarge'] = '0.17'
 priceMap['t3.2xlarge'] = '0.18'
-priceMap['m5zn.3xlarge'] = '0.27'
+priceMap['r5b.2xlarge'] = '0.29'
 priceMap['t2.2xlarge'] = '0.18'
 
 userMap = [:]
@@ -151,6 +154,7 @@ userMap['min-stretch-x64']      = properties.AwsAmi['Debian9']['user']
 userMap['min-buster-x64']       = properties.AwsAmi['Debian10']['user']
 userMap['docker-32gb-hirsute']  = properties.AwsAmi['Ubuntu2104']['user']
 userMap['docker-32gb-focal']    = properties.AwsAmi['Ubuntu2004']['user']
+userMap['docker-32gb-jammy']    = properties.AwsAmi['Ubuntu2204']['user']
 userMap['docker-32gb-bullseye'] = properties.AwsAmi['Debian11']['user']
 
 initMap = [:]
@@ -282,6 +286,7 @@ initMap['docker-32gb-hirsute'] = '''
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 initMap['docker-32gb-focal'] = initMap['docker-32gb-hirsute']
+initMap['docker-32gb-jammy'] = initMap['docker-32gb-hirsute']
 
 initMap['docker-32gb-bullseye'] = '''
     set -o xtrace
@@ -468,14 +473,14 @@ initMap['min-xenial-x64']  = initMap['debMap']
 capMap = [:]
 capMap['t3a.2xlarge'] = '60'
 capMap['t3.2xlarge'] = '60'
-capMap['m5zn.3xlarge'] = '40'
+capMap['r5b.2xlarge'] = '40'
 capMap['t2.2xlarge'] = '10'
 capMap['t2.micro']     = '10'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 't3a.2xlarge'
 typeMap['docker']            = 't3a.2xlarge'
-typeMap['docker-32gb']       = 'm5zn.3xlarge'
+typeMap['docker-32gb']       = 'r5b.2xlarge'
 typeMap['docker2']           = 't2.2xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
@@ -487,9 +492,10 @@ typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x64']  = 't3.2xlarge'
 typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
-typeMap['docker-32gb-hirsute'] = 'm5zn.3xlarge'
-typeMap['docker-32gb-focal'] = 'm5zn.3xlarge'
-typeMap['docker-32gb-bullseye'] = 'm5zn.3xlarge'
+typeMap['docker-32gb-hirsute'] = 'r5b.2xlarge'
+typeMap['docker-32gb-focal'] = 'r5b.2xlarge'
+typeMap['docker-32gb-jammy'] = 'r5b.2xlarge'
+typeMap['docker-32gb-bullseye'] = 'r5b.2xlarge'
 
 execMap = [:]
 execMap['docker']            = '1'
@@ -507,6 +513,7 @@ execMap['min-xenial-x64']    = '1'
 execMap['min-buster-x64']    = '1'
 execMap['docker-32gb-hirsute'] = '1'
 execMap['docker-32gb-focal'] = '1'
+execMap['docker-32gb-jammy'] = '1'
 execMap['min-bullseye-x64']  = '1'
 execMap['docker-32gb-bullseye']  = '1'
 
@@ -527,6 +534,7 @@ devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-buster-x64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb-hirsute'] = devMap['docker']
 devMap['docker-32gb-focal'] = devMap['docker']
+devMap['docker-32gb-jammy'] = devMap['docker']
 devMap['min-bullseye-x64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb-bullseye']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 
@@ -546,6 +554,7 @@ labelMap['min-xenial-x64']    = ''
 labelMap['min-buster-x64']    = ''
 labelMap['docker-32gb-hirsute'] = ''
 labelMap['docker-32gb-focal'] = ''
+labelMap['docker-32gb-jammy'] = ''
 labelMap['min-bullseye-x64']  = ''
 labelMap['docker-32gb-bullseye']  = ''
 
@@ -632,6 +641,7 @@ String region = 'eu-west-1'
             getTemplate('min-xenial-x64',       "${region}${it}"),
             getTemplate('docker-32gb-hirsute',  "${region}${it}"),
             getTemplate('docker-32gb-focal',    "${region}${it}"),
+            getTemplate('docker-32gb-jammy',    "${region}${it}"),
             getTemplate('docker-32gb-bullseye', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
