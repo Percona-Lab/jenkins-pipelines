@@ -257,7 +257,6 @@ pipeline {
                 runTest('service-per-pod')
                 runTest('liveness')
                 runTest('users')
-                runTest('cross-site-sharded')
            }
         }
         stage('E2E Backups') {
@@ -270,6 +269,11 @@ pipeline {
                 runTest('upgrade-sharded')
                 runTest('pitr')
                 runTest('pitr-sharded')
+            }
+        }
+        stage('E2E Cross Site') {
+            steps {
+                runTest('cross-site-sharded')
             }
         }
         stage('Make report') {

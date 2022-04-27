@@ -274,7 +274,6 @@ EOF
                 runTest('users')
                 runTest('data-sharded')
                 runTest('non-voting')
-                runTest('cross-site-sharded')
            }
         }
         stage('E2E SelfHealing') {
@@ -297,6 +296,11 @@ EOF
                 runTest('pitr')
                 runTest('pitr-sharded')
                 runTest('demand-backup-eks-credentials')
+            }
+        }
+        stage('E2E Cross Site') {
+            steps {
+                runTest('cross-site-sharded')
             }
         }
         stage('Make report') {

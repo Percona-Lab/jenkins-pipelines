@@ -250,7 +250,6 @@ pipeline {
                 runTest('data-sharded')
                 runTest('monitoring-2-0')
                 runTest('non-voting')
-                runTest('cross-site-sharded')
            }
         }
         stage('E2E SelfHealing') {
@@ -269,6 +268,11 @@ pipeline {
                 runTest('upgrade-sharded')
                 runTest('pitr')
                 runTest('pitr-sharded')
+            }
+        }
+        stage('E2E Cross Site') {
+            steps {
+                runTest('cross-site-sharded')
             }
         }
         stage('Make report') {

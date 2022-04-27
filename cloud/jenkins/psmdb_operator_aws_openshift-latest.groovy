@@ -254,7 +254,6 @@ pipeline {
                 runTest('data-sharded')
                 runTest('monitoring-2-0')
                 runTest('non-voting')
-                runTest('cross-site-sharded')
            }
         }
         stage('E2E SelfHealing') {
@@ -275,11 +274,9 @@ pipeline {
                 runTest('pitr-sharded')
             }
         }
-        stage('CrossSite replication') {
+        stage('E2E Cross Site') {
             steps {
-                CreateCluster('cross-site')
-                runTest('cross-site-sharded', 'cross-site')
-                ShutdownCluster('cross-site')
+                runTest('cross-site-sharded')
             }
         }
         stage('Make report') {
