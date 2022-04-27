@@ -134,6 +134,7 @@ pipeline {
                         sh './build/bin/build-client-deb debian:buster'
                         sh './build/bin/build-client-deb debian:stretch'
                         sh './build/bin/build-client-deb debian:bullseye'
+                        sh './build/bin/build-client-deb ubuntu:jammy'
                         sh './build/bin/build-client-deb ubuntu:bionic'
                         sh './build/bin/build-client-deb ubuntu:focal'
                         stash includes: 'results/deb/*.deb', name: 'debs'
