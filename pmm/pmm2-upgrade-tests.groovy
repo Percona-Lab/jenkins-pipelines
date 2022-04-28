@@ -147,10 +147,10 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    if(env.PERFORM_DOCKER_WAY_UPGRADE != "no") {
-                        currentBuild.description = "UI way upgrade from ${env.DOCKER_VERSION} to ${env.PMM_SERVER_LATEST}"
-                    } else {
+                    if(env.PERFORM_DOCKER_WAY_UPGRADE == "yes") {
                         currentBuild.description = "Docker way upgrade from ${env.DOCKER_VERSION} to ${env.PMM_SERVER_LATEST}"
+                    } else {
+                        currentBuild.description = "UI way upgrade from ${env.DOCKER_VERSION} to ${env.PMM_SERVER_LATEST}"
                     }
                 }
                 // fetch pmm-ui-tests repository
