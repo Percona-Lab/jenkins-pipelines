@@ -9,7 +9,7 @@ pipeline {
         specName = 'OVF'
     }
     agent {
-        label 'virtualbox'
+        label 'ovf-do'
     }
     parameters {
         string(
