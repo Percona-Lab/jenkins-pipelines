@@ -55,7 +55,6 @@ def pmm_submodules() {
         "grafana",
         "dbaas-controller",
         "node_exporter",
-        "mongodb_exporter",
         "postgres_exporter",
         "clickhouse_exporter",
         "proxysql_exporter",
@@ -207,6 +206,10 @@ pipeline {
                     env.RELEASE_BRANCH = 'pmm-' + VERSION
                 }
                 deleteReleaseBranches(env.SUBMODULES_GIT_BRANCH)
+                script{
+                    currentBuild.description = "Release beanches were deleted: ${env.SUBMODULES_GIT_BRANCH}"
+                    return
+                }
             }
         }
         stage('Check if Release Branch Exists') {
@@ -216,7 +219,7 @@ pipeline {
                     currentBuild.description = "$VERSION"
                     slackSend botUser: true,
                         channel: '#pmm-dev',
-                        color: '#FF0000',
+                        color: '#0892d0',
                         message: "Release candidate PMM $VERSION build has started. You can check progress at: ${BUILD_URL}"
                     env.EXIST = sh (
                         script: 'git ls-remote --heads https://github.com/Percona-Lab/pmm-submodules pmm-\${VERSION} | wc -l',
