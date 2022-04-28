@@ -207,6 +207,10 @@ pipeline {
                     env.RELEASE_BRANCH = 'pmm-' + VERSION
                 }
                 deleteReleaseBranches(env.SUBMODULES_GIT_BRANCH)
+                script{
+                    currentBuild.description = "Release beanches were deleted: ${env.SUBMODULES_GIT_BRANCH}"
+                    return
+                }
             }
         }
         stage('Check if Release Branch Exists') {
