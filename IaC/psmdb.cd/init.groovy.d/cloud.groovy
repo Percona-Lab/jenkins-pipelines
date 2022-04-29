@@ -32,6 +32,7 @@ imageMap['min-stretch-x64']  = 'ami-01bc069bbdca81d56'
 imageMap['min-xenial-x64']   = 'ami-079e7a3f57cc8e0d0'
 imageMap['min-bionic-x64']   = 'ami-074251216af698218'
 imageMap['min-focal-x64']    = 'ami-0892d3c7ee96c0bf7'
+imageMap['min-jammy-x64']    = 'ami-0ee8244746ec5d6d4'
 imageMap['psmdb']            = imageMap['min-xenial-x64']
 imageMap['psmdb-bionic']     = imageMap['min-bionic-x64']
 imageMap['docker']           = imageMap['micro-amazon']
@@ -56,6 +57,7 @@ userMap['min-buster-x64']   = 'admin'
 userMap['min-xenial-x64']   = 'ubuntu'
 userMap['min-bionic-x64']   = 'ubuntu'
 userMap['min-focal-x64']    = 'ubuntu'
+userMap['min-jammy-x64']    = 'ubuntu'
 userMap['min-bullseye-x64'] = 'admin'
 userMap['psmdb']            = userMap['min-xenial-x64']
 userMap['psmdb-bionic']     = userMap['min-xenial-x64']
@@ -257,6 +259,7 @@ initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-stretch-x64']  = initMap['debMap']
 initMap['min-buster-x64']   = initMap['debMap']
 
+initMap['min-jammy-x64']   = initMap['debMap']
 initMap['min-focal-x64']   = initMap['debMap']
 initMap['min-bionic-x64']  = initMap['debMap']
 initMap['min-xenial-x64']  = initMap['debMap']
@@ -282,6 +285,7 @@ typeMap['min-buster-x64']    = typeMap['docker-32gb']
 typeMap['min-xenial-x64']    = typeMap['docker-32gb']
 typeMap['min-bionic-x64']    = typeMap['docker-32gb']
 typeMap['min-focal-x64']     = typeMap['docker-32gb']
+typeMap['min-jammy-x64']     = typeMap['docker-32gb']
 typeMap['psmdb']             = typeMap['docker-32gb']
 typeMap['psmdb-bionic']      = typeMap['docker-32gb']
 
@@ -298,6 +302,7 @@ execMap['min-buster-x64']   = '1'
 execMap['min-xenial-x64']   = '1'
 execMap['min-bionic-x64']   = '1'
 execMap['min-focal-x64']    = '1'
+execMap['min-jammy-x64']    = '1'
 execMap['psmdb']            = '1'
 execMap['psmdb-bionic']     = '1'
 
@@ -316,6 +321,7 @@ devMap['min-stretch-x64']  = 'xvda=:8:true:gp2,xvdd=:400:true:gp2'
 devMap['min-xenial-x64']   = '/dev/sda1=:8:true:gp2,/dev/sdd=:400:true:gp2'
 devMap['min-bionic-x64']   = '/dev/sda1=:8:true:gp2,/dev/sdd=:400:true:gp2'
 devMap['min-focal-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:400:true:gp2'
+devMap['min-jammy-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:400:true:gp2'
 
 labelMap = [:]
 labelMap['docker']           = ''
@@ -330,6 +336,7 @@ labelMap['min-buster-x64']   = ''
 labelMap['min-xenial-x64']   = ''
 labelMap['min-bionic-x64']   = ''
 labelMap['min-focal-x64']    = ''
+labelMap['min-jammy-x64']    = ''
 labelMap['psmdb']            = ''
 labelMap['psmdb-bionic']     = ''
 
@@ -411,6 +418,7 @@ String region = 'us-west-2'
             getTemplate('min-buster-x64',   "${region}${it}"),
             getTemplate('min-stretch-x64',  "${region}${it}"),
             getTemplate('min-bullseye-x64', "${region}${it}"),
+            getTemplate('min-jammy-x64',    "${region}${it}"),
             getTemplate('min-focal-x64',    "${region}${it}"),
             getTemplate('min-bionic-x64',   "${region}${it}"),
             getTemplate('min-xenial-x64',   "${region}${it}"),

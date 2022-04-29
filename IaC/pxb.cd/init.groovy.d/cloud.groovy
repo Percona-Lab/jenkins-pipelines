@@ -35,6 +35,7 @@ imageMap['min-buster-x64']   = 'ami-090cd3aed687b1ee1'
 imageMap['min-xenial-x64']   = 'ami-079e7a3f57cc8e0d0'
 imageMap['min-xenial-x32']   = 'ami-0697ba3ee1b641c90'
 imageMap['min-focal-x64']    = 'ami-01773ce53581acf22'
+imageMap['min-jammy-x64']    = 'ami-0ee8244746ec5d6d4'
 imageMap['min-bullseye-x64'] = 'ami-0d0f7602aa5c2425d'
 
 priceMap = [:]
@@ -58,6 +59,7 @@ userMap['min-centos-8-x64'] = 'centos'
 userMap['min-stretch-x64'] = 'admin'
 userMap['min-buster-x64'] = 'admin'
 userMap['min-focal-x64'] = 'ubuntu'
+userMap['min-jammy-x64'] = 'ubuntu'
 userMap['min-xenial-x64'] = 'ubuntu'
 userMap['min-xenial-x32'] = 'ubuntu'
 userMap['min-bullseye-x64'] = 'admin'
@@ -176,6 +178,10 @@ initMap['rpmMap'] = '''
         sudo amazon-linux-extras install epel -y
         PKGLIST="p7zip"
     fi
+    if [[ ${RHVER} -eq 8 ]]; then
+        sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-*
+        sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Linux-*
+    fi
     until sudo yum makecache; do
         sleep 1
         echo try again
@@ -256,7 +262,8 @@ initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-xenial-x64'] = initMap['debMap']
 initMap['min-xenial-x32'] = initMap['debMap']
 initMap['min-bionic-x64'] = initMap['debMap']
-initMap['min-focal-x64'] = initMap['debMap']
+initMap['min-focal-x64']  = initMap['debMap']
+initMap['min-jammy-x64']  = initMap['debMap']
 
 
 capMap = [:]
@@ -275,6 +282,7 @@ typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-8-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-jammy-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32'] = 'm1.medium'
 typeMap['min-centos-6-x64'] = 'm3.2xlarge'
 typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
@@ -298,6 +306,7 @@ execMap['min-buster-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
 execMap['min-xenial-x32'] = '1'
 execMap['min-focal-x64'] = '1'
+execMap['min-jammy-x64'] = '1'
 execMap['min-bullseye-x64'] = '1'
 
 devMap = [:]
@@ -306,6 +315,7 @@ devMap['docker-32gb'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
 devMap['min-bionic-x64'] = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-focal-x64'] = devMap['min-bionic-x64']
+devMap['min-jammy-x64'] = devMap['min-bionic-x64']
 devMap['min-centos-6-x64'] = devMap['min-bionic-x64']
 devMap['min-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
@@ -323,6 +333,7 @@ labelMap['docker-32gb'] = ''
 labelMap['micro-amazon'] = 'master'
 labelMap['min-bionic-x64'] = 'asan'
 labelMap['min-focal-x64'] = ''
+labelMap['min-jammy-x64'] = ''
 labelMap['min-centos-6-x32'] = ''
 labelMap['min-centos-6-x64'] = ''
 labelMap['min-centos-7-x64'] = ''
@@ -415,6 +426,7 @@ String region = 'us-west-2'
             getTemplate('min-xenial-x32', "${region}${it}"),
             getTemplate('min-bionic-x64', "${region}${it}"),
             getTemplate('min-focal-x64', "${region}${it}"),
+            getTemplate('min-jammy-x64', "${region}${it}"),
             getTemplate('min-bullseye-x64', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
        '',
