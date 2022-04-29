@@ -50,9 +50,8 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                                 fi
                                 gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} \${dest_path}/SRPMS/repodata/repomd.xml
                             done
-
-                            for dist in `ls -1 debian`; do
-                                for deb in `find debian/\${dist} -name '*.deb'`; do
+                            for dist in \$(ls -1 debian); do
+                                for deb in \$(find debian/\${dist} -name '*.deb'); do
                                     pkg_fname=\$(basename \${deb})
                                     EC=0
                                     /usr/local/reprepro5/bin/reprepro --list-format '"'"'\${package}_\${version}_\${architecture}.deb\\n'"'"' -Vb /srv/repo-copy/apt -C ${DESTINATION} list \${dist} | sed -re "s|[0-9]:||" | grep \${pkg_fname} > /dev/null || EC=\$?
