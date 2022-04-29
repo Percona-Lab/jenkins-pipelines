@@ -37,6 +37,14 @@ void destroyStaging(IP) {
 
 def versionsList = pmmVersion('list')
 
+def getPMMServerVersion(String PMM_SERVER_VERSION, String PMM_SERVER_VERSION_CUSTOM) {
+    return PMM_CLIENT_VERSION == "custom" ? PMM_SERVER_VERSION_CUSTOM : PMM_SERVER_VERSION
+}
+
+def getPMMClientVersion(String PMM_CLIENT_VERSION, String PMM_CLIENT_VERSION_CUSTOM) {
+    return PMM_CLIENT_VERSION == "custom" ? PMM_CLIENT_VERSION_CUSTOM : PMM_CLIENT_VERSION
+}
+
 pipeline {
     agent {
         label 'agent-amd64'
@@ -61,17 +69,25 @@ pipeline {
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
         choice(
-            choices: versionsList,
+            choices: versionsList + ['custom'],
             description: 'Docker tag for PMM Server Version',
             name: 'PMM_SERVER_VERSION')
+        string(
+            defaultValue: '',
+            description: 'Custom version of PMM Server',
+            name: 'PMM_SERVER_VERSION_CUSTOM')
         choice(
             choices: ['perconalab/pmm-server', 'percona/pmm-server'],
             description: "Docker hub for PMM Server",
             name: 'PMM_DOCKER_HUB')
         choice(
-            choices: versionsList,
+            choices: versionsList + ['custom'],
             description: 'PMM Client Version',
             name: 'PMM_CLIENT_VERSION')
+        string(
+            defaultValue: '',
+            description: 'Custom version of PMM Client',
+            name: 'PMM_CLIENT_VERSION_CUSTOM')
         choice(
             choices: ['Experimental', 'Testing'],
             description: "Select Testing (RC Tesing) or Experimental (dev-latest testing) Repository",
@@ -128,7 +144,7 @@ pipeline {
         }
         stage('Start Server') {
             steps {
-                runStagingServer("$PMM_DOCKER_HUB:$PMM_SERVER_VERSION", "$PMM_CLIENT_VERSION" , "no", '127.0.0.1', ADMIN_PASSWORD)
+                runStagingServer("$PMM_DOCKER_HUB:" + getPMMServerVersion(PMM_SERVER_VERSION, PMM_SERVER_VERSION_CUSTOM), getPMMClientVersion(PMM_CLIENT_VERSION, PMM_CLIENT_VERSION_CUSTOM), "no", '127.0.0.1', ADMIN_PASSWORD)
             }
         }
         stage('Sanity check') {
@@ -230,7 +246,6 @@ pipeline {
     }
     post {
         always {
-            // stop staging
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
