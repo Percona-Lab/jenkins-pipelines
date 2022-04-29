@@ -35,6 +35,8 @@ void destroyStaging(IP) {
     ]
 }
 
+def versionsList = pmmVersion('list')
+
 pipeline {
     agent {
         label 'agent-amd64'
@@ -58,17 +60,21 @@ pipeline {
             defaultValue: '',
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
-        string(
-            defaultValue: 'perconalab/pmm-server:2.27.0',
-            description: "Docker tag for PMM Server Version",
+        choice(
+            choices: versionsList,
+            description: 'Docker tag for PMM Server Version',
             name: 'PMM_SERVER_VERSION')
         choice(
-            choices: ['2.27.0', '2.26.0', '2.25.0'],
-            description: "PMM Client Version",
+            choices: ['perconalab/pmm-server', 'percona/pmm-server'],
+            description: "Docker hub for PMM Server",
+            name: 'PMM_DOCKER_HUB')
+        choice(
+            choices: versionsList,
+            description: 'PMM Client Version',
             name: 'PMM_CLIENT_VERSION')
         choice(
-            choices: ['Production', 'Testing', 'Experimental'],
-            description: "Select Repository for testing",
+            choices: ['Experimental', 'Testing'],
+            description: "Select Testing (RC Tesing) or Experimental (dev-latest testing) Repository",
             name: 'PMM_REPOSITORY')
         string(
             defaultValue: 'admin-password',
@@ -122,7 +128,7 @@ pipeline {
         }
         stage('Start Server') {
             steps {
-                runStagingServer("$PMM_SERVER_VERSION", "$PMM_CLIENT_VERSION" , "no", '127.0.0.1', ADMIN_PASSWORD)
+                runStagingServer("$PMM_DOCKER_HUB:$PMM_SERVER_VERSION", "$PMM_CLIENT_VERSION" , "no", '127.0.0.1', ADMIN_PASSWORD)
             }
         }
         stage('Sanity check') {
