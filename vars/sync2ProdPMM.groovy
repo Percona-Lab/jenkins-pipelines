@@ -53,14 +53,14 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
 
                             for dist in `ls -1 debian`; do
                                 for deb in `find debian/\${dist} -name '*.deb'`; do
-                                 pkg_fname=\$(basename \${deb})
-                                 EC=0
-                                 /usr/local/reprepro5/bin/reprepro --list-format '"'"'\${package}_\${version}_\${architecture}.deb\\n'"'"' -Vb /srv/repo-copy/${REPO_NAME}/apt -C ${DESTINATION} list \${dist} | sed -re "s|[0-9]:||" | grep \${pkg_fname} > /dev/null || EC=\$?
-                                 REPOPUSH_ARGS=""
-                                 if [ \${EC} -eq 0 ]; then
-                                     REPOPUSH_ARGS=" --remove-package "
-                                 fi
-                                 env PATH=/usr/local/reprepro5/bin:${PATH} repopush \${REPOPUSH_ARGS} --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${REPO_NAME}/apt
+                                    pkg_fname=\$(basename \${deb})
+                                    EC=0
+                                    /usr/local/reprepro5/bin/reprepro --list-format '"'"'\${package}_\${version}_\${architecture}.deb\\n'"'"' -Vb /srv/repo-copy/apt -C ${DESTINATION} list \${dist} | sed -re "s|[0-9]:||" | grep \${pkg_fname} > /dev/null || EC=\$?
+                                    REPOPUSH_ARGS=""
+                                    if [ \${EC} -eq 0 ]; then
+                                        REPOPUSH_ARGS=" --remove-package "
+                                    fi
+                                    repopush \${REPOPUSH_ARGS} --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/apt
                                 done
                             done
                         popd
