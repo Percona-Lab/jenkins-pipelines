@@ -177,6 +177,9 @@ pipeline {
                     agent {
                         label 'min-jammy-x64'
                     }
+                    when {
+                        expression { env.TESTS == "pmm2-client" }
+                    }
                     steps{
                         setup_ubuntu_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
