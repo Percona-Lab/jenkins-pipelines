@@ -42,7 +42,7 @@ try {
         }
     }
     if (writeProperties) {
-        def propertiesText = new URL("https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d//ami-defs.properties").text
+        def propertiesText = new URL("https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/ami-defs.properties").text
         // We should continue with existing properties file, so we can't just assert:
         // assert propertiesText.digest('SHA-256') == propertiesChecksum
         //if (propertiesText.digest('SHA-256') == propertiesChecksum) {
@@ -68,25 +68,30 @@ def properties = new ConfigSlurper().parse(amiProperties.toURI().toURL())
 // ===== Common block of global config ends
 
 imageMap = [:]
-imageMap['eu-west-1a.docker']               = properties.AwsAmi['AmazonLinux2']['euWest1']
-imageMap['eu-west-1a.docker-32gb']          = properties.AwsAmi['AmazonLinux2']['euWest1']
-imageMap['eu-west-1a.docker2']              = properties.AwsAmi['AmazonLinux2']['euWest1']
-imageMap['eu-west-1a.micro-amazon']         = properties.AwsAmi['AmazonLinux2']['euWest1']
-imageMap['eu-west-1a.fips-centos-7-x64']    = properties.AwsAmi['FipsCentos7']['euWest1']
+imageMap['eu-west-1a.docker']               = properties.AwsAmi['AmazonLinux2_x86_64']['euWest1']
+imageMap['eu-west-1a.docker-32gb']          = properties.AwsAmi['AmazonLinux2_x86_64']['euWest1']
+imageMap['eu-west-1a.docker2']              = properties.AwsAmi['AmazonLinux2_x86_64']['euWest1']
+imageMap['eu-west-1a.micro-amazon']         = properties.AwsAmi['AmazonLinux2_x86_64']['euWest1']
+imageMap['eu-west-1a.fips-centos-7-x64']    = properties.AwsAmi['FipsCentos7_x86_64']['euWest1']
 
-imageMap['eu-west-1a.min-centos-6-x64']     = properties.AwsAmi['Centos6']['euWest1']
-imageMap['eu-west-1a.min-centos-7-x64']     = properties.AwsAmi['Centos7']['euWest1']
-imageMap['eu-west-1a.min-ol-8-x64']         = properties.AwsAmi['OracleLinux8']['euWest1']
-imageMap['eu-west-1a.min-rhel-9-x64']       = properties.AwsAmi['RHEL9']['euWest1']
-imageMap['eu-west-1a.min-bullseye-x64']     = properties.AwsAmi['Debian11']['euWest1']
-imageMap['eu-west-1a.min-buster-x64']       = properties.AwsAmi['Debian10']['euWest1']
-imageMap['eu-west-1a.min-bionic-x64']       = properties.AwsAmi['Ubuntu1804']['euWest1']
-imageMap['eu-west-1a.min-stretch-x64']      = properties.AwsAmi['Debian9']['euWest1']
-imageMap['eu-west-1a.min-xenial-x64']       = properties.AwsAmi['Ubuntu1604']['euWest1']
-imageMap['eu-west-1a.docker-32gb-hirsute']  = properties.AwsAmi['Ubuntu2104']['euWest1']
-imageMap['eu-west-1a.docker-32gb-focal']    = properties.AwsAmi['Ubuntu2004']['euWest1']
-imageMap['eu-west-1a.docker-32gb-jammy']    = properties.AwsAmi['Ubuntu2204']['euWest1']
+imageMap['eu-west-1a.min-centos-6-x64']     = properties.AwsAmi['Centos6_x86_64']['euWest1']
+imageMap['eu-west-1a.min-centos-7-x64']     = properties.AwsAmi['Centos7_x86_64']['euWest1']
+imageMap['eu-west-1a.min-ol-8-x64']         = properties.AwsAmi['OracleLinux8_x86_64']['euWest1']
+imageMap['eu-west-1a.min-rhel-9-x64']       = properties.AwsAmi['RHEL9_x86_64']['euWest1']
+imageMap['eu-west-1a.min-bullseye-x64']     = properties.AwsAmi['Debian11_x86_64']['euWest1']
+imageMap['eu-west-1a.min-buster-x64']       = properties.AwsAmi['Debian10_x86_64']['euWest1']
+imageMap['eu-west-1a.min-bionic-x64']       = properties.AwsAmi['Ubuntu1804_x86_64']['euWest1']
+imageMap['eu-west-1a.min-stretch-x64']      = properties.AwsAmi['Debian9_x86_64']['euWest1']
+imageMap['eu-west-1a.min-xenial-x64']       = properties.AwsAmi['Ubuntu1604_x86_64']['euWest1']
+imageMap['eu-west-1a.docker-32gb-hirsute']  = properties.AwsAmi['Ubuntu2104_x86_64']['euWest1']
+imageMap['eu-west-1a.docker-32gb-focal']    = properties.AwsAmi['Ubuntu2004_x86_64']['euWest1']
+imageMap['eu-west-1a.docker-32gb-jammy']    = properties.AwsAmi['Ubuntu2204_x86_64']['euWest1']
 imageMap['eu-west-1a.docker-32gb-bullseye'] = imageMap['eu-west-1a.min-bullseye-x64']
+
+imageMap['eu-west-1a.docker-32gb-aarch64']  = properties.AwsAmi['AmazonLinux2_aarch64']['euWest1']
+imageMap['eu-west-1a.min-centos-7-aarch64'] = properties.AwsAmi['Centos7_aarch64']['euWest1']
+imageMap['eu-west-1a.min-bullseye-aarch64'] = properties.AwsAmi['Debian11_aarch64']['euWest1']
+imageMap['eu-west-1a.min-jammy-aarch64']    = properties.AwsAmi['Ubuntu2204_aarch64']['euWest1']
 
 imageMap['eu-west-1b.docker']               = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb']          = imageMap['eu-west-1a.docker-32gb']
@@ -108,6 +113,11 @@ imageMap['eu-west-1b.docker-32gb-focal']    = imageMap['eu-west-1a.docker-32gb-f
 imageMap['eu-west-1b.docker-32gb-jammy']    = imageMap['eu-west-1a.docker-32gb-jammy']
 imageMap['eu-west-1b.docker-32gb-bullseye'] = imageMap['eu-west-1a.docker-32gb-bullseye']
 
+imageMap['eu-west-1b.docker-32gb-aarch64']    = imageMap['eu-west-1a.docker-32gb-aarch64']
+imageMap['eu-west-1b.min-centos-7-aarch64']   = imageMap['eu-west-1a.min-centos-7-aarch64']
+imageMap['eu-west-1b.min-bullseye-aarch64']   = imageMap['eu-west-1a.min-bullseye-aarch64']
+imageMap['eu-west-1b.min-jammy-aarch64']      = imageMap['eu-west-1a.min-jammy-aarch64']
+
 imageMap['eu-west-1c.docker']               = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1c.docker-32gb']          = imageMap['eu-west-1a.docker-32gb']
 imageMap['eu-west-1c.docker2']              = imageMap['eu-west-1a.docker2']
@@ -128,6 +138,12 @@ imageMap['eu-west-1c.docker-32gb-focal']    = imageMap['eu-west-1a.docker-32gb-f
 imageMap['eu-west-1c.docker-32gb-jammy']    = imageMap['eu-west-1a.docker-32gb-jammy']
 imageMap['eu-west-1c.docker-32gb-bullseye'] = imageMap['eu-west-1a.docker-32gb-bullseye']
 
+imageMap['eu-west-1c.docker-32gb-aarch64']    = imageMap['eu-west-1a.docker-32gb-aarch64']
+imageMap['eu-west-1c.min-centos-7-aarch64']   = imageMap['eu-west-1a.min-centos-7-aarch64']
+imageMap['eu-west-1c.min-bullseye-aarch64']   = imageMap['eu-west-1a.min-bullseye-aarch64']
+imageMap['eu-west-1c.min-jammy-aarch64']      = imageMap['eu-west-1a.min-jammy-aarch64']
+
+
 priceMap = [:]
 priceMap['t2.micro'] = '0.1' // Dedicated instance type for RHEL
 priceMap['t2.medium'] = '0.03'
@@ -136,26 +152,33 @@ priceMap['t3a.2xlarge'] = '0.17'
 priceMap['t3.2xlarge'] = '0.18'
 priceMap['r5b.2xlarge'] = '0.29'
 priceMap['t2.2xlarge'] = '0.18'
+priceMap['r6g.2xlarge'] = '0.23'
 
 userMap = [:]
-userMap['docker']               = properties.AwsAmi['AmazonLinux2']['user']
-userMap['docker-32gb']          = properties.AwsAmi['AmazonLinux2']['user']
-userMap['docker2']              = properties.AwsAmi['AmazonLinux2']['user']
-userMap['micro-amazon']         = properties.AwsAmi['AmazonLinux2']['user']
-userMap['min-bionic-x64']       = properties.AwsAmi['Ubuntu1804']['user']
-userMap['min-xenial-x64']       = properties.AwsAmi['Ubuntu1604']['user']
-userMap['min-centos-6-x64']     = properties.AwsAmi['Centos6']['user']
-userMap['min-centos-7-x64']     = properties.AwsAmi['Centos7']['user']
-userMap['fips-centos-7-x64']    = properties.AwsAmi['FipsCentos7']['user']
-userMap['min-ol-8-x64']         = properties.AwsAmi['OracleLinux8']['user']
-userMap['min-rhel-9-x64']       = properties.AwsAmi['RHEL9']['user']
-userMap['min-bullseye-x64']     = properties.AwsAmi['Debian11']['user']
-userMap['min-stretch-x64']      = properties.AwsAmi['Debian9']['user']
-userMap['min-buster-x64']       = properties.AwsAmi['Debian10']['user']
-userMap['docker-32gb-hirsute']  = properties.AwsAmi['Ubuntu2104']['user']
-userMap['docker-32gb-focal']    = properties.AwsAmi['Ubuntu2004']['user']
-userMap['docker-32gb-jammy']    = properties.AwsAmi['Ubuntu2204']['user']
-userMap['docker-32gb-bullseye'] = properties.AwsAmi['Debian11']['user']
+userMap['docker']               = properties.AwsAmi['AmazonLinux2_x86_64']['user']
+userMap['docker-32gb']          = properties.AwsAmi['AmazonLinux2_x86_64']['user']
+userMap['docker2']              = properties.AwsAmi['AmazonLinux2_x86_64']['user']
+userMap['micro-amazon']         = properties.AwsAmi['AmazonLinux2_x86_64']['user']
+userMap['min-bionic-x64']       = properties.AwsAmi['Ubuntu1804_x86_64']['user']
+userMap['min-xenial-x64']       = properties.AwsAmi['Ubuntu1604_x86_64']['user']
+userMap['min-centos-6-x64']     = properties.AwsAmi['Centos6_x86_64']['user']
+userMap['min-centos-7-x64']     = properties.AwsAmi['Centos7_x86_64']['user']
+userMap['fips-centos-7-x64']    = properties.AwsAmi['FipsCentos7_x86_64']['user']
+userMap['min-ol-8-x64']         = properties.AwsAmi['OracleLinux8_x86_64']['user']
+userMap['min-rhel-9-x64']       = properties.AwsAmi['RHEL9_x86_64']['user']
+userMap['min-bullseye-x64']     = properties.AwsAmi['Debian11_x86_64']['user']
+userMap['min-stretch-x64']      = properties.AwsAmi['Debian9_x86_64']['user']
+userMap['min-buster-x64']       = properties.AwsAmi['Debian10_x86_64']['user']
+userMap['docker-32gb-hirsute']  = properties.AwsAmi['Ubuntu2104_x86_64']['user']
+userMap['docker-32gb-focal']    = properties.AwsAmi['Ubuntu2004_x86_64']['user']
+userMap['docker-32gb-jammy']    = properties.AwsAmi['Ubuntu2204_x86_64']['user']
+userMap['docker-32gb-bullseye'] = properties.AwsAmi['Debian11_x86_64']['user']
+
+userMap['docker-32gb-aarch64']    = properties.AwsAmi['AmazonLinux2_aarch64']['user']
+userMap['min-centos-7-aarch64']   = properties.AwsAmi['Centos7_aarch64']['user']
+userMap['min-bullseye-aarch64']   = properties.AwsAmi['Debian11_aarch64']['user']
+userMap['min-jammy-aarch64']      = properties.AwsAmi['Ubuntu2204_aarch64']['user']
+
 
 initMap = [:]
 initMap['docker'] = '''
@@ -186,7 +209,7 @@ initMap['docker'] = '''
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         sudo rm -rf /tmp/aws* || true
 
-        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "/tmp/awscliv2.zip"; do
             sleep 1
             echo try again
         done
@@ -404,7 +427,7 @@ initMap['rpmMap'] = '''
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
     # CentOS 6 x32 workarounds
-    if [[ ${ARCH} != "x86_64" ]]; then
+    if [[ ${ARCH} != "x86_64" ]] && [[ ${ARCH} != "aarch64" ]]; then
         echo 'Defaults !requiretty' | sudo tee /etc/sudoers.d/requiretty
         if [ ! -f /mnt/swapfile ]; then
             sudo dd if=/dev/zero of=/mnt/swapfile bs=1024 count=524288
@@ -470,12 +493,18 @@ initMap['min-bionic-x64']  = initMap['debMap']
 initMap['min-stretch-x64'] = initMap['debMap']
 initMap['min-xenial-x64']  = initMap['debMap']
 
+initMap['docker-32gb-aarch64']  = initMap['docker']
+initMap['min-centos-7-aarch64'] = initMap['rpmMap']
+initMap['min-bullseye-aarch64'] = initMap['debMap']
+initMap['min-jammy-aarch64']    = initMap['debMap']
+
 capMap = [:]
 capMap['t3a.2xlarge'] = '60'
-capMap['t3.2xlarge'] = '60'
+capMap['t3.2xlarge']  = '60'
 capMap['r5b.2xlarge'] = '40'
-capMap['t2.2xlarge'] = '10'
-capMap['t2.micro']     = '10'
+capMap['t2.2xlarge']  = '10'
+capMap['t2.micro']    = '10'
+capMap['r6g.2xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 't3a.2xlarge'
@@ -497,6 +526,11 @@ typeMap['docker-32gb-focal'] = 'r5b.2xlarge'
 typeMap['docker-32gb-jammy'] = 'r5b.2xlarge'
 typeMap['docker-32gb-bullseye'] = 'r5b.2xlarge'
 
+typeMap['docker-32gb-aarch64']  = 'r6g.2xlarge'
+typeMap['min-centos-7-aarch64'] = typeMap['docker-32gb-aarch64']
+typeMap['min-bullseye-aarch64'] = typeMap['docker-32gb-aarch64']
+typeMap['min-jammy-aarch64']    = typeMap['docker-32gb-aarch64']
+
 execMap = [:]
 execMap['docker']            = '1'
 execMap['docker-32gb']       = execMap['docker']
@@ -516,6 +550,11 @@ execMap['docker-32gb-focal'] = '1'
 execMap['docker-32gb-jammy'] = '1'
 execMap['min-bullseye-x64']  = '1'
 execMap['docker-32gb-bullseye']  = '1'
+
+execMap['docker-32gb-aarch64']  = '1'
+execMap['min-centos-7-aarch64'] = '1'
+execMap['min-bullseye-aarch64'] = '1'
+execMap['min-jammy-aarch64']    = '1'
 
 devMap = [:]
 devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -538,6 +577,11 @@ devMap['docker-32gb-jammy'] = devMap['docker']
 devMap['min-bullseye-x64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb-bullseye']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 
+devMap['docker-32gb-aarch64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-centos-7-aarch64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-bullseye-aarch64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-jammy-aarch64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+
 labelMap = [:]
 labelMap['docker']            = ''
 labelMap['docker-32gb']       = ''
@@ -557,6 +601,11 @@ labelMap['docker-32gb-focal'] = ''
 labelMap['docker-32gb-jammy'] = ''
 labelMap['min-bullseye-x64']  = ''
 labelMap['docker-32gb-bullseye']  = ''
+
+labelMap['docker-32gb-aarch64']  = ''
+labelMap['min-centos-7-aarch64'] = ''
+labelMap['min-bullseye-aarch64'] = ''
+labelMap['min-jammy-aarch64']    = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -643,6 +692,10 @@ String region = 'eu-west-1'
             getTemplate('docker-32gb-focal',    "${region}${it}"),
             getTemplate('docker-32gb-jammy',    "${region}${it}"),
             getTemplate('docker-32gb-bullseye', "${region}${it}"),
+            getTemplate('docker-32gb-aarch64',  "${region}${it}"),
+            getTemplate('min-centos-7-aarch64', "${region}${it}"),
+            getTemplate('min-bullseye-aarch64', "${region}${it}"),
+            getTemplate('min-jammy-aarch64',    "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
