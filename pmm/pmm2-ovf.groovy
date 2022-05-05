@@ -9,7 +9,7 @@ pipeline {
         specName = 'OVF'
     }
     agent {
-        label 'virtualbox'
+        label 'ovf-do'
     }
     parameters {
         string(
@@ -48,7 +48,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        packer build \
+                        /usr/bin/packer build \
                         -var 'pmm_client_repos=original testing' \
                         -var 'pmm_client_repo_name=percona-testing-x86_64' \
                         -var 'pmm2_server_repo=testing' \
@@ -68,7 +68,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        packer build \
+                        /usr/bin/packer build \
                         -var 'pmm_client_repos=original experimental' \
                         -var 'pmm_client_repo_name=percona-experimental-x86_64' \
                         -var 'pmm2_server_repo=experimental' \
