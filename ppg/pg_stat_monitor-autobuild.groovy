@@ -137,7 +137,7 @@ pipeline {
             }
             steps {
                 echo '====> Source will be downloaded from github'
-                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for PG${PG_RELEASE}, repo branch: ${BRANCH}")
+                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for PG${PG_RELEASE}, repo branch: ${BRANCH}")
                 cleanUpWS()
                 installCli("deb")
                 buildStage("ubuntu:focal", "--get_sources=1")
@@ -369,12 +369,12 @@ pipeline {
     } //stages
     post {
         success {
-              slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for PG${PG_RELEASE}, repo branch: ${BRANCH}")
+              slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for PG${PG_RELEASE}, repo branch: ${BRANCH}")
               deleteDir()
               echo "Success"
         }
         failure {
-              slackNotify("#releases", "#FF0000", "[${JOB_NAME}]: build failed for PG${PG_RELEASE}, repo branch: ${BRANCH}")
+              slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for PG${PG_RELEASE}, repo branch: ${BRANCH}")
               deleteDir()
               echo "Failure"
         }
