@@ -53,7 +53,7 @@ pipeline {
 
                             VERSION=\$(echo \${LATEST_TAG_VERSION})
 
-                            MAX_RPM_DEB_RELEASE=\$(for i in 11 12 13 14; do curl -sL https://repo.percona.com/ppg-$i/yum/testing/8/RPMS/x86_64/; curl -s curl -sL https://repo.percona.com/ppg-$i/apt/pool/testing/p/percona-pg-stat-monitor/; done | egrep 'percona-pg-stat-monitor[0-9]|percona-pg_stat_monitor[0-9]' | awk -Fhref=\"percona- '{print $2}' | awk '{print $1}' | egrep -o '[0-9]*[0-9].[0-9]*[0-9].[0-9]*[0-9]-[0-9]+' | sort -r -u | awk -F- '{print $2}' | head -1)
+                            MAX_RPM_DEB_RELEASE=\$(for i in 11 12 13 14; do curl -sL https://repo.percona.com/ppg-$i/yum/testing/8/RPMS/x86_64/; curl -s curl -sL https://repo.percona.com/ppg-\$i/apt/pool/testing/p/percona-pg-stat-monitor/; done | egrep 'percona-pg-stat-monitor[0-9]|percona-pg_stat_monitor[0-9]' | awk -Fhref=\"percona- '{print \$2}' | awk '{print \$1}' | egrep -o '[0-9]*[0-9].[0-9]*[0-9].[0-9]*[0-9]-[0-9]+' | sort -r -u | awk -F- '{print \$2}' | head -1)
 
                             if [ "x\${COMMIT_ID}" != "x\${LATEST_COMMIT_ID}" ] || [ "x\${BRANCH_NAME}" != "x\${LATEST_BRANCH_NAME}" ]; then
                                 echo "START_NEW_BUILD=YES" > startBuild
