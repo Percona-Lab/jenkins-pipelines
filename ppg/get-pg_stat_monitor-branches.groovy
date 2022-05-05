@@ -53,6 +53,8 @@ pipeline {
 
                             VERSION=\$(echo \${LATEST_TAG_VERSION})
 
+                            MAX_RPM_DEB_RELEASE=\$(for i in 11 12 13 14; do curl -sL https://repo.percona.com/ppg-$i/yum/testing/8/RPMS/x86_64/; curl -s curl -sL https://repo.percona.com/ppg-$i/apt/pool/testing/p/percona-pg-stat-monitor/; done | egrep 'percona-pg-stat-monitor[0-9]|percona-pg_stat_monitor[0-9]' | awk -Fhref=\"percona- '{print $2}' | awk '{print $1}' | egrep -o '[0-9]*[0-9].[0-9]*[0-9].[0-9]*[0-9]-[0-9]+' | sort -r -u | awk -F- '{print $2}' | head -1)
+
                             if [ "x\${COMMIT_ID}" != "x\${LATEST_COMMIT_ID}" ] || [ "x\${BRANCH_NAME}" != "x\${LATEST_BRANCH_NAME}" ]; then
                                 echo "START_NEW_BUILD=YES" > startBuild
                             else
@@ -62,6 +64,7 @@ pipeline {
                             echo "BRANCH_NAME=\${LATEST_BRANCH_NAME}" > branch_commit_id.properties
                             echo "COMMIT_ID=\${LATEST_COMMIT_ID}" >> branch_commit_id.properties
                             echo "VERSION=\${VERSION}" >> branch_commit_id.properties
+                            echo "MAX_RPM_DEB_RELEASE=\${MAX_RPM_DEB_RELEASE}" >> branch_commit_id.properties
                             aws s3 cp branch_commit_id.properties s3://percona-jenkins-artifactory/pg_stat_monitor/
                         fi
                     """
@@ -71,6 +74,7 @@ pipeline {
                     BRANCH_NAME = sh(returnStdout: true, script: "source ./branch_commit_id.properties; echo \${BRANCH_NAME}").trim()
                     COMMIT_ID = sh(returnStdout: true, script: "source ./branch_commit_id.properties; echo \${COMMIT_ID}").trim()
                     VERSION = sh(returnStdout: true, script: "source ./branch_commit_id.properties; echo \${VERSION}").trim()
+                    MAX_RPM_DEB_RELEASE = sh(returnStdout: true, script: "source ./branch_commit_id.properties; echo \${MAX_RPM_DEB_RELEASE}").trim()
                 }
 
             }
@@ -86,11 +90,11 @@ pipeline {
                         echo ${START_NEW_BUILD}: build is required
                     """
                 }
-                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
-                build job: 'pg_stat_monitor-autobuild-RELEASE', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'VERSION', value: VERSION), string(name: 'PG_RELEASE', value: '11'), string(name: 'COMPONENT', value: 'testing')]
-                build job: 'pg_stat_monitor-autobuild-RELEASE', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'VERSION', value: VERSION), string(name: 'PG_RELEASE', value: '12'), string(name: 'COMPONENT', value: 'testing')]
-                build job: 'pg_stat_monitor-autobuild-RELEASE', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'VERSION', value: VERSION), string(name: 'PG_RELEASE', value: '13'), string(name: 'COMPONENT', value: 'testing')]
-                build job: 'pg_stat_monitor-autobuild-RELEASE', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'VERSION', value: VERSION), string(name: 'PG_RELEASE', value: '14'), string(name: 'COMPONENT', value: 'testing')]
+                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
+                build job: 'pg_stat_monitor-autobuild-RELEASE-test', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'RPM_RELEASE', value: MAX_RPM_DEB_RELEASE), string(name: 'DEB_RELEASE', value: MAX_RPM_DEB_RELEASE), string(name: 'VERSION', value: VERSION), string(name: 'PG_RELEASE', value: '11'), string(name: 'COMPONENT', value: 'testing')]
+                build job: 'pg_stat_monitor-autobuild-RELEASE-test', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'RPM_RELEASE', value: MAX_RPM_DEB_RELEASE), string(name: 'DEB_RELEASE', value: MAX_RPM_DEB_RELEASE), string(name: 'VERSION', value: VERSION), string(name: 'PG_RELEASE', value: '12'), string(name: 'COMPONENT', value: 'testing')]
+                build job: 'pg_stat_monitor-autobuild-RELEASE-test', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'RPM_RELEASE', value: MAX_RPM_DEB_RELEASE), string(name: 'DEB_RELEASE', value: MAX_RPM_DEB_RELEASE), string(name: 'VERSION', value: VERSION), string(name: 'PG_RELEASE', value: '13'), string(name: 'COMPONENT', value: 'testing')]
+                build job: 'pg_stat_monitor-autobuild-RELEASE-test', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'RPM_RELEASE', value: MAX_RPM_DEB_RELEASE), string(name: 'DEB_RELEASE', value: MAX_RPM_DEB_RELEASE), string(name: 'VERSION', value: VERSION), string(name: 'PG_RELEASE', value: '14'), string(name: 'COMPONENT', value: 'testing')]
             }
         }
         stage('Build skipped') {
