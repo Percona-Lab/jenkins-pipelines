@@ -5,6 +5,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
             export OWNER=\$(cat OWNER_FULL)
             export INSTANCE_TYPE=${INSTANCE_TYPE}
             export VOLUME=${VOLUME}
+            export IMAGE_ID=\$(aws ec2 describe-images --owners self --filters "Name=tag:iit-billing-tag,Values=pmm-worker" "Name=architecture,Values=x86_64"  --region us-east-2 | jq -r '.Images[0].ImageId')
 
             export SUBNET=\$(
                 aws ec2 describe-subnets \
@@ -62,13 +63,12 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                                 "Ebs": {
                                     "DeleteOnTermination": true,
                                     "VolumeSize": VOLUME,
-                                    "VolumeType": "gp2"
+                                    "VolumeType": "gp3"
                                 }
                             }
                         ],
                         "EbsOptimized": false,
-                        "ImageId": "ami-00dfe2c7ce89a450b",
-                        "UserData": "c3VkbyB5dW0gaW5zdGFsbCAteSBqYXZhLTEuOC4wLW9wZW5qZGsKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhIC91c3IvbGliL2p2bS9qcmUtMS44LjAtb3Blbmpkay54ODZfNjQvYmluL2phdmEKCnN1ZG8gL3Vzci9zYmluL2FsdGVybmF0aXZlcyAtLXNldCBqYXZhYyAvdXNyL2xpYi9qdm0vanJlLTEuOC4wLW9wZW5qZGsueDg2XzY0L2Jpbi9qYXZhYwoKc3VkbyB5dW0gcmVtb3ZlIGphdmEtMS43Cg==",
+                        "ImageId": "IMAGE_ID",
                         "InstanceType": "INSTANCE_TYPE",
                         "KeyName": "jenkins",
                         "Monitoring": {
@@ -92,6 +92,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                     | sed -e "s/SPOT_PRICE/\${SPOT_PRICE}/" \
                     | sed -e "s/INSTANCE_TYPE/\${INSTANCE_TYPE}/" \
                     | sed -e "s/VOLUME/\${VOLUME}/" \
+                    | sed -e "s/IMAGE_ID/\${IMAGE_ID}/" \
                     > config.json
 
                 REQUEST_ID=\$(

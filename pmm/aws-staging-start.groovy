@@ -201,7 +201,7 @@ pipeline {
                 launchSpotInstance('t3.large', 'FAIR', 25)
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
-                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) 'java -version; sudo yum install -y java-1.8.0-openjdk; sudo /usr/sbin/alternatives --set java /usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java; java -version;' ; do
+                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) ; do
                             sleep 5
                         done
                     """
@@ -227,17 +227,12 @@ pipeline {
                             echo '$SSH_KEY' >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
-                        sudo yum -y update --security
                         sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-25.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
-                        sudo yum -y install git svn docker sysbench
-                        sudo yum -y install mysql-community-server jq
+                        sudo yum -y install sysbench
                         sudo amazon-linux-extras install epel -y
                         sudo amazon-linux-extras install php7.2 -y
                         sudo yum install mysql-client -y
-                        sudo yum -y install bats
-                        sudo usermod -aG docker ec2-user
-                        sudo systemctl start docker
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
                             sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
@@ -279,7 +274,6 @@ pipeline {
                         fi
                         """
                         node(env.VM_NAME){
-                            installAWSv2()
                             withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                                 sh """
                                     set -o errexit
