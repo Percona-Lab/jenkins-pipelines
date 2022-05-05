@@ -367,10 +367,6 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             script {
-                if(env.VM_NAME)
-                {
-                    destroyStaging(VM_NAME)
-                }
                 if(env.VM_CLIENT_NAME_MYSQL)
                 {
                     destroyStaging(VM_CLIENT_NAME_MYSQL)
@@ -382,10 +378,6 @@ pipeline {
                 if(env.VM_CLIENT_NAME_PXC)
                 {
                     destroyStaging(VM_CLIENT_NAME_PXC)
-                }
-                if(env.VM_CLIENT_NAME_PGSQL)
-                {
-                    destroyStaging(VM_CLIENT_NAME_PGSQL)
                 }
             }
             script {
