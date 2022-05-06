@@ -9,6 +9,10 @@ pipeline {
     }
     parameters {
         string(
+            defaultValue: 'https://github.com/percona/pmm-managed',
+            description: 'Tag/Branch for pmm-managed repository',
+            name: 'GIT_URL')
+        string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-managed repository',
             name: 'GIT_BRANCH')
@@ -57,7 +61,7 @@ pipeline {
                 // fetch API tests from pmm-managed repository
                 git poll: false,
                     branch: GIT_BRANCH,
-                    url: 'https://github.com/percona/pmm-managed'
+                    url: GIT_URL
 
                 slackSend botUser: true,
                           channel: '#pmm-ci',
