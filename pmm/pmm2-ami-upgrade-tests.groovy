@@ -92,7 +92,6 @@ void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
                 sudo yum clean all
                 sudo yum makecache
                 sudo yum -y install pmm2-client
-                sudo yum -y update
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
                 bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION} ${PRE_POST}
             '
@@ -304,6 +303,19 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             fetchAgentLog(CLIENT_VERSION)
+            script {
+                if(env.AMI_INSTANCE_IP) {
+                    runAMIStaginStop(AMI_INSTANCE_ID)
+                }
+                if(env.VM_CLIENT_NAME)
+                {
+                    destroyStaging(VM_CLIENT_IP)
+                }
+                if(env.VM_CLIENT_NAME_DB)
+                {
+                    destroyStaging(VM_CLIENT_IP_DB)
+                }
+            }
             sh '''
                 ./node_modules/.bin/mochawesome-merge tests/output/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
