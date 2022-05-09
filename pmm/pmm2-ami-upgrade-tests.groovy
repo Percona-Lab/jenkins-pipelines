@@ -92,6 +92,7 @@ void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
                 sudo yum clean all
                 sudo yum makecache
                 sudo yum -y install pmm2-client
+                sleep 20
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
                 bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION} ${PRE_POST}
             '
