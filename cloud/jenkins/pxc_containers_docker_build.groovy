@@ -198,6 +198,7 @@ pipeline {
     post {
         always {
             archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: '*.pdf', allowEmptyArchive: true
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
             '''
