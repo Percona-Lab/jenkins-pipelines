@@ -5,14 +5,14 @@ void build(String IMAGE_PREFIX){
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-5.7/Dockerfile percona-xtradb-cluster-5.7
             docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX}-debug -f percona-xtradb-cluster-5.7/Dockerfile percona-xtradb-cluster-5.7
         elif [ ${IMAGE_PREFIX} = pxc8.0 ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.0/Dockerfile percona-xtradb-cluster-8.0
-            docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX}-debug -f percona-xtradb-cluster-8.0/Dockerfile percona-xtradb-cluster-8.0
+            docker build --no-cache -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.0/Dockerfile percona-xtradb-cluster-8.0
+            docker build --build-arg DEBUG=1 --no-cache -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX}-debug -f percona-xtradb-cluster-8.0/Dockerfile percona-xtradb-cluster-8.0
         elif [ ${IMAGE_PREFIX} = proxysql ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f proxysql/Dockerfile proxysql
         elif [ ${IMAGE_PREFIX} = pxc5.7-backup ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-5.7-backup/Dockerfile percona-xtradb-cluster-5.7-backup
+            docker build --no-cache -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-5.7-backup/Dockerfile percona-xtradb-cluster-5.7-backup
         elif [ ${IMAGE_PREFIX} = pxc8.0-backup ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.0-backup/Dockerfile percona-xtradb-cluster-8.0-backup
+            docker build --no-cache -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.0-backup/Dockerfile percona-xtradb-cluster-8.0-backup
         elif [ ${IMAGE_PREFIX} = haproxy ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f haproxy/Dockerfile haproxy
         elif [ ${IMAGE_PREFIX} = logcollector ]; then
@@ -101,7 +101,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                git branch: 'check-pxc-builds', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
                     TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
                     wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
