@@ -3,26 +3,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runPackageTest(String PMM_VERSION, String REPO) {
-    build job: 'package-testing', parameters: [
-        string(name: 'DOCKER_VERSION', value: "percona/pmm-server:${PMM_VERSION}"),
-        string(name: 'CLIENT_VERSION', value: PMM_VERSION),
-        string(name: 'TESTS', value: 'pmm2-client'),
-        string(name: 'INSTALL_REPO', value: REPO),
-        string(name: 'PMM_VERSION', value: PMM_VERSION)
-    ]
-}
-
-void runUpgradeTest(String FROM_VERSION, String CURRENT_VERSION) {
-    build job: 'pmm2-upgrade-tests', propagate: false, parameters: [
-        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no'),
-        string(name: 'ENABLE_TESTING_REPO', value: 'no'),
-        string(name: 'DOCKER_VERSION', value: FROM_VERSION),
-        string(name: 'CLIENT_VERSION', value: FROM_VERSION),
-        string(name: 'PMM_SERVER_LATEST', value: CURRENT_VERSION)
-    ]
-}
-
 pipeline {
     agent {
         label 'master'
