@@ -9,7 +9,7 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "molecule/pdmysql/pdpxc-upgrade";
+      MOLECULE_DIR = "molecule/pdmysql/pdpxc-minor-upgrade";
   }
   parameters {
         choice(

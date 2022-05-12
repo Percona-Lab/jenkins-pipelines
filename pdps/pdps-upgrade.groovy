@@ -9,7 +9,7 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "molecule/pdmysql/${SCENARIO}";
+      MOLECULE_DIR = "molecule/pdmysql/pdps-minor-upgrade";
   }
   parameters {
         choice(
@@ -36,11 +36,11 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.19',
+            defaultValue: '8.0.28',
             description: 'Percona Server will be upgraded from this version',
             name: 'FROM_VERSION')
         string(
-            defaultValue: '8.0.20',
+            defaultValue: '8.0.29',
             description: 'Percona Server will be upgraded to this version',
             name: 'VERSION'
         )
