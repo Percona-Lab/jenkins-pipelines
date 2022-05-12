@@ -50,13 +50,6 @@ pipeline {
           disableConcurrentBuilds()
   }
     stages {
-        stage('Set build name'){
-          steps {
-                    script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
-                    }
-                }
-            }
         stage('Checkout') {
             steps {
                 deleteDir()
