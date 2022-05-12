@@ -452,42 +452,6 @@ ENDSSH
                 """
             }
         }
-
-        stage('Tests Execution') {
-            parallel {
-                stage('Test: Upgrade from 2.22.0 version') {
-                    steps {
-                        runUpgradeTest('2.22.0', VERSION)
-                    }
-                }
-                stage('Test: Upgrade from 2.21.0 version') {
-                    steps {
-                        runUpgradeTest('2.21.0', VERSION)
-                    }
-                }
-                stage('Test: Upgrade from 2.20.0 version') {
-                    steps {
-                        runUpgradeTest('2.20.0', VERSION)
-                    }
-                }
-                stage('Test: Package testing with main repo') {
-                    steps {
-                        runPackageTest(VERSION, 'main')
-                    }
-                }
-                stage('Test: Package testing with tools-main repo') {
-                    steps {
-                        runPackageTest(VERSION, 'tools-main')
-                    }
-                }
-                stage('Test: Upgrade from pmm2-client-main repo') {
-                    steps {
-                        runPackageTest(VERSION, 'pmm2-client-main')
-                    }
-                }
-            }
-        }
-
     }
     post {
         always {
