@@ -25,22 +25,15 @@ void checkImageForDocker(String IMAGE_PREFIX){
         sh """
             IMAGE_PREFIX=${IMAGE_PREFIX}
             IMAGE_NAME='percona-xtradb-cluster-operator'
-            TrityHightLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_PREFIX}.log"
-            TrityCriticaltLog="$WORKSPACE/trivy-critical-\$IMAGE_NAME-${IMAGE_PREFIX}.log"
+            TrityHightLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_PREFIX}.xml"
+            TrityCriticaltLog="$WORKSPACE/trivy-critical-\$IMAGE_NAME-${IMAGE_PREFIX}.xml"
+            wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
             "
-
-            if [ ! -s \$TrityHightLog ]; then
-                rm -rf \$TrityHightLog
-            fi
-
-            if [ ! -s \$TrityCriticaltLog ]; then
-                rm -rf \$TrityCriticaltLog
-            fi
         """
     }
 }
@@ -162,23 +155,98 @@ pipeline {
                 pushImageToDocker('logcollector')
             }
         }
-        stage('Check Docker images') {
-            steps {
-                checkImageForDocker('pxc5.7')
-                checkImageForDocker('pxc8.0')
-                checkImageForDocker('pxc5.7-debug')
-                checkImageForDocker('pxc8.0-debug')
-                checkImageForDocker('proxysql')
-                checkImageForDocker('pxc5.7-backup')
-                checkImageForDocker('pxc8.0-backup')
-                checkImageForDocker('haproxy')
-                checkImageForDocker('logcollector')
-                sh '''
-                   CRITICAL=$(ls trivy-critical-*) || true
-                   if [ -n "$CRITICAL" ]; then
-                       exit 1
-                   fi
-                '''
+       stage('Trivy Checks') {
+            parallel {
+                stage('pxc5.7'){
+                    steps {
+                        checkImageForDocker('pxc5.7')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc5.7.xml"
+                        }
+                    }
+                }
+                stage('pxc8.0'){
+                    steps {
+                        checkImageForDocker('pxc8.0')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc8.0.xml"
+                        }
+                    }
+                }
+                stage('pxc5.7-debug'){
+                    steps {
+                        checkImageForDocker('pxc5.7-debug')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc5.7-debug.xml"
+                        }
+                    }
+                }
+                stage('pxc8.0-debug'){
+                    steps {
+                        checkImageForDocker('pxc8.0-debug')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc8.0-debug.xml"
+                        }
+                    }
+                }
+                stage('proxysql'){
+                    steps {
+                        checkImageForDocker('proxysql')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-proxysql.xml"
+                        }
+                    }
+                }
+                stage('pxc5.7-backup'){
+                    steps {
+                        checkImageForDocker('pxc5.7-backup')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc5.7-backup.xml"
+                        }
+                    }
+                }
+                stage('pxc8.0-backup'){
+                    steps {
+                        checkImageForDocker('pxc8.0-backup')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc8.0-backup.xml"
+                        }
+                    }
+                }
+                stage('haproxy'){
+                    steps {
+                        checkImageForDocker('haproxy')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-haproxy.xml"
+                        }
+                    }
+                }
+                stage('logcollector'){
+                    steps {
+                        checkImageForDocker('logcollector')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-logcollector.xml"
+                        }
+                    }
+                }
             }
         }
         stage('Check Docker images for CVE') {
@@ -197,12 +265,14 @@ pipeline {
     }
     post {
         always {
-            archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
             archiveArtifacts artifacts: '*.pdf', allowEmptyArchive: true
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
             '''
             deleteDir()
+        }
+        unstable {
+            slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PXC docker images unstable. Please check the log ${BUILD_URL}"
         }
         failure {
             slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PXC docker images failed. Please check the log ${BUILD_URL}"
