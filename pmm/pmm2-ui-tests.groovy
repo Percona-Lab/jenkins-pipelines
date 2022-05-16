@@ -94,6 +94,8 @@ pipeline {
         SERVICENOW_DEV_URL=credentials('SERVICENOW_DEV_URL')
         OAUTH_DEV_CLIENT_ID=credentials('OAUTH_DEV_CLIENT_ID')
         PORTAL_BASE_URL=credentials('PORTAL_BASE_URL')
+        PAGER_DUTY_SERVICE_KEY=credentials('PAGER_DUTY_SERVICE_KEY')
+        PAGER_DUTY_API_KEY=credentials('PAGER_DUTY_API_KEY')
     }
     parameters {
         string(
