@@ -12,7 +12,7 @@ def DEFAULT_SSH_KEYS = getSHHKeysPMM()
 
 pipeline {
     agent {
-        label 'awscli'
+        label 'cli'
     }
 
     parameters {
