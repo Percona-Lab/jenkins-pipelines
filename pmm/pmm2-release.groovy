@@ -385,20 +385,6 @@ ENDSSH
                 deleteDir()
             }
         }
-        stage('Refresh website part 1') {
-            agent {
-                label 'virtualbox'
-            }
-            steps {
-                sh """
-                    until curl https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory > /tmp/crawler; do
-                        tail /tmp/crawler
-                        sleep 10
-                    done
-                    tail /tmp/crawler
-                """
-            }
-        }
         stage('Publish OVF image') {
             agent {
                 label 'virtualbox'
@@ -417,8 +403,7 @@ ENDSSH
                 deleteDir()
             }
         }
-
-        stage('Refresh website part 2') {
+        stage('Refresh website') {
             agent {
                 label 'virtualbox'
             }
@@ -430,6 +415,13 @@ ENDSSH
                     done
                     tail /tmp/crawler
                 """
+            }
+        }
+        stage('Run post-release tests') {
+            steps {
+                build job: 'pmm2-release-tests', propagate: false, wait: false, parameters: [
+                    string(name: 'VERSION', value: VERSION)
+                ]
             }
         }
     }

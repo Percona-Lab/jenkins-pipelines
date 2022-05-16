@@ -19,7 +19,8 @@ void runUpgradeTest(String FROM_VERSION, String CURRENT_VERSION) {
         string(name: 'ENABLE_TESTING_REPO', value: 'no'),
         string(name: 'DOCKER_VERSION', value: FROM_VERSION),
         string(name: 'CLIENT_VERSION', value: FROM_VERSION),
-        string(name: 'PMM_SERVER_LATEST', value: CURRENT_VERSION)
+        string(name: 'PMM_SERVER_LATEST', value: CURRENT_VERSION),
+        string(name: 'GIT_BRANCH', value: "pmm-${CURRENT_VERSION}")
     ]
 }
 
@@ -36,14 +37,14 @@ pipeline {
     stages {
         stage('Tests Execution') {
             parallel {
+                stage('Test: Upgrade from 2.24.0 version') {
+                    steps {
+                        runUpgradeTest('2.24.0', VERSION)
+                    }
+                }
                 stage('Test: Upgrade from 2.22.0 version') {
                     steps {
                         runUpgradeTest('2.22.0', VERSION)
-                    }
-                }
-                stage('Test: Upgrade from 2.21.0 version') {
-                    steps {
-                        runUpgradeTest('2.21.0', VERSION)
                     }
                 }
                 stage('Test: Upgrade from 2.20.0 version') {
