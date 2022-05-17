@@ -31,8 +31,8 @@ void checkImageForDocker(String IMAGE_PREFIX){
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrityHightLog --ignore-unfixed  --timeout 10m --exit-code 0 --severity HIGH perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrityCriticaltLog --ignore-unfixed --timeout 10m --exit-code 0 --severity CRITICAL perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
             "
         """
     }
