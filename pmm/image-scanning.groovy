@@ -14,7 +14,7 @@ pipeline {
         string(
             defaultValue: 'perconalab/pmm-server',
             description: 'Image for scanning',
-            name: 'IMAGE')
+            name: 'IMAGE'),
             defaultValue: 'dev-latest',
             description: 'Tag for scanning',
             name: 'TAG')
