@@ -1,3 +1,7 @@
+Jenkins.instance.getItemByFullName(env.JOB_NAME).description = '''
+With this job you can run an image scanning with LaceWork (security and the best practice)
+'''
+
 pipeline {
     agent {
         label 'agent-amd64'
