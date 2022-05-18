@@ -15,7 +15,7 @@ pipeline {
   parameters {
         choice(
             name: 'FROM_REPO',
-            description: 'From this repo will be upgraded PPG',
+            description: 'From this repo will be upgraded PDPS',
             choices: [
                 'testing',
                 'experimental',
@@ -44,6 +44,26 @@ pipeline {
             defaultValue: 'master',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
+        string(
+            defaultValue: '2.3.2',
+            description: 'Updated Proxysql version',
+            name: 'PROXYSQL_VERSION'
+         )
+        string(
+            defaultValue: '8.0.28',
+            description: 'Updated PXB version',
+            name: 'PXB_VERSION'
+         )
+        string(
+            defaultValue: '3.3.1',
+            description: 'Updated Percona Toolkit version',
+            name: 'PT_VERSION'
+         )
+        string(
+            defaultValue: '3.2.6',
+            description: 'Updated Percona Orchestrator version',
+            name: 'ORCHESTRATOR_VERSION'
+         )
   }
   options {
           withCredentials(moleculePdpsJenkinsCreds())

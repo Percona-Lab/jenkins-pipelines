@@ -48,6 +48,26 @@ pipeline {
             defaultValue: 'master',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
+        string(
+            defaultValue: '2.3.2',
+            description: 'Updated Proxysql version',
+            name: 'PROXYSQL_VERSION'
+         )
+        string(
+            defaultValue: '8.0.28',
+            description: 'Updated PXB version',
+            name: 'PXB_VERSION'
+         )
+        string(
+            defaultValue: '3.3.1',
+            description: 'Updated Percona Toolkit version',
+            name: 'PT_VERSION'
+         )
+        string(
+            defaultValue: '3.2.6',
+            description: 'Updated Percona Orchestrator version',
+            name: 'ORCHESTRATOR_VERSION'
+         )
   }
   options {
           withCredentials(moleculePdpsJenkinsCreds())
@@ -81,7 +101,7 @@ pipeline {
             }
         }
     }
-    stage ('Run playbook for test') {env.MOLECULE_DIR
+    stage ('Run playbook for test') {
       steps {
           script{
               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
@@ -93,7 +113,6 @@ pipeline {
             script{
               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
             }
-            junit "${MOLECULE_DIR}/report.xml"
         }
     }
     stage ('Start Cleanup ') {
@@ -107,7 +126,8 @@ pipeline {
   post {
     always {
           script {
-             moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.PLATFORM)
+             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+             junit "${MOLECULE_DIR}/report.xml"
         }
     }
   }
