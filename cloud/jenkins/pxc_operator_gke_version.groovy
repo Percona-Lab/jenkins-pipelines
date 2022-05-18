@@ -343,6 +343,7 @@ pipeline {
                         runTest('tls-issue-cert-manager', 'basic')
                         runTest('tls-issue-cert-manager-ref', 'basic')
                         runTest('validation-hook', 'basic')
+                        runTest('proxy-protocol','basic')
                         ShutdownCluster('basic')
                     }
                 }
@@ -385,6 +386,13 @@ pipeline {
                         CreateCluster('bigdata')
                         runTest('big-data', 'bigdata')
                         ShutdownCluster('bigdata')
+                    }
+                }
+                stage('E2E CrossSite') {
+                    steps {
+                        CreateCluster('cross-site')
+                        runTest('cross-site', 'cross-site')
+                        ShutdownCluster('cross-site')
                     }
                 }
             }

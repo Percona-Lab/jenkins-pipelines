@@ -285,6 +285,7 @@ pipeline {
                     runTest('self-healing-advanced')
                     runTest('self-healing-advanced-chaos')
                     runTest('validation-hook')
+                    runTest('proxy-protocol')
             }
             post {
                 always {
