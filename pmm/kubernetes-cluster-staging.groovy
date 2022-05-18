@@ -23,6 +23,10 @@ pipeline {
             choices: '1\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
+        choice(
+            choices: '1.23.1\n1.22.1\n1.21.1\n1.20.1',
+            description: 'Select Kubernetes version',
+            name: 'KUBE_VERSION')
         string(
             defaultValue: 'true',
             description: 'Enable Slack notification (option for high level pipelines)',
@@ -56,6 +60,10 @@ pipeline {
                     def OWNER = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
+
+                    echo """
+                        KUBE_VERSION: ${KUBE_VERSION}
+                    """                  
 
                     if ("${NOTIFY}" == "true") {
                         slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: cluster creation - ${BUILD_URL}"
@@ -157,7 +165,7 @@ pipeline {
                                 rm ~/.kube/config && minikube delete
                                 minikube config set cpus 8
                                 minikube config set memory 29000
-                                minikube config set kubernetes-version 1.20.1
+                                minikube config set kubernetes-version ${KUBE_VERSION}
                                 export CHANGE_MINIKUBE_NONE_USER=true
                                 sudo yum install -y conntrack
                                 minikube start --driver=none
