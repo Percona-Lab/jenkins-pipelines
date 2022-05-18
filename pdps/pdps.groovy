@@ -124,6 +124,7 @@ pipeline {
     always {
           script {
              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+             junit "${MOLECULE_DIR}/report.xml"
         }
     }
   }

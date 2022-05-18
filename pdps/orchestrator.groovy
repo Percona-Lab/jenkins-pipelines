@@ -87,6 +87,7 @@ pipeline {
     always {
           script {
              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "ubuntu-bionic")
+             junit "${MOLECULE_DIR}/report.xml"
         }
     }
   }
