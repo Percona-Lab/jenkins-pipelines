@@ -21,7 +21,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'PMM2-Server-dev-latest.ova',
-            description: 'OVA Image version',
+            description: 'OVA Image version, for installing already released version, pass 2.x.y ex. 2.28.0',
             name: 'OVA_VERSION')
     }
     options {
@@ -66,7 +66,13 @@ pipeline {
                     script {
                         PUBLIC_IP = sh(returnStdout: true, script: 'curl ifconfig.me')
                     }
-                    sh "wget -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}"
+                    sh """
+                        if [[ \$OVA_VERSION = 2* ]]; then
+                            wget -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
+                        else
+                            wget -O ${VM_NAME}.ova https://downloads.percona.com/downloads/pmm2/${OVA_VERSION}/ova/pmm-server-${OVA_VERSION}.ova
+                        fi
+                    """
                     sh """
                         export BUILD_ID=dear-jenkins-please-dont-kill-virtualbox
                         export JENKINS_NODE_COOKIE=dear-jenkins-please-dont-kill-virtualbox
