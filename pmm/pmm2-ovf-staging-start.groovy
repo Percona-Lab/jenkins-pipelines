@@ -68,9 +68,9 @@ pipeline {
                     }
                     sh """
                         if [[ \$OVA_VERSION = 2* ]]; then
-                            wget -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
-                        else
                             wget -O ${VM_NAME}.ova https://downloads.percona.com/downloads/pmm2/${OVA_VERSION}/ova/pmm-server-${OVA_VERSION}.ova
+                        else
+                            wget -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
                         fi
                     """
                     sh """
