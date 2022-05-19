@@ -275,10 +275,11 @@ EOF
 
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                      sh """
+                         sudo yum install -y kubectl-1.23.6
                          export PATH=/home/ec2-user/.local/bin:$PATH
                          source $HOME/google-cloud-sdk/path.bash.inc
                          eksctl create cluster -f cluster.yaml
-                         aws eks update-kubeconfig
+                         aws eks update-kubeconfig --name eks-pxc-cluster --region eu-west-3
                      """
                }
                stash includes: 'cluster.yaml', name: 'cluster_conf'
