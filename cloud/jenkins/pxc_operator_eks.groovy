@@ -278,7 +278,7 @@ EOF
                          export PATH=/home/ec2-user/.local/bin:$PATH
                          source $HOME/google-cloud-sdk/path.bash.inc
                          eksctl create cluster -f cluster.yaml
-                         aws eks update-kubeconfig --name eks-pxc-cluster --region eu-west-3
+                         aws eks update-kubeconfig --name eks-pxc-cluster
                      """
                }
                stash includes: 'cluster.yaml', name: 'cluster_conf'
