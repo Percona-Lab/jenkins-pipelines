@@ -24,7 +24,7 @@ pipeline {
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
         choice(
-            choices: '1.23.1\n1.22.1\n1.21.1\n1.20.1',
+            choices: ['1.23.1', '1.22.1', '1.21.1', '1.20.1'],
             description: 'Select Kubernetes version',
             name: 'KUBE_VERSION')
         string(
