@@ -122,7 +122,7 @@ pipeline {
                 stage('Run PMM+PGSM Integration, Mongodb Exporter tests @pgsm-pmm-integration @mongodb-exporter'){
                     steps {
                         script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@pgsm-pmm-integration|@mongodb-exporter', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@pgsm-pmm-integration|@mongodb-exporter', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--addclient=modb,1 --setup-pmm-pgsm-integration');
                         }
                     }
                 }
