@@ -26,6 +26,7 @@ imageMap['micro-amazon']     = 'ami-0e21d4d9303512b8e'
 imageMap['min-centos-6-x64'] = 'ami-052ff42ae3be02b6a'
 imageMap['min-centos-7-x64'] = 'ami-0686851c4e7b1a8e1'
 imageMap['min-centos-8-x64'] = 'ami-0155c31ea13d4abd2'
+imageMap['min-ol-8-x64']     = 'ami-000b99c02c2b64925'
 imageMap['min-bullseye-x64'] = 'ami-0d0f7602aa5c2425d'
 imageMap['min-buster-x64']   = 'ami-013e2c587714af230'
 imageMap['min-stretch-x64']  = 'ami-01bc069bbdca81d56'
@@ -52,6 +53,7 @@ userMap['micro-amazon']     = userMap['docker']
 userMap['min-centos-6-x64'] = 'centos'
 userMap['min-centos-7-x64'] = 'centos'
 userMap['min-centos-8-x64'] = 'centos'
+userMap['min-ol-8-x64']     = 'ec2-user'
 userMap['min-stretch-x64']  = 'admin'
 userMap['min-buster-x64']   = 'admin'
 userMap['min-xenial-x64']   = 'ubuntu'
@@ -207,7 +209,7 @@ initMap['rpmMap'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git ${PKGLIST} || :
+    sudo yum -y install java-1.8.0-openjdk git || :
     sudo yum -y install aws-cli || :
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
@@ -254,6 +256,7 @@ initMap['micro-amazon']      = initMap['rpmMap']
 initMap['min-centos-6-x64']  = initMap['rpmMap']
 initMap['min-centos-7-x64']  = initMap['rpmMap']
 initMap['min-centos-8-x64']  = initMap['rpmMap']
+initMap['min-ol-8-x64']      = initMap['rpmMap']
 
 initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-stretch-x64']  = initMap['debMap']
@@ -279,6 +282,7 @@ typeMap['docker-32gb']       = 'm5zn.3xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
 typeMap['min-centos-6-x64']  = 'm3.2xlarge'
 typeMap['min-centos-8-x64']  = typeMap['docker-32gb']
+typeMap['min-ol-8-x64']      = typeMap['docker-32gb']
 typeMap['min-bullseye-x64']  = typeMap['docker-32gb']
 typeMap['min-stretch-x64']   = typeMap['docker-32gb']
 typeMap['min-buster-x64']    = typeMap['docker-32gb']
@@ -296,6 +300,7 @@ execMap['micro-amazon']     = '30'
 execMap['min-centos-6-x64'] = '1'
 execMap['min-centos-7-x64'] = '1'
 execMap['min-centos-8-x64'] = '1'
+execMap['min-ol-8-x64']     = '1'
 execMap['min-bullseye-x64'] = '1'
 execMap['min-stretch-x64']  = '1'
 execMap['min-buster-x64']   = '1'
@@ -307,21 +312,22 @@ execMap['psmdb']            = '1'
 execMap['psmdb-bionic']     = '1'
 
 devMap = [:]
-devMap['docker']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:160:true:gp2'
-devMap['psmdb']            = '/dev/sda1=:8:true:gp2,/dev/sdd=:160:true:gp2'
+devMap['docker']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:500:true:gp2'
+devMap['psmdb']            = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
 devMap['psmdb-bionic']     = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
 devMap['docker-32gb']      = devMap['docker']
-devMap['micro-amazon']     = devMap['docker']
-devMap['min-centos-6-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:400:true:gp2'
-devMap['min-centos-7-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:400:true:gp2'
-devMap['min-centos-8-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:400:true:gp2'
-devMap['min-bullseye-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:400:true:gp2'
-devMap['min-buster-x64']   = '/dev/xvda=:8:true:gp2,/dev/xvdd=:400:true:gp2'
-devMap['min-stretch-x64']  = 'xvda=:8:true:gp2,xvdd=:400:true:gp2'
-devMap['min-xenial-x64']   = '/dev/sda1=:8:true:gp2,/dev/sdd=:400:true:gp2'
-devMap['min-bionic-x64']   = '/dev/sda1=:8:true:gp2,/dev/sdd=:400:true:gp2'
-devMap['min-focal-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:400:true:gp2'
-devMap['min-jammy-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:400:true:gp2'
+devMap['micro-amazon']     = '/dev/xvda=:8:true:gp2,/dev/xvdd=:160:true:gp2'
+devMap['min-centos-6-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:500:true:gp2'
+devMap['min-centos-7-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:500:true:gp2'
+devMap['min-centos-8-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:500:true:gp2'
+devMap['min-ol-8-x64']     = '/dev/xvda=:8:true:gp2,/dev/xvdd=:500:true:gp2'
+devMap['min-bullseye-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:500:true:gp2'
+devMap['min-buster-x64']   = '/dev/xvda=:8:true:gp2,/dev/xvdd=:500:true:gp2'
+devMap['min-stretch-x64']  = 'xvda=:8:true:gp2,xvdd=:500:true:gp2'
+devMap['min-xenial-x64']   = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
+devMap['min-bionic-x64']   = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
+devMap['min-focal-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
+devMap['min-jammy-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
 
 labelMap = [:]
 labelMap['docker']           = ''
@@ -330,6 +336,7 @@ labelMap['micro-amazon']     = 'master'
 labelMap['min-centos-6-x64'] = ''
 labelMap['min-centos-7-x64'] = ''
 labelMap['min-centos-8-x64'] = ''
+labelMap['min-ol-8-x64']     = ''
 labelMap['min-bullseye-x64'] = ''
 labelMap['min-stretch-x64']  = ''
 labelMap['min-buster-x64']   = ''
@@ -415,6 +422,7 @@ String region = 'us-west-2'
             getTemplate('min-centos-6-x64', "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
             getTemplate('min-centos-8-x64', "${region}${it}"),
+            getTemplate('min-ol-8-x64',     "${region}${it}"),
             getTemplate('min-buster-x64',   "${region}${it}"),
             getTemplate('min-stretch-x64',  "${region}${it}"),
             getTemplate('min-bullseye-x64', "${region}${it}"),
