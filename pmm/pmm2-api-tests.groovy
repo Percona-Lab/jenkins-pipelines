@@ -117,6 +117,21 @@ pipeline {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
+        stage('Setup Client for PMM-Server') {
+            steps {
+                setupPMMClient(env.VM_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'docker', 'admin')
+                sh """
+                    set -o errexit
+                    set -o xtrace
+                    export PATH=\$PATH:/usr/sbin
+                    if [[ \$CLIENT_VERSION == http* ]]; then
+                        export PATH="`pwd`/pmm2-client/bin:$PATH"
+                    fi
+                    sleep 10
+                    pmm-admin list
+                """
+            }
+        }
         stage('Run API Test') {
             steps {
                 sh '''
