@@ -278,6 +278,11 @@ EOF
                          export PATH=/home/ec2-user/.local/bin:$PATH
                          source $HOME/google-cloud-sdk/path.bash.inc
                          eksctl create cluster -f cluster.yaml
+                         
+                         aws --version
+                         kubectl version --client=true
+                         kubectl version -o json
+                         sed -i 's/v1alpha1/v1beta1/g' ~/.kube/config
                      """
                }
                stash includes: 'cluster.yaml', name: 'cluster_conf'
