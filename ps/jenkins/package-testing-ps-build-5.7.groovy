@@ -39,6 +39,7 @@ node_setups = [
     "min-buster-x64": setup_debian_package_tests,
     "min-centos-7-x64": setup_rhel_package_tests,
     "min-centos-8-x64": setup_rhel_package_tests,
+    "min-ol-8-x64": setup_rhel_package_tests,
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
     "min-amazon-2-x64": setup_amazon_package_tests,
@@ -52,6 +53,7 @@ List all_nodes = node_setups.keySet().collect()
 
 List ps56_excluded_nodes = [
     "min-centos-8-x64",
+    "min-ol-8-x64",
     "min-focal-x64",
 ]
 
