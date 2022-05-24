@@ -113,8 +113,8 @@ pipeline {
                 'centos-8',
                 'centos-7',
                 'centos-6',
-                'Ubuntu-jammy',
-                'Oracle-Linux-8'
+                'ubuntu-jammy',
+                'oracle-linux-8'
             ],
             description: 'Distribution to run test'
         )
