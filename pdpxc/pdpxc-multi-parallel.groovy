@@ -50,6 +50,10 @@ pipeline {
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
          )
+        string(
+            defaultValue: 'master',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH')
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())

@@ -50,6 +50,10 @@ pipeline {
             description: 'Updated Percona Orchestrator version',
             name: 'ORCHESTRATOR_VERSION'
          )
+        string(
+            defaultValue: 'master',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH')
   }
   options {
           withCredentials(moleculePdpsJenkinsCreds())
