@@ -14,24 +14,24 @@
     pipeline-scm:
         scm:
             - git:
-                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                url: https://github.com/kaushikpuneet07/jenkins-pipelines.git
                 branches:
-                    - 'master'
+                    - 'innodb-job'
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: ps/jenkins/test-ps-innodb-cluster.groovy
     parameters:
         - string:
             name: UPSTREAM_VERSION
-            default: "8.0.23"
+            default: "8.0.28"
             description: "Upstream MySQL version"
         - string:
             name: PS_VERSION
-            default: "14"
+            default: "19"
             description: "Percona part of version"
         - string:
             name: PS_REVISION
-            default: "3558242"
+            default: "31e88966cd3"
             description: "Short git hash for release"
         - choice:
             name: TEST_DIST
@@ -45,6 +45,8 @@
                 - 'centos-8'
                 - 'centos-7'
                 - 'centos-6'
+                - 'Ubuntu-jammy'
+                - 'Oracle-Linux-8'
             description: "Distribution to run test"
         - choice:
             name: INSTALL_REPO

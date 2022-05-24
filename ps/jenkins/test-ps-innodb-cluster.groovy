@@ -6,7 +6,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 void installDependencies() {
     sh '''
         export PATH=${PATH}:~/.local/bin
-        sudo yum install -y git python3-pip jq
+        sudo yum install -y git python3-pip jq tar
         sudo amazon-linux-extras install ansible2
         python3 -m venv venv
         source venv/bin/activate
@@ -16,7 +16,7 @@ void installDependencies() {
 
     sh '''
         rm -rf package-testing
-        git clone https://github.com/Percona-QA/package-testing
+        git clone -b innodb-cluster-job https://github.com/kaushikpuneet07/package-testing
     '''
 }
 
@@ -88,17 +88,17 @@ pipeline {
     parameters {
         string(
             name: 'UPSTREAM_VERSION',
-            defaultValue: '8.0.23',
+            defaultValue: '8.0.28',
             description: 'Upstream MySQL version'
         )
         string(
             name: 'PS_VERSION',
-            defaultValue: '14',
+            defaultValue: '19',
             description: 'Percona part of version'
         )
         string(
             name: 'PS_REVISION',
-            defaultValue: '3558242',
+            defaultValue: '31e88966cd3',
             description: 'Short git hash for release'
         )
         choice(
@@ -112,7 +112,9 @@ pipeline {
                 'debian-9',
                 'centos-8',
                 'centos-7',
-                'centos-6'
+                'centos-6',
+                'Ubuntu-jammy',
+                'Oracle-Linux-8'
             ],
             description: 'Distribution to run test'
         )
