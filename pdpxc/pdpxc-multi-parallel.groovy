@@ -23,32 +23,32 @@ pipeline {
         )
         string(
             defaultValue: '8.0.28',
-            description: 'From this version PDPS will be updated',
+            description: 'From this version pdpxc will be updated',
             name: 'FROM_VERSION')
         string(
             defaultValue: '8.0.29',
-            description: 'To this version PDPS will be updated',
+            description: 'To this version pdpxc will be updated',
             name: 'VERSION'
         )
         string(
             defaultValue: '2.0.18',
-            description: 'Updated Proxysql version',
+            description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
          )
         string(
+            defaultValue: '2.3.10',
+            description: 'HAProxy version for test',
+            name: 'HAPROXY_VERSION'
+         )
+        string(
             defaultValue: '8.0.23',
-            description: 'Updated PXB version',
+            description: 'PXB version for test',
             name: 'PXB_VERSION'
          )
         string(
             defaultValue: '3.3.1',
-            description: 'Updated Percona Toolkit version',
+            description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
-         )
-        string(
-            defaultValue: '3.1.4',
-            description: 'Updated Percona Orchestrator version',
-            name: 'ORCHESTRATOR_VERSION'
          )
         string(
             defaultValue: 'master',
@@ -56,7 +56,7 @@ pipeline {
             name: 'TESTING_BRANCH')
   }
   options {
-          withCredentials(moleculePdpsJenkinsCreds())
+          withCredentials(moleculePdpxcJenkinsCreds())
           disableConcurrentBuilds()
   }
   stages {
@@ -67,15 +67,15 @@ pipeline {
             steps {
                 script {
                     try {
-                        build job: 'pdps-parallel', parameters: [
+                        build job: 'pdpxc-parallel', parameters: [
                         string(name: 'REPO', value: "${env.TO_REPO}"),
                         string(name: 'VERSION', value: "${env.VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pdps"),
+                        string(name: 'SCENARIO', value: "pdpxc"),
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
                         ]
                     }
                     catch (err) {
@@ -92,15 +92,15 @@ pipeline {
             steps {
                 script {
                     try {
-                        build job: 'pdps-parallel', parameters: [
+                        build job: 'pdpxc-parallel', parameters: [
                         string(name: 'REPO', value: "${env.TO_REPO}"),
                         string(name: 'VERSION', value: "${env.VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pdps-setup"),
+                        string(name: 'SCENARIO', value: "pdpxc-setup"),
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
                         ]
                     }
                     catch (err) {
@@ -114,17 +114,17 @@ pipeline {
             steps {
                 script {
                     try {
-                        build job: 'pdps-upgrade-parallel', parameters: [
+                        build job: 'pdpxc-upgrade-parallel', parameters: [
                         string(name: 'FROM_REPO', value: "${env.FROM_REPO}"),
                         string(name: 'FROM_VERSION', value: "${env.FROM_VERSION}"),
                         string(name: 'TO_REPO', value: "${env.TO_REPO}"),
                         string(name: 'VERSION', value: "${env.VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pdps-minor-upgrade"),
+                        string(name: 'SCENARIO', value: "pdpxc-minor-upgrade"),
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
                         ]
                     }
                     catch (err) {
@@ -138,22 +138,39 @@ pipeline {
             steps {
                 script {
                     try {
-                        build job: 'pdps-upgrade-parallel', parameters: [
+                        build job: 'pdpxc-upgrade-parallel', parameters: [
                         string(name: 'FROM_REPO', value: "${env.TO_REPO}"),
                         string(name: 'FROM_VERSION', value: "${env.VERSION}"),
                         string(name: 'TO_REPO', value: "${env.FROM_REPO}"),
                         string(name: 'VERSION', value: "${env.FROM_VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pdps-minor-upgrade"),
+                        string(name: 'SCENARIO', value: "pdpxc-minor-upgrade"),
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
                         ]
                     }
                     catch (err) {
                         currentBuild.result = "FAILURE"
                         echo "Stage 'Test minor downgrade' failed, but we continue"
+                    }
+                }
+            }
+        }
+        stage ('Test haproxy') {
+            steps {
+                script {
+                    try {
+                        build job: 'haproxy', parameters: [
+                        string(name: 'REPO', value: "${env.FROM_REPO}"),
+                        string(name: 'VERSION', value: "${env.FROM_VERSION}"),
+                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'haproxy' failed, but we continue"
                     }
                 }
             }
