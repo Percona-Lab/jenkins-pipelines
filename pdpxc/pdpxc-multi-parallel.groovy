@@ -158,5 +158,22 @@ pipeline {
                 }
             }
         }
+        stage ('Test haproxy') {
+            steps {
+                script {
+                    try {
+                        build job: 'haproxy', parameters: [
+                        string(name: 'REPO', value: "${env.FROM_REPO}"),
+                        string(name: 'VERSION', value: "${env.FROM_VERSION}"),
+                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'haproxy' failed, but we continue"
+                    }
+                }
+            }
+        }
   }
 }
