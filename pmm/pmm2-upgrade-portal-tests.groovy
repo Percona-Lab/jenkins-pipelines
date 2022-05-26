@@ -96,9 +96,16 @@ pipeline {
             defaultValue: 'admin-password',
             description: 'Change pmm-server admin user default password.',
             name: 'ADMIN_PASSWORD')
+        choice(
+            choices: ['no', 'yes'],
+            description: "Enable Slack notification as direct message, not just pmm-ci channel",
+            name: 'NOTIFY')
     }
     options {
         skipDefaultCheckout()
+    }
+    triggers {
+        upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
     stages {
         stage('Prepare') {
@@ -250,6 +257,11 @@ pipeline {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'tests/output/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
+                    if ("${NOTIFY}" == "yes") {
+                    def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
+                    def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
+                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                    }
                 } else {
                     junit 'tests/output/*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'result.html', reportName: 'HTML Report', reportTitles: ''])
@@ -257,6 +269,11 @@ pipeline {
                     archiveArtifacts artifacts: 'tests/output/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'tests/output/*.png'
+                    if ("${NOTIFY}" == "yes") {
+                    def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
+                    def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
+                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    }
                 }
             }
             allure([
