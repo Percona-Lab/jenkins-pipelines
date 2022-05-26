@@ -35,7 +35,7 @@ void destroyStaging(IP) {
     ]
 }
 
-def versionsList = pmmVersion('list')
+def versionsList = pmmVersion('list').reverse()
 
 def getPMMServerVersion(String PMM_SERVER_VERSION, String PMM_SERVER_VERSION_CUSTOM) {
     return PMM_CLIENT_VERSION == "custom" ? PMM_SERVER_VERSION_CUSTOM : PMM_SERVER_VERSION
