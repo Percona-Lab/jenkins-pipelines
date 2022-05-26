@@ -78,7 +78,10 @@ pipeline {
                       message: "PMM release tests for PMM ${VERSION} was successful"
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
+            slackSend botUser: true,
+                      channel: '#pmm-ci',
+                      color: '#FF0000',
+                      message: "PMM release tests for PMM ${VERSION} was successful was failed"
         }
     }
 }
