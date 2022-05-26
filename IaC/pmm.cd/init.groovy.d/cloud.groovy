@@ -25,11 +25,11 @@ imageMap['us-east-2a.min-centos-7-x64'] = 'ami-00f8e2c955f7ffa9b'
 imageMap['us-east-2a.min-centos-8-x64'] = 'ami-0c2c9b5652599cf35'
 imageMap['us-east-2a.min-focal-x64']    = 'ami-0eea504f45ef7a8f7'
 imageMap['us-east-2a.min-bionic-x64']   = 'ami-0b9ecb12083282d75'
-imageMap['us-east-2a.min-jammy-x64']    = 'ami-0aeb7c931a5a61206'
+imageMap['us-east-2a.min-jammy-x64']    = 'ami-07a683b72d6bd7da3'
 imageMap['us-east-2a.min-buster-x64']   = 'ami-0d90bed76900e679a'
 imageMap['us-east-2a.min-stretch-x64']  = 'ami-0c729632334a74b05'
 imageMap['us-east-2a.min-bullseye-x64'] = 'ami-0c9e778f8faae5214'
-imageMap['us-east-2a.micro-amazon']     = 'ami-056b1936002ca8ede'
+imageMap['us-east-2a.micro-amazon']     = 'ami-0fe23c115c3ba9bac'
 imageMap['us-east-2a.large-amazon']     = imageMap['us-east-2a.micro-amazon']
 imageMap['us-east-2a.docker']           = imageMap['us-east-2a.micro-amazon']
 

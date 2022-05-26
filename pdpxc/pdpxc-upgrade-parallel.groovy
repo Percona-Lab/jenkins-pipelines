@@ -44,6 +44,26 @@ pipeline {
             defaultValue: 'master',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
+        string(
+            defaultValue: '2.0.18',
+            description: 'Proxysql version for test',
+            name: 'PROXYSQL_VERSION'
+         )
+        string(
+            defaultValue: '2.3.10',
+            description: 'HAProxy version for test',
+            name: 'HAPROXY_VERSION'
+         )
+        string(
+            defaultValue: '8.0.23',
+            description: 'PXB version for test',
+            name: 'PXB_VERSION'
+         )
+        string(
+            defaultValue: '3.3.1',
+            description: 'Percona toolkit version for test',
+            name: 'PT_VERSION'
+         )
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())
