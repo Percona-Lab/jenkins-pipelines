@@ -4,12 +4,12 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENT_INSTANCE, SERVER_IP, VERSION_SERVICE_VERSION) {
-    stagingJob = build job: 'aws-staging-start', parameters: [
+    stagingJob = build job: 'aws-staging-start-beata-temp', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
         string(name: 'VERSION_SERVICE_VERSION', value: VERSION_SERVICE_VERSION),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e ENABLE_DBAAS=1 -e PERCONA_TEST_VERSION_SERVICE_URL=${VERSION_SERVICE_VERSION}'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e ENABLE_DBAAS=1'),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
@@ -60,7 +60,7 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         choice(
-            choices: ['https://check.percona.com/versions/v1','https://check-dev.percona.com/versions/v1'],
+            choices: ['dev','prod'],
             description: 'Prod or Dev version service',
             name: 'VERSION_SERVICE_VERSION')            
         string(
@@ -137,7 +137,7 @@ pipeline {
             parallel {
                 stage('Start Server') {
                     steps {
-                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, CLIENT_INSTANCE, '127.0.0.1')
+                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, CLIENT_INSTANCE, '127.0.0.1', VERSION_SERVICE_VERSION)
                     }
                 }
                 stage('Start PMM Cluster Staging Instance') {
