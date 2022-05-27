@@ -32,7 +32,7 @@ pipeline {
             description: 'Select version of PXC operator',
             name: 'PXC_OPERATOR_VERSION')
         choice(
-            choices: ['none', 'v1.8.0', 'v1.9.0', 'v1.10.0', 'v1.11.0', 'v1.12.0'],
+            choices: ['v1.11.0', 'none', 'v1.8.0', 'v1.9.0', 'v1.10.0', 'v1.12.0'], //set v1.11.0 as default temporarily until PMM-10012 is fixed
             description: 'Select version of PSMDB operator',
             name: 'PSMDB_OPERATOR_VERSION')                    
         string(
