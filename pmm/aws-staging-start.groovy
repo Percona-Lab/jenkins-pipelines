@@ -101,6 +101,10 @@ pipeline {
             choices: ['perfschema', 'slowlog'],
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
+        choice(
+            choices: ['dev','prod'],
+            description: 'Prod or Dev version service',
+            name: 'VERSION_SERVICE_VERSION')            
         string(
             defaultValue: '',
             description: '''
@@ -290,6 +294,12 @@ pipeline {
                                         else
                                             export ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
                                         fi
+
+                                        if [ \${VERSION_SERVICE_VERSION} == dev ]; then
+                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1"
+                                        else
+                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check.percona.com/versions/v1"
+                                        fi                                        
 
                                         docker run -d \
                                             -p 80:80 \
