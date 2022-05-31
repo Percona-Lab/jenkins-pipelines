@@ -137,7 +137,7 @@ pipeline {
             }
             steps {
                 echo '====> Source will be downloaded from github'
-                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for PG${PG_RELEASE}, repo branch: ${BRANCH}")
+                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for PG${PG_RELEASE}, repo branch: ${BRANCH}")
                 cleanUpWS()
                 installCli("deb")
                 buildStage("ubuntu:focal", "--get_sources=1")
@@ -265,6 +265,22 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 } //stage
+                stage('Ubuntu 22.04') {
+                    agent {
+                        label 'min-jammy-x64'
+                    }
+                    steps {
+                        echo "====> Build pg_stat_monitor deb on Ubuntu 22.04 PG${PG_RELEASE}"
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_deb=1 --with_zenfs=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                } //stage
                 stage('Debian 9') {
                     agent {
                         label 'min-stretch-x64'
@@ -369,12 +385,12 @@ pipeline {
     } //stages
     post {
         success {
-              slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for PG${PG_RELEASE}, repo branch: ${BRANCH}")
+              slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for PG${PG_RELEASE}, repo branch: ${BRANCH}")
               deleteDir()
               echo "Success"
         }
         failure {
-              slackNotify("#releases", "#FF0000", "[${JOB_NAME}]: build failed for PG${PG_RELEASE}, repo branch: ${BRANCH}")
+              slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for PG${PG_RELEASE}, repo branch: ${BRANCH}")
               deleteDir()
               echo "Failure"
         }
