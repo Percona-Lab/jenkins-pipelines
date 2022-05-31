@@ -116,18 +116,6 @@ pipeline {
                     }
                 }
 
-                stage("Centos 6") {
-                    when {
-                        expression {
-                            nodes_to_test.contains("min-centos-6-x64")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("min-centos-6-x64")
-                    }
-                }
-
                 stage("Centos 7") {
                     when {
                         expression {
@@ -149,18 +137,6 @@ pipeline {
 
                     steps {
                         runNodeBuild("min-centos-8-x64")
-                    }
-                }
-
-                stage("Ubuntu Xenial") {
-                    when {
-                        expression {
-                            nodes_to_test.contains("min-xenial-x64")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("min-xenial-x64")
                     }
                 }
 

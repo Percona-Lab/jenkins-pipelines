@@ -106,13 +106,11 @@ pipeline {
             choices: [
                 'ubuntu-focal',
                 'ubuntu-bionic',
-                'ubuntu-xenial',
                 'debian-11',
                 'debian-10',
                 'debian-9',
                 'centos-8',
                 'centos-7',
-                'centos-6'
             ],
             description: 'Distribution to run test'
         )
