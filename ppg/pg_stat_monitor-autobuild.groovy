@@ -265,6 +265,22 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 } //stage
+                stage('Ubuntu 22.04') {
+                    agent {
+                        label 'min-jammy-x64'
+                    }
+                    steps {
+                        echo "====> Build pg_stat_monitor deb on Ubuntu 22.04 PG${PG_RELEASE}"
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_deb=1 --with_zenfs=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                } //stage
                 stage('Debian 9') {
                     agent {
                         label 'min-stretch-x64'
