@@ -18,7 +18,7 @@ docker run --rm \
     export PAT_REPO='${PAT_REPO}'
     export PAT_TAG='${PAT_TAG}'
 
-    wget -q https://golang.org/dl/go1.16.3.linux-amd64.tar.gz
+    sudo wget -q https://golang.org/dl/go1.16.3.linux-amd64.tar.gz
     sudo tar -C /usr/local -xzf go1.16.3.linux-amd64.tar.gz
     export PATH=$PATH:/usr/local/go/bin
     go version
