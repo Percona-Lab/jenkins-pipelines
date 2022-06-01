@@ -18,7 +18,7 @@ pipeline {
             name: 'PAT_REPO',
             trim: true)
         string(
-            defaultValue: 'v2.1',
+            defaultValue: 'v2',
             description: 'Tag/Branch for ProxySQL-admin-tool repository',
             name: 'PAT_TAG',
             trim: true)
