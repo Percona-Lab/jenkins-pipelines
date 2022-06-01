@@ -70,7 +70,6 @@ pipeline {
         stage('Build ProxySQL') {
                 agent { label 'docker' }
                 steps {
-                #    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     git branch: 'master', url: 'https://github.com/adivinho/jenkins-pipelines'
                     echo 'Checkout ProxySQL sources'
                     sh '''
