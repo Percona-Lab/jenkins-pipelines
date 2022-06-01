@@ -70,7 +70,8 @@ pipeline {
         stage('Build ProxySQL') {
                 agent { label 'docker' }
                 steps {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                #    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'master', url: 'https://github.com/adivinho/jenkins-pipelines'
                     echo 'Checkout ProxySQL sources'
                     sh '''
                         # sudo is needed for better node recovery after compilation failure
@@ -78,10 +79,11 @@ pipeline {
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf sources
+                        sudo  git checkout PSQLADM-361-Create-a-Jenkins-job-to-build-proxysql-admin-and-run-test-suites
                         ./proxysql/checkout PROXYSQL
                     '''
 
-                    echo 'Build ProxySQL'
+                    echo 'Build ProxySQL ${DOCKER_OS}'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
                             aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
