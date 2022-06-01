@@ -13,6 +13,16 @@ pipeline {
             name: 'BRANCH',
             trim: true)
         string(
+            defaultValue: 'https://github.com/percona/proxysql-admin-tool',
+            description: 'URL to ProxySQL-admin-tool repository',
+            name: 'PAT_REPO',
+            trim: true)
+        string(
+            defaultValue: 'v2.1',
+            description: 'Tag/Branch for ProxySQL-admin-tool repository',
+            name: 'PAT_TAG',
+            trim: true)
+        string(
             defaultValue: 'https://github.com/percona/proxysql-packaging',
             description: 'URL to ProxySQL package repository',
             name: 'PROXYSQL_PACKAGE_REPO',
@@ -21,11 +31,6 @@ pipeline {
             defaultValue: 'v2.1',
             description: 'Tag/Branch for ProxySQL package repository',
             name: 'PROXYSQL_PACKAGE_BRANCH',
-            trim: true)
-        string(
-            defaultValue: 'v2.3.2-dev',
-            description: 'Tag/Branch for ProxySQL-admin-tool repository',
-            name: 'PAT_TAG',
             trim: true)
        choice(
             choices: 'PXC80\nPXC57',
