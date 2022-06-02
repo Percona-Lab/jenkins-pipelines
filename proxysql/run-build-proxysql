@@ -28,6 +28,7 @@ docker run --rm \
     bash -x  /tmp/scripts/build-binary-proxysql /tmp/results /tmp/proxysql
     sudo rm -rf /tmp/proxysql/results
     sudo mkdir /tmp/proxysql/results
+    ls -la /tmp/results/
     sudo mv /tmp/results/*.tar.gz /tmp/proxysql/results/
     sudo chown -R $(id -u):$(id -g) /tmp/proxysql/results
 "
