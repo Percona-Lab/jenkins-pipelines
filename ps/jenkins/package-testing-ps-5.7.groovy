@@ -4,13 +4,9 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 List all_nodes = [
-    "min-stretch-x64",
     "min-buster-x64",
-    "min-bullseye-x64",
-    "min-centos-6-x64",
     "min-centos-7-x64",
-    "min-centos-8-x64",
-    "min-xenial-x64",
+    "min-ol-8-x64",
     "min-bionic-x64",
     "min-focal-x64",
     "min-amazon-2-x64",
@@ -80,18 +76,6 @@ pipeline {
 
         stage("Run parallel") {
             parallel {
-                stage("Debian Stretch") {
-                    when {
-                        expression {
-                            nodes_to_test.contains("min-stretch-x64")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("min-stretch-x64")
-                    }
-                }
-
                 stage("Debian Buster") {
                     when {
                         expression {
@@ -101,30 +85,6 @@ pipeline {
 
                     steps {
                         runNodeBuild("min-buster-x64")
-                    }
-                }
-
-                stage("Debian Bullseye") {
-                    when {
-                        expression {
-                            nodes_to_test.contains("min-bullseye-x64")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("min-bullseye-x64")
-                    }
-                }
-
-                stage("Centos 6") {
-                    when {
-                        expression {
-                            nodes_to_test.contains("min-centos-6-x64")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("min-centos-6-x64")
                     }
                 }
 
@@ -140,27 +100,15 @@ pipeline {
                     }
                 }
 
-                stage("Centos 8") {
+                stage("Oracle Linux 8") {
                     when {
                         expression {
-                            nodes_to_test.contains("min-centos-8-x64")
+                            nodes_to_test.contains("min-ol-8-x64")
                         }
                     }
 
                     steps {
-                        runNodeBuild("min-centos-8-x64")
-                    }
-                }
-
-                stage("Ubuntu Xenial") {
-                    when {
-                        expression {
-                            nodes_to_test.contains("min-xenial-x64")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("min-xenial-x64")
+                        runNodeBuild("min-ol-8-x64")
                     }
                 }
 
