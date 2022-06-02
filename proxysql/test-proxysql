@@ -119,10 +119,8 @@ elif [ -f /usr/bin/apt ]; then
 fi
 
 pushd ${WORKDIR_ABS}/WORKDIR
-pwd
 ls -la ${WORKDIR_ABS}
-#sudo tar -xzf $WORKDIR_ABS/proxysql*glibc*.tar.gz -C ${WORKDIR_ABS}/PROXY_ADMIN
-sudo tar -xzf $WORKDIR_ABS/proxysql*.tar.gz -C ${WORKDIR_ABS}/PROXY_ADMIN
+sudo tar -xzf $WORKDIR_ABS/proxysql*glibc*.tar.gz -C ${WORKDIR_ABS}/PROXY_ADMIN || sudo tar -xzf $WORKDIR_ABS/proxysql*.tar.gz -C ${WORKDIR_ABS}/PROXY_ADMIN
 for file in proxysql-admin proxysql-admin-common proxysql-login-file; do
   sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/usr/bin/$file ${WORKDIR_ABS}/WORKDIR/$file
 done;
