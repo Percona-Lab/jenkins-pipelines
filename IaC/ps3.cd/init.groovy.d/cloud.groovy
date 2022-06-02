@@ -150,7 +150,7 @@ priceMap['t2.medium'] = '0.03'
 priceMap['t2.large'] = '0.07'
 priceMap['t3a.2xlarge'] = '0.17'
 priceMap['t3.2xlarge'] = '0.18'
-priceMap['r5b.2xlarge'] = '0.29'
+priceMap['i4i.2xlarge'] = '0.29'
 priceMap['t2.2xlarge'] = '0.18'
 priceMap['r6g.2xlarge'] = '0.23'
 
@@ -422,7 +422,8 @@ initMap['rpmMap'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git aws-cli || :
+    sudo yum -y install java-1.8.0-openjdk git || :
+    sudo yum -y install aws-cli || :
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
@@ -501,7 +502,7 @@ initMap['min-jammy-aarch64']    = initMap['debMap']
 capMap = [:]
 capMap['t3a.2xlarge'] = '60'
 capMap['t3.2xlarge']  = '60'
-capMap['r5b.2xlarge'] = '40'
+capMap['i4i.2xlarge'] = '40'
 capMap['t2.2xlarge']  = '10'
 capMap['t2.micro']    = '10'
 capMap['r6g.2xlarge'] = '40'
@@ -509,7 +510,7 @@ capMap['r6g.2xlarge'] = '40'
 typeMap = [:]
 typeMap['micro-amazon']      = 't3a.2xlarge'
 typeMap['docker']            = 't3a.2xlarge'
-typeMap['docker-32gb']       = 'r5b.2xlarge'
+typeMap['docker-32gb']       = 'i4i.2xlarge'
 typeMap['docker2']           = 't2.2xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
@@ -521,10 +522,10 @@ typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x64']  = 't3.2xlarge'
 typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
-typeMap['docker-32gb-hirsute'] = 'r5b.2xlarge'
-typeMap['docker-32gb-focal'] = 'r5b.2xlarge'
-typeMap['docker-32gb-jammy'] = 'r5b.2xlarge'
-typeMap['docker-32gb-bullseye'] = 'r5b.2xlarge'
+typeMap['docker-32gb-hirsute'] = 'i4i.2xlarge'
+typeMap['docker-32gb-focal'] = 'i4i.2xlarge'
+typeMap['docker-32gb-jammy'] = 'i4i.2xlarge'
+typeMap['docker-32gb-bullseye'] = 'i4i.2xlarge'
 
 typeMap['docker-32gb-aarch64']  = 'r6g.2xlarge'
 typeMap['min-centos-7-aarch64'] = typeMap['docker-32gb-aarch64']
@@ -625,7 +626,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
-        new UnixData('', '', '', '22'),             // AMITypeData amiType
+        new UnixData('', '', '', '22', ''),         // AMITypeData amiType
         '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
