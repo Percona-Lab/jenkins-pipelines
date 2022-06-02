@@ -12,6 +12,20 @@ void uploadAllureArtifacts() {
     }
 }
 
+def changeUserPasswordUtility(dockerImage) {
+    tag = dockerImage.split(":")[1]
+
+    if (tag.startsWith("PR") || tag.startsWith("dev"))
+        return "yes"
+
+    minorVersion = tag.split("\\.")[1].toInteger()
+
+    if (minorVersion < 27)
+        return "no"
+    else
+        return "yes"
+}
+
 pipeline {
     agent {
         label 'docker'
@@ -188,6 +202,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
+                    env.CHANGE_USER_PASSWORD_UTILITY = changeUserPasswordUtility(DOCKER_VERSION)
                     if(env.TAG != "") {
                         currentBuild.description = env.TAG
                     }
@@ -243,7 +258,11 @@ pipeline {
                         waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                         waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
                         sh """
-                            docker exec pmm-server change-admin-password \${ADMIN_PASSWORD}
+                            if [ \$CHANGE_USER_PASSWORD_UTILITY == yes ]; then
+                                docker exec pmm-server change-admin-password \${ADMIN_PASSWORD}
+                            else
+                                docker exec pmm-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
+                            fi
                             bash -x testdata/db_setup.sh
                         """
                         script {
