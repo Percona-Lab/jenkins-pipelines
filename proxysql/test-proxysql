@@ -124,9 +124,6 @@ sudo tar -xzf $WORKDIR_ABS/proxysql*glibc*.tar.gz -C ${WORKDIR_ABS}/PROXY_ADMIN 
 for file in proxysql-admin proxysql-admin-common proxysql-login-file; do
   sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/usr/bin/$file ${WORKDIR_ABS}/WORKDIR/$file
 done;
-for file in proxysql-common percona-scheduler-admin; do
-  sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/usr/bin/$file ${WORKDIR_ABS}/WORKDIR/$file
-done;
 sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/etc/proxysql-admin.cnf ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/etc/proxysql-admin.cnf
 sudo ln -s /usr/bin/proxysql $WORKDIR_ABS/WORKDIR/proxysql-2.0/usr/bin/proxysql
 ls -la ${WORKDIR_ABS}/WORKDIR
