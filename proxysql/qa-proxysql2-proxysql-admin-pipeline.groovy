@@ -104,11 +104,11 @@ pipeline {
                    }
                 }
         }
-        stage('Test ProxySQL') {
+        stage('Test proxysql-admin') {
                 agent { label 'docker' }
                 steps {
                     git branch: 'PSQLADM-361-Create-a-Jenkins-job-to-build-proxysql-admin-and-run-test-suites', url: 'https://github.com/adivinho/jenkins-pipelines'
-                    echo 'Test ProxySQL'
+                    echo 'Test proxysql-admin'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
                             until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/proxysql-${BRANCH}.tar.gz ./proxysql/sources/proxysql/results/proxysql-${BRANCH}.tar.gz; do
@@ -119,12 +119,12 @@ pipeline {
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                     docker ps -q | xargs docker stop --time 1 || :
                                 fi
-                                ./proxysql/run-test-proxysql ${DOCKER_OS}
+                                ./proxysql/run-test-proxysql-admin ${DOCKER_OS}
                             "
                         '''
                     }
                     step([$class: 'JUnitResultArchiver', testResults: 'proxysql/sources/proxysql/results/*.xml', healthScaleFactor: 1.0])
-                    archiveArtifacts 'proxysql/sources/proxysql/results/*.output,proxysql/sources/proxysql/results/*.xml,proxysql/sources/proxysql/results/qa_proxysql_logs.tar.gz'
+                    archiveArtifacts 'proxysql/sources/proxysql/results/*.output,proxysql/sources/proxysql/results/*.xml,proxysql/sources/proxysql/results/qa_proxysql_admin_logs.tar.gz'
                 }
         }
     }
