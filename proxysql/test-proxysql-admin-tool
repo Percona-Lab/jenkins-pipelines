@@ -24,7 +24,7 @@ function process_proxysql_output {
   local INFILE=${2}
   local OUTFILE=${3}
   export LC_ALL=C
-  cat proxysql_qa.output | grep 'ok \|not ok' | gawk 'BEGIN     { print "<testsuite name=\"@@TESTSUITE@@\" tests=\"@@PASSED@@\" failures=\"@@FAILURES@@\">" }
+  cat ${INFILE} | grep 'ok \|not ok' | gawk 'BEGIN     { print "<testsuite name=\"@@TESTSUITE@@\" tests=\"@@PASSED@@\" failures=\"@@FAILURES@@\">" }
       $1 ~ /ok/     { printf "\t<testcase name=\"%s\"><passed/></testcase>\n", $0}
       $1 ~ /not/    { printf "\t<testcase name=\"%s\"><failure/></testcase>\n", $0}
       END { print "</testsuite>" }' > ${OUTFILE}
