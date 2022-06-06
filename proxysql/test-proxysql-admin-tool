@@ -96,7 +96,7 @@ cd proxysql-admin-tool
 git checkout ${PAT_TAG}
 git submodule update --init --recursive
 cd percona-scheduler
-/usr/local/go/bin/go build -v -a -o pxc_scheduler_handler
+sudo /usr/local/go/bin/go build -v -a -o pxc_scheduler_handler
 ./pxc_scheduler_handler --version
 cp pxc_scheduler_handler ..
 
