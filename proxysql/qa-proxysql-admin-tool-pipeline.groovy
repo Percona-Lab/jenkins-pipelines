@@ -43,8 +43,8 @@ pipeline {
                             "
                         '''
                     }
-                    step([$class: 'JUnitResultArchiver', testResults: 'proxysql/sources/proxysql/results/*.xml', healthScaleFactor: 1.0])
-                    archiveArtifacts 'proxysql/sources/proxysql/results/*.output,proxysql/sources/proxysql/results/*.xml,proxysql/sources/proxysql/results/qa_proxysql_admin_logs.tar.gz'
+                    step([$class: 'JUnitResultArchiver', testResults: 'proxysql/results/*.xml', healthScaleFactor: 1.0])
+                    archiveArtifacts 'proxysql/results/*.output,proxysql/results/*.xml,proxysql/results/qa_proxysql_admin_logs.tar.gz'
                 }
         }
     }
