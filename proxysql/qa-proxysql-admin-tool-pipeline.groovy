@@ -44,7 +44,7 @@ pipeline {
                         '''
                     }
                     step([$class: 'JUnitResultArchiver', testResults: 'proxysql/results/*.xml', healthScaleFactor: 1.0])
-                    archiveArtifacts 'proxysql/results/*.output,proxysql/results/*.xml,proxysql/results/qa_proxysql_admin_logs.tar.gz'
+                    archiveArtifacts 'proxysql/results/*.output,proxysql/results/*.xml,proxysql/results/qa_proxysql_admin_ipv*_logs.tar.gz'
                 }
         }
     }
