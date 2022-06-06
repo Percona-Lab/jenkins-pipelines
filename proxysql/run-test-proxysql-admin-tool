@@ -27,8 +27,6 @@ docker run --rm \
     export PAT_REPO='${PAT_REPO}'
     export PAT_TAG='${PAT_TAG}'
 
-    mkdir /tmp/results
-
     bash -x /tmp/scripts/test-proxysql-admin-tool /tmp/results
 
     rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/WORKDIR/logs
