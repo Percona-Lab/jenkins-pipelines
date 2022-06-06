@@ -28,8 +28,11 @@ docker run --rm \
     bash -x /tmp/scripts/test-proxysql-admin-tool /tmp/results
 
     rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/logs
-    sudo tar -czf "qa_proxysql_admin_tool_logs.tar.gz" /tmp/results/logs
-    sudo mv ./qa_proxysql_admin_tool_logs.tar.gz /tmp/proxysql/results/
+    sudo tar -czf "qa_proxysql_admin_tool_ipv4_logs.tar.gz" /tmp/results/logs_ipv4
+    sudo tar -czf "qa_proxysql_admin_tool_ipv6_logs.tar.gz" /tmp/results/logs_ipv6
+    sudo mkdir /tmp/proxysql/results/
+    sudo mv ./qa_proxysql_admin_tool_ipv4_logs.tar.gz /tmp/proxysql/results/
+    sudo mv ./qa_proxysql_admin_tool_ipv6_logs.tar.gz /tmp/proxysql/results/
     sudo mv /tmp/results/*.output  /tmp/results/*.xml /tmp/proxysql/results/
     sudo chown $(id -u):$(id -g) /tmp/proxysql/results/*.output /tmp/proxysql/results/*.xml
 "
