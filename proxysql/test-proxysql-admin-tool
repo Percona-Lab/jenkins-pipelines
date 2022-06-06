@@ -95,8 +95,10 @@ git clone ${PAT_REPO}
 cd proxysql-admin-tool
 git checkout ${PAT_TAG}
 git submodule update --init --recursive
-sudo bash -x ./build_scheduler.sh
+cd percona-scheduler
+/usr/local/go/bin/go build -v -a -o pxc_scheduler_handler
 ./pxc_scheduler_handler --version
+cp pxc_scheduler_handler ..
 
 sudo bash -x ./tests/setup_workdir.sh /tmp/results
 sudo bash -x ./tests/proxysql-admin-testsuite.sh /tmp/results/ | tee /tmp/results/proxysql_qa.output || status=$?
