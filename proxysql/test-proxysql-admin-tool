@@ -61,10 +61,27 @@ function install_package {
   fi
 }
 
+function update_git_version {
+    git --version | awk '{print $3}'
+    if [ -f /usr/bin/yum ]; then
+        if [[ $RHEL -eq 7 ]]; then
+            yum -y remove git-*
+            yum -y install https://packages.endpointdev.com/rhel/7/os/x86_64/endpoint-repo.x86_64.rpm
+            yum -y install git
+        fi
+    elif [ -f /usr/bin/apt ]; then
+        add-apt-repository ppa:git-core/ppa
+        apt update
+        apt -y install git
+    fi
+    git --version | awk '{print $3}'
+}
+
 cd /tmp
 pwd
 ls -la
 
+update_git_version
 git clone ${PAT_REPO}
 cd proxysql-admin-tool
 git checkout #{PAT_TAG}
