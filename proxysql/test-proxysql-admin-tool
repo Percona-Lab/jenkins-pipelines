@@ -61,14 +61,15 @@ function install_package {
   fi
 }
 
+cd /tmp
 pwd
 ls -la
-echo ${PAT_REPO}
+
 git clone ${PAT_REPO}
 cd proxysql-admin-tool
 git checkout #{PAT_TAG}
 
-bash -x ./tests/setup_workdir.sh /tmp/results
+sudo bash -x ./tests/setup_workdir.sh /tmp/results
 
 break
 
