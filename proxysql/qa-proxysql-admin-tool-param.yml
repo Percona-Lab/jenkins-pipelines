@@ -1,0 +1,63 @@
+- job:
+    name: qa-proxysql-admin-tool-param
+    project-type: matrix
+    defaults: global
+    description: |
+        Do not edit this job through the web!
+    disabled: false
+    concurrent: true
+    auth-token: proxysql2param
+    node: micro-amazon
+    properties:
+    - build-discarder:
+        days-to-keep: 30
+        num-to-keep: 10
+        artifact-days-to-keep: 30
+        artifact-num-to-keep: 50
+    parameters:
+    - string:
+        name: PAT_REPO
+        default: https://github.com/percona/proxysql-admin-tool
+        description: URL to proxysql-admin-tool repository
+    - string:
+        name: PAT_TAG
+        default: v2
+        description: Tag/Branch for ProxySQL-admin-tool repository
+    axes:
+      - axis:
+         type: user-defined
+         name: DOCKER_OS
+         values:
+          - centos:7
+          - centos:8
+          - ubuntu:xenial
+          - ubuntu:bionic
+          - ubuntu:focal
+          - debian:stretch
+          - debian:buster
+    builders:
+    - trigger-builds:
+      - project: qa-proxysql-admin-tool-pipeline
+        current-parameters: true
+        predefined-parameters: |
+          DOCKER_OS=${DOCKER_OS}
+        block: true
+        block-thresholds:
+          build-step-failure-threshold: FAILURE
+          unstable-threshold: never
+          failure-threshold: FAILURE
+    - shell: |
+        sudo find . -name "*.xml" -o -name "*.log" -delete
+    - copyartifact:
+        project: qa-proxysql-admin-tool-pipeline
+        which-build: specific-build
+        build-number: "${TRIGGERED_BUILD_NUMBERS_qa_proxyslq_admin_tool_pipeline}"
+        do-not-fingerprint: true
+    - shell: |
+        echo "${TRIGGERED_BUILD_NUMBERS_qa_proxysql_admin_tool_pipeline}" > PIPELINE_BUILD_NUMBER
+    publishers:
+    - junit:
+        results: "**/*.xml"
+        keep-long-stdio: true
+    - archive:
+        artifacts: 'proxysql/sources/proxysql/results/*.tar.gz'
