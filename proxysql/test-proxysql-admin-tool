@@ -77,11 +77,19 @@ function update_git_version {
     git --version | awk '{print $3}'
 }
 
+function install_golang {
+    wget -q https://golang.org/dl/go1.16.3.linux-amd64.tar.gz
+    sudo tar -C /usr/local -xzf go1.16.3.linux-amd64.tar.gz
+    export PATH=$PATH:/usr/local/go/bin
+    go version
+}
+
 cd /tmp
 pwd
 ls -la
 
 update_git_version
+install_golang
 git clone ${PAT_REPO}
 cd proxysql-admin-tool
 git checkout ${PAT_TAG}
@@ -91,6 +99,8 @@ bash -x ./build_scheduler.sh
 
 sudo bash -x ./tests/setup_workdir.sh /tmp/results
 sudo bash -x ./tests/proxysql-admin-testsuite.sh /tmp/results/
+
+ls -la /tmp/results
 
 exit 1
 
