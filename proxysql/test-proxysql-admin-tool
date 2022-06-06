@@ -98,8 +98,8 @@ git submodule update --init --recursive
 pushd percona-scheduler
 sudo /usr/local/go/bin/go build -v -a -o pxc_scheduler_handler
 ./pxc_scheduler_handler --version
-cp percona-scheduler/pxc_scheduler_handler .
 popd
+cp percona-scheduler/pxc_scheduler_handler .
 
 sudo bash -x ./tests/setup_workdir.sh /tmp/results
 sudo bash -x ./tests/proxysql-admin-testsuite.sh /tmp/results/ | tee /tmp/results/proxysql_qa.output || status=$?
