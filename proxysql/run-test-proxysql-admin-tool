@@ -3,15 +3,18 @@
 set -o errexit
 set -o xtrace
 
-ROOT_DIR=$(cd $(dirname $0)/sources/proxysql; pwd -P)
+#ROOT_DIR=$(cd $(dirname $0)/sources/proxysql; pwd -P)
+ROOT_DIR=$(cd $(dirname $0); pwd -P)
 SCRIPTS_DIR=$(cd $(dirname $0) && pwd -P)
 echo ${ROOT_DIR}
 ls -la ${ROOT_DIR}
 echo ${SCRIPTS_DIR}
 ls -la ${SCRIPTS_DIR}
+SOURCE_IMAGE=${1:-centos:7}
+PAT_REPO=${2:-https://github.com/percona/proxysql-admin-tool}
+PAT_TAG=${3:-v2}
 echo ${PAT_REPO}
 echo ${PAT_TAG}
-SOURCE_IMAGE=${1:-centos:7}
 
 docker run --rm \
     --cap-add SYS_PTRACE \

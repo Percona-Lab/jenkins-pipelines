@@ -61,6 +61,17 @@ function install_package {
   fi
 }
 
+pwd
+ls -la
+echo ${PAT_REPO}
+git clone ${PAT_REPO}
+cd proxysql-admin-tool
+git checkout #{PAT_TAG}
+
+bash -x ./tests/setup_workdir.sh /tmp/results
+
+break
+
 WORKDIR_ABS=$(cd ${1:-./build/proxysql}; pwd -P)
 rm -rf ${WORKDIR_ABS}/WORKDIR ${WORKDIR_ABS}/PROXY_ADMIN
 mkdir -p ${WORKDIR_ABS}/PROXY_ADMIN ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/usr/bin ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/etc

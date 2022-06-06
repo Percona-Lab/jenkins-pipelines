@@ -39,7 +39,7 @@ pipeline {
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                     docker ps -q | xargs docker stop --time 1 || :
                                 fi
-                                ./proxysql/run-test-proxysql-admin-tool ${DOCKER_OS}
+                                ./proxysql/run-test-proxysql-admin-tool ${DOCKER_OS} ${PAT_REPO} ${PAT_TAG}
                             "
                         '''
                     }
