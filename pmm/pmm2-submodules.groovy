@@ -38,6 +38,17 @@ void runUItests(String DOCKER_IMAGE_VERSION, CLIENT_VERSION, PMM_QA_GIT_BRANCH, 
     env.UI_TESTS_RESULT = e2eTestJob.result
 }
 
+void runDockerWayUpgrade(String DOCKER_IMAGE_VERSION, CLIENT_VERSION, PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH) {
+    upgradeJob = build job: 'pmm2-upgrade-tests', propagate: false, parameters: [
+        string(name: 'PMM_SERVER_TAG', value: DOCKER_IMAGE_VERSION),
+        string(name: 'GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
+        string(name: 'PERFORM_DOCKER_WAY_UPGRADE', value: 'yes')
+    ]
+    env.DOCKER_WAY_UPGRADE_TESTS_URL = upgradeJob.absoluteUrl
+    env.DOCKER_WAY_UPGRADE_TESTS_RESULT = upgradeJob.result
+}
+
 void addComment(String COMMENT) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
         sh """
@@ -331,6 +342,25 @@ pipeline {
                             def PMM_QA_GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat pmmUITestsCommitSha").trim()
                             runUItests(IMAGE, CLIENT_URL, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH)
                             if (!env.UI_TESTS_RESULT.equals("SUCCESS")) {
+                                sh "exit 1"
+                            }
+                        }
+                    }
+                }
+                stage('Test: Docker-Way Upgrade') {
+                    steps {
+                        script {
+                            unstash 'IMAGE'
+                            unstash 'pmmUITestBranch'
+                            unstash 'pmmUITestsCommitSha'
+                            def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                            def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
+                            def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
+                            def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
+                            def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmUITestBranch").trim()
+                            def PMM_QA_GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat pmmUITestsCommitSha").trim()
+                            runDockerWayUpgrade(IMAGE, CLIENT_URL, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH)
+                            if (!env.DOCKER_WAY_UPGRADE_TESTS_RESULT.equals("SUCCESS")) {
                                 sh "exit 1"
                             }
                         }
