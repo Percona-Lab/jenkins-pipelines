@@ -103,9 +103,7 @@ void conditionalRunTest(String TEST_NAME) {
 
 void installRpms() {
     sh """
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 jq | true
+        sudo yum install -y jq | true
     """
 }
 
@@ -256,6 +254,7 @@ pipeline {
                 runTest('data-sharded')
                 runTest('monitoring-2-0')
                 runTest('non-voting')
+                runTest('cross-site-sharded')
            }
         }
         stage('E2E SelfHealing') {
@@ -274,6 +273,13 @@ pipeline {
                 runTest('upgrade-sharded')
                 runTest('pitr')
                 runTest('pitr-sharded')
+            }
+        }
+        stage('CrossSite replication') {
+            steps {
+                CreateCluster('cross-site')
+                runTest('cross-site-sharded', 'cross-site')
+                ShutdownCluster('cross-site')
             }
         }
         stage('Make report') {

@@ -68,46 +68,22 @@ pipeline {
                     }
                 }
                 stages {
-                    stage ('Create virtual machines') {
+                    stage ('Run tests') {
                         steps {
                             script{
                                 moleculeExecuteActionWithScenario(moleculeDir, "create", PLATFORM)
-                            }
-                        }
-                    }
-                    stage ('Prepare VM for test') {
-                        steps {
-                            script{
                                 moleculeExecuteActionWithScenario(moleculeDir, "prepare", PLATFORM)
-                            }
-                       }
-                    }
-                    stage('Parallel tests') {
-                        steps {
-                            script {
                                 for(conf in confList) {
                                     for(enc in encList) {
-                                        stage("Test ${conf} with ${enc} encryption on ${PLATFORM}") {
-                                            script {
-                                                moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "converge", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.OLD_TARBALL}")
-                                                moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "verify", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.OLD_TARBALL}")
-                                            }
+                                        moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "converge", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.OLD_TARBALL}")
+                                        moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "verify", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.OLD_TARBALL}")
+                                        junit testResults: "**/${PLATFORM}-report.xml", keepLongStdio: true
+                                        if (env.NEW_TARBALL != '') {
+                                            moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "side-effect", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.NEW_TARBALL}")
+                                            moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "verify", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.NEW_TARBALL}")
                                             junit testResults: "**/${PLATFORM}-report.xml", keepLongStdio: true
                                         }
-                                        if (env.NEW_TARBALL != '') {
-                                            stage("Upgrade ${conf} with ${enc} encryption on ${PLATFORM}") {
-                                                script {
-                                                     moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "side-effect", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.NEW_TARBALL}")
-                                                     moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "verify", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.NEW_TARBALL}")
-                                                }
-                                                junit testResults: "**/${PLATFORM}-report.xml", keepLongStdio: true
-                                            }
-                                        }
-                                        stage("Cleanup") {
-                                            script {
-                                                moleculeExecuteActionWithScenario(moleculeDir, "cleanup", PLATFORM)
-                                            }
-                                        }
+                                        moleculeExecuteActionWithScenario(moleculeDir, "cleanup", PLATFORM)
                                     }
                                 }
                             }

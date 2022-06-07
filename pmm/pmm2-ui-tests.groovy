@@ -12,6 +12,20 @@ void uploadAllureArtifacts() {
     }
 }
 
+def changeUserPasswordUtility(dockerImage) {
+    tag = dockerImage.split(":")[1]
+
+    if (tag.startsWith("PR") || tag.startsWith("dev"))
+        return "yes"
+
+    minorVersion = tag.split("\\.")[1].toInteger()
+
+    if (minorVersion < 27)
+        return "no"
+    else
+        return "yes"
+}
+
 pipeline {
     agent {
         label 'docker'
@@ -88,6 +102,14 @@ pipeline {
         MAILOSAUR_SMTP_PASSWORD=credentials('MAILOSAUR_SMTP_PASSWORD')
         PORTAL_USER_EMAIL=credentials('PORTAL_USER_EMAIL')
         PORTAL_USER_PASSWORD=credentials('PORTAL_USER_PASSWORD')
+        OKTA_TOKEN=credentials('OKTA_TOKEN')
+        SERVICENOW_LOGIN=credentials('SERVICENOW_LOGIN')
+        SERVICENOW_PASSWORD=credentials('SERVICENOW_PASSWORD')
+        SERVICENOW_DEV_URL=credentials('SERVICENOW_DEV_URL')
+        OAUTH_DEV_CLIENT_ID=credentials('OAUTH_DEV_CLIENT_ID')
+        PORTAL_BASE_URL=credentials('PORTAL_BASE_URL')
+        PAGER_DUTY_SERVICE_KEY=credentials('PAGER_DUTY_SERVICE_KEY')
+        PAGER_DUTY_API_KEY=credentials('PAGER_DUTY_API_KEY')
     }
     parameters {
         string(
@@ -122,16 +144,24 @@ pipeline {
             choices: ['no', 'yes'],
             description: "Run Specified Tagged Tests",
             name: 'RUN_TAGGED_TEST')
+        choice(
+            choices: ['no', 'yes'],
+            description: 'Enable Pull Mode, if you are using this instance as Client Node',
+            name: 'ENABLE_PULL_MODE')
         string (
             defaultValue: '',
             description: 'Value for Server Public IP, to use this instance just as client',
             name: 'SERVER_IP')
         string(
+            defaultValue: 'admin-password',
+            description: 'pmm-server admin user default password',
+            name: 'ADMIN_PASSWORD')  
+        string(
             defaultValue: 'percona:5.7',
             description: 'Percona Server Docker Container Image',
             name: 'MYSQL_IMAGE')
         string(
-            defaultValue: 'perconalab/percona-distribution-postgresql:14.1',
+            defaultValue: 'perconalab/percona-distribution-postgresql:14.2',
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
         string(
@@ -171,6 +201,12 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                script {
+                    env.CHANGE_USER_PASSWORD_UTILITY = changeUserPasswordUtility(DOCKER_VERSION)
+                    if(env.TAG != "") {
+                        currentBuild.description = env.TAG
+                    }
+                }
                 // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
@@ -222,11 +258,15 @@ pipeline {
                         waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                         waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
                         sh """
+                            if [ \$CHANGE_USER_PASSWORD_UTILITY == yes ]; then
+                                docker exec pmm-server change-admin-password \${ADMIN_PASSWORD}
+                            else
+                                docker exec pmm-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
+                            fi
                             bash -x testdata/db_setup.sh
                         """
                         script {
                             env.SERVER_IP = "127.0.0.1"
-                            env.ADMIN_PASSWORD = "admin"
                             env.PMM_UI_URL = "http://${env.SERVER_IP}/"
                             env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
                         }
@@ -238,7 +278,7 @@ pipeline {
                     }
                     steps {
                         script {
-                            env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+                            env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${SERVER_IP}"
                             env.PMM_UI_URL = "http://${SERVER_IP}/"
                         }
                     }
@@ -247,7 +287,7 @@ pipeline {
         }
         stage('Setup Client for PMM-Server') {
             steps {
-                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'compose_setup', env.ADMIN_PASSWORD)
+                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', ENABLE_PULL_MODE, 'no', 'yes', 'compose_setup', ADMIN_PASSWORD)
                 sh """
                     set -o errexit
                     set -o xtrace
@@ -300,7 +340,7 @@ pipeline {
                            export PATH="`pwd`/pmm2-client/bin:$PATH"
                         fi
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@not-ovf)^(?!.*@qan)^(?!.*@dbaas)^(?!.*@dashboards)'
+                        ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@not-ovf)^(?!.*@qan)^(?!.*@dbaas)^(?!.*@dashboards)^(?!.*@menu)^(?!.*@pmm-portal-upgrade)'
                     """
                 }
             }
@@ -322,7 +362,7 @@ pipeline {
                            export PATH="`pwd`/pmm2-client/bin:$PATH"
                         fi
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@dbaas)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@qan)^(?!.*@nightly)^(?!.*@settings)'
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@dbaas)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@qan)^(?!.*@nightly)^(?!.*@settings)^(?!.*@menu)^(?!.*@pmm-portal-upgrade)'
                     """
                 }
             }

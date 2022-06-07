@@ -9,7 +9,7 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "molecule/pdmysql/${SCENARIO}";
+      MOLECULE_DIR = "molecule/pdmysql/pdps-minor-upgrade";
   }
   parameters {
         choice(
@@ -36,11 +36,11 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.19',
+            defaultValue: '8.0.28',
             description: 'Percona Server will be upgraded from this version',
             name: 'FROM_VERSION')
         string(
-            defaultValue: '8.0.20',
+            defaultValue: '8.0.29',
             description: 'Percona Server will be upgraded to this version',
             name: 'VERSION'
         )
@@ -48,6 +48,26 @@ pipeline {
             defaultValue: 'master',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
+        string(
+            defaultValue: '2.3.2',
+            description: 'Updated Proxysql version',
+            name: 'PROXYSQL_VERSION'
+         )
+        string(
+            defaultValue: '8.0.28',
+            description: 'Updated PXB version',
+            name: 'PXB_VERSION'
+         )
+        string(
+            defaultValue: '3.3.1',
+            description: 'Updated Percona Toolkit version',
+            name: 'PT_VERSION'
+         )
+        string(
+            defaultValue: '3.2.6',
+            description: 'Updated Percona Orchestrator version',
+            name: 'ORCHESTRATOR_VERSION'
+         )
   }
   options {
           withCredentials(moleculePdpsJenkinsCreds())
@@ -81,7 +101,7 @@ pipeline {
             }
         }
     }
-    stage ('Run playbook for test') {env.MOLECULE_DIR
+    stage ('Run playbook for test') {
       steps {
           script{
               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
@@ -93,7 +113,6 @@ pipeline {
             script{
               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
             }
-            junit "${MOLECULE_DIR}/report.xml"
         }
     }
     stage ('Start Cleanup ') {
@@ -107,7 +126,8 @@ pipeline {
   post {
     always {
           script {
-             moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.PLATFORM)
+             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+             junit "${MOLECULE_DIR}/report.xml"
         }
     }
   }

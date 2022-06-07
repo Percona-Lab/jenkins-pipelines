@@ -5,7 +5,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'docker-32gb'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
@@ -29,7 +29,7 @@ pipeline {
     }
     options {
         withCredentials(moleculePbmJenkinsCreds())
-//        disableConcurrentBuilds()
+        disableConcurrentBuilds()
     }
     stages {
         stage('Set build name'){
@@ -198,7 +198,7 @@ pipeline {
                                         def image = "public.ecr.aws/e7j3v3n0/psmdb-build:" + params.tag
                                         sh """
                                             docker pull ${image}
-                                            docker run -v `pwd`/build:/opt/percona-server-mongodb/build -i --rm ${image} bash -c 'buildscripts/scons.py CC=/usr/bin/gcc-8 CXX=/usr/bin/g++-8 --disable-warnings-as-errors --release --ssl --opt=size -j6 --use-sasl-client --wiredtiger --audit --inmemory --hotbackup CPPPATH=/usr/local/include LIBPATH="/usr/local/lib /usr/local/lib64" --install-action=symlink install-unittests'
+                                            docker run -v `pwd`/build:/opt/percona-server-mongodb/build -i --rm ${image} bash -c 'buildscripts/scons.py CC=/usr/bin/gcc-8 CXX=/usr/bin/g++-8 --disable-warnings-as-errors --release --ssl --opt=size -j6 --use-sasl-client --wiredtiger --audit --inmemory --hotbackup CPPPATH=/usr/local/include LIBPATH="/usr/local/lib /usr/local/lib64" install-unittests'
                                         """  
                                         def suites = []
                                         if ( params.listsuites != '') {
@@ -291,7 +291,7 @@ pipeline {
                                         def image = "public.ecr.aws/e7j3v3n0/psmdb-build:" + params.tag
                                         sh """
                                             docker pull ${image}
-                                            docker run -v `pwd`/build:/opt/percona-server-mongodb/build -i --rm ${image} bash -c 'buildscripts/scons.py CC=/usr/bin/gcc-8 CXX=/usr/bin/g++-8 --disable-warnings-as-errors --release --ssl --opt=size -j6 --use-sasl-client --wiredtiger --audit --inmemory --hotbackup CPPPATH=/usr/local/include LIBPATH="/usr/local/lib /usr/local/lib64" --install-action=symlink install-integration-tests'
+                                            docker run -v `pwd`/build:/opt/percona-server-mongodb/build -i --rm ${image} bash -c 'buildscripts/scons.py CC=/usr/bin/gcc-8 CXX=/usr/bin/g++-8 --disable-warnings-as-errors --release --ssl --opt=size -j6 --use-sasl-client --wiredtiger --audit --inmemory --hotbackup CPPPATH=/usr/local/include LIBPATH="/usr/local/lib /usr/local/lib64" install-integration-tests'
                                         """  
                                         def suites = []
                                         if ( params.listsuites != '') {

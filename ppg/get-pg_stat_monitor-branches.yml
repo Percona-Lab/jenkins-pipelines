@@ -1,0 +1,17 @@
+- job:
+    name: pg_stat_monitor-autobuild
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+        Check pg_stat_monitor repo for new release branches to build packages
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/percona/jenkins-pipelines.git
+            branches:
+            - 'main'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ppg/get-pg_stat_monitor-branches.groovy
+    triggers:
+      - timed: "H/60 * * * *"

@@ -369,7 +369,7 @@ Resources:
             import collections
 
             def lambda_handler(event, context):
-                fullReportEmail = ['mykola.marzhan@percona.com', 'roma.novikov@percona.com']
+                fullReportEmail = ['alexander.tymchuk@percona.com', 'roma.novikov@percona.com']
                 region = 'us-east-2'
                 session = boto3.Session(region_name=region)
                 resources = session.resource('ec2')

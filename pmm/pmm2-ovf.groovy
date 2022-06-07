@@ -1,9 +1,15 @@
+def pmmVersion = 'dev-latest'
+if (RELEASE_CANDIDATE == 'yes') {
+    pmmVersion = PMM_SERVER_BRANCH.split('-')[1] //release branch should be in format: pmm-2.x.y
+}
+
+
 pipeline {
     environment {
         specName = 'OVF'
     }
     agent {
-        label 'virtualbox'
+        label 'ovf-do'
     }
     parameters {
         string(
@@ -42,7 +48,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        packer build \
+                        /usr/bin/packer build \
                         -var 'pmm_client_repos=original testing' \
                         -var 'pmm_client_repo_name=percona-testing-x86_64' \
                         -var 'pmm2_server_repo=testing' \
@@ -62,7 +68,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        packer build \
+                        /usr/bin/packer build \
                         -var 'pmm_client_repos=original experimental' \
                         -var 'pmm_client_repo_name=percona-experimental-x86_64' \
                         -var 'pmm2_server_repo=experimental' \
@@ -76,7 +82,34 @@ pipeline {
             }
         }
 
-        stage('Upload') {
+        stage('Upload Release Candidate') {
+            when {
+                expression { env.RELEASE_CANDIDATE == "yes" }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        FILE=\$(ls */*.ova)
+                        NAME=\$(basename \${FILE})
+                        aws s3 cp \
+                            --only-show-errors \
+                            --acl public-read \
+                            \${FILE} \
+                            s3://percona-vm/\${NAME}
+
+                        aws s3 cp \
+                            --only-show-errors \
+                            --acl public-read \
+                            s3://percona-vm/\${NAME} \
+                            s3://percona-vm/PMM2-Server-${pmmVersion}.ova
+                    """
+                }
+            }
+        }
+        stage('Upload Dev-Latest') {
+            when {
+                expression { env.RELEASE_CANDIDATE == "no" }
+            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
@@ -111,11 +144,11 @@ pipeline {
                 if ("${RELEASE_CANDIDATE}" == "yes")
                 {
                     currentBuild.description = "Release Candidate Build"
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${specName}]: ${BUILD_URL} Release Candidate build finished - ${IMAGE}"
+                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${specName}]: ${BUILD_URL} Release Candidate build finished - http://percona-vm.s3.amazonaws.com/PMM2-Server-${pmmVersion}.ova"
                 }
                 else
                 {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - http://percona-vm.s3-website-us-east-1.amazonaws.com/${IMAGE}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - http://percona-vm.s3.amazonaws.com/${IMAGE}"
                 }
             }
         }

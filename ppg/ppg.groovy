@@ -35,8 +35,12 @@ pipeline {
         )
         string(
             defaultValue: 'main',
-            description: 'base Branch for upgrade test',
+            description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
+        string(
+            defaultValue: 'no',
+            description: 'Destroy VM after tests',
+            name: 'DESTROY_ENV')
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
@@ -99,7 +103,9 @@ pipeline {
   post {
     always {
           script {
-             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+             if (env.DESTROY_ENV == "yes") {
+                        moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                    }
         }
     }
   }

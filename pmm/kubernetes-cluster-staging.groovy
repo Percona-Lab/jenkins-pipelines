@@ -8,9 +8,11 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+def DEFAULT_SSH_KEYS = getSHHKeysPMM()
+
 pipeline {
     agent {
-        label 'awscli'
+        label 'cli'
     }
     parameters {
         string(
@@ -21,6 +23,18 @@ pipeline {
             choices: '1\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
+        choice(
+            choices: ['1.23.1', '1.22.1', '1.21.1', '1.20.1'],
+            description: 'Select Kubernetes version',
+            name: 'KUBE_VERSION')
+        choice(
+            choices: ['none', 'v1.8.0', 'v1.9.0', 'v1.10.0'],
+            description: 'Select version of PXC operator',
+            name: 'PXC_OPERATOR_VERSION')
+        choice(
+            choices: ['v1.11.0', 'none', 'v1.8.0', 'v1.9.0', 'v1.10.0', 'v1.12.0'], //set v1.11.0 as default temporarily until PMM-10012 is fixed
+            description: 'Select version of PSMDB operator',
+            name: 'PSMDB_OPERATOR_VERSION')                    
         string(
             defaultValue: 'true',
             description: 'Enable Slack notification (option for high level pipelines)',
@@ -36,9 +50,8 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
-        timeout(time: 8, unit: 'MINUTES')
+        timeout(time: 15, unit: 'MINUTES')
     }
-
     stages {
         stage('Prepare') {
             steps {
@@ -55,6 +68,10 @@ pipeline {
                     def OWNER = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
+
+                    echo """
+                        KUBE_VERSION: ${KUBE_VERSION}
+                    """                  
 
                     if ("${NOTIFY}" == "true") {
                         slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: cluster creation - ${BUILD_URL}"
@@ -90,6 +107,8 @@ pipeline {
                     sh """
                         set -o errexit
                         set -o xtrace
+
+                        echo '$DEFAULT_SSH_KEYS' >> /home/ec2-user/.ssh/authorized_keys
 
                         if [ -n "$SSH_KEY" ]; then
                             echo '$SSH_KEY' >> /home/ec2-user/.ssh/authorized_keys
@@ -154,12 +173,13 @@ pipeline {
                                 rm ~/.kube/config && minikube delete
                                 minikube config set cpus 8
                                 minikube config set memory 29000
-                                minikube config set kubernetes-version 1.20.1
+                                minikube config set kubernetes-version ${KUBE_VERSION}
                                 export CHANGE_MINIKUBE_NONE_USER=true
                                 sudo yum install -y conntrack
                                 minikube start --driver=none
                                 sudo chown -R $USER $HOME/.kube $HOME/.minikube
                                 sed -i s:/root:$HOME:g $HOME/.kube/config
+                                bash /srv/pmm-qa/pmm-tests/minikube_operators_setup.sh ${PXC_OPERATOR_VERSION} ${PSMDB_OPERATOR_VERSION}
                                 sleep 10
                             """
                         }
@@ -181,6 +201,14 @@ pipeline {
                                 export PATH=\$PATH:/usr/sbin
                                 minikube kubectl -- get nodes
                                 minikube kubectl -- get pods
+
+                                if [ "${PXC_OPERATOR_VERSION}" != none ]; then
+                                    minikube kubectl -- wait --for=condition=Available --timeout=60s deployment percona-xtradb-cluster-operator
+                                fi
+
+                                if [ "${PSMDB_OPERATOR_VERSION}" != none ]; then
+                                    minikube kubectl -- wait --for=condition=Available --timeout=60s deployment percona-server-mongodb-operator
+                                fi                                
                             """
                         }
                     }

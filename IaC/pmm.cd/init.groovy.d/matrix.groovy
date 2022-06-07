@@ -150,6 +150,7 @@ authz_strategy_config = [
         // pmm-contributors is secret group in Jenkins.
         'percona*pmm-contributors': ['Overall Read','Agent Build','Agent Configure','Agent Connect','Agent Create','Agent Delete','Agent Disconnect','Job Build','Job Cancel','Job Configure','Job Create','Job Delete','Job Discover','Job Move','Job Read','Job Workspace','Run Delete','Run Update','Run Replay','View Configure','View Create','View Delete','View Read','SCM Tag'],
         'atymchuk': ['Overall Administer'],
+        'puneet0191' : ['Overall Read','Credentials Create','Credentials Update','Credentials View','Agent Build','Agent Configure','Agent Connect','Agent Create','Agent Delete','Agent Disconnect','Job Build','Job Cancel','Job Configure','Job Create','Job Delete','Job Discover','Job Move','Job Read','Job Workspace','Run Delete','Run Update','Run Replay','View Configure','View Create','View Delete','View Read','SCM Tag'],
     ]
 ]
 

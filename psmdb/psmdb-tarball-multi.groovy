@@ -31,6 +31,16 @@ pipeline {
             description: 'Tarball with next major PSMDB version for upgrade tests (leave blank to skip)',
             name: 'NEXT_MAJ_TARBALL'
         )
+        choice(
+            name: 'INSTANCE_TYPE',
+            description: 'Ec2 instance type',
+            choices: [
+                't2.large',
+                't2.medium',
+                't2.micro',
+                't2.xlarge'
+            ]
+        )
         string(
             defaultValue: 'main',
             description: 'base Branch for upgrade test',
@@ -49,7 +59,7 @@ pipeline {
                         script {
                             if ((env.PREV_MIN_TARBALL == '') && (env.PREV_MAJ_TARBALL == '') && (env.NEXT_MAJ_TARBALL == '')) {
                                 build job: 'psmdb-tarball-all-os', parameters: [
-                                string(name: 'INSTANCE_TYPE', value: "t2.medium"),
+                                string(name: 'INSTANCE_TYPE', value: "${env.INSTANCE_TYPE}"),
                                 string(name: 'OLD_TARBALL', value: "${env.TARBALL}"),
                                 string(name: 'NEW_TARBALL', value: ""),
                                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
@@ -63,7 +73,7 @@ pipeline {
                         script {
                             if (env.PREV_MIN_TARBALL != '') {
                                  build job: "psmdb-tarball-all-os", parameters: [
-                                 string(name: 'INSTANCE_TYPE', value: "t2.medium"),
+                                 string(name: 'INSTANCE_TYPE', value: "${env.INSTANCE_TYPE}"),
                                  string(name: 'NEW_TARBALL', value: "${env.TARBALL}"),
                                  string(name: 'OLD_TARBALL', value: "${env.PREV_MIN_TARBALL}"),
                                  string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
@@ -80,7 +90,7 @@ pipeline {
                         script {
                             if (env.PREV_MIN_TARBALL != '') {
                                  build job: "psmdb-tarball-all-os", parameters: [
-                                 string(name: 'INSTANCE_TYPE', value: "t2.medium"),
+                                 string(name: 'INSTANCE_TYPE', value: "${env.INSTANCE_TYPE}"),
                                  string(name: 'NEW_TARBALL', value: "${env.PREV_MIN_TARBALL}"),
                                  string(name: 'OLD_TARBALL', value: "${env.TARBALL}"),
                                  string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
@@ -97,7 +107,7 @@ pipeline {
                         script {
                             if (env.PREV_MAJ_TARBALL != '') {
                                  build job: "psmdb-tarball-all-os", parameters: [
-                                 string(name: 'INSTANCE_TYPE', value: "t2.medium"),
+                                 string(name: 'INSTANCE_TYPE', value: "${env.INSTANCE_TYPE}"),
                                  string(name: 'NEW_TARBALL', value: "${env.TARBALL}"),
                                  string(name: 'OLD_TARBALL', value: "${env.PREV_MAJ_TARBALL}"),
                                  string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
@@ -114,7 +124,7 @@ pipeline {
                         script {
                             if (env.PREV_MAJ_TARBALL != '') {
                                  build job: "psmdb-tarball-all-os", parameters: [
-                                 string(name: 'INSTANCE_TYPE', value: "t2.medium"),
+                                 string(name: 'INSTANCE_TYPE', value: "${env.INSTANCE_TYPE}"),
                                  string(name: 'NEW_TARBALL', value: "${env.PREV_MAJ_TARBALL}"),
                                  string(name: 'OLD_TARBALL', value: "${env.TARBALL}"),
                                  string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
@@ -131,7 +141,7 @@ pipeline {
                         script {
                             if (env.NEXT_MAJ_TARBALL != '') {
                                  build job: "psmdb-tarball-all-os", parameters: [
-                                 string(name: 'INSTANCE_TYPE', value: "t2.medium"),
+                                 string(name: 'INSTANCE_TYPE', value: "${env.INSTANCE_TYPE}"),
                                  string(name: 'NEW_TARBALL', value: "${env.NEXT_MAJ_TARBALL}"),
                                  string(name: 'OLD_TARBALL', value: "${env.TARBALL}"),
                                  string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
@@ -148,7 +158,7 @@ pipeline {
                         script {
                             if (env.NEXT_MAJ_TARBALL != '') {
                                  build job: "psmdb-tarball-all-os", parameters: [
-                                 string(name: 'INSTANCE_TYPE', value: "t2.medium"),
+                                 string(name: 'INSTANCE_TYPE', value: "${env.INSTANCE_TYPE}"),
                                  string(name: 'NEW_TARBALL', value: "${env.TARBALL}"),
                                  string(name: 'OLD_TARBALL', value: "${env.NEXT_MAJ_TARBALL}"),
                                  string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")

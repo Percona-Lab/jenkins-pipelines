@@ -43,9 +43,9 @@ Parameters:
 Mappings:
   AmazonLinux2:
     eu-west-1:
-      x64: ami-096f7a9ab885b50f4
+      x64: ami-05489a3f80e532309
     eu-central-1:
-      x64: ami-095e0f8062e0e8216
+      x64: ami-05f5f4f906feab6a7
 
 Resources:
 
@@ -550,7 +550,7 @@ Resources:
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                   amazon-linux-extras install epel -y
                   yum -y update --security
-                  yum -y install java-1.8.0-openjdk jenkins-2.319.2 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install java-1.8.0-openjdk jenkins-2.332.3 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -614,9 +614,27 @@ Resources:
 
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
-                  sed -i 's^"-Djava.awt.headless=true"^"-Djava.awt.headless=true -Xms2048m -Xmx4096m -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc-%t.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2 -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"^' /etc/sysconfig/jenkins
-                  echo JENKINS_HOME=/mnt/$JENKINS_HOST \
-                      | tee -a /etc/sysconfig/jenkins
+                  mkdir -p /etc/systemd/system/jenkins.service.d
+                  cat <<-EOF | tee /etc/systemd/system/jenkins.service.d/override.conf
+              		[Service]
+              		# Directory where Jenkins stores its configuration and workspaces
+              		Environment="JENKINS_HOME=/mnt/$JENKINS_HOST"
+              		WorkingDirectory=/mnt/$JENKINS_HOST
+
+              		# Location of the exploded WAR
+              		Environment="JENKINS_WEBROOT=/var/cache/jenkins/war"
+
+              		# Location of the Jenkins log.
+              		Environment="JENKINS_LOG=/var/log/jenkins/jenkins.log"
+              	EOF
+
+                  cat <<-"EOF" | tee -a /etc/systemd/system/jenkins.service.d/override.conf
+
+              		# Arguments for the Jenkins JVM
+              		Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms2048m -Xmx4096m -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2 -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+              	EOF
+
+                  systemctl daemon-reload
                   systemctl enable jenkins
                   systemctl start jenkins
 
@@ -764,7 +782,7 @@ Resources:
               }
 
               setup_ssh_keys() {
-                KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets"
+                KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets"
 
                 for KEY in $KEYS_LIST; do
                     RETRY="3"

@@ -3,26 +3,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runPackageTest(String PMM_VERSION, String REPO) {
-    build job: 'package-testing', parameters: [
-        string(name: 'DOCKER_VERSION', value: "percona/pmm-server:${PMM_VERSION}"),
-        string(name: 'CLIENT_VERSION', value: PMM_VERSION),
-        string(name: 'TESTS', value: 'pmm2-client'),
-        string(name: 'INSTALL_REPO', value: REPO),
-        string(name: 'PMM_VERSION', value: PMM_VERSION)
-    ]
-}
-
-void runUpgradeTest(String FROM_VERSION, String CURRENT_VERSION) {
-    build job: 'pmm2-upgrade-tests', propagate: false, parameters: [
-        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no'),
-        string(name: 'ENABLE_TESTING_REPO', value: 'no'),
-        string(name: 'DOCKER_VERSION', value: FROM_VERSION),
-        string(name: 'CLIENT_VERSION', value: FROM_VERSION),
-        string(name: 'PMM_SERVER_LATEST', value: CURRENT_VERSION)
-    ]
-}
-
 pipeline {
     agent {
         label 'master'
@@ -40,14 +20,6 @@ pipeline {
             defaultValue: '2.0.0',
             description: 'PMM2 Server version',
             name: 'VERSION')
-        string(
-            defaultValue: '',
-            description: 'OVA image filename',
-            name: 'OVF_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Amazon Machine Image (AMI) ID',
-            name: 'AMI_ID')
         string(
             defaultValue: '',
             description: 'Path to client packages in testing repo. Example: 12aec0c9/3052',
@@ -413,20 +385,6 @@ ENDSSH
                 deleteDir()
             }
         }
-        stage('Refresh website part 1') {
-            agent {
-                label 'virtualbox'
-            }
-            steps {
-                sh """
-                    until curl https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory > /tmp/crawler; do
-                        tail /tmp/crawler
-                        sleep 10
-                    done
-                    tail /tmp/crawler
-                """
-            }
-        }
         stage('Publish OVF image') {
             agent {
                 label 'virtualbox'
@@ -434,7 +392,7 @@ ENDSSH
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        aws s3 cp --only-show-errors s3://percona-vm/\${OVF_IMAGE} pmm-server-\${VERSION}.ova
+                        aws s3 cp --only-show-errors s3://percona-vm/PMM2-Server-\${VERSION}.ova pmm-server-\${VERSION}.ova
                     """
                 }
                 sh """
@@ -445,104 +403,7 @@ ENDSSH
                 deleteDir()
             }
         }
-        stage('Copy AMI') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        set -ex
-                        get_image_id() {
-                            aws ec2 describe-images \
-                                --owners self \
-                                --filters "Name=name,Values=\$1" \
-                                --query 'Images[].ImageId' \
-                                --output text \
-                                --region \$2 \
-                                | tr '\t' '\n' \
-                                | sort -k 4 \
-                                | tail -1
-                        }
-                        SOURCE_REGION="us-east-1"
-                        IMAGE_NAME=\$(
-                            aws ec2 describe-images \
-                            --image-ids ${AMI_ID} \
-                            --query 'Images[].Name' \
-                            --region "\$SOURCE_REGION" \
-                            --output text \
-                            || :
-                        )
-                        if [ -z "\$IMAGE_NAME" ]; then
-                            echo Cannot find ${AMI_ID} AMI | tee ami.list
-                            exit 0
-                        fi
-                        IMAGE_NAME_REGEX=\$(echo \$IMAGE_NAME | sed -e 's/]\$/*/')
-                        rm -rf ami.list || :
-                        for REGION in \$(aws ec2 describe-regions --query 'Regions[].RegionName' --region "\$SOURCE_REGION" --output text | tr '\t' '\n' | sort); do
-                            COPY_IMAGE_ID=\$(get_image_id "\$IMAGE_NAME_REGEX" "\$REGION")
-                            if [ -z "\$COPY_IMAGE_ID" ]; then
-                                COPY_IMAGE_ID=\$(
-                                    aws ec2 copy-image \
-                                        --source-region "\$SOURCE_REGION" \
-                                        --source-image-id ${AMI_ID} \
-                                        --name "\$IMAGE_NAME" \
-                                        --region "\$REGION" \
-                                        --output text
-                                )
-                            fi
-                            printf "%-20s %-20s\n" "\$REGION" "\$COPY_IMAGE_ID" >> ami.list
-                        done
-                    """
-                    archiveArtifacts 'ami.list'
-                }
-            }
-        }
-        stage('Sleep') {
-            steps {
-                sleep 600
-            }
-        }
-        stage('Publish AMI') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        set -ex
-                        get_image_id() {
-                            aws ec2 describe-images \
-                                --owners self \
-                                --filters "Name=name,Values=\$1" \
-                                --query 'Images[].ImageId' \
-                                --output text \
-                                --region \$2 \
-                                | tr '\t' '\n' \
-                                | sort -k 4 \
-                                | tail -1
-                        }
-                        SOURCE_REGION="us-east-1"
-                        IMAGE_NAME=\$(
-                            aws ec2 describe-images \
-                            --image-ids ${AMI_ID} \
-                            --query 'Images[].Name' \
-                            --region "\$SOURCE_REGION" \
-                            --output text \
-                            || :
-                        )
-                        if [ -z "\$IMAGE_NAME" ]; then
-                            echo Cannot find ${AMI_ID} AMI | tee ami.list
-                            exit 0
-                        fi
-                        IMAGE_NAME_REGEX=\$(echo \$IMAGE_NAME | sed -e 's/]\$/*/')
-
-                        for REGION in \$(aws ec2 describe-regions --query 'Regions[].RegionName' --region "\$SOURCE_REGION" --output text | tr '\t' '\n' | sort); do
-                            COPY_IMAGE_ID=\$(get_image_id "\$IMAGE_NAME_REGEX" "\$REGION")
-                            while ! aws ec2 modify-image-attribute --image-id "\$COPY_IMAGE_ID" --region "\$REGION" --launch-permission "{\\"Add\\": [{\\"Group\\":\\"all\\"}]}"; do
-                                sleep 60
-                                COPY_IMAGE_ID=\$(get_image_id "\$IMAGE_NAME_REGEX" "\$REGION")
-                            done
-                        done
-                    """
-                }
-            }
-        }
-        stage('Refresh website part 2') {
+        stage('Refresh website') {
             agent {
                 label 'virtualbox'
             }
@@ -556,43 +417,13 @@ ENDSSH
                 """
             }
         }
-
-
-        stage('Tests Execution') {
-            parallel {
-                stage('Test: Upgrade from 2.22.0 version') {
-                    steps {
-                        runUpgradeTest('2.22.0', VERSION)
-                    }
-                }
-                stage('Test: Upgrade from 2.21.0 version') {
-                    steps {
-                        runUpgradeTest('2.21.0', VERSION)
-                    }
-                }
-                stage('Test: Upgrade from 2.20.0 version') {
-                    steps {
-                        runUpgradeTest('2.20.0', VERSION)
-                    }
-                }
-                stage('Test: Package testing with main repo') {
-                    steps {
-                        runPackageTest(VERSION, 'main')
-                    }
-                }
-                stage('Test: Package testing with tools-main repo') {
-                    steps {
-                        runPackageTest(VERSION, 'tools-main')
-                    }
-                }
-                stage('Test: Upgrade from pmm2-client-main repo') {
-                    steps {
-                        runPackageTest(VERSION, 'pmm2-client-main')
-                    }
-                }
+        stage('Run post-release tests') {
+            steps {
+                build job: 'pmm2-release-tests', propagate: false, wait: false, parameters: [
+                    string(name: 'VERSION', value: VERSION)
+                ]
             }
         }
-
     }
     post {
         always {

@@ -43,11 +43,11 @@ Parameters:
 Mappings:
   AmazonLinux2:
     eu-west-1:
-      x64: ami-04632f3cef5083854
+      x64: ami-09d5dd12541e69077
     eu-central-1:
-      x64: ami-099ccc441b2ef41ec
+      x64: ami-00e232b942edaf8f9
     us-west-2:
-      x64: ami-0e21d4d9303512b8e
+      x64: ami-090bc08d7ae1f3881
 
 Resources:
 
@@ -463,7 +463,7 @@ Resources:
           - InstanceType: m5ad.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          
+
   JMasterTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -766,7 +766,6 @@ Resources:
               }
 
               setup_ssh_keys() {
-                KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan illia.pshonkin alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen"
                 KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets"
 
                 for KEY in $KEYS_LIST; do

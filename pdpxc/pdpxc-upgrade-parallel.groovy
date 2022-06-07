@@ -3,7 +3,6 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def operatingSystems = ['centos-6', 'centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
 
 pipeline {
   agent {
@@ -11,7 +10,7 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "molecule/pdmysql/pdpxc-upgrade";
+      MOLECULE_DIR = "molecule/pdmysql/pdpxc-minor-upgrade";
   }
   parameters {
         choice(
@@ -45,19 +44,32 @@ pipeline {
             defaultValue: 'master',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
+        string(
+            defaultValue: '2.0.18',
+            description: 'Proxysql version for test',
+            name: 'PROXYSQL_VERSION'
+         )
+        string(
+            defaultValue: '2.3.10',
+            description: 'HAProxy version for test',
+            name: 'HAPROXY_VERSION'
+         )
+        string(
+            defaultValue: '8.0.23',
+            description: 'PXB version for test',
+            name: 'PXB_VERSION'
+         )
+        string(
+            defaultValue: '3.3.1',
+            description: 'Percona toolkit version for test',
+            name: 'PT_VERSION'
+         )
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())
           disableConcurrentBuilds()
   }
     stages {
-        stage('Set build name'){
-          steps {
-                    script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
-                    }
-                }
-            }
         stage('Checkout') {
             steps {
                 deleteDir()
@@ -74,7 +86,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(operatingSystems, env.MOLECULE_DIR)
+                    moleculeParallelTest(pdpxcOperatingSystems(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -82,7 +94,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(operatingSystems, env.MOLECULE_DIR)
+              moleculeParallelPostDestroy(pdpxcOperatingSystems(), env.MOLECULE_DIR)
          }
       }
    }

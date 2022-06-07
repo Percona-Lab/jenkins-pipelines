@@ -11,13 +11,14 @@ void checkImageForDocker(String IMAGE_POSTFIX){
         sh """
             sg docker -c '
                 docker login -u '${USER}' -p '${PASS}'
+                wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
 
-                TrityHightLog="$WORKSPACE/trivy-hight-percona-server-mysql-operator-${IMAGE_POSTFIX}.log"
-                TrityCriticaltLog="$WORKSPACE/trivy-critical-percona-server-mysql-operator-${IMAGE_POSTFIX}.log"
-                /usr/local/bin/trivy -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH --quiet \
+                TrityHightLog="$WORKSPACE/trivy-hight-percona-server-mysql-operator-${IMAGE_POSTFIX}.xml"
+                TrityCriticaltLog="$WORKSPACE/trivy-critical-percona-server-mysql-operator-${IMAGE_POSTFIX}.xml"
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH \
                     perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}
 
-                /usr/local/bin/trivy -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL --quiet \
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL \
                     perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}
 
                 if [ ! -s \$TrityHightLog ]; then
@@ -62,7 +63,7 @@ pipeline {
             name: 'GIT_PD_REPO')
     }
     agent {
-         label 'docker' 
+         label 'docker'
     }
     environment {
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
@@ -113,25 +114,27 @@ pipeline {
         stage('Check Docker images') {
             steps {
                 checkImageForDocker('orchestrator')
-                sh '''
-                   CRITICAL=$(ls trivy-critical-*) || true
-                   if [ -n "$CRITICAL" ]; then
-                       exit 1
-                   fi
-                '''
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-orchestrator.xml"
+                }
             }
         }
     }
     post {
         always {
-            archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
             '''
             deleteDir()
         }
+        unstable {
+            slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PS docker images unstable. Please check the log ${BUILD_URL}"
+        }
         failure {
-            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PG docker images failed. Please check the log ${BUILD_URL}"
+            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PS docker images failed. Please check the log ${BUILD_URL}"
         }
     }
 }
+

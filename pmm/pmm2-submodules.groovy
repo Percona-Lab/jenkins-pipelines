@@ -3,10 +3,11 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runAPItests(String DOCKER_IMAGE_VERSION, BRANCH_NAME, GIT_COMMIT_HASH, CLIENT_VERSION, OWNER) {
+void runAPItests(String DOCKER_IMAGE_VERSION, GIT_URL, GIT_BRANCH, GIT_COMMIT_HASH, CLIENT_VERSION, OWNER) {
     apiTestJob = build job: 'pmm2-api-tests', propagate: false, parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_IMAGE_VERSION),
-        string(name: 'GIT_BRANCH', value: BRANCH_NAME),
+        string(name: 'GIT_URL', value: GIT_URL),
+        string(name: 'GIT_BRANCH', value: GIT_BRANCH),
         string(name: 'OWNER', value: OWNER),
         string(name: 'GIT_COMMIT_HASH', value: GIT_COMMIT_HASH)
     ]
@@ -50,7 +51,7 @@ void addComment(String COMMENT) {
 
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'docker-farm'
     }
     stages {
         stage('Prepare') {
@@ -63,24 +64,17 @@ pipeline {
                         sudo rm -rf results tmp || :
                         git reset --hard
                         git clean -fdx
-                        sudo yum install -y python3
-                        sudo pip3 install -r requirements.txt
                         python3 ci.py
                         . ./.git-sources
                         curl -s https://api.github.com/repos/percona/pmm-managed/commits/${pmm_managed_commit} | grep 'name' | awk -F '"' '{print $4}' | head -1 > OWNER
                         echo $pmm_managed_commit > apiCommitSha
                         echo $pmm_managed_branch > apiBranch
+                        echo $pmm_managed_url > apiURL
                         echo $pmm_qa_branch > pmmQABranch
                         echo $pmm_qa_commit > pmmQACommitSha
                         echo $pmm_ui_tests_branch > pmmUITestBranch
                         echo $pmm_ui_tests_commit > pmmUITestsCommitSha
                     else
-                        curdir=$(pwd)
-                        cd ../
-                        wget https://github.com/git-lfs/git-lfs/releases/download/v2.7.1/git-lfs-linux-amd64-v2.7.1.tar.gz
-                        tar -zxvf git-lfs-linux-amd64-v2.7.1.tar.gz
-                        sudo ./install.sh
-                        cd $curdir
                         sudo rm -rf results tmp || :
                         git reset --hard
                         git clean -fdx
@@ -89,16 +83,14 @@ pipeline {
                         git submodule status
                         export commit_sha=$(git submodule status | grep 'pmm-managed' | awk -F ' ' '{print $1}')
                         curl -s https://api.github.com/repos/percona/pmm-managed/commits/${commit_sha} | grep 'name' | awk -F '"' '{print $4}' | head -1 > OWNER
-                        cd sources/pmm-server/
-                        git lfs install
-                        git lfs pull
-                        git lfs checkout
-                        cd $curdir
                         export api_tests_commit_sha=$(git submodule status | grep 'pmm-managed' | awk -F ' ' '{print $1}')
                         export api_tests_branch=$(git config -f .gitmodules submodule.pmm-managed.branch)
+                        export api_tests_url=$(git config -f .gitmodules submodule.pmm-managed.url)
                         echo $api_tests_commit_sha > apiCommitSha
                         echo $api_tests_branch > apiBranch
+                        echo $api_tests_url > apiURL
                         cat apiBranch
+                        cat apiURL
                         export pmm_qa_commit_sha=$(git submodule status | grep 'pmm-qa' | awk -F ' ' '{print $1}')
                         export pmm_qa_branch=$(git config -f .gitmodules submodule.pmm-qa.branch)
                         echo $pmm_qa_branch > pmmQABranch
@@ -107,15 +99,14 @@ pipeline {
                         export pmm_ui_tests_branch=$(git config -f .gitmodules submodule.pmm-ui-tests.branch)
                         echo $pmm_ui_tests_branch > pmmUITestBranch
                         echo $pmm_ui_tests_commit_sha > pmmUITestsCommitSha
-                        cd $curdir
                     fi
                 '''
                 }
-                installDocker()
                 script {
                     env.PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
                 }
                 stash includes: 'apiBranch', name: 'apiBranch'
+                stash includes: 'apiURL', name: 'apiURL'
                 stash includes: 'pmmQABranch', name: 'pmmQABranch'
                 stash includes: 'apiCommitSha', name: 'apiCommitSha'
                 stash includes: 'pmmQACommitSha', name: 'pmmQACommitSha'
@@ -128,14 +119,12 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        sg docker -c "
-                            set -o errexit
+                        set -o errexit
 
-                            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                            env
-                            ./build/bin/build-client-source
-                        "
+                        env
+                        ./build/bin/build-client-source
                     '''
                 }
             }
@@ -144,19 +133,18 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        sg docker -c "
-                            set -o errexit
+                        set -o errexit
 
-                            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                            env
-                            ./build/bin/build-client-binary
-                        "
+                        env
+
+                        ./build/bin/build-client-binary
                         aws s3 cp \
                             --acl public-read \
                             results/tarball/pmm2-client-*.tar.gz \
                             s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz
-                        '''
+                    '''
                 }
                 script {
                     def clientPackageURL = sh script:'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL', returnStdout: true
@@ -169,12 +157,10 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        sg docker -c "
-                            set -o errexit
-                            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                        set -o errexit
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                            ./build/bin/build-client-srpm centos:7
-                        "
+                        ./build/bin/build-client-srpm centos:7
                     '''
                 }
             }
@@ -183,16 +169,14 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        sg docker -c "
-                            set -o errexit
+                        set -o errexit
 
-                            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                            ./build/bin/build-client-rpm centos:7
+                        ./build/bin/build-client-rpm centos:7
 
-                            mkdir -p tmp/pmm-server/RPMS/
-                            cp results/rpm/pmm2-client-*.rpm tmp/pmm-server/RPMS/
-                        "
+                        mkdir -p tmp/pmm-server/RPMS/
+                        cp results/rpm/pmm2-client-*.rpm tmp/pmm-server/RPMS/
                     '''
                 }
             }
@@ -201,22 +185,18 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
-                        sg docker -c "
-                            docker login -u "${USER}" -p "${PASS}"
-                        "
+                        docker login -u "${USER}" -p "${PASS}"
                     """
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        sg docker -c "
-                            set -o errexit
-                            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                        set -o errexit
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                            export PUSH_DOCKER=1
-                            export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
+                        export PUSH_DOCKER=1
+                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
 
-                            ./build/bin/build-client-docker
-                        "
+                        ./build/bin/build-client-docker
                     '''
                 }
                 stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
@@ -227,28 +207,27 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        sg docker -c "
-                            set -o errexit
+                        set -o errexit
 
-                            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                            export RPM_EPOCH=1
-                            export PATH=$PATH:$(pwd -P)/build/bin
+                        export RPM_EPOCH=1
+                        export PATH=$PATH:$(pwd -P)/build/bin
 
-                            # 1st-party
-                            build-server-rpm percona-dashboards grafana-dashboards
-                            build-server-rpm pmm-managed
-                            build-server-rpm percona-qan-api2 qan-api2
-                            build-server-rpm pmm-server
-                            build-server-rpm pmm-update
-                            build-server-rpm dbaas-controller
-                            build-server-rpm dbaas-tools
+                        # 1st-party
+                        build-server-rpm percona-dashboards grafana-dashboards
+                        build-server-rpm pmm-managed
+                        build-server-rpm percona-qan-api2 qan-api2
+                        build-server-rpm pmm-server
+                        build-server-rpm pmm-update
+                        build-server-rpm dbaas-controller
+                        build-server-rpm dbaas-tools
+                        build-server-rpm pmm-dump
 
-                            # 3rd-party
-                            build-server-rpm victoriametrics
-                            build-server-rpm alertmanager
-                            build-server-rpm grafana
-                        "
+                        # 3rd-party
+                        build-server-rpm victoriametrics
+                        build-server-rpm alertmanager
+                        build-server-rpm grafana
                     '''
                 }
             }
@@ -257,9 +236,7 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
-                        sg docker -c "
-                            docker login -u "${USER}" -p "${PASS}"
-                        "
+                        docker login -u "${USER}" -p "${PASS}"
                     """
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -304,15 +281,17 @@ pipeline {
                     steps {
                         script {
                             unstash 'IMAGE'
+                            unstash 'apiURL'
                             unstash 'apiBranch'
                             unstash 'apiCommitSha'
                             def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                             def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
                             def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
                             def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
+                            def API_TESTS_URL = sh(returnStdout: true, script: "cat apiURL").trim()
                             def API_TESTS_BRANCH = sh(returnStdout: true, script: "cat apiBranch").trim()
                             def GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat apiCommitSha").trim()
-                            runAPItests(IMAGE, API_TESTS_BRANCH, GIT_COMMIT_HASH, CLIENT_URL, OWNER)
+                            runAPItests(IMAGE, API_TESTS_URL, API_TESTS_BRANCH, GIT_COMMIT_HASH, CLIENT_URL, OWNER)
                             if (!env.API_TESTS_RESULT.equals("SUCCESS")) {
                                 sh "exit 1"
                             }

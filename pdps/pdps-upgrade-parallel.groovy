@@ -10,12 +10,12 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "molecule/pdmysql/${SCENARIO}";
+      MOLECULE_DIR = "molecule/pdmysql/pdps-minor-upgrade";
   }
   parameters {
         choice(
             name: 'FROM_REPO',
-            description: 'From this repo will be upgraded PPG',
+            description: 'From this repo will be upgraded PDPS',
             choices: [
                 'testing',
                 'experimental',
@@ -32,11 +32,11 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.19',
+            defaultValue: '8.0.28',
             description: 'From this version pdmysql will be updated',
             name: 'FROM_VERSION')
         string(
-            defaultValue: '8.0.20',
+            defaultValue: '8.0.29',
             description: 'To this version pdmysql will be updated',
             name: 'VERSION'
         )
@@ -44,19 +44,32 @@ pipeline {
             defaultValue: 'master',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
+        string(
+            defaultValue: '2.3.2',
+            description: 'Updated Proxysql version',
+            name: 'PROXYSQL_VERSION'
+         )
+        string(
+            defaultValue: '8.0.28',
+            description: 'Updated PXB version',
+            name: 'PXB_VERSION'
+         )
+        string(
+            defaultValue: '3.3.1',
+            description: 'Updated Percona Toolkit version',
+            name: 'PT_VERSION'
+         )
+        string(
+            defaultValue: '3.2.6',
+            description: 'Updated Percona Orchestrator version',
+            name: 'ORCHESTRATOR_VERSION'
+         )
   }
   options {
           withCredentials(moleculePdpsJenkinsCreds())
           disableConcurrentBuilds()
   }
     stages {
-        stage('Set build name'){
-          steps {
-                    script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
-                    }
-                }
-            }
         stage('Checkout') {
             steps {
                 deleteDir()

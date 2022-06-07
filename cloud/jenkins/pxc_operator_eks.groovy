@@ -314,6 +314,7 @@ EOF
                 runTest('tls-issue-cert-manager')
                 runTest('tls-issue-cert-manager-ref')
                 runTest('validation-hook')
+                runTest('proxy-protocol')
             }
         }
         stage('E2E Scaling') {
@@ -359,6 +360,14 @@ EOF
             }
             steps {
                 runTest('big-data')
+            }
+        }
+        stage('E2E Cross-site') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
+            steps {
+                runTest('cross-site')
             }
         }
         stage('Make report') {

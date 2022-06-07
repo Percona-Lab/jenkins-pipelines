@@ -47,6 +47,9 @@ void fetchAgentLog(String CLIENT_VERSION) {
 
 def latestVersion = pmmVersion()
 def versionsList = pmmVersion('list_with_old')
+def getMinorVersion(VERSION) {
+    return VERSION.split("\\.")[1].toInteger()
+}
 
 pipeline {
     agent {
@@ -102,6 +105,10 @@ pipeline {
             description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
             name: 'PMM_SERVER_TAG')
         string(
+            defaultValue: 'admin-password',
+            description: 'pmm-server admin user default password',
+            name: 'ADMIN_PASSWORD')  
+        string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
@@ -118,7 +125,7 @@ pipeline {
             description: 'Perform Docker-way Upgrade?',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
         text(
-            defaultValue: '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-settings --setup-alertmanager --setup-external-service',
+            defaultValue: '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-settings --setup-alertmanager --setup-external-service --setup-ssl-services',
             description: '''
             Configure PMM Clients
             ms - MySQL (ex. --addclient=ms,1),
@@ -139,6 +146,13 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                script {
+                    if(env.PERFORM_DOCKER_WAY_UPGRADE == "yes") {
+                        currentBuild.description = "Docker way upgrade from ${env.DOCKER_VERSION} to ${env.PMM_SERVER_LATEST}"
+                    } else {
+                        currentBuild.description = "UI way upgrade from ${env.DOCKER_VERSION} to ${env.PMM_SERVER_LATEST}"
+                    }
+                }
                 // fetch pmm-ui-tests repository
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
@@ -170,9 +184,34 @@ pipeline {
                 """
                 script {
                     env.SERVER_IP = "127.0.0.1"
-                    env.ADMIN_PASSWORD = "admin"
                     env.PMM_UI_URL = "http://${env.SERVER_IP}/"
                     env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                }
+            }
+        }
+        stage('Change admin password for >= 2.27') {
+            when {
+                expression { getMinorVersion(DOCKER_VERSION) >= 27 }
+            }
+            steps {
+                sh """
+                    docker exec pmm-server change-admin-password \${ADMIN_PASSWORD}
+                """
+                script {
+                    env.ADMIN_PASSWORD = ADMIN_PASSWORD
+                }
+            }
+        }
+        stage('Change admin password for <= 2.26') {
+            when {
+                expression { getMinorVersion(DOCKER_VERSION) <= 26 }
+            }
+            steps {
+                sh """
+                    docker exec pmm-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
+                """
+                script {
+                    env.ADMIN_PASSWORD = ADMIN_PASSWORD
                 }
             }
         }
@@ -208,7 +247,7 @@ pipeline {
                         docker exec pmm-server percona-release enable percona experimental
                         docker exec pmm-server yum clean all
                     """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup', env.ADMIN_PASSWORD)
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup', ADMIN_PASSWORD)
                 }
             }
         }
@@ -218,7 +257,13 @@ pipeline {
             }
             steps {
                 script {
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup', env.ADMIN_PASSWORD)
+                    sh """
+                        set -o errexit
+                        set -o xtrace
+                        docker exec pmm-server yum update -y percona-release || true
+                        docker exec pmm-server yum clean all
+                    """
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup', ADMIN_PASSWORD)
                 }
             }
         }
@@ -231,8 +276,7 @@ pipeline {
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --download \
                         ${CLIENTS} \
-                        --pmm2 \
-                        --pmm2-server-ip=\$SERVER_IP
+                        --pmm2
                     sleep 20
                 """
             }
@@ -317,12 +361,18 @@ pipeline {
             sh '''
                 ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
                 ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
+                echo --- pmm-managed logs from pmm-server --- >> pmm-managed-full.log
+                docker exec pmm-server cat /srv/logs/pmm-managed.log >> pmm-managed-full.log || true
+                docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
+                echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
                 sudo chown -R ec2-user:ec2-user . || true
             '''
             script {
+                archiveArtifacts artifacts: 'pmm-managed-full.log'
+                archiveArtifacts artifacts: 'pmm-update-perform.log'
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'tests/output/parallel_chunk*/*.xml'
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "

@@ -23,37 +23,43 @@ netMap['us-west-1b'] = 'subnet-01d9a7d6b4722eb43'
 netMap['us-west-1c'] = 'subnet-0550c1d2ffd688021'
 
 imageMap = [:]
-imageMap['micro-amazon']     = 'ami-028f2b5ee08012131'
-imageMap['min-bionic-x64']   = 'ami-0558dde970ca91ee5'
-imageMap['min-focal-x64']    = 'ami-04b61997e51f6d5c7'
+imageMap['micro-amazon']     = 'ami-0ff7fc535d3457221'
+imageMap['min-bionic-x64']   = 'ami-00753573f3369dd7c'
+imageMap['min-focal-x64']    = 'ami-066c6938fb715719f'
+imageMap['min-jammy-x64']    = 'ami-0dc5e9ff792ec08e3'
 imageMap['min-centos-6-x32'] = 'ami-67e3cd22'
 imageMap['min-centos-6-x64'] = 'ami-0d282a216ae4c0c42'
 imageMap['min-centos-7-x64'] = 'ami-08d2d8b00f270d03b'
 imageMap['min-centos-8-x64'] = 'ami-04adf3fcbc8a45c54'
-imageMap['min-stretch-x64']  = 'ami-07bbec0b6b6baa7de'
-imageMap['min-xenial-x64']   = 'ami-0fdf8b5989f22a4e0'
-imageMap['min-buster-x64']   = 'ami-0c053f1d5f22eb09f'
-imageMap['docker']           = 'ami-04b6c97b14c54de18'
+imageMap['min-ol-8-x64']     = 'ami-06339041e422fab06'
+imageMap['min-stretch-x64']  = 'ami-0280d841fec0493e6'
+imageMap['min-xenial-x64']   = 'ami-0454207e5367abf01'
+imageMap['min-buster-x64']   = 'ami-024fe42989cf9e876'
+imageMap['docker']           = 'ami-0ff7fc535d3457221'
 imageMap['docker-32gb']      = imageMap['docker']
-imageMap['min-bullseye-x64'] = 'ami-09b4378b1d3387f81'
+imageMap['min-bullseye-x64'] = 'ami-07af5f877b3db9f73'
 
 imageMap['ramdisk-centos-6-x64'] = imageMap['min-centos-6-x64']
 imageMap['ramdisk-centos-7-x64'] = imageMap['min-centos-7-x64']
 imageMap['ramdisk-centos-8-x64'] = imageMap['min-centos-8-x64']
+imageMap['ramdisk-ol-8-x64']     = imageMap['min-ol-8-x64']
 imageMap['ramdisk-stretch-x64']  = imageMap['min-stretch-x64']
 imageMap['ramdisk-xenial-x64']   = imageMap['min-xenial-x64']
 imageMap['ramdisk-bionic-x64']   = imageMap['min-bionic-x64']
 imageMap['ramdisk-focal-x64']    = imageMap['min-focal-x64']
+imageMap['ramdisk-jammy-x64']    = imageMap['min-jammy-x64']
 imageMap['ramdisk-buster-x64']   = imageMap['min-buster-x64']
+imageMap['ramdisk-bullseye-x64'] = imageMap['min-bullseye-x64']
 
 imageMap['performance-centos-6-x64']   = imageMap['min-centos-7-x64']
 
 priceMap = [:]
-priceMap['t3a.medium'] = '0.015'
-priceMap['m1.medium'] = '0.05'
-priceMap['c4.xlarge'] = '0.10'
+priceMap['t3.xlarge'] = '0.09'
+priceMap['m1.medium'] = '0.07'
+priceMap['c4.2xlarge'] = '0.15'
+priceMap['r3.2xlarge'] = '0.19'
 priceMap['m4.2xlarge'] = '0.20'
-priceMap['m5zn.2xlarge'] = '0.22'
+priceMap['r5.2xlarge'] = '0.23'
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -61,10 +67,12 @@ userMap['docker-32gb']       = userMap['docker']
 userMap['micro-amazon']      = userMap['docker']
 userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-focal-x64']     = 'ubuntu'
+userMap['min-jammy-x64']     = 'ubuntu'
 userMap['min-centos-6-x32']  = 'root'
 userMap['min-centos-6-x64']  = 'centos'
 userMap['min-centos-7-x64']  = 'centos'
 userMap['min-centos-8-x64']  = 'centos'
+userMap['min-ol-8-x64']      = 'ec2-user'
 userMap['fips-centos-7-x64'] = 'centos'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
@@ -74,11 +82,14 @@ userMap['min-bullseye-x64']  = 'admin'
 userMap['ramdisk-centos-6-x64'] = userMap['min-centos-6-x64']
 userMap['ramdisk-centos-7-x64'] = userMap['min-centos-7-x64']
 userMap['ramdisk-centos-8-x64'] = userMap['min-centos-8-x64']
+userMap['ramdisk-ol-8-x64']     = userMap['min-ol-8-x64']
 userMap['ramdisk-stretch-x64']  = userMap['min-stretch-x64']
 userMap['ramdisk-xenial-x64']   = userMap['min-xenial-x64']
 userMap['ramdisk-bionic-x64']   = userMap['min-bionic-x64']
 userMap['ramdisk-focal-x64']    = userMap['min-focal-x64']
+userMap['ramdisk-jammy-x64']    = userMap['min-jammy-x64']
 userMap['ramdisk-buster-x64']   = userMap['min-buster-x64']
+userMap['ramdisk-bullseye-x64'] = userMap['min-bullseye-x64']
 
 userMap['performance-centos-6-x64'] = userMap['min-centos-6-x64']
 
@@ -196,6 +207,10 @@ initMap['rpmMap'] = '''
         sudo amazon-linux-extras install epel -y
         PKGLIST="p7zip"
     fi
+    if [[ ${RHVER} -eq 8 ]]; then
+        sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+        sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+    fi
     until sudo yum makecache; do
         sleep 1
         echo try again
@@ -251,6 +266,10 @@ initMap['rpmMapRamdisk'] = '''
         sudo curl https://jenkins.percona.com/downloads/cent6/centos6-epel-eol.repo --output /etc/yum.repos.d/epel.repo
         sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl.repo
         sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
+    fi
+    if [[ ${RHVER} -eq 8 ]]; then
+        sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+        sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
     fi
     until sudo yum makecache; do
         sleep 1
@@ -321,24 +340,30 @@ initMap['micro-amazon']      = initMap['rpmMap']
 initMap['min-centos-6-x64']  = initMap['rpmMap']
 initMap['min-centos-7-x64']  = initMap['rpmMap']
 initMap['min-centos-8-x64']  = initMap['rpmMap']
+initMap['min-ol-8-x64']      = initMap['rpmMap']
 initMap['fips-centos-7-x64'] = initMap['rpmMap']
 initMap['min-centos-6-x32']  = initMap['rpmMap']
 
-initMap['min-buster-x64']  = initMap['debMap']
-initMap['min-bionic-x64']  = initMap['debMap']
+initMap['min-buster-x64']   = initMap['debMap']
+initMap['min-bionic-x64']   = initMap['debMap']
 initMap['min-bullseye-x64'] = initMap['debMap']
-initMap['min-focal-x64']   = initMap['debMap']
-initMap['min-stretch-x64'] = initMap['debMap']
-initMap['min-xenial-x64']  = initMap['debMap']
+initMap['min-focal-x64']    = initMap['debMap']
+initMap['min-jammy-x64']    = initMap['debMap']
+initMap['min-stretch-x64']  = initMap['debMap']
+initMap['min-xenial-x64']   = initMap['debMap']
 
 initMap['ramdisk-centos-6-x64'] = initMap['rpmMapRamdisk']
 initMap['ramdisk-centos-7-x64'] = initMap['rpmMapRamdisk']
 initMap['ramdisk-centos-8-x64'] = initMap['rpmMapRamdisk']
+initMap['ramdisk-ol-8-x64']     = initMap['rpmMapRamdisk']
 initMap['ramdisk-buster-x64']   = initMap['debMapRamdisk']
 initMap['ramdisk-bionic-x64']   = initMap['debMapRamdisk']
 initMap['ramdisk-focal-x64']    = initMap['debMapRamdisk']
+initMap['ramdisk-jammy-x64']    = initMap['debMapRamdisk']
 initMap['ramdisk-stretch-x64']  = initMap['debMapRamdisk']
 initMap['ramdisk-xenial-x64']   = initMap['debMapRamdisk']
+initMap['ramdisk-bullseye-x64'] = initMap['debMapRamdisk']
+
 initMap['performance-centos-6-x64']  = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -369,37 +394,43 @@ initMap['performance-centos-6-x64']  = '''
 '''
 
 capMap = [:]
-capMap['c4.xlarge'] = '40'
+capMap['c4.2xlarge'] = '40'
 capMap['m4.2xlarge'] = '40'
-capMap['m5zn.2xlarge'] = '40'
+capMap['r5.2xlarge'] = '40'
+capMap['r3.2xlarge'] = '40'
 
 typeMap = [:]
-typeMap['micro-amazon'] = 't3a.medium'
-typeMap['docker']       = 'c4.xlarge'
-typeMap['docker-32gb']  = 'm5zn.2xlarge'
+typeMap['micro-amazon'] = 't3.xlarge'
+typeMap['docker']       = 'c4.2xlarge'
+typeMap['docker-32gb']  = 'r5.2xlarge'
 
 typeMap['performance-centos-6-x64'] = typeMap['docker-32gb']
 
-typeMap['min-centos-7-x64'] = typeMap['docker-32gb']
-typeMap['min-centos-8-x64'] = typeMap['docker-32gb']
+typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
+typeMap['min-centos-8-x64']  = typeMap['docker-32gb']
+typeMap['min-ol-8-x64']      = typeMap['docker-32gb']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-focal-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-centos-6-x32'] = 'm1.medium'
-typeMap['min-centos-6-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-buster-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-stretch-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-xenial-x64'] = typeMap['min-centos-7-x64']
-typeMap['min-bullseye-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
+typeMap['min-focal-x64']     = typeMap['min-centos-7-x64']
+typeMap['min-jammy-x64']     = typeMap['min-centos-7-x64']
+typeMap['min-centos-6-x32']  = 'm1.medium'
+typeMap['min-centos-6-x64']  = 'r3.2xlarge'
+typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
+typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
+typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
+typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
 
-typeMap['ramdisk-centos-6-x64'] = typeMap['docker-32gb']
+typeMap['ramdisk-centos-6-x64'] = 'r3.2xlarge'
 typeMap['ramdisk-centos-7-x64'] = typeMap['docker-32gb']
 typeMap['ramdisk-centos-8-x64'] = typeMap['docker-32gb']
+typeMap['ramdisk-ol-8-x64']     = typeMap['docker-32gb']
 typeMap['ramdisk-stretch-x64']  = typeMap['docker-32gb']
 typeMap['ramdisk-xenial-x64']   = typeMap['docker-32gb']
 typeMap['ramdisk-bionic-x64']   = typeMap['docker-32gb']
 typeMap['ramdisk-focal-x64']    = typeMap['docker-32gb']
+typeMap['ramdisk-jammy-x64']    = typeMap['docker-32gb']
 typeMap['ramdisk-buster-x64']   = typeMap['docker-32gb']
+typeMap['ramdisk-bullseye-x64'] = typeMap['docker-32gb']
 
 execMap = [:]
 execMap['docker'] = '1'
@@ -407,10 +438,12 @@ execMap['docker-32gb'] = execMap['docker']
 execMap['micro-amazon'] = '30'
 execMap['min-bionic-x64'] = '1'
 execMap['min-focal-x64']  = '1'
+execMap['min-jammy-x64']  = '1'
 execMap['min-centos-6-x32'] = '1'
 execMap['min-centos-6-x64'] = '1'
 execMap['min-centos-7-x64'] = '1'
 execMap['min-centos-8-x64'] = '1'
+execMap['min-ol-8-x64']     = '1'
 execMap['fips-centos-7-x64'] = '1'
 execMap['min-buster-x64'] = '1'
 execMap['min-stretch-x64'] = '1'
@@ -420,11 +453,14 @@ execMap['min-bullseye-x64'] = '1'
 execMap['ramdisk-centos-6-x64'] = execMap['docker-32gb']
 execMap['ramdisk-centos-7-x64'] = execMap['docker-32gb']
 execMap['ramdisk-centos-8-x64'] = execMap['docker-32gb']
+execMap['ramdisk-ol-8-x64']     = execMap['docker-32gb']
 execMap['ramdisk-stretch-x64']  = execMap['docker-32gb']
 execMap['ramdisk-xenial-x64']   = execMap['docker-32gb']
 execMap['ramdisk-bionic-x64']   = execMap['docker-32gb']
 execMap['ramdisk-focal-x64']    = execMap['docker-32gb']
+execMap['ramdisk-jammy-x64']    = execMap['docker-32gb']
 execMap['ramdisk-buster-x64']   = execMap['docker-32gb']
+execMap['ramdisk-bullseye-x64'] = execMap['docker-32gb']
 
 execMap['performance-centos-6-x64']   = execMap['docker-32gb']
 
@@ -434,9 +470,11 @@ devMap['docker-32gb']       = devMap['docker']
 devMap['micro-amazon']      = devMap['docker']
 devMap['min-bionic-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-focal-x64']     = devMap['min-bionic-x64']
+devMap['min-jammy-x64']     = devMap['min-bionic-x64']
 devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-ol-8-x64']      = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-buster-x64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -447,11 +485,14 @@ devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['ramdisk-centos-6-x64'] = '/dev/sda1=:8:true:gp2'
 devMap['ramdisk-centos-7-x64'] = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-centos-8-x64'] = '/dev/sda1=:10:true:gp2'
+devMap['ramdisk-ol-8-x64']     = '/dev/sda1=:10:true:gp2'
 devMap['ramdisk-bionic-x64']   = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-focal-x64']    = devMap['ramdisk-centos-6-x64']
+devMap['ramdisk-jammy-x64']    = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-xenial-x64']   = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-stretch-x64']  = 'xvda=:8:true:gp2'
 devMap['ramdisk-buster-x64']   = '/dev/xvda=:8:true:gp2'
+devMap['ramdisk-bullseye-x64'] = '/dev/xvda=:8:true:gp2'
 
 devMap['performance-centos-6-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:120:true:gp2'
 
@@ -461,10 +502,12 @@ labelMap['docker-32gb']       = 'docker-32gb'
 labelMap['micro-amazon']      = 'master micro-amazon'
 labelMap['min-bionic-x64']    = 'min-bionic-x6 asan'
 labelMap['min-focal-x64']     = 'min-focal-x64'
+labelMap['min-jammy-x64']     = 'min-jammy-x64'
 labelMap['min-centos-6-x32']  = 'min-centos-6-x32'
 labelMap['min-centos-6-x64']  = 'min-centos-6-x64'
 labelMap['min-centos-7-x64']  = 'min-centos-7-x64'
 labelMap['min-centos-8-x64']  = 'min-centos-8-x64'
+labelMap['min-ol-8-x64']      = 'min-ol-8-x64'
 labelMap['fips-centos-7-x64'] = 'fips-centos-7-x64'
 labelMap['min-stretch-x64']   = 'min-stretch-x64'
 labelMap['min-buster-x64']    = 'min-buster-x64'
@@ -474,11 +517,14 @@ labelMap['min-bullseye-x64']  = 'min-bullseye-x64'
 labelMap['ramdisk-centos-6-x64'] = 'ramdisk-centos-6-x64'
 labelMap['ramdisk-centos-7-x64'] = 'ramdisk-centos-7-x64'
 labelMap['ramdisk-centos-8-x64'] = 'ramdisk-centos-8-x64'
+labelMap['ramdisk-ol-8-x64']     = 'ramdisk-ol-8-x64'
 labelMap['ramdisk-bionic-x64']   = 'ramdisk-bionic-x64'
 labelMap['ramdisk-focal-x64']    = 'ramdisk-focal-x64'
+labelMap['ramdisk-jammy-x64']    = 'ramdisk-jammy-x64'
 labelMap['ramdisk-xenial-x64']   = 'ramdisk-xenial-x64'
 labelMap['ramdisk-stretch-x64']  = 'ramdisk-stretch-x64'
 labelMap['ramdisk-buster-x64']   = 'ramdisk-buster-x64'
+labelMap['ramdisk-bullseye-x64'] = 'ramdisk-bullseye-x64'
 
 labelMap['performance-centos-6-x64'] = 'perf-centos-6-x64'
 
@@ -491,10 +537,12 @@ maxUseMap['docker-32gb']       = maxUseMap['multipleUse']
 maxUseMap['micro-amazon']      = maxUseMap['multipleUse']
 maxUseMap['min-bionic-x64']    = maxUseMap['singleUse']
 maxUseMap['min-focal-x64']     = maxUseMap['singleUse']
+maxUseMap['min-jammy-x64']     = maxUseMap['singleUse']
 maxUseMap['min-centos-6-x32']  = maxUseMap['singleUse']
 maxUseMap['min-centos-6-x64']  = maxUseMap['singleUse']
 maxUseMap['min-centos-7-x64']  = maxUseMap['singleUse']
 maxUseMap['min-centos-8-x64']  = maxUseMap['singleUse']
+maxUseMap['min-ol-8-x64']      = maxUseMap['singleUse']
 maxUseMap['fips-centos-7-x64'] = maxUseMap['singleUse']
 maxUseMap['min-stretch-x64']   = maxUseMap['singleUse']
 maxUseMap['min-buster-x64']    = maxUseMap['singleUse']
@@ -504,11 +552,14 @@ maxUseMap['min-bullseye-x64']  = maxUseMap['singleUse']
 maxUseMap['ramdisk-centos-6-x64'] = maxUseMap['singleUse']
 maxUseMap['ramdisk-centos-7-x64'] = maxUseMap['singleUse']
 maxUseMap['ramdisk-centos-8-x64'] = maxUseMap['singleUse']
+maxUseMap['ramdisk-ol-8-x64']     = maxUseMap['singleUse']
 maxUseMap['ramdisk-bionic-x64']   = maxUseMap['singleUse']
 maxUseMap['ramdisk-focal-x64']    = maxUseMap['singleUse']
+maxUseMap['ramdisk-jammy-x64']    = maxUseMap['singleUse']
 maxUseMap['ramdisk-xenial-x64']   = maxUseMap['singleUse']
 maxUseMap['ramdisk-stretch-x64']  = maxUseMap['singleUse']
 maxUseMap['ramdisk-buster-x64']   = maxUseMap['singleUse']
+maxUseMap['ramdisk-bullseye-x64'] = maxUseMap['singleUse']
 
 maxUseMap['performance-centos-6-x64'] = maxUseMap['singleUse']
 
@@ -582,24 +633,28 @@ String region = 'us-west-1'
         [
             getTemplate('micro-amazon',     "${region}${it}"),
             getTemplate('docker',           "${region}${it}"),
-            getTemplate('docker-32gb',       "${region}${it}"),
+            getTemplate('docker-32gb',      "${region}${it}"),
             getTemplate('min-centos-6-x32', "${region}${it}"),
             getTemplate('min-centos-6-x64', "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
             getTemplate('min-centos-8-x64', "${region}${it}"),
+            getTemplate('min-ol-8-x64',     "${region}${it}"),
             getTemplate('min-stretch-x64',  "${region}${it}"),
             getTemplate('min-buster-x64',   "${region}${it}"),
             getTemplate('min-bullseye-x64', "${region}${it}"),
             getTemplate('min-xenial-x64',   "${region}${it}"),
             getTemplate('min-bionic-x64',   "${region}${it}"),
             getTemplate('min-focal-x64',    "${region}${it}"),
+            getTemplate('min-jammy-x64',    "${region}${it}"),
             getTemplate('ramdisk-centos-6-x64', "${region}${it}"),
             getTemplate('ramdisk-centos-7-x64', "${region}${it}"),
             getTemplate('ramdisk-centos-8-x64', "${region}${it}"),
+            getTemplate('ramdisk-ol-8-x64',     "${region}${it}"),
             getTemplate('ramdisk-stretch-x64',  "${region}${it}"),
             getTemplate('ramdisk-xenial-x64',   "${region}${it}"),
             getTemplate('ramdisk-bionic-x64',   "${region}${it}"),
             getTemplate('ramdisk-focal-x64',    "${region}${it}"),
+            getTemplate('ramdisk-jammy-x64',    "${region}${it}"),
             getTemplate('ramdisk-buster-x64',   "${region}${it}"),
             getTemplate('performance-centos-6-x64', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates

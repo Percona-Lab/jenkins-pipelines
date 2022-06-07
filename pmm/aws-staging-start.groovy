@@ -8,9 +8,25 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+def changeUserPasswordUtility(dockerImage) {
+    tag = dockerImage.split(":")[1]
+
+    if (tag.startsWith("PR") || tag.startsWith("dev"))
+        return "yes"
+
+    minorVersion = tag.split("\\.")[1].toInteger()
+
+    if (minorVersion < 27)
+        return "no"
+    else
+        return "yes"
+}
+
+def DEFAULT_SSH_KEYS = getSHHKeysPMM()
+
 pipeline {
     agent {
-        label 'awscli'
+        label 'cli'
     }
     parameters {
         string(
@@ -66,7 +82,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['14.1', '14.0', '13.5', '13.4', '13.2', '13.1', '12.9', '12.8', '11.14', '11.13'],
+            choices: ['14.2', '14.1', '14.0', '13.6', '13.4', '13.2', '13.1', '12.10', '12.8', '11.15', '11.13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -85,6 +101,10 @@ pipeline {
             choices: ['perfschema', 'slowlog'],
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
+        choice(
+            choices: ['dev','prod'],
+            description: 'Prod or Dev version service',
+            name: 'VERSION_SERVICE_VERSION')            
         string(
             defaultValue: '',
             description: '''
@@ -182,22 +202,23 @@ pipeline {
 
         stage('Run VM') {
             steps {
-                launchSpotInstance('t3.large', '0.040', 25)
+                launchSpotInstance('t3.large', 'FAIR', 25)
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
-                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) 'java -version; sudo yum install -y java-1.8.0-openjdk; sudo /usr/sbin/alternatives --set java /usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java; java -version;' ; do
+                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) ; do
                             sleep 5
                         done
                     """
                 }
                 script {
+                    env.SPOT_PRICE = sh(returnStdout: true, script: "cat SPOT_PRICE").trim()
                     env.IP      = sh(returnStdout: true, script: "cat IP").trim()
                     env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
 
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'aws-jenkins')
                     DumbSlave node = new DumbSlave(env.VM_NAME, "spot instance job", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
 
-                    currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME}"
+                    currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME} PRICE: ${env.SPOT_PRICE}"
                     Jenkins.instance.addNode(node)
                 }
                 node(env.VM_NAME){
@@ -205,21 +226,17 @@ pipeline {
                         set -o errexit
                         set -o xtrace
 
+                        echo '$DEFAULT_SSH_KEYS' >> /home/ec2-user/.ssh/authorized_keys
                         if [ -n "$SSH_KEY" ]; then
                             echo '$SSH_KEY' >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
-                        sudo yum -y update --security
                         sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-25.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
-                        sudo yum -y install git svn docker sysbench
-                        sudo yum -y install mysql-community-server jq
+                        sudo yum -y install sysbench
                         sudo amazon-linux-extras install epel -y
                         sudo amazon-linux-extras install php7.2 -y
                         sudo yum install mysql-client -y
-                        sudo yum -y install bats
-                        sudo usermod -aG docker ec2-user
-                        sudo systemctl start docker
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
                             sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
@@ -243,6 +260,7 @@ pipeline {
             }
             steps {
                 script {
+                    env.CHANGE_USER_PASSWORD_UTILITY = changeUserPasswordUtility(DOCKER_VERSION)
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                         sh """
                         export IP=\$(cat IP)
@@ -260,7 +278,6 @@ pipeline {
                         fi
                         """
                         node(env.VM_NAME){
-                            installAWSv2()
                             withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                                 sh """
                                     set -o errexit
@@ -278,6 +295,12 @@ pipeline {
                                             export ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
                                         fi
 
+                                        if [ \${VERSION_SERVICE_VERSION} == dev ]; then
+                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1"
+                                        else
+                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check.percona.com/versions/v1"
+                                        fi                                        
+
                                         docker run -d \
                                             -p 80:80 \
                                             -p 443:443 \
@@ -289,6 +312,13 @@ pipeline {
                                             ${DOCKER_VERSION}
                                         sleep 10
                                         docker logs \${VM_NAME}-server
+                                        if [ \${ADMIN_PASSWORD} != admin ]; then
+                                            if [ \$CHANGE_USER_PASSWORD_UTILITY == yes ]; then
+                                                docker exec \${VM_NAME}-server change-admin-password \${ADMIN_PASSWORD}
+                                            else
+                                                docker exec \${VM_NAME}-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
+                                            fi
+                                        fi
                                     else
                                         docker create \
                                             -v /opt/prometheus/data \
@@ -308,6 +338,9 @@ pipeline {
                                             ${DOCKER_VERSION}
                                         sleep 10
                                         docker logs \${VM_NAME}-server
+                                        if [ \${ADMIN_PASSWORD} != admin ]; then
+                                            docker exec \${VM_NAME}-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
+                                        fi
                                     fi
                                 """
                             }

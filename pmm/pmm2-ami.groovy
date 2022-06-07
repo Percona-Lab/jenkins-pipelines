@@ -67,6 +67,7 @@ pipeline {
                     currentBuild.description = AMI_ID
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${AMI_ID}]: build finished - ${AMI_ID}"
                 }
+                env.AMI_ID = AMI_ID // TODO use env everywhere
             }
         }
         failure {
