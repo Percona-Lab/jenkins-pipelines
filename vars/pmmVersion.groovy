@@ -26,6 +26,6 @@ def call(type='latest') {
     case 'list':
       return versionsList
     case 'list_with_old':
-      return oldVersions + versionsList
+      return versionsList + oldVersions
   }
 }
