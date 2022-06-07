@@ -352,14 +352,14 @@ pipeline {
                         script {
                             unstash 'IMAGE'
                             unstash 'pmmUITestBranch'
-                            unstash 'pmmUITestsCommitSha'
+                            unstash 'pmmQABranch'
                             def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                             def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
                             def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
                             def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
-                            def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmUITestBranch").trim()
-                            def PMM_QA_GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat pmmUITestsCommitSha").trim()
-                            runDockerWayUpgrade(IMAGE, CLIENT_URL, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH)
+                            def PMM_UI_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmUITestBranch").trim()
+                            def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
+                            runDockerWayUpgrade(IMAGE, CLIENT_URL, PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH)
                             if (!env.DOCKER_WAY_UPGRADE_TESTS_RESULT.equals("SUCCESS")) {
                                 sh "exit 1"
                             }
