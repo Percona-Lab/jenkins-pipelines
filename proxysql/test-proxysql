@@ -120,10 +120,27 @@ fi
 
 pushd ${WORKDIR_ABS}/WORKDIR
 sudo tar -xzf $WORKDIR_ABS/proxysql*glibc*.tar.gz -C ${WORKDIR_ABS}/PROXY_ADMIN
-for file in proxysql-admin proxysql-admin-common proxysql-login-file; do
+for file in proxysql-admin proxysql-admin-common proxysql-login-file proxysql-common percona-scheduler-admin; do
   sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/usr/bin/$file ${WORKDIR_ABS}/WORKDIR/$file
 done;
 sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/etc/proxysql-admin.cnf ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/etc/proxysql-admin.cnf
+sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/usr/bin/pxc_scheduler_handler ${WORKDIR_ABS}/WORKDIR/pxc_scheduler_handler
+sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/etc/config.toml ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/etc/config.toml
+
+echo "Checking contents inside $WORKDIR_ABS/PROXY_ADMIN/"
+ls -lrt $WORKDIR_ABS/PROXY_ADMIN/
+
+echo "Checking contents inside $WORKDIR_ABS/PROXY_ADMIN/proxysql-2.3.2-Linux-x86_64.glibc2.17"
+ls -lrt $WORKDIR_ABS/PROXY_ADMIN/proxysql-2.3.2-Linux-x86_64.glibc2.17/
+
+echo "Checking contents inside tests folder"
+ls -lrt $WORKDIR_ABS/PROXY_ADMIN/proxysql-2.3.2-Linux-x86_64.glibc2.17/tests/
+
+sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql-2.3.2-Linux-x86_64.glibc2.17/tests/testsuite.toml ${WORKDIR_ABS}/WORKDIR/testsuite.toml
+
+echo "Checking contents inside tests folder"
+ls -lrt $WORKDIR_ABS/PROXY_ADMIN/proxysql*/tests/
+
 sudo ln -s /usr/bin/proxysql $WORKDIR_ABS/WORKDIR/proxysql-2.0/usr/bin/proxysql
 status=0
 
@@ -133,6 +150,10 @@ sudo sed -i 's/::1*.*localhost /::1 /' ${WORKDIR_ABS}/hosts.new
 sudo cp -f ${WORKDIR_ABS}/hosts.new /etc/hosts
 
 sudo sed -i 's/wsrep_sst_method=rsync/wsrep_sst_method=xtrabackup-v2/g' $WORKDIR_ABS/PROXY_ADMIN/proxysql*/tests/proxysql-admin-testsuite.sh
+
+echo "Checking contents of /tmp/results/WORKDIR/"
+ls -lrt /tmp/results/WORKDIR/
+
 sudo bash $WORKDIR_ABS/PROXY_ADMIN/proxysql*/tests/proxysql-admin-testsuite.sh \
 $WORKDIR_ABS/WORKDIR | tee $WORKDIR_ABS/WORKDIR/proxysql_qa.output || status=$?
 process_proxysql_output PROXYSQL "$WORKDIR_ABS/WORKDIR/proxysql_qa.output" "${WORKDIR_ABS}/WORKDIR/junit.xml"
