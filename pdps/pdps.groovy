@@ -67,6 +67,14 @@ pipeline {
             description: 'Tests will be run from branch of  https://github.com/percona/orchestrator',
             name: 'ORCHESTRATOR_TESTS_VERSION'
         )
+        choice(
+            name: 'DESTROY_ENV',
+            description: 'Destroy VM after tests',
+            choices: [
+                'yes',
+                'no'
+            ]
+        )
     }
     options {
           withCredentials(moleculePdpsJenkinsCreds())
@@ -125,8 +133,10 @@ pipeline {
     post {
         always {
             script {
-                moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
-                junit "${MOLECULE_DIR}/report.xml"
+                if (env.DESTROY_ENV == "yes") {
+                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                    junit "${MOLECULE_DIR}/report.xml"
+                }
             }
         }
     }
