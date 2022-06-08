@@ -43,7 +43,8 @@ void runDockerWayUpgrade(String DOCKER_IMAGE_VERSION, CLIENT_VERSION, PMM_UI_GIT
         string(name: 'PMM_SERVER_TAG', value: DOCKER_IMAGE_VERSION),
         string(name: 'GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'PERFORM_DOCKER_WAY_UPGRADE', value: 'yes')
+        string(name: 'PERFORM_DOCKER_WAY_UPGRADE', value: 'yes'),
+        string(name: 'FB_EXECUTION', value: 'yes')
     ]
     env.DOCKER_WAY_UPGRADE_TESTS_URL = upgradeJob.absoluteUrl
     env.DOCKER_WAY_UPGRADE_TESTS_RESULT = upgradeJob.result
@@ -387,6 +388,9 @@ pipeline {
                     }
                     if(env.UI_TESTS_RESULT != "SUCCESS") {
                         addComment("UI tests have failed, Please check: UI: ${UI_TESTS_URL}")
+                    }
+                    if(env.DOCKER_WAY_UPGRADE_TESTS_RESULT != "SUCCESS") {
+                        addComment("Dockerway Upgrade tests have failed, Please check: Upgrade: ${DOCKER_WAY_UPGRADE_TESTS_URL}")
                     }
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} build job link: ${BUILD_URL}"
                 }
