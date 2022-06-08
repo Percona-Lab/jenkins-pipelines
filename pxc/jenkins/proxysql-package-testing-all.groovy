@@ -1,6 +1,6 @@
 library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 void runNodeBuild(String node_to_test) {
@@ -73,12 +73,6 @@ pipeline {
                     }
                 }
 
-                stage('Ubuntu Xenial') {
-                    steps {
-                        runNodeBuild('min-xenial-x64')
-                    }
-                }
-
                 stage('Ubuntu Bionic') {
                     steps {
                         runNodeBuild('min-bionic-x64')
@@ -103,13 +97,13 @@ pipeline {
                     }
                 }
 
-                stage('Centos 8') {
+                stage('Oracle Linux 8') {
                     steps {
                         script{
                             if (env.product_to_test == 'proxysql') {
-                                echo 'Proxysql is not available for Centos 8'
+                                echo 'Proxysql is not available for Oracle Linux 8'
                             } else {
-                                runNodeBuild('min-centos-8-x64')
+                                runNodeBuild('min-ol-8-x64')
                             }
                         }
                     }

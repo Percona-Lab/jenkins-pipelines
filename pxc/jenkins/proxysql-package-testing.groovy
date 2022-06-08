@@ -1,6 +1,6 @@
 library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 product_action_playbooks = [
@@ -54,8 +54,7 @@ node_setups = [
     "min-buster-x64": setup_buster_bullseye_package_tests,
     "min-bullseye-x64": setup_buster_bullseye_package_tests,
     "min-centos-7-x64": setup_centos_package_tests,
-    "min-centos-8-x64": setup_centos_package_tests,
-    "min-xenial-x64": setup_ubuntu_package_tests,
+    "min-ol-8-x64": setup_centos_package_tests,
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
 ]
@@ -100,8 +99,7 @@ pipeline {
         choice(
             choices: [
                 'min-centos-7-x64',
-                'min-centos-8-x64',
-                'min-xenial-x64',
+                'min-ol-8-x64',
                 'min-bionic-x64',
                 'min-focal-x64',
                 'min-stretch-x64',
