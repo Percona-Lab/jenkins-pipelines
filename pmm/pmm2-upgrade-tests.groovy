@@ -124,6 +124,10 @@ pipeline {
             choices: ['no', 'yes'],
             description: 'Perform Docker-way Upgrade?',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
+        choice(
+            choices: ['no', 'yes'],
+            description: 'To be used as a flag for FB testing, this avoid version compare',
+            name: 'FB_EXECUTION')
         text(
             defaultValue: '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-settings --setup-alertmanager --setup-external-service --setup-ssl-services',
             description: '''
