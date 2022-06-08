@@ -99,13 +99,7 @@ pipeline {
 
                 stage('Oracle Linux 8') {
                     steps {
-                        script{
-                            if (env.product_to_test == 'proxysql') {
-                                echo 'Proxysql is not available for Oracle Linux 8'
-                            } else {
                                 runNodeBuild('min-ol-8-x64')
-                            }
-                        }
                     }
                 }
             }
