@@ -70,6 +70,14 @@ pipeline {
             description: 'Updated Percona Orchestrator version',
             name: 'ORCHESTRATOR_VERSION'
         )
+        choice(
+            name: 'DESTROY_ENV',
+            description: 'Destroy VM after tests',
+            choices: [
+                'yes',
+                'no'
+            ]
+        )
     }
     options {
         withCredentials(moleculePdpsJenkinsCreds())
@@ -86,7 +94,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-            git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
             }
         }
         stage ('Prepare') {
@@ -128,8 +136,10 @@ pipeline {
     post {
         always {
             script {
-                moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
-                junit "${MOLECULE_DIR}/report.xml"
+                if (env.DESTROY_ENV == "yes") {
+                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                    junit "${MOLECULE_DIR}/report.xml"
+                }
             }
         }
     }
