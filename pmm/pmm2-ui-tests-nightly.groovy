@@ -123,7 +123,7 @@ void fetchAgentLog(String CLIENT_VERSION, String CLIENT_HOST_IP, String AGENT_LO
             '
             if [[ \$CLIENT_VERSION != http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
-                    ${USER}@${VM_CLIENT_IP_DB}:pmm-agent.log \
+                    ${USER}@${CLIENT_HOST_IP}:pmm-agent.log \
                     pmm-agent.log
             fi
         """
