@@ -15,12 +15,19 @@ docker run --rm \
     sh -c "
     set -o errexit
     set -o xtrace
+    export PAT_REPO='${PAT_REPO}'
     export PAT_TAG='${PAT_TAG}'
+
+    sudo wget -q https://golang.org/dl/go1.16.3.linux-amd64.tar.gz
+    sudo tar -C /usr/local -xzf go1.16.3.linux-amd64.tar.gz
+    sudo cp /usr/local/go/bin/go /usr/local/bin/go
+    go version
 
     mkdir /tmp/results
     bash -x  /tmp/scripts/build-binary-proxysql /tmp/results /tmp/proxysql
     sudo rm -rf /tmp/proxysql/results
     sudo mkdir /tmp/proxysql/results
+    ls -la /tmp/results/
     sudo mv /tmp/results/*.tar.gz /tmp/proxysql/results/
     sudo chown -R $(id -u):$(id -g) /tmp/proxysql/results
 "
