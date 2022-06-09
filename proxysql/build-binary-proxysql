@@ -12,7 +12,8 @@ set -o xtrace
 if [ -f /usr/bin/yum ]; then
     RHEL=$(rpm --eval %rhel)
     if [[ $RHEL -eq 8 ]]; then
-        sudo yum -y install cmake python2 gnutls-devel libtool golang || true
+        sudo yum -y install cmake python2 gnutls-devel libtool || true
+
     fi
     sudo yum -y install wget
     if [[ $RHEL -eq 7 ]]; then
@@ -24,9 +25,9 @@ if [ -f /usr/bin/yum ]; then
     fi
 fi
 
-if [ -f /usr/bin/apt ]; then
-    sudo apt-get install -y golang
-fi
+sudo wget https://dl.google.com/go/go1.17.7.linux-amd64.tar.gz
+sudo tar -C /usr/local/ -xzf go1.17.7.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin/
 
 WORKDIR_ABS=$(cd ${1:-./build/proxysql}; pwd -P)
 SOURCE_DIR=$(cd ${2:-./build/proxysql}; pwd -P)
