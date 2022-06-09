@@ -20,7 +20,7 @@ docker run --rm \
 
     sudo wget -q https://golang.org/dl/go1.16.3.linux-amd64.tar.gz
     sudo tar -C /usr/local -xzf go1.16.3.linux-amd64.tar.gz
-    export PATH=$PATH:/bin:/usr/local/go/bin
+    sudo cp /usr/local/go/bin/go /usr/local/bin/go
     go version
 
     mkdir /tmp/results
