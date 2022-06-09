@@ -436,9 +436,8 @@ pipeline {
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'job_logs.txt'
-                junit env.PATH_TO_REPORT_RESULTS
+//                 junit env.PATH_TO_REPORT_RESULTS
                 if (currentBuild.result != null || currentBuild.result != 'SUCCESS') {
-                    junit env.PATH_TO_REPORT_RESULTS
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'tests/output/allure/*.png'
                 }
