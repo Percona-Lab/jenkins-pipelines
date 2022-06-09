@@ -366,7 +366,7 @@ pipeline {
                             sh """
                                 sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                                 export PWD=\$(pwd);
-                                npx codeceptjs run --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
+                                npx codeceptjs run --steps -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
                             """
                         }
                     }
@@ -411,24 +411,6 @@ pipeline {
                     fetchAgentLog(CLIENT_VERSION, VM_CLIENT_IP_MYSQL, 'mysql_client_pmm_agent')
                     destroyStaging(VM_CLIENT_NAME_MYSQL)
                     archiveArtifacts artifacts: 'mysql_client_pmm_agent.log'
-                }
-                if(env.VM_CLIENT_NAME_MONGO)
-                {
-                    fetchAgentLog(CLIENT_VERSION, VM_CLIENT_IP_MONGO, 'mongo_client_pmm_agent')
-                    destroyStaging(VM_CLIENT_NAME_MONGO)
-                    archiveArtifacts artifacts: 'mongo_client_pmm_agent.log'
-                }
-                if(env.VM_CLIENT_NAME_PXC)
-                {
-                    fetchAgentLog(CLIENT_VERSION, VM_CLIENT_IP_PXC, 'pxc_client_pmm_agent')
-                    destroyStaging(VM_CLIENT_NAME_PXC)
-                    archiveArtifacts artifacts: 'pxc_client_pmm_agent.log'
-                }
-                if(env.VM_CLIENT_NAME_PGSQL)
-                {
-                    fetchAgentLog(CLIENT_VERSION, VM_CLIENT_IP_PGSQL, 'pgsql_client_pmm_agent')
-                    destroyStaging(VM_CLIENT_NAME_PGSQL)
-                    archiveArtifacts artifacts: 'pgsql_client_pmm_agent.log'
                 }
             }
             script {
