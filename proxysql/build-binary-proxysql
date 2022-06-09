@@ -25,6 +25,18 @@ if [ -f /usr/bin/yum ]; then
     fi
 fi
 
+if [ $RHEL = 8 ]; then
+    sudo ln -s /usr/bin/python2.7 /usr/bin/python || true
+    sudo yum remove -y cmake
+    sudo wget https://github.com/Kitware/CMake/releases/download/v3.19.8/cmake-3.19.8.tar.gz
+    sudo tar -zxvf cmake-3.19.8.tar.gz
+    cd cmake-3.19.8/
+    sudo ./bootstrap
+    sudo make install
+    PATH=$PATH:/usr/local/bin
+    cmake --version
+fi
+
 sudo wget https://dl.google.com/go/go1.17.7.linux-amd64.tar.gz
 sudo tar -C /usr/local/ -xzf go1.17.7.linux-amd64.tar.gz
 sudo cp /usr/local/go/bin/go /usr/local/bin/go
