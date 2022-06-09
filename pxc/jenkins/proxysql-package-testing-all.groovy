@@ -1,6 +1,6 @@
 library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 void runNodeBuild(String node_to_test) {
@@ -99,7 +99,13 @@ pipeline {
 
                 stage('Oracle Linux 8') {
                     steps {
+                        script{
+                            if (env.product_to_test == 'proxysql') {
+                                echo 'Proxysql is not available for Oracle Linux 8'
+                            } else {
                                 runNodeBuild('min-ol-8-x64')
+                            }
+                        }
                     }
                 }
             }
