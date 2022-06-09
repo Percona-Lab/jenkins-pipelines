@@ -340,7 +340,7 @@ pipeline {
                            export PATH="`pwd`/pmm2-client/bin:$PATH"
                         fi
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@not-ovf)^(?!.*@qan)^(?!.*@dbaas)^(?!.*@dashboards)^(?!.*@menu)^(?!.*@pmm-portal-upgrade)'
+                        ./node_modules/.bin/codeceptjs run --debug --steps -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@not-ovf)^(?!.*@qan)^(?!.*@dbaas)^(?!.*@dashboards)^(?!.*@menu)^(?!.*@pmm-portal-upgrade)'
                     """
                 }
             }
@@ -362,7 +362,7 @@ pipeline {
                            export PATH="`pwd`/pmm2-client/bin:$PATH"
                         fi
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@dbaas)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@qan)^(?!.*@nightly)^(?!.*@settings)^(?!.*@menu)^(?!.*@pmm-portal-upgrade)'
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@dbaas)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@qan)^(?!.*@nightly)^(?!.*@settings)^(?!.*@menu)^(?!.*@pmm-portal-upgrade)'
                     """
                 }
             }
@@ -387,7 +387,7 @@ pipeline {
                            export PATH="`pwd`/pmm2-client/bin:$PATH"
                         fi
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep ${CODECEPT_TAG}
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps -c pr.codecept.js --grep ${CODECEPT_TAG}
                     """
                 }
             }
@@ -398,9 +398,6 @@ pipeline {
             // stop staging
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-                ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
-                ./node_modules/.bin/mochawesome-merge tests/output/*.json > tests/output/combine_results.json || true
-                ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
                 echo --- Jobs from pmm-server --- >> job_logs.txt
                 docker exec pmm-server psql -Upmm-managed -c 'select id,error,data,created_at,updated_at from jobs ORDER BY updated_at DESC LIMIT 1000;' >> job_logs.txt || true
                 echo --- Job logs from pmm-server --- >> job_logs.txt
@@ -425,25 +422,13 @@ pipeline {
                 }
             }
             script {
-                if (env.OVF_TEST == "no") {
-                    env.PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
-                } else {
-                    env.PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
-                }
+                env.PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'job_logs.txt'
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit env.PATH_TO_REPORT_RESULTS
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
-                } else {
-                    junit env.PATH_TO_REPORT_RESULTS
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
+                if (currentBuild.result != null || currentBuild.result != 'SUCCESS') {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
-                    archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
-                    archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
             allure([
