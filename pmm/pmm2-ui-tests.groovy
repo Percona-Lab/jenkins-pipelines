@@ -422,7 +422,7 @@ pipeline {
                 }
             }
             script {
-                env.PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
+                env.PATH_TO_REPORT_RESULTS = 'tests/output/allure/*.xml'
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'
@@ -431,7 +431,7 @@ pipeline {
                 if (currentBuild.result != null || currentBuild.result != 'SUCCESS') {
                     junit env.PATH_TO_REPORT_RESULTS
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/*.png'
+                    archiveArtifacts artifacts: 'tests/output/allure/*.png'
                 }
             }
             allure([
