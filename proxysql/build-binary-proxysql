@@ -13,6 +13,21 @@ if [ -f /usr/bin/yum ]; then
     RHEL=$(rpm --eval %rhel)
     if [[ $RHEL -eq 8 ]]; then
         sudo yum -y install cmake python2 gnutls-devel libtool || true
+        sudo ln -s /usr/bin/python2.7 /usr/bin/python || true
+        sudo yum -y install automake bzip2 cmake make gcc-c++ gcc git openssl openssl-devel gnutls gnutls-devel libtool patch
+        rpm -q centos-release || true
+        rpm -q centos-linux-release || true
+        sudo yum -y install libcurl-devel
+
+        sudo yum remove -y cmake
+        wget https://github.com/Kitware/CMake/releases/download/v3.19.8/cmake-3.19.8.tar.gz
+        tar -zxvf cmake-3.19.8.tar.gz
+        cd cmake-3.19.8/
+        ./bootstrap
+        make
+        sudo make install
+        PATH=$PATH:/usr/local/bin
+        cmake --version
     fi
     sudo yum -y install wget
     if [[ $RHEL -eq 7 ]]; then
@@ -22,7 +37,9 @@ if [ -f /usr/bin/yum ]; then
         sudo ln -s /usr/bin/cmake3 /usr/bin/cmake
       fi
     fi
+
 fi
+
 
 WORKDIR_ABS=$(cd ${1:-./build/proxysql}; pwd -P)
 SOURCE_DIR=$(cd ${2:-./build/proxysql}; pwd -P)
