@@ -117,19 +117,28 @@ void fetchAgentLog(String CLIENT_VERSION, String CLIENT_HOST_IP, String AGENT_LO
                 set -o xtrace
                 export CLIENT_VERSION=${CLIENT_VERSION}
                 if [[ \$CLIENT_VERSION != http* ]]; then
+                    ls -la
+                    pwd
                     journalctl -u pmm-agent.service > pmm-agent.log
                     sudo chown ec2-user:ec2-user pmm-agent.log
                 fi
             '
+            if [[ \$CLIENT_VERSION != http* ]]; then
+                scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+                    ${USER}@${CLIENT_HOST_IP}:pmm-agent.log \
+                    ${AGENT_LOG_NAME}.log
+            fi
         """
     }
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             export CLIENT_HOST_IP=${CLIENT_HOST_IP}
             export AGENT_LOG_NAME=${AGENT_LOG_NAME}
-            scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
-                ${USER}@${CLIENT_HOST_IP}:workspace/aws-staging-start/pmm-agent.log \
-                ${AGENT_LOG_NAME}.log
+            if [[ \$CLIENT_VERSION == http* ]]; then
+                scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+                    ${USER}@${CLIENT_HOST_IP}:workspace/aws-staging-start/pmm-agent.log \
+                    ${AGENT_LOG_NAME}.log
+            fi
         """
     }
 }
@@ -399,27 +408,27 @@ pipeline {
                 }
                 if(env.VM_CLIENT_NAME_MYSQL)
                 {
-                    fetchAgentLog(CLIENT_VERSION, VM_CLIENT_IP_MYSQL, 'mysql_client')
+                    fetchAgentLog(CLIENT_VERSION, VM_CLIENT_IP_MYSQL, 'mysql_client_pmm_agent')
                     destroyStaging(VM_CLIENT_NAME_MYSQL)
-                    archiveArtifacts artifacts: 'mysql_client.log'
+                    archiveArtifacts artifacts: 'mysql_client_pmm_agent.log'
                 }
                 if(env.VM_CLIENT_NAME_MONGO)
                 {
-                    fetchAgentLog(CLIENT_VERSION, VM_CLIENT_IP_MONGO, 'mongo_client')
+                    fetchAgentLog(CLIENT_VERSION, VM_CLIENT_IP_MONGO, 'mongo_client_pmm_agent')
                     destroyStaging(VM_CLIENT_NAME_MONGO)
-                    archiveArtifacts artifacts: 'mongo_client.log'
+                    archiveArtifacts artifacts: 'mongo_client_pmm_agent.log'
                 }
                 if(env.VM_CLIENT_NAME_PXC)
                 {
-                    fetchAgentLog(CLIENT_VERSION, VM_CLIENT_IP_PXC, 'pxc_client')
+                    fetchAgentLog(CLIENT_VERSION, VM_CLIENT_IP_PXC, 'pxc_client_pmm_agent')
                     destroyStaging(VM_CLIENT_NAME_PXC)
-                    archiveArtifacts artifacts: 'pxc_client.log'
+                    archiveArtifacts artifacts: 'pxc_client_pmm_agent.log'
                 }
                 if(env.VM_CLIENT_NAME_PGSQL)
                 {
-                    fetchAgentLog(CLIENT_VERSION, VM_CLIENT_IP_PGSQL, 'pgsql_client')
+                    fetchAgentLog(CLIENT_VERSION, VM_CLIENT_IP_PGSQL, 'pgsql_client_pmm_agent')
                     destroyStaging(VM_CLIENT_NAME_PGSQL)
-                    archiveArtifacts artifacts: 'pgsql_client.log'
+                    archiveArtifacts artifacts: 'pgsql_client_pmm_agent.log'
                 }
             }
             script {
