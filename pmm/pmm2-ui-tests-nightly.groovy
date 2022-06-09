@@ -116,6 +116,8 @@ void fetchAgentLog(String CLIENT_VERSION, String CLIENT_HOST_IP, String AGENT_LO
                 set -o errexit
                 set -o xtrace
                 export CLIENT_VERSION=${CLIENT_VERSION}
+                export CLIENT_HOST_IP=${CLIENT_HOST_IP}
+                export AGENT_LOG_NAME=${AGENT_LOG_NAME}
                 if [[ \$CLIENT_VERSION != http* ]]; then
                     journalctl -u pmm-agent.service > pmm-agent.log
                     sudo chown ec2-user:ec2-user pmm-agent.log
@@ -124,7 +126,7 @@ void fetchAgentLog(String CLIENT_VERSION, String CLIENT_HOST_IP, String AGENT_LO
             if [[ \$CLIENT_VERSION != http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                     ${USER}@${CLIENT_HOST_IP}:pmm-agent.log \
-                    pmm-agent.log
+                    ${AGENT_LOG_NAME}.log
             fi
         """
     }
