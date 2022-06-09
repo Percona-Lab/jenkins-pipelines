@@ -333,9 +333,6 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
-                        sudo rm -r node_modules/ || true
-                        sudo rm -r tests/output || true
-                        npm ci
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export PATH=\$PATH:/usr/sbin
@@ -358,9 +355,6 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
-                        sudo rm -r node_modules/ || true
-                        sudo rm -r tests/output || true
-                        npm ci
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export PATH=\$PATH:/usr/sbin
@@ -386,9 +380,6 @@ pipeline {
                 }
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
-                        sudo rm -r node_modules/ || true
-                        sudo rm -r tests/output || true
-                        npm ci
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export PATH=\$PATH:/usr/sbin
@@ -436,7 +427,6 @@ pipeline {
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'job_logs.txt'
-//                 junit env.PATH_TO_REPORT_RESULTS
                 if (currentBuild.result != null || currentBuild.result != 'SUCCESS') {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
