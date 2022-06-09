@@ -422,24 +422,15 @@ pipeline {
                 }
             }
             script {
-                if (env.OVF_TEST == "no") {
-                    env.PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
-                } else {
-                    env.PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
-                }
+                env.PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'job_logs.txt'
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
+                junit env.PATH_TO_REPORT_RESULTS
+                if (currentBuild.result != null || currentBuild.result != 'SUCCESS') {
                     junit env.PATH_TO_REPORT_RESULTS
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
-                } else {
-                    junit env.PATH_TO_REPORT_RESULTS
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
-                    archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
                     archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
