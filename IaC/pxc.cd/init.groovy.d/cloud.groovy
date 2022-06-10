@@ -31,6 +31,7 @@ imageMap['min-centos-6-x32'] = 'ami-67e3cd22'
 imageMap['min-centos-6-x64'] = 'ami-0d282a216ae4c0c42'
 imageMap['min-centos-7-x64'] = 'ami-08d2d8b00f270d03b'
 imageMap['min-centos-8-x64'] = 'ami-04adf3fcbc8a45c54'
+imageMap['min-ol-8-x64']     = 'ami-06339041e422fab06'
 imageMap['min-stretch-x64']  = 'ami-0280d841fec0493e6'
 imageMap['min-xenial-x64']   = 'ami-0454207e5367abf01'
 imageMap['min-buster-x64']   = 'ami-024fe42989cf9e876'
@@ -41,6 +42,7 @@ imageMap['min-bullseye-x64'] = 'ami-07af5f877b3db9f73'
 imageMap['ramdisk-centos-6-x64'] = imageMap['min-centos-6-x64']
 imageMap['ramdisk-centos-7-x64'] = imageMap['min-centos-7-x64']
 imageMap['ramdisk-centos-8-x64'] = imageMap['min-centos-8-x64']
+imageMap['ramdisk-ol-8-x64']     = imageMap['min-ol-8-x64']
 imageMap['ramdisk-stretch-x64']  = imageMap['min-stretch-x64']
 imageMap['ramdisk-xenial-x64']   = imageMap['min-xenial-x64']
 imageMap['ramdisk-bionic-x64']   = imageMap['min-bionic-x64']
@@ -70,6 +72,7 @@ userMap['min-centos-6-x32']  = 'root'
 userMap['min-centos-6-x64']  = 'centos'
 userMap['min-centos-7-x64']  = 'centos'
 userMap['min-centos-8-x64']  = 'centos'
+userMap['min-ol-8-x64']      = 'ec2-user'
 userMap['fips-centos-7-x64'] = 'centos'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
@@ -79,6 +82,7 @@ userMap['min-bullseye-x64']  = 'admin'
 userMap['ramdisk-centos-6-x64'] = userMap['min-centos-6-x64']
 userMap['ramdisk-centos-7-x64'] = userMap['min-centos-7-x64']
 userMap['ramdisk-centos-8-x64'] = userMap['min-centos-8-x64']
+userMap['ramdisk-ol-8-x64']     = userMap['min-ol-8-x64']
 userMap['ramdisk-stretch-x64']  = userMap['min-stretch-x64']
 userMap['ramdisk-xenial-x64']   = userMap['min-xenial-x64']
 userMap['ramdisk-bionic-x64']   = userMap['min-bionic-x64']
@@ -204,8 +208,8 @@ initMap['rpmMap'] = '''
         PKGLIST="p7zip"
     fi
     if [[ ${RHVER} -eq 8 ]]; then
-        sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-*
-        sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Linux-*
+        sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+        sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
     fi
     until sudo yum makecache; do
         sleep 1
@@ -264,8 +268,8 @@ initMap['rpmMapRamdisk'] = '''
         sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
     fi
     if [[ ${RHVER} -eq 8 ]]; then
-        sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-*
-        sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Linux-*
+        sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+        sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
     fi
     until sudo yum makecache; do
         sleep 1
@@ -336,6 +340,7 @@ initMap['micro-amazon']      = initMap['rpmMap']
 initMap['min-centos-6-x64']  = initMap['rpmMap']
 initMap['min-centos-7-x64']  = initMap['rpmMap']
 initMap['min-centos-8-x64']  = initMap['rpmMap']
+initMap['min-ol-8-x64']      = initMap['rpmMap']
 initMap['fips-centos-7-x64'] = initMap['rpmMap']
 initMap['min-centos-6-x32']  = initMap['rpmMap']
 
@@ -350,6 +355,7 @@ initMap['min-xenial-x64']   = initMap['debMap']
 initMap['ramdisk-centos-6-x64'] = initMap['rpmMapRamdisk']
 initMap['ramdisk-centos-7-x64'] = initMap['rpmMapRamdisk']
 initMap['ramdisk-centos-8-x64'] = initMap['rpmMapRamdisk']
+initMap['ramdisk-ol-8-x64']     = initMap['rpmMapRamdisk']
 initMap['ramdisk-buster-x64']   = initMap['debMapRamdisk']
 initMap['ramdisk-bionic-x64']   = initMap['debMapRamdisk']
 initMap['ramdisk-focal-x64']    = initMap['debMapRamdisk']
@@ -402,6 +408,7 @@ typeMap['performance-centos-6-x64'] = typeMap['docker-32gb']
 
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
 typeMap['min-centos-8-x64']  = typeMap['docker-32gb']
+typeMap['min-ol-8-x64']      = typeMap['docker-32gb']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64']     = typeMap['min-centos-7-x64']
@@ -416,6 +423,7 @@ typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
 typeMap['ramdisk-centos-6-x64'] = 'r3.2xlarge'
 typeMap['ramdisk-centos-7-x64'] = typeMap['docker-32gb']
 typeMap['ramdisk-centos-8-x64'] = typeMap['docker-32gb']
+typeMap['ramdisk-ol-8-x64']     = typeMap['docker-32gb']
 typeMap['ramdisk-stretch-x64']  = typeMap['docker-32gb']
 typeMap['ramdisk-xenial-x64']   = typeMap['docker-32gb']
 typeMap['ramdisk-bionic-x64']   = typeMap['docker-32gb']
@@ -435,6 +443,7 @@ execMap['min-centos-6-x32'] = '1'
 execMap['min-centos-6-x64'] = '1'
 execMap['min-centos-7-x64'] = '1'
 execMap['min-centos-8-x64'] = '1'
+execMap['min-ol-8-x64']     = '1'
 execMap['fips-centos-7-x64'] = '1'
 execMap['min-buster-x64'] = '1'
 execMap['min-stretch-x64'] = '1'
@@ -444,6 +453,7 @@ execMap['min-bullseye-x64'] = '1'
 execMap['ramdisk-centos-6-x64'] = execMap['docker-32gb']
 execMap['ramdisk-centos-7-x64'] = execMap['docker-32gb']
 execMap['ramdisk-centos-8-x64'] = execMap['docker-32gb']
+execMap['ramdisk-ol-8-x64']     = execMap['docker-32gb']
 execMap['ramdisk-stretch-x64']  = execMap['docker-32gb']
 execMap['ramdisk-xenial-x64']   = execMap['docker-32gb']
 execMap['ramdisk-bionic-x64']   = execMap['docker-32gb']
@@ -464,6 +474,7 @@ devMap['min-jammy-x64']     = devMap['min-bionic-x64']
 devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-ol-8-x64']      = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-buster-x64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -474,6 +485,7 @@ devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['ramdisk-centos-6-x64'] = '/dev/sda1=:8:true:gp2'
 devMap['ramdisk-centos-7-x64'] = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-centos-8-x64'] = '/dev/sda1=:10:true:gp2'
+devMap['ramdisk-ol-8-x64']     = '/dev/sda1=:10:true:gp2'
 devMap['ramdisk-bionic-x64']   = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-focal-x64']    = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-jammy-x64']    = devMap['ramdisk-centos-6-x64']
@@ -495,6 +507,7 @@ labelMap['min-centos-6-x32']  = 'min-centos-6-x32'
 labelMap['min-centos-6-x64']  = 'min-centos-6-x64'
 labelMap['min-centos-7-x64']  = 'min-centos-7-x64'
 labelMap['min-centos-8-x64']  = 'min-centos-8-x64'
+labelMap['min-ol-8-x64']      = 'min-ol-8-x64'
 labelMap['fips-centos-7-x64'] = 'fips-centos-7-x64'
 labelMap['min-stretch-x64']   = 'min-stretch-x64'
 labelMap['min-buster-x64']    = 'min-buster-x64'
@@ -504,6 +517,7 @@ labelMap['min-bullseye-x64']  = 'min-bullseye-x64'
 labelMap['ramdisk-centos-6-x64'] = 'ramdisk-centos-6-x64'
 labelMap['ramdisk-centos-7-x64'] = 'ramdisk-centos-7-x64'
 labelMap['ramdisk-centos-8-x64'] = 'ramdisk-centos-8-x64'
+labelMap['ramdisk-ol-8-x64']     = 'ramdisk-ol-8-x64'
 labelMap['ramdisk-bionic-x64']   = 'ramdisk-bionic-x64'
 labelMap['ramdisk-focal-x64']    = 'ramdisk-focal-x64'
 labelMap['ramdisk-jammy-x64']    = 'ramdisk-jammy-x64'
@@ -528,6 +542,7 @@ maxUseMap['min-centos-6-x32']  = maxUseMap['singleUse']
 maxUseMap['min-centos-6-x64']  = maxUseMap['singleUse']
 maxUseMap['min-centos-7-x64']  = maxUseMap['singleUse']
 maxUseMap['min-centos-8-x64']  = maxUseMap['singleUse']
+maxUseMap['min-ol-8-x64']      = maxUseMap['singleUse']
 maxUseMap['fips-centos-7-x64'] = maxUseMap['singleUse']
 maxUseMap['min-stretch-x64']   = maxUseMap['singleUse']
 maxUseMap['min-buster-x64']    = maxUseMap['singleUse']
@@ -537,6 +552,7 @@ maxUseMap['min-bullseye-x64']  = maxUseMap['singleUse']
 maxUseMap['ramdisk-centos-6-x64'] = maxUseMap['singleUse']
 maxUseMap['ramdisk-centos-7-x64'] = maxUseMap['singleUse']
 maxUseMap['ramdisk-centos-8-x64'] = maxUseMap['singleUse']
+maxUseMap['ramdisk-ol-8-x64']     = maxUseMap['singleUse']
 maxUseMap['ramdisk-bionic-x64']   = maxUseMap['singleUse']
 maxUseMap['ramdisk-focal-x64']    = maxUseMap['singleUse']
 maxUseMap['ramdisk-jammy-x64']    = maxUseMap['singleUse']
@@ -617,11 +633,12 @@ String region = 'us-west-1'
         [
             getTemplate('micro-amazon',     "${region}${it}"),
             getTemplate('docker',           "${region}${it}"),
-            getTemplate('docker-32gb',       "${region}${it}"),
+            getTemplate('docker-32gb',      "${region}${it}"),
             getTemplate('min-centos-6-x32', "${region}${it}"),
             getTemplate('min-centos-6-x64', "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
             getTemplate('min-centos-8-x64', "${region}${it}"),
+            getTemplate('min-ol-8-x64',     "${region}${it}"),
             getTemplate('min-stretch-x64',  "${region}${it}"),
             getTemplate('min-buster-x64',   "${region}${it}"),
             getTemplate('min-bullseye-x64', "${region}${it}"),
@@ -632,6 +649,7 @@ String region = 'us-west-1'
             getTemplate('ramdisk-centos-6-x64', "${region}${it}"),
             getTemplate('ramdisk-centos-7-x64', "${region}${it}"),
             getTemplate('ramdisk-centos-8-x64', "${region}${it}"),
+            getTemplate('ramdisk-ol-8-x64',     "${region}${it}"),
             getTemplate('ramdisk-stretch-x64',  "${region}${it}"),
             getTemplate('ramdisk-xenial-x64',   "${region}${it}"),
             getTemplate('ramdisk-bionic-x64',   "${region}${it}"),
