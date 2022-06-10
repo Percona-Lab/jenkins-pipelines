@@ -431,7 +431,7 @@ pipeline {
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'job_logs.txt'
                 junit env.PATH_TO_REPORT_RESULTS
-                if (currentBuild.result != null || currentBuild.result != 'SUCCESS') {
+                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
             }
