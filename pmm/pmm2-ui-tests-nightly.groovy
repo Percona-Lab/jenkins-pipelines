@@ -305,7 +305,7 @@ pipeline {
                     sudo bash nodesource_setup.sh
                     sudo apt install nodejs
                     sudo apt-get install -y gettext
-                    npm install
+                    npm ci
                     npx playwright install
                     sudo npx playwright install-deps
                     envsubst < env.list > env.generated.list
