@@ -8,8 +8,6 @@ List all_nodes = [
     "min-bullseye-x64",
     "min-ol-8-x64",
     "min-centos-7-x64",
-    "min-centos-8-x64",
-    "min-jammy-x64",
     "min-bionic-x64",
     "min-focal-x64",
     "min-amazon-2-x64",
@@ -79,18 +77,6 @@ pipeline {
 
         stage("Run parallel") {
             parallel {
-                stage("Ubuntu jammy") {
-                    when {
-                        expression {
-                            nodes_to_test.contains("min-jammy-x64")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("min-jammy-x64")
-                    }
-                }
-
                 stage("Debian Buster") {
                     when {
                         expression {
@@ -139,17 +125,6 @@ pipeline {
                     }
                 }
 
-                stage("Centos 8") {
-                    when {
-                        expression {
-                            nodes_to_test.contains("min-centos-8-x64")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("min-centos-8-x64")
-                    }
-                }
                 stage("Ubuntu Bionic") {
                     when {
                         expression {
@@ -187,5 +162,3 @@ pipeline {
                 }
             }
         }
-    }
-}
