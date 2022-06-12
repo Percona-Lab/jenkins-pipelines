@@ -12,9 +12,9 @@
     pipeline-scm:
         scm:
             - git:
-                url: https://github.com/kaushikpuneet07/jenkins-pipelines.git
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
                 branches:
-                    - 'package-os-update'
+                    - 'master'
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: ps/jenkins/package-testing-ps-8.0.groovy
@@ -38,8 +38,8 @@
                 - "all"
                 - "min-buster-x64"
                 - "min-bullseye-x64"
-                - "min-ol-8-x64"
                 - "min-centos-7-x64"
+                - "min-ol-8-x64"
                 - "min-bionic-x64"
                 - "min-focal-x64"
                 - "min-amazon-2-x64"
