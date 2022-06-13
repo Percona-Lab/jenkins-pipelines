@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@PMM-10083', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -124,10 +124,6 @@ pipeline {
             choices: ['no', 'yes'],
             description: 'Perform Docker-way Upgrade?',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
-        choice(
-            choices: ['no', 'yes'],
-            description: 'To be used as a flag for FB testing, this avoid version compare',
-            name: 'FB_EXECUTION')
         text(
             defaultValue: '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-settings --setup-alertmanager --setup-external-service --setup-ssl-services',
             description: '''
@@ -306,7 +302,7 @@ pipeline {
             }
             steps {
                 sh """
-                    npm install --force
+                    npm ci
                     envsubst < env.list > env.generated.list
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);
@@ -321,7 +317,7 @@ pipeline {
             }
             steps {
                 sh """
-                    npm install --force
+                    npm ci
                     envsubst < env.list > env.generated.list
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);

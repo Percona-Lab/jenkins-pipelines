@@ -102,7 +102,7 @@ pipeline {
                             curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
                             sudo yum -y install nodejs
 
-                            npm install
+                            npm ci
                             node -v
                             npm -v
                             ./node_modules/.bin/codeceptjs run --config codecept_puppeteer.json -o '{ "helpers": {"Puppeteer": {"url": "${PMM_UI_URL}"}}}' --steps --debug --reporter mochawesome --reporter-options cdn=true,inline=true
