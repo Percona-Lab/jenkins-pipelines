@@ -13,12 +13,12 @@ pipeline {
             name: 'BRANCH',
             trim: true)
         string(
-            defaultValue: 'https://github.com/mohitj1988/proxysql-packaging',
+            defaultValue: 'https://github.com/percona/proxysql-packaging',
             description: 'URL to ProxySQL package repository',
             name: 'PROXYSQL_PACKAGE_REPO',
             trim: true)
         string(
-            defaultValue: 'xyz',
+            defaultValue: 'v2.1',
             description: 'Tag/Branch for ProxySQL package repository',
             name: 'PROXYSQL_PACKAGE_BRANCH',
             trim: true)
@@ -32,7 +32,7 @@ pipeline {
             description: 'PXC version to test proxysql-admin suite',
             name: 'PXC_VERSION')
        choice(
-            choices: 'centos:7\ncentos:8\nubuntu:xenial\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster',
+            choices: 'centos:7\ncentos:8\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -65,7 +65,7 @@ pipeline {
         stage('Build ProxySQL') {
                 agent { label 'docker' }
                 steps {
-                    git branch: 'version_bump_to_2.3.2_1.2', url: 'https://github.com/mohitj1988/jenkins-pipelines'
+                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Checkout ProxySQL sources'
                     sh '''
                         # sudo is needed for better node recovery after compilation failure
@@ -102,7 +102,7 @@ pipeline {
         stage('Test ProxySQL') {
                 agent { label 'docker' }
                 steps {
-                    git branch: 'version_bump_to_2.3.2_1.2', url: 'https://github.com/mohitj1988/jenkins-pipelines'
+                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Test ProxySQL'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
