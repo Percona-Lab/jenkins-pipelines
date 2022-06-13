@@ -220,6 +220,16 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             script {
+                if(env.VM_NAME)
+                {
+                    destroyStaging(VM_IP)
+                }
+                if(env.CLUSTER_IP)
+                {
+                    destroyStaging(CLUSTER_IP)
+                }
+            }
+            script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'tests/output/*.xml'
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
