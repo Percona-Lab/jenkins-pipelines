@@ -200,7 +200,7 @@ pipeline {
                         export PATH="`pwd`/pmm2-client/bin:$PATH"
                     fi
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    npm install
+                    npm ci
                     touch portalCredentials
                     ./node_modules/.bin/codeceptjs run --steps --reporter mocha-multi -c pr.codecept.js --grep '@pre-pmm-portal-upgrade'
                 """
@@ -212,7 +212,7 @@ pipeline {
             }
             steps {
                 sh """
-                    npm install
+                    npm ci
                     envsubst < env.list > env.generated.list
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);

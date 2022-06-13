@@ -49,7 +49,7 @@
         description: Tag/Branch for PXC repository
     - string:
         name: PAT_TAG
-        default: v2.3.2-dev
+        default: v2.3.2-1-dev
         description: Tag/Branch for ProxySQL-admin-tool repository
     - choice:
         name: PXC_VERSION
@@ -83,7 +83,6 @@
          values:
           - centos:7
           - centos:8
-          - ubuntu:xenial
           - ubuntu:bionic
           - ubuntu:focal
           - debian:stretch
