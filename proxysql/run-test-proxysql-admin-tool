@@ -1,0 +1,38 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+#ROOT_DIR=$(cd $(dirname $0)/sources/proxysql; pwd -P)
+ROOT_DIR=$(cd $(dirname $0); pwd -P)
+SCRIPTS_DIR=$(cd $(dirname $0) && pwd -P)
+echo ${ROOT_DIR}
+ls -la ${ROOT_DIR}
+echo ${SCRIPTS_DIR}
+ls -la ${SCRIPTS_DIR}
+SOURCE_IMAGE=${1:-centos:7}
+PAT_REPO=${2:-https://github.com/percona/proxysql-admin-tool}
+PAT_TAG=${3:-v2}
+
+docker run --rm \
+    --cap-add SYS_PTRACE \
+    --mount type=bind,source=${ROOT_DIR},destination=/tmp/proxysql \
+    --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
+    public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+    sh -c "
+    set -o errexit
+    set -o xtrace
+    export PAT_REPO='${PAT_REPO}'
+    export PAT_TAG='${PAT_TAG}'
+
+    bash -x /tmp/scripts/test-proxysql-admin-tool /tmp/results
+
+    rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/logs
+    sudo tar -czf "qa_proxysql_admin_tool_ipv4_logs.tar.gz" /tmp/results/logs_ipv4
+    sudo tar -czf "qa_proxysql_admin_tool_ipv6_logs.tar.gz" /tmp/results/logs_ipv6
+    sudo mkdir /tmp/proxysql/results/
+    sudo mv ./qa_proxysql_admin_tool_ipv4_logs.tar.gz /tmp/proxysql/results/
+    sudo mv ./qa_proxysql_admin_tool_ipv6_logs.tar.gz /tmp/proxysql/results/
+    sudo mv /tmp/results/*.output  /tmp/results/*.xml /tmp/proxysql/results/
+    sudo chown $(id -u):$(id -g) /tmp/proxysql/results/*.output /tmp/proxysql/results/*.xml
+"
