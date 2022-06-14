@@ -35,7 +35,7 @@ void destroyStaging(IP) {
     ]
 }
 
-def versionsList = pmmVersion('list')
+def versionsList = pmmVersion('list').reverse()
 
 def getPMMServerVersion(String PMM_SERVER_VERSION, String PMM_SERVER_VERSION_CUSTOM) {
     return PMM_CLIENT_VERSION == "custom" ? PMM_SERVER_VERSION_CUSTOM : PMM_SERVER_VERSION
@@ -96,9 +96,16 @@ pipeline {
             defaultValue: 'admin-password',
             description: 'Change pmm-server admin user default password.',
             name: 'ADMIN_PASSWORD')
+        choice(
+            choices: ['no', 'yes'],
+            description: "Enable Slack notification as direct message, not just pmm-ci channel",
+            name: 'NOTIFY')
     }
     options {
         skipDefaultCheckout()
+    }
+    triggers {
+        upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
     stages {
         stage('Prepare') {
@@ -193,7 +200,7 @@ pipeline {
                         export PATH="`pwd`/pmm2-client/bin:$PATH"
                     fi
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    npm install
+                    npm ci
                     touch portalCredentials
                     ./node_modules/.bin/codeceptjs run --steps --reporter mocha-multi -c pr.codecept.js --grep '@pre-pmm-portal-upgrade'
                 """
@@ -205,7 +212,7 @@ pipeline {
             }
             steps {
                 sh """
-                    npm install
+                    npm ci
                     envsubst < env.list > env.generated.list
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);
@@ -250,6 +257,11 @@ pipeline {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'tests/output/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
+                    if ("${NOTIFY}" == "yes") {
+                    def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
+                    def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
+                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                    }
                 } else {
                     junit 'tests/output/*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'result.html', reportName: 'HTML Report', reportTitles: ''])
@@ -257,6 +269,11 @@ pipeline {
                     archiveArtifacts artifacts: 'tests/output/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'tests/output/*.png'
+                    if ("${NOTIFY}" == "yes") {
+                    def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
+                    def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
+                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    }
                 }
             }
             allure([

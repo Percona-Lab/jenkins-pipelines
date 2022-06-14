@@ -27,6 +27,14 @@ pipeline {
             choices: ['1.23.1', '1.22.1', '1.21.1', '1.20.1'],
             description: 'Select Kubernetes version',
             name: 'KUBE_VERSION')
+        choice(
+            choices: ['none', 'v1.8.0', 'v1.9.0', 'v1.10.0'],
+            description: 'Select version of PXC operator',
+            name: 'PXC_OPERATOR_VERSION')
+        choice(
+            choices: ['v1.11.0', 'none', 'v1.8.0', 'v1.9.0', 'v1.10.0', 'v1.12.0'], //set v1.11.0 as default temporarily until PMM-10012 is fixed
+            description: 'Select version of PSMDB operator',
+            name: 'PSMDB_OPERATOR_VERSION')                    
         string(
             defaultValue: 'true',
             description: 'Enable Slack notification (option for high level pipelines)',
@@ -171,6 +179,7 @@ pipeline {
                                 minikube start --driver=none
                                 sudo chown -R $USER $HOME/.kube $HOME/.minikube
                                 sed -i s:/root:$HOME:g $HOME/.kube/config
+                                bash /srv/pmm-qa/pmm-tests/minikube_operators_setup.sh ${PXC_OPERATOR_VERSION} ${PSMDB_OPERATOR_VERSION}
                                 sleep 10
                             """
                         }
@@ -192,6 +201,14 @@ pipeline {
                                 export PATH=\$PATH:/usr/sbin
                                 minikube kubectl -- get nodes
                                 minikube kubectl -- get pods
+
+                                if [ "${PXC_OPERATOR_VERSION}" != none ]; then
+                                    minikube kubectl -- wait --for=condition=Available --timeout=60s deployment percona-xtradb-cluster-operator
+                                fi
+
+                                if [ "${PSMDB_OPERATOR_VERSION}" != none ]; then
+                                    minikube kubectl -- wait --for=condition=Available --timeout=60s deployment percona-server-mongodb-operator
+                                fi                                
                             """
                         }
                     }

@@ -12,6 +12,20 @@ void uploadAllureArtifacts() {
     }
 }
 
+def changeUserPasswordUtility(dockerImage) {
+    tag = dockerImage.split(":")[1]
+
+    if (tag.startsWith("PR") || tag.startsWith("dev"))
+        return "yes"
+
+    minorVersion = tag.split("\\.")[1].toInteger()
+
+    if (minorVersion < 27)
+        return "no"
+    else
+        return "yes"
+}
+
 pipeline {
     agent {
         label 'docker'
@@ -94,6 +108,8 @@ pipeline {
         SERVICENOW_DEV_URL=credentials('SERVICENOW_DEV_URL')
         OAUTH_DEV_CLIENT_ID=credentials('OAUTH_DEV_CLIENT_ID')
         PORTAL_BASE_URL=credentials('PORTAL_BASE_URL')
+        PAGER_DUTY_SERVICE_KEY=credentials('PAGER_DUTY_SERVICE_KEY')
+        PAGER_DUTY_API_KEY=credentials('PAGER_DUTY_API_KEY')
     }
     parameters {
         string(
@@ -145,7 +161,7 @@ pipeline {
             description: 'Percona Server Docker Container Image',
             name: 'MYSQL_IMAGE')
         string(
-            defaultValue: 'perconalab/percona-distribution-postgresql:14.2',
+            defaultValue: 'perconalab/percona-distribution-postgresql:14.3',
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
         string(
@@ -186,6 +202,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
+                    env.CHANGE_USER_PASSWORD_UTILITY = changeUserPasswordUtility(DOCKER_VERSION)
                     if(env.TAG != "") {
                         currentBuild.description = env.TAG
                     }
@@ -241,7 +258,11 @@ pipeline {
                         waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                         waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
                         sh """
-                            docker exec pmm-server change-admin-password \${ADMIN_PASSWORD}
+                            if [ \$CHANGE_USER_PASSWORD_UTILITY == yes ]; then
+                                docker exec pmm-server change-admin-password \${ADMIN_PASSWORD}
+                            else
+                                docker exec pmm-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
+                            fi
                             bash -x testdata/db_setup.sh
                         """
                         script {
@@ -341,7 +362,7 @@ pipeline {
                            export PATH="`pwd`/pmm2-client/bin:$PATH"
                         fi
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@dbaas)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@qan)^(?!.*@nightly)^(?!.*@settings)^(?!.*@menu)^(?!.*@pmm-portal-upgrade)'
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@dbaas)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@qan)^(?!.*@nightly)^(?!.*@settings)^(?!.*@menu)^(?!.*@pmm-portal-upgrade)'
                     """
                 }
             }
@@ -366,7 +387,7 @@ pipeline {
                            export PATH="`pwd`/pmm2-client/bin:$PATH"
                         fi
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep ${CODECEPT_TAG}
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep ${CODECEPT_TAG}
                     """
                 }
             }
@@ -377,9 +398,6 @@ pipeline {
             // stop staging
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-                ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
-                ./node_modules/.bin/mochawesome-merge tests/output/*.json > tests/output/combine_results.json || true
-                ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
                 echo --- Jobs from pmm-server --- >> job_logs.txt
                 docker exec pmm-server psql -Upmm-managed -c 'select id,error,data,created_at,updated_at from jobs ORDER BY updated_at DESC LIMIT 1000;' >> job_logs.txt || true
                 echo --- Job logs from pmm-server --- >> job_logs.txt
@@ -404,25 +422,17 @@ pipeline {
                 }
             }
             script {
-                if (env.OVF_TEST == "no") {
-                    env.PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
-                } else {
+                env.PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
+                if (env.OVF_TEST == "yes") {
                     env.PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
                 }
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'job_logs.txt'
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit env.PATH_TO_REPORT_RESULTS
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
-                } else {
-                    junit env.PATH_TO_REPORT_RESULTS
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
+                junit env.PATH_TO_REPORT_RESULTS
+                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
-                    archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
-                    archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
             allure([

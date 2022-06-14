@@ -119,11 +119,32 @@ elif [ -f /usr/bin/apt ]; then
 fi
 
 pushd ${WORKDIR_ABS}/WORKDIR
-sudo tar -xzf $WORKDIR_ABS/proxysql*glibc*.tar.gz -C ${WORKDIR_ABS}/PROXY_ADMIN
-for file in proxysql-admin proxysql-admin-common proxysql-login-file; do
+unset PROXY_TAR_FILENAME
+COPY_TIMEOUT=60
+
+for X in $(seq 0 $COPY_TIMEOUT); do
+  PROXY_TAR_FILENAME=$(ls -1 $WORKDIR_ABS/ | grep -E "proxysql.*.glibc.*.tar.gz")
+  if [ -f $WORKDIR_ABS/$PROXY_TAR_FILENAME ]; then
+    sudo tar -xzf $WORKDIR_ABS/$PROXY_TAR_FILENAME -C ${WORKDIR_ABS}/PROXY_ADMIN
+    break;
+  else
+    echo "Waiting for file to copy"
+  fi
+
+  if [ $X -eq $COPY_TIMEOUT ]; then
+    echo "Timout exceeded. Failed to copy proxysql tarball within time limit"
+    exit 1
+  fi
+  sleep 1
+done
+
+for file in proxysql-admin proxysql-admin-common proxysql-login-file proxysql-common percona-scheduler-admin; do
   sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/usr/bin/$file ${WORKDIR_ABS}/WORKDIR/$file
 done;
 sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/etc/proxysql-admin.cnf ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/etc/proxysql-admin.cnf
+sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/usr/bin/pxc_scheduler_handler ${WORKDIR_ABS}/WORKDIR/pxc_scheduler_handler
+sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/etc/config.toml ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/etc/config.toml
+sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/tests/testsuite.toml ${WORKDIR_ABS}/WORKDIR/testsuite.toml
 sudo ln -s /usr/bin/proxysql $WORKDIR_ABS/WORKDIR/proxysql-2.0/usr/bin/proxysql
 status=0
 

@@ -82,7 +82,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['14.2', '14.1', '14.0', '13.6', '13.4', '13.2', '13.1', '12.10', '12.8', '11.15', '11.13'],
+            choices: ['14.3','14.2', '14.1', '14.0', '13.7', '13.6', '13.4', '13.2', '13.1', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -101,6 +101,10 @@ pipeline {
             choices: ['perfschema', 'slowlog'],
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
+        choice(
+            choices: ['dev','prod'],
+            description: 'Prod or Dev version service',
+            name: 'VERSION_SERVICE_VERSION')            
         string(
             defaultValue: '',
             description: '''
@@ -290,6 +294,12 @@ pipeline {
                                         else
                                             export ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
                                         fi
+
+                                        if [ \${VERSION_SERVICE_VERSION} == dev ]; then
+                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1"
+                                        else
+                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check.percona.com/versions/v1"
+                                        fi                                        
 
                                         docker run -d \
                                             -p 80:80 \
