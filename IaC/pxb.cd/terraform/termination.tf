@@ -2,8 +2,8 @@
 resource "aws_sqs_queue" "jenkins" {
   name = "${var.cloud_name}-termination"
 
-  tags {
-    "iit-billing-tag" = "${var.cloud_name}"
+  tags = {
+    iit-billing-tag = "${var.cloud_name}"
   }
 }
 

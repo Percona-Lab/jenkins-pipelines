@@ -1,7 +1,7 @@
 #!/bin/bash
 
 JENKINS_HOST=${JHostName}
-JENKINS_EIP=${MasterIP.AllocationId}
+JENKINS_EIP=${MasterIP_AllocationId}
 JENKINS_VOLUME_ID=${JDataVolume}
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 INSTANCE_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e 's/[a-z]$//')
@@ -236,7 +236,7 @@ EOF
 }
 
 setup_ssh_keys() {
-    KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets"
+    KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets"
 
     for KEY in $KEYS_LIST; do
         RETRY="3"
