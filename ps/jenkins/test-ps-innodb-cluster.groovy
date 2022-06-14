@@ -1,6 +1,6 @@
 library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 void installDependencies() {
@@ -110,10 +110,8 @@ pipeline {
                 'debian-11',
                 'debian-10',
                 'debian-9',
-                'centos-8',
                 'centos-7',
                 'centos-6',
-                'ubuntu-jammy',
                 'oracle-linux-8'
             ],
             description: 'Distribution to run test'
