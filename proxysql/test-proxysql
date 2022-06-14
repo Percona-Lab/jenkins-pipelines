@@ -120,8 +120,9 @@ fi
 
 pushd ${WORKDIR_ABS}/WORKDIR
 unset PROXY_TAR_FILENAME
+COPY_TIMEOUT=60
 
-for X in $(seq 0 60); do
+for X in $(seq 0 $COPY_TIMEOUT); do
   PROXY_TAR_FILENAME=$(ls -1 $WORKDIR_ABS/ | grep -E "proxysql.*.glibc.*.tar.gz")
   if [ -f $WORKDIR_ABS/$PROXY_TAR_FILENAME ]; then
     sudo tar -xzf $WORKDIR_ABS/$PROXY_TAR_FILENAME -C ${WORKDIR_ABS}/PROXY_ADMIN
@@ -130,7 +131,7 @@ for X in $(seq 0 60); do
     echo "Waiting for file to copy"
   fi
 
-  if [ $X -eq 60 ]; then
+  if [ $X -eq $COPY_TIMEOUT ]; then
     echo "Timout exceeded. Failed to copy proxysql tarball within time limit"
     exit 1
   fi
