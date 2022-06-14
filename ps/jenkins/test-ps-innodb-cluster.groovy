@@ -1,6 +1,6 @@
 library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 void installDependencies() {
@@ -16,7 +16,7 @@ void installDependencies() {
 
     sh '''
         rm -rf package-testing
-        git clone -b innodb-cluster-job https://github.com/kaushikpuneet07/package-testing
+        git clone https://github.com/Percona-QA/package-testing
     '''
 }
 
@@ -88,17 +88,17 @@ pipeline {
     parameters {
         string(
             name: 'UPSTREAM_VERSION',
-            defaultValue: '8.0.28',
+            defaultValue: '8.0.23',
             description: 'Upstream MySQL version'
         )
         string(
             name: 'PS_VERSION',
-            defaultValue: '19',
+            defaultValue: '14',
             description: 'Percona part of version'
         )
         string(
             name: 'PS_REVISION',
-            defaultValue: '31e88966cd3',
+            defaultValue: '3558242',
             description: 'Short git hash for release'
         )
         choice(
