@@ -122,7 +122,6 @@ pushd ${WORKDIR_ABS}/WORKDIR
 unset PROXY_TAR_FILENAME
 
 for X in $(seq 0 60); do
-  ls -lrt
   PROXY_TAR_FILENAME=$(ls -1 $WORKDIR_ABS/ | grep -E "proxysql.*.glibc.*.tar.gz")
   if [ -f $WORKDIR_ABS/$PROXY_TAR_FILENAME ]; then
     sudo tar -xzf $WORKDIR_ABS/$PROXY_TAR_FILENAME -C ${WORKDIR_ABS}/PROXY_ADMIN
