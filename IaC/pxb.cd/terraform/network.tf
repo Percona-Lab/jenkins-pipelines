@@ -5,9 +5,9 @@ resource "aws_vpc" "jenkins" {
   enable_dns_support   = true
   instance_tenancy     = "default"
 
-  tags {
-    "Name"            = "${var.cloud_name}"
-    "iit-billing-tag" = "${var.cloud_name}"
+  tags = {
+    Name            = "${var.cloud_name}"
+    iit-billing-tag = "${var.cloud_name}"
   }
 }
 
@@ -15,9 +15,9 @@ resource "aws_vpc" "jenkins" {
 resource "aws_internet_gateway" "jenkins" {
   vpc_id = "${aws_vpc.jenkins.id}"
 
-  tags {
-    "Name"            = "${var.cloud_name}"
-    "iit-billing-tag" = "${var.cloud_name}"
+  tags = {
+    Name            = "${var.cloud_name}"
+    iit-billing-tag = "${var.cloud_name}"
   }
 }
 
@@ -30,9 +30,9 @@ resource "aws_subnet" "jenkins" {
   availability_zone       = "${element(var.aws_az_list, count.index)}"
   map_public_ip_on_launch = true
 
-  tags {
-    "Name"            = "${var.cloud_name}-${count.index}"
-    "iit-billing-tag" = "${var.cloud_name}"
+  tags = {
+    Name            = "${var.cloud_name}-${count.index}"
+    iit-billing-tag = "${var.cloud_name}"
   }
 }
 
@@ -45,9 +45,9 @@ resource "aws_route_table" "jenkins" {
     gateway_id = "${aws_internet_gateway.jenkins.id}"
   }
 
-  tags {
-    "Name"            = "${var.cloud_name}"
-    "iit-billing-tag" = "${var.cloud_name}"
+  tags = {
+    Name            = "${var.cloud_name}"
+    iit-billing-tag = "${var.cloud_name}"
   }
 }
 
@@ -77,6 +77,8 @@ resource "aws_security_group" "jenkins-SSH" {
       "46.149.86.84/32",
       "54.214.47.252/32",
       "54.214.47.254/32",
+      "46.149.84.26/32",
+      "93.170.117.65/32",
     ] 
   }
 
@@ -87,8 +89,8 @@ resource "aws_security_group" "jenkins-SSH" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags {
-    "iit-billing-tag" = "${var.cloud_name}"
+  tags = {
+    iit-billing-tag = "${var.cloud_name}"
   }
 }
 
@@ -119,7 +121,7 @@ resource "aws_security_group" "jenkins-HTTP" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags {
-    "iit-billing-tag" = "${var.cloud_name}"
+  tags = {
+    iit-billing-tag = "${var.cloud_name}"
   }
 }
