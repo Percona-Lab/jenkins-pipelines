@@ -20,7 +20,6 @@ if [ -f /usr/bin/yum ]; then
         sudo ./bootstrap
         sudo make
         sudo make install
-        PATH=$PATH:/usr/local/bin
         sudo ln -s /usr/local/bin/cmake /usr/bin/cmake
         sudo cmake --version
     fi
