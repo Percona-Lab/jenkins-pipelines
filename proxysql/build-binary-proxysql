@@ -27,7 +27,9 @@ if [ -f /usr/bin/yum ]; then
         make
         sudo make install
         PATH=$PATH:/usr/local/bin
+        sudo ln -s /usr/local/bin/cmake /usr/bin/cmake
         cmake --version
+        sudo cmake --version
     fi
     sudo yum -y install wget
     if [[ $RHEL -eq 7 ]]; then
