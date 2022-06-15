@@ -11,7 +11,8 @@ def call() {
                     mkdir -p \${path_to_build}/source/redhat \
                              \${path_to_build}/binary/redhat/6/x86_64 \
                              \${path_to_build}/binary/redhat/7/x86_64 \
-                             \${path_to_build}/binary/redhat/8/x86_64
+                             \${path_to_build}/binary/redhat/8/x86_64 \
+                             \${path_to_build}/binary/redhat/9/x86_64
 
                 if [ `find . -name '*.src.rpm' | wc -l` -gt 0 ]; then
                     scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
