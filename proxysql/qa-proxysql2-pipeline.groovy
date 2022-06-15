@@ -65,7 +65,8 @@ pipeline {
         stage('Build ProxySQL') {
                 agent { label 'docker' }
                 steps {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    //git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'PSQLADM-396-ProxySQL-Jenkins-job-is-failing-on-Centos-8', url: 'https://github.com/adivinho/jenkins-pipelines'
                     echo 'Checkout ProxySQL sources'
                     sh '''
                         # sudo is needed for better node recovery after compilation failure
