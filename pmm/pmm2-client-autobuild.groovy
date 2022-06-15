@@ -117,6 +117,7 @@ pipeline {
                     steps {
                         sh './build/bin/build-client-rpm centos:7'
                         sh './build/bin/build-client-rpm rockylinux:8'
+                        sh './build/bin/build-client-rpm almalinux:9.0'
                         stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
                         uploadRPM()
                     }
