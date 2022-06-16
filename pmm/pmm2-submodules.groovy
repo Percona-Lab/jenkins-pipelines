@@ -32,7 +32,10 @@ void runUItests(String DOCKER_IMAGE_VERSION, CLIENT_VERSION, PMM_QA_GIT_BRANCH, 
         string(name: 'DOCKER_VERSION', value: DOCKER_IMAGE_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'GIT_COMMIT_HASH', value: PMM_QA_GIT_COMMIT_HASH)
+        string(name: 'GIT_COMMIT_HASH', value: PMM_QA_GIT_COMMIT_HASH),
+        string(name: 'TAG', value: '@fb'),
+        string(name: 'RUN_TAGGED_TEST', value: 'yes'),
+        string(name: 'CLIENTS', value: '--addclient=haproxy,1 --addclient=ps,1 --setup-external-service --mongo-replica-for-backup')
     ]
     env.UI_TESTS_URL = e2eTestJob.absoluteUrl
     env.UI_TESTS_RESULT = e2eTestJob.result

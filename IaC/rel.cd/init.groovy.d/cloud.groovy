@@ -32,6 +32,7 @@ imageMap['eu-west-1a.min-centos-7-x64']  = 'ami-04f5641b0d178a27a'
 imageMap['eu-west-1a.fips-centos-7-x64'] = 'ami-04f5641b0d178a27a'
 imageMap['eu-west-1a.min-centos-8-x64']  = 'ami-0a75a5a43b05b4d5f'
 imageMap['eu-west-1a.min-ol-8-x64']      = 'ami-0f7601d8419fac927'
+imageMap['eu-west-1a.min-rhel-9-x64']    = 'ami-028f9616b17ba1d53'
 imageMap['eu-west-1a.min-bullseye-x64']  = 'ami-01ebd2b650c37e4d6'
 imageMap['eu-west-1a.min-buster-x64']    = 'ami-04e1d2f88740af5e1'
 imageMap['eu-west-1a.min-stretch-x64']   = 'ami-097672ef083ca4411'
@@ -56,6 +57,7 @@ imageMap['eu-west-1b.min-centos-6-x32'] = imageMap['eu-west-1a.min-centos-6-x32'
 imageMap['eu-west-1b.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64']
 imageMap['eu-west-1b.min-centos-8-x64'] = imageMap['eu-west-1a.min-centos-8-x64']
 imageMap['eu-west-1b.min-ol-8-x64']     = imageMap['eu-west-1a.min-ol-8-x64']
+imageMap['eu-west-1b.min-rhel-9-x64']   = imageMap['eu-west-1a.min-rhel-9-x64']
 imageMap['eu-west-1b.min-bullseye-x64'] = imageMap['eu-west-1a.min-bullseye-x64']
 imageMap['eu-west-1b.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
 imageMap['eu-west-1b.min-jammy-x64']    = imageMap['eu-west-1a.min-jammy-x64']
@@ -80,6 +82,7 @@ imageMap['eu-west-1c.min-centos-6-x32'] = imageMap['eu-west-1a.min-centos-6-x32'
 imageMap['eu-west-1c.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64']
 imageMap['eu-west-1c.min-centos-8-x64'] = imageMap['eu-west-1a.min-centos-8-x64']
 imageMap['eu-west-1c.min-ol-8-x64']     = imageMap['eu-west-1a.min-ol-8-x64']
+imageMap['eu-west-1c.min-rhel-9-x64']   = imageMap['eu-west-1a.min-rhel-9-x64']
 imageMap['eu-west-1c.min-bullseye-x64'] = imageMap['eu-west-1a.min-bullseye-x64']
 imageMap['eu-west-1c.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
 imageMap['eu-west-1c.min-jammy-x64']    = imageMap['eu-west-1a.min-jammy-x64']
@@ -101,6 +104,7 @@ priceMap['m4.2xlarge'] = '0.20'
 priceMap['r4.4xlarge'] = '0.38'
 priceMap['m5d.2xlarge'] = '0.20'
 priceMap['c5d.xlarge'] = '0.20'
+priceMap['i4i.2xlarge'] = '0.40'
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -117,6 +121,7 @@ userMap['min-centos-6-x64']  = 'centos'
 userMap['min-centos-7-x64']  = 'centos'
 userMap['min-centos-8-x64']  = 'centos'
 userMap['min-ol-8-x64']      = 'ec2-user'
+userMap['min-rhel-9-x64']    = 'ec2-user'
 userMap['fips-centos-7-x64'] = 'centos'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
@@ -258,10 +263,11 @@ initMap['min-centos-6-x64'] = '''
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-centos-7-x64'] = initMap['micro-amazon']
+initMap['min-centos-7-x64']  = initMap['micro-amazon']
 initMap['fips-centos-7-x64'] = initMap['micro-amazon']
-initMap['min-centos-8-x64'] = initMap['micro-amazon']
-initMap['min-ol-8-x64']     = initMap['micro-amazon']
+initMap['min-centos-8-x64']  = initMap['micro-amazon']
+initMap['min-ol-8-x64']      = initMap['micro-amazon']
+initMap['min-rhel-9-x64']    = initMap['micro-amazon']
 initMap['min-centos-6-x32'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -373,11 +379,12 @@ initMap['min-focal-x64-zenfs'] = initMap['min-bionic-x64']
 initMap['min-bionic-x64-zenfs'] = initMap['min-bionic-x64']
 
 capMap = [:]
-capMap['c5.xlarge']  = '60'
-capMap['m4.xlarge']  = '5'
-capMap['m4.2xlarge'] = '40'
-capMap['r4.4xlarge'] = '40'
-capMap['c5d.xlarge'] = '10'
+capMap['c5.xlarge']   = '60'
+capMap['m4.xlarge']   = '5'
+capMap['m4.2xlarge']  = '40'
+capMap['r4.4xlarge']  = '40'
+capMap['c5d.xlarge']  = '10'
+capMap['i4i.2xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.small'
@@ -387,6 +394,7 @@ typeMap['docker2']           = 'r4.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
 typeMap['min-centos-8-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-ol-8-x64']      = typeMap['min-centos-7-x64']
+typeMap['min-rhel-9-x64']    = 'i4i.2xlarge'
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-jammy-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64']     = typeMap['min-centos-7-x64']
@@ -416,6 +424,7 @@ execMap['min-centos-7-x64']  = '1'
 execMap['fips-centos-7-x64'] = '1'
 execMap['min-centos-8-x64']  = '1'
 execMap['min-ol-8-x64']      = '1'
+execMap['min-rhel-9-x64']    = '1'
 execMap['min-stretch-x64']   = '1'
 execMap['min-xenial-x64']    = '1'
 execMap['min-xenial-x32']    = '1'
@@ -438,6 +447,7 @@ devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
 devMap['min-ol-8-x64']      = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
+devMap['min-rhel-9-x64']    = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
 devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:180:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-xenial-x32']    = '/dev/sda1=:10:false:gp2,/dev/sdd=:180:false:gp2'
@@ -451,7 +461,7 @@ devMap['min-bionic-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
 labelMap = [:]
 labelMap['docker']            = ''
 labelMap['docker-32gb']       = ''
-labelMap['docker2']           = 'docker-32gb'
+labelMap['docker2']           = ''
 labelMap['micro-amazon']      = 'master'
 labelMap['min-bionic-x64']    = 'asan'
 labelMap['min-focal-x64']     = ''
@@ -462,6 +472,7 @@ labelMap['min-centos-7-x64']  = ''
 labelMap['fips-centos-7-x64'] = ''
 labelMap['min-centos-8-x64']  = ''
 labelMap['min-ol-8-x64']      = ''
+labelMap['min-rhel-9-x64']    = ''
 labelMap['min-stretch-x64']   = ''
 labelMap['min-xenial-x64']    = ''
 labelMap['min-xenial-x32']    = ''
@@ -539,25 +550,26 @@ String region = 'eu-west-1'
         sshKeysCredentialsId,                   // String sshKeysCredentialsId
         '240',                                   // String instanceCapStr
         [
-            getTemplate('docker',           "${region}${it}"),
-            getTemplate('docker-32gb',      "${region}${it}"),
-            getTemplate('micro-amazon',     "${region}${it}"),
-            getTemplate('min-xenial-x64',     "${region}${it}"),
-            getTemplate('min-xenial-x32',     "${region}${it}"),
-            getTemplate('min-stretch-x64',     "${region}${it}"),
-            getTemplate('min-jammy-x64',      "${region}${it}"),
-            getTemplate('min-focal-x64',      "${region}${it}"),
-            getTemplate('min-bionic-x64',     "${region}${it}"),
-            getTemplate('min-buster-x64',     "${region}${it}"),
-            getTemplate('min-ol-8-x64',         "${region}${it}"),
-            getTemplate('min-centos-8-x64',     "${region}${it}"),
-            getTemplate('min-centos-7-x64',     "${region}${it}"),
-            getTemplate('min-centos-6-x64',     "${region}${it}"),
-            getTemplate('min-centos-6-x32',     "${region}${it}"),
-            getTemplate('min-bullseye-x64',     "${region}${it}"),
+            getTemplate('docker',                "${region}${it}"),
+            getTemplate('docker-32gb',           "${region}${it}"),
+            getTemplate('micro-amazon',          "${region}${it}"),
+            getTemplate('min-xenial-x64',        "${region}${it}"),
+            getTemplate('min-xenial-x32',        "${region}${it}"),
+            getTemplate('min-stretch-x64',       "${region}${it}"),
+            getTemplate('min-jammy-x64',         "${region}${it}"),
+            getTemplate('min-focal-x64',         "${region}${it}"),
+            getTemplate('min-bionic-x64',        "${region}${it}"),
+            getTemplate('min-buster-x64',        "${region}${it}"),
+            getTemplate('min-ol-8-x64',          "${region}${it}"),
+            getTemplate('min-rhel-9-x64',        "${region}${it}"),
+            getTemplate('min-centos-8-x64',      "${region}${it}"),
+            getTemplate('min-centos-7-x64',      "${region}${it}"),
+            getTemplate('min-centos-6-x64',      "${region}${it}"),
+            getTemplate('min-centos-6-x32',      "${region}${it}"),
+            getTemplate('min-bullseye-x64',      "${region}${it}"),
             getTemplate('min-hirsute-x64-zenfs', "${region}${it}"),
-            getTemplate('min-focal-x64-zenfs',  "${region}${it}"),
-            getTemplate('min-bionic-x64-zenfs', "${region}${it}"),
+            getTemplate('min-focal-x64-zenfs',   "${region}${it}"),
+            getTemplate('min-bionic-x64-zenfs',  "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''

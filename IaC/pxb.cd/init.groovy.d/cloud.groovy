@@ -43,8 +43,8 @@ priceMap = [:]
 priceMap['t3a.medium'] = '0.015'
 priceMap['m1.medium'] = '0.05'
 priceMap['c5ad.2xlarge'] = '0.18'
-priceMap['m3.2xlarge'] = '0.17'
-priceMap['m5zn.2xlarge'] = '0.22'
+priceMap['m3.2xlarge'] = '0.23'
+priceMap['m5zn.2xlarge'] = '0.23'
 priceMap['m5zn.3xlarge'] = '0.27'
 
 userMap = [:]
@@ -272,13 +272,13 @@ initMap['min-jammy-x64']  = initMap['debMap']
 capMap = [:]
 capMap['c5ad.2xlarge'] = '80'
 capMap['m3.2xlarge'] = '60'
-capMap['m5zn.2xlarge'] = '60'
+capMap['m5zn.2xlarge'] = '80'
 capMap['m5zn.3xlarge'] = '80'
 capMap['m1.medium'] = '10'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't3a.medium'
-typeMap['docker'] = 'c5ad.2xlarge'
+typeMap['docker'] = 'm5zn.2xlarge'
 typeMap['docker-32gb'] = 'm5zn.3xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
