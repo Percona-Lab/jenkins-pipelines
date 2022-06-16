@@ -106,7 +106,6 @@ pipeline {
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                         sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
                     popd
-                    sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
                 '''
             }
         }
@@ -145,7 +144,7 @@ pipeline {
                     steps {
                         sh """
                             envsubst < env.list > env.generated.list
-                            npm install
+                            npm ci
                         """
                     }
                 }
