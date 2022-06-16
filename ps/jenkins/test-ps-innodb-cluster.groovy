@@ -106,7 +106,6 @@ pipeline {
             choices: [
                 'ubuntu-focal',
                 'ubuntu-bionic',
-                'ubuntu-xenial',
                 'debian-11',
                 'debian-10',
                 'debian-9',
