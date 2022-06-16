@@ -15,7 +15,7 @@ if [ -f /usr/bin/yum ]; then
         sudo yum -y install python2 gnutls-devel libtool || true
         sudo yum remove -y cmake
         sudo wget https://github.com/Kitware/CMake/releases/download/v3.19.8/cmake-3.19.8.tar.gz
-        sudo tar -zxvf cmake-3.19.8.tar.gz
+        sudo tar -zxf cmake-3.19.8.tar.gz
         cd cmake-3.19.8/
         sudo ./bootstrap
         sudo make
