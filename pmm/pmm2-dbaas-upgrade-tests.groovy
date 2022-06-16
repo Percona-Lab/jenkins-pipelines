@@ -145,6 +145,7 @@ pipeline {
                     steps {
                         sh """
                             envsubst < env.list > env.generated.list
+                            npm ci
                         """
                     }
                 }
