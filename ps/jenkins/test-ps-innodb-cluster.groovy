@@ -111,7 +111,6 @@ pipeline {
                 'debian-10',
                 'debian-9',
                 'centos-7',
-                'centos-6',
                 'oracle-linux-8'
             ],
             description: 'Distribution to run test'
