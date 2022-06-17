@@ -26,8 +26,8 @@ def generateStage(VERSION) {
         stage("${VERSION}") {
             runDbaaSUpgradeTests(
                 GIT_BRANCH,
-                DOCKER_VERSION,
-                CLIENT_VERSION,
+                VERSION,
+                VERSION,
                 PMM_SERVER_LATEST,
                 VERSION_SERVICE_VERSION,
                 PMM_REPOSITORY,
@@ -46,14 +46,6 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
-        choice(
-            choices: versionsList,
-            description: 'PMM Server Version to test for Upgrade',
-            name: 'DOCKER_VERSION')
-        choice(
-            choices: versionsList,
-            description: 'PMM Client Version to test for Upgrade',
-            name: 'CLIENT_VERSION')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
