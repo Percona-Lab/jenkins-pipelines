@@ -9,7 +9,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'https://github.com/percona/pmm-managed',
+            defaultValue: 'https://github.com/percona/pmm',
             description: 'Url for pmm-managed repository',
             name: 'GIT_URL')
         string(

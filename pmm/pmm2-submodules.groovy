@@ -69,7 +69,8 @@ pipeline {
                         git clean -fdx
                         python3 ci.py
                         . ./.git-sources
-                        curl -s https://api.github.com/repos/percona/pmm-managed/commits/${pmm_managed_commit} | grep 'name' | awk -F '"' '{print $4}' | head -1 > OWNER
+                        curl -s https://api.github.com/repos/percona/pmm/commits/${pmm_managed_commit} | grep 'name' | awk -F '"' '{print $4}' | head -1 > OWNER
+                        cd managed
                         echo $pmm_managed_commit > apiCommitSha
                         echo $pmm_managed_branch > apiBranch
                         echo $pmm_managed_url > apiURL
