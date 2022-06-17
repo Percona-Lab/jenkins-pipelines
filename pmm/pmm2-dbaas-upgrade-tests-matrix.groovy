@@ -39,7 +39,7 @@ def generateStage(VERSION) {
 
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'cli'
     }
     parameters {
         string(
