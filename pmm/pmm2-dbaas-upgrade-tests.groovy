@@ -100,6 +100,7 @@ pipeline {
                 sh '''
                     docker-compose --version
                     sudo yum -y install mysql
+                    sudo amazon-linux-extras install epel -y
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
