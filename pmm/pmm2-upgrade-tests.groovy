@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-10083', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -107,7 +107,7 @@ pipeline {
         string(
             defaultValue: 'admin-password',
             description: 'pmm-server admin user default password',
-            name: 'ADMIN_PASSWORD')  
+            name: 'ADMIN_PASSWORD')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
@@ -346,7 +346,7 @@ pipeline {
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
                     sleep 30
-                    ./node_modules/.bin/codeceptjs run --debug --steps -c pr.codecept.js --grep '@post-client-upgrade'
+                    ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@post-client-upgrade'
                 """
             }
         }
