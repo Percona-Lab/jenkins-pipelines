@@ -106,11 +106,11 @@ git clone ${PAT_REPO}
 cd proxysql-admin-tool
 git checkout ${PAT_TAG}
 git submodule update --init --recursive
-pushd percona-scheduler
+#pushd percona-scheduler
 #sudo /usr/local/go/bin/go build -v -a -o pxc_scheduler_handler
-sudo bash -x ./build_scheduler.sh
+sudo bash -x build_scheduler.sh
 ./pxc_scheduler_handler --version
-popd
+#popd
 cp percona-scheduler/pxc_scheduler_handler .
 
 sudo bash -x ./tests/setup_workdir.sh /tmp/results
