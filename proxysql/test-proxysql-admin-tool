@@ -15,6 +15,7 @@ if [ -f /usr/bin/yum ]; then
   RHEL=$(rpm --eval %rhel)
   if [[ $RHEL -eq 8 ]]; then
      sudo dnf module disable mysql -y
+     install_cmake
   fi
 fi
 
@@ -70,6 +71,7 @@ function update_git_version {
             sudo yum -y install git
         fi
     elif [ -f /usr/bin/apt ]; then
+        sudo apt -y install software-properties-common dirmngr apt-transport-https lsb-release ca-certificates
         sudo add-apt-repository ppa:git-core/ppa
         sudo apt update
         sudo apt -y install git
@@ -83,6 +85,18 @@ function install_golang {
     export PATH=$PATH:/usr/local/go/bin
     go version
     command -v go
+    sudo ln -s /usr/local/go/bin/go /usr/bin/go
+}
+
+function install_cmake {
+    sudo yum remove -y cmake
+    wget https://github.com/Kitware/CMake/releases/download/v3.19.8/cmake-3.19.8.tar.gz
+    sudo tar -zxf cmake-3.19.8.tar.gz
+    cd cmake-3.19.8/
+    sudo ./bootstrap
+    sudo make
+    sudo make install
+    sudo ln -s /usr/local/bin/cmake /usr/bin/cmake
 }
 
 cd /tmp
@@ -96,7 +110,8 @@ cd proxysql-admin-tool
 git checkout ${PAT_TAG}
 git submodule update --init --recursive
 pushd percona-scheduler
-sudo /usr/local/go/bin/go build -v -a -o pxc_scheduler_handler
+#sudo /usr/local/go/bin/go build -v -a -o pxc_scheduler_handler
+sudo bash -x build_scheduler.sh
 ./pxc_scheduler_handler --version
 popd
 cp percona-scheduler/pxc_scheduler_handler .
