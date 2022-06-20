@@ -217,7 +217,7 @@ pipeline {
 
                         # 1st-party
                         build-server-rpm percona-dashboards grafana-dashboards
-                        build-server-rpm pmm-managed
+                        build-server-rpm pmm-managed pmm
                         build-server-rpm percona-qan-api2 qan-api2
                         build-server-rpm pmm-server
                         build-server-rpm pmm-update
