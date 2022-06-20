@@ -91,6 +91,7 @@ function update_git_version {
         cd git-2.21.0/
         sudo make prefix=/usr/local all
         sudo make prefix=/usr/local install
+        sudo apt-get -y remove git
         sudo ln -s /usr/local/bin/git /usr/bin/git
 #        sudo apt -y install software-properties-common dirmngr apt-transport-https lsb-release ca-certificates
 #        sudo add-apt-repository -y ppa:git-core/ppa
