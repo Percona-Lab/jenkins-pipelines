@@ -69,9 +69,9 @@ pipeline {
                         git clean -fdx
                         python3 ci.py
                         . ./.git-sources
-                        echo $pmm_managed_commit > apiCommitSha
-                        echo $pmm_managed_branch > apiBranch
-                        echo $pmm_managed_url > apiURL
+                        echo $pmm > apiCommitSha
+                        echo $pmm > apiBranch
+                        echo $pmm > apiURL
                         echo $pmm_qa_branch > pmmQABranch
                         echo $pmm_qa_commit > pmmQACommitSha
                         echo $pmm_ui_tests_branch > pmmUITestBranch
