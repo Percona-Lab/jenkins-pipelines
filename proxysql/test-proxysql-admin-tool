@@ -15,7 +15,6 @@ if [ -f /usr/bin/yum ]; then
   RHEL=$(rpm --eval %rhel)
   if [[ $RHEL -eq 8 ]]; then
      sudo dnf module disable mysql -y
-     install_cmake
   fi
 fi
 
@@ -46,6 +45,17 @@ function enable_repo {
   sudo percona-release enable $repo_name $repo_type
 }
 
+function install_cmake {
+    sudo yum remove -y cmake
+    wget https://github.com/Kitware/CMake/releases/download/v3.19.8/cmake-3.19.8.tar.gz
+    sudo tar -zxf cmake-3.19.8.tar.gz
+    cd cmake-3.19.8/
+    sudo ./bootstrap
+    sudo make
+    sudo make install
+    sudo ln -s /usr/local/bin/cmake /usr/bin/cmake
+}
+
 function install_package {
 # parameters are stored in array varible:
   local -a pkg_name_arr=("$@")
@@ -54,6 +64,10 @@ function install_package {
     for file in ${pkg_name_arr[@]}; do
       sudo yum install -y $file
     done
+    if [[ $RHEL -eq 8 ]]; then
+       sudo dnf module disable mysql -y
+       install_cmake
+    fi
   elif [ -f /usr/bin/apt ]; then
     for file in ${pkg_name_arr[@]}; do
       sudo apt-get update -y
@@ -86,17 +100,6 @@ function install_golang {
     go version
     command -v go
     sudo ln -s /usr/local/go/bin/go /usr/bin/go
-}
-
-function install_cmake {
-    sudo yum remove -y cmake
-    wget https://github.com/Kitware/CMake/releases/download/v3.19.8/cmake-3.19.8.tar.gz
-    sudo tar -zxf cmake-3.19.8.tar.gz
-    cd cmake-3.19.8/
-    sudo ./bootstrap
-    sudo make
-    sudo make install
-    sudo ln -s /usr/local/bin/cmake /usr/bin/cmake
 }
 
 cd /tmp
