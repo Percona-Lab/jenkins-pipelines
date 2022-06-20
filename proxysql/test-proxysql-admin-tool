@@ -119,28 +119,15 @@ sudo cp percona-scheduler/pxc_scheduler_handler .
 sudo bash -x ./tests/setup_workdir.sh /tmp/results
 sudo chmod a+w /tmp/results
 
+# Running ProxySQL QA script
 sudo bash -x ./tests/proxysql-admin-testsuite.sh /tmp/results/ | tee /tmp/results/proxysql_qa.output || status=$?
 ls -la /tmp/results
 process_proxysql_output PROXYSQL "/tmp/results/proxysql_qa.output" "/tmp/results/junit.xml"
-cp -r /tmp/results/logs /tmp/results/logs_ipv4
+mv /tmp/results/logs /tmp/results/logs_ipv4
 
 sudo bash -x ./tests/proxysql-admin-testsuite.sh --ipv6 /tmp/results/ | tee /tmp/results/proxysql_qa_ipv6.output || status=$?
 ls -la /tmp/results
 process_proxysql_output PROXYSQL "/tmp/results/proxysql_qa_ipv6.output" "/tmp/results/junit_ipv6.xml"
 cp -r /tmp/results/logs /tmp/results/logs_ipv6
-
-exit $status
-
-# Running ProxySQL QA script
-sudo cp /etc/hosts ${WORKDIR_ABS}/hosts.new
-sudo sed -i 's/::1*.*localhost /::1 /' ${WORKDIR_ABS}/hosts.new
-sudo cp -f ${WORKDIR_ABS}/hosts.new /etc/hosts
-
-sudo bash $WORKDIR_ABS/PROXY_ADMIN/proxysql*/tests/proxysql-admin-testsuite.sh \
-$WORKDIR_ABS/WORKDIR | tee $WORKDIR_ABS/WORKDIR/proxysql_qa.output || status=$?
-
-process_proxysql_output PROXYSQL "$WORKDIR_ABS/WORKDIR/proxysql_qa.output" "${WORKDIR_ABS}/WORKDIR/junit.xml"
-
-sudo bash -x ./tests/proxysql-admin-testsuite.sh --ipv6 /tmp/results/ | tee /tmp/results/proxysql_qa_ipv6.output || status=$?
 
 exit $status
