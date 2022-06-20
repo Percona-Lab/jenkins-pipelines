@@ -10,11 +10,11 @@ pipeline {
     parameters {
         string(
             defaultValue: 'https://github.com/percona/pmm',
-            description: 'Url for pmm-managed repository',
+            description: 'Url for pmm repository',
             name: 'GIT_URL')
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for pmm-managed repository',
+            description: 'Tag/Branch for pmm repository',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '',
@@ -42,7 +42,7 @@ pipeline {
             name: 'MONGO_IMAGE')
         string(
             defaultValue: '',
-            description: 'Author of recent Commit to pmm-managed',
+            description: 'Author of recent Commit to pmm',
             name: 'OWNER')
         string (
             defaultValue: 'master',
@@ -58,7 +58,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                // fetch API tests from pmm-managed repository
+                // fetch API tests from pmm repository
                 git poll: false,
                     branch: GIT_BRANCH,
                     url: GIT_URL
