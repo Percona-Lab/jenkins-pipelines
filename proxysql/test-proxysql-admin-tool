@@ -84,11 +84,10 @@ function update_git_version {
             sudo yum -y install https://packages.endpointdev.com/rhel/7/os/x86_64/endpoint-repo.x86_64.rpm
             sudo yum -y install git
         fi
-#    elif [ -f /usr/bin/apt ]; then
-#        sudo apt -y install software-properties-common dirmngr apt-transport-https lsb-release ca-certificates
-#        sudo add-apt-repository ppa:git-core/ppa
-#        sudo apt update
-#        sudo apt -y install git
+    elif [ -f /usr/bin/apt ]; then
+        sudo apt -y install software-properties-common dirmngr apt-transport-https lsb-release ca-certificates
+        sudo add-apt-repository -y ppa:git-core/ppa
+        sudo apt -y install git
     fi
     git --version | awk '{print $3}'
 }
