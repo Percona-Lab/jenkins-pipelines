@@ -97,7 +97,7 @@ pipeline {
                     -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
                     -p 80:80 \
                     -p 443:443 \
-                    -v \${PWD}/testdata/checks:/srv/checks \
+                    -v \${PWD}/managed/testdata/checks:/srv/checks \
                     \${DOCKER_VERSION}
 
                     docker build -t pmm-api-tests .
