@@ -86,7 +86,7 @@ pipeline {
                         git submodule foreach --recursive git clean -fdx
                         git submodule status
                         export commit_sha=$(git submodule status | grep 'pmm-managed' | awk -F ' ' '{print $1}')
-                        curl -s https://api.github.com/repos/percona/pmm-managed/commits/${commit_sha} | grep 'name' | awk -F '"' '{print $4}' | head -1 > OWNER
+                        curl -s https://api.github.com/repos/percona/pmm/managed/commits/${commit_sha} | grep 'name' | awk -F '"' '{print $4}' | head -1 > OWNER
                         export api_tests_commit_sha=$(git submodule status | grep 'pmm-managed' | awk -F ' ' '{print $1}')
                         export api_tests_branch=$(git config -f .gitmodules submodule.pmm-managed.branch)
                         export api_tests_url=$(git config -f .gitmodules submodule.pmm-managed.url)
