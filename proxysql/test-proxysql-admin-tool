@@ -111,7 +111,7 @@ git submodule update --init --recursive
 sudo bash -x build_scheduler.sh
 ./pxc_scheduler_handler --version
 #popd
-cp percona-scheduler/pxc_scheduler_handler .
+sudo cp percona-scheduler/pxc_scheduler_handler .
 
 sudo bash -x ./tests/setup_workdir.sh /tmp/results
 sudo chmod a+w /tmp/results
