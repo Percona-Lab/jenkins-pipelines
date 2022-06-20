@@ -137,7 +137,7 @@ pipeline {
     post {
         always {
             sh '''
-                docker cp ${BUILD_TAG}:/go/src/github.com/percona/pmm/managed/api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml || true
+                docker cp ${BUILD_TAG}:/go/src/github.com/percona/pmm/api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml || true
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                 sudo chown -R ec2-user:ec2-user api-tests || true
             '''
