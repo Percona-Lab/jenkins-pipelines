@@ -12,7 +12,6 @@ void runGKEcluster(String CLUSTER_PREFIX) {
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
-            gcloud components update
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
