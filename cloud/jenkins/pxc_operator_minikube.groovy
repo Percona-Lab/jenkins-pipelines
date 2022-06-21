@@ -191,7 +191,9 @@ pipeline {
     options {
         skipDefaultCheckout()
     }
-
+    environment {
+        CLEAN_NAMESPACE = 1
+    }
     stages {
         stage('Prepare') {
             agent { label 'docker' }
