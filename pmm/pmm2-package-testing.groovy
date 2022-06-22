@@ -145,6 +145,20 @@ pipeline {
                         }
                     }
                 }
+                stage('centos-9-x64') {
+                    agent {
+                        label 'min-centos-9-x64'
+                    }
+                    steps{
+                        setup_rhel_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
                 stage('focal-x64') {
                     agent {
                         label 'min-focal-x64'
