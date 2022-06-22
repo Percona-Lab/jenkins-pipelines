@@ -166,7 +166,7 @@ pipeline {
                     sh """
                         echo "\${BUILD_USER_EMAIL}" > OWNER_EMAIL
                         echo "\${BUILD_USER_EMAIL}" | awk -F '@' '{print \$1}' > OWNER_FULL
-                        echo "pmm-\$(cat OWNER_FULL)-\$(date -u '+%Y%m%d%H%M%S')-${BUILD_NUMBER}" \
+                        echo "pmm-\$(cat OWNER_FULL | sed 's/[^a-zA-Z0-9_.-]//')-\$(date -u '+%Y%m%d%H%M%S')-${BUILD_NUMBER}" \
                             > VM_NAME
                     """
                 }
