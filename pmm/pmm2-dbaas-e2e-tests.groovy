@@ -128,7 +128,7 @@ pipeline {
                         sudo chmod 755 pmm-tests/install-google-chrome.sh
                         bash ./pmm-tests/install-google-chrome.sh
                     popd
-                    /srv/pmm-qa/install_k8s_tools.sh --kubectl --sudo
+                    /srv/pmm-qa/pmm-tests/install_k8s_tools.sh --kubectl --sudo
                     sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
                 '''
             }

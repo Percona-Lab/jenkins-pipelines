@@ -146,7 +146,7 @@ pipeline {
                                 set -o errexit
                                 set -o xtrace
                                 sudo yum -y install curl
-                                /srv/pmm-qa/install_k8s_tools.sh --minikube --kubectl --sudo
+                                /srv/pmm-qa/pmm-tests/install_k8s_tools.sh --minikube --kubectl --sudo
                                 sleep 5
                             """
                         }
