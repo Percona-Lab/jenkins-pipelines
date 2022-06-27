@@ -296,9 +296,14 @@ pipeline {
             }
             steps {
                 CreateCluster('basic')
+                runTest('auto-config', 'basic')
                 runTest('config', 'basic')
+                runTest('demand-backup', 'basic')
+                runTest('gr-init-deploy', 'basic')
                 runTest('init-deploy', 'basic')
+                runTest('limits', 'basic')
                 runTest('monitoring', 'basic')
+                runTest('scaling', 'basic')
                 runTest('semi-sync', 'basic')
                 runTest('service-per-pod', 'basic')
                 runTest('sidecars', 'basic')

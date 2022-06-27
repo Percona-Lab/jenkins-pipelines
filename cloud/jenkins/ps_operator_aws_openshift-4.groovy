@@ -250,9 +250,14 @@ pipeline {
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
+                runTest('auto-config')
                 runTest('config')
+                runTest('demand-backup')
+                runTest('gr-init-deploy')
                 runTest('init-deploy')
+                runTest('limits')
                 runTest('monitoring')
+                runTest('scaling')
                 runTest('semi-sync')
                 runTest('service-per-pod')
                 runTest('sidecars')
