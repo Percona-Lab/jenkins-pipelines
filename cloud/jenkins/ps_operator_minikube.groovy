@@ -38,7 +38,7 @@ void runTest(String TEST_NAME) {
             GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
             PS_TAG = sh(script: "if [ -n \"\${IMAGE_MYSQL}\" ] ; then echo ${IMAGE_MYSQL} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-            FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}-$PS_TAG-CW_${params.CLUSTER_WIDE}"
+            FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}-$PS_TAG"
             testsReportMap[TEST_NAME] = 'failure'
 
             popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
@@ -66,7 +66,12 @@ void runTest(String TEST_NAME) {
                     fi
 
                     sudo rm -rf /tmp/hostpath-provisioner/*
-                    ./e2e-tests/$TEST_NAME/run
+
+                    export KUBECONFIG=~/.kube/config
+                    export PATH="${HOME}/.krew/bin:$PATH"
+                    source $HOME/google-cloud-sdk/path.bash.inc
+
+                    kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "${TEST_NAME}"
                 fi
             """
             pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
