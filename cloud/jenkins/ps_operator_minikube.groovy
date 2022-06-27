@@ -168,6 +168,9 @@ pipeline {
         stage('Build docker image') {
             agent { label 'docker' }
             steps {
+                sh '''
+                    sudo rm -rf source
+                '''
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
