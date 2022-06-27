@@ -57,12 +57,20 @@ void runTest(String TEST_NAME) {
                             export IMAGE_MYSQL=${IMAGE_MYSQL}
                         fi
 
-                        if [ -n "${IMAGE_PMM}" ]; then
-                            export IMAGE_PMM=${IMAGE_PMM}
-                        fi
-
                         if [ -n "${IMAGE_ORCHESTRATOR}" ]; then
                             export IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR}
+                        fi
+
+                        if [ -n "${IMAGE_ROUTER}" ]; then
+                            export IMAGE_ROUTER=${IMAGE_ROUTER}
+                        fi
+
+                        if [ -n "${IMAGE_BACKUP}" ]; then
+                            export IMAGE_BACKUP=${IMAGE_BACKUP}
+                        fi
+
+                        if [ -n "${IMAGE_PMM}" ]; then
+                            export IMAGE_PMM=${IMAGE_PMM}
                         fi
 
                         export PATH="${HOME}/.krew/bin:$PATH"
@@ -132,12 +140,20 @@ pipeline {
             name: 'IMAGE_MYSQL')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/pmm-client:dev-latest',
-            name: 'IMAGE_PMM')
-        string(
-            defaultValue: '',
             description: 'Orchestrator image: perconalab/percona-server-mysql-operator:main-orchestrator',
             name: 'IMAGE_ORCHESTRATOR')
+        string(
+            defaultValue: '',
+            description: 'MySQL Router image: perconalab/percona-server-mysql-operator:main-router',
+            name: 'IMAGE_ROUTER')
+        string(
+            defaultValue: '',
+            description: 'XtraBackup image: perconalab/percona-server-mysql-operator:main-backup',
+            name: 'IMAGE_BACKUP')
+        string(
+            defaultValue: '',
+            description: 'PMM image: perconalab/pmm-client:dev-latest',
+            name: 'IMAGE_PMM')
     }
     environment {
         TF_IN_AUTOMATION = 'true'
