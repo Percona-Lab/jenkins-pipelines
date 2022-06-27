@@ -359,8 +359,6 @@ pipeline {
             '''
             fetchAgentLog(CLIENT_VERSION)
             sh '''
-                ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
-                ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
                 echo --- pmm-managed logs from pmm-server --- >> pmm-managed-full.log
                 docker exec pmm-server cat /srv/logs/pmm-managed.log >> pmm-managed-full.log || true
                 docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
@@ -383,7 +381,6 @@ pipeline {
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-agent.log'
-                    archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
                 }
             }
             allure([
