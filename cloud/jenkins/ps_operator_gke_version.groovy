@@ -258,7 +258,7 @@ pipeline {
 
                     kubectl krew install kuttl
                 '''
-                withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+                withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
                     sh '''
                         cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
                     '''
@@ -296,9 +296,14 @@ pipeline {
             }
             steps {
                 CreateCluster('basic')
+                runTest('auto-config', 'basic')
                 runTest('config', 'basic')
+                runTest('demand-backup', 'basic')
+                runTest('gr-init-deploy', 'basic')
                 runTest('init-deploy', 'basic')
+                runTest('limits', 'basic')
                 runTest('monitoring', 'basic')
+                runTest('scaling', 'basic')
                 runTest('semi-sync', 'basic')
                 runTest('service-per-pod', 'basic')
                 runTest('sidecars', 'basic')
