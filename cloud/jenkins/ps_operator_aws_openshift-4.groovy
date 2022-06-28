@@ -78,7 +78,7 @@ void runTest(String TEST_NAME) {
                         export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
                         oc whoami
 
-                        kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "${TEST_NAME}"
+                        kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^${TEST_NAME}\$"
                     fi
                 """
             }

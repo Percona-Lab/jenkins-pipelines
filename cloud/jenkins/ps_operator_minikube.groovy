@@ -79,7 +79,7 @@ void runTest(String TEST_NAME) {
                     export PATH="${HOME}/.krew/bin:$PATH"
                     source $HOME/google-cloud-sdk/path.bash.inc
 
-                    kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "${TEST_NAME}"
+                    kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^${TEST_NAME}\$"
                 fi
             """
             pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
