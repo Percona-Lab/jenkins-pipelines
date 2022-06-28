@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'docker-farm'
+        label 'agent-amd64'
     }
     parameters {
         string(
@@ -125,7 +125,7 @@ pipeline {
             steps {
                 sh '''
                     docker run -e PMM_SERVER_URL=\${PMM_URL} \
-                               -e PMM_RUN_UPDATE_TEST=1 \
+                               -e PMM_RUN_UPDATE_TEST=0 \
                                -e PMM_RUN_STT_TESTS=0 \
                                --name ${BUILD_TAG} \
                                --network host \
