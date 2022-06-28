@@ -78,7 +78,7 @@ void runTest(String TEST_NAME) {
                             source $HOME/google-cloud-sdk/path.bash.inc
                             export KUBECONFIG=~/.kube/config
 
-                            kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "${TEST_NAME}"
+                            kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^${TEST_NAME}\$"
                         fi
                     """
                 }
