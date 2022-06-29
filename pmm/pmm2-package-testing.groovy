@@ -117,9 +117,9 @@ pipeline {
         }
         stage('Execute Package Tests') {
             parallel {
-                stage('centos-7-x64') {
+                stage('rhel-7-x64') {
                     agent {
-                        label 'min-centos-7-x64'
+                        label 'min-rhel-7-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -131,9 +131,9 @@ pipeline {
                         }
                     }
                 }
-                stage('centos-8-x64') {
+                stage('rhel-8-x64') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-rhel-8-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -145,9 +145,9 @@ pipeline {
                         }
                     }
                 }
-                stage('centos-9-x64') {
+                stage('rhel-9-x64') {
                     agent {
-                        label 'min-centos-9-x64'
+                        label 'min-rhel-9-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
