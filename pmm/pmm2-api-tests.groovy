@@ -93,9 +93,7 @@ pipeline {
                     -e PERCONA_TEST_CHECKS_INTERVAL=10s \
                     -e ENABLE_BACKUP_MANAGEMENT=1 \
                     -e PERCONA_TEST_DBAAS=0 \
-                    -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com \
                     -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com \
-                    -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
                     -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
                     -p 80:80 \
                     -p 443:443 \
