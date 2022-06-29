@@ -21,9 +21,9 @@ def call() {
                 RHEL=("6" "7" "8" "9")
                 for rhel in \${RHEL[*]}; do
                     mkdir -p \${path_to_build}/binary/redhat/\${rhel}/x86_64
-                    if [ `find . -name '*.el\${rhel}.noarch.rpm' -o -name '*.el\${rhel}.x86_64.rpm' | wc -l` -gt 0 ]; then
+                    if [ `find . -name "*.el\${rhel}.noarch.rpm" -o -name "*.el\${rhel}.x86_64.rpm" | wc -l` -gt 0 ]; then
                         scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                            `find . -name '*.el\${rhel}.noarch.rpm' -o -name '*.el\${rhel}.x86_64.rpm'` \
+                            `find . -name "*.el\${rhel}.noarch.rpm" -o -name "*.el\${rhel}.x86_64.rpm"` \
                             ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/\${rhel}/x86_64/
                     fi
                 done
