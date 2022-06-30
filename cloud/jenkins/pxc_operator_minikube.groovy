@@ -246,6 +246,7 @@ pipeline {
 
                     sh '''
                         sudo yum install -y conntrack
+                        sudo usermod -aG docker $USER
                         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                             rm -rf $HOME/google-cloud-sdk
                             curl https://sdk.cloud.google.com | bash
@@ -261,11 +262,7 @@ pipeline {
                         sudo chmod +x /usr/local/bin/yq
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
-                        export CHANGE_MINIKUBE_NONE_USER=true
-                        sudo -E /usr/local/bin/minikube start --vm-driver=none --kubernetes-version ${PLATFORM_VER}
-                        sudo mv /root/.kube /root/.minikube $HOME
-                        sudo chown -R $USER $HOME/.kube $HOME/.minikube
-                        sed -i s:/root:$HOME:g $HOME/.kube/config
+                        /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER}
                     '''
 
                     unstash "sourceFILES"
