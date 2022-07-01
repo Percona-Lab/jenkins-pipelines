@@ -78,7 +78,7 @@ pipeline {
                     else
                     sudo apt install -y git wget
                     fi
-                    git clone https://github.com/kaushikpuneet07/percona-qa.git --branch PXC-3970 --depth 1
+                    git clone https://github.com/Percona-QA/percona-qa.git --branch master --depth 1
                     cd percona-qa/pxc-tests
                     ./cross_version_pxc_57_80_test.sh $ROOT_FS/Lower-Percona-XtraDB-latest $ROOT_FS/Upper-Percona-XtraDB-latest
                     set -e
