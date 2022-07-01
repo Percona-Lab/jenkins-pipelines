@@ -71,21 +71,21 @@ pipeline {
                 echo 'Starting cross verification script: \$(date -u "+%s")'
                 sh '''
                     set +e
-                    exitcode=0
                     rm -rf percona-qa
                     if [ -f /usr/bin/yum ]; then
-                    sudo yum install -y git wget sysbench
+                    sudo yum install -y git wget
                     else
-                    sudo apt install -y git wget sysbench
+                    sudo apt install -y git wget
                     fi
+                    ROOT_FS=$PWD
                     git clone https://github.com/Percona-QA/percona-qa.git --branch master --depth 1
                     cd percona-qa/pxc-tests
-                    ./cross_version_pxc_57_80_test.sh $ROOT_FS/lower_pxc_latest/Lower-Percona-XtraDB-latest $ROOT_FS/upper_pxc_latest/Upper-Percona-XtraDB-latest
+                    bash -x cross_version_pxc_57_80_test.sh $ROOT_FS/lower_pxc_latest/Lower-Percona-XtraDB-latest $ROOT_FS/upper_pxc_latest/Upper-Percona-XtraDB-latest || status=$?
                     set -e
-                    if [ $exitcode1 -gt 0 ];then
-                      exit 1;
-                    else
+                    if [ $status -eq 0 ];then
                       exit 0;
+                    else
+                      exit 1;
                     fi
                 '''
             }
