@@ -1,0 +1,34 @@
+- job:
+    name: cross_version_pxc_57_80_test-pipeline
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: true
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/kaushikpuneet07/jenkins-pipelines.git
+            branches:
+            - 'PXC-3970'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ps/jenkins/cross_version_pxc_57_80_test-pipeline.groovy
+    parameters:
+    - string:
+        name: LOWER_PXC_VERSION
+        default: 5.7.38-31.59
+        description: PXC lower version tarball to download for testing
+    - string:
+        name: UPPER_PXC_VERSION
+        default: 8.0.27-18.1
+        description: PXC Upper version tarball to download for testing
+    - string:
+        name: PXC57_PKG_VERSION
+        default: 5.7.38-rel41-59.1
+        description: PXC-5.7 package version
+    axes:
+      - axis:
+         type: user-defined
+         name: DOCKER_OS
+         values:
+          - ubuntu:focal
