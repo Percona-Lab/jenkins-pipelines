@@ -91,10 +91,11 @@ pipeline {
             }
         }
     }
-//    post {
-//        always {
-//            sh '''
-//                echo Finish: \$(date -u "+%s")
-//            '''
-//        }
-//     } 
+    post {
+        always {
+            sh '''
+                echo Finish: \$(date -u "+%s")
+            '''
+        }
+     } 
+  }
