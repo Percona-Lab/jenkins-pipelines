@@ -74,13 +74,13 @@ pipeline {
                     exitcode=0
                     rm -rf percona-qa
                     if [ -f /usr/bin/yum ]; then
-                    sudo yum install -y git wget
+                    sudo yum install -y git wget sysbench
                     else
-                    sudo apt install -y git wget
+                    sudo apt install -y git wget sysbench
                     fi
                     git clone https://github.com/Percona-QA/percona-qa.git --branch master --depth 1
                     cd percona-qa/pxc-tests
-                    ./cross_version_pxc_57_80_test.sh $ROOT_FS/Lower-Percona-XtraDB-latest $ROOT_FS/Upper-Percona-XtraDB-latest
+                    ./cross_version_pxc_57_80_test.sh $ROOT_FS/lower_pxc_latest/Lower-Percona-XtraDB-latest $ROOT_FS/upper_pxc_latest/Upper-Percona-XtraDB-latest
                     set -e
                     if [ $exitcode1 -gt 0 ];then
                       exit 1;
