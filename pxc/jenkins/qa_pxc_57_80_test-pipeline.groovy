@@ -71,9 +71,9 @@ pipeline {
                     set +e
                     rm -rf percona-qa
                     if [ -f /usr/bin/yum ]; then
-                    sudo yum install -y git wget
+                    sudo yum install -y git wget socat
                     else
-                    sudo apt install -y git wget
+                    sudo apt install -y git wget socat
                     fi
                     ROOT_FS=$PWD
                     git clone https://github.com/Percona-QA/percona-qa.git --branch master --depth 1
