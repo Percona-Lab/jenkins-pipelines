@@ -40,14 +40,13 @@ pipeline {
                     ROOT_FS=$(pwd)
                     sudo killall -9 mysqld || true
                     # Fetch the latest LOWER_PXC binaries
-                    rm -rf $ROOT_FS/lower_pxc_latest || true
-                    mkdir $ROOT_FS/lower_pxc_latest
-                    cd $ROOT_FS/lower_pxc_latest
+                    cd $ROOT_FS/
+                    rm -rf $ROOT_FS/pxc_5.7_tar || true
                     LOWER_PXC_TAR=lower-pxc-latest.tar.gz
                     wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${LOWER_PXC_VERSION}/Percona-XtraDB-Cluster-${PXC57_PKG_VERSION}.Linux.x86_64.glibc2.17.tar.gz > ${LOWER_PXC_TAR}
                     tar -xzf ${LOWER_PXC_TAR}
                     rm *.tar.gz
-                    mv Percona-XtraDB-* Lower-Percona-XtraDB-latest
+                    mv Percona-XtraDB-* pxc_5.7_tar
                 '''
                echo 'Downloading Upper_PXC tarball: \$(date -u "+%s")'
                sh '''
@@ -55,14 +54,13 @@ pipeline {
                     ROOT_FS=$(pwd)
                     sudo killall -9 mysqld || true
                     # Fetch the latest Upper_PXC binaries
-                    rm -rf $ROOT_FS/upper_pxc_latest || true
-                    mkdir $ROOT_FS/upper_pxc_latest
-                    cd $ROOT_FS/upper_pxc_latest
+                    cd $ROOT_FS
+                    rm -rf $ROOT_FS/pxc_8.0_tar || true
                     UPPER_PXC_TAR=upper-pxc-latest.tar.gz
                     wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${UPPER_PXC_VERSION}/Percona-XtraDB-Cluster_${UPPER_PXC_VERSION}_Linux.x86_64.glibc2.17.tar.gz > ${UPPER_PXC_TAR}
                     tar -xzf ${UPPER_PXC_TAR}
                     rm *.tar.gz
-                    mv Percona-XtraDB-* Upper-Percona-XtraDB-latest
+                    mv Percona-XtraDB-* pxc_8.0_tar
                 '''
             }
         }
@@ -80,7 +78,7 @@ pipeline {
                     ROOT_FS=$PWD
                     git clone https://github.com/Percona-QA/percona-qa.git --branch master --depth 1
                     cd percona-qa/pxc-tests
-                    bash -x cross_version_pxc_57_80_test.sh $ROOT_FS/lower_pxc_latest/Lower-Percona-XtraDB-latest $ROOT_FS/upper_pxc_latest/Upper-Percona-XtraDB-latest || status=$?
+                    bash -x cross_version_pxc_57_80_test.sh $ROOT_FS/pxc_5.7_tar $ROOT_FS/pxc_8.0_tar || status=$?
                     set -e
                     if [ $status -eq 0 ];then
                       exit 0;
