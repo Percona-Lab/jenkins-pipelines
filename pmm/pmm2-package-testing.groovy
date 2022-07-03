@@ -71,7 +71,9 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
 def latestVersion = pmmVersion()
 
 pipeline {
-    agent any
+    agent {
+        label 'agent-amd64'
+    }
     parameters {
         string(
             defaultValue: 'master',

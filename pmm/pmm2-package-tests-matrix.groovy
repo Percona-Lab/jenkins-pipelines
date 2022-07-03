@@ -18,7 +18,7 @@ def latestVersion = pmmVersion()
 
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'cli'
     }
     parameters {
         string(

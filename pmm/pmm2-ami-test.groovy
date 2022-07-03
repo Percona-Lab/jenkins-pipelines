@@ -31,7 +31,7 @@ void runAMIStaginStop(INSTANCE_ID) {
 
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'cli'
     }
     parameters {
         string(
