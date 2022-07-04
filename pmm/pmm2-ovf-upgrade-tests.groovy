@@ -326,24 +326,17 @@ pipeline {
                     destroyStaging(VM_CLIENT_IP_DB)
                 }
             }
-            sh '''
-                ./node_modules/.bin/mochawesome-merge tests/output/*.json > tests/output/combine_results.json || true
-                ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
-            '''
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'tests/output/*.xml'
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
-                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-agent.log'
                 } else {
                     junit 'tests/output/*.xml'
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-agent.log'
-                    archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
             allure([
