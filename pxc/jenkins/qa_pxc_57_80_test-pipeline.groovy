@@ -31,7 +31,7 @@ pipeline {
 
     }
     agent {
-        label 'micro-amazon'
+        label 'docker'
     }
     options {
         skipDefaultCheckout()
@@ -80,7 +80,7 @@ pipeline {
                     set +e
                     rm -rf percona-qa
                     echo $TEST_DIST
-                    if [ -f /usr/bin/yum ]; then
+                    if [ -f /etc/redhat-release ]; then
                     sudo yum install -y git wget socat
                     else
                     sudo apt install -y git wget socat
