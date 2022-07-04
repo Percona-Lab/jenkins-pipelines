@@ -80,7 +80,7 @@ pipeline {
                     set +e
                     rm -rf percona-qa
                     echo $TEST_DIST
-                    if [ -f /etc/redhat-release ]; then
+                    if [ -f /usr/bin/yum ]; then
                     sudo yum install -y git wget socat
                     else
                     sudo apt install -y git wget socat
