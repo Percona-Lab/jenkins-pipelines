@@ -26,13 +26,13 @@
         name: PXC57_PKG_VERSION
         default: 5.7.38-rel41-59.1
         description: PXC-5.7 package version
-    axes:
-      - axis:
-         type: user-defined
-         name: DOCKER_OS
-         values:
-          - centos:7
-          - centos:8
-          - ubuntu:bionic
-          - ubuntu:focal
-          - debian:buster
+    - choice:
+        name: TEST_DIST
+        choices:
+            - 'ubuntu-focal'
+            - 'ubuntu-bionic'
+            - 'debian-11'
+            - 'debian-10'
+            - 'centos-7'
+            - 'oracle-linux-8'
+        description: Distribution to run test

@@ -8,9 +8,17 @@ pipeline {
             name: 'LOWER_PXC_VERSION',
             trim: true)
         choice(
-            choices: 'centos:7\ncentos:8\nubuntu:bionic\nubuntu:focal\ndebian:buster',
-            description: 'OS version for compilation',
-            name: 'DOCKER_OS')
+            name: 'TEST_DIST',
+            choices: [
+                'ubuntu-focal',
+                'ubuntu-bionic',
+                'debian-11',
+                'debian-10',
+                'centos-7',
+                'oracle-linux-8'
+            ],
+            description: 'Distribution to run test'
+        )
         string(
             defaultValue: '8.0.27-18.1',
             description: 'PXC Upper version tarball to download for testing',
