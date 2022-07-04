@@ -8,7 +8,7 @@ pipeline {
             name: 'LOWER_PXC_VERSION',
             trim: true)
         choice(
-            choices: 'ubuntu:focal',
+            choices: 'centos:7\ncentos:8\nubuntu:bionic\nubuntu:focal\ndebian:buster',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         string(
