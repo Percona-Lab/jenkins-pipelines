@@ -29,9 +29,6 @@ imageMap['us-east-2a.min-jammy-x64']    = 'ami-07a683b72d6bd7da3'
 imageMap['us-east-2a.min-buster-x64']   = 'ami-0d90bed76900e679a'
 imageMap['us-east-2a.min-stretch-x64']  = 'ami-0c729632334a74b05'
 imageMap['us-east-2a.min-bullseye-x64'] = 'ami-0c9e778f8faae5214'
-imageMap['us-east-2a.micro-amazon']     = 'ami-0fe23c115c3ba9bac'
-imageMap['us-east-2a.large-amazon']     = imageMap['us-east-2a.micro-amazon']
-imageMap['us-east-2a.docker']           = imageMap['us-east-2a.micro-amazon']
 
 imageMap['us-east-2b.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
 imageMap['us-east-2b.min-centos-8-x64'] = imageMap['us-east-2a.min-centos-8-x64']
@@ -41,9 +38,6 @@ imageMap['us-east-2b.min-jammy-x64']    = imageMap['us-east-2a.min-jammy-x64']
 imageMap['us-east-2b.min-buster-x64']   = imageMap['us-east-2a.min-buster-x64']
 imageMap['us-east-2b.min-stretch-x64']  = imageMap['us-east-2a.min-stretch-x64']
 imageMap['us-east-2b.min-bullseye-x64'] = imageMap['us-east-2a.min-bullseye-x64']
-imageMap['us-east-2b.micro-amazon']     = imageMap['us-east-2a.micro-amazon']
-imageMap['us-east-2b.large-amazon']     = imageMap['us-east-2a.large-amazon']
-imageMap['us-east-2b.docker']           = imageMap['us-east-2a.docker']
 
 imageMap['us-east-2c.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
 imageMap['us-east-2c.min-centos-8-x64'] = imageMap['us-east-2a.min-centos-8-x64']
@@ -53,9 +47,7 @@ imageMap['us-east-2c.min-jammy-x64']    = imageMap['us-east-2a.min-jammy-x64']
 imageMap['us-east-2c.min-buster-x64']   = imageMap['us-east-2a.min-buster-x64']
 imageMap['us-east-2c.min-stretch-x64']  = imageMap['us-east-2a.min-stretch-x64']
 imageMap['us-east-2b.min-bullseye-x64'] = imageMap['us-east-2a.min-bullseye-x64']
-imageMap['us-east-2c.micro-amazon']     = imageMap['us-east-2a.micro-amazon']
-imageMap['us-east-2c.large-amazon']     = imageMap['us-east-2a.large-amazon']
-imageMap['us-east-2c.docker']           = imageMap['us-east-2a.docker']
+
 
 priceMap = [:]
 priceMap['t2.large']  = '0.04'
@@ -72,9 +64,7 @@ userMap['min-jammy-x64']     = 'ubuntu'
 userMap['min-buster-x64']    = 'admin'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-bullseye-x64']  = 'admin'
-userMap['micro-amazon']      = 'ec2-user'
-userMap['large-amazon']      = userMap['micro-amazon']
-userMap['docker']            = userMap['micro-amazon']
+
 
 initMap = [:]
 
@@ -195,8 +185,6 @@ initMap['debMap'] = '''
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 
-initMap['micro-amazon']     = initMap['rpmMap']
-initMap['large-amazon']     = initMap['rpmMap']
 initMap['min-centos-7-x64'] = initMap['rpmMap']
 initMap['min-centos-8-x64'] = initMap['rpmMap']
 initMap['min-focal-x64']    = initMap['debMap']
@@ -284,9 +272,7 @@ typeMap['min-jammy-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
 typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
-typeMap['micro-amazon']      = 't3.large'
-typeMap['large-amazon']      = 't3.xlarge'
-typeMap['docker']            = 't3.xlarge'
+
 
 execMap = [:]
 execMap['min-centos-7-x64']  = '1'
@@ -297,9 +283,6 @@ execMap['min-jammy-x64']     = '1'
 execMap['min-buster-x64']    = '1'
 execMap['min-stretch-x64']   = '1'
 execMap['min-bullseye-x64']  = '1'
-execMap['micro-amazon']      = '4'
-execMap['large-amazon']      = '1'
-execMap['docker']            = '1'
 
 devMap = [:]
 devMap['min-centos-7-x64']  = '/dev/sda1=:80:true:gp2,/dev/sdd=:20:true:gp2'
@@ -310,9 +293,6 @@ devMap['min-jammy-x64']     = devMap['min-centos-7-x64']
 devMap['min-buster-x64']    = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
 devMap['min-stretch-x64']   = 'xvda=:80:true:gp2,xvdd=:20:true:gp2'
 devMap['min-bullseye-x64']  = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
-devMap['micro-amazon']      = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
-devMap['large-amazon']      = '/dev/xvda=:100:true:gp2'
-devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 
 labelMap = [:]
 labelMap['min-centos-7-x64']  = 'min-centos-7-x64'
@@ -323,9 +303,6 @@ labelMap['min-jammy-x64']     = 'min-jammy-x64'
 labelMap['min-buster-x64']    = 'min-buster-x64'
 labelMap['min-stretch-x64']   = 'min-stretch-x64'
 labelMap['min-bullseye-x64']  = 'min-bullseye-x64'
-labelMap['micro-amazon']      = 'micro-amazon nodejs master awscli'
-labelMap['large-amazon']      = 'large-amazon'
-labelMap['docker']            = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -403,9 +380,6 @@ String region = 'us-east-2'
             getTemplate('min-buster-x64',       "${region}${it}"),
             getTemplate('min-stretch-x64',      "${region}${it}"),
             getTemplate('min-bullseye-x64',     "${region}${it}"),
-            getTemplate('micro-amazon',         "${region}${it}"),
-            getTemplate('large-amazon',         "${region}${it}"),
-            getTemplate('docker',               "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
