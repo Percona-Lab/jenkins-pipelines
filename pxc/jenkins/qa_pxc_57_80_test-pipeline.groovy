@@ -46,6 +46,7 @@ pipeline {
                 sh '''
                     set -o pipefail
                     ROOT_FS=$(pwd)
+                    echo $(TEST_DIST)
                     sudo killall -9 mysqld || true
                     # Fetch the latest LOWER_PXC binaries
                     cd $ROOT_FS/
@@ -78,6 +79,7 @@ pipeline {
                 sh '''
                     set +e
                     rm -rf percona-qa
+                    echo $(TEST_DIST)
                     if [ -f /usr/bin/yum ]; then
                     sudo yum install -y git wget socat
                     else
