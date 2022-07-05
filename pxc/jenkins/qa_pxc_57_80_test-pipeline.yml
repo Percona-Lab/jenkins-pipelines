@@ -12,7 +12,7 @@
             - 'PXC-3970'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pxc/jenkins/qa_pxc_57_80_test-pipeline.groovy
+      script-path: pxc/jenkins/qa_pxc_new.groovy
     parameters:
     - string:
         name: LOWER_PXC_VERSION
