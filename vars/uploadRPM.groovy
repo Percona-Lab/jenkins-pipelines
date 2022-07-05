@@ -7,11 +7,9 @@ def call() {
             sh """
                 export path_to_build=`cat uploadPath`
 
+                # Upload source packages
                 ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                    mkdir -p \${path_to_build}/source/redhat \
-                             \${path_to_build}/binary/redhat/6/x86_64 \
-                             \${path_to_build}/binary/redhat/7/x86_64 \
-                             \${path_to_build}/binary/redhat/8/x86_64
+                    mkdir -p \${path_to_build}/source/redhat
 
                 if [ `find . -name '*.src.rpm' | wc -l` -gt 0 ]; then
                     scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
@@ -19,22 +17,17 @@ def call() {
                         ${USER}@repo.ci.percona.com:\${path_to_build}/source/redhat/
                 fi
 
-                if [ `find . -name '*.el6.noarch.rpm' -o -name '*.el6.x86_64.rpm' | wc -l` -gt 0 ]; then
-                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                        `find . -name '*.el6.noarch.rpm' -o -name '*.el6.x86_64.rpm'` \
-                        ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/6/x86_64/
-                fi
-
-                if [ `find . -name '*.el7.noarch.rpm' -o -name '*.el7.x86_64.rpm' | wc -l` -gt 0 ]; then
-                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                        `find . -name '*.el7.noarch.rpm' -o -name '*.el7.x86_64.rpm'` \
-                        ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/7/x86_64/
-                fi
-                if [ `find . -name '*.el8.noarch.rpm' -o -name '*.el8.x86_64.rpm' | wc -l` -gt 0 ]; then
-                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                        `find . -name '*.el8.noarch.rpm' -o -name '*.el8.x86_64.rpm'` \
-                        ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/8/x86_64/
-                fi
+                # Upload binary packages
+                RHEL=("6" "7" "8" "9")
+                for rhel in \${RHEL[*]}; do
+                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                        mkdir -p \${path_to_build}/binary/redhat/\${rhel}/x86_64
+                    if [ `find . -name "*.el\${rhel}.noarch.rpm" -o -name "*.el\${rhel}.x86_64.rpm" | wc -l` -gt 0 ]; then
+                        scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                            `find . -name "*.el\${rhel}.noarch.rpm" -o -name "*.el\${rhel}.x86_64.rpm"` \
+                            ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/\${rhel}/x86_64/
+                    fi
+                done
             """
         }
         deleteDir()

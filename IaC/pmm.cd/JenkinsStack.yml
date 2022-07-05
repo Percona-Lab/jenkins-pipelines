@@ -616,14 +616,14 @@ Resources:
                   wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                   amazon-linux-extras install epel -y
+                  amazon-linux-extras install java-openjdk11 -y
                   yum -y update --security
-                  yum -y install java-1.8.0-openjdk jenkins-2.332.3 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install jenkins-2.346.1 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
                   echo "exclude=java*" >> /etc/yum/yum-cron.conf
                   systemctl enable --now yum-cron
-
               }
 
               volume_state() {
@@ -682,7 +682,7 @@ Resources:
 
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
-                  sed -i 's|-Djava.awt.headless=true|-Djava.awt.headless=true -Xms4096m -Xmx4096m -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc-%t.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2 -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600|' /usr/lib/systemd/system/jenkins.service
+                  sed -i 's|-Djava.awt.headless=true|-Djava.awt.headless=true -Xms3072m -Xmx3072m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600|' /usr/lib/systemd/system/jenkins.service
                   sed -i 's/\/var\/lib\/jenkins/\/mnt\/pmm.cd.percona.com/g' /usr/lib/systemd/system/jenkins.service
                   systemctl daemon-reload
                   systemctl enable --now jenkins
