@@ -16,6 +16,25 @@ void runOVFUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_
 def latestVersion = pmmVersion()
 def versionsList = pmmVersion('list')
 
+
+def parallelStagesMatrix = versionsList.collectEntries {
+    ["${it}" : generateStage(it)]
+}
+
+def generateStage(VERSION) {
+    return {
+        stage("${VERSION}") {
+            runOVFUpgradeJob(
+                GIT_BRANCH,
+                VERSION,
+                PMM_SERVER_LATEST,
+                ENABLE_TESTING_REPO,
+                PMM_QA_GIT_BRANCH
+            )
+        }
+    }
+}
+
 pipeline {
     agent {
         label 'cli'
@@ -46,23 +65,10 @@ pipeline {
         cron('0 1 * * 7')
     }
     stages {
-        stage('Run OVF Upgrade Matrix') {
-            matrix {
-                agent any
-                axes {
-                    axis {
-                        name 'VERSION'
-                        values versionsList
-                    }
-                }
-                stages {
-                    stage('Upgrade'){
-                        steps {
-                            script {
-                                runOVFUpgradeJob(GIT_BRANCH, VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_GIT_BRANCH)
-                            }
-                        }
-                    }
+        stage('Upgrade OVF Upgrade Matrix'){
+            steps{
+                script {
+                    parallel parallelStagesMatrix
                 }
             }
         }
