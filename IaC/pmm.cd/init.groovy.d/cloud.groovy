@@ -175,69 +175,6 @@ initMap['min-stretch-x64']  = initMap['debMap']
 initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-buster-x64']   = initMap['debMap']
 
-initMap['docker'] = '''
-    set -o xtrace
-    if ! mountpoint -q /mnt; then
-        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
-            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
-                DEVICE="${DEVICE_NAME}"
-                break
-            fi
-        done
-        if [ -n "${DEVICE}" ]; then
-            sudo mkfs.ext4 ${DEVICE}
-            sudo mount -o noatime ${DEVICE} /mnt
-        fi
-    fi
-    sudo ethtool -K eth0 sg off
-    printf "127.0.0.1 $(hostname) $(hostname -A)
-    10.30.6.220 vbox-01.ci.percona.com
-    10.30.6.9 repo.ci.percona.com
-    "     | sudo tee -a /etc/hosts
-
-    until sudo yum makecache; do
-        sleep 1
-        echo try again
-    done
-    sudo amazon-linux-extras install epel -y
-    sudo yum -y install java-1.8.0-openjdk git docker p7zip
-    sudo yum -y remove java-1.7.0-openjdk aws-cli
-
-    if ! $(aws --version | grep -q 'aws-cli/2'); then
-        find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
-
-        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
-            sleep 1
-            echo try again
-        done
-
-        7za -o/tmp x /tmp/awscliv2.zip
-        cd /tmp/aws && sudo ./install
-    fi
-
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-
-    sudo sysctl net.ipv4.tcp_fin_timeout=15
-    sudo sysctl net.ipv4.tcp_tw_reuse=1
-    sudo sysctl net.ipv6.conf.all.disable_ipv6=1
-    sudo sysctl net.ipv6.conf.default.disable_ipv6=1
-    sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
-    sudo sysctl -w fs.aio-max-nr=1048576 || true
-    sudo sysctl -w fs.file-max=6815744 || true
-    echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
-    sudo sed -i.bak -e 's/nofile=1024:4096/nofile=900000:900000/; s/DAEMON_MAXFILES=.*/DAEMON_MAXFILES=990000/' /etc/sysconfig/docker
-    echo 'DOCKER_STORAGE_OPTIONS="--data-root=/mnt/docker"' | sudo tee -a /etc/sysconfig/docker-storage
-    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
-    sudo systemctl daemon-reload
-    sudo install -o root -g root -d /mnt/docker
-    sudo usermod -aG docker $(id -u -n)
-    sudo mkdir -p /etc/docker
-    echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
-    sudo systemctl status docker || sudo systemctl start docker
-    sudo service docker status || sudo service docker start
-    echo "* * * * * root /usr/sbin/route add default gw 10.199.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
-'''
-
 capMap = [:]
 capMap['t2.large']   = '20'
 capMap['t3.xlarge']  = '20'
