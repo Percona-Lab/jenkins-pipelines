@@ -330,7 +330,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
-        new UnixData('', '', '', '22'),             // AMITypeData amiType
+        new UnixData('', '', '', '', '22'),         // AMITypeData amiType
         '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
