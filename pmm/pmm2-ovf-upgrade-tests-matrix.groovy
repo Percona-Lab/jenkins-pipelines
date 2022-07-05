@@ -5,8 +5,8 @@ library changelog: false, identifier: 'lib@PMM-8016', retriever: modernSCM([
 void runOVFUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_GIT_BRANCH) {
     upgradeJob = build job: 'pmm2-ovf-upgrade-tests', parameters: [
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
+        string(name: 'SERVER_VERSION', value: PMM_VERSION),
         string(name: 'CLIENT_VERSION', value: PMM_VERSION),
-        string(name: 'OVA_VERSION', value: PMM_VERSION),
         string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
         string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH)
