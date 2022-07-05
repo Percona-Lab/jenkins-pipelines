@@ -4,7 +4,7 @@ import jenkins.model.Jenkins
 import hudson.plugins.sshslaves.SSHLauncher
 
 
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-8016', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -143,7 +143,7 @@ void fetchAgentLog(String CLIENT_VERSION) {
 }
 
 def latestVersion = pmmVersion()
-def versionsList = pmmVersion('list')
+def versionsList = pmmVersion('ovf')
 
 pipeline {
     agent {
