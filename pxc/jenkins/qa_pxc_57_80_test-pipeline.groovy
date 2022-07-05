@@ -79,9 +79,9 @@ pipeline {
                 sh '''
                     set +e
                     rm -rf percona-qa
-                    echo $TEST_DIST
                     if [ -f /usr/bin/yum ]; then
-                    sudo yum install -y git wget socat
+                    sudo yum install -y git wget socat lsb_release
+                    lsb_release -a
                     else
                     sudo apt install -y git wget socat
                     fi
