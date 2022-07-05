@@ -80,7 +80,7 @@ pipeline {
                     set +e
                     rm -rf percona-qa
                     if [ -f /usr/bin/yum ]; then
-                    sudo yum install -y git wget socat lsb_release
+                    sudo yum install -y git wget socat redhat-lsb-core
                     lsb_release -a
                     else
                     sudo apt install -y git wget socat
