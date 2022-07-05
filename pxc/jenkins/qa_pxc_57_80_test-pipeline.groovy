@@ -89,12 +89,15 @@ pipeline {
                     git clone https://github.com/Percona-QA/percona-qa.git --branch master --depth 1
                     cd percona-qa/pxc-tests
                     bash -x cross_version_pxc_57_80_test.sh $ROOT_FS/pxc_5.7_tar $ROOT_FS/pxc_8.0_tar || status=$?
-                    cat /mnt/jenkins/workspace/qa_pxc_57_80_test-pipeline/pxc_8.0_tar/pxc-node/node2.err
                     set -e
-                    if [ $status -eq 0 ];then
-                      exit 0;
+                    if [[ "$status" == "1" ]];then
+                      echo "Printing Node 1 error logs..."
+                      cat /mnt/jenkins/workspace/qa_pxc_57_80_test-pipeline/pxc_5.7_tar/pxc-node/node1.err
+                      echo "Printing Node 2 error logs..."
+                      cat /mnt/jenkins/workspace/qa_pxc_57_80_test-pipeline/pxc_8.0_tar/pxc-node/node2.err
+                      exit 1
                     else
-                      exit 1;
+                      exit 0
                     fi
                 '''
             }
