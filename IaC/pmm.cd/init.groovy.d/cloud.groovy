@@ -20,9 +20,12 @@ netMap = [:]
 netMap['us-east-2b'] = 'subnet-04356480646777b55'
 netMap['us-east-2c'] = 'subnet-00b3df129e7d8c658'
 
+
+// TODO We use rhel label here, but it's RHEL-compatible derivative.
 imageMap = [:]
-imageMap['us-east-2a.min-centos-7-x64'] = 'ami-00f8e2c955f7ffa9b'
-imageMap['us-east-2a.min-centos-8-x64'] = 'ami-0c2c9b5652599cf35'
+imageMap['us-east-2a.min-rhel-7-x64'] = 'ami-00f8e2c955f7ffa9b' //centos 7
+imageMap['us-east-2a.min-rhel-8-x64'] = 'ami-0c2c9b5652599cf35' // oracle linux 8
+imageMap['us-east-2a.min-rhel-9-x64'] = 'ami-028b1d77476075858' // almalinux 9
 imageMap['us-east-2a.min-focal-x64']    = 'ami-0eea504f45ef7a8f7'
 imageMap['us-east-2a.min-bionic-x64']   = 'ami-0b9ecb12083282d75'
 imageMap['us-east-2a.min-jammy-x64']    = 'ami-07a683b72d6bd7da3'
@@ -33,8 +36,9 @@ imageMap['us-east-2a.micro-amazon']     = 'ami-0fe23c115c3ba9bac'
 imageMap['us-east-2a.large-amazon']     = imageMap['us-east-2a.micro-amazon']
 imageMap['us-east-2a.docker']           = imageMap['us-east-2a.micro-amazon']
 
-imageMap['us-east-2b.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
-imageMap['us-east-2b.min-centos-8-x64'] = imageMap['us-east-2a.min-centos-8-x64']
+imageMap['us-east-2b.min-rhel-7-x64'] = imageMap['us-east-2a.min-rhel-7-x64']
+imageMap['us-east-2b.min-rhel-8-x64'] = imageMap['us-east-2a.min-rhel-8-x64']
+imageMap['us-east-2b.min-rhel-9-x64'] = imageMap['us-east-2a.min-rhel-9-x64']
 imageMap['us-east-2b.min-focal-x64']    = imageMap['us-east-2a.min-focal-x64']
 imageMap['us-east-2b.min-bionic-x64']   = imageMap['us-east-2a.min-bionic-x64']
 imageMap['us-east-2b.min-jammy-x64']    = imageMap['us-east-2a.min-jammy-x64']
@@ -45,8 +49,9 @@ imageMap['us-east-2b.micro-amazon']     = imageMap['us-east-2a.micro-amazon']
 imageMap['us-east-2b.large-amazon']     = imageMap['us-east-2a.large-amazon']
 imageMap['us-east-2b.docker']           = imageMap['us-east-2a.docker']
 
-imageMap['us-east-2c.min-centos-7-x64'] = imageMap['us-east-2a.min-centos-7-x64']
-imageMap['us-east-2c.min-centos-8-x64'] = imageMap['us-east-2a.min-centos-8-x64']
+imageMap['us-east-2c.min-rhel-7-x64'] = imageMap['us-east-2a.min-rhel-7-x64']
+imageMap['us-east-2c.min-rhel-8-x64'] = imageMap['us-east-2a.min-rhel-8-x64']
+imageMap['us-east-2c.min-rhel-9-x64'] = imageMap['us-east-2a.min-rhel-9-x64']
 imageMap['us-east-2c.min-focal-x64']    = imageMap['us-east-2a.min-focal-x64']
 imageMap['us-east-2c.min-bionic-x64']   = imageMap['us-east-2a.min-bionic-x64']
 imageMap['us-east-2c.min-jammy-x64']    = imageMap['us-east-2a.min-jammy-x64']
@@ -64,8 +69,9 @@ priceMap['t3.large']  = '0.03'
 priceMap['m4.large']  = '0.03'
 
 userMap = [:]
-userMap['min-centos-7-x64']  = 'centos'
-userMap['min-centos-8-x64']  = 'rocky'
+userMap['min-rhel-7-x64']  = 'centos'
+userMap['min-rhel-8-x64']  = 'rocky'
+userMap['min-rhel-9-x64']  = 'ec2-user'
 userMap['min-focal-x64']     = 'ubuntu'
 userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-jammy-x64']     = 'ubuntu'
@@ -94,32 +100,6 @@ initMap['rpmMap'] = '''
         if [ -n "${DEVICE}" ]; then
             sudo mkfs.ext2 ${DEVICE}
             sudo mount ${DEVICE} /mnt
-        fi
-    fi
-    if [[ ${RHVER} -eq 6 ]]; then
-        if [[ ${ARCH} == "x86_64" ]]; then
-            sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
-        else
-            sudo curl -k https://jenkins.percona.com/downloads/cent6/centos6-eol-s3.repo --output /etc/yum.repos.d/CentOS-Base.repo
-        fi
-        until sudo yum makecache; do
-            sleep 1
-            echo try again
-        done
-        if [[ ${ARCH} == "x86_64" ]]; then
-            PKGLIST="epel-release centos-release-scl"
-        else
-            PKGLIST="epel-release"
-        fi
-        until sudo yum -y install ${PKGLIST}; do
-            sleep 1
-            echo try again
-        done
-        sudo rm /etc/yum.repos.d/epel-testing.repo
-        sudo curl https://jenkins.percona.com/downloads/cent6/centos6-epel-eol.repo --output /etc/yum.repos.d/epel.repo
-        if [[ ${ARCH} == "x86_64" ]]; then
-            sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl.repo
-            sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
         fi
     fi
 
@@ -197,8 +177,9 @@ initMap['debMap'] = '''
 
 initMap['micro-amazon']     = initMap['rpmMap']
 initMap['large-amazon']     = initMap['rpmMap']
-initMap['min-centos-7-x64'] = initMap['rpmMap']
-initMap['min-centos-8-x64'] = initMap['rpmMap']
+initMap['min-rhel-7-x64'] = initMap['rpmMap']
+initMap['min-rhel-8-x64'] = initMap['rpmMap']
+initMap['min-rhel-9-x64'] = initMap['rpmMap']
 initMap['min-focal-x64']    = initMap['debMap']
 initMap['min-bionic-x64']   = initMap['debMap']
 initMap['min-jammy-x64']    = initMap['debMap']
@@ -276,21 +257,23 @@ capMap['t3.large']   = '20'
 capMap['m4.large']   = '10'
 
 typeMap = [:]
-typeMap['min-centos-7-x64']  = 'm4.large'
-typeMap['min-centos-8-x64']  = typeMap['min-centos-7-x64']
-typeMap['min-focal-x64']     = typeMap['min-centos-7-x64']
-typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
-typeMap['min-jammy-x64']     = typeMap['min-centos-7-x64']
-typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
-typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
-typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
+typeMap['min-rhel-7-x64']  = 'm4.large'
+typeMap['min-rhel-8-x64']  = typeMap['min-rhel-7-x64']
+typeMap['min-rhel-9-x64']  = typeMap['min-rhel-7-x64']
+typeMap['min-focal-x64']     = typeMap['min-rhel-7-x64']
+typeMap['min-bionic-x64']    = typeMap['min-rhel-7-x64']
+typeMap['min-jammy-x64']     = typeMap['min-rhel-7-x64']
+typeMap['min-buster-x64']    = typeMap['min-rhel-7-x64']
+typeMap['min-stretch-x64']   = typeMap['min-rhel-7-x64']
+typeMap['min-bullseye-x64']  = typeMap['min-rhel-7-x64']
 typeMap['micro-amazon']      = 't3.large'
 typeMap['large-amazon']      = 't3.xlarge'
 typeMap['docker']            = 't3.xlarge'
 
 execMap = [:]
-execMap['min-centos-7-x64']  = '1'
-execMap['min-centos-8-x64']  = '1'
+execMap['min-rhel-7-x64']  = '1'
+execMap['min-rhel-8-x64']  = '1'
+execMap['min-rhel-9-x64']  = '1'
 execMap['min-focal-x64']     = '1'
 execMap['min-bionic-x64']    = '1'
 execMap['min-jammy-x64']     = '1'
@@ -302,11 +285,12 @@ execMap['large-amazon']      = '1'
 execMap['docker']            = '1'
 
 devMap = [:]
-devMap['min-centos-7-x64']  = '/dev/sda1=:80:true:gp2,/dev/sdd=:20:true:gp2'
-devMap['min-centos-8-x64']  = devMap['min-centos-7-x64']
-devMap['min-focal-x64']     = devMap['min-centos-7-x64']
-devMap['min-bionic-x64']    = devMap['min-centos-7-x64']
-devMap['min-jammy-x64']     = devMap['min-centos-7-x64']
+devMap['min-rhel-7-x64']  = '/dev/sda1=:80:true:gp2,/dev/sdd=:20:true:gp2'
+devMap['min-rhel-8-x64']  = devMap['min-rhel-7-x64']
+devMap['min-rhel-9-x64']  = devMap['min-rhel-7-x64']
+devMap['min-focal-x64']     = devMap['min-rhel-7-x64']
+devMap['min-bionic-x64']    = devMap['min-rhel-7-x64']
+devMap['min-jammy-x64']     = devMap['min-rhel-7-x64']
 devMap['min-buster-x64']    = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
 devMap['min-stretch-x64']   = 'xvda=:80:true:gp2,xvdd=:20:true:gp2'
 devMap['min-bullseye-x64']  = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
@@ -315,8 +299,9 @@ devMap['large-amazon']      = '/dev/xvda=:100:true:gp2'
 devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 
 labelMap = [:]
-labelMap['min-centos-7-x64']  = 'min-centos-7-x64'
-labelMap['min-centos-8-x64']  = 'min-centos-8-x64'
+labelMap['min-rhel-7-x64']  = 'min-rhel-7-x64'
+labelMap['min-rhel-8-x64']  = 'min-rhel-8-x64'
+labelMap['min-rhel-9-x64']  = 'min-rhel-9-x64'
 labelMap['min-focal-x64']     = 'min-focal-x64'
 labelMap['min-bionic-x64']    = 'min-bionic-x64'
 labelMap['min-jammy-x64']     = 'min-jammy-x64'
@@ -395,8 +380,9 @@ String region = 'us-east-2'
         sshKeysCredentialsId,                   // String sshKeysCredentialsId
         '240',                                   // String instanceCapStr
         [
-            getTemplate('min-centos-7-x64',     "${region}${it}"),
-            getTemplate('min-centos-8-x64',     "${region}${it}"),
+            getTemplate('min-rhel-7-x64',     "${region}${it}"),
+            getTemplate('min-rhel-8-x64',     "${region}${it}"),
+            getTemplate('min-rhel-9-x64',     "${region}${it}"),
             getTemplate('min-focal-x64',        "${region}${it}"),
             getTemplate('min-bionic-x64',       "${region}${it}"),
             getTemplate('min-jammy-x64',        "${region}${it}"),
