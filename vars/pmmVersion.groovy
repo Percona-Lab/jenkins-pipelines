@@ -1,5 +1,6 @@
 def call(String type='latest') {
   List<String> oldVersions = ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0']
+  List<String> ovfVersions = ['2.28.0', '2.27.0', '2.26.0', '2.25.0', '2.24.0', '2.23.0', '2.22.0', '2.21.0']
   HashMap<String, String> versions = [
     '2.15.0': 'ami-086a3a95eefa9567f',
     '2.15.1': 'ami-073928dbea8c7ebc3',
@@ -34,6 +35,8 @@ def call(String type='latest') {
       return versions
     case 'list':
       return versionsList
+    case 'ovf':
+      return ovfVersions
     case 'list_with_old':
       return oldVersions + versionsList
   }

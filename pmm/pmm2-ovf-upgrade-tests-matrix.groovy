@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-8016', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -14,7 +14,7 @@ void runOVFUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_
 }
 
 def latestVersion = pmmVersion()
-def versionsList = pmmVersion('list')
+def versionsList = pmmVersion('ovf')
 
 
 def parallelStagesMatrix = versionsList.collectEntries {
