@@ -14,22 +14,15 @@ void checkImageForDocker(String IMAGE_POSTFIX){
             sg docker -c '
                 IMAGE_NAME='percona-postgresql-operator'
                 docker login -u '${USER}' -p '${PASS}'
+                if [ ! -f junit.tpl ]; then
+                    wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
+                fi
+
                 for PG_VER in 14 13 12; do
-                    TrityHightLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-ppg\${PG_VER}-${IMAGE_POSTFIX}.log"
-                    TrityCriticaltLog="$WORKSPACE/trivy-critical-\$IMAGE_NAME-ppg\${PG_VER}-${IMAGE_POSTFIX}.log"
-                    /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH \
-                        perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
+                    TrivyLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-ppg\${PG_VER}-${IMAGE_POSTFIX}.xml"
+                    /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrivyLog --ignore-unfixed --timeout 20m --exit-code 0 \
+                        --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
 
-                    /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL \
-                        perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
-
-                    if [ ! -s \$TrityHightLog ]; then
-                        rm -rf \$TrityHightLog
-                    fi
-
-                    if [ ! -s \$TrityCriticaltLog ]; then
-                        rm -rf \$TrityCriticaltLog
-                    fi
                 done
             '
 
@@ -145,19 +138,58 @@ pipeline {
                 pushImageToDocker('pgbadger')
             }
         }
-        stage('Check Docker images') {
-            steps {
-                checkImageForDocker('pgbackrest-repo')
-                checkImageForDocker('pgbackrest')
-                checkImageForDocker('pgbouncer')
-                checkImageForDocker('postgres-ha')
-                checkImageForDocker('pgbadger')
-                sh '''
-                   CRITICAL=$(ls trivy-critical-*) || true
-                   if [ -n "$CRITICAL" ]; then
-                       exit 1
-                   fi
-                '''
+        stage('Trivy Checks') {
+            parallel {
+                stage('pgbackrest-repo'){
+                    steps {
+                        checkImageForDocker('pgbackrest-repo')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgbackrest-repo.xml"
+                        }
+                    }
+                }
+                stage('pgbackrest'){
+                    steps {
+                        checkImageForDocker('pgbackrest')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgbackrest.xml"
+                        }
+                    }
+                }
+                stage('pgbouncer'){
+                    steps {
+                        checkImageForDocker('pgbouncer')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgbouncer.xml"
+                        }
+                    }
+                }
+                stage('postgres-ha'){
+                    steps {
+                        checkImageForDocker('postgres-ha')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-postgres-ha.xml"
+                        }
+                    }
+                }
+                stage('pgbadger'){
+                    steps {
+                        checkImageForDocker('pgbadger')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgbadger.xml"
+                        }
+                    }
+                }
             }
         }
         stage('Check PG Docker images for CVE') {
@@ -194,12 +226,14 @@ pipeline {
     }
     post {
         always {
-            archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
             archiveArtifacts artifacts: '*.pdf', allowEmptyArchive: true
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
             '''
             deleteDir()
+        }
+        unstable {
+            slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PG docker images unstable. Please check the log ${BUILD_URL}"
         }
         failure {
             slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PG docker images failed. Please check the log ${BUILD_URL}"
