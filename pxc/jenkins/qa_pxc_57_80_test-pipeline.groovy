@@ -42,7 +42,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                echo 'Downloading LOWER_PXC tarball: \$(date -u "+%s")'
+                sh 'echo Downloading LOWER_PXC tarball: \$(date -u)'
                 sh '''
                     set -o pipefail
                     ROOT_FS=$(pwd)
