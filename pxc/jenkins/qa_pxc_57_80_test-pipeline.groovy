@@ -100,6 +100,26 @@ pipeline {
                       exit 0
                     fi
                 '''
+                echo 'Starting cross verification upgrade script: \$(date -u "+%s")'
+                sh '''
+                    set +e
+                    ROOT_FS=$PWD
+                    cd percona-qa/pxc-tests
+                    bash -x cross_version_pxc_57_80_upgrade_test.sh $ROOT_FS/pxc_5.7_tar $ROOT_FS/pxc_8.0_tar || status=$?
+                    set -e
+                    if [[ "$status" == "1" ]];then
+                      echo "Printing PXC_57 error logs..."
+                      cat /mnt/jenkins/workspace/qa_pxc_57_80_test-pipeline/pxc_5.7_tar/pxc_node_57_1/node_57_1.err
+                      cat /mnt/jenkins/workspace/qa_pxc_57_80_test-pipeline/pxc_5.7_tar/pxc_node_57_2/node_57_2.err
+                      echo "Printing PXC_80 error logs..."
+                      cat /mnt/jenkins/workspace/qa_pxc_57_80_test-pipeline/pxc_8.0_tar/pxc_node_80_1/node_80_1.err
+                      cat /mnt/jenkins/workspace/qa_pxc_57_80_test-pipeline/pxc_8.0_tar/pxc_node_80_2/node_80_2.err
+                      exit 1
+                    else
+                      exit 0
+                    fi
+                '''
+
             }
         }
     }
