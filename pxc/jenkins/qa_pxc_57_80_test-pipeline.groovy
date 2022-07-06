@@ -57,7 +57,7 @@ pipeline {
                     rm *.tar.gz
                     mv Percona-XtraDB-* pxc_5.7_tar
                 '''
-               echo 'Downloading Upper_PXC tarball: \$(date -u "+%s")'
+               sh 'echo Downloading Upper_PXC tarball: \$(date -u)'
                sh '''
                     set -o pipefail
                     ROOT_FS=$(pwd)
@@ -75,7 +75,7 @@ pipeline {
         }
         stage('Execute testcases') {
             steps {
-                echo 'Starting cross verification script: $(date -u)'
+                sh 'echo Starting cross verification script: $(date -u)'
                 sh '''
                     set +e
                     rm -rf percona-qa
@@ -100,7 +100,7 @@ pipeline {
                       exit 0
                     fi
                 '''
-                echo 'Starting cross verification upgrade script: $(date -u)'
+                sh 'echo Starting cross verification upgrade script: $(date -u)'
                 sh '''
                     set +e
                     ROOT_FS=$PWD
