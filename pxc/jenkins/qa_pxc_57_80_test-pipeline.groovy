@@ -75,7 +75,7 @@ pipeline {
         }
         stage('Execute testcases') {
             steps {
-                echo 'Starting cross verification script': $(date -u)
+                echo 'Starting cross verification script: $(date -u)'
                 sh '''
                     set +e
                     rm -rf percona-qa
@@ -100,7 +100,7 @@ pipeline {
                       exit 0
                     fi
                 '''
-                echo 'Starting cross verification upgrade script': $(date -u)
+                echo 'Starting cross verification upgrade script: $(date -u)'
                 sh '''
                     set +e
                     ROOT_FS=$PWD
