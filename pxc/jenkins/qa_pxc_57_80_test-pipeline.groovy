@@ -6,19 +6,6 @@ pipeline {
             defaultValue: '5.7.38-31.59',
             description: 'PXC lower version tarball to download for testing',
             name: 'LOWER_PXC_VERSION',
-            trim: true)
-        choice(
-            name: 'TEST_DIST',
-            choices: [
-                'ubuntu-focal',
-                'ubuntu-bionic',
-                'debian-11',
-                'debian-10',
-                'centos-7',
-                'oracle-linux-8'
-            ],
-            description: 'Distribution to run test'
-        )
         string(
             defaultValue: '8.0.27-18.1',
             description: 'PXC Upper version tarball to download for testing',
@@ -28,6 +15,10 @@ pipeline {
             description: 'PXC-5.7 package version',
             name: 'PXC57_PKG_VERSION',
             trim: true)
+        choice(
+            choices: 'centos:7\ncentos:8\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster',
+            description: 'OS version for compilation',
+            name: 'DOCKER_OS')
 
     }
     agent {
@@ -86,7 +77,7 @@ pipeline {
                     sudo apt install -y git wget socat
                     fi
                     ROOT_FS=$PWD
-                    git clone https://github.com/Percona-QA/percona-qa.git --branch master --depth 1
+                    git clone "${PERCONA_QA_REPO}" --branch "${BRANCH}" --depth 1
                     cd percona-qa/pxc-tests
                     bash -x cross_version_pxc_57_80_test.sh $ROOT_FS/pxc_5.7_tar $ROOT_FS/pxc_8.0_tar || status=$?
                     set -e

@@ -1,0 +1,74 @@
+- job:
+    name: qa_pxc_57_80_test-param
+    project-type: matrix
+    defaults: global
+    description: |
+        Do not edit this job through the web!
+    disabled: false
+    concurrent: true
+    auth-token: qa_pxc_57_80_param
+    node: micro-amazon
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 50
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 50
+    parameters:
+    - string:
+        name: PERCONA_QA_REPO
+        default: https://github.com/Percona-QA/percona-qa
+        description: URL to Percona-QA repository
+    - string:
+        name: BRANCH
+        default: "master"
+        description: Tag/Branch for Percona-QA repository
+    - string:
+        name: LOWER_PXC_VERSION
+        default: 5.7.38-31.59
+        description: PXC lower version tarball to download for testing
+    - string:
+        name: UPPER_PXC_VERSION
+        default: 8.0.27-18.1
+        description: PXC Upper version tarball to download for testing
+    - string:
+        name: PXC57_PKG_VERSION
+        default: 5.7.38-rel41-59.1
+        description: PXC-5.7 package version
+      - axis:
+         type: user-defined
+         name: DOCKER_OS
+         values:
+          - centos:7
+          - centos:8
+          - ubuntu:bionic
+          - ubuntu:focal
+          - debian:stretch
+          - debian:buster
+    builders:
+    - trigger-builds:
+      - project: qa_pxc_57_80_test-pipeline
+        current-parameters: true
+        predefined-parameters: |
+          DOCKER_OS=${DOCKER_OS}
+          CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        block: true
+        block-thresholds:
+          build-step-failure-threshold: FAILURE
+          unstable-threshold: never
+          failure-threshold: FAILURE
+    - shell: |
+        sudo find . -name "*.xml" -o -name "*.log" -delete
+    - copyartifact:
+        project: qa_pxc_57_80_test-pipeline
+        which-build: specific-build
+        build-number: "${TRIGGERED_BUILD_NUMBERS_qa_pxc_57_80_test-pipeline}"
+        do-not-fingerprint: true
+    - shell: |
+        echo "${TRIGGERED_BUILD_NUMBERS_qa_pxc_57_80_test-pipeline}" > PIPELINE_BUILD_NUMBER
+    publishers:
+    - junit:
+        results: "**/*.xml"
+        keep-long-stdio: true
+    - archive:
+        artifacts: 'pxc/sources/pxc/results/*.tar.gz'
