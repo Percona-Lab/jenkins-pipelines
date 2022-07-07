@@ -88,7 +88,7 @@ pipeline {
                     sudo apt install -y git wget socat
                     fi
                     ROOT_FS=$PWD
-                    git clone "${PERCONA_QA_REPO}" --branch "${BRANCH}" --depth 1
+                    git clone ${PERCONA_QA_REPO} --branch ${BRANCH} --depth 1
                     cd percona-qa/pxc-tests
                     bash -x cross_version_pxc_57_80_test.sh $ROOT_FS/pxc_5.7_tar $ROOT_FS/pxc_8.0_tar || status=$?
                     set -e
