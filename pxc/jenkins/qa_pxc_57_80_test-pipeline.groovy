@@ -90,16 +90,21 @@ pipeline {
                     ROOT_FS=$PWD
                     git clone ${PERCONA_QA_REPO} --branch ${BRANCH} --depth 1
                     cd percona-qa/pxc-tests
-                    bash -x cross_version_pxc_57_80_test.sh $ROOT_FS/pxc_5.7_tar $ROOT_FS/pxc_8.0_tar || status=$?
+                    bash -x cross_version_pxc_57_80_test.sh $ROOT_FS/pxc_5.7_tar $ROOT_FS/pxc_8.0_tar
+                    error_code_1=$?
                     set -e
-                    if [[ "$status" == "1" ]];then
-                      echo "Printing Node 1 error logs..."
+                    if [ "$error_code_1" == "0" ]; then
+                      exit 0
+                    else
+                      echo "#############################"
+                      echo "Printing PXC_57 error logs..."
+                      echo "#############################"
                       cat /mnt/jenkins/workspace/qa_pxc_57_80_test-pipeline/pxc_5.7_tar/pxc-node/node1.err
-                      echo "Printing Node 2 error logs..."
+                      echo "#############################"
+                      echo "Printing PXC_80 error logs..."
+                      echo "#############################"
                       cat /mnt/jenkins/workspace/qa_pxc_57_80_test-pipeline/pxc_8.0_tar/pxc-node/node2.err
                       exit 1
-                    else
-                      exit 0
                     fi
                 '''
                 sh 'echo Starting cross verification upgrade script: $(date -u)'
@@ -107,18 +112,28 @@ pipeline {
                     set +e
                     ROOT_FS=$PWD
                     cd percona-qa/pxc-tests
-                    bash -x cross_version_pxc_57_80_upgrade_test.sh $ROOT_FS/pxc_5.7_tar $ROOT_FS/pxc_8.0_tar || status=$?
+                    bash -x cross_version_pxc_57_80_upgrade_test.sh $ROOT_FS/pxc_5.7_tar $ROOT_FS/pxc_8.0_tar
+                    error_code_2=$?
                     set -e
-                    if [[ "$status" == "1" ]];then
+                    if [ "$error_code_2" == "0" ]; then
+                      exit 0
+                    else
+                      echo "#############################"
                       echo "Printing PXC_57 error logs..."
+                      echo "#############################"
                       cat /mnt/jenkins/workspace/qa_pxc_57_80_test-pipeline/pxc_5.7_tar/pxc_node_57_1/node_57_1.err
                       cat /mnt/jenkins/workspace/qa_pxc_57_80_test-pipeline/pxc_5.7_tar/pxc_node_57_2/node_57_2.err
+                      echo "#############################"
                       echo "Printing PXC_80 error logs..."
+                      echo "#############################"
                       cat /mnt/jenkins/workspace/qa_pxc_57_80_test-pipeline/pxc_8.0_tar/pxc_node_80_1/node_80_1.err
                       cat /mnt/jenkins/workspace/qa_pxc_57_80_test-pipeline/pxc_8.0_tar/pxc_node_80_2/node_80_2.err
                       exit 1
-                    else
+                    fi
+                    if [ "$error_code_1" == "0" -a "$error_code_2" == "0" ]; then
                       exit 0
+                    else
+                      exit 1
                     fi
                 '''
 
