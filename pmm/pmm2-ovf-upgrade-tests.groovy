@@ -313,9 +313,9 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             script {
-                if(env.OVF_INSTANCE_IP) {
-                    runOVFStaginStop(OVF_INSTANCE_NAME)
-                }
+                // if(env.OVF_INSTANCE_IP) {
+                //     runOVFStaginStop(OVF_INSTANCE_NAME)
+                // }
                 if(env.VM_CLIENT_NAME)
                 {
                     destroyStaging(VM_CLIENT_IP)
