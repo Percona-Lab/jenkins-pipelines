@@ -7,7 +7,7 @@
     disabled: false
     concurrent: true
     node: micro-amazon
-    auth-token: pxc80testmtr
+    auth-token: qa_pxc_57_80_param
     properties:
     - build-discarder:
         days-to-keep: -1
@@ -35,6 +35,7 @@
         name: PXC57_PKG_VERSION
         default: 5.7.38-rel41-59.1
         description: PXC-5.7 package version
+    axes:
       - axis:
          type: user-defined
          name: DOCKER_OS
