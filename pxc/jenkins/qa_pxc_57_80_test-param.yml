@@ -38,6 +38,12 @@
     axes:
       - axis:
          type: user-defined
+         name: CMAKE_BUILD_TYPE
+         values:
+          - RelWithDebInfo
+          - Debug      
+      - axis:
+         type: user-defined
          name: DOCKER_OS
          values:
           - centos:7
