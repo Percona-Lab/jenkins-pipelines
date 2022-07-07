@@ -16,6 +16,16 @@ pipeline {
             description: 'PXC-5.7 package version',
             name: 'PXC57_PKG_VERSION',
             trim: true)
+        string(
+            defaultValue: 'https://github.com/Percona-QA/percona-qa',
+            description: 'URL to Percona-QA repository',
+            name: 'PERCONA_QA_REPO',
+            trim: true)
+        string(
+            defaultValue: 'master',
+            description: 'Tag/Branch for Percona-QA repository',
+            name: 'BRANCH',
+            trim: true)
         choice(
             choices: 'centos:7\ncentos:8\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster',
             description: 'OS version for compilation',
