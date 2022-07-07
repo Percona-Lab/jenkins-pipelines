@@ -6,7 +6,6 @@
         Do not edit this job through the web!
     disabled: false
     concurrent: true
-    auth-token: qa_pxc_57_80_param
     node: micro-amazon
     properties:
     - build-discarder:
