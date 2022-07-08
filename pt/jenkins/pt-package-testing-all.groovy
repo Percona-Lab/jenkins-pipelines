@@ -96,12 +96,6 @@ pipeline {
     stages {
         stage('Run parallel') {
             parallel {
-                stage('Debian Stretch') {
-                    steps {
-                        runNodeBuild('min-stretch-x64')
-                    }
-                }
-
                 stage('Debian Buster') {
                     steps {
                         runNodeBuild('min-buster-x64')
@@ -132,9 +126,9 @@ pipeline {
                     }
                 }
 
-                stage('Centos 8') {
+                stage('Oracle Linux 8') {
                     steps {
-                        runNodeBuild('min-centos-8-x64')
+                        runNodeBuild('min-ol-8-x64')
                     }
                 }
             }
