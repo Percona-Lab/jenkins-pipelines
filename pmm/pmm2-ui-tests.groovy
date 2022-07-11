@@ -310,6 +310,7 @@ pipeline {
                 stage('Setup Node') {
                     steps {
                         sh """
+                            npm install
                             envsubst < env.list > env.generated.list
                         """
                     }
