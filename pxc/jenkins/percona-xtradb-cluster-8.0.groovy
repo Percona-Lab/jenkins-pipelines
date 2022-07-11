@@ -93,7 +93,7 @@ pipeline {
         }
         stage('Build PXC generic source packages') {
             parallel {
-                stage('Build PXC generic source rpm') {
+/*                stage('Build PXC generic source rpm') {
                     agent {
                         label 'docker-32gb'
                     }
@@ -108,6 +108,7 @@ pipeline {
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
                 }
+*/
                 stage('Build PXC generic source deb') {
                     agent {
                         label 'docker-32gb'
@@ -127,7 +128,7 @@ pipeline {
         } // stage
         stage('Build PXC RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Centos 7') {
+/*                stage('Centos 7') {
                     agent {
                         label 'docker-32gb'
                     }
@@ -172,6 +173,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+*/
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'docker-32gb'
@@ -187,6 +189,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+/*
                 stage('Debian Buster(10)') {
                     agent {
                         label 'docker-32gb'
@@ -246,6 +249,7 @@ pipeline {
                         pushArtifactFolder("debug/", AWS_STASH_PATH)
                     }
                 }
+*/
             }
         }
 
