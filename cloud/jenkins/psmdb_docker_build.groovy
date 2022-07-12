@@ -150,9 +150,6 @@ pipeline {
                 """
                 echo 'Build PSMDB docker images'
                 retry(3) {
-                    build('mongod4.0')
-                }
-                retry(3) {
                     build('mongod4.2')
                 }
                 retry(3) {
@@ -166,8 +163,6 @@ pipeline {
 
         stage('Push PSMDB images to Docker registry') {
             steps {
-                pushImageToDocker('mongod4.0')
-                pushImageToDocker('mongod4.0-debug')
                 pushImageToDocker('mongod4.2')
                 pushImageToDocker('mongod4.2-debug')
                 pushImageToDocker('mongod4.4')
@@ -185,16 +180,6 @@ pipeline {
                     post {
                         always {
                             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-psmdb.xml"
-                        }
-                    }
-                }
-                stage('mongod4.0'){
-                    steps {
-                        checkImageForDocker('main-mongod4.0')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod4.0-psmdb.xml"
                         }
                     }
                 }
@@ -225,16 +210,6 @@ pipeline {
                     post {
                         always {
                             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod5.0-psmdb.xml"
-                        }
-                    }
-                }
-                stage('mongod4.0-debug'){
-                    steps {
-                        checkImageForDocker('main-mongod4.0-debug')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod4.0-debug-psmdb.xml"
                         }
                     }
                 }
@@ -273,8 +248,6 @@ pipeline {
         stage('Check PSMDB Docker images for CVE') {
             steps {
                 checkImageForCVE('main')
-                checkImageForCVE('main-mongod4.0')
-                checkImageForCVE('main-mongod4.0-debug')
                 checkImageForCVE('main-mongod4.2')
                 checkImageForCVE('main-mongod4.2-debug')
                 checkImageForCVE('main-mongod4.4')
