@@ -21,7 +21,10 @@ def call(type='latest') {
   List<String> versionsList = new ArrayList<>(versions.keySet());
   switch(type) {
     case 'latest':
-      return '2.30.0'
+      latestVersion = httpRequest "https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/PMM-2.0/VERSION"
+      return latestVersion.content
+    case 'stable':
+      return '2.28.0'
     case 'ami':
       return versions
     case 'list':
