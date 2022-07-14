@@ -43,7 +43,9 @@ void checkImageForCVE(String IMAGE_POSTFIX){
     }
 }
 void pushImageToDocker(String IMAGE_POSTFIX){
-     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key'),[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]]) {
+     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),
+                      file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key'),
+                      [$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             sg docker -c '
                 if [ ! -d ~/.docker/trust/private ]; then
