@@ -19,24 +19,11 @@ setup_centos_package_tests = { ->
     '''
 }
 
-setup_centos8_package_tests = { ->
+setup_ol8_package_tests = { ->
     sh '''
-        sudo sed -i "s/mirror\\.centos\\.org/vault\\.centos\\.org/g;s/\\#baseurl=/baseurl=/g;s/mirrorlist=/#mirrorlist=/g" /etc/yum.repos.d/CentOS*.repo
-        sudo yum install -y epel-release
+        sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
         sudo yum -y update
-        sudo sed -i "s/mirror\\.centos\\.org/vault\\.centos\\.org/g;s/\\#baseurl=/baseurl=/g;s/mirrorlist=/#mirrorlist=/g" /etc/yum.repos.d/CentOS*.repo
         sudo yum install -y ansible
-    '''
-}
-
-setup_stretch_package_tests = { ->
-    sh '''
-        sudo apt-get update
-        sudo apt-get install -y dirmngr gnupg2
-        echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
-        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
-        sudo apt-get update
-        sudo apt-get install -y ansible
     '''
 }
 
@@ -57,11 +44,10 @@ setup_ubuntu_package_tests = { ->
 }
 
 node_setups = [
-    "min-stretch-x64": setup_stretch_package_tests,
     "min-buster-x64": setup_buster_bullseye_package_tests,
     "min-bullseye-x64": setup_buster_bullseye_package_tests,
     "min-centos-7-x64": setup_centos_package_tests,
-    "min-centos-8-x64": setup_centos8_package_tests,
+    "min-ol-8-x64": setup_ol8_package_tests,
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests
 ]
@@ -109,10 +95,9 @@ pipeline {
         choice(
             choices: [
                 'min-centos-7-x64',
-                'min-centos-8-x64',
+                'min-ol-8-x64',
                 'min-bionic-x64',
                 'min-focal-x64',
-                'min-stretch-x64',
                 'min-buster-x64',
                 'min-bullseye-x64'
             ],
@@ -326,7 +311,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(centos-8|focal|bullseye)/) && !params.skip_upstream57
+                            !(params.node_to_test =~ /(ol-8|focal|bullseye)/) && !params.skip_upstream57
                         }
                     }
                     environment {
