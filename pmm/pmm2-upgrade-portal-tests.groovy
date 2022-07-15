@@ -255,7 +255,6 @@ pipeline {
                     junit 'tests/output/*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'result.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     if ("${NOTIFY}" == "yes") {
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
@@ -266,7 +265,6 @@ pipeline {
                     junit 'tests/output/*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'result.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'tests/output/*.png'
                     if ("${NOTIFY}" == "yes") {

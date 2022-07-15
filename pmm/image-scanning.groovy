@@ -23,7 +23,7 @@ pipeline {
     stages {
         stage('Run scanning') {
             steps {
-                sh "lw-scanner evaluate ${IMAGE} ${TAG} --html --html-file report.html"
+                sh "lw-scanner image evaluate ${IMAGE} ${TAG} --html --html-file report.html"
                 archiveArtifacts 'report.html'
             }
         }

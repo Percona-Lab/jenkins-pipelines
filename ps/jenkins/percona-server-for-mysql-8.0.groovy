@@ -266,6 +266,34 @@ parameters {
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
+                stage('Centos 8 binary tarball') {
+                    agent {
+                        label 'min-centos-8-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("centos:8", "--build_tarball=1 ")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Centos 8 debug tarball') {
+                    agent {
+                        label 'min-centos-8-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("centos:8", "--debug=1 --build_tarball=1 ")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
                 stage('Bionic(18.04) binary tarball') {
                     agent {
                         label 'min-bionic-x64'
