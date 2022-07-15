@@ -7,7 +7,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir -p test
-        wget https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/build-ps/pxc_builder.sh -O pxc_builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/build-ps/pxc_builder.sh -O pxc_builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
@@ -60,6 +60,10 @@ pipeline {
             choices: 'laboratory\ntesting\nexperimental\nrelease',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
+        choice(
+            choices: '#releases\n#releases-ci',
+            description: 'Channel for notifications',
+            name: 'SLACKNOTIFY')
     }
     options {
         skipDefaultCheckout()
@@ -70,7 +74,7 @@ pipeline {
     stages {
         stage('Create PXC source tarball') {
             steps {
-                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH}")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH}")
                 cleanUpWS()
                 buildStage("centos:7", "--get_sources=1")
                 sh '''
@@ -265,11 +269,11 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH}")
+            slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH}")
             deleteDir()
         }
         failure {
-            slackNotify("#releases", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH}")
+            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH}")
             deleteDir()
         }
         always {
