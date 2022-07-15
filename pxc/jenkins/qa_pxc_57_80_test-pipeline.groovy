@@ -43,9 +43,6 @@ pipeline {
     }
     stages {
         stage('Prepare') {
-            agent {
-                        label 'docker'
-                    }
             steps {
                 sh 'echo Downloading LOWER_PXC tarball: \$(date -u)'
                 sh '''
