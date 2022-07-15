@@ -191,6 +191,19 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Jammy(22.04)') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Debian Stretch(9)') {
                     agent {
                         label 'docker'
@@ -230,7 +243,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 7 binary tarball') {
+                stage('Centos 7 binary tarball(glibc2.17)') {
                     agent {
                         label 'docker'
                     }
@@ -243,7 +256,7 @@ pipeline {
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Centos 7 debug binary tarball') {
+                stage('Centos 7 debug binary tarball(glibc2.17)') {
                     agent {
                         label 'docker'
                     }
@@ -251,6 +264,31 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("centos:7", "--debug=1")
+
+                        pushArtifactFolder("debug/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Jammy(22.04) binary tarball(glibc2.35)') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_tarball=1")
+
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Ubuntu Jammy(22.04) debug binary tarball(glibc2.35)') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--debug=1")
 
                         pushArtifactFolder("debug/", AWS_STASH_PATH)
                     }
