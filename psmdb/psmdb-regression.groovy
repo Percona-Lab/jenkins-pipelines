@@ -67,7 +67,7 @@ pipeline {
             }
         }
         stage ('Build image from tarball') {
-            agent { label 'docker' }
+            agent { label 'docker-32gb' }
             when {
                 beforeAgent true
                 environment name: 'image', value: 'tarball'
