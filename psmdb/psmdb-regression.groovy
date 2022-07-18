@@ -82,6 +82,7 @@ pipeline {
                          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
                          curl -o Dockerfile https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/regression-tests/tarball_image/Dockerfile
                          docker build . -t public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} \
+                                --build-arg branch=${params.branch} \
                                 --build-arg sources=${params.srctarball} \
                                 --build-arg tarball=${params.bintarball} 
                          docker push public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag}
