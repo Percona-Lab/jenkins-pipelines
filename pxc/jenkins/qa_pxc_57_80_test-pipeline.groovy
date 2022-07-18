@@ -136,8 +136,6 @@ pipeline {
                       exit 1
                     fi
                 '''
-            step([$class: 'JUnitResultArchiver', testResults: 'pxc/sources/pxc/results/*.xml', healthScaleFactor: 1.0])
-            archiveArtifacts 'pxc/sources/pxc/results/*.xml,pxc/sources/pxc/results/qa_pxc_57_80_test-run_logs.tar.gz'
            }
         }
     }
