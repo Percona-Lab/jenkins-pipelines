@@ -60,16 +60,5 @@
           failure-threshold: FAILURE
     - shell: |
         sudo find . -name "*.xml" -o -name "*.log" -delete
-    - copyartifact:
-        project: qa_pxc_57_80_test-pipeline
-        which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_qa_pxc_57_80_test_pipeline}"
-        do-not-fingerprint: true
     - shell: |
         echo "${TRIGGERED_BUILD_NUMBERS_qa_pxc_57_80_test_pipeline}" > PIPELINE_BUILD_NUMBER
-    publishers:
-    - junit:
-        results: "**/*.xml"
-        keep-long-stdio: true
-    - archive:
-        artifacts: 'pxc/sources/pxc/results/*.tar.gz'
