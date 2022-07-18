@@ -349,7 +349,7 @@ pipeline {
                 sh """
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    sleep 30
+                    sleep 60
                     ./node_modules/.bin/codeceptjs run --debug --steps -c pr.codecept.js --grep '@post-client-upgrade'
                 """
             }
