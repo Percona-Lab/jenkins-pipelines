@@ -38,12 +38,6 @@
     axes:
       - axis:
          type: user-defined
-         name: CMAKE_BUILD_TYPE
-         values:
-          - RelWithDebInfo
-          - Debug      
-      - axis:
-         type: user-defined
          name: DOCKER_OS
          values:
           - centos:7
@@ -69,10 +63,10 @@
     - copyartifact:
         project: qa_pxc_57_80_test-pipeline
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_qa_pxc_57_80_test-pipeline}"
+        build-number: "${TRIGGERED_BUILD_NUMBERS_qa_pxc_57_80_test_pipeline}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_qa_pxc_57_80_test-pipeline}" > PIPELINE_BUILD_NUMBER
+        echo "${TRIGGERED_BUILD_NUMBERS_qa_pxc_57_80_test_pipeline}" > PIPELINE_BUILD_NUMBER
     publishers:
     - junit:
         results: "**/*.xml"
