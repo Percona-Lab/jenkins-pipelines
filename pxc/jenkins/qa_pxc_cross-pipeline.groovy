@@ -46,6 +46,16 @@ pipeline {
             }
           } //End steps
         } //End stage Debian Bullseye
+        stage('Debian Buster') {
+          agent {
+            label "min-buster-x64"
+          }
+          steps {
+            withCredentials([usernamePassword(credentialsId: 'JenkinsAPI', passwordVariable: 'JENKINS_API_PWD', usernameVariable: 'JENKINS_API_USER')]) {
+              run_test()
+            }
+          } //End steps
+        } //End stage Debian Buster
         stage('Centos7') {
           agent {
             label "min-centos-7-x64"
