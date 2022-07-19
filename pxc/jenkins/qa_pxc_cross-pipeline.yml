@@ -1,0 +1,48 @@
+- job:
+    name: qa_pxc_cross-pipeline
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: true
+    disabled: false
+    node: micro-amazon
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 50
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 50
+    parameters:
+    - string:
+        name: LOWER_PXC_VERSION
+        default: "5.7.38-31.59"
+        description: PXC lower version tarball to download for testing
+    - string:
+        name: UPPER_PXC_VERSION
+        default: "8.0.27-18.1"
+        description: PXC Upper version tarball to download for testing
+    - string:
+        name: PXC57_PKG_VERSION
+        default: "5.7.38-rel41-59.1"
+        description: PXC-5.7 package version
+    - string:
+        name: PERCONA_QA_REPO
+        default: "https://github.com/Percona-QA/percona-qa"
+        description: URL to Percona-QA repository
+    - string:
+        name: BRANCH
+        default: "master"
+        description: Tag/Branch for Percona-QA repository
+    - bool:
+        default: false
+        description: Test minimal tarball
+        name: BUILD_TYPE_MINIMAL
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/kaushikpuneet07/jenkins-pipelines.git
+            branches:
+            - 'cross'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pxc/jenkins/qa_pxc_cross-pipeline.groovy
