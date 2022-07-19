@@ -76,9 +76,7 @@ pipeline {
 
 void run_test() {
   echo "Installing dependencies..."
-if [ -f /etc/redhat-release ]; then
   sudo yum install -y wget git tar 
-else 
   sudo apt-get install -y wget git tar
   sh 'echo Downloading LOWER_PXC tarball: \$(date -u)'
                sh '''
