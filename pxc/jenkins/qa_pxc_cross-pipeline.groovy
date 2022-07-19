@@ -80,7 +80,7 @@ void run_test() {
                     sudo yum install -y git wget ansible
                     else
                     sudo apt-get update
-                    sudo apt install -y git wget ansible
+                    sudo apt install -y git wget
                     fi
                     ROOT_FS=$(pwd)
                     echo $TEST_DIST
