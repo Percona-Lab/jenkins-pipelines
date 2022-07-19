@@ -76,9 +76,11 @@ void run_test() {
                sh '''
                     echo "Installing dependencies..."
                     if [ -f /usr/bin/yum ]; then 
-                    sudo yum install -y git wget
+                    sudo yum -y update
+                    sudo yum install -y git wget ansible
                     else
-                    sudo apt install -y git wget
+                    sudo apt-get update
+                    sudo apt install -y git wget ansible
                     fi
                     ROOT_FS=$(pwd)
                     echo $TEST_DIST
@@ -113,7 +115,8 @@ void run_test() {
                     sudo yum install -y socat redhat-lsb-core
                     lsb_release -a
                     else
-                    sudo apt install -y socat 
+                    sudo apt install -y socat lsb_release
+                    lsb_release -a
                     fi
                     ROOT_FS=$PWD
                     git clone ${PERCONA_QA_REPO} --branch ${BRANCH} --depth 1
