@@ -76,8 +76,11 @@ pipeline {
 
 void run_test() {
   echo "Installing dependencies..."
-  sudo yum install -y wget git tar 
-  sudo apt-get install -y wget git tar
+  if [ -f /usr/bin/yum ]; then
+      sudo yum install -y git wget
+    else
+      sudo apt install -y git wget
+  fi
   sh 'echo Downloading LOWER_PXC tarball: \$(date -u)'
                sh '''
                     ROOT_FS=$(pwd)
