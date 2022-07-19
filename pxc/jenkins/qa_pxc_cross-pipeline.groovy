@@ -77,10 +77,12 @@ void run_test() {
                     echo "Installing dependencies..."
                     if [ -f /usr/bin/yum ]; then 
                     sudo yum -y update
-                    sudo yum install -y git wget
+                    sudo yum install -y git wget tar socat redhat-lsb-core
+                    lsb_release -a
                     else
                     sudo apt-get update
-                    sudo apt install -y git wget
+                    sudo apt install -y git wget ansible socat
+                    lsb_release -a
                     fi
                     ROOT_FS=$(pwd)
                     echo $TEST_DIST
@@ -111,13 +113,6 @@ void run_test() {
                sh '''
                     set +e
                     rm -rf percona-qa
-                    if [ -f /usr/bin/yum ]; then
-                    sudo yum install -y socat redhat-lsb-core
-                    lsb_release -a
-                    else
-                    sudo apt install -y socat
-                    lsb_release -a
-                    fi
                     ROOT_FS=$PWD
                     git clone ${PERCONA_QA_REPO} --branch ${BRANCH} --depth 1
                     cd percona-qa/pxc-tests
