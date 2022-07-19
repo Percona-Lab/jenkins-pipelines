@@ -1,5 +1,5 @@
 pipeline {
-  agent any
+  agent docker
   parameters {
     string(name: 'LOWER_PXC_VERSION', defaultValue: '5.7.38-31.59', description: 'PXC lower version tarball to download for testing')
     string(name: 'UPPER_PXC_VERSION', defaultValue: '8.0.27-18.1', description: 'PXC Upper version tarball to download for testing')
