@@ -115,7 +115,7 @@ void run_test() {
                     sudo yum install -y socat redhat-lsb-core
                     lsb_release -a
                     else
-                    sudo apt install -y socat lsb_release
+                    sudo apt install -y lsb_release
                     lsb_release -a
                     fi
                     ROOT_FS=$PWD
