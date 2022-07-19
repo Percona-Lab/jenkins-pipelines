@@ -263,7 +263,7 @@ ENDSSH
                             ["pmm-server"]="percona/pmm-server"
                             ["percona-qan-api2"]="percona/qan-api2"
                             ["pmm-update"]="percona/pmm-update"
-                            ["pmm-managed"]="percona/pmm-managed"
+                            ["pmm"]="percona/pmm"
                         )
 
                         for package in "${!repo[@]}"; do
