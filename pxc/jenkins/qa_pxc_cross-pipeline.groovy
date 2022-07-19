@@ -80,8 +80,10 @@ void run_test() {
                     sudo yum install -y git wget tar socat redhat-lsb-core
                     lsb_release -a
                     else
-                    sudo apt-get update
                     sudo apt install -y git wget ansible socat curl numactl
+                    wget https://repo.percona.com/apt/percona-release_latest.generic_all.deb
+                    sudo dpkg -i percona-release_latest.generic_all.deb
+                    sudo apt-get update
                     lsb_release -a
                     fi
                     ROOT_FS=$(pwd)
