@@ -77,7 +77,6 @@ pipeline {
 void run_test() {
   sh 'echo Downloading LOWER_PXC tarball: \$(date -u)'
                sh '''
-                    set -o pipefail
                     ROOT_FS=$(pwd)
                     echo $TEST_DIST
                     sudo killall -9 mysqld || true
@@ -92,7 +91,6 @@ void run_test() {
                 '''
   sh 'echo Downloading Upper_PXC tarball: \$(date -u)'
                sh '''
-                    set -o pipefail
                     ROOT_FS=$(pwd)
                     sudo killall -9 mysqld || true
                     # Fetch the latest Upper_PXC binaries
