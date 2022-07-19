@@ -90,10 +90,10 @@ void run_test() {
                     sudo yum install -y git wget tar socat redhat-lsb-core
                     lsb_release -a
                     else
+                    UCF_FORCE_CONFOLD=1 DEBIAN_FRONTEND=noninteractive sudo -E apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -qq -y install openssl
                     sudo apt install -y git wget ansible socat curl numactl
-                    export DEBIAN_FRONTEND=noninteractive
-                    wget https://repo.percona.com/apt/percona-release_latest.generic_all.deb
-                    sudo dpkg -i percona-release_latest.generic_all.deb
+                    wget -q https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb
+                    sudo dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb
                     sudo apt-get update
                     lsb_release -a
                     fi
