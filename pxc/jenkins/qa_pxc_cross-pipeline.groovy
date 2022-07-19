@@ -1,5 +1,5 @@
 pipeline {
-  agent any 
+  agent any
   parameters {
     string(name: 'LOWER_PXC_VERSION', defaultValue: '5.7.38-31.59', description: 'PXC lower version tarball to download for testing')
     string(name: 'UPPER_PXC_VERSION', defaultValue: '8.0.27-18.1', description: 'PXC Upper version tarball to download for testing')
@@ -75,6 +75,11 @@ pipeline {
 } //End pipeline
 
 void run_test() {
+  echo "Installing dependencies..."
+if [ -f /etc/redhat-release ]; then
+  sudo yum install -y wget git tar 
+else 
+  sudo apt-get install -y wget git tar
   sh 'echo Downloading LOWER_PXC tarball: \$(date -u)'
                sh '''
                     ROOT_FS=$(pwd)
