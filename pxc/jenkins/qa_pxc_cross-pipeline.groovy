@@ -75,14 +75,13 @@ pipeline {
 } //End pipeline
 
 void run_test() {
-  echo "Installing dependencies..."
-  if [ -f /usr/bin/yum ]; then
-      sudo yum install -y git wget
-    else
-      sudo apt install -y git wget
-  fi
   sh 'echo Downloading LOWER_PXC tarball: \$(date -u)'
                sh '''
+                    echo "Installing dependencies..."
+                    if [ -f /usr/bin/yum ]; then 
+                    sudo yum install -y git wget
+                    else
+                    sudo apt install -y git wget
                     ROOT_FS=$(pwd)
                     echo $TEST_DIST
                     sudo killall -9 mysqld || true
