@@ -24,7 +24,6 @@ pipeline {
             withCredentials([usernamePassword(credentialsId: 'JenkinsAPI', passwordVariable: 'JENKINS_API_PWD', usernameVariable: 'JENKINS_API_USER')]) {
               run_test()
             }
-            junit 'percona-qa/pxc-tests/report.xml'
           } //End steps
         } //End stage Ubuntu Bionic
         stage('Ubuntu Focal') {
@@ -35,7 +34,6 @@ pipeline {
             withCredentials([usernamePassword(credentialsId: 'JenkinsAPI', passwordVariable: 'JENKINS_API_PWD', usernameVariable: 'JENKINS_API_USER')]) {
               run_test()
             }
-            junit 'percona-qa/pxc-tests/report.xml'
           } //End steps
         } //End stage Ubuntu Focal
         stage('Debian Buster') {
@@ -46,7 +44,6 @@ pipeline {
             withCredentials([usernamePassword(credentialsId: 'JenkinsAPI', passwordVariable: 'JENKINS_API_PWD', usernameVariable: 'JENKINS_API_USER')]) {
               run_test()
             }
-            junit 'percona-qa/pxc-tests/report.xml'
           } //End steps
         } //End stage Debian Buster
         stage('Centos7') {
@@ -57,7 +54,6 @@ pipeline {
             withCredentials([usernamePassword(credentialsId: 'JenkinsAPI', passwordVariable: 'JENKINS_API_PWD', usernameVariable: 'JENKINS_API_USER')]) {
               run_test()
             }
-            junit 'percona-qa/pxc-tests/report.xml'
           } //End steps
         } //End stage CentOS7
         stage('Centos8') {
@@ -68,7 +64,6 @@ pipeline {
             withCredentials([usernamePassword(credentialsId: 'JenkinsAPI', passwordVariable: 'JENKINS_API_PWD', usernameVariable: 'JENKINS_API_USER')]) {
               run_test()
             }
-            junit 'percona-qa/pxc-tests/report.xml'
           } //End steps
         } //End stage CentOS8
        } //End parallel
@@ -115,10 +110,10 @@ void run_test() {
                     set +e
                     rm -rf percona-qa
                     if [ -f /usr/bin/yum ]; then
-                    sudo yum install -y git wget socat redhat-lsb-core
+                    sudo yum install -y socat redhat-lsb-core
                     lsb_release -a
                     else
-                    sudo apt install -y git wget socat
+                    sudo apt install -y socat 
                     fi
                     ROOT_FS=$PWD
                     git clone ${PERCONA_QA_REPO} --branch ${BRANCH} --depth 1
