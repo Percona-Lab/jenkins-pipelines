@@ -81,7 +81,7 @@ void run_test() {
                     lsb_release -a
                     else
                     sudo apt-get update
-                    sudo apt install -y git wget ansible socat
+                    sudo apt install -y git wget ansible socat curl numactl
                     lsb_release -a
                     fi
                     ROOT_FS=$(pwd)
