@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'agent-amd64'
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))

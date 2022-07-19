@@ -8,7 +8,7 @@ String AMI_ID = ''
 
 pipeline {
     agent {
-        label 'docker-farm'
+        label 'agent-amd64'
     }
     parameters {
         string(

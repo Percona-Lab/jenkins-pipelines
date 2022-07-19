@@ -41,7 +41,7 @@ def latestVersion = pmmVersion()
 
 pipeline {
     agent {
-        label 'docker-farm'
+        label 'cli'
     }
     parameters {
         string(

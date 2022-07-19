@@ -54,7 +54,7 @@ void addComment(String COMMENT) {
 
 pipeline {
     agent {
-        label 'docker-farm'
+        label 'agent-amd64'
     }
     stages {
         stage('Prepare') {

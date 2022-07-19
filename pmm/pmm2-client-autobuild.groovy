@@ -25,7 +25,7 @@ pipeline {
     stages {
         stage('Build PMM Client') {
             agent {
-                label 'docker-farm'
+                label 'agent-amd64'
             }
             stages {
                 stage('Prepare') {
