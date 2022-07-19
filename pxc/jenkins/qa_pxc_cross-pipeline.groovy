@@ -84,6 +84,7 @@ void run_test() {
                     sudo yum install -y git wget
                     else
                     sudo apt install -y git wget
+                    fi
                     ROOT_FS=$(pwd)
                     echo $TEST_DIST
                     sudo killall -9 mysqld || true
