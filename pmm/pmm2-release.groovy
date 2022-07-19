@@ -291,7 +291,7 @@ ENDSSH
         }
         stage('Set Docker Tag') {
             agent {
-                label 'min-centos-7-x64'
+                label 'min-rhel-7-x64'
             }
             steps {
                 unstash 'version_file'
