@@ -13,9 +13,6 @@ void runGKEcluster(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             NODES_NUM=3
-            if [ ${CLUSTER_PREFIX} == 'backups' ]; then
-                NODES_NUM=4
-            fi
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
@@ -381,8 +378,14 @@ pipeline {
                         runTest('demand-backup', 'backups')
                         runTest('demand-backup-encrypted-with-tls', 'backups')
                         runTest('pitr','backups')
-                        runTest('scheduled-backup', 'backups')
                         ShutdownCluster('backups')
+                    }
+                }
+                stage('E2E Scheduled-backups') {
+                    steps {
+                        CreateCluster('scheduled-backups')
+                        runTest('scheduled-backup', 'scheduled-backups')
+                        ShutdownCluster('scheduled-backups')
                     }
                 }
                 stage('E2E BigData') {
