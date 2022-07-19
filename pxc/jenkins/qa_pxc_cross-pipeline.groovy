@@ -77,7 +77,7 @@ void run_test() {
                     echo "Installing dependencies..."
                     if [ -f /usr/bin/yum ]; then 
                     sudo yum -y update
-                    sudo yum install -y git wget ansible
+                    sudo yum install -y git wget
                     else
                     sudo apt-get update
                     sudo apt install -y git wget
@@ -124,7 +124,7 @@ void run_test() {
                     bash -x cross_version_pxc_57_80_test.sh $ROOT_FS/pxc_5.7_tar $ROOT_FS/pxc_8.0_tar
                     error_code_1=$?
                     set -e
-                    if [ "$error_code_1" == "0" ]; then
+                    if [ "$error_code_1" = "0" ]; then
                       exit 0
                     else
                       echo "#############################"
@@ -146,7 +146,7 @@ void run_test() {
                     bash -x cross_version_pxc_57_80_upgrade_test.sh $ROOT_FS/pxc_5.7_tar $ROOT_FS/pxc_8.0_tar
                     error_code_2=$?
                     set -e
-                    if [ "$error_code_2" == "0" ]; then
+                    if [ "$error_code_2" = "0" ]; then
                       exit 0
                     else
                       echo "#############################"
