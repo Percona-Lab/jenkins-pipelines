@@ -8,6 +8,9 @@ pipeline {
     environment {
         DOCKER_IMAGE='perconalab/pmm-server:dev-container'
     }
+    triggers {
+        upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
+    }
     stages {
         stage('Clone repo') {
             steps {
