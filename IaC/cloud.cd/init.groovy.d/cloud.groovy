@@ -81,13 +81,13 @@ initMap['docker'] = '''
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
-        
+
         until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
             sleep 1
             echo try again
         done
 
-        7za -aoa -o/tmp x /tmp/awscliv2.zip 
+        7za -aoa -o/tmp x /tmp/awscliv2.zip
         cd /tmp/aws && sudo ./install
     fi
 
@@ -171,6 +171,20 @@ initMap['docker-32gb'] = '''
     sudo systemctl status docker || sudo systemctl start docker
     sudo service docker status || sudo service docker start
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+    CRI_DOCKERD_LATEST_VERSION=$(curl -s https://api.github.com/repos/Mirantis/cri-dockerd/releases/latest|grep tag_name | cut -d '"' -f 4 | grep -Eo '([0-9].)+[0-9]')
+    sudo curl -Lo /tmp/cri-dockerd-${CRI_DOCKERD_LATEST_VERSION}.amd64.tgz https://github.com/Mirantis/cri-dockerd/releases/download/v${CRI_DOCKERD_LATEST_VERSION}/cri-dockerd-${CRI_DOCKERD_LATEST_VERSION}.amd64.tgz
+    sudo tar xvfz /tmp/cri-dockerd-${CRI_DOCKERD_LATEST_VERSION}.amd64.tgz -C /tmp/
+    sudo mv /tmp/cri-dockerd/cri-dockerd /usr/bin
+    sudo chmod +x /usr/bin/cri-dockerd
+    sudo curl -Lo /etc/systemd/system/cri-docker.service https://raw.githubusercontent.com/Mirantis/cri-dockerd/v${CRI_DOCKERD_LATEST_VERSION}/packaging/systemd/cri-docker.service
+    sudo curl -Lo /etc/systemd/system/cri-docker.socket https://raw.githubusercontent.com/Mirantis/cri-dockerd/v${CRI_DOCKERD_LATEST_VERSION}/packaging/systemd/cri-docker.socket
+    sudo systemctl daemon-reload
+    sudo systemctl enable cri-docker.service
+    sudo systemctl enable --now cri-docker.socket
+    sudo systemctl start cri-docker.service
+    CRICTL_LATEST_VERSION=$(curl -s https://api.github.com/repos/kubernetes-sigs/cri-tools/releases/latest|grep tag_name | cut -d '"' -f 4)
+    sudo curl -Lo /tmp/crictl-${CRICTL_LATEST_VERSION}-linux-amd64.tar.gz https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRICTL_LATEST_VERSION}/crictl-${CRICTL_LATEST_VERSION}-linux-amd64.tar.gz
+    sudo tar xvfz /tmp/crictl-${CRICTL_LATEST_VERSION}-linux-amd64.tar.gz -C /usr/bin/
 '''
 initMap['micro-amazon'] = '''
     set -o xtrace
