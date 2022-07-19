@@ -91,6 +91,8 @@ void run_test() {
                     lsb_release -a
                     else
                     sudo apt install -y git wget ansible socat curl numactl
+                    sudo apt-add-repository --yes --update ppa:ansible/ansible
+                    echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
                     wget https://repo.percona.com/apt/percona-release_latest.generic_all.deb
                     sudo dpkg -i percona-release_latest.generic_all.deb
                     sudo apt-get update
