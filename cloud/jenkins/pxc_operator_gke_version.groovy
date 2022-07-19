@@ -383,9 +383,9 @@ pipeline {
                 }
                 stage('E2E Scheduled-backups') {
                     steps {
-                        CreateCluster('scheduled-backups')
+                        CreateCluster('scheduled')
                         runTest('scheduled-backup', 'scheduled-backups')
-                        ShutdownCluster('scheduled-backups')
+                        ShutdownCluster('scheduled')
                     }
                 }
                 stage('E2E BigData') {
