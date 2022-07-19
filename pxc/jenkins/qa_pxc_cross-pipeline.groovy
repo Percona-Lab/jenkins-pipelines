@@ -36,16 +36,16 @@ pipeline {
             }
           } //End steps
         } //End stage Ubuntu Focal
-        stage('Debian Buster') {
+        stage('Debian Bullseye') {
           agent {
-            label "min-buster-x64"
+            label "min-bullseye-x64"
           }
           steps {
             withCredentials([usernamePassword(credentialsId: 'JenkinsAPI', passwordVariable: 'JENKINS_API_PWD', usernameVariable: 'JENKINS_API_USER')]) {
               run_test()
             }
           } //End steps
-        } //End stage Debian Buster
+        } //End stage Debian Bullseye
         stage('Centos7') {
           agent {
             label "min-centos-7-x64"
@@ -56,16 +56,16 @@ pipeline {
             }
           } //End steps
         } //End stage CentOS7
-        stage('Centos8') {
+        stage('Oracle Linux 8') {
           agent {
-            label "min-centos-8-x64"
+            label "min-ol-8-x64"
           }
           steps {
             withCredentials([usernamePassword(credentialsId: 'JenkinsAPI', passwordVariable: 'JENKINS_API_PWD', usernameVariable: 'JENKINS_API_USER')]) {
               run_test()
             }
           } //End steps
-        } //End stage CentOS8
+        } //End stage Oracle Linux 8
        } //End parallel
     } //End stage Run tests
   } //End stages
