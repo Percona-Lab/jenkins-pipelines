@@ -95,7 +95,6 @@ void run_test() {
                     wget -q https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb
                     sudo dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb
                     sudo apt-get update
-                    lsb_release -a
                     fi
                     ROOT_FS=$(pwd)
                     echo $TEST_DIST
