@@ -90,7 +90,6 @@ void run_test() {
                     sudo yum install -y git wget tar socat redhat-lsb-core
                     lsb_release -a
                     else
-                    UCF_FORCE_CONFOLD=1 DEBIAN_FRONTEND=noninteractive sudo -E apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -qq -y install openssl
                     sudo apt install -y git wget ansible socat curl numactl
                     sudo apt update
                     curl -O https://repo.percona.com/apt/percona-release_latest.generic_all.deb
@@ -176,10 +175,3 @@ void run_test() {
                     fi
                 '''
             }
-    post {
-        always {
-            sh '''
-                echo Finish: \$(date -u "+%s")
-            '''
-        }
-     } 
