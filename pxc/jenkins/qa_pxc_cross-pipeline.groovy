@@ -1,3 +1,8 @@
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
+]) _
+
 pipeline {
    agent {
         label 'docker'

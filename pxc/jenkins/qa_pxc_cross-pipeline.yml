@@ -5,7 +5,6 @@
         Do not edit this job through the web!
     concurrent: true
     disabled: false
-    node: micro-amazon
     properties:
     - build-discarder:
         days-to-keep: -1
