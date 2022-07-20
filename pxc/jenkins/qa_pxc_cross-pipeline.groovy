@@ -169,13 +169,12 @@ void run_test() {
                       cat /mnt/jenkins/workspace/qa_pxc_cross-pipeline/pxc_8.0_tar/pxc_node_80_2/node_80_2.err
                       exit 1
                     fi
-                    if [ "$error_code_1" == "0" -a "$error_code_2" == "0" ]; then
+                    if [ "$error_code_1" = "0" -a "$error_code_2" = "0" ]; then
                       exit 0
                     else
                       exit 1
                     fi
                 '''
-
             }
     post {
         always {
