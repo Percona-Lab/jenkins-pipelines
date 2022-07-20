@@ -93,7 +93,7 @@ void run_test() {
                     UCF_FORCE_CONFOLD=1 DEBIAN_FRONTEND=noninteractive sudo -E apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -qq -y install openssl
                     sudo apt install -y git wget ansible socat curl numactl
                     wget -q https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb
-                    sudo dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb
+                    sudo dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb || true
                     sudo DEBUG=1 dpkg --configure -a
                     sudo apt-get update
                     fi
