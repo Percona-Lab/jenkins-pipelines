@@ -87,8 +87,7 @@ void run_test() {
                     echo "Installing dependencies..."
                     if [ -f /usr/bin/yum ]; then 
                     sudo yum -y update
-                    sudo yum install -y git wget tar socat redhat-lsb-core
-                    lsb_release -a
+                    sudo yum install -y git wget tar socat
                     else
                     sudo apt install -y git wget ansible socat curl numactl
                     sudo apt update
@@ -97,7 +96,6 @@ void run_test() {
                     sudo apt update
                     fi
                     ROOT_FS=$(pwd)
-                    echo $TEST_DIST
                     sudo killall -9 mysqld || true
                     # Fetch the latest LOWER_PXC binaries
                     cd $ROOT_FS/
