@@ -92,10 +92,10 @@ void run_test() {
                     else
                     UCF_FORCE_CONFOLD=1 DEBIAN_FRONTEND=noninteractive sudo -E apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -qq -y install openssl
                     sudo apt install -y git wget ansible socat curl numactl
-                    wget -q https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb
-                    sudo dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb || true
-                    sudo DEBUG=1 dpkg --configure -a
-                    sudo apt-get update
+                    sudo apt update
+                    curl -O https://repo.percona.com/apt/percona-release_latest.generic_all.deb
+                    sudo apt install gnupg2 lsb-release ./percona-release_latest.generic_all.deb
+                    sudo apt update
                     fi
                     ROOT_FS=$(pwd)
                     echo $TEST_DIST
