@@ -94,7 +94,7 @@ void run_test() {
                     sudo apt install -y git wget ansible socat curl numactl
                     sudo apt update
                     curl -O https://repo.percona.com/apt/percona-release_latest.generic_all.deb
-                    sudo apt install gnupg2 lsb-release ./percona-release_latest.generic_all.deb
+                    sudo apt install -y gnupg2 lsb-release ./percona-release_latest.generic_all.deb
                     sudo apt update
                     fi
                     ROOT_FS=$(pwd)
