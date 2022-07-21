@@ -104,9 +104,9 @@ void run_test() {
                     # Fetch the latest LOWER_PXC binaries
                     cd $ROOT_FS/
                     rm -rf $ROOT_FS/pxc_5.7_tar || true
-                    PXC_LOWER_VERSION_TAR=lower-pxc-latest.tar.gz
-                    wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${PXC_LOWER_VERSION_TAR}/Percona-XtraDB-Cluster-${PXC57_PKG_VERSION}.Linux.x86_64.glibc2.17.tar.gz > ${PXC_LOWER_VERSION_TAR}
-                    tar -xzf ${PXC_LOWER_VERSION_TAR}
+                    LOWER_PXC_TAR=lower-pxc-latest.tar.gz
+                    wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${PXC_LOWER_VERSION_TAR}/Percona-XtraDB-Cluster-${PXC57_PKG_VERSION}.Linux.x86_64.glibc2.17.tar.gz > ${LOWER_PXC_TAR}
+                    tar -xzf ${LOWER_PXC_TAR}
                     rm *.tar.gz
                     mv Percona-XtraDB-* pxc_5.7_tar
                 '''
@@ -117,9 +117,9 @@ void run_test() {
                     # Fetch the latest Upper_PXC binaries
                     cd $ROOT_FS
                     rm -rf $ROOT_FS/pxc_8.0_tar || true
-                    PXC_UPPER_VERSION_TAR=upper-pxc-latest.tar.gz
-                    wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${PXC_UPPER_VERSION_TAR}/Percona-XtraDB-Cluster_${PXC_UPPER_VERSION_TAR}_Linux.x86_64.glibc2.17.tar.gz > ${PXC_UPPER_VERSION_TAR}
-                    tar -xzf ${PXC_UPPER_VERSION_TAR}
+                    UPPER_PXC_TAR=upper-pxc-latest.tar.gz
+                    wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${PXC_UPPER_VERSION_TAR}/Percona-XtraDB-Cluster_${PXC_UPPER_VERSION_TAR}_Linux.x86_64.glibc2.17.tar.gz > ${UPPER_PXC_TAR}
+                    tar -xzf ${UPPER_PXC_TAR}
                     rm *.tar.gz
                     mv Percona-XtraDB-* pxc_8.0_tar
                 ''' 
