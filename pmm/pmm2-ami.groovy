@@ -27,7 +27,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 checkout([$class: 'GitSCM', 
-                          branches: [[name: '*/main']],
+                          branches: [[name: "*/${PMM_BRANCH}"]],
                           extensions: [[$class: 'CloneOption',
                           noTags: true,
                           reference: '',

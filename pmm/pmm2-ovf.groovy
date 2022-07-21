@@ -37,7 +37,7 @@ pipeline {
                           color: '#FFFF00',
                           message: "[${specName}]: build started - ${BUILD_URL}"
                 checkout([$class: 'GitSCM', 
-                          branches: [[name: '*/main']],
+                          branches: [[name: "*/${PMM_BRANCH}"]],
                           extensions: [[$class: 'CloneOption',
                           noTags: true,
                           reference: '',
