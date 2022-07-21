@@ -125,6 +125,7 @@ pipeline {
                         sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
                         sudo chmod 755 pmm-tests/install-google-chrome.sh
                     popd
+                    /srv/pmm-qa/pmm-tests/install_k8s_tools.sh --kubectl --sudo
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
