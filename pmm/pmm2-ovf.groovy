@@ -1,6 +1,6 @@
 def pmmVersion = 'dev-latest'
 if (RELEASE_CANDIDATE == 'yes') {
-    pmmVersion = PMM_SERVER_BRANCH.split('-')[1] //release branch should be in format: pmm-2.x.y
+    pmmVersion = PMM_BRANCH.split('-')[1] //release branch should be in format: pmm-2.x.y
 }
 
 
@@ -14,8 +14,8 @@ pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for pmm-server repository',
-            name: 'PMM_SERVER_BRANCH')
+            description: 'Tag/Branch for pmm repository',
+            name: 'PMM_BRANCH')
         choice(
             choices: ['no', 'yes'],
             description: "Build Release Candidate?",
@@ -32,8 +32,17 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
-                git poll: true, branch: PMM_SERVER_BRANCH, url: "https://github.com/percona/pmm-server.git"
+                slackSend botUser: true,
+                          channel: '#pmm-ci',
+                          color: '#FFFF00',
+                          message: "[${specName}]: build started - ${BUILD_URL}"
+                checkout([$class: 'GitSCM', 
+                          branches: [[name: '*/main']],
+                          extensions: [[$class: 'CloneOption',
+                          noTags: true,
+                          reference: '',
+                          shallow: true]],
+                          userRemoteConfigs: [[url: 'https://github.com/percona/pmm.git']]])
                 sh """
                     make clean
                     make fetch
@@ -47,16 +56,18 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        /usr/bin/packer build \
-                        -var 'pmm_client_repos=original testing' \
-                        -var 'pmm_client_repo_name=percona-testing-x86_64' \
-                        -var 'pmm2_server_repo=testing' \
-                        -only virtualbox-ovf -color=false packer/pmm2.json \
-                            | tee build.log
-                    """
+                    dir("build") {
+                        sh """
+                            /usr/bin/packer build \
+                            -var 'pmm_client_repos=original testing' \
+                            -var 'pmm_client_repo_name=percona-testing-x86_64' \
+                            -var 'pmm2_server_repo=testing' \
+                            -only virtualbox-ovf -color=false packer/pmm2.json \
+                                | tee build.log
+                        """
+                    }
                 }
-                sh 'ls */*.ova | cut -d "/" -f 2 > IMAGE'
+                sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
                 stash includes: 'IMAGE', name: 'IMAGE'
                 archiveArtifacts 'IMAGE'
             }
@@ -67,16 +78,18 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        /usr/bin/packer build \
-                        -var 'pmm_client_repos=original experimental' \
-                        -var 'pmm_client_repo_name=percona-experimental-x86_64' \
-                        -var 'pmm2_server_repo=experimental' \
-                        -only virtualbox-ovf -color=false packer/pmm2.json \
-                            | tee build.log
-                    """
+                    dir("build") {
+                        sh """
+                            /usr/bin/packer build \
+                            -var 'pmm_client_repos=original experimental' \
+                            -var 'pmm_client_repo_name=percona-experimental-x86_64' \
+                            -var 'pmm2_server_repo=experimental' \
+                            -only virtualbox-ovf -color=false packer/pmm2.json \
+                                | tee build.log
+                        """
+                    }
                 }
-                sh 'ls */*.ova | cut -d "/" -f 2 > IMAGE'
+                sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
                 stash includes: 'IMAGE', name: 'IMAGE'
                 archiveArtifacts 'IMAGE'
             }
