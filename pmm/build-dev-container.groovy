@@ -26,7 +26,7 @@ pipeline {
                         docker login -u "${USER}" -p "${PASS}"
                     """
                 }
-                sh 'docker build -t ${DOCKER_IMAGE} -f devcontainer.Dockerfile .'
+                sh 'docker build -t $DOCKER_IMAGE -f devcontainer.Dockerfile .'
                 sh 'docker push $DOCKER_IMAGE'
             }
         }
