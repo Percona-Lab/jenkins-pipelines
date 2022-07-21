@@ -45,7 +45,6 @@ pipeline {
                           userRemoteConfigs: [[url: 'https://github.com/percona/pmm.git']]])
                 dir("build") {
                     sh """
-                        make clean
                         make fetch
                     """
                 }
