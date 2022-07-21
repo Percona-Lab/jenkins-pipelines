@@ -103,7 +103,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        FILE=\$(ls */*.ova)
+                        FILE=\$(ls */*/*.ova)
                         NAME=\$(basename \${FILE})
                         aws s3 cp \
                             --only-show-errors \
@@ -127,7 +127,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        FILE=\$(ls */*.ova)
+                        FILE=\$(ls */*/*.ova)
                         NAME=\$(basename \${FILE})
                         aws s3 cp \
                             --only-show-errors \
