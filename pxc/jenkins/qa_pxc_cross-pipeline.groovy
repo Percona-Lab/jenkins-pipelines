@@ -8,8 +8,8 @@ pipeline {
         label 'docker'
     }
   parameters {
-    string(name: 'LOWER_PXC_VERSION', defaultValue: '5.7.38-31.59', description: 'PXC lower version tarball to download for testing')
-    string(name: 'UPPER_PXC_VERSION', defaultValue: '8.0.27-18.1', description: 'PXC Upper version tarball to download for testing')
+    string(name: 'PXC_LOWER_VERSION_TAR', defaultValue: '5.7.38-31.59', description: 'PXC lower version tarball to download for testing')
+    string(name: 'PXC_UPPER_VERSION_TAR', defaultValue: '8.0.28-19.1', description: 'PXC Upper version tarball to download for testing')
     string(name: 'PXC57_PKG_VERSION', defaultValue: '5.7.38-rel41-59.1', description: 'PXC-5.7 package version')
     string(name: 'PERCONA_QA_REPO', defaultValue: 'https://github.com/Percona-QA/percona-qa', description: 'URL to Percona-QA repository')
     string(name: 'BRANCH', defaultValue: 'master', description: 'Tag/Branch for Percona-QA repository')
@@ -87,17 +87,16 @@ pipeline {
 } //End pipeline
 
 void run_test() {
-  sh 'echo Downloading LOWER_PXC tarball: \$(date -u)'
+  sh 'echo Downloading PXC LOWER VERSION tarball: \$(date -u)'
                sh '''
                     echo "Installing dependencies..."
                     if [ -f /usr/bin/yum ]; then 
                     sudo yum -y update
                     sudo yum install -y git wget tar socat
                     else
-                    sudo apt install -y git wget ansible socat curl numactl
-                    sudo apt update
+                    sudo apt install -y git wget socat curl gnupg2
                     curl -O https://repo.percona.com/apt/percona-release_latest.generic_all.deb
-                    sudo apt install -y gnupg2 lsb-release ./percona-release_latest.generic_all.deb
+                    sudo apt install -y ./percona-release_latest.generic_all.deb
                     sudo apt update
                     fi
                     ROOT_FS=$(pwd)
@@ -105,22 +104,22 @@ void run_test() {
                     # Fetch the latest LOWER_PXC binaries
                     cd $ROOT_FS/
                     rm -rf $ROOT_FS/pxc_5.7_tar || true
-                    LOWER_PXC_TAR=lower-pxc-latest.tar.gz
-                    wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${LOWER_PXC_VERSION}/Percona-XtraDB-Cluster-${PXC57_PKG_VERSION}.Linux.x86_64.glibc2.17.tar.gz > ${LOWER_PXC_TAR}
-                    tar -xzf ${LOWER_PXC_TAR}
+                    PXC_LOWER_VERSION_TAR=lower-pxc-latest.tar.gz
+                    wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${PXC_LOWER_VERSION_TAR}/Percona-XtraDB-Cluster-${PXC57_PKG_VERSION}.Linux.x86_64.glibc2.17.tar.gz > ${PXC_LOWER_VERSION_TAR}
+                    tar -xzf ${PXC_LOWER_VERSION_TAR}
                     rm *.tar.gz
                     mv Percona-XtraDB-* pxc_5.7_tar
                 '''
-  sh 'echo Downloading Upper_PXC tarball: \$(date -u)'
+  sh 'echo Downloading PXC UPPER VERSION tarball: \$(date -u)'
                sh '''
                     ROOT_FS=$(pwd)
                     sudo killall -9 mysqld || true
                     # Fetch the latest Upper_PXC binaries
                     cd $ROOT_FS
                     rm -rf $ROOT_FS/pxc_8.0_tar || true
-                    UPPER_PXC_TAR=upper-pxc-latest.tar.gz
-                    wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${UPPER_PXC_VERSION}/Percona-XtraDB-Cluster_${UPPER_PXC_VERSION}_Linux.x86_64.glibc2.17.tar.gz > ${UPPER_PXC_TAR}
-                    tar -xzf ${UPPER_PXC_TAR}
+                    PXC_UPPER_VERSION_TAR=upper-pxc-latest.tar.gz
+                    wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${PXC_UPPER_VERSION_TAR}/Percona-XtraDB-Cluster_${PXC_UPPER_VERSION_TAR}_Linux.x86_64.glibc2.17.tar.gz > ${PXC_UPPER_VERSION_TAR}
+                    tar -xzf ${PXC_UPPER_VERSION_TAR}
                     rm *.tar.gz
                     mv Percona-XtraDB-* pxc_8.0_tar
                 ''' 

@@ -13,11 +13,11 @@
         artifact-num-to-keep: 50
     parameters:
     - string:
-        name: LOWER_PXC_VERSION
+        name: PXC_LOWER_VERSION_TAR
         default: "5.7.38-31.59"
         description: PXC lower version tarball to download for testing
     - string:
-        name: UPPER_PXC_VERSION
+        name: PXC_UPPER_VERSION_TAR
         default: "8.0.27-18.1"
         description: PXC Upper version tarball to download for testing
     - string:
