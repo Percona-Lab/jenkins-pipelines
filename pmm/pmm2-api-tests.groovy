@@ -5,16 +5,16 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'docker-farm'
+        label 'agent-amd64'
     }
     parameters {
         string(
-            defaultValue: 'https://github.com/percona/pmm-managed',
-            description: 'Url for pmm-managed repository',
+            defaultValue: 'https://github.com/percona/pmm',
+            description: 'Url for pmm repository',
             name: 'GIT_URL')
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for pmm-managed repository',
+            description: 'Tag/Branch for pmm repository',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '',
@@ -42,7 +42,7 @@ pipeline {
             name: 'MONGO_IMAGE')
         string(
             defaultValue: '',
-            description: 'Author of recent Commit to pmm-managed',
+            description: 'Author of recent Commit to pmm',
             name: 'OWNER')
         string (
             defaultValue: 'master',
@@ -58,7 +58,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                // fetch API tests from pmm-managed repository
+                // fetch API tests from pmm repository
                 git poll: false,
                     branch: GIT_BRANCH,
                     url: GIT_URL
@@ -94,10 +94,12 @@ pipeline {
                     -e ENABLE_BACKUP_MANAGEMENT=1 \
                     -e PERCONA_TEST_DBAAS=0 \
                     -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com \
+                    -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com \
                     -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
+                    -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
                     -p 80:80 \
                     -p 443:443 \
-                    -v \${PWD}/testdata/checks:/srv/checks \
+                    -v \${PWD}/managed/testdata/checks:/srv/checks \
                     \${DOCKER_VERSION}
 
                     docker build -t pmm-api-tests .
@@ -125,7 +127,7 @@ pipeline {
             steps {
                 sh '''
                     docker run -e PMM_SERVER_URL=\${PMM_URL} \
-                               -e PMM_RUN_UPDATE_TEST=1 \
+                               -e PMM_RUN_UPDATE_TEST=0 \
                                -e PMM_RUN_STT_TESTS=0 \
                                --name ${BUILD_TAG} \
                                --network host \
@@ -137,7 +139,7 @@ pipeline {
     post {
         always {
             sh '''
-                docker cp ${BUILD_TAG}:/go/src/github.com/percona/pmm-managed/api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml || true
+                docker cp ${BUILD_TAG}:/go/src/github.com/percona/pmm/api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml || true
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                 sudo chown -R ec2-user:ec2-user api-tests || true
             '''

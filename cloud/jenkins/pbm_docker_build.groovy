@@ -16,22 +16,13 @@ void checkImageForDocker(String IMAGE_SUFFIX){
         sh """
             IMAGE_SUFFIX=${IMAGE_SUFFIX}
             IMAGE_NAME='percona-server-mongodb-operator'
-            TrityHightLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_SUFFIX}.log"
-            TrityCriticaltLog="$WORKSPACE/trivy-critical-\$IMAGE_NAME-${IMAGE_SUFFIX}.log"
+            TrivyLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_SUFFIX}.xml"
+            wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH perconalab/\$IMAGE_NAME:main-\${IMAGE_SUFFIX}
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --timeout 10m0s --ignore-unfixed --exit-code 1 --severity CRITICAL perconalab/\$IMAGE_NAME:main-\${IMAGE_SUFFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl  -o \$TrivytLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:main-\${IMAGE_SUFFIX}
             "
-
-            if [ ! -s \$TrityHightLog ]; then
-                rm -rf \$TrityHightLog
-            fi
-
-            if [ ! -s \$TrityCriticaltLog ]; then
-                rm -rf \$TrityCriticaltLog
-            fi
         """
     }
 }
@@ -77,6 +68,7 @@ pipeline {
 
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
@@ -103,19 +95,26 @@ pipeline {
             steps {
                 checkImageForDocker('backup')
             }
+            post {
+                always {
+                    junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-backup.xml"
+                }
+            }
         }
     }
     post {
         always {
-            archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q | uniq) || true
                 sudo rm -rf ${WORKSPACE}/*
             '''
             deleteDir()
         }
+        unstable {
+            slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PBM docker images unstable. Please check the log ${BUILD_URL}"
+        }
         failure {
-            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PBM image failed. Please check the log ${BUILD_URL}"
+            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PBM docker image failed. Please check the log ${BUILD_URL}"
         }
     }
 }

@@ -19,22 +19,16 @@ void checkImageForDocker(String IMAGE_SUFFIX){
         sh """
             IMAGE_SUFFIX=\$(echo ${IMAGE_SUFFIX} | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
             IMAGE_NAME='percona-postgresql-operator'
-            TrityHightLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_SUFFIX}.log"
-            TrityCriticaltLog="$WORKSPACE/trivy-critical-\$IMAGE_NAME-${IMAGE_SUFFIX}.log"
+            TrivyLog="$WORKSPACE/trivy-\$IMAGE_NAME-${IMAGE_SUFFIX}.xml"
+            if [ ! -f junit.tpl ]; then
+                wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
+            fi
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity CRITICAL perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image  --format template --template @junit.tpl -o \$TrivyLog \
+                    --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
             "
-
-            if [ ! -s \$TrityHightLog ]; then
-                rm -rf \$TrityHightLog
-            fi
-
-            if [ ! -s \$TrityCriticaltLog ]; then
-                rm -rf \$TrityCriticaltLog
-            fi
         """
     }
 }
@@ -74,6 +68,7 @@ pipeline {
 
                         # sudo is needed for better node recovery after compilation failure
                         # if building failed on compilation stage directory will have files owned by docker user
+                        sudo git config --global --add safe.directory '*'
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf source
@@ -120,22 +115,6 @@ pipeline {
                 }
             }
         }
-        stage('Check PGO Docker images') {
-            steps {
-                checkImageForDocker('\$GIT_BRANCH-pgo-apiserver')
-                checkImageForDocker('\$GIT_BRANCH-pgo-event')
-                checkImageForDocker('\$GIT_BRANCH-pgo-rmdata')
-                checkImageForDocker('\$GIT_BRANCH-pgo-scheduler')
-                checkImageForDocker('\$GIT_BRANCH-postgres-operator')
-                checkImageForDocker('\$GIT_BRANCH-pgo-deployer')
-                sh '''
-                   CRITICAL=$(ls trivy-critical-*) || true
-                   if [ -n "$CRITICAL" ]; then
-                       exit 1
-                   fi
-                '''
-            }
-        }
         stage('Check PGO Docker images for CVE') {
             steps {
                 checkImageForCVE('\$GIT_BRANCH-pgo-apiserver')
@@ -146,11 +125,74 @@ pipeline {
                 checkImageForCVE('\$GIT_BRANCH-pgo-deployer')
             }
         }
+        stage('Trivy Checks') {
+            parallel {
+                stage('pgo-apiserver'){
+                    steps {
+                        checkImageForDocker('\$GIT_BRANCH-pgo-apiserver')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-apiserver.xml"
+                        }
+                    }
+                }
+                stage('pgo-event'){
+                    steps {
+                        checkImageForDocker('\$GIT_BRANCH-pgo-event')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-event.xml"
+                        }
+                    }
+                }
+                stage('pgo-rmdata'){
+                    steps {
+                        checkImageForDocker('\$GIT_BRANCH-pgo-rmdata')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-rmdata.xml"
+                        }
+                    }
+                }
+                stage('pgo-schedule'){
+                    steps {
+                        checkImageForDocker('\$GIT_BRANCH-pgo-scheduler')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-schedule.xml"
+                        }
+                    }
+                }
+                stage('postgres-operator'){
+                    steps {
+                        checkImageForDocker('\$GIT_BRANCH-postgres-operator')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-operator.xml"
+                        }
+                    }
+                }
+                stage('pgo-deployer'){
+                    steps {
+                        checkImageForDocker('\$GIT_BRANCH-pgo-deployer')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgo-deployer.xml"
+                        }
+                    }
+                }
+            }
+        }
     }
 
     post {
         always {
-            archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
             archiveArtifacts artifacts: '*.pdf', allowEmptyArchive: true
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
@@ -158,8 +200,11 @@ pipeline {
             '''
             deleteDir()
         }
+        unstable {
+            slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PXC docker images unstable. Please check the log ${BUILD_URL}"
+        }
         failure {
-            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PGO images failed. Please check the log ${BUILD_URL}"
+            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PXC docker images failed. Please check the log ${BUILD_URL}"
         }
     }
 }

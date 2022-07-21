@@ -38,7 +38,22 @@
         default: perconalab/percona-server-mysql-operator:main-orchestrator
         description: Orchestrator image
     - string:
+        name: IMAGE_ROUTER
+        default: perconalab/percona-server-mysql-operator:main-router
+        description: MySQL Router image
+    - string:
+        name: IMAGE_BACKUP
+        default: perconalab/percona-server-mysql-operator:main-backup
+        description: XtraBackup image
+    - string:
         name: IMAGE_PMM
         default: perconalab/pmm-client:dev-latest
         description: PMM image
-
+    - string:
+        name: IMAGE_PMM_SERVER_REPO
+        default: perconalab/pmm-server
+        description: PMM server image repo
+    - string:
+        name: IMAGE_PMM_SERVER_TAG
+        default: dev-latest
+        description: PMM server image tag

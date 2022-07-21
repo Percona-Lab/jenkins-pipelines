@@ -150,7 +150,7 @@ priceMap['t2.medium'] = '0.03'
 priceMap['t2.large'] = '0.07'
 priceMap['t3a.2xlarge'] = '0.17'
 priceMap['t3.2xlarge'] = '0.18'
-priceMap['i4i.2xlarge'] = '0.29'
+priceMap['i4i.2xlarge'] = '0.40'
 priceMap['t2.2xlarge'] = '0.18'
 priceMap['r6g.2xlarge'] = '0.23'
 
@@ -515,7 +515,7 @@ typeMap['docker2']           = 't2.2xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-ol-8-x64']      = typeMap['min-centos-7-x64']
-typeMap['min-rhel-9-x64']    = 't2.micro'
+typeMap['min-rhel-9-x64']    = 'i4i.2xlarge'
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']

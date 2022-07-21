@@ -1,5 +1,5 @@
 - job:
-    name: ps-operator-gke-version
+    name: ps-operator-minikube
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -18,7 +18,7 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/ps_operator_gke_version.groovy
+      script-path: cloud/jenkins/ps_operator_minikube.groovy
     parameters:
     - string:
         name: GIT_REPO
@@ -30,8 +30,8 @@
         description: Tag/Branch for percona/percona-server-mysql-operator repository
     - string:
         name: PLATFORM_VER
-        default: '1.20'
-        description: GKE version
+        default: 'latest'
+        description: Version of Kubernetes
     - string:
         name: OPERATOR_IMAGE
         default: perconalab/percona-server-mysql-operator:main

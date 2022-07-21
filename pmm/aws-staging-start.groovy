@@ -82,7 +82,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['14.3','14.2', '14.1', '14.0', '13.7', '13.6', '13.4', '13.2', '13.1', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
+            choices: ['14.4','14.3','14.2', '14.1', '14.0', '13.7', '13.6', '13.4', '13.2', '13.1', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -166,7 +166,7 @@ pipeline {
                     sh """
                         echo "\${BUILD_USER_EMAIL}" > OWNER_EMAIL
                         echo "\${BUILD_USER_EMAIL}" | awk -F '@' '{print \$1}' > OWNER_FULL
-                        echo "pmm-\$(cat OWNER_FULL)-\$(date -u '+%Y%m%d%H%M%S')-${BUILD_NUMBER}" \
+                        echo "pmm-\$(cat OWNER_FULL | sed 's/[^a-zA-Z0-9_.-]//')-\$(date -u '+%Y%m%d%H%M%S')-${BUILD_NUMBER}" \
                             > VM_NAME
                     """
                 }

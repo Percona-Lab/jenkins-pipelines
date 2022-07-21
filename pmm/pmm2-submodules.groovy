@@ -3,12 +3,12 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runAPItests(String DOCKER_IMAGE_VERSION, GIT_URL, GIT_BRANCH, GIT_COMMIT_HASH, CLIENT_VERSION, OWNER) {
+void runAPItests(String DOCKER_IMAGE_VERSION, GIT_URL, GIT_BRANCH, GIT_COMMIT_HASH, CLIENT_VERSION) {
     apiTestJob = build job: 'pmm2-api-tests', propagate: false, parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_IMAGE_VERSION),
         string(name: 'GIT_URL', value: GIT_URL),
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
-        string(name: 'OWNER', value: OWNER),
+        string(name: 'OWNER', value: "FB"),
         string(name: 'GIT_COMMIT_HASH', value: GIT_COMMIT_HASH)
     ]
     env.API_TESTS_URL = apiTestJob.absoluteUrl
@@ -32,7 +32,10 @@ void runUItests(String DOCKER_IMAGE_VERSION, CLIENT_VERSION, PMM_QA_GIT_BRANCH, 
         string(name: 'DOCKER_VERSION', value: DOCKER_IMAGE_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'GIT_COMMIT_HASH', value: PMM_QA_GIT_COMMIT_HASH)
+        string(name: 'GIT_COMMIT_HASH', value: PMM_QA_GIT_COMMIT_HASH),
+        string(name: 'TAG', value: '@fb'),
+        string(name: 'RUN_TAGGED_TEST', value: 'yes'),
+        string(name: 'CLIENTS', value: '--addclient=haproxy,1 --addclient=ps,1 --setup-external-service --mongo-replica-for-backup')
     ]
     env.UI_TESTS_URL = e2eTestJob.absoluteUrl
     env.UI_TESTS_RESULT = e2eTestJob.result
@@ -51,7 +54,7 @@ void addComment(String COMMENT) {
 
 pipeline {
     agent {
-        label 'docker-farm'
+        label 'agent-amd64'
     }
     stages {
         stage('Prepare') {
@@ -66,10 +69,9 @@ pipeline {
                         git clean -fdx
                         python3 ci.py
                         . ./.git-sources
-                        curl -s https://api.github.com/repos/percona/pmm-managed/commits/${pmm_managed_commit} | grep 'name' | awk -F '"' '{print $4}' | head -1 > OWNER
-                        echo $pmm_managed_commit > apiCommitSha
-                        echo $pmm_managed_branch > apiBranch
-                        echo $pmm_managed_url > apiURL
+                        echo $pmm_commit > apiCommitSha
+                        echo $pmm_branch > apiBranch
+                        echo $pmm_url > apiURL
                         echo $pmm_qa_branch > pmmQABranch
                         echo $pmm_qa_commit > pmmQACommitSha
                         echo $pmm_ui_tests_branch > pmmUITestBranch
@@ -82,10 +84,9 @@ pipeline {
                         git submodule foreach --recursive git clean -fdx
                         git submodule status
                         export commit_sha=$(git submodule status | grep 'pmm-managed' | awk -F ' ' '{print $1}')
-                        curl -s https://api.github.com/repos/percona/pmm-managed/commits/${commit_sha} | grep 'name' | awk -F '"' '{print $4}' | head -1 > OWNER
-                        export api_tests_commit_sha=$(git submodule status | grep 'pmm-managed' | awk -F ' ' '{print $1}')
-                        export api_tests_branch=$(git config -f .gitmodules submodule.pmm-managed.branch)
-                        export api_tests_url=$(git config -f .gitmodules submodule.pmm-managed.url)
+                        export api_tests_commit_sha=$(git submodule status | grep 'pmm' | awk -F ' ' '{print $1}')
+                        export api_tests_branch=$(git config -f .gitmodules submodule.pmm.branch)
+                        export api_tests_url=$(git config -f .gitmodules submodule.pmm.url)
                         echo $api_tests_commit_sha > apiCommitSha
                         echo $api_tests_branch > apiBranch
                         echo $api_tests_url > apiURL
@@ -216,7 +217,7 @@ pipeline {
 
                         # 1st-party
                         build-server-rpm percona-dashboards grafana-dashboards
-                        build-server-rpm pmm-managed
+                        build-server-rpm pmm-managed pmm
                         build-server-rpm percona-qan-api2 qan-api2
                         build-server-rpm pmm-server
                         build-server-rpm pmm-update
@@ -295,12 +296,11 @@ pipeline {
                             unstash 'apiCommitSha'
                             def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                             def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
-                            def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
                             def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                             def API_TESTS_URL = sh(returnStdout: true, script: "cat apiURL").trim()
                             def API_TESTS_BRANCH = sh(returnStdout: true, script: "cat apiBranch").trim()
                             def GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat apiCommitSha").trim()
-                            runAPItests(IMAGE, API_TESTS_URL, API_TESTS_BRANCH, GIT_COMMIT_HASH, CLIENT_URL, OWNER)
+                            runAPItests(IMAGE, API_TESTS_URL, API_TESTS_BRANCH, GIT_COMMIT_HASH, CLIENT_URL)
                             if (!env.API_TESTS_RESULT.equals("SUCCESS")) {
                                 sh "exit 1"
                             }
@@ -315,7 +315,6 @@ pipeline {
                             unstash 'pmmQACommitSha'
                             def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                             def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
-                            def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
                             def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                             def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
                             def PMM_QA_GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat pmmQACommitSha").trim()
@@ -334,7 +333,6 @@ pipeline {
                             unstash 'pmmUITestsCommitSha'
                             def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                             def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
-                            def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
                             def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                             def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmUITestBranch").trim()
                             def PMM_QA_GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat pmmUITestsCommitSha").trim()

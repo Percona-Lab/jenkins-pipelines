@@ -42,7 +42,6 @@ void runPMM2OVFBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
 def pmm_submodules() {
     return [
         "pmm",
-        "pmm-managed",
         "qan-api2",
         "pmm-update",
         "pmm-server",
@@ -165,7 +164,7 @@ String DEFAULT_BRANCH = 'PMM-2.0'
 
 pipeline {
     agent {
-        label 'docker-farm'
+        label 'agent-amd64'
     }
     parameters {
         string(

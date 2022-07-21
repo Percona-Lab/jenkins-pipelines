@@ -59,7 +59,7 @@ def versionsList = pmmVersion('list')
 
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'cli'
     }
     parameters {
         choice(

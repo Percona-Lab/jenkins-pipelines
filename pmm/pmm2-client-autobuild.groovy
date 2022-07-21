@@ -25,7 +25,7 @@ pipeline {
     stages {
         stage('Build PMM Client') {
             agent {
-                label 'docker-farm'
+                label 'agent-amd64'
             }
             stages {
                 stage('Prepare') {
@@ -33,7 +33,7 @@ pipeline {
                         git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
                         sh '''
                             git reset --hard
-                            sudo git clean -xdf
+                            git clean -xdf
                             git submodule update --init --jobs 10
                             git submodule status
 
@@ -117,6 +117,7 @@ pipeline {
                     steps {
                         sh './build/bin/build-client-rpm centos:7'
                         sh './build/bin/build-client-rpm rockylinux:8'
+                        sh './build/bin/build-client-rpm almalinux:9.0'
                         stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
                         uploadRPM()
                     }

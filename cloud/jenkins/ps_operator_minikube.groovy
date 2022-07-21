@@ -1,9 +1,3 @@
-void IsRunTestsInClusterWide() {
-    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
-        env.OPERATOR_NS = 'pxc-operator'
-    }
-}
-
 void pushArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -26,7 +20,7 @@ void popArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PXC\\">\n'
+TestsReport = '<testsuite name=\\"PS\\">\n'
 testsReportMap = [:]
 void makeReport() {
     for ( test in testsReportMap ) {
@@ -42,9 +36,9 @@ void runTest(String TEST_NAME) {
             echo "The $TEST_NAME test was started!"
 
             GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-            PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
+            PS_TAG = sh(script: "if [ -n \"\${IMAGE_MYSQL}\" ] ; then echo ${IMAGE_MYSQL} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-            FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"
+            FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}-$PS_TAG"
             testsReportMap[TEST_NAME] = 'failure'
 
             popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
@@ -53,22 +47,22 @@ void runTest(String TEST_NAME) {
                     echo Skip $TEST_NAME test
                 else
                     cd ./source
-                    if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                        export IMAGE=${PXC_OPERATOR_IMAGE}
+                    if [ -n "${OPERATOR_IMAGE}" ]; then
+                        export IMAGE=${OPERATOR_IMAGE}
                     else
-                        export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                        export IMAGE=perconalab/percona-server-mysql-operator:${env.GIT_BRANCH}
                     fi
 
-                    if [ -n "${IMAGE_PXC}" ]; then
-                        export IMAGE_PXC=${IMAGE_PXC}
+                    if [ -n "${IMAGE_MYSQL}" ]; then
+                        export IMAGE_MYSQL=${IMAGE_MYSQL}
                     fi
 
-                    if [ -n "${IMAGE_PROXY}" ]; then
-                        export IMAGE_PROXY=${IMAGE_PROXY}
+                    if [ -n "${IMAGE_ORCHESTRATOR}" ]; then
+                        export IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR}
                     fi
 
-                    if [ -n "${IMAGE_HAPROXY}" ]; then
-                        export IMAGE_HAPROXY=${IMAGE_HAPROXY}
+                    if [ -n "${IMAGE_ROUTER}" ]; then
+                        export IMAGE_ROUTER=${IMAGE_ROUTER}
                     fi
 
                     if [ -n "${IMAGE_BACKUP}" ]; then
@@ -79,12 +73,21 @@ void runTest(String TEST_NAME) {
                         export IMAGE_PMM=${IMAGE_PMM}
                     fi
 
-                    if [ -n "${IMAGE_LOGCOLLECTOR}" ]; then
-                            export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
+                    if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                    fi
+
+                    if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                        export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
                     fi
 
                     sudo rm -rf /tmp/hostpath-provisioner/*
-                    ./e2e-tests/$TEST_NAME/run
+
+                    export KUBECONFIG=~/.kube/config
+                    export PATH="${HOME}/.krew/bin:$PATH"
+                    source $HOME/google-cloud-sdk/path.bash.inc
+
+                    kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^${TEST_NAME}\$"
                 fi
             """
             pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
@@ -120,67 +123,56 @@ void conditionalRunTest(String TEST_NAME) {
 
 void installRpms() {
     sh '''
-        cat <<EOF > /tmp/kubernetes.repo
-[kubernetes]
-name=Kubernetes
-baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-        sudo mv /tmp/kubernetes.repo /etc/yum.repos.d/
-
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable-only tools
-        sudo yum clean all || true
-        sudo yum install -y percona-xtrabackup-80 jq kubectl socat
+        sudo yum install -y jq | true
     '''
 }
+
 pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
+            description: 'Tag/Branch for percona/percona-server-mysql-operator repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator',
-            description: 'percona-xtradb-cluster-operator repository',
+            defaultValue: 'https://github.com/percona/percona-server-mysql-operator',
+            description: 'percona/percona-server-mysql-operator repository',
             name: 'GIT_REPO')
-        choice(
-            choices: 'NO\nYES',
-            description: 'Run tests with cluster wide',
-            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
-            description: 'Operator image: perconalab/percona-xtradb-cluster-operator:main',
-            name: 'PXC_OPERATOR_IMAGE')
+            description: 'Operator image: perconalab/percona-server-mysql-operator:main',
+            name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:main-pxc5.7',
-            name: 'IMAGE_PXC')
+            description: 'MySQL image: perconalab/percona-server-mysql-operator:main-ps8.0',
+            name: 'IMAGE_MYSQL')
         string(
             defaultValue: '',
-            description: 'PXC proxy image: perconalab/percona-xtradb-cluster-operator:main-proxysql',
-            name: 'IMAGE_PROXY')
+            description: 'Orchestrator image: perconalab/percona-server-mysql-operator:main-orchestrator',
+            name: 'IMAGE_ORCHESTRATOR')
         string(
             defaultValue: '',
-            description: 'PXC haproxy image: perconalab/percona-xtradb-cluster-operator:main-haproxy',
-            name: 'IMAGE_HAPROXY')
+            description: 'MySQL Router image: perconalab/percona-server-mysql-operator:main-router',
+            name: 'IMAGE_ROUTER')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:main-pxc5.7-backup',
+            description: 'XtraBackup image: perconalab/percona-server-mysql-operator:main-backup',
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/percona-xtradb-cluster-operator:main-pmm',
+            description: 'PMM image: perconalab/pmm-client:dev-latest',
             name: 'IMAGE_PMM')
         string(
             defaultValue: '',
-            description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
-            name: 'IMAGE_LOGCOLLECTOR')
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
         string(
-            defaultValue: 'v1.14.8',
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
+        string(
+            defaultValue: 'latest',
             description: 'Kubernetes Version',
             name: 'PLATFORM_VER',
             trim: true)
@@ -211,7 +203,6 @@ pipeline {
                 stash includes: "source/**", name: "sourceFILES", useDefaultExcludes: false
             }
         }
-
         stage('Build docker image') {
             agent { label 'docker' }
             steps {
@@ -221,13 +212,13 @@ pipeline {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                            echo "SKIP: Build is not needed, PXC operator image was set!"
+                        if [ -n "${OPERATOR_IMAGE}" ]; then
+                            echo "SKIP: Build is not needed, operator image was set!"
                         else
                             cd ./source/
                             sg docker -c "
                                 docker login -u '${USER}' -p '${PASS}'
-                                export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                                export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
                                 ./e2e-tests/build
                                 docker logout
                             "
@@ -243,11 +234,10 @@ pipeline {
             }
             agent { label 'docker-32gb' }
                 steps {
-                    IsRunTestsInClusterWide()
-
                     sh '''
                         sudo yum install -y conntrack
                         sudo usermod -aG docker $USER
+
                         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                             rm -rf $HOME/google-cloud-sdk
                             curl https://sdk.cloud.google.com | bash
@@ -261,13 +251,24 @@ pipeline {
                             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
                         sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
                         sudo chmod +x /usr/local/bin/yq
+
+						cd "$(mktemp -d)"
+						OS="$(uname | tr '[:upper:]' '[:lower:]')"
+						ARCH="$(uname -m | sed -e 's/x86_64/amd64/')"
+						KREW="krew-${OS}_${ARCH}"
+						curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/download/v0.4.2/${KREW}.tar.gz"
+						tar zxvf "${KREW}.tar.gz"
+						./"${KREW}" install krew
+						export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+						kubectl krew install kuttl
+
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
                         /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER}
                     '''
 
                     unstash "sourceFILES"
-                    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+                    withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
                         sh '''
                            cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
                         '''

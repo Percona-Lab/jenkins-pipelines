@@ -31,7 +31,7 @@ void runAMIStaginStop(INSTANCE_ID) {
 
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'cli'
     }
     parameters {
         string(
@@ -90,11 +90,6 @@ pipeline {
         stage('Run PMM2 AMI Instance') {
             steps {
                 runAMIStagingStart(AMI_ID, SSH_KEY)
-            }
-        }
-        stage('Start UI Tests') {
-            steps {
-                //runUITests(CLIENT_VERSION, 'yes', "${env.AMI_INSTANCE_IP}", 'yes', "${env.AMI_INSTANCE_ID}")
             }
         }
     }

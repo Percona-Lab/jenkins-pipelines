@@ -24,22 +24,13 @@ void checkImageForDocker(String IMAGE_SUFFIX){
         sh """
             IMAGE_SUFFIX=${IMAGE_SUFFIX}
             IMAGE_NAME='percona-server-mongodb-operator'
-            TrityHightLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_SUFFIX}.log"
-            TrityCriticaltLog="$WORKSPACE/trivy-critical-\$IMAGE_NAME-${IMAGE_SUFFIX}.log"
+            TrivyLog="$WORKSPACE/trivy-\$IMAGE_NAME-${IMAGE_SUFFIX}-psmdb.xml"
+            wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --timeout 15m0s --ignore-unfixed --exit-code 0 --severity HIGH perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --timeout 15m0s --ignore-unfixed --exit-code 0 --severity CRITICAL perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrivyLog --timeout 40m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
             "
-
-            if [ ! -s \$TrityHightLog ]; then
-                rm -rf \$TrityHightLog
-            fi
-
-            if [ ! -s \$TrityCriticaltLog ]; then
-                rm -rf \$TrityCriticaltLog
-            fi
         """
     }
 }
@@ -99,6 +90,7 @@ pipeline {
 
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
@@ -159,9 +151,6 @@ pipeline {
                 """
                 echo 'Build PSMDB docker images'
                 retry(3) {
-                    build('mongod4.0')
-                }
-                retry(3) {
                     build('mongod4.2')
                 }
                 retry(3) {
@@ -175,8 +164,6 @@ pipeline {
 
         stage('Push PSMDB images to Docker registry') {
             steps {
-                pushImageToDocker('mongod4.0')
-                pushImageToDocker('mongod4.0-debug')
                 pushImageToDocker('mongod4.2')
                 pushImageToDocker('mongod4.2-debug')
                 pushImageToDocker('mongod4.4')
@@ -185,31 +172,83 @@ pipeline {
                 pushImageToDocker('mongod5.0-debug')
             }
         }
-
-        stage('Check PSMDB Docker images') {
-            steps {
-                checkImageForDocker('main')
-                checkImageForDocker('main-mongod4.0')
-                checkImageForDocker('main-mongod4.0-debug')
-                checkImageForDocker('main-mongod4.2')
-                checkImageForDocker('main-mongod4.2-debug')
-                checkImageForDocker('main-mongod4.4')
-                checkImageForDocker('main-mongod4.4-debug')
-                checkImageForDocker('main-mongod5.0')
-                checkImageForDocker('main-mongod5.0-debug')
-                sh '''
-                   CRITICAL=$(ls trivy-critical-*) || true
-                   if [ -n "$CRITICAL" ]; then
-                       exit 1
-                   fi
-                '''
+       stage('Trivy Checks') {
+            parallel {
+                stage('psmdb operator'){
+                    steps {
+                        checkImageForDocker('main')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-psmdb.xml"
+                        }
+                    }
+                }
+                stage('mongod4.2'){
+                    steps {
+                        checkImageForDocker('main-mongod4.2')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod4.2-psmdb.xml"
+                        }
+                    }
+                }
+                stage('mongod4.4'){
+                    steps {
+                        checkImageForDocker('main-mongod4.4')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod4.4-psmdb.xml"
+                        }
+                    }
+                }
+                stage('mongod5.0'){
+                    steps {
+                        checkImageForDocker('main-mongod5.0')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod5.0-psmdb.xml"
+                        }
+                    }
+                }
+                stage('mongod4.2-debug'){
+                    steps {
+                        checkImageForDocker('main-mongod4.2-debug')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod4.2-debug-psmdb.xml"
+                        }
+                    }
+                }
+                stage('mongod4.4-debug'){
+                    steps {
+                        checkImageForDocker('main-mongod4.4-debug')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod4.4-debug-psmdb.xml"
+                        }
+                    }
+                }
+                stage('mongod5.0-debug'){
+                    steps {
+                        checkImageForDocker('main-mongod5.0-debug')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-debug-mongod5.0-debug.xml"
+                        }
+                    }
+                }
             }
         }
         stage('Check PSMDB Docker images for CVE') {
             steps {
                 checkImageForCVE('main')
-                checkImageForCVE('main-mongod4.0')
-                checkImageForCVE('main-mongod4.0-debug')
                 checkImageForCVE('main-mongod4.2')
                 checkImageForCVE('main-mongod4.2-debug')
                 checkImageForCVE('main-mongod4.4')
@@ -222,7 +261,6 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
             archiveArtifacts artifacts: '*.pdf', allowEmptyArchive: true
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
@@ -230,8 +268,11 @@ pipeline {
             '''
             deleteDir()
         }
+        unstable {
+            slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PSMDB docker images unstable. Please check the log ${BUILD_URL}"
+        }
         failure {
-            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PSMDB images failed. Please check the log ${BUILD_URL}"
+            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PSMDB docker images failed. Please check the log ${BUILD_URL}"
         }
     }
 }
