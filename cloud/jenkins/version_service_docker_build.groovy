@@ -22,6 +22,20 @@ void checkImageForDocker(){
     }
 }
 
+void checkImageForCVE() {
+    try {
+        def IMAGE = sh(returnStdout: true, script: 'cat IMG').trim()
+        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
+            sh """
+                docker run -v \$(pwd):/tmp/pgo --rm quay.io/sysdig/secure-inline-scan:2 '${IMAGE}' --sysdig-token '${SYSDIG_API_KEY}' --sysdig-url https://us2.app.sysdig.com -r /tmp/pgo
+            """
+        }
+    } catch (error) {
+        echo "${IMAGE} has some CVE error(s) please check the reports."
+        currentBuild.result = 'FAILURE'
+    }
+}
+
 pipeline {
     parameters {
         string(
@@ -114,9 +128,14 @@ pipeline {
                 }
             }
         }
-        stage('Check version-service Docker image') {
+        stage('Trivy check') {
             steps {
                 checkImageForDocker()
+            }
+        }
+        stage('Check Docker image for CVE') {
+            steps {
+                checkImageForCVE()
             }
         }
     }
