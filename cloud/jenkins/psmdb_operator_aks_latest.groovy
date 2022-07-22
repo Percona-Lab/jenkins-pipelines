@@ -151,6 +151,7 @@ pipeline {
                 installRpms()
                 sh '''
                     printenv
+                    uname -a 
                     curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
                     az --version
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
