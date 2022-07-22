@@ -124,6 +124,11 @@ pipeline {
             steps {
                 checkImageForDocker()
             }
+            post {
+                always {
+                    junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "trivy-version-service-*.xml"
+                }
+            }
         }
         stage('Check Docker image for CVE') {
             steps {
