@@ -1,24 +1,16 @@
 void checkImageForDocker(){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh '''
+        sh """
             IMAGE=\$(cat IMG)
-            TrityHightLog="$WORKSPACE/trivy-hight-\$(echo \$IMAGE | tr -d '/:').log"
-            TrityCriticaltLog="$WORKSPACE/trivy-critical-\$(echo \$IMAGE | tr -d '/:').log"
+            IMAGE_TAG=\$(echo "\$IMAGE" | cut -d':' -f2)
+            TrivyLog="$WORKSPACE/trivy-version-service-\${IMAGE_TAG}.xml"
+            wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH \$IMAGE
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity CRITICAL \$IMAGE
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrivyLog --timeout 40m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL \$IMAGE
             "
-
-            if [ ! -s \$TrityHightLog ]; then
-                rm -rf \$TrityHightLog
-            fi
-
-            if [ ! -s \$TrityCriticaltLog ]; then
-                rm -rf \$TrityCriticaltLog
-            fi
-        '''
+        """
     }
 }
 
