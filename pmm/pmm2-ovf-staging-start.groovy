@@ -14,6 +14,20 @@ Jenkins.instance.getItemByFullName(env.JOB_NAME).description = '''
 With this job you can run an OVA image with PMM server on a Digital Ocean droplet. We use DO instead of AWS here because AWS doesn't support nested virtualization.
 '''
 
+void enableRepo(String REPO) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            export REPO=${REPO}
+            ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
+                sudo yum update -y percona-release || true
+                sudo sed -i'' -e 's^/release/^/${REPO}/^' /etc/yum.repos.d/pmm2-server.repo
+                sudo percona-release enable percona ${REPO}
+                sudo yum clean all
+            '
+        """
+    }
+}
+
 pipeline {
     agent {
         label 'cli'
@@ -145,16 +159,7 @@ pipeline {
             }
             steps {
                 node(env.VM_NAME){
-                    withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                        sh """
-                            ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
-                                sudo yum update -y percona-release || true
-                                sudo sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-                                sudo percona-release enable percona testing
-                                sudo yum clean all
-                            '
-                        """
-                    }
+                    enableRepo('testing')
                 }
             }
         }
@@ -164,16 +169,7 @@ pipeline {
             }
             steps {
                 node(env.VM_NAME){
-                    withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                        sh """
-                            ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
-                                sudo yum update -y percona-release || true
-                                sudo sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-                                sudo percona-release enable percona experimental
-                                sudo yum clean all
-                            '
-                        """
-                    }
+                    enableRepo('experimental')
                 }
             }
         }
@@ -215,6 +211,14 @@ pipeline {
                         """
                     }
                 }
+            }
+        }
+    }
+    post {
+        always {
+            script {
+                def node = Jenkins.instance.getNode(env.VM_NAME)
+                Jenkins.instance.removeNode(node)
             }
         }
     }
