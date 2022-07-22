@@ -35,7 +35,9 @@ def call(String type='latest') {
     case 'list':
       return versionsList
     case 'ovf':
-      return versionsList.reverse().subList(0, 5)
+      ovfVersions=[];
+      ovfVersions.add(versionsList.reverse())
+      return ovfVersions.subList(0, 5)
     case 'list_with_old':
       return oldVersions + versionsList
   }
