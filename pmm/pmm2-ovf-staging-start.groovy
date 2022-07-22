@@ -199,7 +199,7 @@ pipeline {
                             ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
                                 export PMM_QA_GIT_BRANCH=${PMM_QA_GIT_BRANCH}
                                 export PMM_QA_GIT_COMMIT_HASH=${PMM_QA_GIT_COMMIT_HASH}
-                                sudo yum install -y wget
+                                sudo yum install -y wget git
                                 sudo mkdir -p /srv/pmm-qa || :
                                 pushd /srv/pmm-qa
                                     sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
