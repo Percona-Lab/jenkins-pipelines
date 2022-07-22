@@ -237,6 +237,11 @@ pipeline {
         stage('Start OVF Server') {
             steps {
                 runOVFStagingStart(SERVER_VERSION, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO)
+                script {
+                    SSHLauncher ssh_connection = new SSHLauncher(OVF_INSTANCE_IP, 22, 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e')
+                    DumbSlave node = new DumbSlave(OVF_INSTANCE_NAME, "OVA staging instance: ${OVF_INSTANCE_NAME}", "/root", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
+                    Jenkins.instance.addNode(node)
+                }
                 customSetupOVFInstance(OVF_INSTANCE_IP, OVF_INSTANCE_NAME)
             }
         }
@@ -319,6 +324,8 @@ pipeline {
                     fetchAgentLog(CLIENT_VERSION)
                     destroyStaging(VM_CLIENT_IP_DB)
                 }
+                def node = Jenkins.instance.getNode(OVF_INSTANCE_NAME)
+                Jenkins.instance.removeNode(node)
             }
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
