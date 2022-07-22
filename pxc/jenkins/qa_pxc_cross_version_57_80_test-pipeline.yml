@@ -1,5 +1,5 @@
 - job:
-    name: qa_pxc_cross-pipeline
+    name: qa_pxc_cross_version_57_80_test-pipeline
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -44,4 +44,4 @@
             - 'cross'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pxc/jenkins/qa_pxc_cross-pipeline.groovy
+      script-path: pxc/jenkins/qa_pxc_cross_version_57_80_test-pipeline.groovy
