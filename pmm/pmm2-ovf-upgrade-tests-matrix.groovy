@@ -14,7 +14,7 @@ void runOVFUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_
 }
 
 def latestVersion = pmmVersion()
-def versionsList = pmmVersion('ovf').subList(0,5);
+def versionsList = pmmVersion('ovf');
 
 
 def parallelStagesMatrix = versionsList.collectEntries {
