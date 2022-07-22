@@ -152,7 +152,8 @@ pipeline {
                 sh '''
                     printenv
                     uname -a 
-                    curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+                    curl https://azurecliprod.blob.core.windows.net/install | bash
+//                    curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
                     az --version
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                         rm -rf $HOME/google-cloud-sdk
