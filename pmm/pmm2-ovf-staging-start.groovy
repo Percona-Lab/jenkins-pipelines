@@ -14,10 +14,11 @@ Jenkins.instance.getItemByFullName(env.JOB_NAME).description = '''
 With this job you can run an OVA image with PMM server on a Digital Ocean droplet. We use DO instead of AWS here because AWS doesn't support nested virtualization.
 '''
 
-void enableRepo(String REPO) {
+void enableRepo(String REPO, String PUBLIC_IP) {
     withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             export REPO=${REPO}
+            export PUBLIC_IP=${PUBLIC_IP}
             ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
                 sudo yum update -y percona-release || true
                 sudo sed -i'' -e 's^/release/^/${REPO}/^' /etc/yum.repos.d/pmm2-server.repo
@@ -159,7 +160,7 @@ pipeline {
             }
             steps {
                 node(env.VM_NAME){
-                    enableRepo('testing')
+                    enableRepo('testing', PUBLIC_IP)
                 }
             }
         }
@@ -169,7 +170,7 @@ pipeline {
             }
             steps {
                 node(env.VM_NAME){
-                    enableRepo('experimental')
+                    enableRepo('experimental', PUBLIC_IP)
                 }
             }
         }
