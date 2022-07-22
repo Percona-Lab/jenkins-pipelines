@@ -14,20 +14,6 @@ void checkImageForDocker(){
     }
 }
 
-void checkImageForCVE() {
-    try {
-        def IMAGE = sh(returnStdout: true, script: 'cat IMG').trim()
-        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
-            sh """
-                docker run -v \$(pwd):/tmp/pgo --rm quay.io/sysdig/secure-inline-scan:2 '${IMAGE}' --sysdig-token '${SYSDIG_API_KEY}' --sysdig-url https://us2.app.sysdig.com -r /tmp/pgo
-            """
-        }
-    } catch (error) {
-        echo "${IMAGE} has some CVE error(s) please check the reports."
-        currentBuild.result = 'FAILURE'
-    }
-}
-
 pipeline {
     parameters {
         string(
@@ -120,7 +106,7 @@ pipeline {
                 }
             }
         }
-        stage('Trivy check') {
+        stage('Trivy docker image check') {
             steps {
                 checkImageForDocker()
             }
@@ -128,11 +114,6 @@ pipeline {
                 always {
                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "trivy-version-service-*.xml"
                 }
-            }
-        }
-        stage('Check Docker image for CVE') {
-            steps {
-                checkImageForCVE()
             }
         }
     }
@@ -148,11 +129,14 @@ pipeline {
             script {
                 unstash 'IMG'
                 def IMG = sh(returnStdout: true, script: "cat IMG").trim()
-                slackSend botUser: true, channel: '#version-service', color: '#00FF00', message: "new version-service image is published - ${IMG}"
+                slackSend channel: '#version-service', color: '#00FF00', message: "New version-service image is published - ${IMG}"
             }
         }
         failure {
-            slackSend botUser: true, channel: '#version-service', color: '#FF0000', message: "Building of version-service image failed. Please check the log ${BUILD_URL}"
+            slackSend channel: '#version-service', color: '#FF0000', message: "Building of version-service image failed. Please check the log ${BUILD_URL}"
+        }
+        unstable {
+            slackSend channel: '#version-service', color: '#F6F930', message: "Building of version-service docker images unstable. Please check the log ${BUILD_URL}"
         }
     }
 }
