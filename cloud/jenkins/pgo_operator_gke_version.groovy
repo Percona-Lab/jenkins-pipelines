@@ -109,7 +109,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             PPG_TAG = sh(script: "if [ -n \"\${PGO_POSTGRES_HA_IMAGE}\" ] ; then echo ${PGO_POSTGRES_HA_IMAGE} | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' ; else echo 'main-ppg13'; fi", , returnStdout: true).trim()
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG")
 
-            timeout(time: 90, unit: 'MINUTES') {
+            timeout(time: 120, unit: 'MINUTES') {
                 sh """
                     if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG" ]; then
                         echo Skip $TEST_NAME test
@@ -377,12 +377,18 @@ pipeline {
                         ShutdownCluster('sandbox')
                     }
                 }
-                stage('E2E Backups') {
+                stage('E2E demand-backup') {
                     steps {
-                        CreateCluster('backups')
-                        runTest('demand-backup', 'backups')
-                        runTest('scheduled-backup', 'backups')
-                        ShutdownCluster('backups')
+                        CreateCluster('demand-backup')
+                        runTest('demand-backup', 'demand-backup')
+                        ShutdownCluster('demand-backup')
+                    }
+                }
+                stage('E2E scheduled-backup') {
+                    steps {
+                        CreateCluster('scheduled-backup')
+                        runTest('scheduled-backup', 'scheduled-backup')
+                        ShutdownCluster('scheduled-backup')
                     }
                 }
                 stage('E2E Upgrade') {
@@ -390,8 +396,14 @@ pipeline {
                         CreateCluster('upgrade')
                         runTest('upgrade', 'upgrade')
                         runTest('smart-update', 'upgrade')
-                        runTest('version-service', 'upgrade')
                         ShutdownCluster('upgrade')
+                    }
+                }
+                stage('E2E Version-service') {
+                    steps {
+                        CreateCluster('version-service')
+                        runTest('version-service', 'version-service')
+                        ShutdownCluster('version-service')
                     }
                 }
             }
