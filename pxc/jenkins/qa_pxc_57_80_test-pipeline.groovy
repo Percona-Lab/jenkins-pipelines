@@ -58,6 +58,7 @@ stages {
                     sudo apt install -y git wget socat curl gnupg2 numactl
                     curl -O https://repo.percona.com/apt/percona-release_latest.generic_all.deb
                     sudo apt install -y ./percona-release_latest.generic_all.deb
+                    fi
                     ROOT_FS=$(pwd)
                     sudo killall -9 mysqld || true
                     # Fetch the latest LOWER_PXC binaries
