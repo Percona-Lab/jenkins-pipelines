@@ -43,7 +43,7 @@ pipeline {
     }
 stages {
         stage("Build Distribution") {
-            agent { label "min-bionic-x64||min-focal-x64||min-centos-7-x64||min-ol-8-x64||min-buster-x64||min-bullseye-x64||" }
+            agent { label "min-bionic-x64, min-focal-x64, min-centos-7-x64, min-ol-8-x64, min-buster-x64, min-bullseye-x64" }
     stages {
         stage('Prepare') {
             steps {
