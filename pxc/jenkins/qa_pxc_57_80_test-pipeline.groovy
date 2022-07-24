@@ -43,7 +43,7 @@ pipeline {
     }
 stages {
         stage("build and test the project") {
-            agent { label "min-bionic-x64" }
+            agent { label "min-bionic-x64||min-centos-7-x64" }
     stages {
         stage('Prepare') {
             steps {
