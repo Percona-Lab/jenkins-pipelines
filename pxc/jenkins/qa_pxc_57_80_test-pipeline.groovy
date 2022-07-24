@@ -43,9 +43,7 @@ pipeline {
     }
 stages {
         stage("build and test the project") {
-            agent {
-                docker "DOCKER_OS"
-            }
+            agent { label 'docker' }
     stages {
         stage('Prepare') {
             steps {
