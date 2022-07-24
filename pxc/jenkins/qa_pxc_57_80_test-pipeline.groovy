@@ -93,7 +93,7 @@ stages {
                     bash -x cross_version_pxc_57_80_test.sh $ROOT_FS/pxc_5.7_tar $ROOT_FS/pxc_8.0_tar
                     error_code_1=$?
                     set -e
-                    if [ "$error_code_1" == "0" ]; then
+                    if [ "$error_code_1" = "0" ]; then
                       exit 0
                     else
                       echo "#############################"
@@ -115,7 +115,7 @@ stages {
                     bash -x cross_version_pxc_57_80_upgrade_test.sh $ROOT_FS/pxc_5.7_tar $ROOT_FS/pxc_8.0_tar
                     error_code_2=$?
                     set -e
-                    if [ "$error_code_2" == "0" ]; then
+                    if [ "$error_code_2" = "0" ]; then
                       exit 0
                     else
                       echo "#############################"
@@ -130,7 +130,7 @@ stages {
                       cat /mnt/jenkins/workspace/qa_pxc_57_80_test-pipeline/pxc_8.0_tar/pxc_node_80_2/node_80_2.err
                       exit 1
                     fi
-                    if [ "$error_code_1" == "0" -a "$error_code_2" == "0" ]; then
+                    if [ "$error_code_1" = "0" -a "$error_code_2" = "0" ]; then
                       exit 0
                     else
                       exit 1
