@@ -43,7 +43,7 @@ pipeline {
     }
 stages {
         stage("build and test the project") {
-            agent { label '${DOCKER_OS}' }
+            agent { label ${DOCKER_OS} }
     stages {
         stage('Prepare') {
             steps {
