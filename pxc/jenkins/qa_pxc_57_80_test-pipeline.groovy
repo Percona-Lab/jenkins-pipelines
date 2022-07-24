@@ -42,13 +42,21 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '200', artifactNumToKeepStr: '200'))
     }
 stages {
-        stage("build and test the project") {
-            agent { label "min-bionic-x64||min-centos-7-x64" }
+        stage("Build Distribution") {
+            agent { label "min-bionic-x64||min-focal-x64||min-centos-7-x64||min-ol-8-x64||min-buster-x64||min-bullseye-x64||" }
     stages {
         stage('Prepare') {
             steps {
                 sh 'echo Downloading LOWER_PXC tarball: \$(date -u)'
                 sh '''
+                    echo "Installing dependencies..."
+                    if [ -f /usr/bin/yum ]; then 
+                    sudo yum -y update
+                    sudo yum install -y git wget tar socat
+                    else
+                    sudo apt install -y git wget socat curl gnupg2 numactl
+                    curl -O https://repo.percona.com/apt/percona-release_latest.generic_all.deb
+                    sudo apt install -y ./percona-release_latest.generic_all.deb
                     ROOT_FS=$(pwd)
                     sudo killall -9 mysqld || true
                     # Fetch the latest LOWER_PXC binaries
@@ -81,12 +89,6 @@ stages {
                 sh '''
                     set +e
                     rm -rf percona-qa
-                    if [ -f /usr/bin/yum ]; then
-                    sudo yum install -y git wget socat redhat-lsb-core
-                    lsb_release -a
-                    else
-                    sudo apt install -y git wget socat
-                    fi
                     ROOT_FS=$PWD
                     git clone ${PERCONA_QA_REPO} --branch ${BRANCH} --depth 1
                     cd percona-qa/pxc-tests
