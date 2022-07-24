@@ -41,6 +41,11 @@ pipeline {
         timeout(time: 6, unit: 'DAYS')
         buildDiscarder(logRotator(numToKeepStr: '200', artifactNumToKeepStr: '200'))
     }
+stages {
+        stage("build and test the project") {
+            agent {
+                docker "DOCKER_OS"
+            }
     stages {
         stage('Prepare') {
             steps {
@@ -48,7 +53,6 @@ pipeline {
                 sh '''
                     set -o pipefail
                     ROOT_FS=$(pwd)
-                    echo $TEST_DIST
                     sudo killall -9 mysqld || true
                     # Fetch the latest LOWER_PXC binaries
                     cd $ROOT_FS/
