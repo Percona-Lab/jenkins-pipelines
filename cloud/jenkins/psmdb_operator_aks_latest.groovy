@@ -1,6 +1,6 @@
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to Azure Storage!"
-    withCredentials([usernamePassword(credentialsId: 'azuresp', passwordVariable: 'AZURE_STORAGE_ACCOUNT_KEY', usernameVariable: 'AZURE_STORAGE_ACCOUNT_NAME')]) {
+    withCredentials([usernamePassword(credentialsId: 'percona-operators', passwordVariable: 'AZURE_STORAGE_ACCOUNT_KEY', usernameVariable: 'AZURE_STORAGE_ACCOUNT_NAME')]) {
         sh '''
             az storage blob upload-batch --file $JOB_NAME/\$(git -C source describe --always --dirty) --container-name percona-jenkins-artifactory --account-name $AZURE_STORAGE_ACCOUNT_NAME --account-key $AZURE_STORAGE_ACCOUNT_KEY
     '''
@@ -9,7 +9,7 @@ void pushArtifactFile(String FILE_NAME) {
 
 void popArtifactFile(String FILE_NAME) {
     echo "Try to get $FILE_NAME file from Azure Storage!"
-    withCredentials([usernamePassword(credentialsId: 'azuresp', passwordVariable: 'AZURE_STORAGE_ACCOUNT_KEY', usernameVariable: 'AZURE_STORAGE_ACCOUNT_NAME')]) {
+    withCredentials([usernamePassword(credentialsId: 'percona-operators', passwordVariable: 'AZURE_STORAGE_ACCOUNT_KEY', usernameVariable: 'AZURE_STORAGE_ACCOUNT_NAME')]) {
         sh '''
             az storage blob directory download -s "$JOB_NAME/\$(git -C source describe --always --dirty)" -d "${FILE_NAME}"  --container-name percona-jenkins-artifactory --account-name $AZURE_STORAGE_ACCOUNT_NAME --account-key $AZURE_STORAGE_ACCOUNT_KEY || :
         '''
@@ -100,6 +100,8 @@ void conditionalRunTest(String TEST_NAME) {
 void installRpms() {
     sh """
         sudo yum install -y jq | true
+        sudo yum install azure-cli
+        az --version
     """
 }
 pipeline {
@@ -150,11 +152,6 @@ pipeline {
             steps {
                 installRpms()
                 sh '''
-                    printenv
-                    uname -a 
-                    curl https://azurecliprod.blob.core.windows.net/install | bash
-//                    curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-                    az --version
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                         rm -rf $HOME/google-cloud-sdk
                         curl https://sdk.cloud.google.com | bash
@@ -202,13 +199,14 @@ pipeline {
 //        }
 //        stage('Create Azure Infrastructure') {
 //            steps {
-//                withCredentials([azureServicePrincipal(credentialsId: 'credentials_id', subscriptionIdVariable: 'SUBS_ID', clientIdVariable: 'CLIENT_ID', clientSecretVariable: 'CLIENT_SECRET', tenantIdVariable: 'TENANT_ID')]) {
+//                withCredentials([azureServicePrincipal(credentialsId: 'percona-operators', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
 //                     sh """
 //                         export PATH=/home/ec2-user/.local/bin:$PATH
 //                         source $HOME/google-cloud-sdk/path.bash.inc
-//                         az login --service-principal -u $CLIENT_ID -p $CLIENT_SECRET -t $TENANT_ID'
-//                         az aks create -g percona-operators -n aks-psmdb-certification --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer
-//                         az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb-certification
+//                         az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
+//                         az account set -s $AZURE_SUBS_ID
+//                         az aks create -g percona-operators -n aks-psmdb --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer
+//                         az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb
 //                     """
 //                }
 //                stash includes: 'cluster.yaml', name: 'cluster_conf'
@@ -275,10 +273,9 @@ pipeline {
 
 //    post {
 //        always {
-//                withCredentials([azureServicePrincipal(credentialsId: 'credentials_id', subscriptionIdVariable: 'SUBS_ID', clientIdVariable: 'CLIENT_ID', clientSecretVariable: 'CLIENT_SECRET', tenantIdVariable: 'TENANT_ID')]) {
-//                    unstash 'cluster_conf'
+//                withCredentials([azureServicePrincipal(credentialsId: 'percona-operators', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
 //                    sh """
-//                        az aks delete --name aks-psmdb-certification --resource-group percona-operators --yes --no-wait
+//                        az aks delete --name aks-psmdb --resource-group percona-operators --yes --no-wait
 //                    """
 //                }
 //
