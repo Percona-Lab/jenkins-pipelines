@@ -155,9 +155,9 @@ pipeline {
                 }
             }
         }
-        stage('Sanity check') {
+        stage('Sanity check and Node install') {
             parallel {
-                steps {
+                stage('Sanity check') {
                     sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
                 }
                 stage('Setup Node') {
