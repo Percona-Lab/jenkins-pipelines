@@ -35,10 +35,9 @@ void runTest(String TEST_NAME) {
             VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
             testsReportMap[TEST_NAME] = 'failure'
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
-
             popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
-// TODO
-            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
+
+            withCredentials([azureServicePrincipal(credentialsId: 'percona-operators', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
                 sh """
                     if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG" ]; then
                         echo Skip $TEST_NAME test
@@ -99,7 +98,6 @@ void conditionalRunTest(String TEST_NAME) {
 
 void installRpms() {
     sh """
-        uname -a
         sudo yum install -y jq | true
     """
 }
@@ -172,122 +170,122 @@ pipeline {
 
             }
         }
-//        stage('Build docker image') {
-//            steps {
-//                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-//                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-//                    sh '''
-//                        sudo git reset --hard
-//                        sudo git clean -xdf
-//                        sudo rm -rf source
-//                        ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
-//
-//                        cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-//
-//                        if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
-//                            echo "SKIP: Build is not needed, PSMDB operator image was set!"
-//                        else
-//                            cd ./source/
-//                            sg docker -c "
-//                                docker login -u '${USER}' -p '${PASS}'
-//                                export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-//                                ./e2e-tests/build
-//                                docker logout
-//                            "
-//                            sudo rm -rf ./build
-//                        fi
-//                    '''
-//                }
-//            }
-//        }
-//        stage('Create Azure Infrastructure') {
-//            steps {
-//                withCredentials([azureServicePrincipal(credentialsId: 'percona-operators', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
-//                     sh """
-//                         export PATH=/home/ec2-user/.local/bin:$PATH
-//                         source $HOME/google-cloud-sdk/path.bash.inc
-//                         az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
-//                         az account set -s $AZURE_SUBS_ID
-//                         az aks create -g percona-operators -n aks-psmdb --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer
-//                         az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb
-//                     """
-//                }
-//                stash includes: 'cluster.yaml', name: 'cluster_conf'
-//            }
-//        }
-//        stage('E2E Scaling') {
-//            steps {
-//                runTest('init-deploy')
-//                runTest('limits')
-//                runTest('scaling')
-//                runTest('security-context')
-//                runTest('smart-update')
-//                runTest('version-service')
-//                runTest('rs-shard-migration')
-//            }
-//        }
-//        stage('E2E Basic Tests') {
-//            steps {
-//                conditionalRunTest('default-cr')
-//                runTest('one-pod')
-//                runTest('monitoring-2-0')
-//                runTest('arbiter')
-//                runTest('service-per-pod')
-//                runTest('liveness')
-//                runTest('users')
-//                runTest('data-sharded')
-//                runTest('non-voting')
-//                runTest('cross-site-sharded')
-//           }
-//        }
-//        stage('E2E SelfHealing') {
-//            steps {
-//                runTest('storage')
-//                runTest('self-healing')
-//                runTest('self-healing-chaos')
-//                runTest('operator-self-healing')
-//                runTest('operator-self-healing-chaos')
-//            }
-//        }
-//        stage('E2E Backups') {
-//            steps {
-//                runTest('upgrade')
-//                runTest('upgrade-consistency')
-//                runTest('demand-backup')
-//                runTest('demand-backup-sharded')
-//                runTest('scheduled-backup')
-//                runTest('upgrade-sharded')
-//                runTest('pitr')
-//                runTest('pitr-sharded')
-//                runTest('demand-backup-eks-credentials')
-//            }
-//        }
-//        stage('Make report') {
-//            steps {
-//                makeReport()
-//                sh """
-//                    echo "${TestsReport}" > TestsReport.xml
-//                """
-//                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-//                archiveArtifacts '*.xml'
-//            }
-//        }
+        stage('Build docker image') {
+            steps {
+                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+                    sh '''
+                        sudo git reset --hard
+                        sudo git clean -xdf
+                        sudo rm -rf source
+                        ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
+
+                        cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
+
+                        if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                            echo "SKIP: Build is not needed, PSMDB operator image was set!"
+                        else
+                            cd ./source/
+                            sg docker -c "
+                                docker login -u '${USER}' -p '${PASS}'
+                                export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                                ./e2e-tests/build
+                                docker logout
+                            "
+                            sudo rm -rf ./build
+                        fi
+                    '''
+                }
+            }
+        }
+        stage('Create Azure Infrastructure') {
+            steps {
+                withCredentials([azureServicePrincipal(credentialsId: 'percona-operators', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
+                     sh """
+                         export PATH=/home/ec2-user/.local/bin:$PATH
+                         source $HOME/google-cloud-sdk/path.bash.inc
+                         az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
+                         az account set -s $AZURE_SUBS_ID
+                         az aks create -g percona-operators -n aks-psmdb --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer
+                         az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb
+                     """
+                }
+                stash includes: 'cluster.yaml', name: 'cluster_conf'
+            }
+        }
+        stage('E2E Scaling') {
+            steps {
+                runTest('init-deploy')
+                runTest('limits')
+                runTest('scaling')
+                runTest('security-context')
+                runTest('smart-update')
+                runTest('version-service')
+                runTest('rs-shard-migration')
+            }
+        }
+        stage('E2E Basic Tests') {
+            steps {
+                conditionalRunTest('default-cr')
+                runTest('one-pod')
+                runTest('monitoring-2-0')
+                runTest('arbiter')
+                runTest('service-per-pod')
+                runTest('liveness')
+                runTest('users')
+                runTest('data-sharded')
+                runTest('non-voting')
+                runTest('cross-site-sharded')
+           }
+        }
+        stage('E2E SelfHealing') {
+            steps {
+                runTest('storage')
+                runTest('self-healing')
+                runTest('self-healing-chaos')
+                runTest('operator-self-healing')
+                runTest('operator-self-healing-chaos')
+            }
+        }
+        stage('E2E Backups') {
+            steps {
+                runTest('upgrade')
+                runTest('upgrade-consistency')
+                runTest('demand-backup')
+                runTest('demand-backup-sharded')
+                runTest('scheduled-backup')
+                runTest('upgrade-sharded')
+                runTest('pitr')
+                runTest('pitr-sharded')
+                runTest('demand-backup-eks-credentials')
+            }
+        }
+        stage('Make report') {
+            steps {
+                makeReport()
+                sh """
+                    echo "${TestsReport}" > TestsReport.xml
+                """
+                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+                archiveArtifacts '*.xml'
+            }
+        }
     }
 
-//    post {
-//        always {
-//                withCredentials([azureServicePrincipal(credentialsId: 'percona-operators', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
-//                    sh """
-//                        az aks delete --name aks-psmdb --resource-group percona-operators --yes --no-wait
-//                    """
-//                }
-//
-//            sh '''
-//                sudo docker rmi -f \$(sudo docker images -q) || true
-//                sudo rm -rf $HOME/google-cloud-sdk
-//                sudo rm -rf ./*
-//            '''
-//            deleteDir()
-//        }
-//    }
+    post {
+        always {
+                withCredentials([azureServicePrincipal(credentialsId: 'percona-operators', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
+                    sh """
+                        az aks delete --name aks-psmdb --resource-group percona-operators --yes --no-wait
+                    """
+                }
+
+            sh '''
+                sudo docker rmi -f \$(sudo docker images -q) || true
+                sudo rm -rf $HOME/google-cloud-sdk
+                sudo rm -rf ./*
+            '''
+            deleteDir()
+        }
+    }
 }
