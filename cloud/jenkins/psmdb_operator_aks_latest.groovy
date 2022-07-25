@@ -37,7 +37,7 @@ void runTest(String TEST_NAME) {
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
 
-            withCredentials([azureServicePrincipal(credentialsId: 'percona-operators', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
+            withCredentials([azureServicePrincipal(credentialsId: '73b1702a-0b0d-49cb-9414-3f67656f365b', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
                 sh """
                     if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG" ]; then
                         echo Skip $TEST_NAME test
@@ -200,7 +200,10 @@ pipeline {
         }
         stage('Create Azure Infrastructure') {
             steps {
-                withCredentials([azureServicePrincipal(credentialsId: 'percona-operators', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
+                echo "My client id is $AZURE_CLIENT_ID"
+                echo "My tenant id is $AZURE_TENANT_ID"
+                echo "My subscription id is $AZURE_SUBSCRIPTION_ID"
+                withCredentials([azureServicePrincipal(credentialsId: '73b1702a-0b0d-49cb-9414-3f67656f365b', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
                      sh """
                          export PATH=/home/ec2-user/.local/bin:$PATH
                          source $HOME/google-cloud-sdk/path.bash.inc
@@ -273,7 +276,7 @@ pipeline {
 
     post {
         always {
-                withCredentials([azureServicePrincipal(credentialsId: 'percona-operators', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
+                withCredentials([azureServicePrincipal(credentialsId: '73b1702a-0b0d-49cb-9414-3f67656f365b', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
                     sh """
                         az aks delete --name aks-psmdb-cluster --resource-group percona-operators --yes --no-wait
                     """
