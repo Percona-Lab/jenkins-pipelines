@@ -275,10 +275,10 @@ pipeline {
                         // trigger workflow in GH to run some test there as well, pass server and client images as parameters
                         sh """
                             curl \
-                                -v -X POST \
-                                -H "Accept: application/vnd.github.v3+json" \ 
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/jenkins-dispatch/dispatches" \
+                                -v -X POST \\
+                                -H "Accept: application/vnd.github.v3+json" \\
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \\
+                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/jenkins-dispatch/dispatches" \\
                                 -d '{"ref":"${GIT_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${GIT_COMMIT_HASH}"}}'
                         """
                     }
