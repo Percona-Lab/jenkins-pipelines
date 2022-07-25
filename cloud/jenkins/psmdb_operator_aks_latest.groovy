@@ -99,6 +99,7 @@ void conditionalRunTest(String TEST_NAME) {
 
 void installRpms() {
     sh """
+        uname -a
         sudo yum install -y jq | true
         sudo yum install azure-cli
         az --version
