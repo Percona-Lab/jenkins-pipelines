@@ -210,7 +210,6 @@ pipeline {
                          az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb-cluster
                      """
                 }
-                stash includes: 'cluster.yaml', name: 'cluster_conf'
             }
         }
         stage('E2E Scaling') {
