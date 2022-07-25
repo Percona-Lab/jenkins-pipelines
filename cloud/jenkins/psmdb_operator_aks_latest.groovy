@@ -113,7 +113,7 @@ pipeline {
             name: 'GIT_REPO')
         string(
             defaultValue: '1.20',
-            description: 'EKS kubernetes version',
+            description: 'AKS kubernetes version',
             name: 'PLATFORM_VER')
         string(
             defaultValue: '',
@@ -206,8 +206,8 @@ pipeline {
                          source $HOME/google-cloud-sdk/path.bash.inc
                          az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
                          az account set -s $AZURE_SUBS_ID
-                         az aks create -g percona-operators -n aks-psmdb --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer
-                         az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb
+                         az aks create -g percona-operators -n aks-psmdb-cluster --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version $PLATFORM_VER
+                         az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb-cluster
                      """
                 }
                 stash includes: 'cluster.yaml', name: 'cluster_conf'
@@ -276,7 +276,7 @@ pipeline {
         always {
                 withCredentials([azureServicePrincipal(credentialsId: 'percona-operators', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
                     sh """
-                        az aks delete --name aks-psmdb --resource-group percona-operators --yes --no-wait
+                        az aks delete --name aks-psmdb-cluster --resource-group percona-operators --yes --no-wait
                     """
                 }
 
