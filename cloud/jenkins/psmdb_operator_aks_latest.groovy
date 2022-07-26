@@ -171,9 +171,7 @@ pipeline {
                     
                     curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
                     printf "/usr/azure-cli\\n/usr/bin" | sudo  python3 install.py
-                    az --version
                 '''
-
             }
         }
         stage('Build docker image') {
@@ -206,9 +204,6 @@ pipeline {
         }
         stage('Create Azure Infrastructure') {
             steps {
-                echo "My client id is $AZURE_CLIENT_ID"
-                echo "My tenant id is $AZURE_TENANT_ID"
-                echo "My subscription id is $AZURE_SUBSCRIPTION_ID"
                 withCredentials([azureServicePrincipal('AZURE_JENKINS_ACCESS')]) {
                      sh """
                          export PATH=/home/ec2-user/.local/bin:$PATH
@@ -284,6 +279,8 @@ pipeline {
         always {
                 withCredentials([azureServicePrincipal('AZURE_JENKINS_ACCESS')]) {
                     sh """
+                        az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
+                        az account set -s $AZURE_SUBSUBSCRIPTION_ID
                         az aks delete --name aks-psmdb-cluster --resource-group percona-operators --yes --no-wait
                     """
                 }
