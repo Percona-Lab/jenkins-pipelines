@@ -101,6 +101,8 @@ pipeline {
                         echo $pmm_ui_tests_branch > pmmUITestBranch
                         echo $pmm_ui_tests_commit_sha > pmmUITestsCommitSha
                     fi
+                    export fb_commit_sha=$(git rev-parse HEAD)
+                    echo $fb_commit_sha > fbCommitSha
                 '''
                 }
                 script {
@@ -113,6 +115,7 @@ pipeline {
                 stash includes: 'pmmQACommitSha', name: 'pmmQACommitSha'
                 stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
                 stash includes: 'pmmUITestsCommitSha', name: 'pmmUITestsCommitSha'
+                stash includes: 'fbCommitSha', name: 'fbCommitSha'
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
@@ -273,13 +276,13 @@ pipeline {
                                 "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/issues/${CHANGE_ID}/comments"
                         """
                         // trigger workflow in GH to run some test there as well, pass server and client images as parameters
+                        def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                         sh """
-                            curl \
-                                -v -X POST \\
-                                -H "Accept: application/vnd.github.v3+json" \\
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \\
-                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/jenkins-dispatch/dispatches" \\
-                                -d '{"ref":"${GIT_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${GIT_COMMIT_HASH}"}}'
+                            curl -v -X POST \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/jenkins-dispatch/dispatches" \
+                                -d '{"inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}"}}'
                         """
                     }
                 }
