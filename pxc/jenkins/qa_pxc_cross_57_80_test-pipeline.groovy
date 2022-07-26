@@ -139,11 +139,11 @@ void run_test() {
                       echo "#############################"
                       echo "Printing PXC_57 error logs..."
                       echo "#############################"
-                      cat /mnt/jenkins/workspace/qa_pxc_cross_version_57_80_test-pipeline/pxc_5.7_tar/pxc-node/node1.err
+                      cat /mnt/jenkins/workspace/qa_pxc_cross_57_80_test-pipeline/pxc_5.7_tar/pxc-node/node1.err
                       echo "#############################"
                       echo "Printing PXC_80 error logs..."
                       echo "#############################"
-                      cat /mnt/jenkins/workspace/qa_pxc_cross_version_57_80_test-pipeline/pxc_8.0_tar/pxc-node/node2.err
+                      cat /mnt/jenkins/workspace/qa_pxc_cross_57_80_test-pipeline/pxc_8.0_tar/pxc-node/node2.err
                       exit 1
                     fi
                 '''
@@ -161,13 +161,13 @@ void run_test() {
                       echo "#############################"
                       echo "Printing PXC_57 error logs..."
                       echo "#############################"
-                      cat /mnt/jenkins/workspace/qa_pxc_cross_version_57_80_test-pipeline/pxc_5.7_tar/pxc_node_57_1/node_57_1.err
-                      cat /mnt/jenkins/workspace/qa_pxc_cross_version_57_80_test-pipeline/pxc_5.7_tar/pxc_node_57_2/node_57_2.err
+                      cat /mnt/jenkins/workspace/qa_pxc_cross_57_80_test-pipeline/pxc_5.7_tar/pxc_node_57_1/node_57_1.err
+                      cat /mnt/jenkins/workspace/qa_pxc_cross_57_80_test-pipeline/pxc_5.7_tar/pxc_node_57_2/node_57_2.err
                       echo "#############################"
                       echo "Printing PXC_80 error logs..."
                       echo "#############################"
-                      cat /mnt/jenkins/workspace/qa_pxc_cross_version_57_80_test-pipeline/pxc_8.0_tar/pxc_node_80_1/node_80_1.err
-                      cat /mnt/jenkins/workspace/qa_pxc_cross_version_57_80_test-pipeline/pxc_8.0_tar/pxc_node_80_2/node_80_2.err
+                      cat /mnt/jenkins/workspace/qa_pxc_cross_57_80_test-pipeline/pxc_8.0_tar/pxc_node_80_1/node_80_1.err
+                      cat /mnt/jenkins/workspace/qa_pxc_cross_57_80_test-pipeline/pxc_8.0_tar/pxc_node_80_2/node_80_2.err
                       exit 1
                     fi
                     if [ "$error_code_1" = "0" -a "$error_code_2" = "0" ]; then
