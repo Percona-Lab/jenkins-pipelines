@@ -208,82 +208,82 @@ pipeline {
             steps {
                 withCredentials([azureServicePrincipal('AZURE_JENKINS_ACCESS')]) {
                      sh """
-                         az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"
+                         az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
                          az account set -s "$AZURE_SUBSCRIPTION_ID"
-                         az aks create -g percona-operators -n aks-psmdb-cluster --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version $PLATFORM_VER
-                         az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb-cluster
+//                         az aks create -g percona-operators -n aks-psmdb-cluster --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version $PLATFORM_VER
+//                         az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb-cluster
                      """
                 }
             }
         }
-        stage('E2E Scaling') {
-            steps {
-                runTest('init-deploy')
-                runTest('limits')
-                runTest('scaling')
-                runTest('security-context')
-                runTest('smart-update')
-                runTest('version-service')
-                runTest('rs-shard-migration')
-            }
-        }
-        stage('E2E Basic Tests') {
-            steps {
-                conditionalRunTest('default-cr')
-                runTest('one-pod')
-                runTest('monitoring-2-0')
-                runTest('arbiter')
-                runTest('service-per-pod')
-                runTest('liveness')
-                runTest('users')
-                runTest('data-sharded')
-                runTest('non-voting')
-                runTest('cross-site-sharded')
-           }
-        }
-        stage('E2E SelfHealing') {
-            steps {
-                runTest('storage')
-                runTest('self-healing')
-                runTest('self-healing-chaos')
-                runTest('operator-self-healing')
-                runTest('operator-self-healing-chaos')
-            }
-        }
-        stage('E2E Backups') {
-            steps {
-                runTest('upgrade')
-                runTest('upgrade-consistency')
-                runTest('demand-backup')
-                runTest('demand-backup-sharded')
-                runTest('scheduled-backup')
-                runTest('upgrade-sharded')
-                runTest('pitr')
-                runTest('pitr-sharded')
-                runTest('demand-backup-eks-credentials')
-            }
-        }
-        stage('Make report') {
-            steps {
-                makeReport()
-                sh """
-                    echo "${TestsReport}" > TestsReport.xml
-                """
-                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-                archiveArtifacts '*.xml'
-            }
-        }
+//        stage('E2E Scaling') {
+//            steps {
+//                runTest('init-deploy')
+//                runTest('limits')
+//                runTest('scaling')
+//                runTest('security-context')
+//                runTest('smart-update')
+//                runTest('version-service')
+//                runTest('rs-shard-migration')
+//            }
+//        }
+//        stage('E2E Basic Tests') {
+//            steps {
+//                conditionalRunTest('default-cr')
+//                runTest('one-pod')
+//                runTest('monitoring-2-0')
+//                runTest('arbiter')
+//                runTest('service-per-pod')
+//                runTest('liveness')
+//                runTest('users')
+//                runTest('data-sharded')
+//                runTest('non-voting')
+//                runTest('cross-site-sharded')
+//           }
+//        }
+//        stage('E2E SelfHealing') {
+//            steps {
+//                runTest('storage')
+//                runTest('self-healing')
+//                runTest('self-healing-chaos')
+//                runTest('operator-self-healing')
+//                runTest('operator-self-healing-chaos')
+//            }
+//        }
+//        stage('E2E Backups') {
+//            steps {
+//                runTest('upgrade')
+//                runTest('upgrade-consistency')
+//                runTest('demand-backup')
+//                runTest('demand-backup-sharded')
+//                runTest('scheduled-backup')
+//                runTest('upgrade-sharded')
+//                runTest('pitr')
+//                runTest('pitr-sharded')
+//                runTest('demand-backup-eks-credentials')
+//            }
+//        }
+//        stage('Make report') {
+//            steps {
+//                makeReport()
+//                sh """
+//                    echo "${TestsReport}" > TestsReport.xml
+//                """
+//                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+//                archiveArtifacts '*.xml'
+//            }
+//        }
     }
 
     post {
         always {
-                withCredentials([azureServicePrincipal('AZURE_JENKINS_ACCESS')]) {
-                    sh """
-                        az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"
-                        az account set -s "$AZURE_SUBSCRIPTION_ID"
-                        az aks delete --name aks-psmdb-cluster --resource-group percona-operators --yes --no-wait
-                    """
-                }
+//                withCredentials([azureServicePrincipal('AZURE_JENKINS_ACCESS')]) {
+//                    sh """
+//                        az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
+//                        az account set -s "$AZURE_SUBSCRIPTION_ID"
+//                        az aks delete --name aks-psmdb-cluster --resource-group percona-operators --yes --no-wait
+//                    """
+//                }
 
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
