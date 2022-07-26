@@ -67,13 +67,13 @@ void runTest(String TEST_NAME) {
                         export IMAGE_PMM=${IMAGE_PMM}
                     fi
 
-					if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
-						export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
-					fi
+                    if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                    fi
 
-					if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
-						export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
-					fi
+                    if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                        export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                    fi
 
                     source $HOME/google-cloud-sdk/path.bash.inc
                     export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
