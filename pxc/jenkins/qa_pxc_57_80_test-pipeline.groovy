@@ -39,9 +39,7 @@ pipeline {
             name: 'node_to_test'
         )
     }
-    agent {
-        label 'docker'
-    }
+    agent any
     options {
         skipDefaultCheckout()
         skipStagesAfterUnstable()
@@ -50,7 +48,7 @@ pipeline {
     }
 stages {
         stage("Build Distribution") {
-            agent { label params.node_to_test }
+            agent { label 'params.node_to_test' }
     stages {
         stage('Prepare') {
             steps {
