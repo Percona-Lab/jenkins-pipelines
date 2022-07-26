@@ -38,21 +38,19 @@
     axes:
       - axis:
          type: user-defined
-         name: DOCKER_OS
-         values:
-          - centos:7
-          - centos:8
-          - ubuntu:bionic
-          - ubuntu:focal
-          - debian:stretch
-          - debian:buster
+         name: node_to_test
+         choices:
+             - 'min-centos-7-x64'
+             - 'min-ol-8-x64'
+             - 'min-bionic-x64'
+             - 'min-focal-x64'
+             - 'min-stretch-x64'
+             - 'min-buster-x64'
+             - 'min-bullseye-x64'
     builders:
     - trigger-builds:
       - project: qa_pxc_57_80_test-pipeline
         current-parameters: true
-        predefined-parameters: |
-          DOCKER_OS=${DOCKER_OS}
-          CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
         block: true
         block-thresholds:
           build-step-failure-threshold: FAILURE
