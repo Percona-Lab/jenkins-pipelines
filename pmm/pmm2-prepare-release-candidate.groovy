@@ -164,7 +164,7 @@ String DEFAULT_BRANCH = 'PMM-2.0'
 
 pipeline {
     agent {
-        label 'docker-farm'
+        label 'agent-amd64'
     }
     parameters {
         string(

@@ -146,10 +146,7 @@ pipeline {
                                 set -o errexit
                                 set -o xtrace
                                 sudo yum -y install curl
-                                sudo curl -Lo /usr/local/sbin/minikube https://github.com/kubernetes/minikube/releases/download/v1.16.0/minikube-linux-amd64
-                                sudo chmod +x /usr/local/sbin/minikube
-                                sudo ln -s /usr/local/sbin/minikube /usr/sbin/minikube
-                                alias kubectl='minikube kubectl --'
+                                /srv/pmm-qa/pmm-tests/install_k8s_tools.sh --minikube --kubectl --sudo
                                 sleep 5
                             """
                         }
@@ -199,15 +196,15 @@ pipeline {
                                 set -o errexit
                                 set -o xtrace
                                 export PATH=\$PATH:/usr/sbin
-                                minikube kubectl -- get nodes
-                                minikube kubectl -- get pods
+                                kubectl get nodes
+                                kubectl get pods
 
                                 if [ "${PXC_OPERATOR_VERSION}" != none ]; then
-                                    minikube kubectl -- wait --for=condition=Available --timeout=60s deployment percona-xtradb-cluster-operator
+                                    kubectl wait --for=condition=Available --timeout=60s deployment percona-xtradb-cluster-operator
                                 fi
 
                                 if [ "${PSMDB_OPERATOR_VERSION}" != none ]; then
-                                    minikube kubectl -- wait --for=condition=Available --timeout=60s deployment percona-server-mongodb-operator
+                                    kubectl wait --for=condition=Available --timeout=60s deployment percona-server-mongodb-operator
                                 fi                                
                             """
                         }
@@ -228,7 +225,7 @@ pipeline {
                                 set -o errexit
                                 set -o xtrace
                                 export PATH=\$PATH:/usr/sbin
-                                minikube kubectl -- config view --flatten --minify > kubeconfig.yml
+                                kubectl config view --flatten --minify > kubeconfig.yml
                             """
                         }
                         withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
