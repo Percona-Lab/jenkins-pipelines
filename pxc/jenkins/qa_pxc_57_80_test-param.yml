@@ -39,7 +39,7 @@
       - axis:
          type: user-defined
          name: node_to_test
-         choices:
+         values:
              - 'min-centos-7-x64'
              - 'min-ol-8-x64'
              - 'min-bionic-x64'
