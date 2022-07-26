@@ -208,8 +208,8 @@ pipeline {
             steps {
                 withCredentials([azureServicePrincipal('AZURE_JENKINS_ACCESS')]) {
                      sh """
-                         az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
-                         az account set -s $AZURE_SUBSCRIPTION_ID
+                         az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"
+                         az account set -s "$AZURE_SUBSCRIPTION_ID"
                          az aks create -g percona-operators -n aks-psmdb-cluster --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version $PLATFORM_VER
                          az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb-cluster
                      """
@@ -279,8 +279,8 @@ pipeline {
         always {
                 withCredentials([azureServicePrincipal('AZURE_JENKINS_ACCESS')]) {
                     sh """
-                        az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
-                        az account set -s $AZURE_SUBSCRIPTION_ID
+                        az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"
+                        az account set -s "$AZURE_SUBSCRIPTION_ID"
                         az aks delete --name aks-psmdb-cluster --resource-group percona-operators --yes --no-wait
                     """
                 }
