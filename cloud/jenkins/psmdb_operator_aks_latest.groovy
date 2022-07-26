@@ -43,7 +43,7 @@ void runTest(String TEST_NAME) {
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
 
-            withCredentials([azureServicePrincipal(credentialsId: 'AZURE_JENKINS_ACCESS', subscriptionIdVariable: 'AZURE_SUBSCRIPTION_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
+            withCredentials([azureServicePrincipal('AZURE_JENKINS_ACCESS')]) {
                 sh """
                     if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG" ]; then
                         echo Skip $TEST_NAME test
@@ -209,12 +209,12 @@ pipeline {
                 echo "My client id is $AZURE_CLIENT_ID"
                 echo "My tenant id is $AZURE_TENANT_ID"
                 echo "My subscription id is $AZURE_SUBSCRIPTION_ID"
-                withCredentials([azureServicePrincipal(credentialsId: 'AZURE_JENKINS_ACCESS', subscriptionIdVariable: 'AZURE_SUBSCRIPTION_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
+                withCredentials([azureServicePrincipal('AZURE_JENKINS_ACCESS')]) {
                      sh """
                          export PATH=/home/ec2-user/.local/bin:$PATH
                          source $HOME/google-cloud-sdk/path.bash.inc
                          az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
-                         az account set -s $AZURE_SUBS_ID
+                         az account set -s $AZURE_SUBSUBSCRIPTION_ID
                          az aks create -g percona-operators -n aks-psmdb-cluster --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version $PLATFORM_VER
                          az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb-cluster
                      """
@@ -282,7 +282,7 @@ pipeline {
 
     post {
         always {
-                withCredentials([azureServicePrincipal(credentialsId: 'AZURE_JENKINS_ACCESS', subscriptionIdVariable: 'AZURE_SUBSCRIPTION_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
+                withCredentials([azureServicePrincipal('AZURE_JENKINS_ACCESS')]) {
                     sh """
                         az aks delete --name aks-psmdb-cluster --resource-group percona-operators --yes --no-wait
                     """
