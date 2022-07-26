@@ -169,8 +169,10 @@ pipeline {
                     sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
                     
-                    curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
-                    printf "/usr/azure-cli\\n/usr/bin" | sudo  python3 install.py
+                    if ! command -v az &>/dev/null; then
+                        curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+                        printf "/usr/azure-cli\\n/usr/bin" | sudo  python3 install.py
+                    fi
                 '''
             }
         }
