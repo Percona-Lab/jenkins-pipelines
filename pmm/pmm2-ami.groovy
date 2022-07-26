@@ -13,11 +13,11 @@ pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for pmm-server repository',
+            description: 'Tag/Branch for pmm repository',
             name: 'PMM_BRANCH')
         choice(
             choices: ['no', 'yes'],
-            description: "Build Release Candidate?",
+            description: "Build a Release Candidate?",
             name: 'RELEASE_CANDIDATE')
     }
     triggers {
