@@ -263,7 +263,7 @@ ENDSSH
                             ["pmm-server"]="percona/pmm-server"
                             ["percona-qan-api2"]="percona/qan-api2"
                             ["pmm-update"]="percona/pmm-update"
-                            ["pmm-managed"]="percona/pmm-managed"
+                            ["pmm"]="percona/pmm"
                         )
 
                         for package in "${!repo[@]}"; do
@@ -291,7 +291,7 @@ ENDSSH
         }
         stage('Set Docker Tag') {
             agent {
-                label 'min-centos-7-x64'
+                label 'min-rhel-7-x64'
             }
             steps {
                 unstash 'version_file'

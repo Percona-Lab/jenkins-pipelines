@@ -71,7 +71,9 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
 def latestVersion = pmmVersion()
 
 pipeline {
-    agent any
+    agent {
+        label 'agent-amd64'
+    }
     parameters {
         string(
             defaultValue: 'master',
@@ -145,20 +147,20 @@ pipeline {
                         }
                     }
                 }
-                stage('rhel-9-x64') {
-                    agent {
-                        label 'min-rhel-9-x64'
-                    }
-                    steps{
-                        setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
+//                 stage('rhel-9-x64') {
+//                     agent {
+//                         label 'min-rhel-9-x64'
+//                     }
+//                     steps{
+//                         setup_rhel_package_tests()
+//                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+//                     }
+//                     post {
+//                         always {
+//                             deleteDir()
+//                         }
+//                     }
+//                 }
                 stage('focal-x64') {
                     agent {
                         label 'min-focal-x64'
