@@ -208,7 +208,6 @@ pipeline {
             steps {
                 withCredentials([azureServicePrincipal('AZURE_JENKINS_ACCESS')]) {
                      sh """
-                         az logout
                          az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" -s "$AZURE_SUBSCRIPTION_ID"
                          az account list --all --output table
 //                         az account set -s "$AZURE_SUBSCRIPTION_ID"
