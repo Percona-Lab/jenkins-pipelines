@@ -13,11 +13,11 @@ pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for pmm-server repository',
-            name: 'PMM_SERVER_BRANCH')
+            description: 'Tag/Branch for pmm repository',
+            name: 'PMM_BRANCH')
         choice(
             choices: ['no', 'yes'],
-            description: "Build Release Candidate?",
+            description: "Build a Release Candidate?",
             name: 'RELEASE_CANDIDATE')
     }
     triggers {
@@ -26,7 +26,13 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git poll: true, branch: PMM_SERVER_BRANCH, url: "https://github.com/percona/pmm-server.git"
+                checkout([$class: 'GitSCM', 
+                          branches: [[name: "*/${PMM_BRANCH}"]],
+                          extensions: [[$class: 'CloneOption',
+                          noTags: true,
+                          reference: '',
+                          shallow: true]],
+                          userRemoteConfigs: [[url: 'https://github.com/percona/pmm.git']]])
             }
         }
 
@@ -35,7 +41,9 @@ pipeline {
                 expression { env.RELEASE_CANDIDATE == "yes" }
             }
             steps {
-                sh 'make pmm2-ami-rc'
+                dir("build") {
+                    sh 'make pmm2-ami-rc'
+                }
                 script {
                     AMI_ID = sh(script: 'jq -r \'.builds[-1].artifact_id\' manifest.json | cut -d ":" -f2', returnStdout: true)
                 }
@@ -46,7 +54,9 @@ pipeline {
                 expression { env.RELEASE_CANDIDATE == "no" }
             }
             steps {
-                sh 'make pmm2-ami'
+                dir("build") {
+                    sh 'make pmm2-ami'
+                }
                 script {
                     AMI_ID = sh(script: 'jq -r \'.builds[-1].artifact_id\' manifest.json | cut -d ":" -f2', returnStdout: true)
                 }
