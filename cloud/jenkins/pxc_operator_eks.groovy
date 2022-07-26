@@ -87,6 +87,14 @@ void runTest(String TEST_NAME) {
                                 export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
                             fi
 
+                            if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                                export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                            fi
+
+                            if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                                export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                            fi
+
                             export PATH=/home/ec2-user/.local/bin:$PATH
                             source $HOME/google-cloud-sdk/path.bash.inc
                             export KUBECONFIG=~/.kube/config
@@ -176,6 +184,14 @@ pipeline {
             defaultValue: '',
             description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
             name: 'IMAGE_LOGCOLLECTOR')
+        string(
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     environment {
         CLEAN_NAMESPACE = 1

@@ -65,6 +65,14 @@ void runTest(String TEST_NAME) {
                         export IMAGE_PMM=${IMAGE_PMM}
                     fi
 
+                    if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                    fi
+
+                    if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                        export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                    fi
+
                     sudo rm -rf /tmp/hostpath-provisioner/*
                     ./e2e-tests/$TEST_NAME/run
                 fi
@@ -148,6 +156,14 @@ pipeline {
             description: 'Kubernetes Version',
             name: 'PLATFORM_VER',
             trim: true)
+        string(
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     agent {
          label 'micro-amazon'
