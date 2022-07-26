@@ -1,18 +1,24 @@
 void pushArtifactFile(String FILE_NAME) {
-    echo "Push $FILE_NAME file to Azure Storage!"
-    withCredentials([usernamePassword(credentialsId: 'percona-operators', passwordVariable: 'AZURE_STORAGE_ACCOUNT_KEY', usernameVariable: 'AZURE_STORAGE_ACCOUNT_NAME')]) {
-        sh '''
-            az storage blob upload-batch --file $JOB_NAME/\$(git -C source describe --always --dirty) --container-name percona-jenkins-artifactory --account-name $AZURE_STORAGE_ACCOUNT_NAME --account-key $AZURE_STORAGE_ACCOUNT_KEY
-    '''
+    echo "Push $FILE_NAME file to S3!"
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            touch ${FILE_NAME}
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${env.GIT_SHORT_COMMIT}
+            aws s3 ls \$S3_PATH/${FILE_NAME} || :
+            aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
+        """
     }
 }
 
 void popArtifactFile(String FILE_NAME) {
-    echo "Try to get $FILE_NAME file from Azure Storage!"
-    withCredentials([usernamePassword(credentialsId: 'percona-operators', passwordVariable: 'AZURE_STORAGE_ACCOUNT_KEY', usernameVariable: 'AZURE_STORAGE_ACCOUNT_NAME')]) {
-        sh '''
-            az storage blob directory download -s "$JOB_NAME/\$(git -C source describe --always --dirty)" -d "${FILE_NAME}"  --container-name percona-jenkins-artifactory --account-name $AZURE_STORAGE_ACCOUNT_NAME --account-key $AZURE_STORAGE_ACCOUNT_KEY || :
-        '''
+    echo "Try to get $FILE_NAME file from S3!"
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${env.GIT_SHORT_COMMIT}
+            aws s3 cp --quiet \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
+        """
     }
 }
 
@@ -37,7 +43,7 @@ void runTest(String TEST_NAME) {
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
 
-            withCredentials([azureServicePrincipal(credentialsId: '73b1702a-0b0d-49cb-9414-3f67656f365b', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
+            withCredentials([azureServicePrincipal(credentialsId: 'AZURE_JENKINS_ACCESS', subscriptionIdVariable: 'AZURE_SUBSCRIPTION_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
                 sh """
                     if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG" ]; then
                         echo Skip $TEST_NAME test
@@ -203,7 +209,7 @@ pipeline {
                 echo "My client id is $AZURE_CLIENT_ID"
                 echo "My tenant id is $AZURE_TENANT_ID"
                 echo "My subscription id is $AZURE_SUBSCRIPTION_ID"
-                withCredentials([azureServicePrincipal(credentialsId: '73b1702a-0b0d-49cb-9414-3f67656f365b', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
+                withCredentials([azureServicePrincipal(credentialsId: 'AZURE_JENKINS_ACCESS', subscriptionIdVariable: 'AZURE_SUBSCRIPTION_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
                      sh """
                          export PATH=/home/ec2-user/.local/bin:$PATH
                          source $HOME/google-cloud-sdk/path.bash.inc
@@ -276,7 +282,7 @@ pipeline {
 
     post {
         always {
-                withCredentials([azureServicePrincipal(credentialsId: '73b1702a-0b0d-49cb-9414-3f67656f365b', subscriptionIdVariable: 'AZURE_SUBS_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
+                withCredentials([azureServicePrincipal(credentialsId: 'AZURE_JENKINS_ACCESS', subscriptionIdVariable: 'AZURE_SUBSCRIPTION_ID', clientIdVariable: 'AZURE_CLIENT_ID', clientSecretVariable: 'AZURE_CLIENT_SECRET', tenantIdVariable: 'AZURE_TENANT_ID')]) {
                     sh """
                         az aks delete --name aks-psmdb-cluster --resource-group percona-operators --yes --no-wait
                     """
