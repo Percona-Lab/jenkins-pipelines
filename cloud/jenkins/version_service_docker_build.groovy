@@ -129,14 +129,14 @@ pipeline {
             script {
                 unstash 'IMG'
                 def IMG = sh(returnStdout: true, script: "cat IMG").trim()
-                slackSend channel: '#version-service', color: '#00FF00', message: "New version-service image is published - ${IMG}"
+                slackSend channel: '#version-service-monitoring', color: '#00FF00', message: "New version-service image is published - ${IMG}"
             }
         }
         failure {
-            slackSend channel: '#version-service', color: '#FF0000', message: "Building of version-service image failed. Please check the log ${BUILD_URL}"
+            slackSend channel: '#version-service-monitoring', color: '#FF0000', message: "Building of version-service image failed. Please check the log ${BUILD_URL}"
         }
         unstable {
-            slackSend channel: '#version-service', color: '#F6F930', message: "Building of version-service docker images unstable. Please check the log ${BUILD_URL}"
+            slackSend channel: '#version-service-monitoring', color: '#F6F930', message: "Building of version-service docker images unstable. Please check the log ${BUILD_URL}"
         }
     }
 }
