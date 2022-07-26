@@ -48,7 +48,7 @@ pipeline {
     }
 stages {
         stage("Build Distribution") {
-            agent { label 'params.node_to_test' }
+            agent { label params.node_to_test }
     stages {
         stage('Prepare') {
             steps {
