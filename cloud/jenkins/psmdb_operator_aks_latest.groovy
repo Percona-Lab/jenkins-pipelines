@@ -43,7 +43,7 @@ void runTest(String TEST_NAME) {
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
 
-            withCredentials([azureServicePrincipal('AZURE_JENKINS_ACCESS_ID')]) {
+            withCredentials([azureServicePrincipal('TEST-AZURE')]) {
                 sh """
                     if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG" ]; then
                         echo Skip $TEST_NAME test
@@ -206,7 +206,7 @@ pipeline {
         }
         stage('Create Azure Infrastructure') {
             steps {
-                withCredentials([azureServicePrincipal('AZURE_JENKINS_ACCESS_ID')]) {
+                withCredentials([azureServicePrincipal('TEST-AZURE')]) {
                      sh """
                          az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --debug
                          az account show --query "{subscriptionId:id, tenantId:tenantId}"
@@ -279,7 +279,7 @@ pipeline {
 
     post {
         always {
-//                withCredentials([azureServicePrincipal('AZURE_JENKINS_ACCESS_ID')]) {
+//                withCredentials([azureServicePrincipal('TEST-AZURE')]) {
 //                    sh """
 //                        az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
 //                        az account set -s "$AZURE_SUBSCRIPTION_ID"
