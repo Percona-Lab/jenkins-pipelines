@@ -102,7 +102,7 @@ pipeline {
                         echo $pmm_ui_tests_commit_sha > pmmUITestsCommitSha
                     fi
                     export fb_commit_sha=$(git rev-parse HEAD)
-                    echo $fb_commit_sha ? > fbCommitSha
+                    echo $fb_commit_sha > fbCommitSha
                 '''
                 }
                 script {
