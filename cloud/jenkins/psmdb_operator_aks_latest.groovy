@@ -208,8 +208,6 @@ pipeline {
             steps {
                 withCredentials([azureServicePrincipal('AZURE_JENKINS_ACCESS')]) {
                      sh """
-                         export PATH=/home/ec2-user/.local/bin:$PATH
-                         source $HOME/google-cloud-sdk/path.bash.inc
                          az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
                          az account set -s $AZURE_SUBSCRIPTION_ID
                          az aks create -g percona-operators -n aks-psmdb-cluster --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version $PLATFORM_VER
