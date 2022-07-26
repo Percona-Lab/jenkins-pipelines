@@ -23,7 +23,7 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
-                        docker login -u "${USER}" -p "${PASS}"
+                        echo "${PASS}" | docker login -u "${USER}" --password-stdin
                     """
                 }
                 sh 'docker build -t $DOCKER_IMAGE -f devcontainer.Dockerfile .'
