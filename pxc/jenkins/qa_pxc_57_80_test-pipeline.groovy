@@ -27,10 +27,17 @@ pipeline {
             name: 'BRANCH',
             trim: true)
         choice(
-            choices: 'centos:7\ncentos:8\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster',
-            description: 'OS version for compilation',
-            name: 'DOCKER_OS')
-
+            choices: [
+                'min-centos-7-x64',
+                'min-ol-8-x64',
+                'min-bionic-x64',
+                'min-focal-x64',
+                'min-buster-x64',
+                'min-bullseye-x64'
+            ],
+            description: 'Node to run tests',
+            name: 'node_to_test'
+        )
     }
     agent {
         label 'docker'
@@ -43,7 +50,7 @@ pipeline {
     }
 stages {
         stage("Build Distribution") {
-            agent { label "min-focal-x64||min-centos-8-x64" }
+            agent { label params.node_to_test }
     stages {
         stage('Prepare') {
             steps {
