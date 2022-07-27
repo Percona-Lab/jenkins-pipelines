@@ -102,9 +102,7 @@ pipeline {
                         echo $pmm_ui_tests_commit_sha > pmmUITestsCommitSha
                     fi
                     export fb_commit_sha=$(git rev-parse HEAD)
-                    export fb_branch=$(git rev-parse --abbrev-ref HEAD)
                     echo $fb_commit_sha > fbCommitSha
-                    echo $fb_branch > fbBranch
                 '''
                 }
                 script {
@@ -279,13 +277,12 @@ pipeline {
                         """
                         // trigger workflow in GH to run some test there as well, pass server and client images as parameters
                         def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
-                        def FB_BRANCH = sh(returnStdout: true, script: "cat fbBranch").trim()
                         sh """
                             curl -v -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/jenkins-dispatch.yml/dispatches" \
-                                -d '{"ref":"${FB_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}"}}'
+                                -d '{"ref":"${GIT_LOCAL_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}"}}'
                         """
                     }
                 }
