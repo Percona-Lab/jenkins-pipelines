@@ -220,20 +220,6 @@ pipeline {
                         }
                     }
                 }
-                stage('stretch-x64') {
-                    agent {
-                        label 'min-stretch-x64'
-                    }
-                    steps{
-                        setup_debian_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
                 stage('bullseye-x64') {
                     when {
                         expression { env.TESTS == "pmm2-client" || env.TESTS == "pmm2-client_upgrade" }

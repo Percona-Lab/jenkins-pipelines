@@ -30,7 +30,6 @@ imageMap['us-east-2a.min-focal-x64']    = 'ami-0eea504f45ef7a8f7'
 imageMap['us-east-2a.min-bionic-x64']   = 'ami-0b9ecb12083282d75'
 imageMap['us-east-2a.min-jammy-x64']    = 'ami-07a683b72d6bd7da3'
 imageMap['us-east-2a.min-buster-x64']   = 'ami-0d90bed76900e679a'
-imageMap['us-east-2a.min-stretch-x64']  = 'ami-0c729632334a74b05'
 imageMap['us-east-2a.min-bullseye-x64'] = 'ami-0c9e778f8faae5214'
 
 imageMap['us-east-2b.min-rhel-7-x64'] = imageMap['us-east-2a.min-rhel-7-x64']
@@ -40,7 +39,6 @@ imageMap['us-east-2b.min-focal-x64']    = imageMap['us-east-2a.min-focal-x64']
 imageMap['us-east-2b.min-bionic-x64']   = imageMap['us-east-2a.min-bionic-x64']
 imageMap['us-east-2b.min-jammy-x64']    = imageMap['us-east-2a.min-jammy-x64']
 imageMap['us-east-2b.min-buster-x64']   = imageMap['us-east-2a.min-buster-x64']
-imageMap['us-east-2b.min-stretch-x64']  = imageMap['us-east-2a.min-stretch-x64']
 imageMap['us-east-2b.min-bullseye-x64'] = imageMap['us-east-2a.min-bullseye-x64']
 
 imageMap['us-east-2c.min-rhel-7-x64'] = imageMap['us-east-2a.min-rhel-7-x64']
@@ -50,7 +48,6 @@ imageMap['us-east-2c.min-focal-x64']    = imageMap['us-east-2a.min-focal-x64']
 imageMap['us-east-2c.min-bionic-x64']   = imageMap['us-east-2a.min-bionic-x64']
 imageMap['us-east-2c.min-jammy-x64']    = imageMap['us-east-2a.min-jammy-x64']
 imageMap['us-east-2c.min-buster-x64']   = imageMap['us-east-2a.min-buster-x64']
-imageMap['us-east-2c.min-stretch-x64']  = imageMap['us-east-2a.min-stretch-x64']
 imageMap['us-east-2b.min-bullseye-x64'] = imageMap['us-east-2a.min-bullseye-x64']
 
 
@@ -68,7 +65,6 @@ userMap['min-focal-x64']     = 'ubuntu'
 userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-jammy-x64']     = 'ubuntu'
 userMap['min-buster-x64']    = 'admin'
-userMap['min-stretch-x64']   = 'admin'
 userMap['min-bullseye-x64']  = 'admin'
 
 
@@ -171,7 +167,6 @@ initMap['min-rhel-9-x64'] = initMap['rpmMap']
 initMap['min-focal-x64']    = initMap['debMap']
 initMap['min-bionic-x64']   = initMap['debMap']
 initMap['min-jammy-x64']    = initMap['debMap']
-initMap['min-stretch-x64']  = initMap['debMap']
 initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-buster-x64']   = initMap['debMap']
 
@@ -189,7 +184,6 @@ typeMap['min-focal-x64']     = typeMap['min-rhel-7-x64']
 typeMap['min-bionic-x64']    = typeMap['min-rhel-7-x64']
 typeMap['min-jammy-x64']     = typeMap['min-rhel-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-rhel-7-x64']
-typeMap['min-stretch-x64']   = typeMap['min-rhel-7-x64']
 typeMap['min-bullseye-x64']  = typeMap['min-rhel-7-x64']
 
 execMap = [:]
@@ -200,7 +194,6 @@ execMap['min-focal-x64']     = '1'
 execMap['min-bionic-x64']    = '1'
 execMap['min-jammy-x64']     = '1'
 execMap['min-buster-x64']    = '1'
-execMap['min-stretch-x64']   = '1'
 execMap['min-bullseye-x64']  = '1'
 
 devMap = [:]
@@ -211,7 +204,6 @@ devMap['min-focal-x64']     = devMap['min-rhel-7-x64']
 devMap['min-bionic-x64']    = devMap['min-rhel-7-x64']
 devMap['min-jammy-x64']     = devMap['min-rhel-7-x64']
 devMap['min-buster-x64']    = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
-devMap['min-stretch-x64']   = 'xvda=:80:true:gp2,xvdd=:20:true:gp2'
 devMap['min-bullseye-x64']  = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
 
 labelMap = [:]
@@ -222,7 +214,6 @@ labelMap['min-focal-x64']     = 'min-focal-x64'
 labelMap['min-bionic-x64']    = 'min-bionic-x64'
 labelMap['min-jammy-x64']     = 'min-jammy-x64'
 labelMap['min-buster-x64']    = 'min-buster-x64'
-labelMap['min-stretch-x64']   = 'min-stretch-x64'
 labelMap['min-bullseye-x64']  = 'min-bullseye-x64'
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
@@ -300,7 +291,6 @@ String region = 'us-east-2'
             getTemplate('min-bionic-x64',       "${region}${it}"),
             getTemplate('min-jammy-x64',        "${region}${it}"),
             getTemplate('min-buster-x64',       "${region}${it}"),
-            getTemplate('min-stretch-x64',      "${region}${it}"),
             getTemplate('min-bullseye-x64',     "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
