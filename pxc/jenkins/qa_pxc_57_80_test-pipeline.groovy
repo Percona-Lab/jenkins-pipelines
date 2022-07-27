@@ -39,7 +39,9 @@ pipeline {
             name: 'node_to_test'
         )
     }
-    agent any
+    agent {
+        label params.node_to_test
+    }
     options {
         skipDefaultCheckout()
         skipStagesAfterUnstable()
