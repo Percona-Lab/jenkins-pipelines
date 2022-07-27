@@ -50,6 +50,8 @@
     - trigger-builds:
       - project: qa_pxc_57_80_test-pipeline
         current-parameters: true
+        predefined-parameters: |
+          node_to_test=${node_to_test}
         block: true
         block-thresholds:
           build-step-failure-threshold: FAILURE
