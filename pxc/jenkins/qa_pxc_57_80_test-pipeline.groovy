@@ -8,7 +8,7 @@ pipeline {
             name: 'PXC_LOWER_VERSION_TAR',
             trim: true)
         string(
-            defaultValue: '8.0.27-18.1',
+            defaultValue: '8.0.28-19.1',
             description: 'PXC Upper version tarball to download for testing',
             name: 'PXC_UPPER_VERSION_TAR')
         string(
