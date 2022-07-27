@@ -133,7 +133,6 @@ pipeline {
                 stage('Build client binary debs') {
                     steps {
                         sh './build/bin/build-client-deb debian:buster'
-                        sh './build/bin/build-client-deb debian:stretch'
                         sh './build/bin/build-client-deb debian:bullseye'
                         sh './build/bin/build-client-deb ubuntu:jammy'
                         sh './build/bin/build-client-deb ubuntu:bionic'
