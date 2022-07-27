@@ -5,12 +5,12 @@ pipeline {
         string(
             defaultValue: '5.7.38-31.59',
             description: 'PXC lower version tarball to download for testing',
-            name: 'LOWER_PXC_VERSION',
+            name: 'PXC_LOWER_VERSION_TAR',
             trim: true)
         string(
             defaultValue: '8.0.27-18.1',
             description: 'PXC Upper version tarball to download for testing',
-            name: 'UPPER_PXC_VERSION')
+            name: 'PXC_UPPER_VERSION_TAR')
         string(
             defaultValue: '5.7.38-rel41-59.1',
             description: 'PXC-5.7 package version',
@@ -52,7 +52,7 @@ stages {
     stages {
         stage('Prepare') {
             steps {
-                sh 'echo Downloading LOWER_PXC tarball: \$(date -u)'
+                sh 'echo Downloading PXC LOWER VERSION tarball: \$(date -u)'
                 sh '''
                     echo "Installing dependencies..."
                     if [ -f /usr/bin/yum ]; then 
@@ -71,12 +71,12 @@ stages {
                     cd $ROOT_FS/
                     rm -rf $ROOT_FS/pxc_5.7_tar || true
                     LOWER_PXC_TAR=lower-pxc-latest.tar.gz
-                    wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${LOWER_PXC_VERSION}/Percona-XtraDB-Cluster-${PXC57_PKG_VERSION}.Linux.x86_64.glibc2.17.tar.gz > ${LOWER_PXC_TAR}
+                    wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${PXC_LOWER_VERSION_TAR}/Percona-XtraDB-Cluster-${PXC57_PKG_VERSION}.Linux.x86_64.glibc2.17.tar.gz > ${LOWER_PXC_TAR}
                     tar -xzf ${LOWER_PXC_TAR}
                     rm *.tar.gz
                     mv Percona-XtraDB-* pxc_5.7_tar
                 '''
-               sh 'echo Downloading Upper_PXC tarball: \$(date -u)'
+               sh 'echo Downloading PXC UPPER VERSION tarball: \$(date -u)'
                sh '''
                     ROOT_FS=$(pwd)
                     sudo killall -9 mysqld || true
@@ -84,7 +84,7 @@ stages {
                     cd $ROOT_FS
                     rm -rf $ROOT_FS/pxc_8.0_tar || true
                     UPPER_PXC_TAR=upper-pxc-latest.tar.gz
-                    wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${UPPER_PXC_VERSION}/Percona-XtraDB-Cluster_${UPPER_PXC_VERSION}_Linux.x86_64.glibc2.17.tar.gz > ${UPPER_PXC_TAR}
+                    wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${PXC_UPPER_VERSION_TAR}/Percona-XtraDB-Cluster_${PXC_UPPER_VERSION_TAR}_Linux.x86_64.glibc2.17.tar.gz > ${UPPER_PXC_TAR}
                     tar -xzf ${UPPER_PXC_TAR}
                     rm *.tar.gz
                     mv Percona-XtraDB-* pxc_8.0_tar
