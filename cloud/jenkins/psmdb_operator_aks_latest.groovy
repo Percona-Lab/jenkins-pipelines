@@ -212,7 +212,7 @@ pipeline {
                          az account show --query "{subscriptionId:id, tenantId:tenantId}"
                          az account list --all --output table
                          az aks create -g percona-operators -n aks-psmdb-latest-cluster --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version ${params.PLATFORM_VER}
-                         az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb-cluster
+                         az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb-latest-cluster
                      """
                 }
             }
