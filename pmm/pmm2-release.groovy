@@ -179,6 +179,7 @@ ENDSSH
                             RSYNC_TRANSFER_OPTS=" -avt --delete --delete-excluded --delete-after --progress"
                             rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.10.9.209:/www/repo.percona.com/htdocs/\${REPO}/
                             rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/version 10.10.9.209:/www/repo.percona.com/htdocs/
+                        done
 ENDSSH
                     """
                 }
@@ -193,9 +194,9 @@ ENDSSH
                             set -e
                             cd  /srv/UPLOAD/${PATH_TO_CLIENT}/
                             #
-                            PRODUCT=$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$3}')
-                            RELEASE=$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$4}')
-                            REVISION=$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$6}')
+                            PRODUCT=\$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$3}')
+                            RELEASE=\$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$4}')
+                            REVISION=\$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$6}')
                             #
                             RELEASEDIR="/srv/UPLOAD/${PATH_TO_CLIENT}/.tmp/\${PRODUCT}/\${RELEASE}"
                             rm -fr /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
