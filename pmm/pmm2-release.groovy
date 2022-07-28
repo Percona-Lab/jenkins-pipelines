@@ -169,10 +169,13 @@ ENDSSH
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh """
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
+                        set -x
+                        set -e
+
                         REPOS='PERCONA TOOLS PMM2-CLIENT'
 
                         for REPOSITORY in \$REPOS; do
-                            ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                             cd /srv/repo-copy
                             REPO=\$(echo \${REPOSITORY} | tr '[:upper:]' '[:lower:]' )
                             date +%s > /srv/repo-copy/version
