@@ -118,7 +118,7 @@ pipeline {
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'latest',
+            defaultValue: '1.21',
             description: 'AKS kubernetes version',
             name: 'PLATFORM_VER')
         string(
@@ -211,7 +211,7 @@ pipeline {
                          az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
                          az account show --query "{subscriptionId:id, tenantId:tenantId}"
                          az account list --all --output table
-                         az aks create -g percona-operators -n aks-psmdb-latest-cluster --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version ${params.PLATFORM_VER}
+                         az aks create -g percona-operators -n aks-psmdb-cluster --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version ${params.PLATFORM_VER}
                          az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb-cluster
                      """
                 }
@@ -282,7 +282,7 @@ pipeline {
                     sh """
                         az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
                         az account set -s "$AZURE_SUBSCRIPTION_ID"
-                        az aks delete --name aks-psmdb-latest-cluster --resource-group percona-operators --yes --no-wait
+                        az aks delete --name aks-psmdb-cluster --resource-group percona-operators --yes --no-wait
                     """
                 }
 
