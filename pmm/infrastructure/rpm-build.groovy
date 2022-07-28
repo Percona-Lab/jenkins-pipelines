@@ -2,9 +2,9 @@ pipeline {
     agent none
     parameters {
         string(
-            defaultValue: 'PMM-2.0',
-            description: 'Tag/Branch for pmm-submodules repository',
-            name: 'SUBMODULES_GIT_BRANCH')
+            defaultValue: 'main',
+            description: 'Tag/Branch for pmm repository',
+            name: 'PMM_GIT_BRANCH')
     }
     options {
         skipStagesAfterUnstable()
@@ -29,14 +29,14 @@ pipeline {
                     stage('Prepare') {
                         steps {
                             git poll: true,
-                                branch: SUBMODULES_GIT_BRANCH,
-                                url: 'https://github.com/Percona-Lab/pmm-submodules.git'
+                                branch: PMM_GIT_BRANCH,
+                                url: 'https://github.com/percona/pmm.git'
                         }
                     }
                     stage('Build') {
                         steps {
                             sh """
-                                cd build/rpmbuild-docker
+                                cd build/docker/rpmbuild/
                                 docker build --pull --tag ${IMAGE_REGISTRY}/rpmbuild:${ARCH} .
                             """
                             withCredentials([[
