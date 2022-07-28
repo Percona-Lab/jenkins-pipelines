@@ -189,7 +189,7 @@ ENDSSH
             }
         }
 
-        stage('Upload client packages to download.percona.com') {
+        stage('Upload client to percona.com') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh """
@@ -282,7 +282,7 @@ ENDSSH
 
         stage('Get Docker RPMs') {
             agent {
-                label 'min-centos-7-x64'
+                label 'min-rhel-7-x64'
             }
             steps {
                 installDocker()
@@ -301,7 +301,7 @@ ENDSSH
                             ls /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64 \
                             > repo.list
                         cat rpms.list \
-                            | grep -v 'pmm2-client' | grep -v 'percona-victoriametrics' \
+                            | grep -v 'pmm2-client' \
                             | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
                             | xargs -n 1 -I {} grep "^{}.rpm" repo.list \
                             | sort \
