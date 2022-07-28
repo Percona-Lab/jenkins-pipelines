@@ -174,7 +174,7 @@ ENDSSH
                         for REPOSITORY in \$REPOS; do
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                             cd /srv/repo-copy
-                            REPO=$(echo \${REPOSITORY} | tr '[:upper:]' '[:lower:]' )
+                            REPO=\$(echo \${REPOSITORY} | tr '[:upper:]' '[:lower:]' )
                             date +%s > /srv/repo-copy/version
                             RSYNC_TRANSFER_OPTS=" -avt --delete --delete-excluded --delete-after --progress"
                             rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.10.9.209:/www/repo.percona.com/htdocs/\${REPO}/
