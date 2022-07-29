@@ -67,8 +67,6 @@ void runTest(String TEST_NAME) {
                             export IMAGE_PMM=${IMAGE_PMM}
                         fi
 
-                        export PATH=/home/ec2-user/.local/bin:$PATH
-                        source $HOME/google-cloud-sdk/path.bash.inc
                         export KUBECONFIG=~/.kube/config
 
                         ./e2e-tests/$TEST_NAME/run
@@ -105,6 +103,17 @@ void conditionalRunTest(String TEST_NAME) {
 void installRpms() {
     sh """
         sudo yum install -y jq | true
+                cat <<EOF > /tmp/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+        sudo mv /tmp/kubernetes.repo /etc/yum.repos.d
+        sudo yum install -y jq python3-pip kubectl || true
     """
 }
 pipeline {
@@ -155,14 +164,6 @@ pipeline {
             steps {
                 installRpms()
                 sh '''
-                    if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-                        rm -rf $HOME/google-cloud-sdk
-                        curl https://sdk.cloud.google.com | bash
-                    fi
-
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    gcloud components update kubectl
-
                     curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
@@ -288,7 +289,6 @@ pipeline {
 
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
-                sudo rm -rf $HOME/google-cloud-sdk
                 sudo rm -rf ./*
             '''
             deleteDir()
