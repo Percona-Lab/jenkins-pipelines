@@ -219,7 +219,7 @@ pipeline {
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
                         export RPM_EPOCH=1
-                        export PATH=$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
+                        export PATH=\$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
 
                         # 1st-party
                         build-server-rpm percona-dashboards grafana-dashboards

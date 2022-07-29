@@ -83,14 +83,12 @@ pipeline {
         stage('Build client binary rpm') {
             steps {
                 sh """
-                    sg docker -c "
-                        set -o errexit
+                    set -o errexit
 
-                        ${PATH_TO_SCRIPTS}/build-client-rpm centos:7
+                    ${PATH_TO_SCRIPTS}/build-client-rpm centos:7
 
-                        mkdir -p tmp/pmm-server/RPMS/
-                        cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
-                    "
+                    mkdir -p tmp/pmm-server/RPMS/
+                    cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
                 """
                 stash includes: 'tmp/pmm-server/RPMS/*.rpm', name: 'rpms'
                 uploadRPM()
@@ -102,7 +100,7 @@ pipeline {
                     sh """
                         set -o errexit
 
-                        export PATH=$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
+                        export PATH=\$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
 
                         # 1st-party
                         build-server-rpm percona-dashboards grafana-dashboards
