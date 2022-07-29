@@ -103,6 +103,17 @@ void conditionalRunTest(String TEST_NAME) {
 void installRpms() {
     sh """
         sudo yum install -y jq | true
+                cat <<EOF > /tmp/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+        sudo mv /tmp/kubernetes.repo /etc/yum.repos.d
+        sudo yum install -y jq python3-pip kubectl || true
     """
 }
 pipeline {
@@ -162,8 +173,6 @@ pipeline {
                     if ! command -v az &>/dev/null; then
                         curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
                         printf "/usr/azure-cli\\n/usr/bin" | sudo  python3 install.py
-                        sudo az aks install-cli
-                        kubectl version
                     fi
                 '''
             }
