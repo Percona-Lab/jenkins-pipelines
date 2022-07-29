@@ -4,7 +4,7 @@ void pushArtifactFile(String FILE_NAME) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             touch ${FILE_NAME}
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git -C source describe --always --dirty)
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${env.GIT_SHORT_COMMIT}
             aws s3 ls \$S3_PATH/${FILE_NAME} || :
             aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
         """
@@ -16,7 +16,7 @@ void popArtifactFile(String FILE_NAME) {
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git -C source describe --always --dirty)
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${env.GIT_SHORT_COMMIT}
             aws s3 cp --quiet \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
         """
     }
@@ -41,37 +41,47 @@ void runTest(String TEST_NAME) {
             VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
             testsReportMap[TEST_NAME] = 'failure'
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
+            popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
 
-            popArtifactFile("$VERSION-$TEST_NAME-$MDB_TAG")
-
-            sh """
-                if [ -f "$VERSION-$TEST_NAME-$MDB_TAG" ]; then
-                    echo Skip $TEST_NAME test
-                else
-                    cd ./source
-                    if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
-                        export IMAGE=${PSMDB_OPERATOR_IMAGE}
+            withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+                sh """
+                    if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG" ]; then
+                        echo Skip $TEST_NAME test
                     else
-                        export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
-                    fi
+                        cd ./source
+                        if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                            export IMAGE=${PSMDB_OPERATOR_IMAGE}
+                        else
+                            export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
+                        fi
 
-                    if [ -n "${IMAGE_MONGOD}" ]; then
-                        export IMAGE_MONGOD=${IMAGE_MONGOD}
-                    fi
+                        if [ -n "${IMAGE_MONGOD}" ]; then
+                            export IMAGE_MONGOD=${IMAGE_MONGOD}
+                        fi
 
-                    if [ -n "${IMAGE_BACKUP}" ]; then
-                        export IMAGE_BACKUP=${IMAGE_BACKUP}
-                    fi
+                        if [ -n "${IMAGE_BACKUP}" ]; then
+                            export IMAGE_BACKUP=${IMAGE_BACKUP}
+                        fi
 
-                    if [ -n "${IMAGE_PMM}" ]; then
-                        export IMAGE_PMM=${IMAGE_PMM}
-                    fi
+                        if [ -n "${IMAGE_PMM}" ]; then
+                            export IMAGE_PMM=${IMAGE_PMM}
+                        fi
+                        
+                        if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                            export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                        fi
 
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    ./e2e-tests/$TEST_NAME/run
-                fi
-            """
-            pushArtifactFile("$VERSION-$TEST_NAME-$MDB_TAG")
+                        if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                            export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                        fi
+
+                        export KUBECONFIG=~/.kube/config
+
+                        ./e2e-tests/$TEST_NAME/run
+                    fi
+                """
+            }
+            pushArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
@@ -87,9 +97,31 @@ void runTest(String TEST_NAME) {
 
     echo "The $TEST_NAME test was finished!"
 }
+
+void conditionalRunTest(String TEST_NAME) {
+    if ( TEST_NAME == 'default-cr' ) {
+        if ( params.GIT_BRANCH.contains('release-') ) {
+            runTest(TEST_NAME)
+        }
+        return 0
+    }
+    runTest(TEST_NAME)
+}
+
 void installRpms() {
     sh """
         sudo yum install -y jq | true
+                cat <<EOF > /tmp/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+        sudo mv /tmp/kubernetes.repo /etc/yum.repos.d
+        sudo yum install -y jq python3-pip kubectl || true
     """
 }
 pipeline {
@@ -102,6 +134,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
+        string(
+            defaultValue: '1.21',
+            description: 'AKS kubernetes version',
+            name: 'PLATFORM_VER')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
@@ -118,11 +154,17 @@ pipeline {
             defaultValue: '',
             description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
             name: 'IMAGE_PMM')
+        string(
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     environment {
-        TF_IN_AUTOMATION = 'true'
-        RHEL_USER = credentials('RHEL-USER')
-        RHEL_PASSWORD = credentials('RHEL-PASSWD')
+        CLEAN_NAMESPACE = 1
     }
     agent {
          label 'docker'
@@ -136,31 +178,19 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                sh """
-                    wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
-                    unzip terraform_0.11.14_linux_amd64.zip
-                    sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
-                """
                 installRpms()
                 sh '''
-                    if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-                        rm -rf $HOME/google-cloud-sdk
-                        curl https://sdk.cloud.google.com | bash
-                    fi
-
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    gcloud components update kubectl
-                    gcloud version
-
                     curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-                    curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
-                        | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
 
                     sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
+                    
+                    if ! command -v az &>/dev/null; then
+                        curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+                        printf "/usr/azure-cli\\n/usr/bin" | sudo  python3 install.py
+                    fi
                 '''
-
             }
         }
         stage('Build docker image') {
@@ -181,7 +211,6 @@ pipeline {
                         if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
                             echo "SKIP: Build is not needed, PSMDB operator image was set!"
                         else
-
                             cd ./source/
                             sg docker -c "
                                 docker login -u '${USER}' -p '${PASS}'
@@ -195,47 +224,16 @@ pipeline {
                 }
             }
         }
-        stage('Create AWS Infrastructure') {
+        stage('Create Azure Infrastructure') {
             steps {
-                git branch: 'main', url: 'https://github.com/Percona-Lab/k8s-lab'
-                    sh """
-                        # sudo is needed for better node recovery after compilation failure
-                        # if building failed on compilation stage directory will have files owned by docker user
-                        sudo git reset --hard
-                        sudo git clean -xdf
-                    """
-
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-key-pub', variable: 'AWS_NODES_KEY_PUB')]) {
-                     sshagent(['aws-openshift-key']) {
-                         sh """
-                            pushd ./aws-openshift-automation
-                                make infrastructure
-                                sleep 400
-                            popd
-                    """
-                    }
-               }
-
-            }
-        }
-        stage('Install and conigure Openshift') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-key-pub', variable: 'AWS_NODES_KEY_PUB')]) {
-                     sshagent(['aws-openshift-key']) {
-                         sh """
-                            pushd ./aws-openshift-automation
-                                make openshift
-                            popd
-                         """
-                    }
-                    retry(3) {
-                         sh """
-                            pushd ./aws-openshift-automation
-                                sleep 120
-                                oc login \$(terraform output master-url) --insecure-skip-tls-verify=true -u=real-admin -p=123
-                            popd
-                        """
-                    }
+                withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+                     sh """
+                         az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
+                         az account show --query "{subscriptionId:id, tenantId:tenantId}"
+                         az account list --all --output table
+                         az aks create -g percona-operators -n aks-psmdb-cluster --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version ${params.PLATFORM_VER}
+                         az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb-cluster
+                     """
                 }
             }
         }
@@ -248,18 +246,30 @@ pipeline {
                 runTest('smart-update')
                 runTest('version-service')
                 runTest('rs-shard-migration')
-                runTest('data-sharded')
             }
         }
         stage('E2E Basic Tests') {
             steps {
+                conditionalRunTest('default-cr')
                 runTest('one-pod')
+                runTest('monitoring-2-0')
                 runTest('arbiter')
                 runTest('service-per-pod')
                 runTest('liveness')
                 runTest('users')
+                runTest('data-sharded')
+                runTest('non-voting')
                 runTest('cross-site-sharded')
            }
+        }
+        stage('E2E SelfHealing') {
+            steps {
+                runTest('storage')
+                runTest('self-healing')
+                runTest('self-healing-chaos')
+                runTest('operator-self-healing')
+                runTest('operator-self-healing-chaos')
+            }
         }
         stage('E2E Backups') {
             steps {
@@ -271,6 +281,7 @@ pipeline {
                 runTest('upgrade-sharded')
                 runTest('pitr')
                 runTest('pitr-sharded')
+                runTest('demand-backup-eks-credentials')
             }
         }
         stage('Make report') {
@@ -284,21 +295,19 @@ pipeline {
             }
         }
     }
+
     post {
         always {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-key-pub', variable: 'AWS_NODES_KEY_PUB')]) {
-                     sshagent(['aws-openshift-key']) {
-                         sh """
-                            pushd ./aws-openshift-automation
-                                make unregister-rhel-subscription || true
-                                make destroy
-                            popd
-                         """
-                     }
+                withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+                    sh """
+                        az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
+                        az account set -s "$AZURE_SUBSCRIPTION_ID"
+                        az aks delete --name aks-psmdb-cluster --resource-group percona-operators --yes --no-wait
+                    """
                 }
+
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
-                sudo rm -rf $HOME/google-cloud-sdk
                 sudo rm -rf ./*
             '''
             deleteDir()
