@@ -154,15 +154,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 installRpms()
-                sh '''
-                    if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-                        rm -rf $HOME/google-cloud-sdk
-                        curl https://sdk.cloud.google.com | bash
-                    fi
-
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    gcloud components update kubectl
-
+                sh '''                    
                     curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
@@ -172,6 +164,8 @@ pipeline {
                     if ! command -v az &>/dev/null; then
                         curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
                         printf "/usr/azure-cli\\n/usr/bin" | sudo  python3 install.py
+                        az aks install-cli
+                        kubectl --version
                     fi
                 '''
             }
@@ -288,7 +282,6 @@ pipeline {
 
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
-                sudo rm -rf $HOME/google-cloud-sdk
                 sudo rm -rf ./*
             '''
             deleteDir()
