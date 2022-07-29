@@ -163,7 +163,7 @@ pipeline {
                         curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
                         printf "/usr/azure-cli\\n/usr/bin" | sudo  python3 install.py
                         sudo az aks install-cli
-                        kubectl --version
+                        kubectl version
                     fi
                 '''
             }
