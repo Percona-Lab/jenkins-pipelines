@@ -111,7 +111,7 @@ pipeline {
                 }
                 stage('Build client source rpm') {
                     steps {
-                        sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7'
+                        sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7"
                         stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
                         uploadRPM()
                     }
