@@ -67,8 +67,6 @@ void runTest(String TEST_NAME) {
                             export IMAGE_PMM=${IMAGE_PMM}
                         fi
 
-                        export PATH=/home/ec2-user/.local/bin:$PATH
-                        source $HOME/google-cloud-sdk/path.bash.inc
                         export KUBECONFIG=~/.kube/config
 
                         ./e2e-tests/$TEST_NAME/run
