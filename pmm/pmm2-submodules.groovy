@@ -144,8 +144,6 @@ pipeline {
 
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                        env
-
                         ${PATH_TO_SCRIPTS}/build-client-binary
                         aws s3 cp \
                             --acl public-read \
@@ -198,8 +196,6 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         set -o errexit
-                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-
                         export PUSH_DOCKER=1
                         export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
 
@@ -219,7 +215,7 @@ pipeline {
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
                         export RPM_EPOCH=1
-                        export PATH=\$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
+                        export PATH=\$PATH:\$(pwd -P)/${PATH_TO_SCRIPTS}
 
                         # 1st-party
                         build-server-rpm percona-dashboards grafana-dashboards
@@ -249,7 +245,6 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         set -o errexit
-                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
                         export PUSH_DOCKER=1
                         export DOCKER_TAG=perconalab/pmm-server-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
