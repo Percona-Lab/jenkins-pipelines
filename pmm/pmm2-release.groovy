@@ -165,10 +165,124 @@ ENDSSH
             }
         }
 
+        stage('Sync repos to production') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
+                        set -x
+                        set -e
+
+                        REPOS='PERCONA TOOLS PMM2-CLIENT'
+
+                        for REPOSITORY in \$REPOS; do
+                            cd /srv/repo-copy
+                            REPO=\$(echo \${REPOSITORY} | tr '[:upper:]' '[:lower:]' )
+                            date +%s > /srv/repo-copy/version
+                            RSYNC_TRANSFER_OPTS=" -avt --delete --delete-excluded --delete-after --progress"
+                            rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.10.9.209:/www/repo.percona.com/htdocs/\${REPO}/
+                            rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/version 10.10.9.209:/www/repo.percona.com/htdocs/
+                        done
+ENDSSH
+                    """
+                }
+            }
+        }
+
+        stage('Upload client to percona.com') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
+                            set -e
+                            cd  /srv/UPLOAD/${PATH_TO_CLIENT}/
+                            #
+                            PRODUCT=\$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$3}')
+                            RELEASE=\$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$4}')
+                            REVISION=\$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$6}')
+                            #
+                            RELEASEDIR="/srv/UPLOAD/${PATH_TO_CLIENT}/.tmp/\${PRODUCT}/\${RELEASE}"
+                            rm -fr /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
+                            mkdir -p \${RELEASEDIR}
+                            cp -av ./* \${RELEASEDIR}
+                            #####################
+                            # create RedHat tar bundles
+                            #
+                            cd \${RELEASEDIR}/binary/redhat
+                            for _dist in *; do
+                                cd \${_dist}
+                                for _arch in *; do
+                                    cd \${_arch}
+                                    # don't create bundle if there's only 1 package inside directory
+                                    NUM_PACKAGES=\$(find . -maxdepth 1 -type f -name '*.rpm'|wc -l)
+                                    if [ \${NUM_PACKAGES} -gt 1 ]; then
+                                        tar --owner=0 --group=0 -cf \${RELEASE}-r\${REVISION}-el\${_dist}-\${_arch}-bundle.tar  *.rpm
+                                    fi
+                                    cd ..
+                                done
+                                cd ..
+                            done
+                            #####################
+                            # create Debian tar bundles
+                            #
+                            cd \${RELEASEDIR}/binary/debian
+                            for _dist in *; do
+                                cd \${_dist}
+                                for _arch in *; do
+                                    cd \${_arch}
+                                    # don't create bundle if there's only 1 package inside directory
+                                    NUM_PACKAGES=\$(find . -maxdepth 1 -type f -name '*.deb'|wc -l)
+                                    if [ \${NUM_PACKAGES} -gt 1 ]; then
+                                        tar --owner=0 --group=0 -cf \${RELEASE}-r\${REVISION}-\${_dist}-\${_arch}-bundle.tar *.deb
+                                    fi
+                                    cd ..
+                                done
+                                cd ..
+                            done
+                            #####################
+                            # generate sha256sum for sources
+                            #
+                            cd \${RELEASEDIR}/source/tarball
+                            if [ -d source_tarball ]; then
+                                mv source_tarball/* ./
+                                rm -rf source_tarball
+                            fi
+                            for _tar in *tar.*; do
+                                sha256sum \${_tar} > \${_tar}.sha256sum
+                            done
+                            #####################
+                            # generate sha256sum for binary tarballs
+                            #
+                            if [ -d \${RELEASEDIR}/binary/tarball ]; then 
+                                cd \${RELEASEDIR}/binary/tarball
+                                for _tar in *.tar.*; do
+                                    # don't do it for symlinks (we have those in percona-agent)
+                                    if [ ! -h \${_tar} ]; then
+                                        sha256sum \${_tar} > \${_tar}.sha256sum
+                                    fi
+                                done
+                            fi
+
+                            #
+                            cd \${RELEASEDIR}/..
+                            #
+                            ln -s \${RELEASE} LATEST
+                            #
+                            cd /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
+
+                            rsync -avt -e "ssh -p 2222" --bwlimit=50000 --exclude="*yassl*" --progress \${PRODUCT} jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/
+
+                            #
+                            rm -fr /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
+ENDSSH
+                """
+                }
+            }
+        }
 
         stage('Get Docker RPMs') {
             agent {
-                label 'min-centos-7-x64'
+                label 'min-rhel-7-x64'
             }
             steps {
                 installDocker()
@@ -263,7 +377,7 @@ ENDSSH
                             ["pmm-server"]="percona/pmm-server"
                             ["percona-qan-api2"]="percona/qan-api2"
                             ["pmm-update"]="percona/pmm-update"
-                            ["pmm-managed"]="percona/pmm-managed"
+                            ["pmm"]="percona/pmm"
                         )
 
                         for package in "${!repo[@]}"; do
@@ -291,7 +405,7 @@ ENDSSH
         }
         stage('Set Docker Tag') {
             agent {
-                label 'min-centos-7-x64'
+                label 'min-rhel-7-x64'
             }
             steps {
                 unstash 'version_file'

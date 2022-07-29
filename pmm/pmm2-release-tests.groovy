@@ -42,14 +42,19 @@ pipeline {
                         runUpgradeTest('2.24.0', VERSION)
                     }
                 }
-                stage('Test: Upgrade from 2.22.0 version') {
+                stage('Test: Upgrade from 2.25.0 version') {
                     steps {
-                        runUpgradeTest('2.22.0', VERSION)
+                        runUpgradeTest('2.25.0', VERSION)
                     }
                 }
-                stage('Test: Upgrade from 2.20.0 version') {
+                stage('Test: Upgrade from 2.26.0 version') {
                     steps {
-                        runUpgradeTest('2.20.0', VERSION)
+                        runUpgradeTest('2.26.0', VERSION)
+                    }
+                }
+                stage('Test: Upgrade from 2.28.0 version') {
+                    steps {
+                        runUpgradeTest('2.28.0', VERSION)
                     }
                 }
                 stage('Test: Package testing with main repo') {

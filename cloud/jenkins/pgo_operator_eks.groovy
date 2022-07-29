@@ -108,6 +108,18 @@ void runTest(String TEST_NAME) {
                             export IMAGE_PGBADGER=${PGO_PGBADGER_IMAGE}
                         fi
 
+                        if [ -n "${PMM_SERVER_IMAGE_BASE}" ]; then
+                            export IMAGE_PMM_SERVER_REPO=${PMM_SERVER_IMAGE_BASE}
+                        fi
+
+                        if [ -n "${PMM_SERVER_IMAGE_TAG}" ]; then
+                            export IMAGE_PMM_SERVER_TAG=${PMM_SERVER_IMAGE_TAG}
+                        fi
+
+                        if [ -n "${PMM_CLIENT_IMAGE}" ]; then
+                            export IMAGE_PMM=${PMM_CLIENT_IMAGE}
+                        fi
+
                         export PATH=/home/ec2-user/.local/bin:$PATH
                         source $HOME/google-cloud-sdk/path.bash.inc
                         export KUBECONFIG=~/.kube/config
@@ -201,6 +213,18 @@ pipeline {
             defaultValue: '',
             description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg13-pgbadger',
             name: 'PGO_PGBADGER_IMAGE')
+        string(
+            defaultValue: 'perconalab/pmm-server',
+            description: 'PMM server image base: perconalab/pmm-server',
+            name: 'PMM_SERVER_IMAGE_BASE')
+        string(
+            defaultValue: 'dev-latest',
+            description: 'PMM server image tag: dev-latest',
+            name: 'PMM_SERVER_IMAGE_TAG')
+        string(
+            defaultValue: 'perconalab/pmm-client:dev-latest',
+            description: 'PMM server image: perconalab/pmm-client:dev-latest',
+            name: 'PMM_CLIENT_IMAGE')
     }
     agent {
          label 'docker'
@@ -245,6 +269,7 @@ pipeline {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
                     sh '''
+                        sudo sudo git config --global --add safe.directory '*'
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf source

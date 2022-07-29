@@ -43,7 +43,9 @@ void checkImageForCVE(String IMAGE_POSTFIX){
     }
 }
 void pushImageToDocker(String IMAGE_POSTFIX){
-     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
+     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),
+                      file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key'),
+                      [$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             sg docker -c '
                 if [ ! -d ~/.docker/trust/private ]; then
@@ -52,10 +54,13 @@ void pushImageToDocker(String IMAGE_POSTFIX){
                 fi
 
                 docker login -u '${USER}' -p '${PASS}'
+                aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR
                 export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
                 for PG_VER in 14 13 12; do
                     docker trust sign perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
                     docker push perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
+                    docker tag perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX} $ECR/perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
+                    docker push $ECR/perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
                 done
                 docker logout
             '
@@ -77,6 +82,7 @@ pipeline {
          label 'docker'
     }
     environment {
+        ECR = "119175775298.dkr.ecr.us-east-1.amazonaws.com"
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
     }
     options {
@@ -94,6 +100,7 @@ pipeline {
                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                 """

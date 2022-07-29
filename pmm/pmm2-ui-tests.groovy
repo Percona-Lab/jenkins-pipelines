@@ -28,7 +28,7 @@ def changeUserPasswordUtility(dockerImage) {
 
 pipeline {
     agent {
-        label 'docker'
+        label 'agent-amd64'
     }
     environment {
         AZURE_CLIENT_ID=credentials('AZURE_CLIENT_ID');
@@ -212,25 +212,18 @@ pipeline {
                 }
                 // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
+                git poll: false,
+                    branch: GIT_BRANCH,
+                    url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                installDocker()
-                setupDockerCompose()
                 sh '''
-                    docker-compose --version
-                    sudo yum -y update --security
-                    sudo yum -y install php php-mysqlnd php-pdo jq svn bats mysql
-                    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-                    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-                    sudo amazon-linux-extras install epel -y
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                         sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
-                        sudo chmod 755 pmm-tests/install-google-chrome.sh
-                        bash ./pmm-tests/install-google-chrome.sh
                     popd
-                    sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
+                    /srv/pmm-qa/pmm-tests/install_k8s_tools.sh --kubectl --sudo
+                    sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
         }
@@ -249,7 +242,6 @@ pipeline {
                         expression { env.CLIENT_INSTANCE == "no" }
                     }
                     steps {
-                        installAWSv2()
                         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                             sh """
                                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
@@ -317,9 +309,8 @@ pipeline {
                 }
                 stage('Setup Node') {
                     steps {
-                        setupNodejs()
                         sh """
-                            sudo yum install -y gettext
+                            npm ci
                             envsubst < env.list > env.generated.list
                         """
                     }
@@ -409,6 +400,8 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-managed.log > pmm-managed-full.log || true
                 echo --- pmm-agent logs from pmm-server --- >> pmm-agent-full.log
                 docker exec pmm-server cat /srv/logs/pmm-agent.log > pmm-agent-full.log || true
+                docker stop webhookd || true
+                docker rm webhookd || true
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true

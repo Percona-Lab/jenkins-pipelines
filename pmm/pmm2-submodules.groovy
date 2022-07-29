@@ -54,7 +54,7 @@ void addComment(String COMMENT) {
 
 pipeline {
     agent {
-        label 'docker-farm'
+        label 'agent-amd64'
     }
     stages {
         stage('Prepare') {
@@ -101,6 +101,8 @@ pipeline {
                         echo $pmm_ui_tests_branch > pmmUITestBranch
                         echo $pmm_ui_tests_commit_sha > pmmUITestsCommitSha
                     fi
+                    export fb_commit_sha=$(git rev-parse HEAD)
+                    echo $fb_commit_sha > fbCommitSha
                 '''
                 }
                 script {
@@ -113,6 +115,7 @@ pipeline {
                 stash includes: 'pmmQACommitSha', name: 'pmmQACommitSha'
                 stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
                 stash includes: 'pmmUITestsCommitSha', name: 'pmmUITestsCommitSha'
+                stash includes: 'fbCommitSha', name: 'fbCommitSha'
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
@@ -271,6 +274,15 @@ pipeline {
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 -d "{\\"body\\":\\"server docker - ${IMAGE}\\nclient docker - ${CLIENT_IMAGE}\\nclient - ${CLIENT_URL}\\nCreate Staging Instance: https://pmm.cd.percona.com/job/aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}\\"}" \
                                 "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/issues/${CHANGE_ID}/comments"
+                        """
+                        // trigger workflow in GH to run some test there as well, pass server and client images as parameters
+                        def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
+                        sh """
+                            curl -v -X POST \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/jenkins-dispatch.yml/dispatches" \
+                                -d '{"ref":"PMM-2.0","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}"}}'
                         """
                     }
                 }
