@@ -87,13 +87,13 @@ pipeline {
                                 echo "${PASS}" | docker login -u "${USER}" --password-stdin
                             """
                         }
-                        sh '''
+                        sh """
                             set -o xtrace
 
                             export PUSH_DOCKER=1
                             export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')
 
-                            ./build/bin/build-client-docker
+                            ${PATH_TO_SCRIPTS}/build-client-docker
 
                             if [ ! -z \${DOCKER_RC_TAG+x} ]; then
                                 docker tag  \${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_RC_TAG}
@@ -105,7 +105,7 @@ pipeline {
                             docker push perconalab/pmm-client:\${DOCKER_LATEST_TAG}
                             docker rmi  \${DOCKER_CLIENT_TAG}
                             docker rmi  perconalab/pmm-client:\${DOCKER_LATEST_TAG}
-                        '''
+                        """
                         stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
                         archiveArtifacts 'results/docker/CLIENT_TAG'
                     }
