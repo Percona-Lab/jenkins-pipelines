@@ -68,7 +68,7 @@ void runTest(String TEST_NAME) {
                         fi
                         
                         if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
-                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                            export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
                         fi
 
                         if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
