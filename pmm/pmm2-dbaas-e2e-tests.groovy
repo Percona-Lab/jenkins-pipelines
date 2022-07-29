@@ -8,7 +8,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENT_INSTANCE, SE
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e ENABLE_DBAAS=1 -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: DOCKER_ENV_VARIABLE),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
@@ -65,6 +65,10 @@ pipeline {
             defaultValue: 'dev-latest',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
+        string(
+            defaultValue: '-e PMM_DEBUG=1 -e ENABLE_DBAAS=1 -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1 -e PERCONA_TEST_DBAAS_PMM_CLIENT=perconalab/pmm-client:dev-latest',
+            description: 'Envirnomental variables',
+            name: 'DOCKER_ENV_VARIABLE')    
         string(
             defaultValue: "'@dbaas'",
             description: 'Pass test tags ex. @dbaas',
