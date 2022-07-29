@@ -66,6 +66,14 @@ void runTest(String TEST_NAME) {
                         if [ -n "${IMAGE_PMM}" ]; then
                             export IMAGE_PMM=${IMAGE_PMM}
                         fi
+                        
+                        if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                        fi
+
+                        if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                            export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                        fi
 
                         export KUBECONFIG=~/.kube/config
 
@@ -146,6 +154,15 @@ pipeline {
             defaultValue: '',
             description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
             name: 'IMAGE_PMM')
+        string(
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
+
     }
     environment {
         CLEAN_NAMESPACE = 1

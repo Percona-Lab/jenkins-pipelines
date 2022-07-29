@@ -50,3 +50,11 @@
         name: IMAGE_PMM
         default:
         description: PMM image
+    - string:
+        name: IMAGE_PMM_SERVER_REPO
+        default: perconalab/pmm-server
+        description: PMM server image repo
+    - string:
+        name: IMAGE_PMM_SERVER_TAG
+        default: dev-latest
+        description: PMM server image tag
