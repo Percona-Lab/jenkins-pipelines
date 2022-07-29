@@ -150,7 +150,7 @@ pipeline {
                         aws s3 cp \
                             --acl public-read \
                             results/tarball/pmm2-client-*.tar.gz \
-                            s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz
+                            s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-\${BRANCH_NAME}-\${GIT_COMMIT:0:7}.tar.gz
                     """
                 }
                 script {
