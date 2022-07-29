@@ -22,6 +22,9 @@ pipeline {
     triggers {
         upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
     }
+    environment {
+        PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
+    }
     stages {
         stage('Build PMM Client') {
             agent {
@@ -58,7 +61,7 @@ pipeline {
                 }
                 stage('Build client source') {
                     steps {
-                        sh './build/bin/build-client-source'
+                        sh "${PATH_TO_SCRIPTS}/build-client-source"
                         stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
                         uploadTarball('source')
                     }
@@ -66,11 +69,11 @@ pipeline {
                 stage('Build client binary') {
                     steps {
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            sh '''
-                                ./build/bin/build-client-binary
+                            sh """
+                                ${PATH_TO_SCRIPTS}/build-client-binary
                                 aws s3 cp --acl public-read results/tarball/pmm2-client-*.tar.gz \
                                     s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz
-                            '''
+                            """
                         }
                         stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
                         uploadTarball('binary')
@@ -108,16 +111,16 @@ pipeline {
                 }
                 stage('Build client source rpm') {
                     steps {
-                        sh './build/bin/build-client-srpm centos:7'
+                        sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7'
                         stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
                         uploadRPM()
                     }
                 }
                 stage('Build client binary rpm') {
                     steps {
-                        sh './build/bin/build-client-rpm centos:7'
-                        sh './build/bin/build-client-rpm rockylinux:8'
-                        sh './build/bin/build-client-rpm almalinux:9.0'
+                        sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
+                        sh "${PATH_TO_SCRIPTS}/build-client-rpm rockylinux:8"
+                        sh "${PATH_TO_SCRIPTS}/build-client-rpm almalinux:9.0"
                         stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
                         uploadRPM()
                     }
@@ -125,18 +128,18 @@ pipeline {
 
                 stage('Build client source deb') {
                     steps {
-                        sh './build/bin/build-client-sdeb ubuntu:bionic'
+                        sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:bionic"
                         stash includes: 'results/source_deb/*', name: 'debs'
                         uploadDEB()
                     }
                 }
                 stage('Build client binary debs') {
                     steps {
-                        sh './build/bin/build-client-deb debian:buster'
-                        sh './build/bin/build-client-deb debian:bullseye'
-                        sh './build/bin/build-client-deb ubuntu:jammy'
-                        sh './build/bin/build-client-deb ubuntu:bionic'
-                        sh './build/bin/build-client-deb ubuntu:focal'
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:buster"
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:bionic"
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
                         stash includes: 'results/deb/*.deb', name: 'debs'
                         uploadDEB()
                     }
@@ -178,9 +181,9 @@ pipeline {
                                 color: '#00FF00',
                                 message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished\nClient Tarball: ${env.TARBALL_URL}"
                     }
-                } else {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                //} else {
+                    //slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    //slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
             }
         }
