@@ -145,16 +145,16 @@ pipeline {
 
                         ${PATH_TO_SCRIPTS}/build-server-docker
 
-                        if [ ! -z ${DOCKER_RC_TAG+x} ]; then
-                            docker tag  \${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
-                            docker push perconalab/pmm-server:${DOCKER_RC_TAG}
-                            docker rmi perconalab/pmm-server:${DOCKER_RC_TAG}
+                        if [ ! -z \${DOCKER_RC_TAG+x} ]; then
+                            docker tag  \${DOCKER_TAG} perconalab/pmm-server:\${DOCKER_RC_TAG}
+                            docker push perconalab/pmm-server:\${DOCKER_RC_TAG}
+                            docker rmi perconalab/pmm-server:\${DOCKER_RC_TAG}
                         fi
-                        docker tag \${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
+                        docker tag \${DOCKER_TAG} perconalab/pmm-server:\${DOCKER_LATEST_TAG}
                         docker push \${DOCKER_TAG}
-                        docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
+                        docker push perconalab/pmm-server:\${DOCKER_LATEST_TAG}
                         docker rmi  \${DOCKER_TAG}
-                        docker rmi perconalab/pmm-server:${DOCKER_LATEST_TAG}
+                        docker rmi perconalab/pmm-server:\${DOCKER_LATEST_TAG}
                     """
                 }
                 stash includes: 'results/docker/TAG', name: 'IMAGE'
