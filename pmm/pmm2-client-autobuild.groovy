@@ -61,7 +61,6 @@ pipeline {
                 }
                 stage('Build client source') {
                     steps {
-                        sh "find ."
                         sh "${PATH_TO_SCRIPTS}/build-client-source"
                         stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
                         uploadTarball('source')

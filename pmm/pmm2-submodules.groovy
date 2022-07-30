@@ -130,7 +130,6 @@ pipeline {
 
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                        env
                         ${PATH_TO_SCRIPTS}/build-client-source
                     """
                 }
@@ -194,13 +193,12 @@ pipeline {
                     """
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
                         export PUSH_DOCKER=1
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
-
-                        ${PATH_TO_SCRIPTS}/build-client-docker
-                    """
+                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
+                    '''
+                    sh "${PATH_TO_SCRIPTS}/build-client-docker"
                 }
                 stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
                 archiveArtifacts 'results/docker/CLIENT_TAG'
