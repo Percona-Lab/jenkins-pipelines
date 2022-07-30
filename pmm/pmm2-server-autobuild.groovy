@@ -100,7 +100,7 @@ pipeline {
                     sh """
                         set -o errexit
 
-                        export PATH=\$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
+                        export PATH=\$PATH:\$(pwd -P)/${PATH_TO_SCRIPTS}
 
                         # 1st-party
                         build-server-rpm percona-dashboards grafana-dashboards
