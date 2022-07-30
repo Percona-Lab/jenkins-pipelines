@@ -374,7 +374,6 @@ ENDSSH
                         export DOCKER_MID="$TOP_VER.$MID_VER"
                         declare -A repo=(
                             ["percona-dashboards"]="percona/grafana-dashboards"
-                            ["pmm-server"]="percona/pmm-server"
                             ["percona-qan-api2"]="percona/qan-api2"
                             ["pmm-update"]="percona/pmm-update"
                             ["pmm"]="percona/pmm"
