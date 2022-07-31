@@ -25,6 +25,9 @@ pipeline {
     triggers {
         upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
     }
+    environment {
+        PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
+    }
     stages {
         stage('Prepare') {
             steps {
@@ -58,37 +61,35 @@ pipeline {
         }
         stage('Build client source') {
             steps {
-                sh './build/bin/build-client-source'
+                sh "${PATH_TO_SCRIPTS}/build-client-source"
                 stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
                 uploadTarball('source')
             }
         }
         stage('Build client binary') {
             steps {
-                sh './build/bin/build-client-binary'
+                sh "${PATH_TO_SCRIPTS}/build-client-binary"
                 stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
                 uploadTarball('binary')
             }
         }
         stage('Build client source rpm') {
             steps {
-                sh './build/bin/build-client-srpm centos:7'
+                sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7"
                 stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
                 uploadRPM()
             }
         }
         stage('Build client binary rpm') {
             steps {
-                sh '''
-                    sg docker -c "
-                        set -o errexit
+                sh """
+                    set -o errexit
 
-                        ./build/bin/build-client-rpm centos:7
+                    ${PATH_TO_SCRIPTS}/build-client-rpm centos:7
 
-                        mkdir -p tmp/pmm-server/RPMS/
-                        cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
-                    "
-                '''
+                    mkdir -p tmp/pmm-server/RPMS/
+                    cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
+                """
                 stash includes: 'tmp/pmm-server/RPMS/*.rpm', name: 'rpms'
                 uploadRPM()
             }
@@ -96,16 +97,15 @@ pipeline {
         stage('Build server packages') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
+                    sh """
                         set -o errexit
 
-                        export PATH=$PATH:$(pwd -P)/build/bin
+                        export PATH=\$PATH:\$(pwd -P)/${PATH_TO_SCRIPTS}
 
                         # 1st-party
                         build-server-rpm percona-dashboards grafana-dashboards
                         build-server-rpm pmm-managed pmm
                         build-server-rpm percona-qan-api2 qan-api2
-                        build-server-rpm pmm-server
                         build-server-rpm pmm-update
                         build-server-rpm dbaas-controller
                         build-server-rpm dbaas-tools
@@ -115,7 +115,7 @@ pipeline {
                         build-server-rpm victoriametrics
                         build-server-rpm alertmanager
                         build-server-rpm grafana
-                    '''
+                    """
                 }
                 stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'
                 uploadRPM()
@@ -137,25 +137,25 @@ pipeline {
                     credentialsId: 'ECRRWUser',
                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                     )]) {
-                    sh '''
+                    sh """
                         set -o errexit
 
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
+                        export DOCKER_TAG=perconalab/pmm-server:\$(date -u '+%Y%m%d%H%M')
 
-                        ./build/bin/build-server-docker
+                        ${PATH_TO_SCRIPTS}/build-server-docker
 
                         if [ ! -z \${DOCKER_RC_TAG+x} ]; then
-                            docker tag  \${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
+                            docker tag  \${DOCKER_TAG} perconalab/pmm-server:\${DOCKER_RC_TAG}
                             docker push perconalab/pmm-server:\${DOCKER_RC_TAG}
                             docker rmi perconalab/pmm-server:\${DOCKER_RC_TAG}
                         fi
-                        docker tag \${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
+                        docker tag \${DOCKER_TAG} perconalab/pmm-server:\${DOCKER_LATEST_TAG}
                         docker push \${DOCKER_TAG}
-                        docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
+                        docker push perconalab/pmm-server:\${DOCKER_LATEST_TAG}
                         docker rmi  \${DOCKER_TAG}
-                        docker rmi perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                    '''
+                        docker rmi perconalab/pmm-server:\${DOCKER_LATEST_TAG}
+                    """
                 }
                 stash includes: 'results/docker/TAG', name: 'IMAGE'
                 archiveArtifacts 'results/docker/TAG'

@@ -44,7 +44,6 @@ def pmm_submodules() {
         "pmm",
         "qan-api2",
         "pmm-update",
-        "pmm-server",
         "grafana-dashboards",
         "pmm-ui-tests",
         "pmm-qa",
