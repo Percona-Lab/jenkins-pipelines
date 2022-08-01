@@ -20,11 +20,17 @@ setup_centos_package_tests = { ->
 }
 
 setup_ol8_package_tests = { ->
-    sh '''
+sh """
         sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
         sudo yum -y update
-        sudo yum install -y ansible
-    '''
+        sudo yum install -y ansible 
+        sudo yum install -y python3
+cat << EOF > ${WORKSPACE}/ansible.cfg
+[defaults]
+interpreter_python=/usr/bin/python3.6
+EOF
+sudo cp ${WORKSPACE}/ansible.cfg /etc/ansible/ansible.cfg
+"""
 }
 
 setup_buster_bullseye_package_tests = { ->
