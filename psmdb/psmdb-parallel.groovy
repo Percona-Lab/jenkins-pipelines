@@ -11,6 +11,7 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+      ANSIBLE_DISPLAY_SKIPPED_HOSTS = false
   }
   parameters {
         choice(
@@ -26,6 +27,14 @@ pipeline {
             defaultValue: '4.4.8',
             description: 'PSMDB Version for tests',
             name: 'PSMDB_VERSION')
+        choice( 
+            name: 'ENABLE_TOOLKIT',
+            description: 'Enable or disable percona toolkit check',
+            choices: [
+                'false',
+                'true'
+            ]
+        )
         string(
             defaultValue: 'main',
             description: 'Branch for testing repository',
