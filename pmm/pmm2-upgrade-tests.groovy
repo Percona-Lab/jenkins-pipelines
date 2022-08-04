@@ -14,6 +14,7 @@ void performDockerWayUpgrade(String PMM_VERSION) {
 void checkUpgrade(String PMM_VERSION, String PRE_POST) {
     sh """
         export PMM_VERSION=${PMM_VERSION}
+        export PRE_POST=${PRE_POST}
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
         bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh ${PMM_VERSION} ${PRE_POST}
     """
@@ -22,6 +23,7 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
 void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
     sh """
         export PMM_VERSION=${PMM_VERSION}
+        export PRE_POST=${PRE_POST}
         echo "Upgrading pmm2-client";
         sudo yum clean all
         sudo yum makecache
