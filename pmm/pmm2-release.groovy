@@ -477,9 +477,6 @@ ENDSSH
             }
         }
         stage('Publish Docker image') {
-            agent {
-                label 'virtualbox'
-            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
@@ -499,9 +496,6 @@ ENDSSH
             }
         }
         stage('Publish OVF image') {
-            agent {
-                label 'virtualbox'
-            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
@@ -517,9 +511,6 @@ ENDSSH
             }
         }
         stage('Refresh website') {
-            agent {
-                label 'virtualbox'
-            }
             steps {
                 sh """
                     until curl https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory > /tmp/crawler; do
