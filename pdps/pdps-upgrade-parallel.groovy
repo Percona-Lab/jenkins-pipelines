@@ -15,11 +15,11 @@ pipeline {
   parameters {
         choice(
             name: 'FROM_REPO',
-            description: 'From this repo will be upgraded PDPS',
+            description: 'From this repo will be upgraded PDPS (for minor version)',
             choices: [
+                'release',
                 'testing',
-                'experimental',
-                'release'
+                'experimental'
             ]
         )
         choice(
@@ -27,8 +27,8 @@ pipeline {
             description: 'Repo for testing',
             choices: [
                 'testing',
-                'experimental',
-                'release'
+                'release',
+                'experimental'
             ]
         )
         string(
