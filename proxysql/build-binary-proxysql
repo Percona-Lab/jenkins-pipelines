@@ -12,7 +12,7 @@ set -o xtrace
 if [ -f /usr/bin/yum ]; then
     RHEL=$(rpm --eval %rhel)
     if [[ $RHEL -eq 8 ]]; then
-        sudo yum -y install python2 gnutls-devel libtool || true
+        sudo yum -y install python2 gnutls-devel libtool libuuid libuuid-devel || true
         sudo yum remove -y cmake
         sudo wget https://github.com/Kitware/CMake/releases/download/v3.19.8/cmake-3.19.8.tar.gz
         sudo tar -zxf cmake-3.19.8.tar.gz
@@ -31,6 +31,8 @@ if [ -f /usr/bin/yum ]; then
         sudo ln -s /usr/bin/cmake3 /usr/bin/cmake
       fi
     fi
+elif [ -f /usr/bin/apt ]; then
+  sudo apt-get install -y uuid-dev
 fi
 
 # We need to use golang version > 1.16. Downloading golang from tarball to ensure each platform uses the same version.
