@@ -50,12 +50,12 @@ pipeline {
             name: 'PROXYSQL_VERSION'
          )
         string(
-            defaultValue: '8.0.28',
+            defaultValue: '8.0.29',
             description: 'Updated PXB version',
             name: 'PXB_VERSION'
          )
         string(
-            defaultValue: '3.3.1',
+            defaultValue: '3.4.0',
             description: 'Updated Percona Toolkit version',
             name: 'PT_VERSION'
          )
