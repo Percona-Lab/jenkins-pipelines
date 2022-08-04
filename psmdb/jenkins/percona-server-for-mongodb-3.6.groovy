@@ -15,7 +15,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=r${PSMDB_VERSION} --jemalloc_tag=${JEMALLOC_TAG} --rocksdb_tag=${ROCKSDB_TAG} ${STAGE_PARAM}"
+            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=r${PSMDB_VERSION} --rocksdb_tag=${ROCKSDB_TAG} ${STAGE_PARAM}"
     """
 }
 
@@ -52,10 +52,6 @@ pipeline {
             defaultValue: 'r3.6.20',
             description: 'https://docs.mongodb.com/database-tools/installation/',
             name: 'MONGO_TOOLS_TAG')
-        string(
-            defaultValue: 'psmdb-3.2.11-3.1',
-            description: 'JEMALLOC_TAG value',
-            name: 'JEMALLOC_TAG')
         string(
             defaultValue: 'v5.7.3',
             description: 'ROCKSDB_TAG value',
