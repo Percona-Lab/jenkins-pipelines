@@ -12,7 +12,7 @@ set -o xtrace
 if [ -f /usr/bin/yum ]; then
     RHEL=$(rpm --eval %rhel)
     if [[ $RHEL -eq 8 ]]; then
-        sudo yum -y install python2 gnutls-devel libtool libuuid libuuid-devel || true
+        sudo yum -y install python2 gnutls-devel libtool libuuid libuuid-devel perl-IPC-Cmd || true
         sudo yum remove -y cmake
         sudo wget https://github.com/Kitware/CMake/releases/download/v3.19.8/cmake-3.19.8.tar.gz
         sudo tar -zxf cmake-3.19.8.tar.gz
@@ -25,7 +25,7 @@ if [ -f /usr/bin/yum ]; then
     fi
     sudo yum -y install wget
     if [[ $RHEL -eq 7 ]]; then
-      sudo yum -y install automake bzip2 cmake3 make gcc-c++ gcc git openssl openssl-devel gnutls gnutls-devel libtool patch
+      sudo yum -y install automake bzip2 cmake3 make gcc-c++ gcc git openssl openssl-devel gnutls gnutls-devel libtool patch perl-IPC-Cmd
       if [ -f /usr/bin/cmake3 ]; then
         sudo mv /usr/bin/cmake /usr/bin/cmake2
         sudo ln -s /usr/bin/cmake3 /usr/bin/cmake
