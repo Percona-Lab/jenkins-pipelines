@@ -73,6 +73,7 @@ pipeline {
         always {
           script {
               moleculeParallelPostDestroy(ppgOperatingSystems(), env.MOLECULE_DIR)
+              sendSlackNotificationPPG()
          }
       }
    }
