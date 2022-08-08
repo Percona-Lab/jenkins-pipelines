@@ -13,12 +13,25 @@ List all_nodes = [
     "min-amazon-2-x64",
 ]
 
+List all_nodes_except_bullseye = [
+    "min-buster-x64",
+    "min-centos-7-x64",
+    "min-ol-8-x64",
+    "min-bionic-x64",
+    "min-focal-x64",
+    "min-amazon-2-x64",
+]
+
 product_to_test = params.product_to_test
 
 List nodes_to_test = []
 if (params.node_to_test == "all") {
     nodes_to_test = all_nodes
-} else {
+} 
+else if (params.node_to_test == "all_nodes_except_bullseye") {
+    nodes_to_test = all_nodes_except_bullseye
+}
+else {
     nodes_to_test = [params.node_to_test]
 }
 
@@ -54,7 +67,7 @@ pipeline {
 
         choice(
             name: "node_to_test",
-            choices: ["all"] + all_nodes,
+            choices: ["all","all_nodes_except_bullseye"] + all_nodes,
             description: "Node in which to test the product"
         )
 

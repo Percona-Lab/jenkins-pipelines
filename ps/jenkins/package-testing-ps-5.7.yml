@@ -36,6 +36,7 @@
             name: node_to_test
             choices:
                 - "all"
+                - "all_nodes_except_bullseye"
                 - "min-bullseye-x64"
                 - "min-buster-x64"
                 - "min-centos-7-x64"
