@@ -153,6 +153,9 @@ pipeline {
             }
         }
         stage('Push to public repository') {
+            agent {
+                label 'master'
+            }
             steps {
                 // sync packages
                 sync2ProdPMM(DESTINATION, 'yes')
