@@ -337,7 +337,7 @@ pipeline {
                 CLUSTER_NAME = sh(script: "echo jenkins-par-psmo-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
             }
             parallel {
-                stage('E2E Basic Tests') {
+                stage('E2E Cluster1') {
                     agent {
                         label 'docker'
                     }
@@ -350,7 +350,7 @@ pipeline {
                         ShutdownCluster('cluster1')
                     }
                 }
-                stage('E2E Backup Tests') {
+                stage('E2E Cluster2') {
                     agent {
                         label 'docker'
                     }
@@ -364,7 +364,7 @@ pipeline {
                         ShutdownCluster('cluster2')
                     }
                 }
-                stage('E2E GR Tests') {
+                stage('E2E Cluster3') {
                     agent {
                         label 'docker'
                     }
