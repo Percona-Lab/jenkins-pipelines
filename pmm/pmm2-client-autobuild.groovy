@@ -167,6 +167,7 @@ pipeline {
 ENDSSH
                     """        
                 }
+            }
         }
     }
     post {
