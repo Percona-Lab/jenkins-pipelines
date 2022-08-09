@@ -16,6 +16,8 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
         export PMM_VERSION=${PMM_VERSION}
         export PRE_POST=${PRE_POST}
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
+        echo $PMM_VERSION
+        echo $PRE_POST
         bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh ${PMM_VERSION} ${PRE_POST}
     """
 }
