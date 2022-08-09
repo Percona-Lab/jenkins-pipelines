@@ -300,7 +300,7 @@ pipeline {
         }
         stage('Check Packages before Upgrade') {
             steps {
-                checkUpgrade(DOCKER_VERSION, "pre");
+                checkUpgrade(DOCKER_VERSION, "preUpgrade");
             }
         }
         stage('Run UI way Upgrade Tests') {
@@ -348,7 +348,7 @@ pipeline {
         }
         stage('Check Client Upgrade') {
             steps {
-                checkClientAfterUpgrade(PMM_SERVER_LATEST, "post");
+                checkClientAfterUpgrade(PMM_SERVER_LATEST, "postUpgrade");
                 sh """
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
