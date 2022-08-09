@@ -154,10 +154,6 @@ pipeline {
         }
         stage('Push to public repository') {
             steps {
-                script {
-                    unstash 'uploadPath'
-                    def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
-                }
                 // sync packages
                 sync2ProdPMM(DESTINATION, 'yes')
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
