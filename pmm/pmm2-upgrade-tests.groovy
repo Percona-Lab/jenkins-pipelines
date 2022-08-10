@@ -300,7 +300,7 @@ pipeline {
         }
         stage('Check Packages before Upgrade') {
             steps {
-                checkUpgrade(DOCKER_VERSION, "preUpgrade");
+                runPython('check_upgrade', "-v ${DOCKER_VERSION} -p pre")
             }
         }
         stage('Run UI way Upgrade Tests') {
@@ -343,7 +343,7 @@ pipeline {
         }
         stage('Check Packages after Upgrade') {
             steps {
-                checkUpgrade(PMM_SERVER_LATEST, "postUpgrade");
+                runPython('check_upgrade', "-v ${DOCKER_VERSION} -p post")
             }
         }
         stage('Check Client Upgrade') {
