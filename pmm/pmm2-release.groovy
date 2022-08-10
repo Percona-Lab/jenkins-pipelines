@@ -164,14 +164,6 @@ ENDSSH
                 }
             }
         }
-
-<<<<<<< HEAD
-        stage('Sync repos to production') {
-            steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
-                    sh """
-                        REPOS='PERCONA TOOLS PMM2-CLIENT'
-=======
         stage('Sync repos to production') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
@@ -179,9 +171,6 @@ ENDSSH
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                         set -x
                         set -e
->>>>>>> 0a6f94be991e6f9496592a3df0ff24092a37b2fb
-
-<<<<<<< HEAD
                         for REPOSITORY in \$REPOS; do
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                             cd /srv/repo-copy
@@ -198,8 +187,6 @@ ENDSSH
         }
 
 
-
-=======
                         REPOS='PERCONA TOOLS PMM2-CLIENT'
 
                         for REPOSITORY in \$REPOS; do
