@@ -165,7 +165,7 @@ pipeline {
                         def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
                         sh """
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
-                            scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${path_to_build}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/'
+                            scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${path_to_build}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
 ENDSSH
                         """      
                     }  
