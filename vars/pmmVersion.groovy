@@ -16,7 +16,9 @@ def call(type='latest') {
     '2.26.0': 'ami-0579b750aaa578090',
     '2.27.0': 'ami-064970de413ee5144',
     '2.28.0': 'ami-015cbf0312dd101c7',
-    '2.29.0': 'ami-0e68224439dd6f200'
+    '2.29.0': 'ami-0e68224439dd6f200',
+    '2.29.1': 'ami-01ce74cdab54cabcd',
+    '2.30.0': 'ami-0239e0f6ea66aacbf'
   ]
   List<String> versionsList = new ArrayList<>(versions.keySet());
   switch(type) {
@@ -24,7 +26,7 @@ def call(type='latest') {
       def latestVersion = httpRequest "https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/PMM-2.0/VERSION"
       return latestVersion.content
     case 'stable':
-      return '2.28.0'
+      return '2.29.1'
     case 'ami':
       return versions
     case 'list':
