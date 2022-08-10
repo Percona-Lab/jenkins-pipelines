@@ -154,15 +154,22 @@ pipeline {
         }
         stage('Push to public repository') {
             agent {
-                label 'virtualbox'
+                label 'master'
             }
             steps {
                 // sync packages
                 sync2ProdPMM(DESTINATION, 'yes')
-
-                // upload tarball
-                unstash 'binary.tarball'
-                sh 'scp -i ~/.ssh/id_rsa_downloads -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no results/tarball/*.tar.* jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/'
+                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    script {
+                        unstash 'uploadPath'
+                        def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
+                        sh """
+                            ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
+                            scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${path_to_build}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
+ENDSSH
+                        """      
+                    }  
+                }
             }
         }
     }
