@@ -343,12 +343,12 @@ pipeline {
         }
         stage('Check Packages after Upgrade') {
             steps {
-                checkUpgrade(PMM_SERVER_LATEST, "post");
+                checkUpgrade(PMM_SERVER_LATEST, "postUpgrade");
             }
         }
         stage('Check Client Upgrade') {
             steps {
-                checkClientAfterUpgrade(PMM_SERVER_LATEST, "postUpgrade");
+                checkClientAfterUpgrade(PMM_SERVER_LATEST, "post");
                 sh """
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
