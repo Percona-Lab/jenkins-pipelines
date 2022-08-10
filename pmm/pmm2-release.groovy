@@ -164,6 +164,7 @@ ENDSSH
                 }
             }
         }
+
         stage('Sync repos to production') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
@@ -171,21 +172,6 @@ ENDSSH
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                         set -x
                         set -e
-                        for REPOSITORY in \$REPOS; do
-                            ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
-                            cd /srv/repo-copy
-                            REPO=$(echo ${REPOSITORY} | tr '[:upper:]' '[:lower:]' )
-                            date +%s > /srv/repo-copy/version
-                            RSYNC_TRANSFER_OPTS=" -avt --delete --delete-excluded --delete-after --progress"
-                            rsync ${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/${REPO}/* 10.10.9.209:/www/repo.percona.com/htdocs/${REPO}/
-                            rsync ${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/version 10.10.9.209:/www/repo.percona.com/htdocs/
-                            fi
-ENDSSH
-                    """
-                }
-            }
-        }
-
 
                         REPOS='PERCONA TOOLS PMM2-CLIENT'
 
@@ -294,7 +280,6 @@ ENDSSH
             }
         }
 
->>>>>>> 0a6f94be991e6f9496592a3df0ff24092a37b2fb
         stage('Get Docker RPMs') {
             agent {
                 label 'min-rhel-7-x64'
