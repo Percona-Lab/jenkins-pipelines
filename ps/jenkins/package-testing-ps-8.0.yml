@@ -52,7 +52,7 @@
                 - "upgrade"
                 - "maj-upgrade-to"
             description: "Action to test on the product"
-	    - choice:
+        - choice:
             name: check_warnings
             choices:
                 - "yes"
