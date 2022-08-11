@@ -30,7 +30,6 @@ def verify_command(command):
 def main():
     args = parse_args()
 
-    # with open("/tmp/output.log", "a") as output:
     if args.env in "ami":
         verify_command('rpm -qa | grep percona-qan-api2-' + args.version)
         verify_command('rpm -qa | grep percona-dashboards-' + args.version)
@@ -92,14 +91,14 @@ def main():
                 f"docker exec {pmm_server_docker_container} supervisorctl status | grep vmalert | grep "
                 f"RUNNING")
 
-            docker_version = os.getenv("DOCKER_VERSION") or "2.30.0"
+            docker_version = os.getenv("DOCKER_VERSION")
             do_docker_way = os.getenv("PERFORM_DOCKER_WAY_UPGRADE")
             pmm_minor_v = docker_version.split('.')[1]
 
-            # if (do_docker_way == "yes" and int(pmm_minor_v) > 22) or (do_docker_way != "yes"): // FIXME: uncomment after discussing in chat
-            #     verify_command(
-            #         f"docker exec -e GF_PLUGIN_DIR=/srv/grafana/plugins/ {pmm_server_docker_container} grafana"
-            #         f"-cli plugins ls | grep alexanderzobnin-zabbix-app")
+            if (do_docker_way == "yes" and int(pmm_minor_v) > 22) or (do_docker_way != "yes"):
+                verify_command(
+                    f"docker exec -e GF_PLUGIN_DIR=/srv/grafana/plugins/ {pmm_server_docker_container} grafana"
+                    f"-cli plugins ls | grep alexanderzobnin-zabbix-app")
 
             verify_command(
                 f"docker exec -e GF_PLUGIN_DIR=/srv/grafana/plugins/ {pmm_server_docker_container} grafana"
