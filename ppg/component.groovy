@@ -3,14 +3,14 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotifcation()
+def sendSlackNotifcation(componentName)
 {
  if ( currentBuild.result == "SUCCESS" ) {
-  buildSummary = "Job: ${env.JOB_NAME}\n Status: *SUCCESS*\n Build Report: ${env.BUILD_URL}CI-Build-HTML-Report"
+  buildSummary = "Job: ${env.JOB_NAME}\nComponent: ${componentName}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
   slackSend color : "good", message: "${buildSummary}", channel: '#postgresql-test'
  }
  else {
-  buildSummary = "Job: ${env.JOB_NAME}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
+  buildSummary = "Job: ${env.JOB_NAME}\nComponent: ${componentName}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
   slackSend color : "danger", message: "${buildSummary}", channel: '#postgresql-test'
  }
 }
@@ -111,7 +111,7 @@ pipeline {
     always {
           script {
              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "default")
-             sendSlackNotificationPPG()
+             sendSlackNotifcation(env.PRODUCT)
         }
     }
   }
