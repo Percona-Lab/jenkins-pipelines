@@ -3,7 +3,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotifcation(componentName)
+def sendSlackNotification(componentName)
 {
  if ( currentBuild.result == "SUCCESS" ) {
   buildSummary = "Job: ${env.JOB_NAME}\nComponent: ${componentName}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
@@ -111,7 +111,7 @@ pipeline {
     always {
           script {
              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "default")
-             sendSlackNotifcation(env.PRODUCT)
+             sendSlackNotification(env.PRODUCT)
         }
     }
   }
