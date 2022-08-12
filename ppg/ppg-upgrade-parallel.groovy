@@ -3,7 +3,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotifcation(scenario)
+def sendSlackNotification(scenario)
 {
  if ( currentBuild.result == "SUCCESS" ) {
   buildSummary = "Job: ${env.JOB_NAME}\nScenario: ${scenario}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
