@@ -340,9 +340,9 @@ pipeline {
                 script {
                     try {
                         build job: 'ppg-upgrade-parallel', parameters: [
-                        string(name: 'FROM_REPO', value: "${env.FROM_REPO}"),
+                        string(name: 'FROM_REPO', value: "${env.TO_REPO}"),
                         string(name: 'FROM_VERSION', value: "${env.VERSION}"),
-                        string(name: 'TO_REPO', value: "${env.TO_REPO}"),
+                        string(name: 'TO_REPO', value: "${env.FROM_REPO}"),
                         string(name: 'VERSION', value: "${env.FROM_MINOR_VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
                         string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-minor-upgrade"),
@@ -380,9 +380,9 @@ pipeline {
                 script {
                     try {
                         build job: 'ppg-upgrade-parallel', parameters: [
-                        string(name: 'FROM_REPO', value: "${env.FROM_REPO}"),
+                        string(name: 'FROM_REPO', value: "${env.TO_REPO}"),
                         string(name: 'FROM_VERSION', value: "${env.VERSION}"),
-                        string(name: 'TO_REPO', value: "${env.TO_REPO}"),
+                        string(name: 'TO_REPO', value: "${env.FROM_REPO}"),
                         string(name: 'VERSION', value: "${env.FROM_MAJOR_VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
                         string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-major-upgrade"),
