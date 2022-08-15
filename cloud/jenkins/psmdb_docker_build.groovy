@@ -1,16 +1,3 @@
-void checkImageForCVE(String IMAGE_SUFFIX){
-    try {
-        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
-            sh """
-                IMAGE_NAME='percona-server-mongodb-operator'
-                docker run -v \$(pwd):/tmp/pgo --rm quay.io/sysdig/secure-inline-scan:2 perconalab/\$IMAGE_NAME:${IMAGE_SUFFIX} --sysdig-token '${SYSDIG_API_KEY}' --sysdig-url https://us2.app.sysdig.com -r /tmp/pgo
-            """
-        }
-    } catch (error) {
-        echo "${IMAGE_SUFFIX} has some CVE error(s) please check the reports."
-        currentBuild.result = 'FAILURE'
-    }
-}
 void build(String IMAGE_SUFFIX){
     sh """
         cd ./source/
@@ -244,17 +231,6 @@ pipeline {
                         }
                     }
                 }
-            }
-        }
-        stage('Check PSMDB Docker images for CVE') {
-            steps {
-                checkImageForCVE('main')
-                checkImageForCVE('main-mongod4.2')
-                checkImageForCVE('main-mongod4.2-debug')
-                checkImageForCVE('main-mongod4.4')
-                checkImageForCVE('main-mongod4.4-debug')
-                checkImageForCVE('main-mongod5.0')
-                checkImageForCVE('main-mongod5.0-debug')
             }
         }
     }

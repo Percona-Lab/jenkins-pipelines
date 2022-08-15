@@ -1,19 +1,3 @@
-void checkImageForCVE(String IMAGE_SUFFIX){
-    def report_file=''
-    try {
-        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
-            sh """
-                IMAGE_SUFFIX=\$(echo ${IMAGE_SUFFIX} | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
-                IMAGE_NAME='percona-postgresql-operator'
-                docker run -v \$(pwd):/tmp/pgo --rm quay.io/sysdig/secure-inline-scan:2 perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX} --sysdig-token '${SYSDIG_API_KEY}' --sysdig-url https://us2.app.sysdig.com -r /tmp/pgo
-            """
-        }
-    } catch (error) {
-        echo "${IMAGE_SUFFIX} has some CVE error(s)."
-        currentBuild.result = 'FAILURE'
-    }
-}
-
 void checkImageForDocker(String IMAGE_SUFFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
@@ -113,16 +97,6 @@ pipeline {
                         "
                     """
                 }
-            }
-        }
-        stage('Check PGO Docker images for CVE') {
-            steps {
-                checkImageForCVE('\$GIT_BRANCH-pgo-apiserver')
-                checkImageForCVE('\$GIT_BRANCH-pgo-event')
-                checkImageForCVE('\$GIT_BRANCH-pgo-rmdata')
-                checkImageForCVE('\$GIT_BRANCH-pgo-scheduler')
-                checkImageForCVE('\$GIT_BRANCH-postgres-operator')
-                checkImageForCVE('\$GIT_BRANCH-pgo-deployer')
             }
         }
         stage('Trivy Checks') {
