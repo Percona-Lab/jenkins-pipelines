@@ -104,6 +104,7 @@ void runPlaybook(String action_to_test) {
     sh """
         export install_repo="\${install_repo}"
         export client_to_test="ps80"
+        export check_warning="\${check_warnings}"
         ansible-playbook \
         --connection=local \
         --inventory 127.0.0.1, \
@@ -143,6 +144,13 @@ pipeline {
             choices: ["all"] + all_actions,
             description: "Action to test on the product"
         )
+
+        choice(
+            name: "check_warnings",
+            choices: ["yes", "no"],
+            description: "check warning in client_test"
+        )
+
     }
 
     stages {
