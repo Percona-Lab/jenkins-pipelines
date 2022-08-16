@@ -1,9 +1,15 @@
 void build(String IMAGE_POSTFIX){
     sh """
         cd ./source/
-        docker build --no-cache --squash --progress plain \
-            -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
-            -f ./orchestrator/Dockerfile ./orchestrator
+        if [ "${IMAGE_POSTFIX}" == "orchestrator" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./orchestrator/Dockerfile ./orchestrator
+        elif [ "${IMAGE_POSTFIX}" == "backup" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./percona-xtrabackup-8.0/Dockerfile ./percona-xtrabackup-8.0
+        fi
     """
 }
 void checkImageForDocker(String IMAGE_SUFFIX){
@@ -93,11 +99,15 @@ pipeline {
                 retry(3) {
                     build('orchestrator')
                 }
+                retry(3) {
+                    build('backup')
+                }
             }
         }
         stage('Push Images to Docker registry') {
             steps {
                 pushImageToDocker('orchestrator')
+                pushImageToDocker('backup')
             }
         }
         stage('Trivy Checks') {
@@ -105,6 +115,7 @@ pipeline {
                 stage('Check Docker images') {
                     steps {
                         checkImageForDocker('orchestrator')
+                        checkImageForDocker('backup')
                     }
                     post {
                         always {
