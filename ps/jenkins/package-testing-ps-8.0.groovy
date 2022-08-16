@@ -75,7 +75,7 @@ pipeline {
         choice(
             name: "install_mysql_shell",
             choices: ["yes", "no"],
-            description: "install and check mysql shell for ps80 option"
+            description: "install and check mysql-shell for ps80"
         )
 
     }
