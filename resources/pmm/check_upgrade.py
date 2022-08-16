@@ -56,7 +56,7 @@ def main():
     else:
         pmm_server_docker_container = subprocess.getoutput("docker ps --format \"table {{.ID}}\t{{.Image}}\t{{"
                                                            ".Names}}\" | grep 'pmm-server' | awk '{print $3}'")
-        print(f"PMM Server container name is {pmm_server_docker_container}")
+        print(f"PMM Server container name is {pmm_server_docker_container}, verification for {args.pre_post}")
 
         verify_command(f"docker exec {pmm_server_docker_container} rpm -qa | grep percona-qan-api2-{args.version}")
         verify_command(
@@ -103,6 +103,7 @@ def main():
             verify_command(
                 f"docker exec -e GF_PLUGIN_DIR=/srv/grafana/plugins/ {pmm_server_docker_container} grafana"
                 f"-cli plugins ls | grep \"vertamedia-clickhouse-datasource @ 2.4.4\"")
+            print(f"Post upgrade verification complete! for {args.version}")
 
 
 if __name__ == "__main__":

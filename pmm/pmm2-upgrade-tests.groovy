@@ -346,7 +346,7 @@ pipeline {
         stage('Check Packages after Upgrade') {
             steps {
                 script {
-                    runPython('check_upgrade', "-v ${PMM_SERVER_LATEST} -p post")
+                    runPython('check_upgrade', "-v ${PMM_SERVER_LATEST}")
                     }
             }
         }
