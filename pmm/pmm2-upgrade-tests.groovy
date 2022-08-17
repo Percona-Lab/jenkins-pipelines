@@ -352,7 +352,7 @@ pipeline {
         }
         stage('Check Client Upgrade') {
             steps {
-                checkClientAfterUpgrade(PMM_SERVER_LATEST, "post");
+                checkClientAfterUpgrade(PMM_SERVER_LATEST, "postClientUpgrade");
                 sh """
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
