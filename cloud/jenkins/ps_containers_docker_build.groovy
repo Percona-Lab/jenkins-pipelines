@@ -1,9 +1,23 @@
 void build(String IMAGE_POSTFIX){
     sh """
         cd ./source/
-        docker build --no-cache --squash --progress plain \
-            -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
-            -f ./orchestrator/Dockerfile ./orchestrator
+        if [ "${IMAGE_POSTFIX}" == "orchestrator" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./orchestrator/Dockerfile ./orchestrator
+        elif [ "${IMAGE_POSTFIX}" == "backup" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./percona-xtrabackup-8.0/Dockerfile ./percona-xtrabackup-8.0
+        elif [ "${IMAGE_POSTFIX}" == "router" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./mysql-router/Dockerfile ./mysql-router
+        elif [ "${IMAGE_POSTFIX}" == "psmysql" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./percona-server-8.0/Dockerfile ./percona-server-8.0
+        fi
     """
 }
 void checkImageForDocker(String IMAGE_SUFFIX){
@@ -93,11 +107,23 @@ pipeline {
                 retry(3) {
                     build('orchestrator')
                 }
+                retry(3) {
+                    build('backup')
+                }
+                retry(3) {
+                    build('router')
+                }
+                retry(3) {
+                    build('psmysql')
+                }
             }
         }
         stage('Push Images to Docker registry') {
             steps {
                 pushImageToDocker('orchestrator')
+                pushImageToDocker('backup')
+                pushImageToDocker('router')
+                pushImageToDocker('psmysql')
             }
         }
         stage('Trivy Checks') {
@@ -105,6 +131,9 @@ pipeline {
                 stage('Check Docker images') {
                     steps {
                         checkImageForDocker('orchestrator')
+                        checkImageForDocker('backup')
+                        checkImageForDocker('router')
+                        checkImageForDocker('psmysql')
                     }
                     post {
                         always {
