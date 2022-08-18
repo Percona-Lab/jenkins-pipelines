@@ -57,7 +57,7 @@ pipeline {
             description: 'PSMDB repo name',
             name: 'PSMDB_REPO')
         choice(
-            choices: 'laboratory\ntesting\nexperimental\nrelease',
+            choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
     }

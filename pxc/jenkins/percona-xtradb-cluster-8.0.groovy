@@ -57,7 +57,7 @@ pipeline {
             description: 'PXC repo name',
             name: 'PXC_REPO')
         choice(
-            choices: 'laboratory\ntesting\nexperimental\nrelease',
+            choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
         choice(
