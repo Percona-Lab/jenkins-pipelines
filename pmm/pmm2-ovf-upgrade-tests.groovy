@@ -94,7 +94,7 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST, String OVF_INSTANCE_NAME)
     }
 }
 
-void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
+void checkClientAfterUpgrade(String PMM_VERSION) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP_DB} '
@@ -105,7 +105,7 @@ void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
                 sudo yum -y install pmm2-client
                 sleep 20
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
-                bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION} ${PRE_POST}
+                bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION}
             '
         """
     }
@@ -295,7 +295,7 @@ pipeline {
         }
         stage('Check Client Upgrade') {
             steps {
-                checkClientAfterUpgrade(PMM_SERVER_LATEST, "post");
+                checkClientAfterUpgrade(PMM_SERVER_LATEST);
                 sh """
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
