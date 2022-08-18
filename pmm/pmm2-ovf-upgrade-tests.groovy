@@ -87,7 +87,7 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST, String OVF_INSTANCE_NAME)
                     export PMM_VERSION=${PMM_VERSION}
                     export OVF_INSTANCE_NAME=${OVF_INSTANCE_NAME}
                     sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
-                    bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh ${PMM_VERSION} ${PRE_POST} ami
+                    bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh --pmm-version=${PMM_VERSION} --prepost-upgrade=${PRE_POST} --distribution=ami
                 '
             """
         }
@@ -290,7 +290,7 @@ pipeline {
         }
         stage('Check Packages after Upgrade') {
             steps {
-                checkUpgrade(PMM_SERVER_LATEST, "post", OVF_INSTANCE_NAME);
+                checkUpgrade(PMM_SERVER_LATEST, "afterUpgrade", OVF_INSTANCE_NAME);
             }
         }
         stage('Check Client Upgrade') {
