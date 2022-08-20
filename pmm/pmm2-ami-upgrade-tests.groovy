@@ -77,13 +77,13 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${VM_IP} '
                 export PMM_VERSION=${PMM_VERSION}
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
-                bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh ${PMM_VERSION} ${PRE_POST} ami
+                bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh --pmm-version=${PMM_VERSION} --prepost-upgrade=${PRE_POST} --distribution=ami
             '
         """
     }
 }
 
-void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
+void checkClientAfterUpgrade(String PMM_VERSION) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP_DB} '
@@ -94,7 +94,7 @@ void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
                 sudo yum -y install pmm2-client
                 sleep 20
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
-                bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION} ${PRE_POST}
+                bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION}
             '
         """
     }
@@ -285,12 +285,12 @@ pipeline {
         }
         stage('Check Packages after Upgrade') {
             steps {
-                checkUpgrade(PMM_SERVER_LATEST, "post");
+                checkUpgrade(PMM_SERVER_LATEST, "afterUpgrade");
             }
         }
         stage('Check Client Upgrade') {
             steps {
-                checkClientAfterUpgrade(PMM_SERVER_LATEST, "post");
+                checkClientAfterUpgrade(PMM_SERVER_LATEST);
                 sh """
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
