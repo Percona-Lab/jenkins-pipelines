@@ -54,7 +54,7 @@ def main():
             verify_command('sudo supervisorctl status | grep vmalert | grep RUNNING')
             verify_command('grafana-cli plugins ls | grep "vertamedia-clickhouse-datasource @ 2.4.4"')
             verify_command('grafana-cli plugins ls | grep alexanderzobnin-zabbix-app')
-            verify_command('victoriametrics --version | grep victoria-metrics-20220620-144706-pmm-6401-v1.77.1')
+            verify_command('sudo victoriametrics --version | grep victoria-metrics-20220620-144706-pmm-6401-v1.77.1')
     else:
         pmm_server_docker_container = subprocess.getoutput("docker ps --format \"table {{.ID}}\t{{.Image}}\t{{"
                                                            ".Names}}\" | grep 'pmm-server' | awk '{print $3}'")
