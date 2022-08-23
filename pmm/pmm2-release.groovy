@@ -493,7 +493,7 @@ ENDSSH
                         sha256sum pmm-server-\${VERSION}.docker > pmm-server-\${VERSION}.sha256sum
                         sha256sum pmm-client-\${VERSION}.docker > pmm-client-\${VERSION}.sha256sum
                         scp -i ~/.ssh/id_rsa_downloads -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.sha256sum \${REPO_HOST}:/data/downloads/pmm2/\${VERSION}/docker/
-                        scp ~/.ssh/id_rsa_downloads -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-client-\${VERSION}.docker pmm-client-\${VERSION}.sha256sum \${REPO_HOST}:/data/downloads/pmm2/\${VERSION}/docker/
+                        scp -i ~/.ssh/id_rsa_downloads -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-client-\${VERSION}.docker pmm-client-\${VERSION}.sha256sum \${REPO_HOST}:/data/downloads/pmm2/\${VERSION}/docker/
 ENDSSH
                 """
                 deleteDir()
