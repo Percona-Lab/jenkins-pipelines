@@ -13,6 +13,7 @@ pipeline {
         CLIENT_IMAGE = "perconalab/pmm-client:${VERSION}-rc"
         SERVER_IMAGE = "perconalab/pmm-server:${VERSION}-rc"
         PATH_TO_CLIENT = "testing/pmm2-client-autobuilds/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT}"
+        REPO_HOST = "jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com"
     }
 
     parameters {
@@ -485,13 +486,14 @@ ENDSSH
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-client-\${VERSION}.docker pmm-client-\${VERSION}.docker
                     """
                 }
-                sh """
-                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
-                        ssh -i ~/.ssh/id_rsa_downloads -p 2222 jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com "mkdir -p /data/downloads/pmm2/\${VERSION}/docker || true"
+                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
+                        mkdir -p /data/downloads/pmm2/\${VERSION}/docker || true
                         sha256sum pmm-server-\${VERSION}.docker > pmm-server-\${VERSION}.sha256sum
                         sha256sum pmm-client-\${VERSION}.docker > pmm-client-\${VERSION}.sha256sum
-                        scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/docker/
-                        scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-client-\${VERSION}.docker pmm-client-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/docker/
+                        scp -i ~/.ssh/id_rsa_downloads -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.sha256sum \${REPO_HOST}:/data/downloads/pmm2/\${VERSION}/docker/
+                        scp ~/.ssh/id_rsa_downloads -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-client-\${VERSION}.docker pmm-client-\${VERSION}.sha256sum \${REPO_HOST}:/data/downloads/pmm2/\${VERSION}/docker/
 ENDSSH
                 """
                 deleteDir()
@@ -504,11 +506,12 @@ ENDSSH
                         aws s3 cp --only-show-errors s3://percona-vm/PMM2-Server-\${VERSION}.ova pmm-server-\${VERSION}.ova
                     """
                 }
-                sh """
-                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
-                        ssh -i ~/.ssh/id_rsa_downloads -p 2222 jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com "mkdir -p /data/downloads/pmm2/\${VERSION}/ova || true"
+                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
+                        mkdir -p /data/downloads/pmm2/\${VERSION}/ova || true
                         sha256sum pmm-server-\${VERSION}.ova > pmm-server-\${VERSION}.sha256sum
-                        scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-\${VERSION}.ova pmm-server-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/ova/
+                        scp -i ~/.ssh/id_rsa-downloads -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-server-\${VERSION}.ova pmm-server-\${VERSION}.sha256sum \${REPO_HOST}:/data/downloads/pmm2/\${VERSION}/ova/
 ENDSSH
                 """
                 deleteDir()
