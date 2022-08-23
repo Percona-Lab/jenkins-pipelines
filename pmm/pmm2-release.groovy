@@ -489,7 +489,7 @@ ENDSSH
                     script {
                         sh """
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
-                            mkdir -p /data/downloads/pmm2/\${VERSION}/docker" || true
+                            mkdir -p /data/downloads/pmm2/\${VERSION}/docker || true
                             sha256sum pmm-server-\${VERSION}.docker > pmm-server-\${VERSION}.sha256sum
                             sha256sum pmm-client-\${VERSION}.docker > pmm-client-\${VERSION}.sha256sum
                             scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/docker/
@@ -512,7 +512,7 @@ ENDSSH
                     script {
                         sh """
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
-                            mkdir -p /data/downloads/pmm2/\${VERSION}/ova" || true
+                            mkdir -p /data/downloads/pmm2/\${VERSION}/ova || true
                             sha256sum pmm-server-\${VERSION}.ova > pmm-server-\${VERSION}.sha256sum
                             scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-server-\${VERSION}.ova pmm-server-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/ova/
 ENDSSH
