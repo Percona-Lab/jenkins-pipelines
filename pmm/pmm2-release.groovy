@@ -506,7 +506,7 @@ ENDSSH
                 }
                 sh """
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
-                        ssh -i ~/.ssh/id_rsa_downloads -p 2222 jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com "mkdir -p /data/downloads/pmm2/\${VERSION}/ova" || true
+                        ssh -i ~/.ssh/id_rsa_downloads -p 2222 jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com "mkdir -p /data/downloads/pmm2/\${VERSION}/ova || true"
                         sha256sum pmm-server-\${VERSION}.ova > pmm-server-\${VERSION}.sha256sum
                         scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-\${VERSION}.ova pmm-server-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/ova/
 ENDSSH
