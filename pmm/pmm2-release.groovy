@@ -512,7 +512,7 @@ ENDSSH
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                         ssh -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${REPO_HOST} "mkdir -p /data/downloads/pmm2/${VERSION}/ova"
                         sha256sum pmm-server-${VERSION}.ova > pmm-server-${VERSION}.sha256sum
-                        scp -i ~/.ssh/id_rsa-downloads -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-server-${VERSION}.ova pmm-server-${VERSION}.sha256sum ${REPO_HOST}:/data/downloads/pmm2/${VERSION}/ova/
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-server-${VERSION}.ova pmm-server-${VERSION}.sha256sum ${REPO_HOST}:/data/downloads/pmm2/${VERSION}/ova/
 ENDSSH
                     """
                 }
