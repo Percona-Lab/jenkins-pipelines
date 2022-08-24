@@ -231,7 +231,6 @@ pipeline {
                             echo '$SSH_KEY' >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
-                        cat /etc/os-release
                         sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-25.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum -y install sysbench
