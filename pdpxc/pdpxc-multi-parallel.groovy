@@ -34,33 +34,34 @@ pipeline {
             defaultValue: '2.0.18',
             description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
-         )
+        )
         string(
             defaultValue: '2.3.10',
             description: 'HAProxy version for test',
             name: 'HAPROXY_VERSION'
-         )
+        )
         string(
             defaultValue: '8.0.23',
             description: 'PXB version for test',
             name: 'PXB_VERSION'
-         )
+        )
         string(
             defaultValue: '3.3.1',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
-         )
+        )
         string(
             defaultValue: 'master',
             description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
+            name: 'TESTING_BRANCH'
+        )
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())
           disableConcurrentBuilds()
   }
   stages {
-        stage ('Test install') {
+        stage ('Test install: minor repo') {
             when {
                 expression { env.TO_REPO != 'release' }
             }
@@ -76,6 +77,7 @@ pipeline {
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
                         string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        booleanParam(name: 'MAJOR_REPO', value: false)
                         ]
                     }
                     catch (err) {
@@ -85,7 +87,33 @@ pipeline {
                 }
             }
         }
-        stage ('Test setup') {
+        stage ('Test install: major repo') {
+            when {
+                expression { env.TO_REPO != 'release' }
+            }
+            steps {
+                script {
+                    try {
+                        build job: 'pdpxc-parallel', parameters: [
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'VERSION', value: "${env.VERSION}"),
+                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'SCENARIO', value: "pdpxc"),
+                        string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
+                        string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
+                        string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
+                        string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        booleanParam(name: 'MAJOR_REPO', value: true)
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'Test install' failed, but we continue"
+                    }
+                }
+            }
+        }
+        stage ('Test setup: minor repo') {
             when {
                 expression { env.TO_REPO == 'release' }
             }
@@ -96,11 +124,38 @@ pipeline {
                         string(name: 'REPO', value: "${env.TO_REPO}"),
                         string(name: 'VERSION', value: "${env.VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pdpxc-setup"),
+                        string(name: 'SCENARIO', value: "pdpxc_setup"),
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
                         string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        booleanParam(name: 'MAJOR_REPO', value: false)
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'Test setup' failed, but we continue"
+                    }
+                }
+            }
+        }
+        stage ('Test setup: major repo') {
+            when {
+                expression { env.TO_REPO == 'release' }
+            }
+            steps {
+                script {
+                    try {
+                        build job: 'pdpxc-parallel', parameters: [
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'VERSION', value: "${env.VERSION}"),
+                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'SCENARIO', value: "pdpxc_setup"),
+                        string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
+                        string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
+                        string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
+                        string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        booleanParam(name: 'MAJOR_REPO', value: true)
                         ]
                     }
                     catch (err) {
