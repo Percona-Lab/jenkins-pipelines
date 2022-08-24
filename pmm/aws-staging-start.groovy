@@ -236,6 +236,7 @@ pipeline {
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum-config-manager --disable hashicorp
                         sudo yum repolist all
+
                         sudo yum -y install sysbench
                         sudo amazon-linux-extras enable epel
                         sudo yum install -y epel-release
@@ -246,7 +247,7 @@ pipeline {
                         # Removed due to an repo incident at hashicorp
                         # sudo amazon-linux-extras install epel -y
                         # sudo amazon-linux-extras install php7.2 -y
-
+                        
                         sudo yum install mysql-client -y
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
