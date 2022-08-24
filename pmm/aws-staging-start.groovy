@@ -231,11 +231,23 @@ pipeline {
                             echo '$SSH_KEY' >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
+                        cat /etc/os-release
                         sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-25.noarch.rpm
+                        sudo yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
+                        sudo yum-config-manager --disable hashicorp
+                        sudo yum repolist all
+
                         sudo yum -y install sysbench
-                        sudo amazon-linux-extras install epel -y
-                        sudo amazon-linux-extras install php7.2 -y
+                        sudo amazon-linux-extras enable epel
+                        sudo yum install -y epel-release
+                        sudo amazon-linux-extras enable php7.4
+                        sudo amazon-linux-extras disable php5.4
+                        sudo yum --enablerepo epel install php -y
+                        
+                        # sudo amazon-linux-extras install epel -y --disablerepo=hashicorp
+                        # sudo amazon-linux-extras install php7.4 -y
+                        
                         sudo yum install mysql-client -y
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
