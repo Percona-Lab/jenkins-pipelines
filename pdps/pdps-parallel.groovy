@@ -59,7 +59,12 @@ pipeline {
         string(
             defaultValue: 'master',
             description: 'Tests will be run from branch of  https://github.com/percona/orchestrator',
-            name: 'ORCHESTRATOR_TESTS_VERSION')
+            name: 'ORCHESTRATOR_TESTS_VERSION'
+        )
+        booleanParam(
+            name: 'MAJOR_REPO',
+            description: "Enable to use major (pdps-8.0) repo instead of pdps-8.0.XX"
+        )
   }
   options {
           withCredentials(moleculePdpsJenkinsCreds())
@@ -69,7 +74,7 @@ pipeline {
         stage('Set build name'){
           steps {
                     script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.MAJOR_REPO}"
                     }
                 }
             }
