@@ -1,3 +1,3 @@
 def call() {
-  return ['pdpxc', 'pdpxc-setup']
+  return ['pdpxc', 'pdpxc_setup']
 }

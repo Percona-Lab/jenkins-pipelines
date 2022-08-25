@@ -15,11 +15,11 @@ pipeline {
   parameters {
         choice(
             name: 'FROM_REPO',
-            description: 'From this repo will be upgraded PDPS',
+            description: 'From this repo will be upgraded PDPS (for minor version)',
             choices: [
+                'release',
                 'testing',
-                'experimental',
-                'release'
+                'experimental'
             ]
         )
         choice(
@@ -27,8 +27,8 @@ pipeline {
             description: 'Repo for testing',
             choices: [
                 'testing',
-                'experimental',
-                'release'
+                'release',
+                'experimental'
             ]
         )
         string(
@@ -50,12 +50,12 @@ pipeline {
             name: 'PROXYSQL_VERSION'
          )
         string(
-            defaultValue: '8.0.28',
+            defaultValue: '8.0.29',
             description: 'Updated PXB version',
             name: 'PXB_VERSION'
          )
         string(
-            defaultValue: '3.3.1',
+            defaultValue: '3.4.0',
             description: 'Updated Percona Toolkit version',
             name: 'PT_VERSION'
          )

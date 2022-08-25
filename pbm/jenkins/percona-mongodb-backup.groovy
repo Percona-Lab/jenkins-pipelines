@@ -57,7 +57,7 @@ pipeline {
             description: 'PBM repo name',
             name: 'PBM_REPO')
         choice(
-            choices: 'laboratory\ntesting\nexperimental\nrelease',
+            choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
     }

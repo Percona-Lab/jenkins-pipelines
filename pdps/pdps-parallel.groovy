@@ -23,27 +23,27 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.23',
+            defaultValue: '8.0.29',
             description: 'PDMYSQL version for test',
             name: 'VERSION'
          )
         string(
-            defaultValue: '2.0.18',
+            defaultValue: '2.3.2',
             description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
          )
         string(
-            defaultValue: '8.0.23',
+            defaultValue: '8.0.29',
             description: 'PXB version for test',
             name: 'PXB_VERSION'
          )
         string(
-            defaultValue: '3.3.1',
+            defaultValue: '3.4.0',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
          )
         string(
-            defaultValue: '3.1.4',
+            defaultValue: '3.2.6',
             description: 'Percona orchestrator version for test',
             name: 'ORCHESTRATOR_VERSION'
          )
@@ -59,7 +59,12 @@ pipeline {
         string(
             defaultValue: 'master',
             description: 'Tests will be run from branch of  https://github.com/percona/orchestrator',
-            name: 'ORCHESTRATOR_TESTS_VERSION')
+            name: 'ORCHESTRATOR_TESTS_VERSION'
+        )
+        booleanParam(
+            name: 'MAJOR_REPO',
+            description: "Enable to use major (pdps-8.0) repo instead of pdps-8.0.XX"
+        )
   }
   options {
           withCredentials(moleculePdpsJenkinsCreds())
@@ -69,7 +74,7 @@ pipeline {
         stage('Set build name'){
           steps {
                     script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.MAJOR_REPO}"
                     }
                 }
             }

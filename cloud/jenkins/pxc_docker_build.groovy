@@ -1,12 +1,3 @@
-void checkImageForCVE(String IMAGE_SUFFIX){
-    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
-        sh """
-            IMAGE_SUFFIX=\$(echo ${IMAGE_SUFFIX} | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
-            IMAGE_NAME='percona-xtradb-cluster-operator'
-            docker run -v \$(pwd):/tmp/pgo --rm quay.io/sysdig/secure-inline-scan:2 perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX} --sysdig-token '${SYSDIG_API_KEY}' --sysdig-url https://us2.app.sysdig.com -r /tmp/pgo
-        """
-    }
-}
 
 pipeline {
     parameters {
@@ -96,16 +87,6 @@ pipeline {
                         "
 
                     """
-                }
-            }
-        }
-        stage('Check PXCO Docker images for CVE') {
-            steps {
-                checkImageForCVE('\$GIT_BRANCH')
-            }
-            post {
-                always {
-                    junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc.xml"
                 }
             }
         }

@@ -45,7 +45,7 @@ pipeline {
                     sh 'make pmm2-ami-rc'
                 }
                 script {
-                    AMI_ID = sh(script: 'jq -r \'.builds[-1].artifact_id\' manifest.json | cut -d ":" -f2', returnStdout: true)
+                    AMI_ID = sh(script: 'jq -r \'.builds[-1].artifact_id\' build/manifest.json | cut -d ":" -f2', returnStdout: true)
                 }
             }
         }
@@ -58,7 +58,7 @@ pipeline {
                     sh 'make pmm2-ami'
                 }
                 script {
-                    AMI_ID = sh(script: 'jq -r \'.builds[-1].artifact_id\' manifest.json | cut -d ":" -f2', returnStdout: true)
+                    AMI_ID = sh(script: 'jq -r \'.builds[-1].artifact_id\' build/manifest.json | cut -d ":" -f2', returnStdout: true)
                 }
             }
         }

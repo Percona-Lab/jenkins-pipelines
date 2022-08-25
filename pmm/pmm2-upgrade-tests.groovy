@@ -14,7 +14,10 @@ void performDockerWayUpgrade(String PMM_VERSION) {
 void checkUpgrade(String PMM_VERSION, String PRE_POST) {
     sh """
         export PMM_VERSION=${PMM_VERSION}
+        export PRE_POST=${PRE_POST}
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
+        echo $PMM_VERSION
+        echo $PRE_POST
         bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh ${PMM_VERSION} ${PRE_POST}
     """
 }
@@ -22,6 +25,7 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
 void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
     sh """
         export PMM_VERSION=${PMM_VERSION}
+        export PRE_POST=${PRE_POST}
         echo "Upgrading pmm2-client";
         sudo yum clean all
         sudo yum makecache
@@ -296,7 +300,9 @@ pipeline {
         }
         stage('Check Packages before Upgrade') {
             steps {
-                checkUpgrade(DOCKER_VERSION, "pre");
+                script {
+                    runPython('check_upgrade', "-v ${DOCKER_VERSION} -p pre")
+                    }
             }
         }
         stage('Run UI way Upgrade Tests') {
@@ -339,7 +345,9 @@ pipeline {
         }
         stage('Check Packages after Upgrade') {
             steps {
-                checkUpgrade(PMM_SERVER_LATEST, "post");
+                script {
+                    runPython('check_upgrade', "-v ${PMM_SERVER_LATEST}")
+                    }
             }
         }
         stage('Check Client Upgrade') {

@@ -53,3 +53,16 @@
                 - "upgrade"
                 - "maj-upgrade-to"
             description: "Action to test on the product"
+        - choice:
+            name: check_warnings
+            choices:
+                - "yes"
+                - "no"
+            description: "check warning in client_test"
+        - choice:
+            name: install_mysql_shell
+            choices:
+                - "yes"
+                - "no"
+            description: "install and check mysql-shell for ps80"
+

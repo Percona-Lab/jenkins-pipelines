@@ -1,9 +1,32 @@
-void IsRunTestsInClusterWide() {
-    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
-        env.OPERATOR_NS = 'psmdb-operator'
+void CreateCluster(String CLUSTER_SUFFIX) {
+    withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
+            ret_num=0
+            while [ \${ret_num} -lt 15 ]; do
+                ret_val=0
+                az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
+                az account show --query "{subscriptionId:id, tenantId:tenantId}"
+                az account list --all --output table
+                az aks create -g percona-operators -n $CLUSTER_NAME-${CLUSTER_SUFFIX} --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version ${params.PLATFORM_VER}
+                az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name $CLUSTER_NAME-${CLUSTER_SUFFIX}
+                if [ \${ret_val} -eq 0 ]; then break; fi
+                ret_num=\$((ret_num + 1))
+            done
+            if [ \${ret_num} -eq 15 ]; then exit 1; fi
+        """
     }
 }
-
+void ShutdownCluster(String CLUSTER_SUFFIX) {
+    withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
+            az account set -s "$AZURE_SUBSCRIPTION_ID"
+            az aks delete --name $CLUSTER_NAME-${CLUSTER_SUFFIX} --resource-group percona-operators --yes --no-wait
+        """
+    }
+}
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -28,8 +51,9 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PSMDB\\">\n'
+testsResultsMap = [:]
 testsReportMap = [:]
+TestsReport = '<testsuite name=\\"PSMDB\\">\n'
 void makeReport() {
     for ( test in testsReportMap ) {
         TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
@@ -37,7 +61,13 @@ void makeReport() {
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME) {
+void setTestsresults() {
+    testsResultsMap.each { file ->
+        pushArtifactFile("${file.key}")
+    }
+}
+
+void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     def retryCount = 0
     waitUntil {
         try {
@@ -81,13 +111,13 @@ void runTest(String TEST_NAME) {
                             export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
                         fi
 
-                        export KUBECONFIG=~/.kube/config
-
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
                         ./e2e-tests/$TEST_NAME/run
                     fi
                 """
             }
-            pushArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
+            pushArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
+            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG"] = 'passed'
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
@@ -104,14 +134,14 @@ void runTest(String TEST_NAME) {
     echo "The $TEST_NAME test was finished!"
 }
 
-void conditionalRunTest(String TEST_NAME) {
+void conditionalRunTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     if ( TEST_NAME == 'default-cr' ) {
         if ( params.GIT_BRANCH.contains('release-') ) {
-            runTest(TEST_NAME)
+            runTest(TEST_NAME, CLUSTER_SUFFIX)
         }
         return 0
     }
-    runTest(TEST_NAME)
+    runTest(TEST_NAME, CLUSTER_SUFFIX)
 }
 
 void installRpms() {
@@ -141,7 +171,7 @@ pipeline {
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'latest',
+            defaultValue: '1.23',
             description: 'AKS kubernetes version',
             name: 'PLATFORM_VER')
         choice(
@@ -162,7 +192,7 @@ pipeline {
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
+            description: 'PMM image: perconalab/pmm-client:dev-latest',
             name: 'IMAGE_PMM')
         string(
             defaultValue: '',
@@ -172,11 +202,7 @@ pipeline {
             defaultValue: '',
             description: 'PMM server image tag: dev-latest',
             name: 'IMAGE_PMM_SERVER_TAG')
-
-    }
-    environment {
-        CLEAN_NAMESPACE = 1
-    }
+        }
     agent {
          label 'docker'
     }
@@ -190,7 +216,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 installRpms()
-                sh '''                    
+                sh '''
                     curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
@@ -233,95 +259,108 @@ pipeline {
                 }
             }
         }
-        stage('Create Azure Infrastructure') {
-            steps {
-                IsRunTestsInClusterWide()
-
-                withCredentials([azureServicePrincipal('TEST-AZURE')]) {
-                     sh """
-                         az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
-                         az account show --query "{subscriptionId:id, tenantId:tenantId}"
-                         az account list --all --output table
-                         az aks create -g percona-operators -n aks-psmdb-latest-cluster --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version ${params.PLATFORM_VER}
-                         az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name aks-psmdb-latest-cluster
-                     """
+        stage('Run Tests') {
+            environment {
+                CLOUDSDK_CORE_DISABLE_PROMPTS = 1
+                CLEAN_NAMESPACE = 1
+                GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
+                CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+            }
+            parallel {
+                stage('E2E Scaling') {
+                    steps {
+                        CreateCluster('scaling')
+                        runTest('init-deploy', 'scaling')
+                        runTest('limits', 'scaling')
+                        runTest('scaling', 'scaling')
+                        runTest('security-context', 'scaling')
+                        runTest('smart-update', 'scaling')
+                        runTest('version-service', 'scaling')
+                        runTest('rs-shard-migration', 'scaling')
+                        ShutdownCluster('scaling')
+                    }
                 }
-            }
-        }
-        stage('E2E Scaling') {
-            steps {
-                runTest('init-deploy')
-                runTest('limits')
-                runTest('scaling')
-                runTest('security-context')
-                runTest('smart-update')
-                runTest('version-service')
-                runTest('rs-shard-migration')
-            }
-        }
-        stage('E2E Basic Tests') {
-            steps {
-                conditionalRunTest('default-cr')
-                runTest('one-pod')
-                runTest('monitoring-2-0')
-                runTest('arbiter')
-                runTest('service-per-pod')
-                runTest('liveness')
-                runTest('users')
-                runTest('data-sharded')
-                runTest('non-voting')
-                runTest('cross-site-sharded')
-           }
-        }
-        stage('E2E SelfHealing') {
-            steps {
-                runTest('storage')
-                runTest('self-healing')
-                runTest('self-healing-chaos')
-                runTest('operator-self-healing')
-                runTest('operator-self-healing-chaos')
-            }
-        }
-        stage('E2E Backups') {
-            steps {
-                runTest('upgrade')
-                runTest('upgrade-consistency')
-                runTest('demand-backup')
-                runTest('demand-backup-sharded')
-                runTest('scheduled-backup')
-                runTest('upgrade-sharded')
-                runTest('pitr')
-                runTest('pitr-sharded')
-                runTest('demand-backup-eks-credentials')
-            }
-        }
-        stage('Make report') {
-            steps {
-                makeReport()
-                sh """
-                    echo "${TestsReport}" > TestsReport.xml
-                """
-                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-                archiveArtifacts '*.xml'
+                stage('E2E Basic Tests') {
+                    steps {
+                        CreateCluster('basic')
+                        conditionalRunTest('default-cr', 'basic')
+                        runTest('one-pod', 'basic')
+                        runTest('monitoring-2-0', 'basic')
+                        runTest('arbiter', 'basic')
+                        runTest('service-per-pod', 'basic')
+                        runTest('liveness', 'basic')
+                        runTest('users', 'basic')
+                        runTest('data-sharded', 'basic')
+                        runTest('non-voting', 'basic')
+                        ShutdownCluster('basic')
+                    }
+                }
+                stage('E2E SelfHealing') {
+                    steps {
+                        CreateCluster('selfhealing')
+                        runTest('storage', 'selfhealing')
+                        runTest('self-healing', 'selfhealing')
+                        runTest('self-healing-chaos', 'selfhealing')
+                        runTest('operator-self-healing', 'selfhealing')
+                        runTest('operator-self-healing-chaos', 'selfhealing')
+                        ShutdownCluster('selfhealing')
+                    }
+                }
+                stage('E2E Backups') {
+                    steps {
+                        CreateCluster('backups')
+                        sleep 60
+                        runTest('upgrade', 'backups')
+                        runTest('upgrade-consistency', 'backups')
+                        runTest('demand-backup', 'backups')
+                        runTest('demand-backup-sharded', 'backups')
+                        runTest('scheduled-backup', 'backups')
+                        runTest('upgrade-sharded', 'backups')
+                        runTest('pitr', 'backups')
+                        runTest('pitr-sharded', 'backups')
+                        ShutdownCluster('backups')
+                    }
+                }
+                stage('CrossSite replication') {
+                    steps {
+                        CreateCluster('cross-site')
+                        runTest('cross-site-sharded', 'cross-site')
+                        ShutdownCluster('cross-site')
+                    }
+                }
             }
         }
     }
-
     post {
         always {
-                withCredentials([azureServicePrincipal('TEST-AZURE')]) {
-                    sh """
-                        az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
-                        az account set -s "$AZURE_SUBSCRIPTION_ID"
-                        az aks delete --name aks-psmdb-latest-cluster --resource-group percona-operators --yes --no-wait
-                    """
+           setTestsresults()
+            makeReport()
+            sh """
+                    echo "${TestsReport}" > TestsReport.xml
+                """
+            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            archiveArtifacts '*.xml'
+            script {
+                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
+                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
+                    slackSend channel: '@${OWNER_SLACK}', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
                 }
+            }
+            withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+                sh """
+                    export CLUSTER_NAME=\$(echo jenkins-lat-psmdb-\$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+                    az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
+                    az account set -s "$AZURE_SUBSCRIPTION_ID"
+                    az group list --query "[?starts_with(name, $CLUSTER_NAME)].name | [0]" | xargs az aks delete --resource-group percona-operators --yes --no-wait || true
+                """
+            }
 
-            sh '''
-                sudo docker rmi -f \$(sudo docker images -q) || true
-                sudo rm -rf ./*
-            '''
-            deleteDir()
+        sh '''
+            sudo docker rmi -f \$(sudo docker images -q) || true
+            sudo rm -rf ./*
+        '''
+        deleteDir()
         }
     }
 }

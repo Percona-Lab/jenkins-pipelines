@@ -29,19 +29,7 @@ void checkImageForDocker(String IMAGE_POSTFIX){
         """
     }
 }
-void checkImageForCVE(String IMAGE_POSTFIX){
-    try {
-        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
-            sh """
-                IMAGE_NAME='percona-postgresql-operator'
-                docker run -v \$(pwd):/tmp/pgo --rm quay.io/sysdig/secure-inline-scan:2 perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} --sysdig-token '${SYSDIG_API_KEY}' --sysdig-url https://us2.app.sysdig.com -r /tmp/pgo
-            """
-        }
-    } catch (error) {
-        echo "${IMAGE_POSTFIX} has some CVE error(s)."
-        currentBuild.result = 'FAILURE'
-    }
-}
+
 void pushImageToDocker(String IMAGE_POSTFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),
                       file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key'),
@@ -195,37 +183,6 @@ pipeline {
                         always {
                             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgbadger.xml"
                         }
-                    }
-                }
-            }
-        }
-        stage('Check PG Docker images for CVE') {
-            parallel {
-                stage('ppg12') {
-                    steps {
-                        checkImageForCVE('ppg12-pgbackrest-repo')
-                        checkImageForCVE('ppg12-pgbackrest')
-                        checkImageForCVE('ppg12-pgbouncer')
-                        checkImageForCVE('ppg12-postgres-ha')
-                        checkImageForCVE('ppg12-pgbadger')
-                    }
-                }
-                stage('ppg13') {
-                    steps {
-                        checkImageForCVE('ppg13-pgbackrest-repo')
-                        checkImageForCVE('ppg13-pgbackrest')
-                        checkImageForCVE('ppg13-pgbouncer')
-                        checkImageForCVE('ppg13-postgres-ha')
-                        checkImageForCVE('ppg13-pgbadger')
-                    }
-                }
-                stage('ppg14') {
-                    steps {
-                        checkImageForCVE('ppg14-pgbackrest-repo')
-                        checkImageForCVE('ppg14-pgbackrest')
-                        checkImageForCVE('ppg14-pgbouncer')
-                        checkImageForCVE('ppg14-postgres-ha')
-                        checkImageForCVE('ppg14-pgbadger')
                     }
                 }
             }
