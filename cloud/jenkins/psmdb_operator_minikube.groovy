@@ -1,3 +1,9 @@
+void IsRunTestsInClusterWide() {
+    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+        env.OPERATOR_NS = 'psmdb-operator'
+    }
+}
+
 void pushArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -41,7 +47,7 @@ void runTest(String TEST_NAME) {
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             testsReportMap[TEST_NAME] = 'failure'
 
-            popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG")
+            popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
             sh """
                 if [ -f "$FILE_NAME" ]; then
                     echo Skip $TEST_NAME test
@@ -77,7 +83,7 @@ void runTest(String TEST_NAME) {
                     ./e2e-tests/$TEST_NAME/run
                 fi
             """
-            pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG")
+            pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
@@ -135,6 +141,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with cluster wide',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
@@ -218,6 +228,8 @@ pipeline {
         stage('Tests') {
             agent { label 'docker-32gb' }
                 steps {
+                    IsRunTestsInClusterWide()
+
                     sh '''
                         sudo yum install -y conntrack
                         sudo usermod -aG docker $USER
