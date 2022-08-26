@@ -35,6 +35,19 @@ void checkClientAfterUpgrade(String PMM_VERSION) {
     """
 }
 
+void fetchAgentLog(String CLIENT_VERSION) {
+    sh """
+        export CLIENT_VERSION=${CLIENT_VERSION}
+        if [[ \$CLIENT_VERSION != http* ]]; then
+            journalctl -u pmm-agent.service > /var/log/pmm-agent.log
+            sudo chown ec2-user:ec2-user /var/log/pmm-agent.log
+        fi
+        if [[ -e /var/log/pmm-agent.log ]]; then
+            cp /var/log/pmm-agent.log .
+        fi
+    """
+}
+
 def latestVersion = pmmVersion()
 def versionsList = pmmVersion('list_with_old')
 def getMinorVersion(VERSION) {
