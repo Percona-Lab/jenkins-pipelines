@@ -41,6 +41,10 @@ pipeline {
             defaultValue: 'no',
             description: 'Destroy VM after tests',
             name: 'DESTROY_ENV')
+        booleanParam(
+            name: 'MAJOR_REPO',
+            description: "Enable to use major (ppg-14) repo instead of ppg-14.3"
+        )
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';

@@ -96,6 +96,7 @@ pipeline {
                         string(name: 'VERSION', value: "${env.VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
                         string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}"),
+                        booleanParam(name: 'MAJOR_REPO', value: false),
                         ]
                     }
                     catch (err) {
@@ -117,6 +118,51 @@ pipeline {
                         string(name: 'VERSION', value: "${env.VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
                         string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-setup"),
+                        booleanParam(name: 'MAJOR_REPO', value: false),
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'Test setup' failed, but we continue"
+                    }
+                }
+            }
+        }
+        stage ('Test install packages: major repo') {
+            when {
+                expression { env.TO_REPO != 'release' }
+            }
+            steps {
+                script {
+                    try {
+                        build job: 'ppg-parallel', parameters: [
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'VERSION', value: "${env.VERSION}"),
+                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}"),
+                        booleanParam(name: 'MAJOR_REPO', value: true),
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'Test install' failed, but we continue"
+                    }
+                }
+            }
+        }
+        stage ('Test setup packages: major repo') {
+            when {
+                expression { env.TO_REPO == 'release' }
+            }
+            steps {
+                script {
+                    try {
+                        build job: 'ppg-parallel', parameters: [
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'VERSION', value: "${env.VERSION}"),
+                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-setup"),
+                        booleanParam(name: 'MAJOR_REPO', value: true),
                         ]
                     }
                     catch (err) {
