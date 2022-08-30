@@ -191,7 +191,7 @@ pipeline {
         string(
             defaultValue: 'admin-password',
             description: 'pmm-server admin user default password',
-            name: 'ADMIN_PASSWORD')  
+            name: 'ADMIN_PASSWORD')
         string (
             defaultValue: '',
             description: 'Value for Server Public IP, to use this instance just as client',
@@ -229,7 +229,7 @@ pipeline {
             description: "Percona Server for MongoDB version",
             name: 'MO_VERSION')
         choice(
-            choices: ['4.4', '4.2', '4.0', '5.0.2'],
+            choices: ['4.4', '4.2', '4.0', '5.0.2', '6.0'],
             description: "Official MongoDB version from MongoDB Inc",
             name: 'MODB_VERSION')
         choice(

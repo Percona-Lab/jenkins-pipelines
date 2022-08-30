@@ -94,7 +94,7 @@ pipeline {
             description: "Percona Server for MongoDB version",
             name: 'MO_VERSION')
         choice(
-            choices: ['4.4', '4.2', '4.0', '5.0.2'],
+            choices: ['4.4', '4.2', '4.0', '6.0', '5.0.2'],
             description: "Official MongoDB version from MongoDB Inc",
             name: 'MODB_VERSION')
         choice(
@@ -104,7 +104,7 @@ pipeline {
         choice(
             choices: ['dev','prod'],
             description: 'Prod or Dev version service',
-            name: 'VERSION_SERVICE_VERSION')            
+            name: 'VERSION_SERVICE_VERSION')
         string(
             defaultValue: '',
             description: '''
@@ -243,11 +243,11 @@ pipeline {
                         sudo amazon-linux-extras disable php5.4
                         sudo amazon-linux-extras enable php7.4
                         sudo yum --enablerepo epel install php -y
-                        
+
                         # Removed due to an repo incident at hashicorp
                         # sudo amazon-linux-extras install epel -y
                         # sudo amazon-linux-extras install php7.2 -y
-                        
+
                         sudo yum install mysql-client -y
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
@@ -311,7 +311,7 @@ pipeline {
                                             export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1"
                                         else
                                             export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check.percona.com/versions/v1"
-                                        fi                                        
+                                        fi
 
                                         docker run -d \
                                             -p 80:80 \
