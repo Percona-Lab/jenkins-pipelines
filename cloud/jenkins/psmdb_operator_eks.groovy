@@ -236,6 +236,14 @@ metadata:
     region: eu-west-3
     version: "$PLATFORM_VER"
 
+iam:
+  withOIDC: true
+
+addons:
+- name: aws-ebs-csi-driver
+  wellKnownPolicies:
+    ebsCSIController: true
+
 nodeGroups:
     - name: ng-1
       minSize: 3
@@ -263,6 +271,7 @@ EOF
                          export PATH=/home/ec2-user/.local/bin:$PATH
                          source $HOME/google-cloud-sdk/path.bash.inc
 
+                         eksctl delete addon --name aws-ebs-csi-driver --cluster eks-psmdb-cluster --region eu-west-3
                          eksctl create cluster -f cluster.yaml
                      """
                 }
