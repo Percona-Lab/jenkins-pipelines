@@ -90,6 +90,7 @@ ENDSSH
                 }
             }
         }
+
         stage('Push DEB client to public repository') {
             steps {
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
@@ -486,13 +487,12 @@ ENDSSH
                     """
                 }
                 sh """
-                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
-                        ssh -i ~/.ssh/id_rsa_downloads -p 2222 jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com "mkdir -p /data/downloads/pmm2/\${VERSION}/docker || true"
-                        sha256sum pmm-server-\${VERSION}.docker > pmm-server-\${VERSION}.sha256sum
-                        sha256sum pmm-client-\${VERSION}.docker > pmm-client-\${VERSION}.sha256sum
-                        scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/docker/
-                        scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-client-\${VERSION}.docker pmm-client-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/docker/
-ENDSSH
+                    sha256sum pmm-server-\${VERSION}.docker > pmm-server-\${VERSION}.sha256sum
+                    sha256sum pmm-client-\${VERSION}.docker > pmm-client-\${VERSION}.sha256sum
+                    export UPLOAD_HOST=jenkins@$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                    sudo ssh -p 2222 -o StrictHostKeyChecking=no \${UPLOAD_HOST} "mkdir -p /data/downloads/pmm2/\${VERSION}/docker"
+                    sudo scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.sha256sum \${UPLOAD_HOST}:/data/downloads/pmm2/\${VERSION}/docker/
+                    sudo scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-client-\${VERSION}.docker pmm-client-\${VERSION}.sha256sum \${UPLOAD_HOST}:/data/downloads/pmm2/\${VERSION}/docker/
                 """
                 deleteDir()
             }
@@ -505,11 +505,10 @@ ENDSSH
                     """
                 }
                 sh """
-                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
-                        ssh -i ~/.ssh/id_rsa_downloads -p 2222 jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com "mkdir -p /data/downloads/pmm2/\${VERSION}/ova || true"
-                        sha256sum pmm-server-\${VERSION}.ova > pmm-server-\${VERSION}.sha256sum
-                        scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-\${VERSION}.ova pmm-server-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/ova/
-ENDSSH
+                    sha256sum pmm-server-\${VERSION}.ova > pmm-server-\${VERSION}.sha256sum
+                    export UPLOAD_HOST=jenkins@$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                    sudo ssh -p 2222 -o StrictHostKeyChecking=no \${UPLOAD_HOST} "mkdir -p /data/downloads/pmm2/\${VERSION}/ova"
+                    sudo scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-server-\${VERSION}.ova pmm-server-\${VERSION}.sha256sum \${UPLOAD_HOST}:/data/downloads/pmm2/\${VERSION}/ova/
                 """
                 deleteDir()
             }
