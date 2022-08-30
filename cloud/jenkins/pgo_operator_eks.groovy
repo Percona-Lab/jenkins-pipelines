@@ -308,6 +308,14 @@ metadata:
     region: eu-west-3
     version: '$KUBEVERSION'
 
+iam:
+  withOIDC: true
+
+addons:
+- name: aws-ebs-csi-driver
+  wellKnownPolicies:
+    ebsCSIController: true
+
 nodeGroups:
     - name: ng-1
       minSize: 3
@@ -372,6 +380,7 @@ EOF
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     unstash 'cluster_conf'
                     sh """
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster eks-pgo-cluster --region eu-west-3
                         eksctl delete cluster -f cluster.yaml --wait --force
                     """
                 }
