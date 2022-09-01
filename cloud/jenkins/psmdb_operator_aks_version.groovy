@@ -297,6 +297,7 @@ pipeline {
                         runTest('users', 'basic')
                         runTest('data-sharded', 'basic')
                         runTest('non-voting', 'basic')
+                        runTest('data-at-rest-encryption', 'basic')
                         ShutdownCluster('basic')
                     }
                 }

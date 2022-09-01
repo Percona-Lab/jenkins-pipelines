@@ -284,6 +284,7 @@ pipeline {
                 runTest('monitoring-2-0')
                 runTest('non-voting')
                 runTest('cross-site-sharded')
+                runTest('data-at-rest-encryption')
            }
         }
         stage('E2E SelfHealing') {

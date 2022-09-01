@@ -311,6 +311,7 @@ EOF
                 runTest('data-sharded')
                 runTest('non-voting')
                 runTest('cross-site-sharded')
+                runTest('data-at-rest-encryption')
            }
         }
         stage('E2E SelfHealing') {
