@@ -77,21 +77,21 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     pwd
                     cd ../
                     export PMM_CLIENT_BASEDIR=`ls -1td pmm2-client 2>/dev/null | grep -v ".tar" | head -n1`
-                    export PATH="`pwd`/pmm2-client/bin:\$PATH"
-                    echo "export PATH=`pwd`/pmm2-client/bin:\$PATH" >> ~/.bash_profile
+                    su - root -c "export PATH="`pwd`/pmm2-client/bin:\$PATH""
+                    su - root -c "echo "export PATH=`pwd`/pmm2-client/bin:\$PATH" >> ~/.bash_profile"
                     source ~/.bash_profile
                     pmm-admin --version
                     if [[ \$CLIENT_INSTANCE == yes ]]; then
                         if [[ \$ENABLE_PULL_MODE == yes ]]; then
-                            pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD --metrics-mode=pull \$IP
+                          su - root -c "pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD --metrics-mode=pull \$IP"
                         else
-                            pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD \$IP
+                            su - root -c "pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD \$IP"
                         fi
                     else
-                        pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD \$IP
+                        su - root -c "pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD \$IP"
                     fi
                     sleep 10
-                    JENKINS_NODE_COOKIE=dontKillMe nohup bash -c 'pmm-agent --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
+                    JENKINS_NODE_COOKIE=dontKillMe sudo su && nohup bash -c 'pmm-agent --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
                     sleep 10
                     cat pmm-agent.log
                     pmm-admin status
