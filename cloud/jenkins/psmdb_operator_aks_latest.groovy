@@ -12,8 +12,8 @@ void CreateCluster(String CLUSTER_SUFFIX) {
                 az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
                 az account show --query "{subscriptionId:id, tenantId:tenantId}"
                 az account list --all --output table
-                az aks create -g percona-operators -n $CLUSTER_NAME-${CLUSTER_SUFFIX} --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version ${params.PLATFORM_VER}
-                az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name $CLUSTER_NAME-${CLUSTER_SUFFIX}
+                az aks create -g percona-operators -n $CLUSTER_NAME-${CLUSTER_SUFFIX} --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version ${params.PLATFORM_VER} -l westeurope
+                az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name $CLUSTER_NAME-${CLUSTER_SUFFIX} 
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
             done
@@ -282,6 +282,9 @@ pipeline {
                         runTest('smart-update', 'scaling')
                         runTest('version-service', 'scaling')
                         runTest('rs-shard-migration', 'scaling')
+                        runTest('data-sharded', 'scaling')
+                        runTest('non-voting', 'scaling')
+                        runTest('data-at-rest-encryption', 'scaling')
                         ShutdownCluster('scaling')
                     }
                 }
@@ -295,9 +298,6 @@ pipeline {
                         runTest('service-per-pod', 'basic')
                         runTest('liveness', 'basic')
                         runTest('users', 'basic')
-                        runTest('data-sharded', 'basic')
-                        runTest('non-voting', 'basic')
-                        runTest('data-at-rest-encryption', 'basic')
                         ShutdownCluster('basic')
                     }
                 }
@@ -321,9 +321,6 @@ pipeline {
                         runTest('demand-backup', 'backups')
                         runTest('demand-backup-sharded', 'backups')
                         runTest('scheduled-backup', 'backups')
-                        runTest('upgrade-sharded', 'backups')
-                        runTest('pitr', 'backups')
-                        runTest('pitr-sharded', 'backups')
                         ShutdownCluster('backups')
                     }
                 }
@@ -331,6 +328,9 @@ pipeline {
                     steps {
                         CreateCluster('cross-site')
                         runTest('cross-site-sharded', 'cross-site')
+                        runTest('upgrade-sharded', 'cross-site')
+                        runTest('pitr', 'cross-site')
+                        runTest('pitr-sharded', 'cross-site')
                         ShutdownCluster('cross-site')
                     }
                 }

@@ -321,6 +321,9 @@ pipeline {
                         runTest('smart-update', 'scaling')
                         runTest('version-service', 'scaling')
                         runTest('rs-shard-migration', 'scaling')
+                        runTest('data-sharded', 'scaling')
+                        runTest('non-voting', 'scaling')
+                        runTest('data-at-rest-encryption', 'scaling')
                         ShutdownCluster('scaling')
                    }
                 }
@@ -334,9 +337,6 @@ pipeline {
                         runTest('service-per-pod', 'basic')
                         runTest('liveness', 'basic')
                         runTest('users', 'basic')
-                        runTest('data-sharded', 'basic')
-                        runTest('non-voting', 'basic')
-                        runTest('data-at-rest-encryption', 'basic')
                         ShutdownCluster('basic')
                     }
                 }
@@ -360,9 +360,6 @@ pipeline {
                         runTest('demand-backup', 'backups')
                         runTest('demand-backup-sharded', 'backups')
                         runTest('scheduled-backup', 'backups')
-                        runTest('upgrade-sharded', 'backups')
-                        runTest('pitr', 'backups')
-                        runTest('pitr-sharded', 'backups')
                         ShutdownCluster('backups')
                     }
                 }
@@ -370,6 +367,9 @@ pipeline {
                     steps {
                         CreateCluster('cross-site')
                         runTest('cross-site-sharded', 'cross-site')
+                        runTest('upgrade-sharded', 'cross-site')
+                        runTest('pitr', 'cross-site')
+                        runTest('pitr-sharded', 'cross-site')
                         ShutdownCluster('cross-site')
                     }
                 }
