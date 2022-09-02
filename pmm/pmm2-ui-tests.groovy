@@ -290,6 +290,7 @@ pipeline {
         }
         stage('Setup Client for PMM-Server') {
             steps {
+                sh"sudo sed -i -e '/secure_path/ s[=.*[&:/usr/local/home/ec2-user/workspace/aws-staging-start/pmm2-client/config:/usr/local/percona/pmm2/bin:/usr/local/percona/pmm2/config[' /etc/sudoers"
                 setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', ENABLE_PULL_MODE, 'no', 'yes', 'compose_setup', ADMIN_PASSWORD)
                 sh """
                     set -o errexit
