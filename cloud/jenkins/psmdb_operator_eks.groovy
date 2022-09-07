@@ -354,7 +354,7 @@ EOF
                     unstash 'cluster_conf'
                     sh """
                         eksctl delete addon --name aws-ebs-csi-driver --cluster eks-psmdb-cluster --region eu-west-3
-                        eksctl delete cluster -f cluster.yaml --wait --force
+                        eksctl delete cluster -f cluster.yaml --wait --force --disable-nodegroup-eviction
                     """
                 }
 
