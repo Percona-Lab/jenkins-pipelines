@@ -258,7 +258,7 @@ pipeline {
                         gcloud config set project $GCP_PROJECT
                         gcloud version
 
-                        curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                        curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
                         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OS_VERSION/openshift-client-linux-$OS_VERSION.tar.gz \
