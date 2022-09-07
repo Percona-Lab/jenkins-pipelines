@@ -252,8 +252,7 @@ pipeline {
                         gcloud config set project $GCP_PROJECT
                         gcloud version
 
-                        curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
-                            | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+                        curl -fsSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 
                         curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
                         sudo mv -v /tmp/eksctl /usr/local/bin

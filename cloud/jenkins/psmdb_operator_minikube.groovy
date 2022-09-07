@@ -243,8 +243,7 @@ pipeline {
                         gcloud components install alpha
                         gcloud components install kubectl
 
-                        curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
-                            | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+                        curl -fsSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
                         export CHANGE_MINIKUBE_NONE_USER=true
