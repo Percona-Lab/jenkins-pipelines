@@ -191,7 +191,7 @@ pipeline {
                     gcloud components update kubectl
                     gcloud version
 
-                    curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
                     curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
@@ -354,7 +354,7 @@ EOF
                     unstash 'cluster_conf'
                     sh """
                         eksctl delete addon --name aws-ebs-csi-driver --cluster eks-psmdb-cluster --region eu-west-3
-                        eksctl delete cluster -f cluster.yaml --wait --force
+                        eksctl delete cluster -f cluster.yaml --wait --force --disable-nodegroup-eviction
                     """
                 }
 
