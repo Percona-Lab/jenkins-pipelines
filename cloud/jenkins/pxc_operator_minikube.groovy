@@ -274,7 +274,9 @@ pipeline {
                         gcloud components install kubectl
 
                         curl -fsSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
-                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                       
+                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
+
                         sudo chmod +x /usr/local/bin/yq
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
