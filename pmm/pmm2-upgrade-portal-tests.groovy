@@ -13,7 +13,8 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENT_INSTANCE, SE
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
-        string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
+        string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD),
+        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no')
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
@@ -159,7 +160,10 @@ pipeline {
             steps{
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} ' 
+                            set -o errexit
+                            set -o xtrace
+                            docker exec ${VM_NAME}-server  yum update -y percona-release || true
                             docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
                             docker exec ${VM_NAME}-server percona-release enable percona testing
                             docker exec ${VM_NAME}-server yum clean all
@@ -259,7 +263,7 @@ pipeline {
                     if ("${NOTIFY}" == "yes") {
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
-                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     }
                 } else {
                     junit 'tests/output/*.xml'
