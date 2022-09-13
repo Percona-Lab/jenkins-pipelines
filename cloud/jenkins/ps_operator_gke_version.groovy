@@ -143,7 +143,7 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
             echo "The $TEST_NAME test was started!"
             testsReportMap[TEST_NAME] = 'failure'
 
-            FILE_NAME = "$VERSION-$TEST_NAME-gke-${env.PLATFORM_VER}"
+            def FILE_NAME = "$VERSION-$TEST_NAME-gke-${env.PLATFORM_VER}"
             popArtifactFile("$FILE_NAME")
 
             timeout(time: 90, unit: 'MINUTES') {
