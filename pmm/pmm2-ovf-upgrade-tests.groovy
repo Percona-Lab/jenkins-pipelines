@@ -315,6 +315,7 @@ pipeline {
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
+            /*
             script {
                 if(env.OVF_INSTANCE_IP) {
                     runOVFStaginStop(OVF_INSTANCE_NAME)
@@ -331,6 +332,7 @@ pipeline {
                 def node = Jenkins.instance.getNode(OVF_INSTANCE_NAME)
                 Jenkins.instance.removeNode(node)
             }
+            */
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'tests/output/*.xml'
