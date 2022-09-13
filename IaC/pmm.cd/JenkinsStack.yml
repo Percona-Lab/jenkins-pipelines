@@ -833,7 +833,7 @@ Resources:
                            eduardo.casarero \
                            santiago.ruiz \
                            andrew.siemen \
-                           nikita.beletskii"
+                           talha.rizwan"
                 for KEY in $KEYS_LIST; do
                     RETRY="3"
                     while [ $RETRY != "0" ]; do
