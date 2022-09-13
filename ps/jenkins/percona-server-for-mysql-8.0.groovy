@@ -208,6 +208,21 @@ parameters {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Jammy(22.04)') {
+                    agent {
+                        label 'min-jammy-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_deb=1 --with_zenfs=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Debian Buster(10)') {
                     agent {
                         label 'min-buster-x64'
