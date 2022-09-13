@@ -301,17 +301,17 @@ pipeline {
                                             --name \${VM_NAME}-data \
                                             ${DOCKER_VERSION} /bin/true
 
-                                        if [ -n "$VERSION_SERVICE_IMAGE" ]; then
-                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=http://\${VM_NAME}-version-service/versions/v1"
-                                        else
-                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
-                                        fi
-
                                         if [ \${VERSION_SERVICE_VERSION} == dev ]; then
                                             export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1"
                                         else
                                             export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check.percona.com/versions/v1"
                                         fi                                        
+
+                                        if [ -n "$VERSION_SERVICE_IMAGE" ]; then
+                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=http://\${VM_NAME}-version-service/versions/v1"
+                                        else
+                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
+                                        fi
 
                                         docker run -d \
                                             -p 80:80 \
