@@ -77,7 +77,7 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${VM_IP} '
                 export PMM_VERSION=${PMM_VERSION}
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
-                bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh --distribution=ami --pmm-version=${PMM_VERSION} --prepost-upgrade=${PRE_POST}
+                bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh --distribution=ami --prepost-upgrade=${PRE_POST} --pmm-version=${PMM_VERSION}
             '
         """
     }
