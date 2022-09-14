@@ -43,7 +43,7 @@ Parameters:
 Mappings:
   AmazonLinux2:
     eu-west-1:
-      x64: ami-09d5dd12541e69077
+      x64: ami-038e9cdc714b15936
     eu-central-1:
       x64: ami-00e232b942edaf8f9
 
@@ -436,7 +436,7 @@ Resources:
     Type: AWS::EC2::SpotFleet
     Properties:
       SpotFleetRequestConfigData:
-        AllocationStrategy: lowestPrice
+        AllocationStrategy: capacityOptimized
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true

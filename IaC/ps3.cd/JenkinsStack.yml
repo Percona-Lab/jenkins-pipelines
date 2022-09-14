@@ -43,7 +43,7 @@ Parameters:
 Mappings:
   AmazonLinux2:
     eu-west-1:
-      x64: ami-05489a3f80e532309
+      x64: ami-038e9cdc714b15936
     eu-central-1:
       x64: ami-05f5f4f906feab6a7
 
@@ -436,7 +436,7 @@ Resources:
     Type: AWS::EC2::SpotFleet
     Properties:
       SpotFleetRequestConfigData:
-        AllocationStrategy: lowestPrice
+        AllocationStrategy: capacityOptimized
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true
@@ -782,7 +782,7 @@ Resources:
               }
 
               setup_ssh_keys() {
-                KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets"
+                KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets surabhi.bhat"
 
                 for KEY in $KEYS_LIST; do
                     RETRY="3"

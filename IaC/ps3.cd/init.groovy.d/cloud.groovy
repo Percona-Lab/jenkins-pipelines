@@ -77,7 +77,7 @@ imageMap['eu-west-1a.fips-centos-7-x64']    = properties.AwsAmi['FipsCentos7_x86
 imageMap['eu-west-1a.min-centos-6-x64']     = properties.AwsAmi['Centos6_x86_64']['euWest1']
 imageMap['eu-west-1a.min-centos-7-x64']     = properties.AwsAmi['Centos7_x86_64']['euWest1']
 imageMap['eu-west-1a.min-ol-8-x64']         = properties.AwsAmi['OracleLinux8_x86_64']['euWest1']
-imageMap['eu-west-1a.min-rhel-9-x64']       = properties.AwsAmi['RHEL9_x86_64']['euWest1']
+imageMap['eu-west-1a.min-ol-9-x64']         = properties.AwsAmi['OracleLinux9_x86_64']['euWest1']
 imageMap['eu-west-1a.min-bullseye-x64']     = properties.AwsAmi['Debian11_x86_64']['euWest1']
 imageMap['eu-west-1a.min-buster-x64']       = properties.AwsAmi['Debian10_x86_64']['euWest1']
 imageMap['eu-west-1a.min-bionic-x64']       = properties.AwsAmi['Ubuntu1804_x86_64']['euWest1']
@@ -100,7 +100,7 @@ imageMap['eu-west-1b.micro-amazon']         = imageMap['eu-west-1a.micro-amazon'
 imageMap['eu-west-1b.min-centos-7-x64']     = imageMap['eu-west-1a.min-centos-7-x64']
 imageMap['eu-west-1b.fips-centos-7-x64']    = imageMap['eu-west-1a.fips-centos-7-x64']
 imageMap['eu-west-1b.min-ol-8-x64']         = imageMap['eu-west-1a.min-ol-8-x64']
-imageMap['eu-west-1b.min-rhel-9-x64']       = imageMap['eu-west-1a.min-rhel-9-x64']
+imageMap['eu-west-1b.min-ol-9-x64']         = imageMap['eu-west-1a.min-ol-9-x64']
 
 imageMap['eu-west-1b.min-centos-6-x64']     = imageMap['eu-west-1a.min-centos-6-x64']
 imageMap['eu-west-1b.min-bullseye-x64']     = imageMap['eu-west-1a.min-bullseye-x64']
@@ -125,7 +125,7 @@ imageMap['eu-west-1c.micro-amazon']         = imageMap['eu-west-1a.micro-amazon'
 imageMap['eu-west-1c.min-centos-7-x64']     = imageMap['eu-west-1a.min-centos-7-x64']
 imageMap['eu-west-1c.fips-centos-7-x64']    = imageMap['eu-west-1a.fips-centos-7-x64']
 imageMap['eu-west-1c.min-ol-8-x64']         = imageMap['eu-west-1a.min-ol-8-x64']
-imageMap['eu-west-1c.min-rhel-9-x64']       = imageMap['eu-west-1a.min-rhel-9-x64']
+imageMap['eu-west-1c.min-ol-9-x64']         = imageMap['eu-west-1a.min-ol-9-x64']
 
 imageMap['eu-west-1c.min-centos-6-x64']     = imageMap['eu-west-1a.min-centos-6-x64']
 imageMap['eu-west-1c.min-bullseye-x64']     = imageMap['eu-west-1a.min-bullseye-x64']
@@ -165,7 +165,7 @@ userMap['min-centos-6-x64']     = properties.AwsAmi['Centos6_x86_64']['user']
 userMap['min-centos-7-x64']     = properties.AwsAmi['Centos7_x86_64']['user']
 userMap['fips-centos-7-x64']    = properties.AwsAmi['FipsCentos7_x86_64']['user']
 userMap['min-ol-8-x64']         = properties.AwsAmi['OracleLinux8_x86_64']['user']
-userMap['min-rhel-9-x64']       = properties.AwsAmi['RHEL9_x86_64']['user']
+userMap['min-ol-9-x64']         = properties.AwsAmi['OracleLinux9_x86_64']['user']
 userMap['min-bullseye-x64']     = properties.AwsAmi['Debian11_x86_64']['user']
 userMap['min-stretch-x64']      = properties.AwsAmi['Debian9_x86_64']['user']
 userMap['min-buster-x64']       = properties.AwsAmi['Debian10_x86_64']['user']
@@ -486,7 +486,7 @@ initMap['min-centos-6-x64']  = initMap['rpmMap']
 initMap['min-centos-7-x64']  = initMap['rpmMap']
 initMap['fips-centos-7-x64'] = initMap['rpmMap']
 initMap['min-ol-8-x64']      = initMap['rpmMap']
-initMap['min-rhel-9-x64']    = initMap['rpmMap']
+initMap['min-ol-9-x64']      = initMap['rpmMap']
 
 initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-buster-x64']  = initMap['debMap']
@@ -515,7 +515,7 @@ typeMap['docker2']           = 't2.2xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-ol-8-x64']      = typeMap['min-centos-7-x64']
-typeMap['min-rhel-9-x64']    = 'i4i.2xlarge'
+typeMap['min-ol-9-x64']      = 'i4i.2xlarge'
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
@@ -542,7 +542,7 @@ execMap['min-centos-6-x64']  = '1'
 execMap['min-centos-7-x64']  = '1'
 execMap['fips-centos-7-x64'] = '1'
 execMap['min-ol-8-x64']      = '1'
-execMap['min-rhel-9-x64']    = '1'
+execMap['min-ol-9-x64']      = '1'
 execMap['min-stretch-x64']   = '1'
 execMap['min-xenial-x64']    = '1'
 execMap['min-buster-x64']    = '1'
@@ -567,7 +567,7 @@ devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-ol-8-x64']      = devMap['min-bionic-x64']
-devMap['min-rhel-9-x64']    = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-ol-9-x64']      = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-jessie-x64']    = devMap['micro-amazon']
 devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
@@ -593,7 +593,7 @@ labelMap['min-centos-6-x64']  = ''
 labelMap['min-centos-7-x64']  = ''
 labelMap['fips-centos-7-x64'] = ''
 labelMap['min-ol-8-x64']      = ''
-labelMap['min-rhel-9-x64']    = ''
+labelMap['min-ol-9-x64']      = ''
 labelMap['min-stretch-x64']   = ''
 labelMap['min-xenial-x64']    = ''
 labelMap['min-buster-x64']    = ''
@@ -682,7 +682,7 @@ String region = 'eu-west-1'
             getTemplate('min-centos-7-x64',     "${region}${it}"),
             getTemplate('fips-centos-7-x64',    "${region}${it}"),
             getTemplate('min-ol-8-x64',         "${region}${it}"),
-            getTemplate('min-rhel-9-x64',       "${region}${it}"),
+            getTemplate('min-ol-9-x64',         "${region}${it}"),
             getTemplate('min-centos-6-x64',     "${region}${it}"),
             getTemplate('min-bionic-x64',       "${region}${it}"),
             getTemplate('min-buster-x64',       "${region}${it}"),
