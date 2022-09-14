@@ -38,7 +38,7 @@ void runTest(String TEST_NAME) {
             echo "The $TEST_NAME test was started!"
             testsReportMap[TEST_NAME] = 'failure'
 
-            FILE_NAME = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-eks-${env.PLATFORM_VER}"
+            def FILE_NAME = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-eks-${env.PLATFORM_VER}"
             popArtifactFile("$FILE_NAME")
 
             timeout(time: 90, unit: 'MINUTES') {
