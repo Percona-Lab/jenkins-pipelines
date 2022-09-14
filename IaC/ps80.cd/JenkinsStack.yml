@@ -47,7 +47,7 @@ Mappings:
     eu-central-1:
       x64: ami-00e232b942edaf8f9
     us-west-2:
-      x64: ami-090bc08d7ae1f3881
+      x64: ami-07d59d159373b8030
 
 Resources:
 
@@ -438,7 +438,7 @@ Resources:
     Type: AWS::EC2::SpotFleet
     Properties:
       SpotFleetRequestConfigData:
-        AllocationStrategy: lowestPrice
+        AllocationStrategy: capacityOptimized
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true

@@ -32,6 +32,7 @@ imageMap['us-west-2a.micro-amazon']      = 'ami-090bc08d7ae1f3881'
 imageMap['us-west-2a.min-amazon-2-x64']  = 'ami-090bc08d7ae1f3881'
 imageMap['us-west-2a.min-centos-8-x64']  = 'ami-0155c31ea13d4abd2'
 imageMap['us-west-2a.min-ol-8-x64']      = 'ami-000b99c02c2b64925'
+imageMap['us-west-2a.min-ol-9-x64']      = 'ami-00a5d5bcea31bb02c'
 imageMap['us-west-2a.min-centos-7-x64']  = 'ami-0686851c4e7b1a8e1'
 imageMap['us-west-2a.fips-centos-7-x64'] = 'ami-036d2cdf95d86d256'
 imageMap['us-west-2a.min-centos-6-x64']  = 'ami-052ff42ae3be02b6a'
@@ -42,6 +43,8 @@ imageMap['us-west-2a.min-bionic-x64']    = 'ami-074251216af698218'
 imageMap['us-west-2a.min-stretch-x64']   = 'ami-01bc069bbdca81d56'
 imageMap['us-west-2a.min-xenial-x64']    = 'ami-079e7a3f57cc8e0d0'
 imageMap['us-west-2a.min-bullseye-x64']  = 'ami-0d0f7602aa5c2425d'
+
+imageMap['us-west-2a.docker-32gb-aarch64'] = 'ami-0d3127dab514c6a1a'
 
 imageMap['us-west-2b.docker']            = imageMap['us-west-2a.docker']
 imageMap['us-west-2b.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
@@ -54,6 +57,7 @@ imageMap['us-west-2b.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
 imageMap['us-west-2b.min-amazon-2-x64']  = imageMap['us-west-2a.min-amazon-2-x64']
 imageMap['us-west-2b.min-centos-8-x64']  = imageMap['us-west-2a.min-centos-8-x64']
 imageMap['us-west-2b.min-ol-8-x64']      = imageMap['us-west-2a.min-ol-8-x64']
+imageMap['us-west-2b.min-ol-9-x64']      = imageMap['us-west-2a.min-ol-9-x64']
 imageMap['us-west-2b.min-centos-7-x64']  = imageMap['us-west-2a.min-centos-7-x64']
 imageMap['us-west-2b.fips-centos-7-x64'] = imageMap['us-west-2a.fips-centos-7-x64']
 imageMap['us-west-2b.min-centos-6-x64']  = imageMap['us-west-2a.min-centos-6-x64']
@@ -63,7 +67,9 @@ imageMap['us-west-2b.min-focal-x64' ]    = imageMap['us-west-2a.min-focal-x64']
 imageMap['us-west-2b.min-bionic-x64']    = imageMap['us-west-2a.min-bionic-x64']
 imageMap['us-west-2b.min-stretch-x64']   = imageMap['us-west-2a.min-stretch-x64']
 imageMap['us-west-2b.min-xenial-x64']    = imageMap['us-west-2a.min-xenial-x64']
-imageMap['us-west-2b.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64'] 
+imageMap['us-west-2b.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64']
+
+imageMap['us-west-2b.docker-32gb-aarch64'] = imageMap['us-west-2a.docker-32gb-aarch64']
 
 imageMap['us-west-2c.docker']            = imageMap['us-west-2a.docker']
 imageMap['us-west-2c.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
@@ -76,6 +82,7 @@ imageMap['us-west-2c.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
 imageMap['us-west-2c.min-amazon-2-x64']  = imageMap['us-west-2a.min-amazon-2-x64']
 imageMap['us-west-2c.min-centos-8-x64']  = imageMap['us-west-2a.min-centos-8-x64']
 imageMap['us-west-2c.min-ol-8-x64']      = imageMap['us-west-2a.min-ol-8-x64']
+imageMap['us-west-2c.min-ol-9-x64']      = imageMap['us-west-2a.min-ol-9-x64']
 imageMap['us-west-2c.min-centos-7-x64']  = imageMap['us-west-2a.min-centos-7-x64']
 imageMap['us-west-2c.fips-centos-7-x64'] = imageMap['us-west-2a.fips-centos-7-x64']
 imageMap['us-west-2c.min-centos-6-x64']  = imageMap['us-west-2a.min-centos-6-x64']
@@ -85,7 +92,9 @@ imageMap['us-west-2c.min-focal-x64' ]    = imageMap['us-west-2a.min-focal-x64']
 imageMap['us-west-2c.min-bionic-x64']    = imageMap['us-west-2a.min-bionic-x64']
 imageMap['us-west-2c.min-stretch-x64']   = imageMap['us-west-2a.min-stretch-x64']
 imageMap['us-west-2c.min-xenial-x64']    = imageMap['us-west-2a.min-xenial-x64']
-imageMap['us-west-2c.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64'] 
+imageMap['us-west-2c.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64']
+
+imageMap['us-west-2c.docker-32gb-aarch64'] = imageMap['us-west-2a.docker-32gb-aarch64']
 
 imageMap['us-west-2d.docker']            = imageMap['us-west-2a.docker']
 imageMap['us-west-2d.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
@@ -98,6 +107,7 @@ imageMap['us-west-2d.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
 imageMap['us-west-2d.min-amazon-2-x64']  = imageMap['us-west-2a.min-amazon-2-x64']
 imageMap['us-west-2d.min-centos-8-x64']  = imageMap['us-west-2a.min-centos-8-x64']
 imageMap['us-west-2d.min-ol-8-x64']      = imageMap['us-west-2a.min-ol-8-x64']
+imageMap['us-west-2d.min-ol-9-x64']      = imageMap['us-west-2a.min-ol-9-x64']
 imageMap['us-west-2d.min-centos-7-x64']  = imageMap['us-west-2a.min-centos-7-x64']
 imageMap['us-west-2d.fips-centos-7-x64'] = imageMap['us-west-2a.fips-centos-7-x64']
 imageMap['us-west-2d.min-centos-6-x64']  = imageMap['us-west-2a.min-centos-6-x64']
@@ -107,7 +117,9 @@ imageMap['us-west-2d.min-focal-x64' ]    = imageMap['us-west-2a.min-focal-x64']
 imageMap['us-west-2d.min-bionic-x64']    = imageMap['us-west-2a.min-bionic-x64']
 imageMap['us-west-2d.min-stretch-x64']   = imageMap['us-west-2a.min-stretch-x64']
 imageMap['us-west-2d.min-xenial-x64']    = imageMap['us-west-2a.min-xenial-x64']
-imageMap['us-west-2d.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64'] 
+imageMap['us-west-2d.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64']
+
+imageMap['us-west-2d.docker-32gb-aarch64'] = imageMap['us-west-2a.docker-32gb-aarch64']
 
 priceMap = [:]
 priceMap['t2.medium'] = '0.03'
@@ -120,6 +132,8 @@ priceMap['r5b.4xlarge'] = '0.45'
 priceMap['r5b.2xlarge'] = '0.22'
 priceMap['m5d.xlarge'] = '0.20'
 priceMap['m4.2xlarge'] = '0.25'
+
+priceMap['r6gd.2xlarge'] = '0.20'
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -140,9 +154,12 @@ userMap['min-centos-7-x64']  = 'centos'
 userMap['fips-centos-7-x64'] = 'centos'
 userMap['min-centos-8-x64']  = 'centos'
 userMap['min-ol-8-x64']      = 'ec2-user'
+userMap['min-ol-9-x64']      = 'ec2-user'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
 userMap['min-bullseye-x64']  = 'admin'
+
+userMap['docker-32gb-aarch64'] = 'ec2-user'
 
 userMap['psmdb'] = userMap['min-xenial-x64']
 
@@ -164,10 +181,13 @@ modeMap['min-centos-6-x64']  = modeMap['min-focal-x64']
 modeMap['min-centos-7-x64']  = modeMap['min-focal-x64']
 modeMap['min-centos-8-x64']  = modeMap['min-focal-x64']
 modeMap['min-ol-8-x64']      = modeMap['min-focal-x64']
+modeMap['min-ol-9-x64']      = modeMap['min-focal-x64']
 modeMap['fips-centos-7-x64'] = modeMap['min-focal-x64']
 modeMap['min-stretch-x64']   = modeMap['min-focal-x64']
 modeMap['min-buster-x64']    = modeMap['min-focal-x64']
 modeMap['min-bullseye-x64']  = modeMap['min-focal-x64']
+
+modeMap['docker-32gb-aarch64'] = 'Node.Mode.EXCLUSIVE'
 
 initMap = [:]
 initMap['docker'] = '''
@@ -198,7 +218,7 @@ initMap['docker'] = '''
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
 
-        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "/tmp/awscliv2.zip"; do
             sleep 1
             echo try again
         done
@@ -438,6 +458,7 @@ initMap['min-centos-7-x64']  = initMap['micro-amazon']
 initMap['fips-centos-7-x64'] = initMap['micro-amazon']
 initMap['min-centos-8-x64']  = initMap['micro-amazon']
 initMap['min-ol-8-x64']      = initMap['micro-amazon']
+initMap['min-ol-9-x64']      = initMap['micro-amazon']
 initMap['min-bionic-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -486,6 +507,8 @@ initMap['min-stretch-x64'] = initMap['min-bionic-x64']
 initMap['min-xenial-x64'] = initMap['min-bionic-x64']
 initMap['min-bullseye-x64'] = initMap['min-buster-x64']
 
+initMap['docker-32gb-aarch64'] = initMap['docker']
+
 capMap = [:]
 capMap['m3.2xlarge'] = '60'
 capMap['c5n.2xlarge'] = '60'
@@ -495,10 +518,11 @@ capMap['m5zn.2xlarge'] = '40'
 capMap['r5b.4xlarge'] = '40'
 capMap['m5d.xlarge'] = '40'
 capMap['m4.2xlarge'] = '40'
+capMap['r6gd.2xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.medium'
-typeMap['docker']            = 'c5n.2xlarge'
+typeMap['docker']            = 'm4.2xlarge'
 typeMap['docker-32gb']       = 'm5zn.2xlarge'
 typeMap['docker-32gb-hirsute']  = 'm5zn.3xlarge'
 typeMap['docker-32gb-jammy']    = 'm5zn.3xlarge'
@@ -508,6 +532,7 @@ typeMap['docker2']           = 'r5b.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['min-centos-8-x64']  = typeMap['docker']
 typeMap['min-ol-8-x64']      = typeMap['docker']
+typeMap['min-ol-9-x64']      = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['docker-32gb']
 typeMap['min-jammy-x64']     = 'm5zn.3xlarge'
 typeMap['min-focal-x64']     = typeMap['docker']
@@ -518,6 +543,8 @@ typeMap['min-stretch-x64']   = typeMap['docker']
 typeMap['min-xenial-x64']    = typeMap['docker']
 typeMap['min-amazon-2-x64']  = typeMap['docker']
 typeMap['min-bullseye-x64']  = typeMap['docker']
+
+typeMap['docker-32gb-aarch64'] = 'r6gd.2xlarge'
 
 execMap = [:]
 execMap['docker']            = '1'
@@ -537,10 +564,13 @@ execMap['min-centos-7-x64']  = '1'
 execMap['fips-centos-7-x64'] = '1'
 execMap['min-centos-8-x64']  = '1'
 execMap['min-ol-8-x64']      = '1'
+execMap['min-ol-9-x64']      = '1'
 execMap['min-stretch-x64']   = '1'
 execMap['min-xenial-x64']    = '1'
 execMap['min-buster-x64']    = '1'
 execMap['min-bullseye-x64']  = '1'
+
+execMap['docker-32gb-aarch64'] = '1'
 
 devMap = [:]
 devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
@@ -560,10 +590,13 @@ devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-centos-8-x64']  = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-ol-8-x64']      = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-ol-9-x64']      = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-stretch-x64']   = 'xvda=:30:true:gp2,xvdd=:120:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-buster-x64']    = '/dev/xvda=:30:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['min-bullseye-x64']  = '/dev/xvda=:30:true:gp2,/dev/xvdd=:120:true:gp2'
+
+devMap['docker-32gb-aarch64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
 
 labelMap = [:]
 labelMap['docker']            = ''
@@ -583,10 +616,13 @@ labelMap['min-centos-7-x64']  = ''
 labelMap['fips-centos-7-x64'] = ''
 labelMap['min-centos-8-x64']  = ''
 labelMap['min-ol-8-x64']      = ''
+labelMap['min-ol-9-x64']      = ''
 labelMap['min-stretch-x64']   = ''
 labelMap['min-xenial-x64']    = ''
 labelMap['min-buster-x64']    = ''
 labelMap['min-bullseye-x64']  = ''
+
+labelMap['docker-32gb-aarch64'] = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -656,26 +692,28 @@ String region = 'us-west-2'
         sshKeysCredentialsId,                   // String sshKeysCredentialsId
         '240',                                   // String instanceCapStr
         [
-            getTemplate('docker',             "${region}${it}"),
-            getTemplate('docker-32gb',        "${region}${it}"),
+            getTemplate('docker',               "${region}${it}"),
+            getTemplate('docker-32gb',          "${region}${it}"),
             getTemplate('docker-32gb-hirsute',  "${region}${it}"),
             getTemplate('docker-32gb-jammy',    "${region}${it}"),
             getTemplate('docker-32gb-focal',    "${region}${it}"),
             getTemplate('docker-32gb-bullseye', "${region}${it}"),
-            getTemplate('micro-amazon',       "${region}${it}"),
-            getTemplate('min-amazon-2-x64',   "${region}${it}"),
-            getTemplate('min-centos-8-x64',   "${region}${it}"),
-            getTemplate('min-ol-8-x64',       "${region}${it}"),
-            getTemplate('min-centos-7-x64',   "${region}${it}"),
-            getTemplate('fips-centos-7-x64',  "${region}${it}"),
-            getTemplate('min-centos-6-x64',   "${region}${it}"),
-            getTemplate('min-bionic-x64',     "${region}${it}"),
-            getTemplate('min-focal-x64',      "${region}${it}"),
-            getTemplate('min-jammy-x64',      "${region}${it}"),
-            getTemplate('min-buster-x64',     "${region}${it}"),
-            getTemplate('min-stretch-x64',    "${region}${it}"),
-            getTemplate('min-xenial-x64',     "${region}${it}"),
-            getTemplate('min-bullseye-x64',   "${region}${it}"),
+            getTemplate('micro-amazon',         "${region}${it}"),
+            getTemplate('min-amazon-2-x64',     "${region}${it}"),
+            getTemplate('min-centos-8-x64',     "${region}${it}"),
+            getTemplate('min-ol-8-x64',         "${region}${it}"),
+            getTemplate('min-ol-9-x64',         "${region}${it}"),
+            getTemplate('min-centos-7-x64',     "${region}${it}"),
+            getTemplate('fips-centos-7-x64',    "${region}${it}"),
+            getTemplate('min-centos-6-x64',     "${region}${it}"),
+            getTemplate('min-bionic-x64',       "${region}${it}"),
+            getTemplate('min-focal-x64',        "${region}${it}"),
+            getTemplate('min-jammy-x64',        "${region}${it}"),
+            getTemplate('min-buster-x64',       "${region}${it}"),
+            getTemplate('min-stretch-x64',      "${region}${it}"),
+            getTemplate('min-xenial-x64',       "${region}${it}"),
+            getTemplate('min-bullseye-x64',     "${region}${it}"),
+            getTemplate('docker-32gb-aarch64',  "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates 
         '',
         ''
