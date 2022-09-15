@@ -216,7 +216,7 @@ pipeline {
                     env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
 
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'aws-jenkins')
-                    DumbSlave node = new DumbSlave(env.VM_NAME, "spot instance job", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
+                    DumbSlave node = new DumbSlave(env.VM_NAME, "Staging start instance: ${VM_NAME}", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
 
                     currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME} PRICE: ${env.SPOT_PRICE}"
                     Jenkins.instance.addNode(node)
@@ -239,8 +239,8 @@ pipeline {
 
                         sudo yum -y install sysbench
                         sudo amazon-linux-extras enable epel
-                        sudo yum install -y epel-release
-                        sudo amazon-linux-extras disable php5.4
+                        // sudo yum install -y epel-release
+                        // sudo amazon-linux-extras disable php5.4
                         sudo amazon-linux-extras enable php7.4
                         sudo yum --enablerepo epel install php -y
 
