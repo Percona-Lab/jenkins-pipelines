@@ -352,8 +352,6 @@ pipeline {
                         slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
                     }
                 } else {
-                    def API_TESTS_URL = sh(returnStdout: true, script: "cat apiURL").trim()
-
                     if(env.API_TESTS_RESULT != "SUCCESS") {
                         addComment("API tests have failed, Please check: API: ${API_TESTS_URL}")
                     }
