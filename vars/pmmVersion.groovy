@@ -1,4 +1,4 @@
-def call(type='latest') {
+def call(String type='latest') {
   List<String> oldVersions = ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0']
   HashMap<String, String> versions = [
     '2.15.0': 'ami-086a3a95eefa9567f',
@@ -21,13 +21,15 @@ def call(type='latest') {
     '2.30.0': 'ami-0ac4cb922edec19e0',
     '2.31.0': 'ami-0fbc6c59937464afa'
   ]
+
   List<String> versionsList = new ArrayList<>(versions.keySet());
+
   switch(type) {
     case 'latest':
       def latestVersion = httpRequest "https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/PMM-2.0/VERSION"
       return latestVersion.content
     case 'stable':
-      return '2.31.0'
+      return versionsList.last()
     case 'ami':
       return versions
     case 'list':
