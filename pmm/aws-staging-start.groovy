@@ -279,7 +279,7 @@ pipeline {
                         export VM_NAME=\$(cat VM_NAME)
 
                         export CLIENT_VERSION=${CLIENT_VERSION}
-                        if [[ \$CLIENT_VERSION = latest ]]; then
+                        if [[ \$CLIENT_VERSION == latest ]]; then
                             CLIENT_VERSION=\$(
                                 curl -s https://www.percona.com/downloads/pmm/ \
                                     | egrep -o 'pmm/[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}' \
