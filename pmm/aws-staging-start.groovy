@@ -239,8 +239,6 @@ pipeline {
 
                         sudo yum -y install sysbench
                         sudo amazon-linux-extras enable epel
-                        // sudo yum install -y epel-release
-                        // sudo amazon-linux-extras disable php5.4
                         sudo amazon-linux-extras enable php7.4
                         sudo yum --enablerepo epel install php -y
 
