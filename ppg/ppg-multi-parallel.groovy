@@ -290,7 +290,7 @@ pipeline {
                     }
                     catch (err) {
                         currentBuild.result = "FAILURE"
-                        echo "Stage 'Test major downgrade' failed, but we continue"
+                        echo "Stage 'Test pgbouncer' failed, but we continue"
                     }
                 }
             }
