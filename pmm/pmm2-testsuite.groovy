@@ -270,9 +270,6 @@ pipeline {
             '''
             fetchAgentLog(CLIENT_VERSION)
             script {
-                junit allowEmptyResults: true, testResults: '**/*.xml'
-            }
-            script {
                 if(env.VM_NAME) {
                     destroyStaging(VM_NAME)
                     archiveArtifacts artifacts: 'logs.zip'
