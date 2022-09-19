@@ -18,20 +18,20 @@ pipeline {
         )
         choice(
             name: 'FROM_REPO',
-            description: 'From this repo will be upgraded PDPS',
+            description: 'Repo for upgrade tests. From this repo PDPS will be upgraded',
             choices: [
+                'release',
                 'testing',
-                'experimental',
-                'release'
+                'experimental'
             ]
         )
         choice(
             name: 'TO_REPO',
-            description: 'Repo for testing',
+            description: 'Repo for installalation and upgrade tests. Use "testing" for pre-release and "release" for post-release runs.',
             choices: [
                 'testing',
-                'experimental',
-                'release'
+                'release',
+                'experimental'
             ]
         )
         string(
@@ -100,33 +100,6 @@ pipeline {
                 }
             }
         }
-        stage ('Test install: major repo') {
-            when {
-                expression { env.TO_REPO != 'release' }
-            }
-            steps {
-                script {
-                    try {
-                        build job: 'pdps', parameters: [
-                        string(name: 'PLATFORM', value: "${env.PLATFORM}"),
-                        string(name: 'REPO', value: "${env.TO_REPO}"),
-                        string(name: 'VERSION', value: "${env.VERSION}"),
-                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pdps"),
-                        string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
-                        string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
-                        string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
-                        booleanParam(name: 'MAJOR_REPO', value: true)
-                        ]
-                    }
-                    catch (err) {
-                        currentBuild.result = "FAILURE"
-                        echo "Stage 'Test install' failed, but we continue"
-                    }
-                }
-            }
-        }
         stage ('Test setup: minor repo') {
             when {
                 expression { env.TO_REPO == 'release' }
@@ -182,6 +155,9 @@ pipeline {
             }
         }
         stage ('Test minor upgrade') {
+            when {
+                expression { env.TO_REPO != 'release' }
+            }
             steps {
                 script {
                     try {
@@ -207,6 +183,9 @@ pipeline {
             }
         }
         stage ('Test minor downgrade') {
+            when {
+                expression { env.TO_REPO != 'release' }
+            }
             steps {
                 script {
                     try {
