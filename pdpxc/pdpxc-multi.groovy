@@ -18,7 +18,7 @@ pipeline {
         )
         choice(
             name: 'FROM_REPO',
-            description: 'From this repo will be upgraded pdpxc',
+            description: 'Repo for upgrade tests. From this repo PDPXC will be upgraded',
             choices: [
                 'testing',
                 'experimental',
@@ -27,7 +27,7 @@ pipeline {
         )
         choice(
             name: 'TO_REPO',
-            description: 'Repo for testing',
+            description: 'Repo for installalation and upgrade tests. Use "testing" for pre-release and "release" for post-release runs.',
             choices: [
                 'testing',
                 'experimental',
@@ -37,35 +37,57 @@ pipeline {
         string(
             defaultValue: '8.0.28',
             description: 'From this version pdmysql will be updated',
-            name: 'FROM_VERSION')
+            name: 'FROM_VERSION'
+        )
         string(
             defaultValue: '8.0.29',
             description: 'To this version pdmysql will be updated',
             name: 'VERSION'
         )
         string(
-            defaultValue: 'master',
-            description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
+            defaultValue: '2.3.2',
+            description: 'Downgraded Proxysql version for test',
+            name: 'PRIOR_PROXYSQL_VERSION'
+        )
         string(
-            defaultValue: '2.0.18',
+            defaultValue: '2.4.3',
             description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
         )
         string(
-            defaultValue: '2.3.10',
+            defaultValue: '2.5.6',
+            description: 'Downgraded HAProxy version for test',
+            name: 'PRIOR_HAPROXY_VERSION'
+        )
+        string(
+            defaultValue: '2.5.6',
             description: 'HAProxy version for test',
             name: 'HAPROXY_VERSION'
         )
         string(
-            defaultValue: '8.0.23',
+            defaultValue: '8.0.28',
+            description: 'Downgraded PXB version for test',
+            name: 'PRIOR_PXB_VERSION'
+        )
+        string(
+            defaultValue: '8.0.29',
             description: 'PXB version for test',
             name: 'PXB_VERSION'
         )
         string(
-            defaultValue: '3.3.1',
+            defaultValue: '3.4.0',
+            description: 'Downgraded Percona toolkit version for test',
+            name: 'PRIOR_PT_VERSION'
+        )
+        string(
+            defaultValue: '3.4.0',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
+        )
+        string(
+            defaultValue: 'master',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH'
         )
   }
   options {
@@ -197,10 +219,10 @@ pipeline {
                         string(name: 'VERSION', value: "${env.FROM_VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
                         string(name: 'SCENARIO', value: "pdpxc-minor-upgrade"),
-                        string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
-                        string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
-                        string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        string(name: 'PROXYSQL_VERSION', value: "${env.PRIOR_PROXYSQL_VERSION}"),
+                        string(name: 'PXB_VERSION', value: "${env.PRIOR_PXB_VERSION}"),
+                        string(name: 'PT_VERSION', value: "${env.PRIOR_PT_VERSION}"),
+                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.PRIOR_ORCHESTRATOR_VERSION}"),
                         ]
                     }
                     catch (err) {
