@@ -44,18 +44,29 @@ pipeline {
             name: 'VERSION'
         )
         string(
-            defaultValue: 'master',
-            description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
+            defaultValue: '2.3.2',
+            description: 'Downgraded Proxysql version',
+            name: 'PRIOR_PROXYSQL_VERSION'
+        )
         string(
             defaultValue: '2.3.2',
             description: 'Updated Proxysql version',
             name: 'PROXYSQL_VERSION'
         )
         string(
+            defaultValue: '8.0.28',
+            description: 'Downgraded PXB version',
+            name: 'PRIOR_PXB_VERSION'
+        )
+        string(
             defaultValue: '8.0.29',
             description: 'Updated PXB version',
             name: 'PXB_VERSION'
+        )
+        string(
+            defaultValue: '3.3.1',
+            description: 'Downgraded Percona Toolkit version',
+            name: 'PRIOR_PT_VERSION'
         )
         string(
             defaultValue: '3.4.0',
@@ -64,8 +75,18 @@ pipeline {
         )
         string(
             defaultValue: '3.2.6',
+            description: 'Downgraded Percona Orchestrator version',
+            name: 'PRIOR_ORCHESTRATOR_VERSION'
+        )
+        string(
+            defaultValue: '3.2.6',
             description: 'Updated Percona Orchestrator version',
             name: 'ORCHESTRATOR_VERSION'
+        )
+        string(
+            defaultValue: 'master',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH'
         )
   }
   options {
@@ -197,10 +218,10 @@ pipeline {
                         string(name: 'VERSION', value: "${env.FROM_VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
                         string(name: 'SCENARIO', value: "pdps-minor-upgrade"),
-                        string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
-                        string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
-                        string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        string(name: 'PROXYSQL_VERSION', value: "${env.PRIOR_PROXYSQL_VERSION}"),
+                        string(name: 'PXB_VERSION', value: "${env.PRIOR_PXB_VERSION}"),
+                        string(name: 'PT_VERSION', value: "${env.PRIOR_PT_VERSION}"),
+                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.PRIOR_ORCHESTRATOR_VERSION}"),
                         ]
                     }
                     catch (err) {

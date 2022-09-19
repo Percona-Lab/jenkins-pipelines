@@ -12,13 +12,13 @@ pipeline {
   }
   parameters {
         choice(
-            name: 'TO_REPO',
-            description: 'Repo for testing',
+            name: 'FROM_REPO',
+            description: 'Repo for upgrade tests. From this repo PDPS will be upgraded',
             choices: repoList()
         )
         choice(
-            name: 'FROM_REPO',
-            description: 'Repo for testing',
+            name: 'TO_REPO',
+            description: 'Repo for installalation and upgrade tests. Use "testing" for pre-release and "release" for post-release runs.',
             choices: repoList()
         )
         string(
@@ -32,19 +32,39 @@ pipeline {
         )
         string(
             defaultValue: '2.3.2',
+            description: 'Downgraded Proxysql version',
+            name: 'PRIOR_PROXYSQL_VERSION'
+        )
+        string(
+            defaultValue: '2.3.2',
             description: 'Updated Proxysql version',
             name: 'PROXYSQL_VERSION'
-         )
+        )
+        string(
+            defaultValue: '8.0.28',
+            description: 'Downgraded PXB version',
+            name: 'PRIOR_PXB_VERSION'
+        )
         string(
             defaultValue: '8.0.29',
             description: 'Updated PXB version',
             name: 'PXB_VERSION'
-         )
+        )
+        string(
+            defaultValue: '3.3.1',
+            description: 'Downgraded Percona Toolkit version',
+            name: 'PRIOR_PT_VERSION'
+        )
         string(
             defaultValue: '3.4.0',
             description: 'Updated Percona Toolkit version',
             name: 'PT_VERSION'
-         )
+        )
+        string(
+            defaultValue: '3.2.6',
+            description: 'Downgraded Percona Orchestrator version',
+            name: 'PRIOR_ORCHESTRATOR_VERSION'
+        )
         string(
             defaultValue: '3.2.6',
             description: 'Updated Percona Orchestrator version',
@@ -180,10 +200,10 @@ pipeline {
                         string(name: 'VERSION', value: "${env.FROM_VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
                         string(name: 'SCENARIO', value: "pdps-minor-upgrade"),
-                        string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
-                        string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
-                        string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        string(name: 'PROXYSQL_VERSION', value: "${env.PRIOR_PROXYSQL_VERSION}"),
+                        string(name: 'PXB_VERSION', value: "${env.PRIOR_PXB_VERSION}"),
+                        string(name: 'PT_VERSION', value: "${env.PRIOR_PT_VERSION}"),
+                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.PRIOR_ORCHESTRATOR_VERSION}"),
                         ]
                     }
                     catch (err) {
