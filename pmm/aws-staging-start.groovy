@@ -273,19 +273,19 @@ pipeline {
                     env.CHANGE_USER_PASSWORD_UTILITY = changeUserPasswordUtility(DOCKER_VERSION)
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                         sh """
-                        export IP=\$(cat IP)
-                        export VM_NAME=\$(cat VM_NAME)
+                            export IP=\$(cat IP)
+                            export VM_NAME=\$(cat VM_NAME)
 
-                        export CLIENT_VERSION=${CLIENT_VERSION}
-                        if [[ \$CLIENT_VERSION == latest ]]; then
-                            CLIENT_VERSION=\$(
-                                curl -s https://www.percona.com/downloads/pmm/ \
-                                    | egrep -o 'pmm/[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}' \
-                                    | sed -e 's/pmm\\///' \
-                                    | sort -u -V \
-                                    | tail -1
-                            )
-                        fi
+                            export CLIENT_VERSION=${CLIENT_VERSION}
+                            if [[ \$CLIENT_VERSION == latest ]]; then
+                                CLIENT_VERSION=\$(
+                                    curl -s https://www.percona.com/downloads/pmm/ \
+                                        | egrep -o 'pmm/[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}' \
+                                        | sed -e 's/pmm\\///' \
+                                        | sort -u -V \
+                                        | tail -1
+                                )
+                            fi
                         """
                         node(env.VM_NAME){
                             withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
@@ -320,6 +320,7 @@ pipeline {
                                             --restart always \
                                             \${ENV_VARIABLE} \
                                             ${DOCKER_VERSION}
+
                                         sleep 10
                                         docker logs \${VM_NAME}-server
                                         if [ \${ADMIN_PASSWORD} != admin ]; then
@@ -328,28 +329,6 @@ pipeline {
                                             else
                                                 docker exec \${VM_NAME}-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
                                             fi
-                                        fi
-                                    else
-                                        docker create \
-                                            -v /opt/prometheus/data \
-                                            -v /opt/consul-data \
-                                            -v /var/lib/mysql \
-                                            -v /var/lib/grafana \
-                                            --name \${VM_NAME}-data \
-                                            ${DOCKER_VERSION} /bin/true
-
-                                        docker run -d \
-                                            -p 80:80 \
-                                            -p 443:443 \
-                                            --volumes-from \${VM_NAME}-data \
-                                            --name \${VM_NAME}-server \
-                                            --restart always \
-                                            -e METRICS_RESOLUTION=5s \
-                                            ${DOCKER_VERSION}
-                                        sleep 10
-                                        docker logs \${VM_NAME}-server
-                                        if [ \${ADMIN_PASSWORD} != admin ]; then
-                                            docker exec \${VM_NAME}-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
                                         fi
                                     fi
                                 """
@@ -443,19 +422,6 @@ pipeline {
                         set -o xtrace
                         export PATH=\$PATH:/usr/sbin
                         [ -z "${CLIENTS}" ] && exit 0 || :
-                        if [[ \$PMM_VERSION == pmm1 ]]; then
-                            bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
-                                --pxc-version ${PXC_VERSION} \
-                                --ps-version  ${PS_VERSION} \
-                                --ms-version  ${MS_VERSION} \
-                                --md-version  ${MD_VERSION} \
-                                --mo-version  ${MO_VERSION} \
-                                --pgsql-version ${PGSQL_VERSION} \
-                                --download \
-                                ${CLIENTS} \
-                                --sysbench-data-load \
-                                --sysbench-oltp-run
-                        fi
 
                         if [[ \$PMM_VERSION == pmm2 ]]; then
 
