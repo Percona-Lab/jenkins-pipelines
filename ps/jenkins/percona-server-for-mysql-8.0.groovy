@@ -178,6 +178,21 @@ parameters {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
+                stage('Oracle Linux 9') {
+                    agent {
+                        label 'min-ol-9-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Ubuntu Bionic(18.04)') {
                     agent {
                         label 'min-bionic-x64'
