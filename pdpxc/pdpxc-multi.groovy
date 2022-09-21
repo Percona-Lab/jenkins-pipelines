@@ -89,7 +89,7 @@ pipeline {
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
                         booleanParam(name: 'MAJOR_REPO', value: false)
                         ]
                     }
@@ -116,7 +116,7 @@ pipeline {
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
                         booleanParam(name: 'MAJOR_REPO', value: false)
                         ]
                     }
@@ -143,7 +143,7 @@ pipeline {
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
                         booleanParam(name: 'MAJOR_REPO', value: true)
                         ]
                     }
@@ -172,7 +172,7 @@ pipeline {
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
                         ]
                     }
                     catch (err) {
@@ -200,7 +200,7 @@ pipeline {
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
                         ]
                     }
                     catch (err) {
