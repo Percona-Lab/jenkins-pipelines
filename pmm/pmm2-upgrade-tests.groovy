@@ -40,7 +40,7 @@ void fetchAgentLog(String CLIENT_VERSION) {
     sh """
         export CLIENT_VERSION=${CLIENT_VERSION}
         if [[ \$CLIENT_VERSION != http* ]]; then
-            journalctl -u pmm-agent.service > /var/log/pmm-agent.log
+            sudo journalctl -u pmm-agent.service > /var/log/pmm-agent.log
             sudo chown ec2-user:ec2-user /var/log/pmm-agent.log
         fi
         if [[ -e /var/log/pmm-agent.log ]]; then
@@ -94,7 +94,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for UI Tests Repo repository',
+            description: 'Tag/Branch for UI Tests repository',
             name: 'GIT_BRANCH')
         choice(
             choices: versionsList,
@@ -302,7 +302,7 @@ pipeline {
             steps {
                 script {
                     runPython('check_upgrade', "-v ${DOCKER_VERSION} -p pre")
-                    }
+                }
             }
         }
         stage('Run UI way Upgrade Tests') {
@@ -318,7 +318,7 @@ pipeline {
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
                 """
-                }
+            }
         }
         stage('Run Docker Way Upgrade Tests') {
             when {
@@ -340,14 +340,14 @@ pipeline {
                     sleep 30
                     ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@post-upgrade'
                 """
-                }
+            }
 
         }
         stage('Check Packages after Upgrade') {
             steps {
                 script {
                     runPython('check_upgrade', "-v ${PMM_SERVER_LATEST}")
-                    }
+                }
             }
         }
         stage('Check Client Upgrade') {

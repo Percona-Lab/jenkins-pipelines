@@ -2,6 +2,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
+
 void runUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO, PERFORM_DOCKER_WAY_UPGRADE, PMM_SERVER_TAG) {
     upgradeJob = build job: 'pmm2-upgrade-tests', parameters: [
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
@@ -14,7 +15,6 @@ void runUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TES
         string(name: 'PMM_SERVER_TAG', value: PMM_SERVER_TAG)
     ]
 }
-
 
 def versions = pmmVersion('list_with_old')
 def parallelStagesMatrix = versions.collectEntries {
@@ -97,7 +97,6 @@ pipeline {
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
             }
-            deleteDir()
         }
     }
 }
