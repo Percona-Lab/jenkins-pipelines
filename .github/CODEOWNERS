@@ -1,2 +1,5 @@
-/pmm/ @talhabinrizwan @atymchuk @puneet0191
-/IaC/pmm.cd/ @talhabinrizwan @atymchuk
+# Global owners
+* @Percona-Lab/build-engineers
+
+/pmm/ @talhabinrizwan @atymchuk @puneet0191 @Percona-Lab/build-engineers
+/IaC/pmm.cd/ @talhabinrizwan @atymchuk @Percona-Lab/build-engineers
