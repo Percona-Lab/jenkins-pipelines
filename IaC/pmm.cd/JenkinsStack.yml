@@ -833,6 +833,9 @@ Resources:
                            eduardo.casarero \
                            santiago.ruiz \
                            andrew.siemen \
+                           serhii.stasiuk \
+                           vadim.yalovets \
+                           surabhi.bhat \
                            talha.rizwan"
                 for KEY in $KEYS_LIST; do
                     RETRY="3"
