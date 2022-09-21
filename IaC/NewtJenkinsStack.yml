@@ -32,7 +32,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: mykola
+    Default: jenkins-master
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
