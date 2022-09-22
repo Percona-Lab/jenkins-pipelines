@@ -94,7 +94,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(pdmysqlOperatingSystems(), env.MOLECULE_DIR)
+                    moleculeParallelTest(pdpsOperatingSystems(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -102,7 +102,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(pdmysqlOperatingSystems(), env.MOLECULE_DIR)
+              moleculeParallelPostDestroy(pdpsOperatingSystems(), env.MOLECULE_DIR)
          }
       }
    }
