@@ -3,9 +3,9 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO, PERFORM_DOCKER_WAY_UPGRADE, PMM_SERVER_TAG) {
+void runUpgradeJob(String PMM_UI_GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO, PERFORM_DOCKER_WAY_UPGRADE, PMM_SERVER_TAG) {
     upgradeJob = build job: 'pmm2-upgrade-tests', parameters: [
-        string(name: 'GIT_BRANCH', value: GIT_BRANCH),
+        string(name: 'PMM_UI_GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
         string(name: 'CLIENT_VERSION', value: PMM_VERSION),
         string(name: 'DOCKER_VERSION', value: PMM_VERSION),
         string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
@@ -25,7 +25,7 @@ def generateStage(VERSION) {
     return {
         stage("${VERSION}") {
             runUpgradeJob(
-                GIT_BRANCH,
+                PMM_UI_GIT_BRANCH,
                 VERSION,
                 PMM_SERVER_LATEST,
                 ENABLE_TESTING_REPO,
@@ -47,7 +47,7 @@ pipeline {
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-ui-tests repository',
-            name: 'GIT_BRANCH')
+            name: 'PMM_UI_GIT_BRANCH')
         string(
             defaultValue: latestVersion,
             description: 'dev-latest PMM Server Version',

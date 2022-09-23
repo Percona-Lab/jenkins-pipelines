@@ -95,7 +95,7 @@ pipeline {
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for UI Tests repository',
-            name: 'GIT_BRANCH')
+            name: 'PMM_UI_GIT_BRANCH')
         choice(
             choices: versionsList,
             description: 'PMM Server Version to test for Upgrade',
@@ -163,7 +163,7 @@ pipeline {
                 }
                 // fetch pmm-ui-tests repository
                 git poll: false,
-                    branch: GIT_BRANCH,
+                    branch: PMM_UI_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
