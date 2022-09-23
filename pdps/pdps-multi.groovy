@@ -14,7 +14,7 @@ pipeline {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: pdmysqlOperatingSystems()
+            choices: pdpsOperatingSystems()
         )
         choice(
             name: 'FROM_REPO',
