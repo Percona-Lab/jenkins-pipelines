@@ -375,17 +375,16 @@ pipeline {
             script {
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
                 archiveArtifacts artifacts: 'pmm-update-perform.log'
+                archiveArtifacts artifacts: 'logs.zip'
+                archiveArtifacts artifacts: 'pmm-agent.log'
+
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/parallel_chunk*/*.xml'
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'pmm-agent.log'
                 } else {
-                    junit 'tests/output/parallel_chunk*/*.xml'
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'pmm-agent.log'
                 }
+
+                junit 'tests/output/parallel_chunk*/*.xml'
             }
             allure([
                 includeProperties: false,
