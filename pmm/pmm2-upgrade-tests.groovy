@@ -36,19 +36,6 @@ void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
     """
 }
 
-void fetchAgentLog(String CLIENT_VERSION) {
-    sh """
-        export CLIENT_VERSION=${CLIENT_VERSION}
-        if [[ \$CLIENT_VERSION != http* ]]; then
-            sudo journalctl -u pmm-agent.service > /var/log/pmm-agent.log
-            sudo chown ec2-user:ec2-user /var/log/pmm-agent.log
-        fi
-        if [[ -e /var/log/pmm-agent.log ]]; then
-            cp /var/log/pmm-agent.log .
-        fi
-    """
-}
-
 def latestVersion = pmmVersion()
 def versionsList = pmmVersion('list_with_old')
 def getMinorVersion(VERSION) {
@@ -364,16 +351,22 @@ pipeline {
     }
     post {
         always {
-            // stop staging
             sh '''
+                # fetch all the logs from PMM server
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-            '''
-            fetchAgentLog(CLIENT_VERSION)
-            sh '''
+
+                # get logs from systemd pmm-agent.service
+                if [[ \$CLIENT_VERSION != http* ]]; then
+                    journalctl -u pmm-agent.service >  ./pmm-agent.log
+                fi
+
+                # get logs from managed and update-perform
                 echo --- pmm-managed logs from pmm-server --- >> pmm-managed-full.log
                 docker exec pmm-server cat /srv/logs/pmm-managed.log >> pmm-managed-full.log || true
                 docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
                 echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
+                
+                # stop the containers
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
@@ -382,17 +375,16 @@ pipeline {
             script {
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
                 archiveArtifacts artifacts: 'pmm-update-perform.log'
+                archiveArtifacts artifacts: 'pmm-agent.log'
+                archiveArtifacts artifacts: 'logs.zip'
+
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/parallel_chunk*/*.xml'
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'pmm-agent.log'
                 } else {
-                    junit 'tests/output/parallel_chunk*/*.xml'
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'pmm-agent.log'
                 }
+
+                junit 'tests/output/parallel_chunk*/*.xml'
             }
             allure([
                 includeProperties: false,
@@ -401,10 +393,6 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
-            sh '''
-                sudo rm -r node_modules/
-                sudo rm -r tests/output
-            '''
             deleteDir()
         }
     }
