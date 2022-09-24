@@ -351,7 +351,6 @@ pipeline {
     }
     post {
         always {
-            // stop staging
             sh '''
                 # fetch all the logs from PMM server
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
@@ -367,6 +366,7 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
                 echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
                 
+                # stop the containers
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
@@ -375,8 +375,8 @@ pipeline {
             script {
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
                 archiveArtifacts artifacts: 'pmm-update-perform.log'
-                archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'pmm-agent.log'
+                archiveArtifacts artifacts: 'logs.zip'
 
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
