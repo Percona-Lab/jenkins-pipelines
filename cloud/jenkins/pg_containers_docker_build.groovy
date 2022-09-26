@@ -120,6 +120,9 @@ pipeline {
                     build('postgres-ha')
                 }
                 retry(3) {
+                    build('postgres')
+                }
+                retry(3) {
                     build('pgbadger')
                 }
             }
@@ -130,6 +133,7 @@ pipeline {
                 pushImageToDocker('pgbackrest')
                 pushImageToDocker('pgbouncer')
                 pushImageToDocker('postgres-ha')
+                pushImageToDocker('postgres')
                 pushImageToDocker('pgbadger')
             }
         }
@@ -172,6 +176,16 @@ pipeline {
                     post {
                         always {
                             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-postgres-ha.xml"
+                        }
+                    }
+                }
+                stage('postgres'){
+                    steps {
+                        checkImageForDocker('postgres')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-postgres.xml"
                         }
                     }
                 }
