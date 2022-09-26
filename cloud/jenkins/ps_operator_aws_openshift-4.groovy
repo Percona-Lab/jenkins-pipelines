@@ -294,15 +294,19 @@ pipeline {
                 runTest('auto-config')
                 runTest('config')
                 runTest('demand-backup')
-                runTest('gr-init-deploy')
+                runTest('gr-demand-backup')
                 runTest('init-deploy')
+                runTest('gr-init-deploy')
                 runTest('limits')
                 runTest('monitoring')
+                runTest('one-pod')
                 runTest('scaling')
                 runTest('semi-sync')
                 runTest('service-per-pod')
                 runTest('sidecars')
+                runTest('tls-cert-manager')
                 runTest('users')
+                runTest('version-service')
             }
         }
         stage('Make report') {
