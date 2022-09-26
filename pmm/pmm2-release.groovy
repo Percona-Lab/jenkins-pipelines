@@ -489,7 +489,7 @@ ENDSSH
                 sh """
                     sha256sum pmm-server-\${VERSION}.docker > pmm-server-\${VERSION}.sha256sum
                     sha256sum pmm-client-\${VERSION}.docker > pmm-client-\${VERSION}.sha256sum
-                    export UPLOAD_HOST=jenkins@$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                    export UPLOAD_HOST=jenkins@\$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
                     sudo ssh -p 2222 -o StrictHostKeyChecking=no \${UPLOAD_HOST} "mkdir -p /data/downloads/pmm2/\${VERSION}/docker"
                     sudo scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.sha256sum \${UPLOAD_HOST}:/data/downloads/pmm2/\${VERSION}/docker/
                     sudo scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-client-\${VERSION}.docker pmm-client-\${VERSION}.sha256sum \${UPLOAD_HOST}:/data/downloads/pmm2/\${VERSION}/docker/
@@ -506,7 +506,7 @@ ENDSSH
                 }
                 sh """
                     sha256sum pmm-server-\${VERSION}.ova > pmm-server-\${VERSION}.sha256sum
-                    export UPLOAD_HOST=jenkins@$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                    export UPLOAD_HOST=jenkins@\$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
                     sudo ssh -p 2222 -o StrictHostKeyChecking=no \${UPLOAD_HOST} "mkdir -p /data/downloads/pmm2/\${VERSION}/ova"
                     sudo scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-server-\${VERSION}.ova pmm-server-\${VERSION}.sha256sum \${UPLOAD_HOST}:/data/downloads/pmm2/\${VERSION}/ova/
                 """
