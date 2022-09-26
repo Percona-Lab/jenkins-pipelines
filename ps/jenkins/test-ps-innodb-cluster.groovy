@@ -16,7 +16,7 @@ void installDependencies() {
 
     sh '''
         rm -rf package-testing
-        git clone https://github.com/Percona-QA/package-testing
+        git clone -b fix-innodb-job https://github.com/kaushikpuneet07/package-testing
     '''
 }
 
