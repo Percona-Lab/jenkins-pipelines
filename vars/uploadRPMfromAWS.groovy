@@ -41,6 +41,13 @@ def call(String FOLDER_NAME, String AWS_STASH_PATH) {
                         `find . -name '*.el8.noarch.rpm' -o -name '*.el8.x86_64.rpm'` \
                         ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/8/x86_64/
                 fi
+                if [ `find . -name '*.el9.noarch.rpm' -o -name '*.el9.x86_64.rpm' | wc -l` -gt 0 ]; then
+                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                        mkdir -p \${path_to_build}/binary/redhat/9/x86_64
+                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                        `find . -name '*.el9.noarch.rpm' -o -name '*.el9.x86_64.rpm'` \
+                        ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/9/x86_64/
+                fi
             """
         }
         deleteDir()
