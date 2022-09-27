@@ -62,7 +62,7 @@ pipeline {
 
         choice(
             name: "action_to_test",
-            choices: ["all", "install", "upgrade", "maj-upgrade-to"],
+            choices: ["all", "install", "upgrade", "maj-upgrade-to", "kmip"],
             description: "Action to test on the product"
         )
         
