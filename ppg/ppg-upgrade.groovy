@@ -99,7 +99,6 @@ pipeline {
             script{
               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
             }
-            junit "${MOLECULE_DIR}/report.xml"
         }
     }
       stage ('Start Cleanup ') {
