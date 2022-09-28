@@ -272,6 +272,8 @@ pipeline {
                         // trigger workflow in GH to run some test there as well, pass server and client images as parameters
                         def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                         sh """
+                            echo $GIT_BRANCH
+                            echo $BRANCH_NAME
                             curl -v -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
