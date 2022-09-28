@@ -264,6 +264,12 @@ pipeline {
                         def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
                         def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                         sh """
+                            echo $GIT_BRANCH
+                            echo $BRANCH_NAME
+                            echo $CHANGE_URL
+                            printenv
+                        """
+                        sh """
                             curl -v -X POST \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 -d "{\\"body\\":\\"server docker - ${IMAGE}\\nclient docker - ${CLIENT_IMAGE}\\nclient - ${CLIENT_URL}\\nCreate Staging Instance: https://pmm.cd.percona.com/job/aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}\\"}" \
