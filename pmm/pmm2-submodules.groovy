@@ -268,7 +268,7 @@ pipeline {
                             echo $BRANCH_NAME
                             printenv
                         """
-                        def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
+                        def CLIENT_URL1 = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                         sh """
                             curl -v -X POST \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
