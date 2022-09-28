@@ -108,6 +108,7 @@ pipeline {
                     echo $fb_commit_sha > fbCommitSha
                     export fb_branch=$(git symbolic-ref --short HEAD)
                     echo $fb_branch > fbBranch
+                    printenv
                 '''
                 }
                 script {
