@@ -106,7 +106,7 @@ pipeline {
                     fi
                     export fb_commit_sha=$(git rev-parse HEAD)
                     echo $fb_commit_sha > fbCommitSha
-                    export fb_branch=$(git branch --show-current)
+                    export fb_branch=$(git symbolic-ref --short HEAD)
                     echo $fb_branch > fbBranch
                 '''
                 }
