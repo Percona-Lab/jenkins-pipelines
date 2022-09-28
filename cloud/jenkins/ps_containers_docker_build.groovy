@@ -21,6 +21,10 @@ void build(String IMAGE_POSTFIX){
             docker build --no-cache --squash --progress plain \
                 -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
                 -f ./percona-toolkit/Dockerfile ./percona-toolkit
+        elif [ "${IMAGE_POSTFIX}" == "haproxy" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./haproxy/Dockerfile ./haproxy
         fi
     """
 }
@@ -123,6 +127,9 @@ pipeline {
                 retry(3) {
                     build('toolkit')
                 }
+                retry(3) {
+                    build('haproxy')
+                }
             }
         }
         stage('Push Images to Docker registry') {
@@ -132,6 +139,7 @@ pipeline {
                 pushImageToDocker('router')
                 pushImageToDocker('psmysql')
                 pushImageToDocker('toolkit')
+                pushImageToDocker('haproxy')
             }
         }
         stage('Trivy Checks') {
@@ -143,6 +151,7 @@ pipeline {
                         checkImageForDocker('router')
                         checkImageForDocker('psmysql')
                         checkImageForDocker('toolkit')
+                        checkImageForDocker('haproxy')
                     }
                     post {
                         always {

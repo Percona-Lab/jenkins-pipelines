@@ -169,6 +169,10 @@ pipeline {
             name: 'IMAGE_TOOLKIT')
         string(
             defaultValue: '',
+            description: 'HAProxy image: perconalab/percona-server-mysql-operator:main-haproxy',
+            name: 'IMAGE_HAPROXY')
+        string(
+            defaultValue: '',
             description: 'PMM image: perconalab/pmm-client:dev-latest',
             name: 'IMAGE_PMM')
         string(
