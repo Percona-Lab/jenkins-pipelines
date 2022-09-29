@@ -10,3 +10,7 @@
 /pbm/ @olexandr-havryliak @sandraromanchenko @Percona-Lab/build-engineers
 /psmdb/ @olexandr-havryliak @sandraromanchenko @Percona-Lab/build-engineers
 /pdmdb/ @olexandr-havryliak @sandraromanchenko @Percona-Lab/build-engineers
+/ppg/ @eleo007 @mu-samoylov @Percona-Lab/build-engineers
+/pdps/ @eleo007 @mu-samoylov @Percona-Lab/build-engineers
+/pdpxc/ @eleo007 @mu-samoylov @Percona-Lab/build-engineers
+/vars/ @eleo007 @mu-samoylov @Percona-Lab/build-engineers
