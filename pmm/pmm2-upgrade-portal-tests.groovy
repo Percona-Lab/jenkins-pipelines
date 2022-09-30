@@ -46,6 +46,19 @@ def getPMMClientVersion(String PMM_CLIENT_VERSION, String PMM_CLIENT_VERSION_CUS
     return PMM_CLIENT_VERSION == "custom" ? PMM_CLIENT_VERSION_CUSTOM : PMM_CLIENT_VERSION
 }
 
+void performDockerWayUpgrade(String PMM_VERSION, String VM_IP) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} ' 
+                docker ps -a
+                export PMM_VERSION=${PMM_VERSION}
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh
+                bash -xe /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh ${PMM_VERSION}
+            '
+        """
+    }
+}
+
 pipeline {
     agent {
         label 'agent-amd64'
@@ -94,6 +107,14 @@ pipeline {
             description: "Select Testing (RC Tesing) or Experimental (dev-latest testing) Repository",
             name: 'PMM_REPOSITORY')
         string(
+            defaultValue: 'main',
+            description: 'Tag/Branch for pmm-qa repository',
+            name: 'PMM_QA_GIT_BRANCH')
+        choice(
+            choices: ['UI', 'Docker'],
+            description: "Select type of upgrade either UI or Docker way upgrade.",
+            name: 'PMM_UPGRADE_TYPE')
+        string(
             defaultValue: 'admin-password',
             description: 'Change pmm-server admin user default password.',
             name: 'ADMIN_PASSWORD')
@@ -127,6 +148,11 @@ pipeline {
                     which chromium-browser
                     sudo yum -y install mysql
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
+                    sudo mkdir -p /srv/pmm-qa || :
+                    pushd /srv/pmm-qa
+                        sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                        sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
+                    popd
                 '''
             }
         }
@@ -211,6 +237,9 @@ pipeline {
             }
         }
         stage('Run UI way Upgrade') {
+            when {
+                expression { env.PMM_UPGRADE_TYPE == "UI"}
+            }
             options {
                 timeout(time: 60, unit: "MINUTES")
             }
@@ -223,6 +252,18 @@ pipeline {
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-portal-upgrade'  --override '{ "helpers": { "Playwright": { "getPageTimeout": 60000 }}}'
                 """
+            }
+        }
+        stage('Run Docker way Upgrade') {
+            when {
+                expression { env.PMM_UPGRADE_TYPE == "Docker"}
+            }
+            options {
+                timeout(time: 60, unit: "MINUTES")
+            }
+            steps {
+                println "$PMM_DOCKER_HUB:" + getPMMServerVersion(PMM_SERVER_VERSION, PMM_SERVER_VERSION_CUSTOM)
+                performDockerWayUpgrade("$PMM_DOCKER_HUB:" + getPMMServerVersion(PMM_SERVER_VERSION, PMM_SERVER_VERSION_CUSTOM), env.VM_IP)
             }
         }
         stage('Run UI post-upgrade Tests') {
