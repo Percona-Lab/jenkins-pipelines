@@ -1,0 +1,15 @@
+- job:
+    name: ppg-server-autobuild-RELEASE
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/surbhat1595/jenkins-pipelines.git
+            branches:
+            - 'DISTPG-465_add_ppg-server_pipeline'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ppg/ppg-server.groovy
+
