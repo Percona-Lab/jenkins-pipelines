@@ -14,6 +14,10 @@ pipeline {
         PATH_TO_CLIENT = "testing/pmm2-client-autobuilds/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT}"
     }
 
+    options {
+        timestamps()
+    }
+
     parameters {
         string(
             defaultValue: '2.0.0',
@@ -24,11 +28,16 @@ pipeline {
             description: 'Path to client packages in testing repo. Example: 12aec0c9/3052',
             name: 'PATH_TO_CLIENT')
     }
+
     stages {
         stage('Push PRM client to public repository') {
             steps {
                 script {
                     currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>PATH_TO_CLIENT: ${PATH_TO_CLIENT}"
+                    if (!params.PATH_TO_CLIENT) {
+                        echo "ERROR: empty PATH_TO_CLIENT"
+                        currentBuild.result = 'FAILURE'
+                    }
                 }
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
