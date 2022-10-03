@@ -14,10 +14,6 @@ pipeline {
         PATH_TO_CLIENT = "testing/pmm2-client-autobuilds/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT}"
     }
 
-    options {
-        timestamps()
-    }
-
     parameters {
         string(
             defaultValue: '2.0.0',
@@ -35,8 +31,7 @@ pipeline {
                 script {
                     currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>PATH_TO_CLIENT: ${PATH_TO_CLIENT}"
                     if (!params.PATH_TO_CLIENT) {
-                        echo "ERROR: empty PATH_TO_CLIENT"
-                        currentBuild.result = 'FAILURE'
+                        error("ERROR: empty parameter PATH_TO_CLIENT")
                     }
                 }
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
@@ -59,10 +54,10 @@ pipeline {
                                         REPOPATH=repo-copy/pmm2-client/yum
                                     fi
                                     cd /srv/UPLOAD/${PATH_TO_CLIENT}
-                                    #
+
                                     # getting the list of RH systems
                                     RHVERS=\$(ls -1 binary/redhat | grep -v 6)
-                                    #
+
                                     # source processing
                                     if [ -d source/redhat ]; then
                                         SRCRPM=\$(find source/redhat -name '*.src.rpm')
@@ -367,56 +362,12 @@ ENDSSH
                 }
             }
         }
-        stage('Set Tags') {
-            steps {
-                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                    unstash 'copy'
-                    sh """
-                        echo ${GITHUB_API_TOKEN} > GITHUB_API_TOKEN
-                        echo ${VERSION} > VERSION
-                    """
-                    sh '''
-                        set -ex
-                        export VERSION=$(cat VERSION)
-                        export TOP_VER=$(cat VERSION | cut -d. -f1)
-                        export MID_VER=$(cat VERSION | cut -d. -f2)
-                        export DOCKER_MID="$TOP_VER.$MID_VER"
-                        declare -A repo=(
-                            ["percona-dashboards"]="percona/grafana-dashboards"
-                            ["percona-qan-api2"]="percona/qan-api2"
-                            ["pmm-update"]="percona/pmm-update"
-                            ["pmm"]="percona/pmm"
-                        )
 
-                        for package in "${!repo[@]}"; do
-                            SHA=$(
-                                grep "^$package-$VERSION-" copy.list \
-                                    | perl -p -e 's/.*[.]\\d{10}[.]([0-9a-f]{7})[.]el7.*/$1/'
-                            )
-                            if [[ -n "$package" ]] && [[ -n "$SHA" ]]; then
-                                rm -fr $package
-                                mkdir $package
-                                pushd $package >/dev/null
-                                    git clone https://github.com/${repo["$package"]} ./
-                                    git checkout $SHA
-                                    FULL_SHA=$(git rev-parse HEAD)
-
-                                    echo "$FULL_SHA"
-                                    echo "$VERSION"
-                                popd >/dev/null
-                            fi
-                        done
-                    '''
-                }
-                stash includes: 'VERSION', name: 'version_file'
-            }
-        }
         stage('Set Docker Tag') {
             agent {
                 label 'min-rhel-7-x64'
             }
             steps {
-                unstash 'version_file'
                 installDocker()
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
@@ -426,6 +377,7 @@ ENDSSH
                     """
                 }
                 sh """
+                    echo ${VERSION} > VERSION
                     VERSION=\$(cat VERSION)
                     TOP_VER=\$(cat VERSION | cut -d. -f1)
                     MID_VER=\$(cat VERSION | cut -d. -f2)
@@ -488,36 +440,41 @@ ENDSSH
         stage('Publish Docker image') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -ex
-                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.docker
-                        aws s3 cp --only-show-errors s3://percona-vm/pmm-client-\${VERSION}.docker pmm-client-\${VERSION}.docker
-                    """
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}.docker pmm-server-${VERSION}.docker
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}.docker pmm-client-${VERSION}.docker
+                    '''
                 }
-                sh """
-                    sha256sum pmm-server-\${VERSION}.docker > pmm-server-\${VERSION}.sha256sum
-                    sha256sum pmm-client-\${VERSION}.docker > pmm-client-\${VERSION}.sha256sum
-                    export UPLOAD_HOST=jenkins@\$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
-                    sudo ssh -p 2222 -o StrictHostKeyChecking=no \${UPLOAD_HOST} "mkdir -p /data/downloads/pmm2/\${VERSION}/docker"
-                    sudo scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.sha256sum \${UPLOAD_HOST}:/data/downloads/pmm2/\${VERSION}/docker/
-                    sudo scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-client-\${VERSION}.docker pmm-client-\${VERSION}.sha256sum \${UPLOAD_HOST}:/data/downloads/pmm2/\${VERSION}/docker/
-                """
+                withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh '''
+                        sha256sum pmm-server-${VERSION}.docker | tee pmm-server-${VERSION}.sha256sum
+                        sha256sum pmm-client-${VERSION}.docker | tee pmm-client-${VERSION}.sha256sum
+                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                        ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm2/${VERSION}/docker"
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.docker pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}.docker pmm-client-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
+                        ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "ls -l /data/downloads/pmm2/${VERSION}/docker"
+                    '''
+                }
                 deleteDir()
             }
         }
         stage('Publish OVF image') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        aws s3 cp --only-show-errors s3://percona-vm/PMM2-Server-\${VERSION}.ova pmm-server-\${VERSION}.ova
-                    """
+                    sh '''
+                        aws s3 cp --only-show-errors s3://percona-vm/PMM2-Server-${VERSION}.ova pmm-server-${VERSION}.ova
+                    '''
                 }
-                sh """
-                    sha256sum pmm-server-\${VERSION}.ova > pmm-server-\${VERSION}.sha256sum
-                    export UPLOAD_HOST=jenkins@\$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
-                    sudo ssh -p 2222 -o StrictHostKeyChecking=no \${UPLOAD_HOST} "mkdir -p /data/downloads/pmm2/\${VERSION}/ova"
-                    sudo scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no pmm-server-\${VERSION}.ova pmm-server-\${VERSION}.sha256sum \${UPLOAD_HOST}:/data/downloads/pmm2/\${VERSION}/ova/
-                """
+                withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh '''
+                        sha256sum pmm-server-${VERSION}.ova | tee pmm-server-${VERSION}.sha256sum
+                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                        ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm2/${VERSION}/ova"
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.ova pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/ova/
+                    '''
+                }
                 deleteDir()
             }
         }
@@ -532,10 +489,66 @@ ENDSSH
                 """
             }
         }
+        stage('Set git tags') {
+            steps {
+                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                    unstash 'copy'
+                    sh '''
+                        set -ex
+                        
+                        # TODO: add `percona-platform/grafana`, which needs different credintials :|
+                        declare -A repo=(
+                            ["percona-dashboards"]="percona/grafana-dashboards"
+                            ["percona-qan-api2"]="percona/qan-api2"
+                            ["pmm-update"]="percona/pmm-update"
+                            ["pmm"]="percona/pmm"
+                        )
+                        
+                        # Turn the detachedHead warning message off
+                        git config --global advice.detachedHead false
+
+                        echo "
+                            # List of entries in 'copy.list'
+                            dbaas-controller-2.31.0-1.2209151647.6d9fe5d.el7.x86_64.rpm
+                            dbaas-tools-0.5.7-1.2209221233.el7.x86_64.rpm
+                            percona-alertmanager-0.22.0-3.el7.x86_64.rpm
+                            percona-dashboards-2.31.0-19.2209151640.25fba72.el7.x86_64.rpm
+                            percona-grafana-8.3.10-96.2209091136.2680b34.el7.x86_64.rpm
+                            percona-qan-api2-2.31.0-16.2209120831.500663d.el7.x86_64.rpm
+                            percona-victoriametrics-1.77.1-1.el7.x86_64.rpm
+                            pmm-dump-2.31.0-1.2209120833.el7.x86_64.rpm
+                            pmm-managed-2.31.0-20.2209231325.86df37b.el7.x86_64.rpm
+                            pmm-update-2.31.0-66.2209231252.763aef9.el7.noarch.rpm
+                        "
+                        
+                        for PACKAGE in "${!repo[@]}"; do
+                            SHA=$(
+                                grep "^$PACKAGE-${VERSION}-" copy.list \
+                                    | perl -p -e 's/.*[.]\\d{10}[.]([0-9a-f]{7})[.]el7.*/$1/'
+                            )
+                            if [[ -n "$SHA" ]]; then
+                                rm -fr $PACKAGE
+                                mkdir $PACKAGE
+                                pushd $PACKAGE >/dev/null
+                                    git clone https://github.com/${repo["$PACKAGE"]} ./
+                                    git checkout $SHA
+                                    FULL_SHA=$(git rev-parse HEAD)
+
+                                    echo "$FULL_SHA"
+                                    echo "${VERSION}"
+                                popd >/dev/null
+                            else
+                                echo "Warning: package $PACKAGE won't get tagged with ${VERSION}"
+                            fi
+                        done
+                    '''
+                }
+            }
+        }        
         stage('Run post-release tests') {
             steps {
                 build job: 'pmm2-release-tests', propagate: false, wait: false, parameters: [
-                    string(name: 'VERSION', value: VERSION)
+                    string(name: 'VERSION', value: params.VERSION)
                 ]
             }
         }
@@ -559,7 +572,7 @@ ENDSSH
                       message: "PMM ${VERSION} was released!"
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed - ${BUILD_URL}"
         }
     }
 }
