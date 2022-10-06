@@ -12,9 +12,9 @@
     pipeline-scm:
         scm:
             - git:
-                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                url: https://github.com/kaushikpuneet07/jenkins-pipelines.git
                 branches:
-                    - 'master'
+                    - 'PS-8405'
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: ps/jenkins/package-testing-ps-8.0.groovy
@@ -43,6 +43,8 @@
                 - "min-bionic-x64"
                 - "min-focal-x64"
                 - "min-amazon-2-x64"
+                - "min-jammy-x64"
+                - "min-ol-9-x64"
             description: "Node in which to test the product"
         - choice:
             name: action_to_test

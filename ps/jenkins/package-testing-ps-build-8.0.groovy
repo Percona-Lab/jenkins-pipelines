@@ -1,6 +1,6 @@
 library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 setup_rhel_package_tests = { ->
@@ -54,6 +54,8 @@ node_setups = [
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
     "min-amazon-2-x64": setup_amazon_package_tests,
+    "min-jammy-x64": setup_ubuntu_package_tests,
+    "min-ol-9-x64": setup_rhel_package_tests,
 ]
 
 void setup_package_tests() {

@@ -1,6 +1,6 @@
 library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 List all_nodes = [
@@ -11,6 +11,8 @@ List all_nodes = [
     "min-bionic-x64",
     "min-focal-x64",
     "min-amazon-2-x64",
+    "min-jammy-x64",
+    "min-ol-9-x64",
 ]
 
 product_to_test = params.product_to_test
@@ -173,6 +175,28 @@ pipeline {
 
                     steps {
                         runNodeBuild("min-amazon-2-x64")
+                    }
+                }
+                stage("Ubuntuu Jammy") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("min-jammy-x64")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("min-jammy-x64")
+                    }
+                }
+                stage("Oracle Linux 9") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("min-ol-9-x64")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("min-ol-9-x64")
                     }
                 }
             }
