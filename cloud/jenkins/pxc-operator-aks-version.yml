@@ -30,8 +30,8 @@
         description: Tag/Branch for percona/percona-xtradb-cluster-operator repository
     - string:
         name: PLATFORM_VER
-        default: '1.12'
-        description: GKE version
+        default: '1.21'
+        description: AKS version
     - string:
         name: IMAGE_PXC
         default:
