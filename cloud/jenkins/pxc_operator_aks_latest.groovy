@@ -119,7 +119,6 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                         fi
 
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
-                        source $HOME/google-cloud-sdk/path.bash.inc
                         ./e2e-tests/$TEST_NAME/run
                     fi
                 """
@@ -184,7 +183,7 @@ pipeline {
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'latest',
+            defaultValue: '1.24',
             description: 'AKS version',
             name: 'PLATFORM_VER')
         choice(
