@@ -13,7 +13,7 @@ void CreateCluster(String CLUSTER_SUFFIX) {
                 az account show --query "{subscriptionId:id, tenantId:tenantId}"
                 az account list --all --output table
                 az aks create -g percona-operators --subscription eng-cloud-dev -n $CLUSTER_NAME-${CLUSTER_SUFFIX} --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version ${params.PLATFORM_VER} -l eastus
-                az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-${CLUSTER_SUFFIX}
+                az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-${CLUSTER_SUFFIX} --overwrite-existing
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
             done
