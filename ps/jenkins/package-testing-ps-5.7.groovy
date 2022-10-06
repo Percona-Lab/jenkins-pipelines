@@ -11,6 +11,8 @@ List all_nodes = [
     "min-bionic-x64",
     "min-focal-x64",
     "min-amazon-2-x64",
+    "min-jammy-x64",
+    "min-ol-9-x64",
 ]
 
 List all_nodes_except_bullseye = [
@@ -171,6 +173,28 @@ pipeline {
 
                     steps {
                         runNodeBuild("min-amazon-2-x64")
+                    }
+                }
+               stage("Ubuntu Jammy") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("min-jammy-x64")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("min-jammy-x64")
+                    }
+                }
+                stage("Oracle Linux 9") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("min-ol-9-x64")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("min-ol-9-x64")
                     }
                 }
             }

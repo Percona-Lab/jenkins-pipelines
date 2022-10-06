@@ -177,7 +177,7 @@ pipeline {
                         runNodeBuild("min-amazon-2-x64")
                     }
                 }
-                stage("Ubuntuu Jammy") {
+                stage("Ubuntu Jammy") {
                     when {
                         expression {
                             nodes_to_test.contains("min-jammy-x64")
