@@ -3,7 +3,7 @@ void CreateCluster(String CLUSTER_SUFFIX) {
         env.OPERATOR_NS = 'psmdb-operator'
     }
 
-    withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             ret_num=0
@@ -22,7 +22,7 @@ void CreateCluster(String CLUSTER_SUFFIX) {
     }
 }
 void ShutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
@@ -83,7 +83,7 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
 
-            withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+            withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
                 sh """
                     if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                         echo Skip $TEST_NAME test
@@ -352,7 +352,7 @@ pipeline {
                     slackSend channel: '@${OWNER_SLACK}', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
                 }
             }
-            withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+            withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
                 sh """
                     export CLUSTER_NAME=\$(echo jenkins-lat-psmdb-\$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions

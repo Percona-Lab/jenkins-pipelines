@@ -3,7 +3,7 @@ void CreateCluster(String CLUSTER_SUFFIX) {
         env.OPERATOR_NS = 'pxc-operator'
     }
 
-    withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             ret_num=0
@@ -22,12 +22,12 @@ void CreateCluster(String CLUSTER_SUFFIX) {
     }
 }
 void ShutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
             az account set -s "$AZURE_SUBSCRIPTION_ID"
-            az aks delete --name $CLUSTER_NAME-${CLUSTER_SUFFIX} --resource-group percona-operators --subscription eng-cloud-dev  --yes --no-wait
+            az aks delete --name $CLUSTER_NAME-${CLUSTER_SUFFIX} --resource-group percona-operators --subscription eng-cloud-dev  --yes
         """
     }
 }
@@ -403,12 +403,12 @@ pipeline {
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml'
 
-            withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+            withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
                 sh """
                     export CLUSTER_NAME=\$(echo jenkins-ver-pxc-\$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
                     az account set -s "$AZURE_SUBSCRIPTION_ID"
-                    az group list --query "[?starts_with(name, $CLUSTER_NAME)].name | [0]" | xargs az aks delete --resource-group percona-operators --subscription eng-cloud-dev --yes --no-wait || true
+                    az group list --query "[?starts_with(name, $CLUSTER_NAME)].name | [0]" | xargs az aks delete --resource-group percona-operators --subscription eng-cloud-dev --yes || true
                 """
             }
             sh '''
