@@ -186,7 +186,7 @@ pipeline {
             description: 'Commit hash for pmm-qa branch',
             name: 'PMM_QA_GIT_COMMIT_HASH')
         string(
-                defaultValue: 'main',
+                defaultValue: 'PMM-10849-cli-playwright',
                 description: 'Tag/Branch for pmm-ui repository',
                 name: 'PMM_UI_GIT_BRANCH')
         string(
