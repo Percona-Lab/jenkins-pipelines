@@ -77,6 +77,53 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
     }
 }
 
+void runCli() {
+    node(env.VM_NAME){
+        withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+            sh """
+                set -o errexit
+                set -o xtrace
+
+                aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+
+                test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
+                export PATH=\$PATH:/usr/sbin
+                export version="${VERSION}"
+                export pmm_server_ip="${VM_IP}"
+                export stress="1"
+                export table_c="100"
+                export tap="1"
+                export PMM_VERSION=${PMM_VERSION}
+
+                npm install
+                npx playwright install
+                cd /srv
+                sudo git clone --single-branch --branch \\${PMM_UI_GIT_BRANCH} https://github.com/percona/pmm-qa.git
+                cd /srv/pmm-ui-tests/
+                
+                export CLIENT_VERSION=${CLIENT_VERSION}
+                if [[ \$CLIENT_VERSION == http* ]]; then
+                    export PATH="/home/ec2-user/workspace/aws-staging-start/pmm2-client/bin:$PATH"
+                fi
+                npx playwright test
+            """
+        }
+    }
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+                ${USER}@${VM_IP}:/tmp/result.tap \
+                ${TYPE}_${VERSION}.tap
+            cat ${TYPE}_${VERSION}.tap \
+                | ./node_modules/tap-junit/bin/tap-junit \
+                    --name ${TYPE}_${VERSION}.xml \
+                    --output ./ \
+                    --pretty \
+                    || :
+        """
+    }
+}
+
 void fetchAgentLog(String CLIENT_VERSION) {
      withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
@@ -138,6 +185,10 @@ pipeline {
             description: 'Commit hash for pmm-qa branch',
             name: 'PMM_QA_GIT_COMMIT_HASH')
         string(
+                defaultValue: 'main',
+                description: 'Tag/Branch for pmm-ui repository',
+                name: 'PMM_UI_GIT_BRANCH')
+        string(
             defaultValue: latestVersion,
             description: 'pmm2-client latest version',
             name: 'PMM_VERSION')
@@ -155,7 +206,9 @@ pipeline {
                           color: '#FFFF00',
                           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
+                    npm install
                     npm install tap-junit
+                    npx playwright install
                 '''
             }
         }
@@ -179,6 +232,11 @@ pipeline {
         stage('Test: PS57') {
             steps {
                 runTAP("ps", "ps", "2", "5.7")
+            }
+        }
+        stage('Test: CLI Playwright') {
+            steps {
+                runCli()
             }
         }
         stage('Test: MDB_4_2') {
