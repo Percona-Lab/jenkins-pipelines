@@ -77,7 +77,7 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
     }
 }
 
-void runCli() {
+void runPlaywrightTests(String TYPE, String VERSION) {
     node(env.VM_NAME){
         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
             sh """
@@ -231,14 +231,14 @@ pipeline {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
-        stage('Test: PS57') {
-            steps {
-                runTAP("ps", "ps", "2", "5.7")
-            }
-        }
+//        stage('Test: PS57') {
+//            steps {
+//                runTAP("ps", "ps", "2", "5.7")
+//            }
+//        }
         stage('Test: CLI Playwright') {
             steps {
-                runCli()
+                runPlaywrightTests("modb", "4.2")
             }
         }
         stage('Test: MDB_4_2') {
