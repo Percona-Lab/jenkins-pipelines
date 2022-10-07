@@ -103,7 +103,7 @@ void runCli() {
                 npx playwright install
                 cd /srv
                 sudo git clone --single-branch --branch \\${PMM_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
-                cd /srv/pmm-ui-tests/
+                cd /srv/pmm-ui-tests/cli
                 
                 export CLIENT_VERSION=${CLIENT_VERSION}
                 if [[ \$CLIENT_VERSION == http* ]]; then
