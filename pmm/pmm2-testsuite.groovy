@@ -95,15 +95,15 @@ void runPlaywrightTests(String TYPE, String VERSION) {
                 export tap="1"
                 export PMM_VERSION=${PMM_VERSION}
 
-//                sudo yum install nodejs npm
-                curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.32.0/install.sh | bash
-                . ~/.nvm/nvm.sh
+                sudo yum -y install nodejs npm
+//                 curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.32.0/install.sh | bash
+//                . ~/.nvm/nvm.sh
                 nvm install-latest-npm
                 npm install
                 npx playwright install
-                cd /srv
+                cd /srv/
                 sudo git clone --single-branch --branch \\${PMM_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
-                cd /srv/pmm-ui-tests/cli
+                cd pmm-ui-tests/cli
                 
                 export CLIENT_VERSION=${CLIENT_VERSION}
                 if [[ \$CLIENT_VERSION == http* ]]; then
