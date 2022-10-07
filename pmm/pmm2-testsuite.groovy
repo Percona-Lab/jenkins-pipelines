@@ -210,9 +210,7 @@ pipeline {
                           color: '#FFFF00',
                           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
-                    npm install
                     npm install tap-junit
-                    npx playwright install
                 '''
             }
         }
