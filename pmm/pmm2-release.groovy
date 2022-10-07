@@ -290,7 +290,7 @@ ENDSSH
             }
             steps {
                 installDocker()
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: release started - ${BUILD_URL}"
                 sh "sg docker -c 'docker run ${SERVER_IMAGE} /usr/bin/rpm -qa' > rpms.list"
                 stash includes: 'rpms.list', name: 'rpms'
             }
@@ -302,8 +302,7 @@ ENDSSH
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            ls /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64 \
-                            > repo.list
+                            ls /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64 > repo.list
                         cat rpms.list \
                             | grep -v 'pmm2-client' \
                             | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
@@ -328,12 +327,12 @@ ENDSSH
                 }
             }
         }
-        stage('Createrepo') {
+        stage('Create repo') {
             steps {
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com " \
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
                             createrepo --update /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/
                             if [ -f /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc ]; then
                                 rm -f /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc
@@ -428,11 +427,11 @@ ENDSSH
                     "
                 """
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -ex
-                        aws s3 cp --only-show-errors pmm-server-\${VERSION}.docker s3://percona-vm/pmm-server-\${VERSION}.docker
-                        aws s3 cp --only-show-errors pmm-client-\${VERSION}.docker s3://percona-vm/pmm-client-\${VERSION}.docker
-                    """
+                        aws s3 cp --only-show-errors pmm-server-${VERSION}.docker s3://percona-vm/pmm-server-${VERSION}.docker
+                        aws s3 cp --only-show-errors pmm-client-${VERSION}.docker s3://percona-vm/pmm-client-${VERSION}.docker
+                    '''
                 }
                 deleteDir()
             }
@@ -489,56 +488,71 @@ ENDSSH
                 """
             }
         }
-        stage('Set git tags') {
+        stage('Set git release tags') {
             steps {
-                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                    unstash 'copy'
+                deleteDir()
+                unstash 'copy'
+                withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
-                        set -ex
-                        
-                        # TODO: add `percona-platform/grafana`, which needs different credintials :|
-                        declare -A repo=(
+                        set -x
+                        # Do not allow this step to fail so we can create tags outside of the pipeline
+                        set +e
+                        cat copy.list
+
+                        # List of repos whose release branches need to be tagged
+                        # TODO: add pmm-submodules to the list, maybe even fallback to using submodules
+                        declare -A repos=(
+                            ["percona-grafana"]="percona-platform/grafana"
                             ["percona-dashboards"]="percona/grafana-dashboards"
                             ["percona-qan-api2"]="percona/qan-api2"
                             ["pmm-update"]="percona/pmm-update"
                             ["pmm"]="percona/pmm"
                         )
-                        
-                        # Turn the detachedHead warning message off
-                        git config --global advice.detachedHead false
 
-                        echo "
-                            # List of entries in 'copy.list'
-                            dbaas-controller-2.31.0-1.2209151647.6d9fe5d.el7.x86_64.rpm
-                            dbaas-tools-0.5.7-1.2209221233.el7.x86_64.rpm
-                            percona-alertmanager-0.22.0-3.el7.x86_64.rpm
-                            percona-dashboards-2.31.0-19.2209151640.25fba72.el7.x86_64.rpm
-                            percona-grafana-8.3.10-96.2209091136.2680b34.el7.x86_64.rpm
-                            percona-qan-api2-2.31.0-16.2209120831.500663d.el7.x86_64.rpm
-                            percona-victoriametrics-1.77.1-1.el7.x86_64.rpm
-                            pmm-dump-2.31.0-1.2209120833.el7.x86_64.rpm
-                            pmm-managed-2.31.0-20.2209231325.86df37b.el7.x86_64.rpm
-                            pmm-update-2.31.0-66.2209231252.763aef9.el7.noarch.rpm
-                        "
-                        
-                        for PACKAGE in "${!repo[@]}"; do
-                            SHA=$(
-                                grep "^$PACKAGE-${VERSION}-" copy.list \
-                                    | perl -p -e 's/.*[.]\\d{10}[.]([0-9a-f]{7})[.]el7.*/$1/'
-                            )
-                            if [[ -n "$SHA" ]]; then
-                                rm -fr $PACKAGE
+                        # Configure git settings globally
+                        git config --global advice.detachedHead false
+                        git config --global user.email "dev-services@percona.com"
+                        git config --global user.name "PMM Jenkins"
+
+                        # Configure git to push using ssh
+                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+                        TAG="v${VERSION}"
+                        echo "We will be tagging repos with a tag: $TAG"
+
+                        for PACKAGE in "${!repos[@]}"; do
+                            REPO=${repos["$PACKAGE"]}
+                            # Example of an entry in 'copy.list':
+                            # percona-dashboards-2.31.0-19.2209151640.25fba72.el7.x86_64.rpm
+                            SHA=$(grep "$PACKAGE-" copy.list | perl -p -e 's/.*[.]\\d{10}[.]([0-9a-f]{7})[.]el7.*/$1/')
+
+                            if [ -n "$SHA" ] && [ -n "$REPO" ]; then
+                                rm -fr $PACKAGE || true
                                 mkdir $PACKAGE
                                 pushd $PACKAGE >/dev/null
-                                    git clone https://github.com/${repo["$PACKAGE"]} ./
+                                    git clone https://github.com/$REPO ./
+                                    # The default is https, so we want to set it to ssh
+                                    git remote set-url origin git@github.com:$REPO.git
                                     git checkout $SHA
-                                    FULL_SHA=$(git rev-parse HEAD)
+                                    echo "SHA: $(git rev-parse HEAD)"
 
-                                    echo "$FULL_SHA"
-                                    echo "${VERSION}"
+                                    git tag --message="Version $TAG." --sign $TAG
+
+                                    # If the tag already exists, we want to delete it and re-tag this SHA
+                                    if [ $? -eq 128 ]; then
+                                        git tag --delete $TAG
+                                        git push --delete origin $TAG
+                                        git tag --message="Version $TAG." --sign $TAG
+                                    fi
+
+                                    if [ $? -eq 0 ]; then
+                                        git push origin $TAG
+                                    else
+                                        echo "Error: $?"
+                                    fi
                                 popd >/dev/null
                             else
-                                echo "Warning: package $PACKAGE won't get tagged with ${VERSION}"
+                                echo "Warning: the repository $REPO won't get tagged with ${VERSION}"
                             fi
                         done
                     '''
@@ -558,21 +572,11 @@ ENDSSH
             deleteDir()
         }
         success {
-            unstash 'copy'
-            script {
-                def IMAGE = sh(returnStdout: true, script: "cat copy.list").trim()
-            }
-            slackSend botUser: true,
-                        channel: '#pmm-dev',
-                        color: '#00FF00',
-                        message: "PMM ${VERSION} was released!"
-            slackSend botUser: true,
-                      channel: '#releases',
-                      color: '#00FF00',
-                      message: "PMM ${VERSION} was released!"
+            slackSend botUser: true, channel: '#pmm-dev', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}"
+            slackSend botUser: true, channel: '#releases', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}"
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed - ${BUILD_URL}"
+            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: release failed - ${BUILD_URL}"
         }
     }
 }
