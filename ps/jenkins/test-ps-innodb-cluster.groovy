@@ -38,7 +38,6 @@ void runMoleculeAction(String action, String scenario) {
     withCredentials(awsCredentials) {
         sh """
             source venv/bin/activate
-            export MOLECULE_DEBUG=1
             cd package-testing/molecule/ps-innodb-cluster
             cd server
             export INSTANCE_PRIVATE_IP=\${SERVER_INSTANCE_PRIVATE_IP}
