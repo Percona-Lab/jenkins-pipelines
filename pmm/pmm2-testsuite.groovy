@@ -113,19 +113,6 @@ void runPlaywrightTests(String TYPE, String VERSION) {
             """
         }
     }
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
-            scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
-                ${USER}@${VM_IP}:/tmp/result.tap \
-                ${TYPE}_${VERSION}.tap
-            cat ${TYPE}_${VERSION}.tap \
-                | ./node_modules/tap-junit/bin/tap-junit \
-                    --name ${TYPE}_${VERSION}.xml \
-                    --output ./ \
-                    --pretty \
-                    || :
-        """
-    }
 }
 
 void fetchAgentLog(String CLIENT_VERSION) {
@@ -341,15 +328,6 @@ pipeline {
                 def node = Jenkins.instance.getNode(env.VM_NAME)
                 Jenkins.instance.removeNode(node)
             }
-        }
-        unstable {
-            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build failed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
-        }
-        success {
-            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build Passed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
-        }
-        failure {
-            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
         }
     }
 }
