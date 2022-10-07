@@ -102,7 +102,7 @@ void runCli() {
                 npm install
                 npx playwright install
                 cd /srv
-                sudo git clone --single-branch --branch \\${PMM_UI_GIT_BRANCH} https://github.com/percona/pmm-qa.git
+                sudo git clone --single-branch --branch \\${PMM_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
                 cd /srv/pmm-ui-tests/
                 
                 export CLIENT_VERSION=${CLIENT_VERSION}
