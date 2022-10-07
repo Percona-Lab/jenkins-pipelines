@@ -95,6 +95,7 @@ void runCli() {
                 export tap="1"
                 export PMM_VERSION=${PMM_VERSION}
 
+                nvm install-latest-npm
                 npm install
                 npx playwright install
                 cd /srv
