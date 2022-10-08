@@ -83,10 +83,6 @@ void runPlaywrightTests() {
             sh '''
                 set +e
                 set -x xtrace
-
-//                curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.39.1/install.sh | bash
-//                [ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh"
-//                nvm install --lts
                 node -e "console.log('Running Node.js ' + process.version)"
 
                 git clone --single-branch --branch ${PMM_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
@@ -107,12 +103,12 @@ void runPlaywrightTests() {
 
 void fetchAgentLog(String CLIENT_VERSION) {
      withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
+        sh '''
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                 set -o errexit
                 set -o xtrace
                 export CLIENT_VERSION=${CLIENT_VERSION}
-                if [[ \$CLIENT_VERSION != http* ]]; then
+                if [[ $CLIENT_VERSION != http* ]]; then
                     journalctl -u pmm-agent.service > /var/log/pmm-agent.log
                     sudo chmod 777 /var/log/pmm-agent.log
                 fi
@@ -120,21 +116,21 @@ void fetchAgentLog(String CLIENT_VERSION) {
                     cp /var/log/pmm-agent.log .
                 fi
             '
-            if [[ \$CLIENT_VERSION != http* ]]; then
+            if [[ $CLIENT_VERSION != http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                     ${USER}@${VM_IP}:pmm-agent.log \
                     pmm-agent.log
             fi
-        """
+        '''
     }
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
-            if [[ \$CLIENT_VERSION == http* ]]; then
+        sh '''
+            if [[ $CLIENT_VERSION == http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                     ${USER}@${VM_IP}:workspace/aws-staging-start/pmm-agent.log \
                     pmm-agent.log
             fi
-        """
+        '''
     }
 }
 
@@ -212,21 +208,21 @@ pipeline {
                 runPlaywrightTests()
             }
         }
-//        stage('Test: MDB_4_2') {
-//            steps {
-//                runTAP("modb", "modb", "3", "4.2")
-//            }
-//        }
-//        stage('Test: MDB_4_0') {
-//            steps {
-//                runTAP("modb", "modb", "3", "4.0")
-//            }
-//        }
-//        stage('Test: PSMDB_4_0') {
-//            steps {
-//                runTAP("mo", "psmdb", "3", "4.0")
-//            }
-//        }
+        stage('Test: MDB_4_2') {
+            steps {
+                runTAP("modb", "modb", "3", "4.2")
+            }
+        }
+        stage('Test: MDB_4_0') {
+            steps {
+                runTAP("modb", "modb", "3", "4.0")
+            }
+        }
+        stage('Test: PSMDB_4_0') {
+            steps {
+                runTAP("mo", "psmdb", "3", "4.0")
+            }
+        }
 //        stage('Test: PS80') {
 //            steps {
 //                runTAP("ps", "ps", "2", "8.0")
