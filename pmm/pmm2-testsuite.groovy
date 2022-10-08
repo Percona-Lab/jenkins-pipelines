@@ -80,27 +80,27 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
 void runPlaywrightTests() {
     node(env.VM_NAME){
         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            sh """
-                set -o errexit
-                set -o xtrace
+            sh '''
+                set +e
+                set -x xtrace
 
 //                curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.39.1/install.sh | bash
-//                [ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh"
+//                [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 //                nvm install --lts
                 node -e "console.log('Running Node.js ' + process.version)"
 
-                git clone --single-branch --branch \\${PMM_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
+                git clone --single-branch --branch ${PMM_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
                 cd pmm-ui-tests/cli
                 npm install
                 npx playwright install
                 
                 export CLIENT_VERSION=${CLIENT_VERSION}
-                if [[ \$CLIENT_VERSION == http* ]]; then
+                if [[ $CLIENT_VERSION == http* ]]; then
                     export PATH="/home/ec2-user/workspace/aws-staging-start/pmm2-client/bin:$PATH"
                 fi
                 
                 npx playwright test
-            """
+            '''
         }
     }
 }
@@ -212,66 +212,66 @@ pipeline {
                 runPlaywrightTests()
             }
         }
-        stage('Test: MDB_4_2') {
-            steps {
-                runTAP("modb", "modb", "3", "4.2")
-            }
-        }
-        stage('Test: MDB_4_0') {
-            steps {
-                runTAP("modb", "modb", "3", "4.0")
-            }
-        }
-        stage('Test: PSMDB_4_0') {
-            steps {
-                runTAP("mo", "psmdb", "3", "4.0")
-            }
-        }
-        stage('Test: PS80') {
-            steps {
-                runTAP("ps", "ps", "2", "8.0")
-            }
-        }
-        stage('Test: PSMDB_4_4') {
-            steps {
-                runTAP("mo", "psmdb", "3", "4.4")
-            }
-        }
-        stage('Test: HAPROXY') {
-            steps {
-                runTAP("haproxy", "haproxy", "1", "2.4")
-            }
-        }
-        stage('Test: MS57') {
-            steps {
-                runTAP("ms", "mysql", "2", "5.7")
-            }
-        }
-        stage('Test: MS80') {
-            steps {
-                runTAP("ms", "mysql", "2", "8.0")
-            }
-        }
-        stage('Test: PGSQL10') {
-            steps {
-                runTAP("pgsql", "postgresql", "3", "10.6")
-            }
-        }
-        stage('Test: PD_PGSQL12') {
-            steps {
-                runTAP("pdpgsql", "postgresql", "1", "12")
-            }
-        }
-        stage('Test: PXC') {
-            steps {
-                runTAP("pxc", "pxc", "1", "5.7")
-            }
-        }
-        stage('Test: Generic') {
-            steps {
-                runTAP("generic", "admin", "1", "2")
-            }
-        }
+//        stage('Test: MDB_4_2') {
+//            steps {
+//                runTAP("modb", "modb", "3", "4.2")
+//            }
+//        }
+//        stage('Test: MDB_4_0') {
+//            steps {
+//                runTAP("modb", "modb", "3", "4.0")
+//            }
+//        }
+//        stage('Test: PSMDB_4_0') {
+//            steps {
+//                runTAP("mo", "psmdb", "3", "4.0")
+//            }
+//        }
+//        stage('Test: PS80') {
+//            steps {
+//                runTAP("ps", "ps", "2", "8.0")
+//            }
+//        }
+//        stage('Test: PSMDB_4_4') {
+//            steps {
+//                runTAP("mo", "psmdb", "3", "4.4")
+//            }
+//        }
+//        stage('Test: HAPROXY') {
+//            steps {
+//                runTAP("haproxy", "haproxy", "1", "2.4")
+//            }
+//        }
+//        stage('Test: MS57') {
+//            steps {
+//                runTAP("ms", "mysql", "2", "5.7")
+//            }
+//        }
+//        stage('Test: MS80') {
+//            steps {
+//                runTAP("ms", "mysql", "2", "8.0")
+//            }
+//        }
+//        stage('Test: PGSQL10') {
+//            steps {
+//                runTAP("pgsql", "postgresql", "3", "10.6")
+//            }
+//        }
+//        stage('Test: PD_PGSQL12') {
+//            steps {
+//                runTAP("pdpgsql", "postgresql", "1", "12")
+//            }
+//        }
+//        stage('Test: PXC') {
+//            steps {
+//                runTAP("pxc", "pxc", "1", "5.7")
+//            }
+//        }
+//        stage('Test: Generic') {
+//            steps {
+//                runTAP("generic", "admin", "1", "2")
+//            }
+//        }
         stage('Check Results') {
             steps {
                 script {
