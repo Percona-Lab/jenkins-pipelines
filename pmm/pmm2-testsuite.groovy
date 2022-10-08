@@ -84,16 +84,9 @@ void runPlaywrightTests() {
                 set -o errexit
                 set -o xtrace
 
-                aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-
-                test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
-                export PATH=\$PATH:/usr/sbin
-                export pmm_server_ip="${VM_IP}"
-                export PMM_VERSION=${PMM_VERSION}
-
-                curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.39.1/install.sh | bash
-                [ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh"
-                nvm install --lts
+//                curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.39.1/install.sh | bash
+//                [ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh"
+//                nvm install --lts
                 node -e "console.log('Running Node.js ' + process.version)"
 
                 git clone --single-branch --branch \\${PMM_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
