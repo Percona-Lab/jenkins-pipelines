@@ -77,7 +77,7 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
     }
 }
 
-void runPlaywrightTests(String TYPE, String VERSION) {
+void runPlaywrightTests() {
     node(env.VM_NAME){
         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
             sh """
@@ -88,7 +88,6 @@ void runPlaywrightTests(String TYPE, String VERSION) {
 
                 test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
                 export PATH=\$PATH:/usr/sbin
-                export version="${VERSION}"
                 export pmm_server_ip="${VM_IP}"
                 export PMM_VERSION=${PMM_VERSION}
 
@@ -185,15 +184,9 @@ pipeline {
     options {
         skipDefaultCheckout()
     }
-    triggers {
-        upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
-    }
     stages {
         stage('Prepare') {
             steps {
-                slackSend channel: '#pmm-ci',
-                          color: '#FFFF00',
-                          message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
                     npm install tap-junit
                 '''
@@ -223,7 +216,7 @@ pipeline {
 //        }
         stage('Test: CLI Playwright') {
             steps {
-                runPlaywrightTests("modb", "4.2")
+                runPlaywrightTests()
             }
         }
         stage('Test: MDB_4_2') {
