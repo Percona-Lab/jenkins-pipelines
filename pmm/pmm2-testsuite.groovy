@@ -90,25 +90,23 @@ void runPlaywrightTests(String TYPE, String VERSION) {
                 export PATH=\$PATH:/usr/sbin
                 export version="${VERSION}"
                 export pmm_server_ip="${VM_IP}"
-                export stress="1"
-                export table_c="100"
-                export tap="1"
                 export PMM_VERSION=${PMM_VERSION}
 
-                sudo yum -y install nodejs npm
-//                 curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.32.0/install.sh | bash
-//                . ~/.nvm/nvm.sh
-                nvm install-latest-npm
+                curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.39.1/install.sh | bash
+                [ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh"
+                nvm install --lts
+                node -e "console.log('Running Node.js ' + process.version)"
+
+                git clone --single-branch --branch \\${PMM_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
+                cd pmm-ui-tests/cli
                 npm install
                 npx playwright install
-                cd /srv/
-                sudo git clone --single-branch --branch \\${PMM_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
-                cd pmm-ui-tests/cli
                 
                 export CLIENT_VERSION=${CLIENT_VERSION}
                 if [[ \$CLIENT_VERSION == http* ]]; then
                     export PATH="/home/ec2-user/workspace/aws-staging-start/pmm2-client/bin:$PATH"
                 fi
+                
                 npx playwright test
             """
         }
