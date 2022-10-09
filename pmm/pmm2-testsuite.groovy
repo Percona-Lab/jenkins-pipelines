@@ -91,7 +91,7 @@ void runPlaywrightTests() {
             '''
         }
         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            git poll: false, branch: ${PMM_UI_GIT_BRANCH}, url: 'https://github.com/percona/pmm-ui-tests.git'
+            git poll: false, branch: PMM_UI_GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
             sh '''
                 set +e
                 set -x
