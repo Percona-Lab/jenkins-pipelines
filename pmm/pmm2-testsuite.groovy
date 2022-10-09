@@ -203,11 +203,11 @@ pipeline {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
-        stage('Test: PS57') {
-            steps {
-                runTAP("ps", "ps", "2", "5.7")
-            }
-        }
+//        stage('Test: PS57') {
+//            steps {
+//                runTAP("ps", "ps", "2", "5.7")
+//            }
+//        }
         stage('Test: CLI Playwright') {
             steps {
                 runPlaywrightTests()
