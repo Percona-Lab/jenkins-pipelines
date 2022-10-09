@@ -192,7 +192,7 @@ pipeline {
                         OWNER:          ${OWNER}
                         VERSION_SERVICE: ${VERSION_SERVICE_IMAGE}
                     """
-                    if ("${NOTIFY}" == "true") {
+                    if (params.NOTIFY == "true") {
                         slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                     }
@@ -231,22 +231,20 @@ pipeline {
                             echo '$SSH_KEY' >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
-                        sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-25.noarch.rpm
+                        sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-27.noarch.rpm
                         sudo yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum-config-manager --disable hashicorp
                         sudo yum repolist all
 
-                        sudo yum -y install sysbench
                         sudo amazon-linux-extras enable epel
                         sudo amazon-linux-extras enable php7.4
                         sudo yum --enablerepo epel install php -y
 
                         # Removed due to an repo incident at hashicorp
                         # sudo amazon-linux-extras install epel -y
-                        # sudo amazon-linux-extras install php7.2 -y
 
-                        sudo yum install mysql-client -y
+                        sudo yum install sysbench mysql-client -y
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
                             sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
@@ -345,18 +343,14 @@ pipeline {
             steps {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        sh """
-                            export IP=\$(cat IP)
-                            export VM_NAME=\$(cat VM_NAME)
-                        """
                         node(env.VM_NAME){
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                docker run --name \${VM_NAME}-version-service -d --hostname=\${VM_NAME}-version-service -e SERVE_HTTP=true -e GW_PORT=80 ${VERSION_SERVICE_IMAGE}
-                                docker network create \${VM_NAME}-network
-                                docker network connect \${VM_NAME}-network \${VM_NAME}-version-service
-                                docker network connect \${VM_NAME}-network \${VM_NAME}-server
+                                docker run --name ${VM_NAME}-version-service -d --hostname=${VM_NAME}-version-service -e SERVE_HTTP=true -e GW_PORT=80 ${VERSION_SERVICE_IMAGE}
+                                docker network create ${VM_NAME}-network
+                                docker network connect ${VM_NAME}-network ${VM_NAME}-version-service
+                                docker network connect ${VM_NAME}-network ${VM_NAME}-server
                             """
                         }
                     }
@@ -370,18 +364,14 @@ pipeline {
             steps {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        sh """
-                            export IP=\$(cat IP)
-                            export VM_NAME=\$(cat VM_NAME)
-                        """
                         node(env.VM_NAME){
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                docker exec \${VM_NAME}-server yum update -y percona-release
-                                docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-                                docker exec \${VM_NAME}-server percona-release enable percona testing
-                                docker exec \${VM_NAME}-server yum clean all
+                                docker exec ${VM_NAME}-server yum update -y percona-release
+                                docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
+                                docker exec ${VM_NAME}-server percona-release enable percona testing
+                                docker exec ${VM_NAME}-server yum clean all
                             """
                         }
                     }
@@ -395,18 +385,14 @@ pipeline {
             steps {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        sh """
-                            export IP=\$(cat IP)
-                            export VM_NAME=\$(cat VM_NAME)
-                        """
                         node(env.VM_NAME){
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                docker exec \${VM_NAME}-server yum update -y percona-release
-                                docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-                                docker exec \${VM_NAME}-server percona-release enable percona experimental
-                                docker exec \${VM_NAME}-server yum clean all
+                                docker exec ${VM_NAME}-server yum update -y percona-release
+                                docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
+                                docker exec ${VM_NAME}-server percona-release enable percona experimental
+                                docker exec ${VM_NAME}-server yum clean all
                             """
                         }
                     }
@@ -464,7 +450,7 @@ pipeline {
         }
         success {
             script {
-                if ("${NOTIFY}" == "true") {
+                if (params.NOTIFY == "true") {
                     def PUBLIC_IP = sh(returnStdout: true, script: "cat IP").trim()
                     def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
@@ -487,7 +473,7 @@ pipeline {
                 '''
             }
             script {
-                if ("${NOTIFY}" == "true") {
+                if (params.NOTIFY == "true") {
                     def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
