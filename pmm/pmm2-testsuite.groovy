@@ -82,8 +82,6 @@ void runPlaywrightTests() {
             git poll: false, branch: params.PMM_UI_GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
             sh '''
                 set -ex
-                pwd
-                ls -la
                 # git clone --single-branch --branch ${PMM_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
                 npm install
                 npx playwright install
