@@ -56,9 +56,8 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
                     export PATH="/home/ec2-user/workspace/aws-staging-start/pmm2-client/bin:$PATH"
                 fi
                 bash /srv/pmm-qa/pmm-tests/pmm-2-0-bats-tests/pmm-testsuite.sh \
-                    | tee /tmp/result.output
+                    | tee /tmp/result.tap
 
-                mv /tmp/result.output /tmp/result.tap
             """
         }
     }
@@ -79,27 +78,16 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
 
 void runPlaywrightTests() {
     node(env.VM_NAME){
-        withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            git poll: false, branch: PMM_UI_GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
+        dir('playwright') {
+            git poll: false, branch: params.PMM_UI_GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
             sh '''
-                set -ex 
-                node -e "console.log('Running Node.js ' + process.version)"
-//                git clone --single-branch --branch ${PMM_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
+                set -ex
+                pwd
+                ls -la
+                # git clone --single-branch --branch ${PMM_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
                 cd pmm-ui-tests/cli
                 npm install
                 npx playwright install
-            '''
-        }
-        withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            sh '''
-                set +e
-                set -x
-                
-                export CLIENT_VERSION=${CLIENT_VERSION}
-                if [[ $CLIENT_VERSION == http* ]]; then
-                    export PATH="/home/ec2-user/workspace/aws-staging-start/pmm2-client/bin:$PATH"
-                fi
-                
                 npx playwright test
             '''
         }
