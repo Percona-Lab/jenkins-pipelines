@@ -80,7 +80,7 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
 void runPlaywrightTests() {
     node(env.VM_NAME){
         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            git poll: false, branch: ${PMM_UI_GIT_BRANCH}, url: 'https://github.com/percona/pmm-ui-tests.git'
+            git poll: false, branch: PMM_UI_GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
             sh '''
                 set -ex 
                 node -e "console.log('Running Node.js ' + process.version)"
@@ -91,7 +91,6 @@ void runPlaywrightTests() {
             '''
         }
         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            git poll: false, branch: PMM_UI_GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
             sh '''
                 set +e
                 set -x
@@ -109,7 +108,6 @@ void runPlaywrightTests() {
 
 void fetchAgentLog(String CLIENT_VERSION) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-
         sh '''
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                 set -o errexit
