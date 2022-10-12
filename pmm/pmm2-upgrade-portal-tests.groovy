@@ -270,7 +270,6 @@ pipeline {
                 timeout(time: 60, unit: "MINUTES")
             }
             steps {
-                println "$PMM_DOCKER_HUB:" + getPMMServerVersion(PMM_SERVER_VERSION, PMM_SERVER_VERSION_CUSTOM)
                 performDockerWayUpgrade("$PMM_DOCKER_HUB:" + getPMMServerVersion(PMM_SERVER_VERSION, PMM_SERVER_VERSION_CUSTOM), env.VM_IP)
             }
         }
