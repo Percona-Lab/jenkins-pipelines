@@ -92,6 +92,7 @@ pipeline {
                 stash includes: 'uploadPath', name: 'uploadPath'
                 pushArtifactFolder("source_tarball/", AWS_STASH_PATH)
                 uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
+                uploadTarballOnJenkinsDeployServer("source_tarball", ${PSMDB_VERSION})
             }
         }
         stage('Build PSMDB generic source packages') {
@@ -257,7 +258,11 @@ pipeline {
                 sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
             }
         }
-
+        stage('Publish docker images for tests in Perconalab') {
+            steps {
+                buildDockerImageForPerconaLab(${PSMDB_VERSION})
+            }
+        }
     }
     post {
         success {
