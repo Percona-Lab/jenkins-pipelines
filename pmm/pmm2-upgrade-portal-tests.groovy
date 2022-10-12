@@ -51,22 +51,12 @@ void performDockerWayUpgrade(String PMM_VERSION, String VM_IP) {
         sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} ' 
                 docker ps -a
-                export PMM_VERSION=${PMM_VERSION}
-                export PMM_SERVER_DOCKER_CONTAINER=docker ps --filter ancestor=${PMM_VERSION} --format "{{.Names}}"
-                echo ${PMM_SERVER_DOCKER_CONTAINER}
-                docker stop ${PMM_SERVER_DOCKER_CONTAINER}
-                docker rm ${PMM_SERVER_DOCKER_CONTAINER}
-
+                export PMM_VERSION_TEST=${PMM_VERSION}
+                export PMM_SERVER_DOCKER_CONTAINER=\$(docker ps --filter ancestor=${PMM_VERSION} --format "{{.Names}}")
+                docker stop ${VM_NAME}-server
+                docker rm ${VM_NAME}-server
                 ## Setup new Container using volume from previous container
-                docker run -d \
-                    -p 80:80 \
-                    -p 443:443 \
-                    -p 9000:9000 \
-                    --volumes-from \${VM_NAME}-data \
-                    --name \${VM_NAME}-server \
-                    --restart always \
-                    \${ENV_VARIABLE} \
-                    ${DOCKER_VERSION}
+                docker run -d -p 80:80 -p 443:443 -p 9000:9000 --volumes-from ${VM_NAME}-data --name pmm-portal-docker-upgrade-server --restart always ${PMM_SERVER_DOCKER_TAG}
                 docker ps -a
             '
         """
