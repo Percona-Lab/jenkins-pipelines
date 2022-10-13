@@ -29,7 +29,7 @@ def call(String type='latest') {
       def latestVersion = httpRequest "https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/PMM-2.0/VERSION"
       return latestVersion.content
     case 'stable':
-      return versionsList.last()
+      return versionsList[versionsList.size - 2]
     case 'ami':
       return versions
     case 'list':
