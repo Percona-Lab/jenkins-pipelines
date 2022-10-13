@@ -22,10 +22,10 @@ netMap['eu-west-1b'] = 'subnet-04221bb8f6d0aeeff'
 netMap['eu-west-1c'] = 'subnet-0b9a1fd4ba5296a8b'
 
 imageMap = [:]
-imageMap['eu-west-1a.docker'] = 'ami-02b4e72b17337d6c1'
-imageMap['eu-west-1a.docker-32gb'] = 'ami-02b4e72b17337d6c1'
-imageMap['eu-west-1a.docker2'] = 'ami-02b4e72b17337d6c1'
-imageMap['eu-west-1a.micro-amazon'] = 'ami-02b4e72b17337d6c1'
+imageMap['eu-west-1a.docker'] = 'ami-038e9cdc714b15936'
+imageMap['eu-west-1a.docker-32gb'] = 'ami-038e9cdc714b15936'
+imageMap['eu-west-1a.docker2'] = 'ami-038e9cdc714b15936'
+imageMap['eu-west-1a.micro-amazon'] = 'ami-038e9cdc714b15936'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
@@ -41,7 +41,7 @@ priceMap = [:]
 priceMap['t2.small'] = '0.01'
 priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
-priceMap['m4.large'] = '0.10'
+priceMap['c5.xlarge'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
 priceMap['r4.4xlarge'] = '0.38'
 priceMap['m5d.2xlarge'] = '0.20'
@@ -211,14 +211,14 @@ initMap['micro-amazon'] = '''
 
 capMap = [:]
 capMap['c4.xlarge'] = '60'
-capMap['m4.large'] = '40'
+capMap['c5.xlarge'] = '40'
 capMap['m4.2xlarge'] = '40'
 capMap['r4.4xlarge'] = '40'
 capMap['c5d.xlarge'] = '10'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
-typeMap['docker'] = 'm4.large'
+typeMap['docker'] = 'c5.xlarge'
 typeMap['docker-32gb'] = 'm4.2xlarge'
 typeMap['docker2'] = 'r4.4xlarge'
 
