@@ -92,7 +92,6 @@ pipeline {
                 stash includes: 'uploadPath', name: 'uploadPath'
                 pushArtifactFolder("source_tarball/", AWS_STASH_PATH)
                 uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
-                uploadTarballOnJenkinsDeployServer("source_tarball", ${PSMDB_VERSION})
             }
         }
         stage('Build PSMDB generic source packages') {
@@ -229,6 +228,7 @@ pipeline {
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                        uploadTarballOnJenkinsDeployServer("tarball", ${PSMDB_VERSION})
                     }
                 }
                 stage('Centos 7 debug tarball') {
