@@ -100,7 +100,7 @@ priceMap['t2.small'] = '0.01'
 priceMap['m1.medium'] = '0.05'
 priceMap['c5.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
-priceMap['r5ad.2xlarge'] = '0.32'
+priceMap['r5b.2xlarge'] = '0.32'
 priceMap['r4.4xlarge'] = '0.38'
 priceMap['m5d.2xlarge'] = '0.20'
 priceMap['c5d.xlarge'] = '0.20'
@@ -156,8 +156,9 @@ initMap['docker'] = '''
     done
 
     sudo amazon-linux-extras install epel -y
-    sudo yum -y install java-1.8.0-openjdk git docker p7zip
-    sudo yum -y remove java-1.7.0-openjdk awscli
+    sudo amazon-linux-extras install java-openjdk11 -y
+    sudo yum -y install git docker p7zip
+    sudo yum -y remove awscli
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
@@ -223,9 +224,9 @@ initMap['micro-amazon'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git || :
+    sudo yum -y install java-11-openjdk || :
+    sudo yum -y install git || :
     sudo yum -y install aws-cli || :
-    sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 initMap['min-centos-6-x64'] = '''
@@ -338,7 +339,7 @@ initMap['min-bionic-x64'] = '''
         sleep 1
         echo try again
     done
-    until sudo apt-get -y install openjdk-8-jre-headless git; do
+    until sudo apt-get -y install openjdk-11-jre-headless git; do
         sleep 1
         echo try again
     done
@@ -381,7 +382,7 @@ initMap['min-bionic-x64-zenfs'] = initMap['min-bionic-x64']
 capMap = [:]
 capMap['c5.xlarge']    = '60'
 capMap['m4.xlarge']    = '5'
-capMap['r5ad.2xlarge'] = '40'
+capMap['r5b.2xlarge'] = '40'
 capMap['r4.4xlarge']   = '40'
 capMap['c5d.xlarge']   = '10'
 capMap['i4i.2xlarge']  = '40'
@@ -389,7 +390,7 @@ capMap['i4i.2xlarge']  = '40'
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.small'
 typeMap['docker']            = 'c5.xlarge'
-typeMap['docker-32gb']       = 'r5ad.2xlarge'
+typeMap['docker-32gb']       = 'r5b.2xlarge'
 typeMap['docker2']           = 'r4.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
 typeMap['min-centos-8-x64']  = typeMap['min-centos-7-x64']
@@ -500,7 +501,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
-        new UnixData('', '', '', '22'),             // AMITypeData amiType
+        new UnixData('', '', '', '22', ''),         // AMITypeData amiType
         '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
