@@ -148,7 +148,7 @@ priceMap = [:]
 priceMap['t2.micro'] = '0.1' // Dedicated instance type for RHEL
 priceMap['t2.medium'] = '0.03'
 priceMap['t2.large'] = '0.07'
-priceMap['t3a.2xlarge'] = '0.17'
+priceMap['c5n.2xlarge'] = '0.25'
 priceMap['t3.2xlarge'] = '0.18'
 priceMap['i4i.2xlarge'] = '0.40'
 priceMap['t2.2xlarge'] = '0.18'
@@ -203,8 +203,9 @@ initMap['docker'] = '''
     done
 
     sudo amazon-linux-extras install epel -y
-    sudo yum -y install java-1.8.0-openjdk git docker p7zip
-    sudo yum -y remove java-1.7.0-openjdk awscli
+    sudo amazon-linux-extras install java-openjdk11 -y
+    sudo yum -y install git docker p7zip
+    sudo yum -y remove awscli
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         sudo rm -rf /tmp/aws* || true
@@ -261,7 +262,7 @@ initMap['docker-32gb-hirsute'] = '''
         echo try again
     done
 
-    until sudo apt-get -y install openjdk-8-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
+    until sudo apt-get -y install openjdk-11-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
         sleep 1
         echo try again
     done
@@ -422,9 +423,9 @@ initMap['rpmMap'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git || :
+    sudo amazon-linux-extras install java-openjdk11 -y
+    sudo yum -y install git || :
     sudo yum -y install aws-cli || :
-    sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
     # CentOS 6 x32 workarounds
@@ -471,7 +472,7 @@ initMap['debMap'] = '''
     if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]]; then
         JAVA_VER="openjdk-11-jre-headless"
     else
-        JAVA_VER="openjdk-8-jre-headless"
+        JAVA_VER="openjdk-11-jre-headless"
     fi
 
     sudo apt-get -y install ${JAVA_VER} git
@@ -500,7 +501,7 @@ initMap['min-bullseye-aarch64'] = initMap['debMap']
 initMap['min-jammy-aarch64']    = initMap['debMap']
 
 capMap = [:]
-capMap['t3a.2xlarge'] = '60'
+capMap['c5n.2xlarge'] = '60'
 capMap['t3.2xlarge']  = '60'
 capMap['i4i.2xlarge'] = '40'
 capMap['t2.2xlarge']  = '10'
@@ -508,8 +509,8 @@ capMap['t2.micro']    = '10'
 capMap['r6g.2xlarge'] = '40'
 
 typeMap = [:]
-typeMap['micro-amazon']      = 't3a.2xlarge'
-typeMap['docker']            = 't3a.2xlarge'
+typeMap['micro-amazon']      = 'c5n.2xlarge'
+typeMap['docker']            = 'c5n.2xlarge'
 typeMap['docker-32gb']       = 'i4i.2xlarge'
 typeMap['docker2']           = 't2.2xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']

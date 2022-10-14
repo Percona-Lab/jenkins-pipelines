@@ -43,9 +43,9 @@ Parameters:
 Mappings:
   AmazonLinux2:
     eu-west-1:
-      x64: ami-038e9cdc714b15936
+      x64: ami-0af7a5885e3ff0439
     eu-central-1:
-      x64: ami-05f5f4f906feab6a7
+      x64: ami-08658d5197becde34
 
 Resources:
 
@@ -632,7 +632,7 @@ Resources:
                   cat <<-"EOF" | tee -a /etc/systemd/system/jenkins.service.d/override.conf
 
               		# Arguments for the Jenkins JVM
-                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -server -XX:+AlwaysPreTouch -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=$JENKINS_HOME -XX:+UseG1GC -XX:+UseStringDeduplication -XX:+ParallelRefProcEnabled -XX:+DisableExplicitGC -XX:+UnlockDiagnosticVMOptions -XX:+UnlockExperimentalVMOptions -Xlog:gc*=info,gc+heap=debug,gc+ref*=debug,gc+ergo*=trace,gc+age*=trace:file=$JENKINS_HOME/gc.log:utctime,pid,level,tags:filecount=2,filesize=100M -XX:ErrorFile=$JENKINS_HOME/hs_err_%p.log -XX:+LogVMOutput -XX:LogFile=$JENKINS_HOME/jvm.log -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
               	EOF
 
                   systemctl daemon-reload
