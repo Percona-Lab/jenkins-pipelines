@@ -11,7 +11,7 @@ def getMinorVersion(VERSION) {
 
 pipeline {
     agent {
-        label 'docker-farm'
+        label 'agent-amd64'
     }
     environment {
         PORTAL_USER_EMAIL=credentials('PORTAL_USER_EMAIL')

@@ -65,8 +65,7 @@ pipeline {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                 sh '''
                     set -o errexit
-                    if [ -s ci.yml ]
-                    then
+                    if [ -s ci.yml ]; then
                         sudo rm -rf results tmp || :
                         git reset --hard
                         git clean -fdx
