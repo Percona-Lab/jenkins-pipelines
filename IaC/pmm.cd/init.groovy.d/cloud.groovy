@@ -90,7 +90,6 @@ initMap['rpmMap'] = '''
     fi
 
     printf "127.0.0.1 $(hostname) $(hostname -A)
-    10.30.6.220 vbox-01.ci.percona.com
     10.30.6.9 repo.ci.percona.com
     "     | sudo tee -a /etc/hosts
 
@@ -106,8 +105,8 @@ initMap['rpmMap'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git ${PKGLIST} || :
-    sudo yum -y remove java-1.7.0-openjdk aws-cli || :
+    sudo yum -y install java-11-openjdk git ${PKGLIST} || :
+    sudo yum -y remove aws-cli || :
 
     if [[ $SYSREL -eq 2 ]]; then
         if ! $(aws --version | grep -q 'aws-cli/2'); then
@@ -151,13 +150,9 @@ initMap['debMap'] = '''
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
-    DEB_VER=$(lsb_release -sc)
-    if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]]; then
-        JAVA_VER="openjdk-11-jre-headless"
-    else
-        JAVA_VER="openjdk-8-jre-headless"
-    fi
-    sudo apt-get -y install ${JAVA_VER} git
+    echo $(lsb_release -sc)
+
+    sudo apt-get -y install openjdk-11-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 
