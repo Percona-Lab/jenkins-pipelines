@@ -74,7 +74,7 @@ initMap['rpmMap'] = '''
     set -o xtrace
     RHVER=$(rpm --eval %rhel)
     ARCH=$(uname -m)
-    SYSREL=$(cat /etc/system-release | tr -dc '0-9.'|awk -F'.' {'print $1'})
+    SYSREL=$(cat /etc/system-release | tr -dc '0-9.' | awk -F'.' {'print $1'})
 
     if ! mountpoint -q /mnt; then
         for DEVICE_NAME in $(lsblk -ndbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
@@ -98,14 +98,21 @@ initMap['rpmMap'] = '''
         sudo sysctl -w fs.aio-max-nr=1048576 || true
         sudo sysctl -w fs.file-max=6815744 || true
         echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
-        sudo amazon-linux-extras install epel -y
+        sudo amazon-linux-extras install epel java-openjdk11 -y
         PKGLIST="tar coreutils p7zip"
+    elif [[ $SYSREL -eq 7 ]]; then
+        PKGLIST="tar coreutils java-11-openjdk"
+    elif [[ $SYSREL -ge 8 ]]; then
+        PKGLIST="tar coreutils java-11-openjdk"
     fi
+
     until sudo yum makecache; do
         sleep 1
         echo try again
     done
-    sudo yum -y install java-11-openjdk git ${PKGLIST} || :
+
+    sudo yum -y install git ${PKGLIST} || :
+    aws --version || :
     sudo yum -y remove aws-cli || :
 
     if [[ $SYSREL -eq 2 ]]; then
@@ -119,10 +126,12 @@ initMap['rpmMap'] = '''
 
             7za -o/tmp x /tmp/awscliv2.zip
             cd /tmp/aws && sudo ./install
+            aws --version || :
         fi
     fi
 
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+
 '''
 
 initMap['debMap'] = '''
