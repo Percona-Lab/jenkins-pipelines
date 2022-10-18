@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'cli'
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
@@ -14,6 +14,7 @@ pipeline {
     stages {
         stage('List instances') {
             steps {
+                deleteDir()
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         copy_tags() {
@@ -202,6 +203,7 @@ pipeline {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
                 }
             }
+            deleteDir()
         }
     }
 }

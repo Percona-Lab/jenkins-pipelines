@@ -135,14 +135,14 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 8') {
+                stage('Oracle Linux 8') {
                     agent {
                         label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:8", "--build_rpm=1")
+                        buildStage("oraclelinux:8", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
@@ -284,7 +284,7 @@ pipeline {
         success {
             slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH}")
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH}"
+                currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
             }
             deleteDir()
         }
