@@ -1,4 +1,7 @@
+# Roll out for the first time
 # aws cloudformation --region us-east-2 create-stack --template-body file://IaC/pmm.cd/JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-pmm-amzn2 --tags Key=iit-billing-tag,Value=jenkins-pmm
+# Perform a maintenance update
+# aws cloudformation --region us-east-2 deploy --template-file IaC/pmm.cd/JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-pmm-amzn2 --tags Key=iit-billing-tag,Value=jenkins-pmm
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
@@ -27,7 +30,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: nikita-beleteskii
+    Default: alex.tymchuk
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
@@ -43,11 +46,11 @@ Parameters:
 Mappings:
   AmazonLinux2:
     us-east-1:
-      x64: ami-06eecef118bbf9259
+      x64: ami-02538f8925e3aa27a
     us-east-2:
-      x64: ami-0fe23c115c3ba9bac
+      x64: ami-0ee5c62243ab25259
     us-west-2:
-      x64: ami-00af37d1144686454
+      x64: ami-07d59d159373b8030
 
 Resources:
 
@@ -618,7 +621,7 @@ Resources:
                   amazon-linux-extras install epel -y
                   amazon-linux-extras install java-openjdk11 -y
                   yum -y update --security
-                  yum -y install jenkins-2.346.1 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install jenkins-2.361.2 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -680,7 +683,7 @@ Resources:
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
                   chown -R jenkins:jenkins /mnt/$JENKINS_HOST
 
-                  printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
+                  printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
                   sed -i 's|-Djava.awt.headless=true|-Djava.awt.headless=true -Xms3072m -Xmx3072m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600|' /usr/lib/systemd/system/jenkins.service
                   sed -i 's/\/var\/lib\/jenkins/\/mnt\/pmm.cd.percona.com/g' /usr/lib/systemd/system/jenkins.service
