@@ -292,7 +292,7 @@ pipeline {
                       message: """Release candidate build was finished :thisisfine:
 Server: perconalab/pmm-server:${VERSION}-rc
 Client: perconalab/pmm-client:${VERSION}-rc
-OVA: http://percona-vm.s3.amazonaws.com/PMM2-Server-${VERSION}.ova
+OVA: https://percona-vm.s3.amazonaws.com/PMM2-Server-${VERSION}.ova
 AMI: ${env.AMI_ID}
 Tarball: ${env.TARBALL_URL}
                       """

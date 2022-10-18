@@ -67,7 +67,7 @@ pipeline {
         choice(
             name: 'SCENARIO',
             description: 'PPG major version to test',
-            choices: ['ppg-11', 'ppg-12', 'ppg-13', 'ppg-14']
+            choices: ['ppg-11', 'ppg-12', 'ppg-13', 'ppg-14', 'ppg-15']
         )
   }
   environment {

@@ -2,7 +2,6 @@
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
-
   LambdaName:
     Default: email_running_instances
     Description: lambda function name
@@ -22,7 +21,6 @@ Parameters:
     ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
 
 Resources:
-
   SVPC: # separate virtual network for Staging instances
     Type: AWS::EC2::VPC
     Properties:
@@ -31,19 +29,19 @@ Resources:
       EnableDnsHostnames: true
       InstanceTenancy: default
       Tags:
-      - Key: Name
-        Value: !Ref SShortName
-      - Key: iit-billing-tag
-        Value: !Ref SShortName
+        - Key: Name
+          Value: !Ref SShortName
+        - Key: iit-billing-tag
+          Value: !Ref SShortName
 
   SInternetGateway: # Internet Gateway for Staging VPC
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
-      - Key: Name
-        Value: !Ref SShortName
-      - Key: iit-billing-tag
-        Value: !Ref SShortName
+        - Key: Name
+          Value: !Ref SShortName
+        - Key: iit-billing-tag
+          Value: !Ref SShortName
 
   SVPCGatewayAttachment: # Attach Gateway to VPC
     Type: AWS::EC2::VPCGatewayAttachment
@@ -59,12 +57,12 @@ Resources:
       MapPublicIpOnLaunch: true
       AvailabilityZone: !Select
         - 0
-        - Fn::GetAZs: ''
+        - Fn::GetAZs: ""
       Tags:
-      - Key: Name
-        Value: !Join [ '-', [ !Ref SShortName, 'A' ]]
-      - Key: iit-billing-tag
-        Value: !Ref SShortName
+        - Key: Name
+          Value: !Join ["-", [!Ref SShortName, "A"]]
+        - Key: iit-billing-tag
+          Value: !Ref SShortName
 
   SSubnetB: # create subnet in AZ
     Type: AWS::EC2::Subnet
@@ -74,12 +72,12 @@ Resources:
       MapPublicIpOnLaunch: true
       AvailabilityZone: !Select
         - 1
-        - Fn::GetAZs: ''
+        - Fn::GetAZs: ""
       Tags:
-      - Key: Name
-        Value: !Join [ '-', [ !Ref SShortName, 'B' ]]
-      - Key: iit-billing-tag
-        Value: !Ref SShortName
+        - Key: Name
+          Value: !Join ["-", [!Ref SShortName, "B"]]
+        - Key: iit-billing-tag
+          Value: !Ref SShortName
 
   SSubnetC: # create subnet in AZ
     Type: AWS::EC2::Subnet
@@ -89,22 +87,22 @@ Resources:
       MapPublicIpOnLaunch: true
       AvailabilityZone: !Select
         - 2
-        - Fn::GetAZs: ''
+        - Fn::GetAZs: ""
       Tags:
-      - Key: Name
-        Value: !Join [ '-', [ !Ref SShortName, 'C' ]]
-      - Key: iit-billing-tag
-        Value: !Ref SShortName
+        - Key: Name
+          Value: !Join ["-", [!Ref SShortName, "C"]]
+        - Key: iit-billing-tag
+          Value: !Ref SShortName
 
   SRouteTable: # create route table for VPC
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref SVPC
       Tags:
-      - Key: Name
-        Value: !Ref SShortName
-      - Key: iit-billing-tag
-        Value: !Ref SShortName
+        - Key: Name
+          Value: !Ref SShortName
+        - Key: iit-billing-tag
+          Value: !Ref SShortName
 
   SInternetRoute: # add default route
     Type: AWS::EC2::Route
@@ -138,13 +136,13 @@ Resources:
       GroupDescription: SSH traffic in
       VpcId: !Ref SVPC
       SecurityGroupIngress:
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
-        CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
       Tags:
-      - Key: iit-billing-tag
-        Value: !Ref SShortName
+        - Key: iit-billing-tag
+          Value: !Ref SShortName
 
   SHTTPSecurityGroup: # allow http and https access
     Type: AWS::EC2::SecurityGroup
@@ -153,162 +151,162 @@ Resources:
       GroupDescription: HTTP and HTTPS traffic in
       VpcId: !Ref SVPC
       SecurityGroupIngress:
-      - IpProtocol: tcp
-        FromPort: 80
-        ToPort: 80
-        CidrIp: 0.0.0.0/0
-      - IpProtocol: tcp
-        FromPort: 443
-        ToPort: 443
-        CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
       Tags:
-      - Key: iit-billing-tag
-        Value: !Ref SShortName
+        - Key: iit-billing-tag
+          Value: !Ref SShortName
 
   SInstancesRole: # separate IAM role for Staging instances
-    Type: 'AWS::IAM::Role'
+    Type: "AWS::IAM::Role"
     Properties:
-      RoleName: !Join [ '-', [ !Ref SShortName, 'slave' ]]
+      RoleName: !Join ["-", [!Ref SShortName, "slave"]]
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
           - Effect: Allow
-            Action: 'sts:AssumeRole'
+            Action: "sts:AssumeRole"
             Principal:
               Service: ec2.amazonaws.com
       Path: /
       Policies:
-        - PolicyName: !Join [ '-', [ !Ref SShortName, 'slave' ]]
+        - PolicyName: !Join ["-", [!Ref SShortName, "slave"]]
           PolicyDocument:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
-                Resource: '*'
+                Resource: "*"
                 Action:
-                - ec2:ModifySpotFleetRequest
-                - ec2:DescribeSpotFleetRequests
-                - ec2:DescribeSpotFleetInstances
-                - ec2:DescribeSpotInstanceRequests
-                - ec2:CancelSpotInstanceRequests
-                - ec2:GetConsoleOutput
-                - ec2:RequestSpotInstances
-                - ec2:RunInstances
-                - ec2:StartInstances
-                - ec2:StopInstances
-                - ec2:TerminateInstances
-                - ec2:CreateTags
-                - ec2:DeleteTags
-                - ec2:DescribeInstances
-                - ec2:DescribeKeyPairs
-                - ec2:DescribeRegions
-                - ec2:DescribeImages
-                - ec2:DescribeAvailabilityZones
-                - ec2:DescribeSecurityGroups
-                - ec2:DescribeSubnets
+                  - ec2:ModifySpotFleetRequest
+                  - ec2:DescribeSpotFleetRequests
+                  - ec2:DescribeSpotFleetInstances
+                  - ec2:DescribeSpotInstanceRequests
+                  - ec2:CancelSpotInstanceRequests
+                  - ec2:GetConsoleOutput
+                  - ec2:RequestSpotInstances
+                  - ec2:RunInstances
+                  - ec2:StartInstances
+                  - ec2:StopInstances
+                  - ec2:TerminateInstances
+                  - ec2:CreateTags
+                  - ec2:DeleteTags
+                  - ec2:DescribeInstances
+                  - ec2:DescribeKeyPairs
+                  - ec2:DescribeRegions
+                  - ec2:DescribeImages
+                  - ec2:DescribeAvailabilityZones
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeSubnets
       Tags:
-      - Key: iit-billing-tag
-        Value: !Ref SShortName
+        - Key: iit-billing-tag
+          Value: !Ref SShortName
 
   SInstancesProfile:
-    Type: 'AWS::IAM::InstanceProfile'
+    Type: "AWS::IAM::InstanceProfile"
     Properties:
       Path: /
       Roles:
         - !Ref SInstancesRole
-      InstanceProfileName: !Join [ '-', [ !Ref SShortName, 'slave' ]]
+      InstanceProfileName: !Join ["-", [!Ref SShortName, "slave"]]
 
   SInstancesUser: # create standalone user for PMM jenkins jobs
     Type: AWS::IAM::User
     Properties:
-      UserName: !Join [ '-', [ !Ref SShortName, 'slave' ]]
+      UserName: !Join ["-", [!Ref SShortName, "slave"]]
       Path: /
       ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/AmazonEC2FullAccess
-      - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
-      - arn:aws:iam::119175775298:policy/jenkins-artifactory
+        - arn:aws:iam::aws:policy/AmazonEC2FullAccess
+        - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
+        - arn:aws:iam::119175775298:policy/jenkins-artifactory
       Policies:
-      - PolicyName: EksAllAccess
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Effect: Allow
-            Action: 
-            - eks:*
-            Resource: "*"
-          - Action:
-            - ssm:GetParameter
-            - ssm:GetParameters
-            Resource:
-            - arn:aws:ssm:*:119175775298:parameter/aws/*
-            - arn:aws:ssm:*::parameter/aws/*
-            Effect: Allow
-          - Action:
-            - kms:CreateGrant
-            - kms:DescribeKey
-            Resource: "*"
-            Effect: Allow               
-      - PolicyName: IamLimitedAccess
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Effect: Allow
-            Action:
-            - iam:CreateInstanceProfile
-            - iam:DeleteInstanceProfile
-            - iam:GetInstanceProfile
-            - iam:RemoveRoleFromInstanceProfile
-            - iam:GetRole
-            - iam:CreateRole
-            - iam:DeleteRole
-            - iam:AttachRolePolicy
-            - iam:PutRolePolicy
-            - iam:ListInstanceProfiles
-            - iam:AddRoleToInstanceProfile
-            - iam:ListInstanceProfilesForRole
-            - iam:PassRole
-            - iam:DetachRolePolicy
-            - iam:DeleteRolePolicy
-            - iam:GetRolePolicy
-            - iam:GetOpenIDConnectProvider
-            - iam:CreateOpenIDConnectProvider
-            - iam:DeleteOpenIDConnectProvider
-            - iam:ListAttachedRolePolicies
-            - iam:TagRole
-            Resource:
-            - arn:aws:iam::119175775298:instance-profile/eksctl-*
-            - arn:aws:iam::119175775298:role/eksctl-*
-            - arn:aws:iam::119175775298:oidc-provider/*
-            - arn:aws:iam::119175775298:role/aws-service-role/eks-nodegroup.amazonaws.com/AWSServiceRoleForAmazonEKSNodegroup
-            - arn:aws:iam::119175775298:role/eksctl-managed-*  
-          - Effect: Allow
-            Action:
-            - iam:GetRole
-            Resource:
-            - arn:aws:iam::119175775298:role/*
-          - Effect: Allow
-            Action:
-            - iam:CreateServiceLinkedRole
-            Resource: "*"
-            Condition:
-              StringEquals:
-                iam:AWSServiceName:
-                - eks.amazonaws.com
-                - eks-nodegroup.amazonaws.com
-                - eks-fargate.amazonaws.com
-      - PolicyName: EC2Spot
-        PolicyDocument:
-          Version: 2012-10-17
-          Statement:
-            - Effect: Allow
-              Resource: '*'
-              Action:
-              - ec2:DescribeInstances
-              - ec2:RequestSpotInstances
-              - ec2:RunInstances
-              - iam:PassRole
+        - PolicyName: EksAllAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - eks:*
+                Resource: "*"
+              - Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                Resource:
+                  - arn:aws:ssm:*:119175775298:parameter/aws/*
+                  - arn:aws:ssm:*::parameter/aws/*
+                Effect: Allow
+              - Action:
+                  - kms:CreateGrant
+                  - kms:DescribeKey
+                Resource: "*"
+                Effect: Allow
+        - PolicyName: IamLimitedAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - iam:CreateInstanceProfile
+                  - iam:DeleteInstanceProfile
+                  - iam:GetInstanceProfile
+                  - iam:RemoveRoleFromInstanceProfile
+                  - iam:GetRole
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:AttachRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:ListInstanceProfiles
+                  - iam:AddRoleToInstanceProfile
+                  - iam:ListInstanceProfilesForRole
+                  - iam:PassRole
+                  - iam:DetachRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:GetRolePolicy
+                  - iam:GetOpenIDConnectProvider
+                  - iam:CreateOpenIDConnectProvider
+                  - iam:DeleteOpenIDConnectProvider
+                  - iam:ListAttachedRolePolicies
+                  - iam:TagRole
+                Resource:
+                  - arn:aws:iam::119175775298:instance-profile/eksctl-*
+                  - arn:aws:iam::119175775298:role/eksctl-*
+                  - arn:aws:iam::119175775298:oidc-provider/*
+                  - arn:aws:iam::119175775298:role/aws-service-role/eks-nodegroup.amazonaws.com/AWSServiceRoleForAmazonEKSNodegroup
+                  - arn:aws:iam::119175775298:role/eksctl-managed-*
+              - Effect: Allow
+                Action:
+                  - iam:GetRole
+                Resource:
+                  - arn:aws:iam::119175775298:role/*
+              - Effect: Allow
+                Action:
+                  - iam:CreateServiceLinkedRole
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    iam:AWSServiceName:
+                      - eks.amazonaws.com
+                      - eks-nodegroup.amazonaws.com
+                      - eks-fargate.amazonaws.com
+        - PolicyName: EC2Spot
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource: "*"
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:RequestSpotInstances
+                  - ec2:RunInstances
+                  - iam:PassRole
       Tags:
-      - Key: iit-billing-tag
-        Value: !Ref SShortName
+        - Key: iit-billing-tag
+          Value: !Ref SShortName
 
   SInstancesUserKey:
     Type: AWS::IAM::AccessKey
@@ -322,29 +320,29 @@ Resources:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
-        - Effect: Allow
-          Action: sts:AssumeRole
-          Principal:
-            Service: lambda.amazonaws.com
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service: lambda.amazonaws.com
       Path: /
       Policies:
-      - PolicyName: !Ref LambdaName
-        PolicyDocument:
-          Version: 2012-10-17
-          Statement:
-          - Effect: Allow
-            Resource: '*'
-            Action:
-            - ec2:DescribeSpotInstanceRequests
-            - ec2:DescribeSpotPriceHistory
-            - ec2:DescribeInstances
-            - ses:SendEmail
-          - Effect: Allow
-            Resource: 'arn:aws:logs:*:*:*'
-            Action:
-            - logs:CreateLogStream
-            - logs:CreateLogGroup
-            - logs:PutLogEvents
+        - PolicyName: !Ref LambdaName
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource: "*"
+                Action:
+                  - ec2:DescribeSpotInstanceRequests
+                  - ec2:DescribeSpotPriceHistory
+                  - ec2:DescribeInstances
+                  - ses:SendEmail
+              - Effect: Allow
+                Resource: "arn:aws:logs:*:*:*"
+                Action:
+                  - logs:CreateLogStream
+                  - logs:CreateLogGroup
+                  - logs:PutLogEvents
 
   LambdaFunction: # create lambda function which email staging owner at night
     Type: AWS::Lambda::Function
@@ -357,119 +355,119 @@ Resources:
       Runtime: python2.7
       Timeout: 10
       Tags:
-      - Key: iit-billing-tag
-        Value: !Ref SShortName
+        - Key: iit-billing-tag
+          Value: !Ref SShortName
       Code:
         ZipFile: |
-            from __future__ import print_function
+          from __future__ import print_function
 
-            import re
-            import boto3
-            import datetime
-            import collections
+          import re
+          import boto3
+          import datetime
+          import collections
 
-            def lambda_handler(event, context):
-                fullReportEmail = ['alexander.tymchuk@percona.com', 'roma.novikov@percona.com']
-                region = 'us-east-2'
-                session = boto3.Session(region_name=region)
-                resources = session.resource('ec2')
-                ec2 = session.client('ec2')
-                ses = session.client('ses', region_name='us-east-1')
+          def lambda_handler(event, context):
+              fullReportEmail = ['alexander.tymchuk@percona.com', 'talha.rizwan@percona.com']
+              region = 'us-east-2'
+              session = boto3.Session(region_name=region)
+              resources = session.resource('ec2')
+              ec2 = session.client('ec2')
+              ses = session.client('ses', region_name='us-east-1')
 
-                instances = resources.instances.filter(Filters=[
-                    {'Name': 'instance-state-name', 'Values': ['running']},
-                    {'Name': 'tag:iit-billing-tag', 'Values': ['pmm-staging']}
-                ])
+              instances = resources.instances.filter(Filters=[
+                  {'Name': 'instance-state-name', 'Values': ['running']},
+                  {'Name': 'tag:iit-billing-tag', 'Values': ['pmm-staging']}
+              ])
 
-                emails = collections.defaultdict(list)
-                for instance in instances:
-                    # get instance Owner
-                    ownerFilter = filter(lambda x: 'owner' == x['Key'], instance.tags)
-                    if len(ownerFilter) >= 1:
-                        owner = ownerFilter[0]['Value'] + '@percona.com'
-                    else:
-                        owner = 'unknown'
+              emails = collections.defaultdict(list)
+              for instance in instances:
+                  # get instance Owner
+                  ownerFilter = filter(lambda x: 'owner' == x['Key'], instance.tags)
+                  if len(ownerFilter) >= 1:
+                      owner = ownerFilter[0]['Value'] + '@percona.com'
+                  else:
+                      owner = 'unknown'
 
-                    # get instance allowed days
-                    allowedDaysFilter = filter(lambda x: 'stop-after-days' == x['Key'], instance.tags)
-                    if len(allowedDaysFilter) >= 1 and allowedDaysFilter[0]['Value'] > 0:
-                        allowedDays = allowedDaysFilter[0]['Value'] + ' days'
-                    else:
-                        allowedDays = 'unlimited'
+                  # get instance allowed days
+                  allowedDaysFilter = filter(lambda x: 'stop-after-days' == x['Key'], instance.tags)
+                  if len(allowedDaysFilter) >= 1 and allowedDaysFilter[0]['Value'] > 0:
+                      allowedDays = allowedDaysFilter[0]['Value'] + ' days'
+                  else:
+                      allowedDays = 'unlimited'
 
-                    # get instance Name
-                    nameFilter = filter(lambda x: 'Name' == x['Key'], instance.tags)
-                    if len(nameFilter) >= 1:
-                        name = nameFilter[0]['Value']
-                    else:
-                        name = instance.id
+                  # get instance Name
+                  nameFilter = filter(lambda x: 'Name' == x['Key'], instance.tags)
+                  if len(nameFilter) >= 1:
+                      name = nameFilter[0]['Value']
+                  else:
+                      name = instance.id
 
-                    # get instance Uptime
-                    current_time = datetime.datetime.now(instance.launch_time.tzinfo)
-                    uptime = current_time - instance.launch_time
+                  # get instance Uptime
+                  current_time = datetime.datetime.now(instance.launch_time.tzinfo)
+                  uptime = current_time - instance.launch_time
 
-                    # get price
-                    priceHistory = ec2.describe_spot_price_history(
-                        InstanceTypes=[instance.instance_type],
-                        StartTime=instance.launch_time,
-                        EndTime=current_time,
-                        AvailabilityZone=instance.placement['AvailabilityZone']
-                    )
-                    totalCost = 0.0
-                    for price in priceHistory['SpotPriceHistory']:
-                        totalCost += float(price['SpotPrice'])
-                    costStr = '%0.2f USD' % totalCost
+                  # get price
+                  priceHistory = ec2.describe_spot_price_history(
+                      InstanceTypes=[instance.instance_type],
+                      StartTime=instance.launch_time,
+                      EndTime=current_time,
+                      AvailabilityZone=instance.placement['AvailabilityZone']
+                  )
+                  totalCost = 0.0
+                  for price in priceHistory['SpotPriceHistory']:
+                      totalCost += float(price['SpotPrice'])
+                  costStr = '%0.2f USD' % totalCost
 
-                    # prepare table for email
-                    if uptime.total_seconds() > 5*60*60:
-                        strUptime = re.match('^[^:]+:[^:]+', str(uptime)).group(0)
-                        emails[owner].append('<tr><td>' + name + '</td><td>' + owner + '</td><td>' + strUptime + '</td><td>' + allowedDays + '</td><td>' + costStr + '</td></tr>')
-                        for email in fullReportEmail:
-                            if owner != email:
-                                emails[email].append('<tr><td>' + name + '</td><td>' + owner + '</td><td>' + strUptime + '</td><td>' + allowedDays + '</td><td>' + costStr + '</td></tr>')
-                    else:
-                        print('Skip: ' + name)
+                  # prepare table for email
+                  if uptime.total_seconds() > 5*60*60:
+                      strUptime = re.match('^[^:]+:[^:]+', str(uptime)).group(0)
+                      emails[owner].append('<tr><td>' + name + '</td><td>' + owner + '</td><td>' + strUptime + '</td><td>' + allowedDays + '</td><td>' + costStr + '</td></tr>')
+                      for email in fullReportEmail:
+                          if owner != email:
+                              emails[email].append('<tr><td>' + name + '</td><td>' + owner + '</td><td>' + strUptime + '</td><td>' + allowedDays + '</td><td>' + costStr + '</td></tr>')
+                  else:
+                      print('Skip: ' + name)
 
-                for ownerEmail in emails:
-                    if ownerEmail == 'unknown':
-                        continue
+              for ownerEmail in emails:
+                  if ownerEmail == 'unknown':
+                      continue
 
-                    body = '''
-                      <html>
-                        <head></head>
-                        <body>
-                          <h4>just a friendly reminder - please don't forget to shutdown the following instances:</h4>
-                          <table>
-                            <tr><th>Name</th><th>Owner</th><th>Uptime</th><th>Allowed Uptime</th><th>Total Cost</th></tr>
-                            %s
-                          </table>
-                          <p></p>
-                          <p><a href="https://pmm.cd.percona.com/blue/organizations/jenkins/aws-staging-stop/activity">Stop PMM Staging Link</a></p>
-                        </body>
-                      </html>
-                    ''' % ('\n'.join(emails[ownerEmail]))
-                    print('To: ' + ownerEmail + body)
+                  body = '''
+                    <html>
+                      <head></head>
+                      <body>
+                        <h4>A friendly reminder - please don't forget to shutdown the following instances:</h4>
+                        <table>
+                          <tr><th>Name</th><th>Owner</th><th>Uptime</th><th>Expiry</th><th>Total Cost</th></tr>
+                          %s
+                        </table>
+                        <p></p>
+                        <p><a href="https://pmm.cd.percona.com/blue/organizations/jenkins/aws-staging-stop/activity">Stop PMM Staging Link</a></p>
+                      </body>
+                    </html>
+                  ''' % ('\n'.join(emails[ownerEmail]))
+                  print('To: ' + ownerEmail + body)
 
-                    ses.send_email(
-                        Source='lp-percona.script@percona.com',
-                        Destination={
-                            'ToAddresses': [ownerEmail],
-                        },
-                        Message={
-                            'Body': {
-                                'Html': {
-                                    'Charset': 'UTF-8',
-                                    'Data': body,
-                                },
-                            },
-                            'Subject': {
-                                'Charset': 'UTF-8',
-                                'Data': 'PMM Staging reminder',
-                            },
-                        },
-                    )
+                  ses.send_email(
+                      Source='lp-percona.script@percona.com',
+                      Destination={
+                          'ToAddresses': [ownerEmail],
+                      },
+                      Message={
+                          'Body': {
+                              'Html': {
+                                  'Charset': 'UTF-8',
+                                  'Data': body,
+                              },
+                          },
+                          'Subject': {
+                              'Charset': 'UTF-8',
+                              'Data': 'PMM Staging reminder',
+                          },
+                      },
+                  )
 
-                return 'successful finish'
+              return 'successful finish'
 
   ScheduledRule: # cron rule
     Type: AWS::Events::Rule
