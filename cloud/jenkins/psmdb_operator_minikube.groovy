@@ -162,7 +162,7 @@ pipeline {
             description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
             name: 'IMAGE_PMM')
         string(
-            defaultValue: 'v1.14.8',
+            defaultValue: 'latest',
             description: 'Kubernetes Version',
             name: 'PLATFORM_VER',
             trim: true)
