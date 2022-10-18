@@ -302,88 +302,88 @@ pipeline {
                 CLUSTER_NAME = sh(script: "echo jenkins-lat-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
             }
             parallel {
-//                stage('E2E Upgrade') {
-//                    steps {
-//                        CreateCluster('upgrade')
-//                        runTest('upgrade-haproxy', 'upgrade')
-//                        ShutdownCluster('upgrade')
-//                        CreateCluster('upgrade')
-//                        runTest('upgrade-proxysql', 'upgrade')
-//                        ShutdownCluster('upgrade')
-//                        CreateCluster('upgrade')
-//                        runTest('smart-update', 'upgrade')
-//                        runTest('upgrade-consistency', 'upgrade')
-//                        ShutdownCluster('upgrade')
-//                    }
-//                }
-//                stage('E2E Basic Tests') {
-//                    steps {
-//                        CreateCluster('basic')
-//                        conditionalRunTest('default-cr', 'basic')
-//                        runTest('init-deploy', 'basic')
-//                        runTest('limits', 'basic')
-//                        runTest('monitoring-2-0', 'basic')
-//                        runTest('affinity', 'basic')
-//                        runTest('one-pod', 'basic')
-//                        runTest('auto-tuning', 'basic')
-//                        runTest('proxysql-sidecar-res-limits', 'basic')
-//                        runTest('users', 'basic')
-//                        runTest('haproxy', 'basic')
-//                        runTest('tls-issue-self', 'basic')
-//                        runTest('tls-issue-cert-manager', 'basic')
-//                        runTest('tls-issue-cert-manager-ref', 'basic')
-//                        runTest('validation-hook', 'basic')
-//                        runTest('proxy-protocol','basic')
-//                        ShutdownCluster('basic')
-//                    }
-//                }
-//                stage('E2E Scaling') {
-//                    steps {
-//                        CreateCluster('scaling')
-//                        runTest('scaling', 'scaling')
-//                        runTest('scaling-proxysql', 'scaling')
-//                        runTest('security-context', 'scaling')
-//                        ShutdownCluster('scaling')
-//                    }
-//                }
-//                stage('E2E SelfHealing') {
-//                    steps {
-//                        CreateCluster('selfhealing')
-//                        runTest('storage', 'selfhealing')
-//                        runTest('self-healing', 'selfhealing')
-//                        runTest('self-healing-chaos', 'selfhealing')
-//                        runTest('self-healing-advanced', 'selfhealing')
-//                        runTest('self-healing-advanced-chaos', 'selfhealing')
-//                        runTest('operator-self-healing', 'selfhealing')
-//                        runTest('operator-self-healing-chaos', 'selfhealing')
-//                        ShutdownCluster('selfhealing')
-//                    }
-//                }
-//                stage('E2E Backups') {
-//                    steps {
-//                        CreateCluster('backups')
-//                        runTest('recreate', 'backups')
-//                        runTest('restore-to-encrypted-cluster', 'backups')
-//                        runTest('demand-backup', 'backups')
-//                        runTest('demand-backup-encrypted-with-tls', 'backups')
-//                        runTest('pitr','backups')
-//                        ShutdownCluster('backups')
-//                    }
-//                }
-//                stage('E2E Scheduled-backups') {
-//                    steps {
-//                        CreateCluster('scheduled')
-//                        runTest('scheduled-backup', 'scheduled')
-//                        ShutdownCluster('scheduled')
-//                    }
-//                }
-//                stage('E2E BigData') {
-//                    steps {
-//                        CreateCluster('bigdata')
-//                        runTest('big-data', 'bigdata')
-//                        ShutdownCluster('bigdata')
-//                    }
-//                }
+                stage('E2E Upgrade') {
+                    steps {
+                        CreateCluster('upgrade')
+                        runTest('upgrade-haproxy', 'upgrade')
+                        ShutdownCluster('upgrade')
+                        CreateCluster('upgrade')
+                        runTest('upgrade-proxysql', 'upgrade')
+                        ShutdownCluster('upgrade')
+                        CreateCluster('upgrade')
+                        runTest('smart-update', 'upgrade')
+                        runTest('upgrade-consistency', 'upgrade')
+                        ShutdownCluster('upgrade')
+                    }
+                }
+                stage('E2E Basic Tests') {
+                    steps {
+                        CreateCluster('basic')
+                        conditionalRunTest('default-cr', 'basic')
+                        runTest('init-deploy', 'basic')
+                        runTest('limits', 'basic')
+                        runTest('monitoring-2-0', 'basic')
+                        runTest('affinity', 'basic')
+                        runTest('one-pod', 'basic')
+                        runTest('auto-tuning', 'basic')
+                        runTest('proxysql-sidecar-res-limits', 'basic')
+                        runTest('users', 'basic')
+                        runTest('haproxy', 'basic')
+                        runTest('tls-issue-self', 'basic')
+                        runTest('tls-issue-cert-manager', 'basic')
+                        runTest('tls-issue-cert-manager-ref', 'basic')
+                        runTest('validation-hook', 'basic')
+                        runTest('proxy-protocol','basic')
+                        ShutdownCluster('basic')
+                    }
+                }
+                stage('E2E Scaling') {
+                    steps {
+                        CreateCluster('scaling')
+                        runTest('scaling', 'scaling')
+                        runTest('scaling-proxysql', 'scaling')
+                        runTest('security-context', 'scaling')
+                        ShutdownCluster('scaling')
+                    }
+                }
+                stage('E2E SelfHealing') {
+                    steps {
+                        CreateCluster('selfhealing')
+                        runTest('storage', 'selfhealing')
+                        runTest('self-healing', 'selfhealing')
+                        runTest('self-healing-chaos', 'selfhealing')
+                        runTest('self-healing-advanced', 'selfhealing')
+                        runTest('self-healing-advanced-chaos', 'selfhealing')
+                        runTest('operator-self-healing', 'selfhealing')
+                        runTest('operator-self-healing-chaos', 'selfhealing')
+                        ShutdownCluster('selfhealing')
+                    }
+                }
+                stage('E2E Backups') {
+                    steps {
+                        CreateCluster('backups')
+                        runTest('recreate', 'backups')
+                        runTest('restore-to-encrypted-cluster', 'backups')
+                        runTest('demand-backup', 'backups')
+                        runTest('demand-backup-encrypted-with-tls', 'backups')
+                        runTest('pitr','backups')
+                        ShutdownCluster('backups')
+                    }
+                }
+                stage('E2E Scheduled-backups') {
+                    steps {
+                        CreateCluster('scheduled')
+                        runTest('scheduled-backup', 'scheduled')
+                        ShutdownCluster('scheduled')
+                    }
+                }
+                stage('E2E BigData') {
+                    steps {
+                        CreateCluster('bigdata')
+                        runTest('big-data', 'bigdata')
+                        ShutdownCluster('bigdata')
+                    }
+                }
                 stage('E2E CrossSite') {
                     steps {
                         CreateCluster('cross-site')
