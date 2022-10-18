@@ -409,7 +409,7 @@ pipeline {
                     echo "$CLUSTER_NAME"
                     az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
                     az account set -s "$AZURE_SUBSCRIPTION_ID"
-                    az group list --query "[?starts_with(name, $CLUSTER_NAME)].name | [0]" | xargs az aks delete --resource-group percona-operators --subscription eng-cloud-dev --yes || true
+                    az group list --query "[?name=='MC_percona-operators_${CLUSTER_NAME}_eastus'].name | [0]" | xargs az aks delete --resource-group percona-operators --subscription eng-cloud-dev --yes || true
                 '''
             }
             sh '''
