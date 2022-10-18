@@ -402,7 +402,17 @@ pipeline {
             """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml'
+            script {
+                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
+                    try {
+                        slackSend channel: "@${AUTHOR_NAME}", color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
+                    }
+                    catch (exc) {
+                        slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
+                    }
 
+                }
+            }
             withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
                 sh '''
                     export CLUSTER_NAME=$(echo jenkins-lat-pxc-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
