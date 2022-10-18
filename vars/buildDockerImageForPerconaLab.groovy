@@ -1,12 +1,13 @@
-def call(version) {
+def call(version, repository='https://github.com/percona/percona-docker.git') {
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]){
     sh """
         unset PSMDB_VERSION
         unset MAJOR_VERSION
-        git clone https://github.com/percona/percona-docker.git
+        git clone ${repository}
         cd percona-docker/percona-server-mongodb-${version}
         export PSMDB_VERSION=${version}
         export MAJOR_VERSION=$(echo "${PSMDB_VERSION}" | cut -d. -f1,2)
+        docker login
         docker build -t percona-server-mongodb:${MAJOR_VERSION} . -f Dockerfile
         docker tag percona-server-mongodb:${MAJOR_VERSION} perconalab/percona-server-mongodb:${MAJOR_VERSION}
         docker tag percona-server-mongodb:${MAJOR_VERSION} perconalab/percona-server-mongodb:${PSMDB_VERSION}
