@@ -348,13 +348,8 @@ pipeline {
             archiveArtifacts '*.xml'
             script {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    try {
-                        slackSend channel: "@${AUTHOR_NAME}", color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
-                    }
-                    catch (exc) {
-                        slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
-                    }
-
+                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
+                    slackSend channel: '@${OWNER_SLACK}', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
                 }
             }
             withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
