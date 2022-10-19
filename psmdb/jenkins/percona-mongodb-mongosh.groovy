@@ -7,15 +7,16 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/percona-packaging/scripts/psmdb_builder.sh -O psmdb_builder.sh
+        wget \$(echo ${BUILD_GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BUILD_GIT_BRANCH}/percona-mongodb-mongosh-builder.sh -O percona-mongodb-mongosh-builder.sh
+        wget \$(echo ${BUILD_GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BUILD_GIT_BRANCH}/mongosh.patch -O mongosh.patch
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}"
+            bash -x ./percona-mongodb-mongosh-builder.sh --builddir=\${build_dir}/test --install_deps=1
+            bash -x ./percona-mongodb-mongosh-builder.sh --builddir=\${build_dir}/test --repo=${MONGOSH_GIT_REPO} --version=${VERSION} --branch=${MONGOSH_GIT_BRANCH} ${STAGE_PARAM}"
     """
 }
 
@@ -29,29 +30,29 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'docker-32gb'
+        label 'docker'
     }
     parameters {
         string(
-            defaultValue: 'https://github.com/percona/percona-server-mongodb.git',
-            description: 'URL for  percona-server-mongodb repository',
-            name: 'GIT_REPO')
+            defaultValue: 'https://github.com/mongodb-js/mongosh.git',
+            description: 'URL for percona-mongodb-backup repository',
+            name: 'MONGOSH_GIT_REPO')
         string(
-            defaultValue: 'v6.0',
-            description: 'Tag/Branch for percona-server-mongodb repository',
-            name: 'GIT_BRANCH')
+            defaultValue: 'main',
+            description: 'Tag/Branch for mongodb-js/mongosh repository',
+            name: 'MONGOSH_GIT_BRANCH')
         string(
-            defaultValue: '6.0.0',
-            description: 'PSMDB release value',
-            name: 'PSMDB_VERSION')
+            defaultValue: 'https://github.com/percona/mongosh-packaging.git',
+            description: 'URL for percona mongosh packaging repository',
+            name: 'BUILD_GIT_REPO')
         string(
-            defaultValue: '1',
-            description: 'PSMDB release value',
-            name: 'PSMDB_RELEASE')
+            defaultValue: 'main',
+            description: 'Tag/Branch for build script repository',
+            name: 'BUILD_GIT_BRANCH')
         string(
-            defaultValue: '100.5.4',
-            description: 'https://docs.mongodb.com/database-tools/installation/',
-            name: 'MONGO_TOOLS_TAG')
+            defaultValue: '1.5.4',
+            description: 'VERSION value',
+            name: 'VERSION')
         string(
             defaultValue: 'psmdb-60',
             description: 'PSMDB repo name',
@@ -68,19 +69,18 @@ pipeline {
         timestamps ()
     }
     stages {
-        stage('Create PSMDB source tarball') {
+        stage('Create MongoDB Shell source tarball') {
             steps {
-                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH}")
+                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for ${MONGOSH_GIT_BRANCH}")
                 cleanUpWS()
                 buildStage("centos:7", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-60.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-mongodb-mongosh.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/percona-server-mongodb-60.properties
+                   cat test/percona-mongodb-mongosh.properties
                    cat uploadPath
-                   cat awsUploadPath
                 '''
                 script {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
@@ -90,37 +90,7 @@ pipeline {
                 uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
-        stage('Build PSMDB generic source packages') {
-            parallel {
-                stage('Build PSMDB generic source rpm') {
-                    agent {
-                        label 'docker-32gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_src_rpm=1")
-
-                        pushArtifactFolder("srpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Build PSMDB generic source deb') {
-                    agent {
-                        label 'docker-32gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:bionic", "--build_src_deb=1")
-
-                        pushArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
-                    }
-                }
-            }  //parallel
-        } // stage
-        stage('Build PSMDB RPMs/DEBs/Binary tarballs') {
+        stage('Build MongoDB Shell RPMs/DEBs/Binary tarballs') {
             parallel {
                 stage('Centos 7') {
                     agent {
@@ -128,8 +98,8 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_rpm=1")
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("centos:7", "--build_mongosh=1 --build_variant=rpm-x64")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
@@ -141,8 +111,21 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:8", "--build_rpm=1")
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:8", "--build_mongosh=1 --build_variant=rpm-x64")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Oracle Linux 9') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_mongosh=1 --build_variant=rpm-x64")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
@@ -154,8 +137,8 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:bionic", "--build_deb=1")
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:bionic", "--build_mongosh=1 --build_variant=deb-x64")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
@@ -167,8 +150,8 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_deb=1")
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:focal", "--build_mongosh=1 --build_variant=deb-x64")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
@@ -180,8 +163,8 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:jammy", "--build_deb=1")
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_mongosh=1 --build_variant=deb-x64")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
@@ -193,8 +176,8 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:buster", "--build_deb=1")
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:buster", "--build_mongosh=1 --build_variant=deb-x64")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
@@ -206,61 +189,24 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:bullseye", "--build_deb=1")
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:bullseye", "--build_mongosh=1 --build_variant=deb-x64")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 7 binary tarball(glibc2.17)') {
+                stage('Centos 7 tarball') {
                     agent {
                         label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_tarball=1")
+                        buildStage("centos:7", "--build_mongosh=1 --build_variant=linux-x64")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                    }
-                }
-                stage('Centos 7 debug binary tarball(glibc2.17)') {
-                    agent {
-                        label 'docker-32gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--debug=1")
-
-                        pushArtifactFolder("debug/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Ubuntu Jammy(22.04) binary tarball(glibc2.35)') {
-                    agent {
-                        label 'docker-32gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:jammy", "--build_tarball=1")
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                    }
-                }
-                stage('Ubuntu Jammy(22.04) debug binary tarball(glibc2.35)') {
-                    agent {
-                        label 'docker-32gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:jammy", "--debug=1")
-
-                        pushArtifactFolder("debug/", AWS_STASH_PATH)
                     }
                 }
             }
@@ -282,14 +228,14 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH}")
+            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${MONGOSH_GIT_BRANCH}")
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
+                currentBuild.description = "Built on ${MONGOSH_GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
             }
             deleteDir()
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH}")
+            slackNotify("#releases", "#FF0000", "[${JOB_NAME}]: build failed for ${MONGOSH_GIT_BRANCH}")
             deleteDir()
         }
         always {
