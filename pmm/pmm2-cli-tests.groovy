@@ -104,13 +104,13 @@ void runPlaywrightTests() {
 void fetchAgentLog(String CLIENT_VERSION) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh '''
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} "
                 set -o errexit
                 set -o xtrace
-                if [[ \${CLIENT_VERSION} != http* ]]; then
+                if [[ "\${CLIENT_VERSION}" != http* ]]; then
                     journalctl -u pmm-agent.service > pmm-agent.log
                 fi
-            '
+            "
 
             if [[ ${CLIENT_VERSION} != http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
