@@ -21,15 +21,15 @@ netMap['us-west-2b'] = 'subnet-0c0b7f0b15c1d68be'
 netMap['us-west-2c'] = 'subnet-024be5829372c4f38'
 
 imageMap = [:]
-imageMap['us-west-2a.docker']            = 'ami-090bc08d7ae1f3881'
-imageMap['us-west-2a.docker-32gb']       = 'ami-090bc08d7ae1f3881'
+imageMap['us-west-2a.docker']            = 'ami-0f9f005c313373218'
+imageMap['us-west-2a.docker-32gb']       = 'ami-0f9f005c313373218'
 imageMap['us-west-2a.docker-32gb-hirsute']  = 'ami-0cbdf6c0f39fd3950'
 imageMap['us-west-2a.docker-32gb-jammy']    = 'ami-0ee8244746ec5d6d4'
 imageMap['us-west-2a.docker-32gb-focal']    = 'ami-0ebe6e463e9912d81'
 imageMap['us-west-2a.docker-32gb-bullseye'] = 'ami-0d0f7602aa5c2425d'
-imageMap['us-west-2a.docker2']           = 'ami-090bc08d7ae1f3881'
-imageMap['us-west-2a.micro-amazon']      = 'ami-090bc08d7ae1f3881'
-imageMap['us-west-2a.min-amazon-2-x64']  = 'ami-090bc08d7ae1f3881'
+imageMap['us-west-2a.docker2']           = 'ami-0f9f005c313373218'
+imageMap['us-west-2a.micro-amazon']      = 'ami-0f9f005c313373218'
+imageMap['us-west-2a.min-amazon-2-x64']  = 'ami-0f9f005c313373218'
 imageMap['us-west-2a.min-centos-8-x64']  = 'ami-0155c31ea13d4abd2'
 imageMap['us-west-2a.min-ol-8-x64']      = 'ami-000b99c02c2b64925'
 imageMap['us-west-2a.min-ol-9-x64']      = 'ami-00a5d5bcea31bb02c'
@@ -126,9 +126,8 @@ priceMap['t2.medium'] = '0.03'
 priceMap['t2.large'] = '0.07'
 priceMap['m3.2xlarge'] = '0.17'
 priceMap['c5n.2xlarge'] = '0.22'
-priceMap['m5zn.3xlarge'] = '0.27'
-priceMap['m5zn.2xlarge'] = '0.22'
-priceMap['r5b.4xlarge'] = '0.45'
+priceMap['m6id.2xlarge'] = '0.23'
+priceMap['r6i.4xlarge'] = '0.47'
 priceMap['r5b.2xlarge'] = '0.22'
 priceMap['m5d.xlarge'] = '0.20'
 priceMap['m4.2xlarge'] = '0.25'
@@ -212,8 +211,9 @@ initMap['docker'] = '''
     done
 
     sudo amazon-linux-extras install epel -y
-    sudo yum -y install java-1.8.0-openjdk git docker p7zip
-    sudo yum -y remove java-1.7.0-openjdk awscli
+    sudo amazon-linux-extras install java-openjdk11 -y || :
+    sudo yum -y install git docker p7zip
+    sudo yum -y remove awscli
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
@@ -269,7 +269,7 @@ initMap['docker-32gb-hirsute'] = '''
         echo try again
     done
 
-    until sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openjdk-8-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openjdk-11-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
         sleep 1
         echo try again
     done
@@ -413,10 +413,11 @@ initMap['micro-amazon'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk || :
+    sudo amazon-linux-extras install epel -y || :
+    sudo amazon-linux-extras install java-openjdk11 -y || :
+    sudo yum -y install java-11-openjdk || :
     sudo yum -y install aws-cli || :
     sudo yum -y install git || :
-    sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 initMap['min-amazon-2-x64'] = initMap['micro-amazon']
@@ -477,7 +478,7 @@ initMap['min-bionic-x64'] = '''
         sleep 1
         echo try again
     done
-    sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openjdk-8-jre-headless git
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openjdk-11-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 initMap['min-buster-x64'] = '''
@@ -513,9 +514,8 @@ capMap = [:]
 capMap['m3.2xlarge'] = '60'
 capMap['c5n.2xlarge'] = '60'
 capMap['m3.2xlarge'] = '5'
-capMap['m5zn.3xlarge'] = '40'
-capMap['m5zn.2xlarge'] = '40'
-capMap['r5b.4xlarge'] = '40'
+capMap['m6id.2xlarge'] = '40'
+capMap['r6i.4xlarge'] = '40'
 capMap['m5d.xlarge'] = '40'
 capMap['m4.2xlarge'] = '40'
 capMap['r6gd.2xlarge'] = '40'
@@ -523,18 +523,18 @@ capMap['r6gd.2xlarge'] = '40'
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.medium'
 typeMap['docker']            = 'm4.2xlarge'
-typeMap['docker-32gb']       = 'm5zn.2xlarge'
-typeMap['docker-32gb-hirsute']  = 'm5zn.3xlarge'
-typeMap['docker-32gb-jammy']    = 'm5zn.3xlarge'
-typeMap['docker-32gb-focal']    = 'm5zn.3xlarge'
-typeMap['docker-32gb-bullseye'] = 'm5zn.3xlarge'
-typeMap['docker2']           = 'r5b.4xlarge'
+typeMap['docker-32gb']       = 'm6id.2xlarge'
+typeMap['docker-32gb-hirsute']  = 'r6i.4xlarge'
+typeMap['docker-32gb-jammy']    = 'r6i.4xlarge'
+typeMap['docker-32gb-focal']    = 'r6i.4xlarge'
+typeMap['docker-32gb-bullseye'] = 'r6i.4xlarge'
+typeMap['docker2']           = 'r6i.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['min-centos-8-x64']  = typeMap['docker']
 typeMap['min-ol-8-x64']      = typeMap['docker']
 typeMap['min-ol-9-x64']      = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['docker-32gb']
-typeMap['min-jammy-x64']     = 'm5zn.3xlarge'
+typeMap['min-jammy-x64']     = 'r6i.4xlarge'
 typeMap['min-focal-x64']     = typeMap['docker']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
@@ -642,7 +642,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
-        new UnixData('', '', '', '22'),             // AMITypeData amiType
+        new UnixData('', '', '', '22', ''),         // AMITypeData amiType
         '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId

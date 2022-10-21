@@ -195,6 +195,8 @@ initMap['rpmMap'] = '''
         sleep 1
         echo try again
     done
+    sudo amazon-linux-extras install epel -y || :
+    sudo amazon-linux-extras install java-openjdk11 -y || :
     sudo yum -y install java-11-openjdk || :
     sudo yum -y install git || :
     sudo yum -y install aws-cli || :
