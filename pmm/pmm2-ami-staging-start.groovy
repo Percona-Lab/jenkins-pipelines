@@ -46,7 +46,7 @@ pipeline {
             defaultValue: '',
             description: 'public ssh key for "admin" user, please set if you need ssh access',
             name: 'SSH_KEY')
-        string(
+        choice(
             choices: ['true', 'false'],
             description: 'Enable Slack notification (option for high level pipelines)',
             name: 'NOTIFY')
