@@ -33,7 +33,7 @@ void destroyStaging(IP) {
 void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
     node(env.VM_NAME){
         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            sh """
+            sh '''
                 set -o errexit
                 set -o xtrace
 
@@ -41,25 +41,27 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
 
                 test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
                 export PATH=$PATH:/usr/sbin
-                export instance_t="${TYPE}"
-                export instance_c="${COUNT}"
-                export version="${VERSION}"
-                export pmm_server_ip="${VM_IP}"
+                export instance_t=${TYPE}
+                export instance_c=${COUNT}
+                export version=${VERSION}
+                export pmm_server_ip=${VM_IP}
                 export stress="1"
                 export table_c="100"
                 export tap="1"
                 export PMM_VERSION=${PMM_VERSION}
 
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
+
+                # This export is used by pmm-framework
                 export CLIENT_VERSION=${CLIENT_VERSION}
+                echo Workspace: ${WORKSPACE}
+
                 if [[ ${CLIENT_VERSION} == http* ]]; then
                     export PATH="/home/ec2-user/workspace/aws-staging-start/pmm2-client/bin:$PATH"
                 fi
-                bash /srv/pmm-qa/pmm-tests/pmm-2-0-bats-tests/pmm-testsuite.sh \
-                    | tee /tmp/result.output
 
-                mv /tmp/result.output /tmp/result.tap
-            """
+                bash /srv/pmm-qa/pmm-tests/pmm-2-0-bats-tests/pmm-testsuite.sh | tee /tmp/result.tap
+            '''
         }
     }
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
