@@ -41,9 +41,9 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
 
                 test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
                 export PATH=$PATH:/usr/sbin
-                export instance_t=${TYPE}
-                export instance_c=${COUNT}
-                export version=${VERSION}
+                export instance_t="${TYPE}"
+                export instance_c="${COUNT}"
+                export version="${VERSION}"
                 export pmm_server_ip=${VM_IP}
                 export stress="1"
                 export table_c="100"
@@ -54,7 +54,6 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
 
                 # This export is used by pmm-framework
                 export CLIENT_VERSION=${CLIENT_VERSION}
-                echo Workspace: ${WORKSPACE}
 
                 if [[ ${CLIENT_VERSION} == http* ]]; then
                     export PATH="/home/ec2-user/workspace/aws-staging-start/pmm2-client/bin:$PATH"
