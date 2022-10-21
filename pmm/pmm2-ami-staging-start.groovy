@@ -134,14 +134,6 @@ pipeline {
 
                         echo "INSTANCE_ID: $INSTANCE_ID"
 
-                        // The default value of `DeleteOnTermination` of the EBS volume is set to `true`,
-                        // which leaves out unused volumes after instances get shut down.
-                        aws ec2 modify-instance-attribute \
-                            --region $AWS_DEFAULT_REGION \
-                            --instance-id $INSTANCE_ID \
-                            --block-device-mappings \
-                            "[{\"DeviceName\": \"/dev/sdb\",\"Ebs\":{\"DeleteOnTermination\":true}}]"
-
                         aws ec2 create-tags  \
                             --resources $INSTANCE_ID \
                             --region $AWS_DEFAULT_REGION \
@@ -166,6 +158,16 @@ pipeline {
                             --output text \
                             --query 'Reservations[].Instances[].PrivateIpAddress' \
                             | tee PRIVATE_IP
+
+                        // The default value of `DeleteOnTermination` of the EBS volume is set to `true`,
+                        // which leaves out unused volumes after instances get shut down.
+                        aws ec2 modify-instance-attribute \
+                            --region $AWS_DEFAULT_REGION \
+                            --instance-id $INSTANCE_ID \
+                            --output text \
+                            --block-device-mappings \
+                            "[{\"DeviceName\": \"/dev/sdb\",\"Ebs\":{\"DeleteOnTermination\":true}}]"
+
                     '''
                 }
                 script {
