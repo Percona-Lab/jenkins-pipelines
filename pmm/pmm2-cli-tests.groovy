@@ -111,12 +111,11 @@ void fetchAgentLog(String CLIENT_VERSION) {
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                 set -o errexit
                 set -o xtrace
-                export CLIENT_VERSION=${CLIENT_VERSION}
-                if [[ $CLIENT_VERSION != http* ]]; then
+                if [[ ${CLIENT_VERSION} != http* ]]; then
                     journalctl -u pmm-agent.service > pmm-agent.log
                 fi
             '
-            if [[ $CLIENT_VERSION != http* ]]; then
+            if [[ ${CLIENT_VERSION} != http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                     ${USER}@${VM_IP}:pmm-agent.log \
                     pmm-agent.log
