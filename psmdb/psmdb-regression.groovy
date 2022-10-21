@@ -56,12 +56,23 @@ pipeline {
                          sudo ./aws/install
                          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
                          curl -o Dockerfile https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/regression-tests/build_image/Dockerfile
-                         docker build . -t public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} \
+                         VER=\$(echo ${params.version} | cut -d"." -f1)
+                         if [ \$VER -ge 6 ]; then
+                             docker build . -t public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} \
                                 --build-arg branch=${params.branch} \
                                 --build-arg psm_ver=${params.version} \
                                 --build-arg psm_release=${params.release} \
                                 --build-arg mongo_tools_tag=${params.mongo_tools}
-                         docker push public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag}      
+                             docker push public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} 
+                         else  
+                             docker build . -t public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} \
+                                --build-arg branch=${params.branch} \
+                                --build-arg psm_ver=${params.version} \
+                                --build-arg psm_release=${params.release} \
+                                --build-arg mongo_tools_tag=${params.mongo_tools} \
+                                --build-arg special_targets=dbtest 
+                             docker push public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} 
+                         fi    
                      """
                 }    
             }

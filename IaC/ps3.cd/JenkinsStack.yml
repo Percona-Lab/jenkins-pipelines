@@ -43,9 +43,9 @@ Parameters:
 Mappings:
   AmazonLinux2:
     eu-west-1:
-      x64: ami-05489a3f80e532309
+      x64: ami-0af7a5885e3ff0439
     eu-central-1:
-      x64: ami-05f5f4f906feab6a7
+      x64: ami-08658d5197becde34
 
 Resources:
 
@@ -436,7 +436,7 @@ Resources:
     Type: AWS::EC2::SpotFleet
     Properties:
       SpotFleetRequestConfigData:
-        AllocationStrategy: lowestPrice
+        AllocationStrategy: capacityOptimized
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true
@@ -549,8 +549,9 @@ Resources:
                   wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                   amazon-linux-extras install epel -y
+                  amazon-linux-extras install java-openjdk11 -y
                   yum -y update --security
-                  yum -y install java-1.8.0-openjdk jenkins-2.332.3 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install jenkins-2.361.2 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -631,7 +632,7 @@ Resources:
                   cat <<-"EOF" | tee -a /etc/systemd/system/jenkins.service.d/override.conf
 
               		# Arguments for the Jenkins JVM
-              		Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms2048m -Xmx4096m -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2 -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
               	EOF
 
                   systemctl daemon-reload
@@ -782,7 +783,7 @@ Resources:
               }
 
               setup_ssh_keys() {
-                KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets"
+                KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets surabhi.bhat"
 
                 for KEY in $KEYS_LIST; do
                     RETRY="3"
