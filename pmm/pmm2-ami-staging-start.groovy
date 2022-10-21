@@ -164,9 +164,8 @@ pipeline {
                         aws ec2 modify-instance-attribute \
                             --region $AWS_DEFAULT_REGION \
                             --instance-id $INSTANCE_ID \
-                            --output text \
                             --block-device-mappings \
-                            '[{"DeviceName": "/dev/sdb","Ebs":{"DeleteOnTermination": true}}]'
+                            '[{"DeviceName": "/dev/sdb"}]'
 
                     '''
                 }
