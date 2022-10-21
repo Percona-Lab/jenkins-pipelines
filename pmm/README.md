@@ -1,6 +1,6 @@
 # PMM Jenkins Guide
 
-## Important directories
+## Important directories in repo
 
 - [CloudFormation for PMM Jenkins](https://github.com/Percona-Lab/jenkins-pipelines/tree/master/IaC/pmm.cd)
 - [PMM pipelines](https://github.com/Percona-Lab/jenkins-pipelines/tree/master/pmm)
@@ -27,5 +27,30 @@ We have [runPython](https://github.com/Percona-Lab/jenkins-pipelines/blob/master
 
 ## The Zen of Jenkinsfile
 
-1. All pipelines should be stored in this repo.
-2. If your bash code is longer than 10 lines it may be worth using Python
+1. All pipelines should be stored in this repository.
+2. If your bash code is longer than 10 lines it maybe worth using Python.
+3. Make sure the pipeline has an `options` block defining the number of pipeline builds Jenkins should keep, which will prevent from disk memory exhaustion. Example:
+
+```Jenkinsfile
+pipeline {
+  ...
+  options {
+    buildDiscarder(logRotator(numToKeepStr: '10'))
+  }
+  ...
+}
+```
+
+4. The pipelines running on long-lived agents should also clean up the working directory either on start or during the `post always` stage:
+
+```Jenkinsfile
+pipeline {
+  ...
+  post {
+    always {
+      ...
+      deleteDir()
+    }
+  }
+}
+```
