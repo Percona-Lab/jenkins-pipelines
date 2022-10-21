@@ -56,8 +56,9 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
                     export PATH="/home/ec2-user/workspace/aws-staging-start/pmm2-client/bin:$PATH"
                 fi
                 bash /srv/pmm-qa/pmm-tests/pmm-2-0-bats-tests/pmm-testsuite.sh \
-                    | tee /tmp/result.tap
+                    | tee /tmp/result.output
 
+                mv /tmp/result.output /tmp/result.tap
             """
         }
     }
@@ -76,47 +77,36 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
     }
 }
 
-void runPlaywrightTests() {
-    node(env.VM_NAME){
-        dir('playwright') {
-            git poll: false, branch: params.PMM_UI_GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
-            sh '''
-                set -ex
-                npm install
-                npx playwright install
-                cd cli
-                npx playwright test
-            '''
-        }
-    }
-}
-
 void fetchAgentLog(String CLIENT_VERSION) {
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh '''
+     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                 set -o errexit
                 set -o xtrace
                 export CLIENT_VERSION=${CLIENT_VERSION}
-                if [[ $CLIENT_VERSION != http* ]]; then
-                    journalctl -u pmm-agent.service > pmm-agent.log
+                if [[ \$CLIENT_VERSION != http* ]]; then
+                    journalctl -u pmm-agent.service > /var/log/pmm-agent.log
+                    sudo chmod 777 /var/log/pmm-agent.log
+                fi
+                if [[ -e /var/log/pmm-agent.log ]]; then
+                    cp /var/log/pmm-agent.log .
                 fi
             '
-            if [[ $CLIENT_VERSION != http* ]]; then
+            if [[ \$CLIENT_VERSION != http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                     ${USER}@${VM_IP}:pmm-agent.log \
                     pmm-agent.log
             fi
-        '''
+        """
     }
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh '''
-            if [[ $CLIENT_VERSION == http* ]]; then
+        sh """
+            if [[ \$CLIENT_VERSION == http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                     ${USER}@${VM_IP}:workspace/aws-staging-start/pmm-agent.log \
                     pmm-agent.log
             fi
-        '''
+        """
     }
 }
 
@@ -148,10 +138,6 @@ pipeline {
             description: 'Commit hash for pmm-qa branch',
             name: 'PMM_QA_GIT_COMMIT_HASH')
         string(
-                defaultValue: 'PMM-10849-cli-playwright',
-                description: 'Tag/Branch for pmm-ui repository',
-                name: 'PMM_UI_GIT_BRANCH')
-        string(
             defaultValue: latestVersion,
             description: 'pmm2-client latest version',
             name: 'PMM_VERSION')
@@ -159,9 +145,15 @@ pipeline {
     options {
         skipDefaultCheckout()
     }
+    triggers {
+        upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
+    }
     stages {
         stage('Prepare') {
             steps {
+                slackSend channel: '#pmm-ci',
+                          color: '#FFFF00',
+                          message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
                     npm install tap-junit
                 '''
@@ -184,14 +176,9 @@ pipeline {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
-//        stage('Test: PS57') {
-//            steps {
-//                runTAP("ps", "ps", "2", "5.7")
-//            }
-//        }
-        stage('Test: CLI Playwright') {
+        stage('Test: PS57') {
             steps {
-                runPlaywrightTests()
+                runTAP("ps", "ps", "2", "5.7")
             }
         }
         stage('Test: MDB_4_2') {
@@ -209,51 +196,51 @@ pipeline {
                 runTAP("mo", "psmdb", "3", "4.0")
             }
         }
-//        stage('Test: PS80') {
-//            steps {
-//                runTAP("ps", "ps", "2", "8.0")
-//            }
-//        }
-//        stage('Test: PSMDB_4_4') {
-//            steps {
-//                runTAP("mo", "psmdb", "3", "4.4")
-//            }
-//        }
-//        stage('Test: HAPROXY') {
-//            steps {
-//                runTAP("haproxy", "haproxy", "1", "2.4")
-//            }
-//        }
-//        stage('Test: MS57') {
-//            steps {
-//                runTAP("ms", "mysql", "2", "5.7")
-//            }
-//        }
-//        stage('Test: MS80') {
-//            steps {
-//                runTAP("ms", "mysql", "2", "8.0")
-//            }
-//        }
-//        stage('Test: PGSQL10') {
-//            steps {
-//                runTAP("pgsql", "postgresql", "3", "10.6")
-//            }
-//        }
-//        stage('Test: PD_PGSQL12') {
-//            steps {
-//                runTAP("pdpgsql", "postgresql", "1", "12")
-//            }
-//        }
-//        stage('Test: PXC') {
-//            steps {
-//                runTAP("pxc", "pxc", "1", "5.7")
-//            }
-//        }
-//        stage('Test: Generic') {
-//            steps {
-//                runTAP("generic", "admin", "1", "2")
-//            }
-//        }
+        stage('Test: PS80') {
+            steps {
+                runTAP("ps", "ps", "2", "8.0")
+            }
+        }
+        stage('Test: PSMDB_4_4') {
+            steps {
+                runTAP("mo", "psmdb", "3", "4.4")
+            }
+        }
+        stage('Test: HAPROXY') {
+            steps {
+                runTAP("haproxy", "haproxy", "1", "2.4")
+            }
+        }
+        stage('Test: MS57') {
+            steps {
+                runTAP("ms", "mysql", "2", "5.7")
+            }
+        }
+        stage('Test: MS80') {
+            steps {
+                runTAP("ms", "mysql", "2", "8.0")
+            }
+        }
+        stage('Test: PGSQL10') {
+            steps {
+                runTAP("pgsql", "postgresql", "3", "10.6")
+            }
+        }
+        stage('Test: PD_PGSQL12') {
+            steps {
+                runTAP("pdpgsql", "postgresql", "1", "12")
+            }
+        }
+        stage('Test: PXC') {
+            steps {
+                runTAP("pxc", "pxc", "1", "5.7")
+            }
+        }
+        stage('Test: Generic') {
+            steps {
+                runTAP("generic", "admin", "1", "2")
+            }
+        }
         stage('Check Results') {
             steps {
                 script {
@@ -294,6 +281,15 @@ pipeline {
                 def node = Jenkins.instance.getNode(env.VM_NAME)
                 Jenkins.instance.removeNode(node)
             }
+        }
+        unstable {
+            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build failed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
+        }
+        success {
+            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build Passed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
+        }
+        failure {
+            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
         }
     }
 }
