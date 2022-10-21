@@ -84,7 +84,6 @@ void runPlaywrightTests() {
             sh '''
                 set -ex 
                 node -e "console.log('Running Node.js ' + process.version)"
-//                git clone --single-branch --branch ${PMM_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
                 cd pmm-ui-tests/cli
                 npm install
                 npx playwright install
@@ -167,7 +166,7 @@ pipeline {
             description: 'Commit hash for pmm-qa branch',
             name: 'PMM_QA_GIT_COMMIT_HASH')
         string(
-                defaultValue: 'PMM-10849-cli-playwright',
+                defaultValue: 'main',
                 description: 'Tag/Branch for pmm-ui repository',
                 name: 'PMM_UI_GIT_BRANCH')
         string(
@@ -203,11 +202,6 @@ pipeline {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
-//        stage('Test: PS57') {
-//            steps {
-//                runTAP("ps", "ps", "2", "5.7")
-//            }
-//        }
         stage('Test: CLI Playwright') {
             steps {
                 runPlaywrightTests()
@@ -228,51 +222,6 @@ pipeline {
                 runTAP("mo", "psmdb", "3", "4.0")
             }
         }
-//        stage('Test: PS80') {
-//            steps {
-//                runTAP("ps", "ps", "2", "8.0")
-//            }
-//        }
-//        stage('Test: PSMDB_4_4') {
-//            steps {
-//                runTAP("mo", "psmdb", "3", "4.4")
-//            }
-//        }
-//        stage('Test: HAPROXY') {
-//            steps {
-//                runTAP("haproxy", "haproxy", "1", "2.4")
-//            }
-//        }
-//        stage('Test: MS57') {
-//            steps {
-//                runTAP("ms", "mysql", "2", "5.7")
-//            }
-//        }
-//        stage('Test: MS80') {
-//            steps {
-//                runTAP("ms", "mysql", "2", "8.0")
-//            }
-//        }
-//        stage('Test: PGSQL10') {
-//            steps {
-//                runTAP("pgsql", "postgresql", "3", "10.6")
-//            }
-//        }
-//        stage('Test: PD_PGSQL12') {
-//            steps {
-//                runTAP("pdpgsql", "postgresql", "1", "12")
-//            }
-//        }
-//        stage('Test: PXC') {
-//            steps {
-//                runTAP("pxc", "pxc", "1", "5.7")
-//            }
-//        }
-//        stage('Test: Generic') {
-//            steps {
-//                runTAP("generic", "admin", "1", "2")
-//            }
-//        }
         stage('Check Results') {
             steps {
                 script {
