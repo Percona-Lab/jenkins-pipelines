@@ -33,7 +33,7 @@ void destroyStaging(IP) {
 void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
     node(env.VM_NAME){
         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            sh '''
+            sh """
                 set -o errexit
                 set -o xtrace
 
@@ -60,7 +60,7 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
                 fi
 
                 bash /srv/pmm-qa/pmm-tests/pmm-2-0-bats-tests/pmm-testsuite.sh | tee /tmp/result.tap
-            '''
+            """
         }
     }
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
