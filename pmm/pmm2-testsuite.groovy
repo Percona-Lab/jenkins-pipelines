@@ -33,13 +33,14 @@ void destroyStaging(IP) {
 void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
     node(env.VM_NAME){
         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            sh '''
-                set -xe
+            sh """
+                set -o errexit
+                set -o xtrace
 
                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
                 test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
-                export PATH=$PATH:/usr/sbin
+                export PATH=\$PATH:/usr/sbin
                 export instance_t="${TYPE}"
                 export instance_c="${COUNT}"
                 export version="${VERSION}"
@@ -51,14 +52,14 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
 
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
                 export CLIENT_VERSION=${CLIENT_VERSION}
-                if [[ $CLIENT_VERSION == http* ]]; then
+                if [[ \$CLIENT_VERSION == http* ]]; then
                     export PATH="/home/ec2-user/workspace/aws-staging-start/pmm2-client/bin:$PATH"
                 fi
                 bash /srv/pmm-qa/pmm-tests/pmm-2-0-bats-tests/pmm-testsuite.sh \
                     | tee /tmp/result.output
 
                 mv /tmp/result.output /tmp/result.tap
-           '''
+            """
         }
     }
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
@@ -78,11 +79,12 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
 
 void fetchAgentLog(String CLIENT_VERSION) {
      withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh '''
+        sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
-                set -xe
+                set -o errexit
+                set -o xtrace
                 export CLIENT_VERSION=${CLIENT_VERSION}
-                if [[ $CLIENT_VERSION != http* ]]; then
+                if [[ \$CLIENT_VERSION != http* ]]; then
                     journalctl -u pmm-agent.service > /var/log/pmm-agent.log
                     sudo chmod 777 /var/log/pmm-agent.log
                 fi
@@ -90,21 +92,21 @@ void fetchAgentLog(String CLIENT_VERSION) {
                     cp /var/log/pmm-agent.log .
                 fi
             '
-            if [[ $CLIENT_VERSION != http* ]]; then
+            if [[ \$CLIENT_VERSION != http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                     ${USER}@${VM_IP}:pmm-agent.log \
                     pmm-agent.log
             fi
-        '''
+        """
     }
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh '''
-            if [[ $CLIENT_VERSION == http* ]]; then
+        sh """
+            if [[ \$CLIENT_VERSION == http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                     ${USER}@${VM_IP}:workspace/aws-staging-start/pmm-agent.log \
                     pmm-agent.log
             fi
-        '''
+        """
     }
 }
 
