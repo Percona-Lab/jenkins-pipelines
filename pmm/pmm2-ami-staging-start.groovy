@@ -166,7 +166,7 @@ pipeline {
                             --instance-id $INSTANCE_ID \
                             --output text \
                             --block-device-mappings \
-                            "[{\"DeviceName\": \"/dev/sdb\",\"Ebs\":{\"DeleteOnTermination\":true}}]"
+                            '[{"DeviceName": "/dev/sdb","Ebs":{"DeleteOnTermination": true}}]'
 
                     '''
                 }
