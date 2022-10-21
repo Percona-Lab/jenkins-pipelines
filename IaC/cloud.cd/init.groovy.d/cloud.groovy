@@ -22,10 +22,10 @@ netMap['eu-west-1b'] = 'subnet-04221bb8f6d0aeeff'
 netMap['eu-west-1c'] = 'subnet-0b9a1fd4ba5296a8b'
 
 imageMap = [:]
-imageMap['eu-west-1a.docker'] = 'ami-02b4e72b17337d6c1'
-imageMap['eu-west-1a.docker-32gb'] = 'ami-02b4e72b17337d6c1'
-imageMap['eu-west-1a.docker2'] = 'ami-02b4e72b17337d6c1'
-imageMap['eu-west-1a.micro-amazon'] = 'ami-02b4e72b17337d6c1'
+imageMap['eu-west-1a.docker'] = 'ami-0af7a5885e3ff0439'
+imageMap['eu-west-1a.docker-32gb'] = 'ami-0af7a5885e3ff0439'
+imageMap['eu-west-1a.docker2'] = 'ami-0af7a5885e3ff0439'
+imageMap['eu-west-1a.micro-amazon'] = 'ami-0af7a5885e3ff0439'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
@@ -41,9 +41,9 @@ priceMap = [:]
 priceMap['t2.small'] = '0.01'
 priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
-priceMap['m4.large'] = '0.10'
-priceMap['m4.2xlarge'] = '0.20'
-priceMap['r4.4xlarge'] = '0.38'
+priceMap['c5.xlarge'] = '0.14'
+priceMap['m5dn.2xlarge'] = '0.47'
+priceMap['i4i.4xlarge'] = '0.57'
 priceMap['m5d.2xlarge'] = '0.20'
 priceMap['c5d.xlarge'] = '0.20'
 
@@ -76,8 +76,9 @@ initMap['docker'] = '''
     done
 
     sudo amazon-linux-extras install epel -y
-    sudo yum -y install java-1.8.0-openjdk git docker p7zip
-    sudo yum -y remove java-1.7.0-openjdk awscli
+    sudo amazon-linux-extras install java-openjdk11 -y
+    sudo yum -y install git docker p7zip
+    sudo yum -y remove awscli
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
@@ -136,8 +137,9 @@ initMap['docker-32gb'] = '''
     done
 
     sudo amazon-linux-extras install epel -y
-    sudo yum -y install java-1.8.0-openjdk git docker p7zip
-    sudo yum -y remove java-1.7.0-openjdk awscli
+    sudo amazon-linux-extras install java-openjdk11 -y
+    sudo yum -y install git docker p7zip
+    sudo yum -y remove awscli
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
@@ -204,23 +206,24 @@ initMap['micro-amazon'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git aws-cli || :
-    sudo yum -y remove java-1.7.0-openjdk || :
+    sudo amazon-linux-extras install epel -y
+    sudo amazon-linux-extras install java-openjdk11 -y || :
+    sudo yum -y install git aws-cli || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 
 capMap = [:]
 capMap['c4.xlarge'] = '60'
-capMap['m4.large'] = '40'
-capMap['m4.2xlarge'] = '40'
-capMap['r4.4xlarge'] = '40'
+capMap['c5.xlarge'] = '40'
+capMap['m5dn.2xlarge'] = '40'
+capMap['i4i.4xlarge'] = '40'
 capMap['c5d.xlarge'] = '10'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
-typeMap['docker'] = 'm4.large'
-typeMap['docker-32gb'] = 'm4.2xlarge'
-typeMap['docker2'] = 'r4.4xlarge'
+typeMap['docker'] = 'c5.xlarge'
+typeMap['docker-32gb'] = 'm5dn.2xlarge'
+typeMap['docker2'] = 'i4i.4xlarge'
 
 execMap = [:]
 execMap['docker'] = '1'
@@ -258,7 +261,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
-        new UnixData('', '', '', '22'),             // AMITypeData amiType
+        new UnixData('', '', '', '22', ''),         // AMITypeData amiType
         '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId

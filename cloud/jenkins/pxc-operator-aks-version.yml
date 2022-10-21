@@ -1,5 +1,5 @@
 - job:
-    name: pxc-operator-gke-version
+    name: pxc-operator-aks-version
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -18,7 +18,7 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxc_operator_gke_version.groovy
+      script-path: cloud/jenkins/pxc_operator_aks_version.groovy
     parameters:
     - string:
         name: GIT_REPO
@@ -31,7 +31,7 @@
     - string:
         name: PLATFORM_VER
         default: '1.21'
-        description: GKE version
+        description: AKS version
     - string:
         name: IMAGE_PXC
         default:

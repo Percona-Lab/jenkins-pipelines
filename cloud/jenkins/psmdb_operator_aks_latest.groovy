@@ -3,7 +3,7 @@ void CreateCluster(String CLUSTER_SUFFIX) {
         env.OPERATOR_NS = 'psmdb-operator'
     }
 
-    withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             ret_num=0
@@ -12,8 +12,8 @@ void CreateCluster(String CLUSTER_SUFFIX) {
                 az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
                 az account show --query "{subscriptionId:id, tenantId:tenantId}"
                 az account list --all --output table
-                az aks create -g percona-operators -n $CLUSTER_NAME-${CLUSTER_SUFFIX} --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version ${params.PLATFORM_VER} -l westeurope
-                az aks get-credentials --subscription Pay-As-You-Go --resource-group percona-operators --name $CLUSTER_NAME-${CLUSTER_SUFFIX} 
+                az aks create -g percona-operators --subscription eng-cloud-dev -n $CLUSTER_NAME-${CLUSTER_SUFFIX} --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version ${params.PLATFORM_VER} -l eastus
+                az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-${CLUSTER_SUFFIX} 
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
             done
@@ -22,12 +22,12 @@ void CreateCluster(String CLUSTER_SUFFIX) {
     }
 }
 void ShutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
             az account set -s "$AZURE_SUBSCRIPTION_ID"
-            az aks delete --name $CLUSTER_NAME-${CLUSTER_SUFFIX} --resource-group percona-operators --yes --no-wait
+            az aks delete --name $CLUSTER_NAME-${CLUSTER_SUFFIX} --resource-group percona-operators --subscription eng-cloud-dev  --yes --no-wait
         """
     }
 }
@@ -83,7 +83,7 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
 
-            withCredentials([azureServicePrincipal('TEST-AZURE')]) {
+            withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
                 sh """
                     if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                         echo Skip $TEST_NAME test
@@ -175,7 +175,7 @@ pipeline {
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.23',
+            defaultValue: '1.24',
             description: 'AKS kubernetes version',
             name: 'PLATFORM_VER')
         choice(
@@ -352,13 +352,13 @@ pipeline {
                     slackSend channel: '@${OWNER_SLACK}', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
                 }
             }
-            withCredentials([azureServicePrincipal('TEST-AZURE')]) {
-                sh """
-                    export CLUSTER_NAME=\$(echo jenkins-lat-psmdb-\$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+            withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
+                sh '''
+                    export CLUSTER_NAME=$(echo jenkins-lat-psmdb-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
                     az account set -s "$AZURE_SUBSCRIPTION_ID"
-                    az group list --query "[?starts_with(name, $CLUSTER_NAME)].name | [0]" | xargs az aks delete --resource-group percona-operators --yes --no-wait || true
-                """
+                    az aks list --query "[?starts_with(name, '$CLUSTER_NAME')].name" --output tsv | xargs az aks delete --resource-group percona-operators --yes --no-wait  --name
+                '''
             }
 
         sh '''

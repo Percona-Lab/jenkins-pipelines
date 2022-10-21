@@ -188,7 +188,7 @@ pipeline {
             description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
             name: 'IMAGE_LOGCOLLECTOR')
         string(
-            defaultValue: 'v1.14.8',
+            defaultValue: 'v1.24.3',
             description: 'Kubernetes Version',
             name: 'PLATFORM_VER',
             trim: true)
