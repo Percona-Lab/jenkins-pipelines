@@ -84,8 +84,7 @@ void runPlaywrightTests() {
             sh '''
                 set -ex 
                 node -e "console.log('Running Node.js ' + process.version)"
-                ls -la
-                cd pmm-ui-tests/cli
+                cd cli
                 npm install
                 npx playwright install
             '''
