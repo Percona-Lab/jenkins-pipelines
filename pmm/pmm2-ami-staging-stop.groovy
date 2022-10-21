@@ -61,7 +61,7 @@ pipeline {
         success {
             script {
                 if (params.NOTIFY == "true") {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build ${BUILD_URL} finished, owner: @${OWNER} Instance ID: ${AMI_ID}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build ${BUILD_URL} finished, owner: @${OWNER}, Instance ID: ${AMI_ID}"
                     if (OWNER_SLACK) {
                         slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build ${BUILD_URL} finished, Instance ID: ${AMI_ID}"
                     }
