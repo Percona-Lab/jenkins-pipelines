@@ -158,15 +158,6 @@ pipeline {
                             --output text \
                             --query 'Reservations[].Instances[].PrivateIpAddress' \
                             | tee PRIVATE_IP
-
-                        // The default value of `DeleteOnTermination` of the EBS volume is set to `true`,
-                        // which leaves out unused volumes after instances get shut down.
-                        aws ec2 modify-instance-attribute \
-                            --region $AWS_DEFAULT_REGION \
-                            --instance-id $INSTANCE_ID \
-                            --block-device-mappings \
-                            '[{"DeviceName": "/dev/sdb"}]'
-
                     '''
                 }
                 script {
@@ -204,6 +195,18 @@ pipeline {
                                 sudo chmod 755 get_download_link.sh
                             popd
                         "
+                    '''
+                }
+                withCredentials([]) {
+                    sh '''
+                        // The default value of `DeleteOnTermination` of the EBS volume is set to `true`,
+                        // which leaves out unused volumes after instances get shut down.
+                        AWS_DEFAULT_REGION=us-east-1
+                        aws ec2 modify-instance-attribute \
+                            --region $AWS_DEFAULT_REGION \
+                            --instance-id ${INSTANCE_ID} \
+                            --block-device-mappings \
+                            '[{"DeviceName": "/dev/sdb", "Ebs": {"DeleteOnTermination": true}}]'
                     '''
                 }
                 archiveArtifacts 'PUBLIC_IP'
@@ -254,10 +257,10 @@ pipeline {
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
                             sudo git clone --single-branch --branch ${GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
                             cd pmm-ui-tests
-                            sudo PWD=\$(pwd) docker-compose up -d mysql
-                            sudo PWD=\$(pwd) docker-compose up -d mongo
-                            sudo PWD=\$(pwd) docker-compose up -d postgres
-                            sudo PWD=\$(pwd) docker-compose up -d proxysql
+                            sudo PWD=$(pwd) docker-compose up -d mysql
+                            sudo PWD=$(pwd) docker-compose up -d mongo
+                            sudo PWD=$(pwd) docker-compose up -d postgres
+                            sudo PWD=$(pwd) docker-compose up -d proxysql
                             sleep 30
                             sudo bash -x testdata/db_setup.sh
                         '
@@ -280,8 +283,8 @@ pipeline {
         failure {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                 sh '''
-                    if [ -n "$INSTANCE_ID" ]; then
-                        aws ec2 --region us-east-1 terminate-instances --instance-ids $INSTANCE_ID
+                    if [ -n "${INSTANCE_ID}" ]; then
+                        aws ec2 --region us-east-1 terminate-instances --instance-ids ${INSTANCE_ID}
                     fi
                 '''
             }
