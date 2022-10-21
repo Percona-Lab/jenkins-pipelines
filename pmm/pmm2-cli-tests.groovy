@@ -200,16 +200,16 @@ pipeline {
                 runPlaywrightTests()
             }
         }
-        stage('Test: MDB_4_2') {
-            steps {
-                // runTAP("modb", "modb", "3", "4.2")
-            }
-        }
-        stage('Test: MDB_4_0') {
-            steps {
-                // runTAP("modb", "modb", "3", "4.0")
-            }
-        }
+        // stage('Test: MDB_4_2') {
+        //     steps {
+        //         runTAP("modb", "modb", "3", "4.2")
+        //     }
+        // }
+        // stage('Test: MDB_4_0') {
+        //     steps {
+        //         runTAP("modb", "modb", "3", "4.0")
+        //     }
+        // }
         stage('Test: PSMDB_4_0') {
             steps {
                 runTAP("mo", "psmdb", "3", "4.0")
