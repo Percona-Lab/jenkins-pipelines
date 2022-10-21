@@ -197,7 +197,7 @@ pipeline {
                         "
                     '''
                 }
-                withCredentials([]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID',  credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         // The default value of `DeleteOnTermination` of the EBS volume is set to `true`,
                         // which leaves out unused volumes after instances get shut down.
