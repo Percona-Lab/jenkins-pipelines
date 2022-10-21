@@ -205,8 +205,7 @@ pipeline {
                         aws ec2 modify-instance-attribute \
                             --region $AWS_DEFAULT_REGION \
                             --instance-id ${INSTANCE_ID} \
-                            --block-device-mappings \
-                            '[{"DeviceName": "/dev/sdb", "Ebs": {"DeleteOnTermination": true}}]'
+                            --instance-initiated-shutdown-behavior terminate
                     '''
                 }
                 archiveArtifacts 'PUBLIC_IP'
