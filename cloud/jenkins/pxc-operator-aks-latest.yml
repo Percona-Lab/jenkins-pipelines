@@ -1,5 +1,5 @@
 - job:
-    name: pxc-operator-gke-version
+    name: pxc-operator-aks-latest
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -10,6 +10,8 @@
         num-to-keep: 10
         artifact-days-to-keep: -1
         artifact-num-to-keep: 10
+    triggers:
+      - timed: "0 0 * * 2"
     pipeline-scm:
       scm:
         - git:
@@ -18,7 +20,7 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxc_operator_gke_version.groovy
+      script-path: cloud/jenkins/pxc_operator_aks_latest.groovy
     parameters:
     - string:
         name: GIT_REPO
@@ -29,11 +31,15 @@
         default: main
         description: Tag/Branch for percona/percona-xtradb-cluster-operator repository
     - string:
-        name: PLATFORM_VER
-        default: '1.21'
-        description: GKE version
+        name: OWNER_SLACK
+        default: sergey.pronin
+        description: Slack user to notify on failures
     - string:
         name: IMAGE_PXC
+        default:
+        description: PXC image
+    - string:
+        name: IMAGE_BACKUP
         default:
         description: PXC image
     - string:
