@@ -133,7 +133,7 @@ pipeline {
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.20',
+            defaultValue: '1.21',
             description: 'EKS kubernetes version',
             name: 'PLATFORM_VER')
         choice(

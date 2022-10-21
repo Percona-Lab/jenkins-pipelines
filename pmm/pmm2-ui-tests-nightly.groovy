@@ -191,7 +191,7 @@ pipeline {
         string(
             defaultValue: 'admin-password',
             description: 'pmm-server admin user default password',
-            name: 'ADMIN_PASSWORD')  
+            name: 'ADMIN_PASSWORD')
         string (
             defaultValue: '',
             description: 'Value for Server Public IP, to use this instance just as client',
@@ -217,7 +217,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['14.4','14.3','14.2', '14.1', '14.0', '13.7', '13.6', '13.4', '13.2', '13.1', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
+            choices: ['15.0','14.4','14.3','14.2', '14.1', '14.0', '13.7', '13.6', '13.4', '13.2', '13.1', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -225,11 +225,11 @@ pipeline {
             description: "MariaDB Server version",
             name: 'MD_VERSION')
         choice(
-            choices: ['4.4', '4.2', '4.0', '3.6'],
+            choices: ['6.0', '5.0', '4.4', '4.2', '4.0', '3.6'],
             description: "Percona Server for MongoDB version",
             name: 'MO_VERSION')
         choice(
-            choices: ['4.4', '4.2', '4.0', '5.0.2'],
+            choices: ['4.4', '4.2', '4.0', '5.0.2', '6.0'],
             description: "Official MongoDB version from MongoDB Inc",
             name: 'MODB_VERSION')
         choice(

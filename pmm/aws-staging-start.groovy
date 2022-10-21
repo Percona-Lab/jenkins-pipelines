@@ -82,7 +82,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['14.4','14.3','14.2', '14.1', '14.0', '13.7', '13.6', '13.4', '13.2', '13.1', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
+            choices: ['15.0','14.4','14.3','14.2', '14.1', '14.0', '13.7', '13.6', '13.4', '13.2', '13.1', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -90,11 +90,11 @@ pipeline {
             description: "MariaDB Server version",
             name: 'MD_VERSION')
         choice(
-            choices: ['4.4', '4.2', '4.0', '3.6'],
+            choices: ['6.0', '5.0', '4.4', '4.2', '4.0', '3.6'],
             description: "Percona Server for MongoDB version",
             name: 'MO_VERSION')
         choice(
-            choices: ['4.4', '4.2', '4.0', '5.0.2'],
+            choices: ['4.4', '4.2', '4.0', '6.0', '5.0.2'],
             description: "Official MongoDB version from MongoDB Inc",
             name: 'MODB_VERSION')
         choice(
@@ -104,7 +104,7 @@ pipeline {
         choice(
             choices: ['dev','prod'],
             description: 'Prod or Dev version service',
-            name: 'VERSION_SERVICE_VERSION')            
+            name: 'VERSION_SERVICE_VERSION')
         string(
             defaultValue: '',
             description: '''
@@ -192,7 +192,7 @@ pipeline {
                         OWNER:          ${OWNER}
                         VERSION_SERVICE: ${VERSION_SERVICE_IMAGE}
                     """
-                    if ("${NOTIFY}" == "true") {
+                    if (params.NOTIFY == "true") {
                         slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                     }
@@ -202,7 +202,7 @@ pipeline {
 
         stage('Run VM') {
             steps {
-                launchSpotInstance('t3.large', 'FAIR', 25)
+                launchSpotInstance('t3.large', 'FAIR', 30)
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) ; do
@@ -216,7 +216,7 @@ pipeline {
                     env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
 
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'aws-jenkins')
-                    DumbSlave node = new DumbSlave(env.VM_NAME, "spot instance job", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
+                    DumbSlave node = new DumbSlave(env.VM_NAME, "Staging start instance: ${VM_NAME}", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
 
                     currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME} PRICE: ${env.SPOT_PRICE}"
                     Jenkins.instance.addNode(node)
@@ -231,24 +231,20 @@ pipeline {
                             echo '$SSH_KEY' >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
-                        sudo yum -y install https://repo.percona.com/yum/percona-release-1.0-25.noarch.rpm
+                        sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                         sudo yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum-config-manager --disable hashicorp
                         sudo yum repolist all
 
-                        sudo yum -y install sysbench
                         sudo amazon-linux-extras enable epel
-                        sudo yum install -y epel-release
-                        sudo amazon-linux-extras disable php5.4
                         sudo amazon-linux-extras enable php7.4
                         sudo yum --enablerepo epel install php -y
-                        
+
                         # Removed due to an repo incident at hashicorp
                         # sudo amazon-linux-extras install epel -y
-                        # sudo amazon-linux-extras install php7.2 -y
-                        
-                        sudo yum install mysql-client -y
+
+                        sudo yum install sysbench mysql-client -y
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
                             sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
@@ -275,19 +271,19 @@ pipeline {
                     env.CHANGE_USER_PASSWORD_UTILITY = changeUserPasswordUtility(DOCKER_VERSION)
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                         sh """
-                        export IP=\$(cat IP)
-                        export VM_NAME=\$(cat VM_NAME)
+                            export IP=\$(cat IP)
+                            export VM_NAME=\$(cat VM_NAME)
 
-                        export CLIENT_VERSION=${CLIENT_VERSION}
-                        if [[ \$CLIENT_VERSION = latest ]]; then
-                            CLIENT_VERSION=\$(
-                                curl -s https://www.percona.com/downloads/pmm/ \
-                                    | egrep -o 'pmm/[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}' \
-                                    | sed -e 's/pmm\\///' \
-                                    | sort -u -V \
-                                    | tail -1
-                            )
-                        fi
+                            export CLIENT_VERSION=${CLIENT_VERSION}
+                            if [[ \$CLIENT_VERSION == latest ]]; then
+                                CLIENT_VERSION=\$(
+                                    curl -s https://www.percona.com/downloads/pmm/ \
+                                        | egrep -o 'pmm/[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}' \
+                                        | sed -e 's/pmm\\///' \
+                                        | sort -u -V \
+                                        | tail -1
+                                )
+                            fi
                         """
                         node(env.VM_NAME){
                             withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
@@ -305,7 +301,7 @@ pipeline {
                                             export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1"
                                         else
                                             export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check.percona.com/versions/v1"
-                                        fi                                        
+                                        fi
 
                                         if [ -n "$VERSION_SERVICE_IMAGE" ]; then
                                             export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=http://\${VM_NAME}-version-service/versions/v1"
@@ -322,6 +318,7 @@ pipeline {
                                             --restart always \
                                             \${ENV_VARIABLE} \
                                             ${DOCKER_VERSION}
+
                                         sleep 10
                                         docker logs \${VM_NAME}-server
                                         if [ \${ADMIN_PASSWORD} != admin ]; then
@@ -330,28 +327,6 @@ pipeline {
                                             else
                                                 docker exec \${VM_NAME}-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
                                             fi
-                                        fi
-                                    else
-                                        docker create \
-                                            -v /opt/prometheus/data \
-                                            -v /opt/consul-data \
-                                            -v /var/lib/mysql \
-                                            -v /var/lib/grafana \
-                                            --name \${VM_NAME}-data \
-                                            ${DOCKER_VERSION} /bin/true
-
-                                        docker run -d \
-                                            -p 80:80 \
-                                            -p 443:443 \
-                                            --volumes-from \${VM_NAME}-data \
-                                            --name \${VM_NAME}-server \
-                                            --restart always \
-                                            -e METRICS_RESOLUTION=5s \
-                                            ${DOCKER_VERSION}
-                                        sleep 10
-                                        docker logs \${VM_NAME}-server
-                                        if [ \${ADMIN_PASSWORD} != admin ]; then
-                                            docker exec \${VM_NAME}-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
                                         fi
                                     fi
                                 """
@@ -368,18 +343,14 @@ pipeline {
             steps {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        sh """
-                            export IP=\$(cat IP)
-                            export VM_NAME=\$(cat VM_NAME)
-                        """
                         node(env.VM_NAME){
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                docker run --name \${VM_NAME}-version-service -d --hostname=\${VM_NAME}-version-service -e SERVE_HTTP=true -e GW_PORT=80 ${VERSION_SERVICE_IMAGE}
-                                docker network create \${VM_NAME}-network
-                                docker network connect \${VM_NAME}-network \${VM_NAME}-version-service
-                                docker network connect \${VM_NAME}-network \${VM_NAME}-server
+                                docker run --name ${VM_NAME}-version-service -d --hostname=${VM_NAME}-version-service -e SERVE_HTTP=true -e GW_PORT=80 ${VERSION_SERVICE_IMAGE}
+                                docker network create ${VM_NAME}-network
+                                docker network connect ${VM_NAME}-network ${VM_NAME}-version-service
+                                docker network connect ${VM_NAME}-network ${VM_NAME}-server
                             """
                         }
                     }
@@ -393,18 +364,14 @@ pipeline {
             steps {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        sh """
-                            export IP=\$(cat IP)
-                            export VM_NAME=\$(cat VM_NAME)
-                        """
                         node(env.VM_NAME){
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                docker exec \${VM_NAME}-server yum update -y percona-release
-                                docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-                                docker exec \${VM_NAME}-server percona-release enable percona testing
-                                docker exec \${VM_NAME}-server yum clean all
+                                docker exec ${VM_NAME}-server yum update -y percona-release
+                                docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
+                                docker exec ${VM_NAME}-server percona-release enable percona testing
+                                docker exec ${VM_NAME}-server yum clean all
                             """
                         }
                     }
@@ -418,18 +385,14 @@ pipeline {
             steps {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        sh """
-                            export IP=\$(cat IP)
-                            export VM_NAME=\$(cat VM_NAME)
-                        """
                         node(env.VM_NAME){
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                docker exec \${VM_NAME}-server yum update -y percona-release
-                                docker exec \${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-                                docker exec \${VM_NAME}-server percona-release enable percona experimental
-                                docker exec \${VM_NAME}-server yum clean all
+                                docker exec ${VM_NAME}-server yum update -y percona-release
+                                docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
+                                docker exec ${VM_NAME}-server percona-release enable percona experimental
+                                docker exec ${VM_NAME}-server yum clean all
                             """
                         }
                     }
@@ -445,19 +408,6 @@ pipeline {
                         set -o xtrace
                         export PATH=\$PATH:/usr/sbin
                         [ -z "${CLIENTS}" ] && exit 0 || :
-                        if [[ \$PMM_VERSION == pmm1 ]]; then
-                            bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
-                                --pxc-version ${PXC_VERSION} \
-                                --ps-version  ${PS_VERSION} \
-                                --ms-version  ${MS_VERSION} \
-                                --md-version  ${MD_VERSION} \
-                                --mo-version  ${MO_VERSION} \
-                                --pgsql-version ${PGSQL_VERSION} \
-                                --download \
-                                ${CLIENTS} \
-                                --sysbench-data-load \
-                                --sysbench-oltp-run
-                        fi
 
                         if [[ \$PMM_VERSION == pmm2 ]]; then
 
@@ -500,7 +450,7 @@ pipeline {
         }
         success {
             script {
-                if ("${NOTIFY}" == "true") {
+                if (params.NOTIFY == "true") {
                     def PUBLIC_IP = sh(returnStdout: true, script: "cat IP").trim()
                     def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
@@ -523,7 +473,7 @@ pipeline {
                 '''
             }
             script {
-                if ("${NOTIFY}" == "true") {
+                if (params.NOTIFY == "true") {
                     def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
