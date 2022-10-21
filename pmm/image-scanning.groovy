@@ -1,5 +1,5 @@
 Jenkins.instance.getItemByFullName(env.JOB_NAME).description = '''
-With this job you can run an image scanning with LaceWork (security and the best practice)
+This job helps run an image scan with LaceWork (security and best practice)
 '''
 
 pipeline {
@@ -13,15 +13,15 @@ pipeline {
     parameters {
         string(
             defaultValue: 'perconalab/pmm-server',
-            description: 'Image for scanning',
+            description: 'Image to scan',
             name: 'IMAGE')
         string(
             defaultValue: 'dev-latest',
-            description: 'Tag for scanning',
+            description: 'Image tag',
             name: 'TAG')
     }
     stages {
-        stage('Run scanning') {
+        stage('Scan docker image') {
             steps {
                 sh "lw-scanner image evaluate ${IMAGE} ${TAG} --html --html-file report.html"
                 archiveArtifacts 'report.html'

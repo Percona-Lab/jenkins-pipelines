@@ -161,13 +161,13 @@ pipeline {
         string(
             defaultValue: 'admin-password',
             description: 'pmm-server admin user default password',
-            name: 'ADMIN_PASSWORD')  
+            name: 'ADMIN_PASSWORD')
         string(
             defaultValue: 'percona:5.7',
             description: 'Percona Server Docker Container Image',
             name: 'MYSQL_IMAGE')
         string(
-            defaultValue: 'perconalab/percona-distribution-postgresql:14.4',
+            defaultValue: 'perconalab/percona-distribution-postgresql:15.0',
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
         string(
