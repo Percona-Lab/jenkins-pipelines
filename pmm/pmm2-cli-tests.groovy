@@ -79,26 +79,23 @@ void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
 
 void runPlaywrightTests() {
     node(env.VM_NAME){
+        git poll: false, branch: PMM_UI_GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
+
         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            git poll: false, branch: PMM_UI_GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
             sh '''
                 set -ex 
                 node -e "console.log('Running Node.js ' + process.version)"
+
                 cd cli
                 npm install
                 npx playwright install
-            '''
-        }
-        withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            sh '''
-                set +e
-                set -x
                 
-                export CLIENT_VERSION=${CLIENT_VERSION}
-                if [[ $CLIENT_VERSION == http* ]]; then
+                if [[ ${CLIENT_VERSION} == http* ]]; then
+                    echo Client Version: ${CLIENT_VERSION}
                     export PATH="/home/ec2-user/workspace/aws-staging-start/pmm2-client/bin:$PATH"
                 fi
-                
+
+                set +e
                 npx playwright test
             '''
         }
@@ -112,19 +109,20 @@ void fetchAgentLog(String CLIENT_VERSION) {
                 set -o errexit
                 set -o xtrace
                 if [[ ${CLIENT_VERSION} != http* ]]; then
+                    echo Client Version: ${CLIENT_VERSION}
                     journalctl -u pmm-agent.service > pmm-agent.log
                 fi
             '
+
             if [[ ${CLIENT_VERSION} != http* ]]; then
+                echo Client Version: ${CLIENT_VERSION}
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                     ${USER}@${VM_IP}:pmm-agent.log \
                     pmm-agent.log
             fi
-        '''
-    }
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh '''
+
             if [[ ${CLIENT_VERSION} == http* ]]; then
+                echo Client Version: ${CLIENT_VERSION}
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                     ${USER}@${VM_IP}:workspace/aws-staging-start/pmm-agent.log \
                     pmm-agent.log
@@ -204,12 +202,12 @@ pipeline {
         }
         stage('Test: MDB_4_2') {
             steps {
-                runTAP("modb", "modb", "3", "4.2")
+                // runTAP("modb", "modb", "3", "4.2")
             }
         }
         stage('Test: MDB_4_0') {
             steps {
-                runTAP("modb", "modb", "3", "4.0")
+                // runTAP("modb", "modb", "3", "4.0")
             }
         }
         stage('Test: PSMDB_4_0') {
