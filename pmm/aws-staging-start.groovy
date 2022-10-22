@@ -173,8 +173,8 @@ pipeline {
                         env.VM_NAME = 'pmm-' + OWNER.replaceAll("[^a-zA-Z0-9_.-]", "") + '-' + (new Date()).format("yyyyMMdd.HHmmss") + '-' + env.BUILD_NUMBER
                         sh '''
                             set -x
-                            echo "${VM_NAME}" > VN_NAME
-                            echo "\$OWNER" > OWNER_FULL
+                            echo ${VM_NAME} > VN_NAME
+                            echo \$OWNER > OWNER_FULL
                         '''
                     }
 
