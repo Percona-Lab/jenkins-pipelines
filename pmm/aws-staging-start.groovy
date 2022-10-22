@@ -170,12 +170,7 @@ pipeline {
                     wrap([$class: 'BuildUser']) {
                         OWNER = (env.BUILD_USER_EMAIL ?: '').split('@')[0] ?: env.BUILD_USER_ID
                         OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: env.BUILD_USER_EMAIL, tokenCredentialId: 'JenkinsCI-SlackBot-v2')
-                        env.VM_NAME = 'pmm-' + OWNER.replaceAll("[^a-zA-Z0-9_.-]", "") + '-' + (new Date()).format("yyyyMMdd.HHmmss") + '-' + env.BUILD_NUMBER
-                        sh '''
-                            # These are used by `launchSpotInstance`
-                            echo "${VM_NAME}" > VM_NAME
-                            echo "${OWNER}" > OWNER_FULL
-                        '''
+                        env.VM_NAME = 'pmm-' + OWNER.replaceAll("[^a-zA-Z0-9_.-]", "") + '-' + (new Date()).format("yyyyMMdd.HHmmss") + '-' + env.BUILD_NUMBER 
                     }
 
                     echo """
@@ -452,7 +447,7 @@ pipeline {
         success {
             script {
                 if (params.NOTIFY == "true") {  
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER}, link: https://${env.IP}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER}, URL: https://${env.IP}"
                     if (OWNER_SLACK) {
                         slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${env.IP}"
                     }
@@ -472,9 +467,9 @@ pipeline {
             }
             script {
                 if (params.NOTIFY == "true") {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER}, URL: ${BUILD_URL}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER},\nURL: ${BUILD_URL}"
                     if (OWNER_SLACK) {
-                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed, URL: ${BUILD_URL}"
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed,\nURL: ${BUILD_URL}"
                     }
                 }
             }

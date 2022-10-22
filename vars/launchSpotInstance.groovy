@@ -2,7 +2,9 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             export VM_NAME=\$(cat VM_NAME)
+            test -z "$VM_NAME" && export VM_NAME="${VM_NAME}"
             export OWNER=\$(cat OWNER_FULL)
+            test -z "$OWNER" && export OWNER="\${OWNER}"
             export INSTANCE_TYPE=${INSTANCE_TYPE}
             export VOLUME=${VOLUME}
             export IMAGE_ID=\$(aws ec2 describe-images --owners self --filters "Name=tag:iit-billing-tag,Values=pmm-worker" "Name=architecture,Values=x86_64"  --region us-east-2 | jq -r '.Images[0].ImageId')
