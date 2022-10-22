@@ -189,8 +189,9 @@ pipeline {
                             set -o errexit
                             set -o xtrace
                             [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
-                            echo "exclude=mirror.es.its.nyu.edu" | sudo tee /etc/yum/pluginconf.d/fastestmirror.conf
-                            until sudo yum makecache; do sleep 5; done
+                            # echo "exclude=mirror.es.its.nyu.edu" | sudo tee /etc/yum/pluginconf.d/fastestmirror.conf
+                            sudo cat /etc/yum/pluginconf.d/fastestmirror.conf
+                            sudo yum makecache
                             sudo yum -y install git svn docker
                             sudo systemctl start docker
                             curl -L -s https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 | sudo tee /usr/bin/docker-compose > /dev/null
