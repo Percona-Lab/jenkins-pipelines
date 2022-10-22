@@ -70,9 +70,9 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     else
                         wget -O pmm2-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm2/\${CLIENT_VERSION}/binary/tarball/pmm2-client-\${CLIENT_VERSION}.tar.gz"
                     fi
-                    export BUILD_ID=dear-jenkins-please-dont-kill-virtualbox
-                    export JENKINS_NODE_COOKIE=dear-jenkins-please-dont-kill-virtualbox
-                    export JENKINS_SERVER_COOKIE=dear-jenkins-please-dont-kill-virtualbox
+                    export BUILD_ID=dont-kill-virtualbox
+                    export JENKINS_NODE_COOKIE=dont-kill-virtualbox
+                    export JENKINS_SERVER_COOKIE=dont-kill-virtualbox
                     tar -zxpf pmm2-client.tar.gz
                     rm -r pmm2-client.tar.gz
                     mv pmm2-client-* pmm2-client
@@ -95,7 +95,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                         pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD \$IP
                     fi
                     sleep 10
-                    JENKINS_NODE_COOKIE=dontKillMe nohup bash -c 'pmm-agent --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
+                    nohup bash -c 'pmm-agent --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
                     sleep 10
                     cat pmm-agent.log
                     pmm-admin status
