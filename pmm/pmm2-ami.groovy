@@ -39,7 +39,7 @@ pipeline {
                     sh 'make pmm2-ami-rc'
                 }
                 script {
-                    AMI_ID = sh(script: 'jq -r \'.builds[-1].artifact_id\' build/manifest.json | cut -d ":" -f2', returnStdout: true)
+                    AMI_ID = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true)
                 }
             }
         }
@@ -52,22 +52,26 @@ pipeline {
                     sh 'make pmm2-ami'
                 }
                 script {
-                    AMI_ID = sh(script: 'jq -r \'.builds[-1].artifact_id\' build/manifest.json | cut -d ":" -f2', returnStdout: true)
+                    AMI_ID = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true)
                 }
+            }
+        }
+        stage('Run PMM AMI UI tests'){
+            steps{
+                script {
+                    build job: 'pmm2-ami-test', parameters: [ string(name: 'AMI_ID', value: AMI_ID) ]
+                }                
             }
         }
     }
     post {
         success {
             script {
-                build job: 'pmm2-ami-test', parameters: [
-                    string(name: 'AMI_ID', value: AMI_ID),
-                ]
                 if (params.RELEASE_CANDIDATE == "yes") {
                     currentBuild.description = "Release Candidate Build: ${AMI_ID}"
                     slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished - ${AMI_ID}"
                 } else {
-                    currentBuild.description = "AMI Instance ID: $AMI_ID"
+                    currentBuild.description = "AMI Instance ID: ${AMI_ID}"
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build ${BUILD_URL} finished - ${AMI_ID}"
                 }
             }
