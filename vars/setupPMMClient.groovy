@@ -14,15 +14,19 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             export CLIENT_INSTANCE=${CLIENT_INSTANCE}
             export SETUP_TYPE=${SETUP_TYPE}
             export ADMIN_PASSWORD=${ADMIN_PASSWORD}
+
             if [[ \$SETUP_TYPE == compose_setup ]]; then
                 export IP=192.168.0.1
             fi
             if [ -z \$ADMIN_PASSWORD ]; then
                 export ADMIN_PASSWORD=admin
             fi
+
             sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
             sudo yum clean all
+            echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
             sudo yum makecache
+
             if [[ \$CLIENT_VERSION = dev-latest ]]; then
                 sudo percona-release enable-only original experimental
                 sudo yum -y install pmm2-client

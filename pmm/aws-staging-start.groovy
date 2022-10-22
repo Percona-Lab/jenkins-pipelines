@@ -404,13 +404,13 @@ pipeline {
 
                         if [[ ${PMM_VERSION} == pmm2 ]]; then
 
-                            export PMM_SERVER_IP=${SERVER_IP}
+                            PMM_SERVER_IP=${SERVER_IP}
 
                             if [[ ${CLIENT_VERSION} != dev-latest ]]; then
                                 export PATH="`pwd`/pmm2-client/bin:$PATH"
                             fi
                             if [[ ${CLIENT_INSTANCE} == no ]]; then
-                                export PMM_SERVER_IP=${IP}
+                                PMM_SERVER_IP=${IP}
                             fi
                             echo "PMM_SERVER_IP: $PMM_SERVER_IP"
                             bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
@@ -428,7 +428,7 @@ pipeline {
                                 --dbdeployer \
                                 --run-load-pmm2 \
                                 --query-source=${QUERY_SOURCE} \
-                                --pmm2-server-ip=$PMM_SERVER_IP
+                                --pmm2-server-ip="$PMM_SERVER_IP"
                         fi
                     """
                 }
