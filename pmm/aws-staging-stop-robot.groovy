@@ -123,7 +123,7 @@ pipeline {
                             aws ec2 describe-spot-instance-requests \
                                 --region us-east-2 \
                                 --output text \
-                                --spot-instance-request-ids $(cat init_instances | cut -f 3 | xargs echo) \
+                                --spot-instance-request-ids $(cat init_instances | cut -f 3 | grep -v None | xargs echo) \
                                 --query 'SpotInstanceRequests[].[
                                             SpotInstanceRequestId,
                                             State,
