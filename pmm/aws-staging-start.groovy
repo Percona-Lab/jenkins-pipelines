@@ -136,8 +136,8 @@ pipeline {
             An example: --addclient=ps,1 --addclient=mo,1 --addclient=md,1 --addclient=pgsql,2 --addclient=modb,2
             ''',
             name: 'CLIENTS')
-        string(
-            defaultValue: 'true',
+        choice(
+            choices: ['yes', 'no'],
             description: 'Enable Slack notification (option for high level pipelines)',
             name: 'NOTIFY')
         choice(
