@@ -170,7 +170,11 @@ pipeline {
                     wrap([$class: 'BuildUser']) {
                         OWNER = (env.BUILD_USER_EMAIL ?: '').split('@')[0] ?: env.BUILD_USER_ID
                         OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: env.BUILD_USER_EMAIL, tokenCredentialId: 'JenkinsCI-SlackBot-v2')
-                        env.VM_NAME = 'pmm-' + OWNER.replaceAll("[^a-zA-Z0-9_.-]", "") + '-' + (new Date()).format("yyyyMMdd.HHmmss") + '-' + env.BUILD_NUMBER 
+                        env.VM_NAME = 'pmm-' + OWNER.replaceAll("[^a-zA-Z0-9_.-]", "") + '-' + (new Date()).format("yyyyMMdd.HHmmss") + '-' + env.BUILD_NUMBER
+                        sh '''
+                            echo "${VM_NAME}" > VN_NAME
+                            echo "\$OWNER" > OWNER_FULL
+                        '''
                     }
 
                     echo """
