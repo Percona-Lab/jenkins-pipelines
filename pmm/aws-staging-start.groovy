@@ -381,8 +381,8 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                docker exec ${VM_NAME}-server yum update -y percona-release
                                 docker exec ${VM_NAME}-server echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+                                docker exec ${VM_NAME}-server yum update -y percona-release
                                 docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
                                 docker exec ${VM_NAME}-server percona-release enable percona experimental
                                 docker exec ${VM_NAME}-server yum clean all
@@ -412,7 +412,7 @@ pipeline {
                             if [[ ${CLIENT_INSTANCE} == no ]]; then
                                 export PMM_SERVER_IP=${IP}
                             fi
-                            echo "PMM_SERVER_IP: $PMM_SERVER_IP"
+                            echo "PMM_SERVER_IP: ${PMM_SERVER_IP}"
                             bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                                 --ms-version  ${MS_VERSION} \
                                 --mo-version  ${MO_VERSION} \
@@ -428,7 +428,7 @@ pipeline {
                                 --dbdeployer \
                                 --run-load-pmm2 \
                                 --query-source=${QUERY_SOURCE} \
-                                --pmm2-server-ip="$PMM_SERVER_IP"
+                                --pmm2-server-ip="${PMM_SERVER_IP}"
                         fi
                     """
                 }
