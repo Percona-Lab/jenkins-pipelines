@@ -190,6 +190,7 @@ pipeline {
                             set -o errexit
                             set -o xtrace
                             [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
+                            echo "exclude=mirror.es.its.nyu.edu" >> /etc/yum/pluginconf.d/fastestmirror.conf
                             until sudo yum makecache; do sleep 5; done
                             sudo yum -y install git svn docker
                             sudo systemctl start docker
