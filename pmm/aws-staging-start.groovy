@@ -174,8 +174,8 @@ pipeline {
 
                         sh """
                             set -x
-                            echo ${VM_NAME} > VN_NAME
-                            echo \$OWNER > OWNER_FULL
+                            echo "${VM_NAME}" > VM_NAME
+                            echo "\${OWNER}" > OWNER_FULL
                         """
                     }
 
@@ -194,6 +194,7 @@ pipeline {
                         QUERY_SOURCE:   ${QUERY_SOURCE}
                         CLIENTS:        ${CLIENTS}
                         OWNER:          ${OWNER}
+                        VM_NAME:        ${VM_NAME}
                         VERSION_SERVICE: ${VERSION_SERVICE_IMAGE}
                     """
 
