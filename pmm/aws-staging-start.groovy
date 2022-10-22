@@ -192,9 +192,9 @@ pipeline {
                     """
 
                     if (params.NOTIFY == "true") {
-                        slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         if (OWNER_SLACK) {
-                            slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                            slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         }
                     }
                 }
@@ -357,6 +357,9 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
+        
+                                # exclude unavailable mirrors
+                                docker exec ${VM_NAME}-server echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf
                                 docker exec ${VM_NAME}-server yum update -y percona-release
                                 docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
                                 docker exec ${VM_NAME}-server percona-release enable percona testing
@@ -379,6 +382,7 @@ pipeline {
                                 set -o errexit
                                 set -o xtrace
                                 docker exec ${VM_NAME}-server yum update -y percona-release
+                                docker exec ${VM_NAME}-server echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf
                                 docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
                                 docker exec ${VM_NAME}-server percona-release enable percona experimental
                                 docker exec ${VM_NAME}-server yum clean all
