@@ -359,7 +359,7 @@ pipeline {
                                 set -o xtrace
         
                                 # exclude unavailable mirrors
-                                docker exec ${VM_NAME}-server echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+                                docker exec ${VM_NAME}-server echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
                                 docker exec ${VM_NAME}-server yum update -y percona-release
                                 docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
                                 docker exec ${VM_NAME}-server percona-release enable percona testing
@@ -382,7 +382,7 @@ pipeline {
                                 set -o errexit
                                 set -o xtrace
                                 docker exec ${VM_NAME}-server yum update -y percona-release
-                                docker exec ${VM_NAME}-server echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+                                docker exec ${VM_NAME}-server echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
                                 docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
                                 docker exec ${VM_NAME}-server percona-release enable percona experimental
                                 docker exec ${VM_NAME}-server yum clean all
@@ -467,9 +467,9 @@ pipeline {
             }
             script {
                 if (params.NOTIFY == "true") {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER}, URL: ${BUILD_URL}"
                     if (OWNER_SLACK) {
-                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed, URL: ${BUILD_URL}"
                     }
                 }
             }
