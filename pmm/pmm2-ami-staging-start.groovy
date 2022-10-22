@@ -128,6 +128,8 @@ pipeline {
                                 --region $AWS_DEFAULT_REGION \
                                 --key-name jenkins-admin \
                                 --query Instances[].InstanceId \
+                                --block-device-mappings \
+                                '[{ "DeviceName": "/dev/sdb","Ebs": {"DeleteOnTermination": true} }]' \
                                 --output text \
                                 | tee INSTANCE_ID
                         )
@@ -160,16 +162,16 @@ pipeline {
                             | tee PRIVATE_IP
                         
                         # wait for the instance to get ready
-                        aws ec2 wait instance-running \
-                            --instance-ids i-1234567890abcdef0
+                        # aws ec2 wait instance-running \
+                        #    --instance-ids i-1234567890abcdef0
 
-                        // The default value of `DeleteOnTermination` of the EBS volume is set to `true`,
-                        // which leaves out unused volumes after instances get shut down.
-                        aws ec2 modify-instance-attribute \
-                            --region $AWS_DEFAULT_REGION \
-                            --instance-id ${INSTANCE_ID} \
-                            --block-device-mappings \
-                            '[{ "DeviceName": "/dev/sdb","Ebs": {"DeleteOnTermination": true} }]'
+                        # The default value of `DeleteOnTermination` of the EBS volume is set to `false`,
+                        # which leaves out unused volumes after instances get shut down.
+                        # aws ec2 modify-instance-attribute \
+                        #     --region $AWS_DEFAULT_REGION \
+                        #     --instance-id ${INSTANCE_ID} \
+                        #     --block-device-mappings \
+                        #     '[{ "DeviceName": "/dev/sdb","Ebs": {"DeleteOnTermination": true} }]'
                     '''
                 }
                 script {
