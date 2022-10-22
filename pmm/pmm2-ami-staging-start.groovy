@@ -162,8 +162,8 @@ pipeline {
                             | tee PRIVATE_IP
                         
                         # wait for the instance to get ready
-                        # aws ec2 wait instance-running \
-                        #    --instance-ids i-1234567890abcdef0
+                        aws ec2 wait instance-running \
+                            --instance-ids $INSTANCE_ID
 
                         # The default value of `DeleteOnTermination` of the EBS volume is set to `false`,
                         # which leaves out unused volumes after instances get shut down.
