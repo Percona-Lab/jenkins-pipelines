@@ -417,7 +417,7 @@ pipeline {
                                 --dbdeployer \
                                 --run-load-pmm2 \
                                 --query-source=${QUERY_SOURCE} \
-                                --pmm2-server-ip=${PMM_SERVER_IP}
+                                --pmm2-server-ip=$PMM_SERVER_IP
                         fi
                     """
                 }

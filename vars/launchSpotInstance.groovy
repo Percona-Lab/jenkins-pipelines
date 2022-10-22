@@ -148,6 +148,10 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                        Key=iit-billing-tag,Value=pmm-staging \
                        Key=stop-after-days,Value=${DAYS} \
                        Key=owner,Value=\$OWNER
+
+            # wait for the instance to get ready
+            aws ec2 wait instance-running \
+                --instance-ids \$(cat ID)                      
         """
     }
 }
