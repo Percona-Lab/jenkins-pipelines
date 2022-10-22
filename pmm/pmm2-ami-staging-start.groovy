@@ -74,6 +74,7 @@ pipeline {
 
                     if (params.NOTIFY == "true") {
                         slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        echo "OWNER_SLACK:" + OWNER_SLACK
                         if (OWNER_SLACK) {
                             slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         }
@@ -119,6 +120,8 @@ pipeline {
                         )
                         echo "IMAGE_NAME:    $IMAGE_NAME"
 
+                        # The default value of the EBS volume's `DeleteOnTermination` is set to `false`,
+                        # which leaves out unused volumes after instances get shut down.
                         INSTANCE_ID=$(
                             aws ec2 run-instances \
                                 --image-id $AMI_ID \
@@ -164,14 +167,6 @@ pipeline {
                         # wait for the instance to get ready
                         aws ec2 wait instance-running \
                             --instance-ids $INSTANCE_ID
-
-                        # The default value of `DeleteOnTermination` of the EBS volume is set to `false`,
-                        # which leaves out unused volumes after instances get shut down.
-                        # aws ec2 modify-instance-attribute \
-                        #     --region $AWS_DEFAULT_REGION \
-                        #     --instance-id ${INSTANCE_ID} \
-                        #     --block-device-mappings \
-                        #     '[{ "DeviceName": "/dev/sdb","Ebs": {"DeleteOnTermination": true} }]'
                     '''
                 }
                 script {
@@ -189,17 +184,16 @@ pipeline {
                         if [ -n "$SSH_KEY" ]; then
                             echo "$SSH_KEY" | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} 'cat - >> .ssh/authorized_keys'
                         fi
-                        sleep 60
                     '''
                     sh '''
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
                             set -o errexit
                             set -o xtrace
                             [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
+                            until sudo yum makecache; do sleep 5; done
                             sudo yum -y install git svn docker
                             sudo systemctl start docker
-                            sudo curl -L https://github.com/docker/compose/releases/download/v2.12.2/docker-compose-linux-x86_64 | sudo tee docker-compose > /dev/null
-                            sudo mv docker-compose /usr/bin/docker-compose
+                            curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 | sudo tee /usr/bin/docker-compose > /dev/null
                             sudo chmod +x /usr/bin/docker-compose
                             sudo mkdir -p /srv/pmm-qa || :
                             pushd /srv/pmm-qa
@@ -209,11 +203,6 @@ pipeline {
                                 sudo chmod 755 get_download_link.sh
                             popd
                         "
-                    '''
-                }
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID',  credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        AWS_DEFAULT_REGION=us-east-1
                     '''
                 }
                 archiveArtifacts 'PUBLIC_IP'
@@ -280,9 +269,17 @@ pipeline {
         success {
             script {
                 if (params.NOTIFY == "true") {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build ${BUILD_URL} finished, owner: @${OWNER} - https://${PUBLIC_IP} Instance ID: ${INSTANCE_ID}"
+                    slackSend 
+                        botUser: true, 
+                        channel: '#pmm-ci', 
+                        color: '#00FF00', 
+                        message: "[${JOB_NAME}]: build ${BUILD_URL} finished, owner: @${OWNER} - https://${PUBLIC_IP}, Instance ID: ${INSTANCE_ID}"
                     if (OWNER_SLACK) {
-                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build ${BUILD_URL} finished - https://${PUBLIC_IP} Instance ID: ${INSTANCE_ID}"
+                        slackSend 
+                            botUser: true, 
+                            channel: "@${OWNER_SLACK}", 
+                            color: '#00FF00', 
+                            message: "[${JOB_NAME}]: build ${BUILD_URL} finished - https://${PUBLIC_IP}, Instance ID: ${INSTANCE_ID}"
                     }
                 }
             }
