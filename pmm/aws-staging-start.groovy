@@ -412,7 +412,7 @@ pipeline {
                             if [[ ${CLIENT_INSTANCE} == no ]]; then
                                 export PMM_SERVER_IP=${IP}
                             fi
-                            // echo "PMM_SERVER_IP: $PMM_SERVER_IP"
+                            # echo "PMM_SERVER_IP: $PMM_SERVER_IP"
                             bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                                 --ms-version  ${MS_VERSION} \
                                 --mo-version  ${MO_VERSION} \
