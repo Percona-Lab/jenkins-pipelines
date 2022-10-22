@@ -235,6 +235,9 @@ pipeline {
                         sudo yum-config-manager --disable hashicorp
                         sudo yum repolist all
 
+                        # exclude unavailable mirrors
+                        echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+
                         sudo amazon-linux-extras enable epel
                         sudo amazon-linux-extras enable php7.4
                         sudo yum --enablerepo epel install php -y
