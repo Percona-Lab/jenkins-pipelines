@@ -158,6 +158,7 @@ pipeline {
             name: 'PMM_QA_GIT_COMMIT_HASH')
     }
     options {
+        buildDiscarder(logRotator(numToKeepStr: '30'))
         skipDefaultCheckout()
     }
 
