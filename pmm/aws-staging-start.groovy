@@ -359,7 +359,7 @@ pipeline {
                                 set -o xtrace
         
                                 # exclude unavailable mirrors
-                                docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
+                                docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
                                 docker exec ${VM_NAME}-server yum update -y percona-release
                                 docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
                                 docker exec ${VM_NAME}-server percona-release enable percona testing
@@ -381,7 +381,7 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
+                                docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
                                 docker exec ${VM_NAME}-server yum update -y percona-release
                                 docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
                                 docker exec ${VM_NAME}-server percona-release enable percona experimental
