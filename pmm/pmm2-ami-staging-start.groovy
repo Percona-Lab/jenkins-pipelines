@@ -158,6 +158,18 @@ pipeline {
                             --output text \
                             --query 'Reservations[].Instances[].PrivateIpAddress' \
                             | tee PRIVATE_IP
+                        
+                        # wait for the instance to get ready
+                        aws ec2 wait instance-running \
+                            --instance-ids i-1234567890abcdef0
+
+                        // The default value of `DeleteOnTermination` of the EBS volume is set to `true`,
+                        // which leaves out unused volumes after instances get shut down.
+                        aws ec2 modify-instance-attribute \
+                            --region $AWS_DEFAULT_REGION \
+                            --instance-id ${INSTANCE_ID} \
+                            --block-device-mappings \
+                            '[{ "DeviceName": "/dev/sdb","Ebs": {"DeleteOnTermination": true} }]'
                     '''
                 }
                 script {
@@ -184,7 +196,7 @@ pipeline {
                             [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
                             sudo yum -y install git svn docker
                             sudo systemctl start docker
-                            sudo curl -L https://github.com/docker/compose/releases/download/v2.4.1/docker-compose-linux-x86_64 | sudo tee docker-compose > /dev/null
+                            sudo curl -L https://github.com/docker/compose/releases/download/v2.12.2/docker-compose-linux-x86_64 | sudo tee docker-compose > /dev/null
                             sudo mv docker-compose /usr/bin/docker-compose
                             sudo chmod +x /usr/bin/docker-compose
                             sudo mkdir -p /srv/pmm-qa || :
@@ -199,13 +211,7 @@ pipeline {
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID',  credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        // The default value of `DeleteOnTermination` of the EBS volume is set to `true`,
-                        // which leaves out unused volumes after instances get shut down.
                         AWS_DEFAULT_REGION=us-east-1
-                        aws ec2 modify-instance-attribute \
-                            --region $AWS_DEFAULT_REGION \
-                            --instance-id ${INSTANCE_ID} \
-                            --instance-initiated-shutdown-behavior terminate
                     '''
                 }
                 archiveArtifacts 'PUBLIC_IP'
