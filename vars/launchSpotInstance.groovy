@@ -150,7 +150,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                        Key=owner,Value=\$OWNER
 
             # wait for the instance to get ready
-            aws ec2 wait instance-running \
+            aws ec2 wait instance-status-ok \
                 --instance-ids \$(cat ID)                      
         """
     }
