@@ -194,7 +194,7 @@ pipeline {
                             until sudo yum makecache; do sleep 5; done
                             sudo yum -y install git svn docker
                             sudo systemctl start docker
-                            curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 | sudo tee /usr/bin/docker-compose > /dev/null
+                            curl -L -s https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 | sudo tee /usr/bin/docker-compose > /dev/null
                             sudo chmod +x /usr/bin/docker-compose
                             sudo mkdir -p /srv/pmm-qa || :
                             pushd /srv/pmm-qa
