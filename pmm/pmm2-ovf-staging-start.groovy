@@ -91,6 +91,9 @@ pipeline {
         }
     }
     post {
+        always {
+            deleteDir()
+        }
         success {
             script {
                 wrap([$class: 'BuildUser']) {
