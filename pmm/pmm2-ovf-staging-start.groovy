@@ -93,6 +93,10 @@ pipeline {
     post {
         always {
             deleteDir()
+            script {
+                def node = Jenkins.instance.getNode(env.VM_NAME)
+                Jenkins.instance.removeNode(node)
+            }
         }
         success {
             script {
