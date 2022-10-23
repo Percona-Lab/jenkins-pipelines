@@ -8,8 +8,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-String PUBLIC_IP = ''
-
 Jenkins.instance.getItemByFullName(env.JOB_NAME).description = '''
 With this job you can run an OVA image with PMM server on a Digital Ocean droplet. We use DO instead of AWS here because AWS doesn't support nested virtualization.
 '''
@@ -32,6 +30,8 @@ pipeline {
     environment {
         VM_NAME = "pmm-ovf-staging-${BUILD_ID}"
         VM_MEMORY = "10240"
+        OWNER_SLACK = ""
+        IP = ""
     }
     stages {
         stage('Run staging server') {
@@ -40,18 +40,16 @@ pipeline {
                         sshUserPrivateKey(credentialsId: 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER'),
                         string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')
                     ]) {
-                    sh """
-                        SSH_KEY_ID=\$(doctl compute ssh-key list | grep Jenkins | awk '{ print \$1}')
-                        echo "Key ID: \${SSH_KEY_ID}"
-                        IMAGE_ID=\$(doctl compute image list | grep pmm-agent | awk '{ print \$1}')
-                        echo "Image ID: \${IMAGE_ID}"
-                        PUBLIC_IP=\$(doctl compute droplet create --region ams3 --image \$IMAGE_ID --wait --ssh-keys \$SSH_KEY_ID --tag-name jenkins-pmm --size s-8vcpu-16gb-intel ${env.VM_NAME} -o json | jq -r '.[0].networks.v4[0].ip_address')
-                        echo "Public IP: \$PUBLIC_IP"
-                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no root@\${PUBLIC_IP}; do
+                    sh '''
+                        set -x
+                        SSH_KEY_ID=$(doctl compute ssh-key list | grep Jenkins | awk '{ print \$1}')
+                        IMAGE_ID=$(doctl compute image list | grep pmm-agent | awk '{ print \$1}')
+                        PUBLIC_IP=$(doctl compute droplet create --region ams3 --image $IMAGE_ID --wait --ssh-keys $SSH_KEY_ID --tag-name jenkins-pmm --size s-8vcpu-16gb-intel ${env.VM_NAME} -o json | jq -r '.[0].networks.v4[0].ip_address')
+                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no root@$PUBLIC_IP; do
                             sleep 5
                         done
-                        echo \$PUBLIC_IP > IP
-                    """
+                        echo "$PUBLIC_IP" > IP
+                    '''
                 }
                 script {
                     env.IP = sh(returnStdout: true, script: "cat IP").trim()
@@ -63,18 +61,17 @@ pipeline {
                     Jenkins.instance.addNode(node)
                 }
                 node(env.VM_NAME){
-                    script {
-                        PUBLIC_IP = sh(returnStdout: true, script: 'curl ifconfig.me')
-                    }
+                    // script {
+                    //     PUBLIC_IP = sh(returnStdout: true, script: 'curl ifconfig.me')
+                    // }
                     sh "wget -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}"
                     sh """
-                        export BUILD_ID=dear-jenkins-please-dont-kill-virtualbox
-                        export JENKINS_NODE_COOKIE=dear-jenkins-please-dont-kill-virtualbox
-                        export JENKINS_SERVER_COOKIE=dear-jenkins-please-dont-kill-virtualbox
+                        export BUILD_ID=dont-kill-virtualbox
+                        export JENKINS_NODE_COOKIE=dont-kill-virtualbox
 
                         tar xvf ${VM_NAME}.ova
-                        export ovf_name=\$(find -type f -name '*.ovf');
-                        VBoxManage import \$ovf_name --vsys 0 --memory ${VM_MEMORY} --vmname ${VM_NAME}
+                        export OVF_NAME=$(find -type f -name '*.ovf');
+                        VBoxManage import $OVF_NAME --vsys 0 --memory ${VM_MEMORY} --vmname ${VM_NAME}
                         VBoxManage modifyvm ${VM_NAME} \
                             --memory ${VM_MEMORY} \
                             --audio none \
@@ -87,20 +84,23 @@ pipeline {
                         done
                         VBoxManage startvm --type headless ${VM_NAME}
                         cat /tmp/${VM_NAME}-console.log
-                        timeout 50 bash -c 'until curl --insecure -I https://${PUBLIC_IP}; do sleep 3; done' | true
+                        timeout 50 bash -c 'until curl --insecure -I https://${IP}; do sleep 3; done' | true
                     """
                     script {
+                        wrap([$class: 'BuildUser']) {
+                            env.OWNER_SLACK = slackUserIdFromEmail(
+                                botUser: true, 
+                                email: env.BUILD_USER_EMAIL, 
+                                tokenCredentialId: 'JenkinsCI-SlackBot-v2'
+                            )
+                        }
 
-                        def OWNER_SLACK = slackUserIdFromEmail(
-                            botUser: true,
-                            email: BUILD_USER_EMAIL,
-                            tokenCredentialId: 'JenkinsCI-SlackBot-v2'
-                        )
-
-                        slackSend botUser: true,
-                                channel: "@${OWNER_SLACK}",
-                                color: '#00FF00',
-                                message: "OVF instance for ${OVA_VERSION} was created. IP: https://${PUBLIC_IP}\nYou can stop it with: https://pmm.cd.percona.com/job/pmm2-ovf-staging-stop/build"
+                        if (env.OWNER_SLACK) {
+                            slackSend botUser: true,
+                                    channel: "@${OWNER_SLACK}",
+                                    color: '#00FF00',
+                                    message: "OVF instance of ${OVA_VERSION} has been created. IP: https://${IP}\nYou can stop it with: https://pmm.cd.percona.com/job/pmm2-ovf-staging-stop/build"
+                        }
                     }
                 }
             }
