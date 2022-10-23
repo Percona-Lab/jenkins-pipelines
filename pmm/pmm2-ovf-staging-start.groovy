@@ -125,25 +125,12 @@ pipeline {
                         VBoxManage startvm --type headless ${VM_NAME}
                         cat /tmp/${VM_NAME}-console.log
                         timeout 50 bash -c 'until curl --insecure -I https://${IP}; do sleep 5; done' || true
+                    """
+                    sh """
+                        # This fails sometimes, so we want to isolate this step
                         sleep 60
                         curl -s --user admin:admin http://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}'
                     """
-                    script {
-                        wrap([$class: 'BuildUser']) {
-                            env.OWNER_SLACK = slackUserIdFromEmail(
-                                botUser: true, 
-                                email: env.BUILD_USER_EMAIL, 
-                                tokenCredentialId: 'JenkinsCI-SlackBot-v2'
-                            )
-                        }
-
-                        if (env.OWNER_SLACK) {
-                            slackSend botUser: true,
-                                    channel: "@${OWNER_SLACK}",
-                                    color: '#00FF00',
-                                    message: "OVF instance of ${OVA_VERSION} has been created. IP: https://${IP}\nYou can stop it with: https://pmm.cd.percona.com/job/pmm2-ovf-staging-stop/build"
-                        }
-                    }
                 }
             }
         }
@@ -217,6 +204,24 @@ pipeline {
                     Jenkins.instance.removeNode(node)
                 } else {
                     echo "Warning: no node to remove"
+                }
+            }
+        }
+        success {
+            script {
+                wrap([$class: 'BuildUser']) {
+                    env.OWNER_SLACK = slackUserIdFromEmail(
+                        botUser: true, 
+                        email: env.BUILD_USER_EMAIL, 
+                        tokenCredentialId: 'JenkinsCI-SlackBot-v2'
+                    )
+                }
+
+                if (env.OWNER_SLACK) {
+                    slackSend botUser: true,
+                            channel: "@${OWNER_SLACK}",
+                            color: '#00FF00',
+                            message: "OVF instance of ${OVA_VERSION} has been created. IP: https://${IP}\nYou can stop it with: https://pmm.cd.percona.com/job/pmm2-ovf-staging-stop/parambuild/?VM=${IP}"
                 }
             }
         }
