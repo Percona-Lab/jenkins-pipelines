@@ -134,7 +134,7 @@ pipeline {
             ''',
             name: 'CLIENTS')
         choice(
-            choices: ['yes', 'no'],
+            choices: ['true', 'false'],
             description: 'Enable Slack notification (option for high level pipelines)',
             name: 'NOTIFY')
         choice(
