@@ -36,24 +36,28 @@ func CleanClusters(w http.ResponseWriter, r *http.Request) {
                 log.Fatal(err)
             }
             for _, cluster := range clustersReq.Clusters {
-                creationTime := cluster.ResourceLabels["creation-time"]
+                creationTime, err := time.Parse(time.RFC3339, cluster.CreateTime)
+                if err != nil {
+                    log.Fatal(err)
+                }
+                creationTimeInEpoch := creationTime.Unix()
 
-                if len(creationTime) != 0 {
-                    if creationTime, err := strconv.ParseInt(creationTime, 10, 64); err == nil {
+                deleteClusterAfterHours := cluster.ResourceLabels["delete-cluster-after-hours"]
 
-                        if (currentTime - creationTime)/3600 > 6 {
+                if len(deleteClusterAfterHours) != 0 {
+                    if deleteClusterAfterHours, err := strconv.ParseInt(deleteClusterAfterHours, 10, 64); err == nil {
+                        if (currentTime - creationTimeInEpoch)/3600 > deleteClusterAfterHours {
 
                             resp, err := containerService.Projects.Zones.Clusters.Delete(project, zone.Name, cluster.Name).Context(ctx).Do()
                             if err != nil {
-
                                 return fmt.Errorf("delete cluster: %v", err)
                             }
-
+                            fmt.Printf("%s\n", resp.Status)
                             fmt.Printf("cluster: %s in zone %s was deleted\n", cluster.Name, zone.Name)
                         }
-
                     }
                 }
+
             }
         }
         return nil
