@@ -8,6 +8,7 @@ import (
         "os"
         "time"
         "strconv"
+        "math"
 
         "google.golang.org/api/compute/v1"
         "google.golang.org/api/container/v1"
@@ -27,7 +28,7 @@ func CleanClusters(w http.ResponseWriter, r *http.Request) {
 
     project := os.Getenv("GCP_DEV_PROJECT")
     zonesReq := computeService.Zones.List(project)
-    currentTime := time.Now().Unix()
+    currentTime := time.Now()
 
     if err := zonesReq.Pages(ctx, func(page *compute.ZoneList) error {
         for _, zone := range page.Items {
@@ -40,14 +41,12 @@ func CleanClusters(w http.ResponseWriter, r *http.Request) {
                 if err != nil {
                     log.Fatal(err)
                 }
-                creationTimeInEpoch := creationTime.Unix()
 
                 deleteClusterAfterHours := cluster.ResourceLabels["delete-cluster-after-hours"]
 
                 if len(deleteClusterAfterHours) != 0 {
                     if deleteClusterAfterHours, err := strconv.ParseInt(deleteClusterAfterHours, 10, 64); err == nil {
-                        if (currentTime - creationTimeInEpoch)/3600 > deleteClusterAfterHours {
-
+                        if int64(math.Round(currentTime.Sub(creationTime).Hours())) > deleteClusterAfterHours {
                             resp, err := containerService.Projects.Zones.Clusters.Delete(project, zone.Name, cluster.Name).Context(ctx).Do()
                             if err != nil {
                                 return fmt.Errorf("delete cluster: %v", err)
