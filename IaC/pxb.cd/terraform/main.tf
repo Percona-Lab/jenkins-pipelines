@@ -52,7 +52,7 @@ resource "aws_ebs_volume" "jenkins" {
 
 # Request a jenkins master Spot fleet
 resource "aws_spot_fleet_request" "jenkins" {
-  allocation_strategy                 = "lowestPrice"
+  allocation_strategy                 = "capacityOptimized"
   excess_capacity_termination_policy  = "Default"
   iam_fleet_role                      = "${aws_iam_role.jenkins-master-fleet.arn}"
   replace_unhealthy_instances         = "true"
@@ -64,7 +64,7 @@ resource "aws_spot_fleet_request" "jenkins" {
   valid_until                         = "2099-01-01T00:00:00Z"
 
   launch_specification {
-    instance_type = "m4.large"
+    instance_type = "c5.xlarge"
     ami           = "${data.aws_ami.amazon-linux-2.id}"
     subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
 
@@ -88,7 +88,7 @@ resource "aws_spot_fleet_request" "jenkins" {
   }
 
   launch_specification {
-    instance_type = "m5zn.large"
+    instance_type = "c5a.xlarge"
     ami           = "${data.aws_ami.amazon-linux-2.id}"
     subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
 
@@ -112,7 +112,7 @@ resource "aws_spot_fleet_request" "jenkins" {
   }
 
   launch_specification {
-    instance_type = "c5.large"
+    instance_type = "c5ad.xlarge"
     ami           = "${data.aws_ami.amazon-linux-2.id}"
     subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
 
@@ -136,7 +136,7 @@ resource "aws_spot_fleet_request" "jenkins" {
   }
 
   launch_specification {
-    instance_type = "c5d.large"
+    instance_type = "c6i.xlarge"
     ami           = "${data.aws_ami.amazon-linux-2.id}"
     subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
 

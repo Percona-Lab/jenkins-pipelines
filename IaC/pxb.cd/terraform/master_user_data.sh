@@ -29,7 +29,8 @@ install_software() {
     yum -y update --security
     amazon-linux-extras install -y nginx1.12
     amazon-linux-extras install -y epel
-    yum -y install java-1.8.0-openjdk jenkins-2.289.2 certbot git yum-cron aws-cli xfsprogs
+    amazon-linux-extras install -y java-openjdk11
+    yum -y install jenkins-2.361.2 certbot git yum-cron aws-cli xfsprogs
 
     sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
     sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -94,10 +95,28 @@ start_jenkins() {
 
     printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
         | tee -a /etc/hosts
-    sed -i 's^"-Djava.awt.headless=true"^"-Djava.awt.headless=true -Xms2048m -Xmx4096m -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc-%t.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2 -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"^' /etc/sysconfig/jenkins
-    echo JENKINS_HOME=/mnt/$JENKINS_HOST \
-        | tee -a /etc/sysconfig/jenkins
-    chkconfig jenkins on
+    mkdir -p /etc/systemd/system/jenkins.service.d
+    cat <<-EOF | tee /etc/systemd/system/jenkins.service.d/override.conf
+         [Service]
+         # Directory where Jenkins stores its configuration and workspaces
+         Environment="JENKINS_HOME=/mnt/$JENKINS_HOST"
+         WorkingDirectory=/mnt/$JENKINS_HOST
+
+         # Location of the exploded WAR
+         Environment="JENKINS_WEBROOT=/var/cache/jenkins/war"
+
+         # Location of the Jenkins log.
+         Environment="JENKINS_LOG=/var/log/jenkins/jenkins.log"
+	EOF
+
+    cat <<-"EOF" | tee -a /etc/systemd/system/jenkins.service.d/override.conf
+
+         # Arguments for the Jenkins JVM
+          Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+	EOF
+
+    systemctl daemon-reload
+    systemctl enable jenkins
     systemctl start jenkins
 
     #echo "/usr/bin/aws s3 sync --sse-kms-key-id alias/jenkins-pmm-backup --sse aws:kms --exclude '*/caches/*' --exclude '*/config-history/nodes/*' --exclude '*/secretFiles/*' --delete /mnt/ s3://backup.cd.percona.com/" > /etc/cron.daily/jenkins-backup
@@ -236,7 +255,7 @@ EOF
 }
 
 setup_ssh_keys() {
-    KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets"
+    KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets surabhi.bhat"
 
     for KEY in $KEYS_LIST; do
         RETRY="3"
