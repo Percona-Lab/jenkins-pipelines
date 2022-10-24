@@ -23,13 +23,11 @@ func CleanClusters(w http.ResponseWriter, r *http.Request) {
     containerService, errContainer := container.NewService(ctx)
     if errContainer != nil {
         log.Fatal("Error: create containerService", errContainer)
-        fmt.Fprintln(w, "Error: create containerService", errContainer)
     }
 
     project := os.Getenv("GCP_DEV_PROJECT")
     zonesReq := computeService.Zones.List(project)
     currentTime := time.Now().Unix()
-    fmt.Fprintln(w, "Сurrent time %s", currentTime)
 
     if err := zonesReq.Pages(ctx, func(page *compute.ZoneList) error {
         for _, zone := range page.Items {
@@ -37,23 +35,20 @@ func CleanClusters(w http.ResponseWriter, r *http.Request) {
             if err != nil {
                 log.Fatal(err)
             }
-            fmt.Fprintln(w, "clusters: %v" ,clustersReq )
             for _, cluster := range clustersReq.Clusters {
-                fmt.Fprintln(w, "Iterate clusters %s", cluster.Name)
                 creationTime := cluster.ResourceLabels["creation-time"]
 
                 if len(creationTime) != 0 {
                     if creationTime, err := strconv.ParseInt(creationTime, 10, 64); err == nil {
-                        fmt.Fprintln(w, "Creation time %s", creationTime)
+
                         if (currentTime - creationTime)/3600 > 6 {
-                            fmt.Fprint(w, "Try to delete")
+
                             resp, err := containerService.Projects.Zones.Clusters.Delete(project, zone.Name, cluster.Name).Context(ctx).Do()
                             if err != nil {
-                                fmt.Fprint(w, "%s\n", err)
+
                                 return fmt.Errorf("delete cluster: %v", err)
                             }
 
-                            fmt.Fprint(w, "%s\n", resp)
                             fmt.Printf("cluster: %s in zone %s was deleted\n", cluster.Name, zone.Name)
                         }
 
