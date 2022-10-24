@@ -1,9 +1,3 @@
-void runPmm2AmiUITests(String AMI_ID) {
-    stagingJob = build job: 'pmm2-ami-test', parameters: [
-        string(name: 'AMI_ID', value: AMI_ID),
-    ]
-}
-
 String AMI_ID = ''
 
 pipeline {
@@ -32,10 +26,10 @@ pipeline {
                           noTags: true,
                           reference: '',
                           shallow: true]],
-                          userRemoteConfigs: [[url: 'https://github.com/percona/pmm.git']]])
+                          userRemoteConfigs: [[url: 'https://github.com/percona/pmm.git']]
+                ])
             }
         }
-
         stage('Build Image Release Candidate') {
             when {
                 expression { env.RELEASE_CANDIDATE == "yes" }
@@ -45,7 +39,7 @@ pipeline {
                     sh 'make pmm2-ami-rc'
                 }
                 script {
-                    AMI_ID = sh(script: 'jq -r \'.builds[-1].artifact_id\' build/manifest.json | cut -d ":" -f2', returnStdout: true)
+                    AMI_ID = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true)
                 }
             }
         }
@@ -58,30 +52,32 @@ pipeline {
                     sh 'make pmm2-ami'
                 }
                 script {
-                    AMI_ID = sh(script: 'jq -r \'.builds[-1].artifact_id\' build/manifest.json | cut -d ":" -f2', returnStdout: true)
+                    AMI_ID = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true)
                 }
+            }
+        }
+        stage('Run PMM AMI UI tests'){
+            steps{
+                script {
+                    build job: 'pmm2-ami-test', parameters: [ string(name: 'AMI_ID', value: AMI_ID) ]
+                }                
             }
         }
     }
     post {
         success {
             script {
-                runPmm2AmiUITests(AMI_ID)
-                if ("${RELEASE_CANDIDATE}" == "yes")
-                {
+                if (params.RELEASE_CANDIDATE == "yes") {
                     currentBuild.description = "Release Candidate Build: ${AMI_ID}"
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${AMI_ID}]: ${BUILD_URL} Release Candidate build finished - ${AMI_ID}"
+                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished - ${AMI_ID}"
+                } else {
+                    currentBuild.description = "AMI Instance ID: ${AMI_ID}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build ${BUILD_URL} finished - ${AMI_ID}"
                 }
-                else
-                {
-                    currentBuild.description = AMI_ID
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${AMI_ID}]: build finished - ${AMI_ID}"
-                }
-                env.AMI_ID = AMI_ID // TODO use env everywhere
             }
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${AMI_ID}]: build failed"
+            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${BUILD_URL} failed"
         }
     }
 }
