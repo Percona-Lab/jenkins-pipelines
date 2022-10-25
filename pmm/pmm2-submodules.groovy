@@ -224,8 +224,10 @@ pipeline {
                         build-server-rpm pmm-dump
 
                         # 3rd-party
-                        build-server-rpm victoriametrics-gateway
                         build-server-rpm victoriametrics
+                        if [ -f "${WORKSPACE}/sources/pmm/src/github.com/percona/pmm/build/packages/rpm/server/SPECS/victoriametrics-gateway.spec" ]; then
+                            build-server-rpm victoriametrics-gateway
+                        fi
                         build-server-rpm alertmanager
                         build-server-rpm grafana
                     """
