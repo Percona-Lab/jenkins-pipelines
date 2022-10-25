@@ -134,7 +134,7 @@ pipeline {
             ''',
             name: 'CLIENTS')
         choice(
-            choices: ['yes', 'no'],
+            choices: ['true', 'false'],
             description: 'Enable Slack notification (option for high level pipelines)',
             name: 'NOTIFY')
         choice(
@@ -227,7 +227,7 @@ pipeline {
                     Jenkins.instance.addNode(node)
                 }
                 node(env.VM_NAME){
-                    sh '''
+                    sh """
                         set -o errexit
                         set -o xtrace
 
@@ -255,12 +255,12 @@ pipeline {
                         sudo yum install sysbench mysql-client -y
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
-                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                            sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
+                            sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                            sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
                             sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
                             sudo chmod 755 get_download_link.sh
                         popd
-                    '''
+                    """
                 }
                 script {
                     def node = Jenkins.instance.getNode(env.VM_NAME)
