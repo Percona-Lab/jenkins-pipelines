@@ -214,19 +214,7 @@ pipeline {
                         export RPM_EPOCH=1
                         export PATH=\$PATH:\$(pwd -P)/${PATH_TO_SCRIPTS}
 
-                        # 1st-party
-                        build-server-rpm percona-dashboards grafana-dashboards
-                        build-server-rpm pmm-managed pmm
-                        build-server-rpm percona-qan-api2 qan-api2
-                        build-server-rpm pmm-update
-                        build-server-rpm dbaas-controller
-                        build-server-rpm dbaas-tools
-                        build-server-rpm pmm-dump
-
-                        # 3rd-party
-                        build-server-rpm victoriametrics
-                        build-server-rpm alertmanager
-                        build-server-rpm grafana
+                        ${PATH_TO_SCRIPTS}/build-server-rpm-all
                     """
                 }
             }
