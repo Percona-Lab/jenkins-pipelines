@@ -25,19 +25,21 @@ func CleanClusters(w http.ResponseWriter, r *http.Request) {
     }
 
     project := os.Getenv("GCP_DEV_PROJECT")
-    zonesReq := computeService.Zones.List(project)
+    zones := computeService.Zones.List(project)
     currentTime := time.Now()
 
-    if err := zonesReq.Pages(ctx, func(page *compute.ZoneList) error {
+    if err := zones.Pages(ctx, func(page *compute.ZoneList) error {
         for _, zone := range page.Items {
-            clustersReq, err := containerService.Projects.Zones.Clusters.List(project, zone.Name).Do()
+            clusters, err := containerService.Projects.Zones.Clusters.List(project, zone.Name).Do()
             if err != nil {
-                log.Fatal(err)
+                log.Printf("Getting clusters in zone %s failed with error: %v", zone.Name, err)
+                continue
             }
-            for _, cluster := range clustersReq.Clusters {
+            for _, cluster := range clusters.Clusters {
                 creationTime, err := time.Parse(time.RFC3339, cluster.CreateTime)
                 if err != nil {
-                    log.Fatal(err)
+                    log.Printf("Error getting cluster creation time : %v", err)
+                    continue
                 }
 
                 deleteClusterAfterHours, ok := cluster.ResourceLabels["delete-cluster-after-hours"]
@@ -47,18 +49,18 @@ func CleanClusters(w http.ResponseWriter, r *http.Request) {
 
                 deleteClusterAfterHoursInt, err := strconv.ParseInt(deleteClusterAfterHours, 10, 64)
                 if err != nil {
-                    log.Fatal(err)
+                    log.Printf("Parse label value: %v", err)
                     continue
                 }
 
                 if int64(math.Round(currentTime.Sub(creationTime).Hours())) > deleteClusterAfterHoursInt {
                     resp, err := containerService.Projects.Zones.Clusters.Delete(project, zone.Name, cluster.Name).Context(ctx).Do()
                     if err != nil {
-                        log.Fatal("delete cluster error: %v", err)
+                        log.Printf("Cluster deletion error: %v", err)
                         continue
                     }
 
-                    log.Printf("cluster: %s in zone %s was deleted with status %s\n", cluster.Name, zone.Name, resp.Status)
+                    log.Printf("Cluster: %s in zone %s was deleted with status %s\n", cluster.Name, zone.Name, resp.Status)
                 }
             }
         }
