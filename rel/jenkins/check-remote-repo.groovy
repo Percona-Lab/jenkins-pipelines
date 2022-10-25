@@ -75,11 +75,11 @@ ReposPathMap = [
 
 ReposSlackMap = [
     'MongoDB':              "#opensource-psmdb",
-    'MySQL':                "#opensource-ps",
-    'MySQLShell':           "#opensource-ps",
-    'ProxySQL':             "#opensource_proxysql",
-    'MyRocks':              "#opensource-myrocks",
-    'RocksDB':              "#opensource-myrocks",
+    'MySQL':                "#mysql",
+    'MySQLShell':           "#mysql",
+    'ProxySQL':             "#mysql",
+    'MyRocks':              "#mysql",
+    'RocksDB':              "#mysql",
     'Grafana':              "#pmm-dev",
     'VictoriaMetrics':      "#pmm-dev",
     'Orchestrator':         "#pmm-dev",
