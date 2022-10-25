@@ -1,7 +1,6 @@
 package clusters
 
 import (
-        "fmt"
         "log"
         "net/http"
         "context"
@@ -15,7 +14,6 @@ import (
 )
 
 func CleanClusters(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprint(w, "Hello, World test!")
     ctx := context.Background()
     computeService, err := compute.NewService(ctx)
     if err != nil {
