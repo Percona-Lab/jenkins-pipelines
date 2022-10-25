@@ -42,21 +42,26 @@ func CleanClusters(w http.ResponseWriter, r *http.Request) {
                     log.Fatal(err)
                 }
 
-                deleteClusterAfterHours := cluster.ResourceLabels["delete-cluster-after-hours"]
-
-                if len(deleteClusterAfterHours) != 0 {
-                    if deleteClusterAfterHours, err := strconv.ParseInt(deleteClusterAfterHours, 10, 64); err == nil {
-                        if int64(math.Round(currentTime.Sub(creationTime).Hours())) > deleteClusterAfterHours {
-                            resp, err := containerService.Projects.Zones.Clusters.Delete(project, zone.Name, cluster.Name).Context(ctx).Do()
-                            if err != nil {
-                                return fmt.Errorf("delete cluster: %v", err)
-                            }
-                            fmt.Printf("%s\n", resp.Status)
-                            fmt.Printf("cluster: %s in zone %s was deleted\n", cluster.Name, zone.Name)
-                        }
-                    }
+                deleteClusterAfterHours, ok := cluster.ResourceLabels["delete-cluster-after-hours"]
+                if !ok {
+                    continue
                 }
 
+                deleteClusterAfterHoursInt, err := strconv.ParseInt(deleteClusterAfterHours, 10, 64)
+                if err != nil {
+                    log.Fatal(err)
+                    continue
+                }
+
+                if int64(math.Round(currentTime.Sub(creationTime).Hours())) > deleteClusterAfterHoursInt {
+                    resp, err := containerService.Projects.Zones.Clusters.Delete(project, zone.Name, cluster.Name).Context(ctx).Do()
+                    if err != nil {
+                        log.Fatal("delete cluster error: %v", err)
+                        continue
+                    }
+
+                    log.Printf("cluster: %s in zone %s was deleted with status %s\n", cluster.Name, zone.Name, resp.Status)
+                }
             }
         }
         return nil
