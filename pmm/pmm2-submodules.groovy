@@ -224,6 +224,7 @@ pipeline {
                         build-server-rpm pmm-dump
 
                         # 3rd-party
+                        build-server-rpm victoriametrics-gateway
                         build-server-rpm victoriametrics
                         build-server-rpm alertmanager
                         build-server-rpm grafana
