@@ -214,7 +214,7 @@ pipeline {
                         export RPM_EPOCH=1
                         export PATH=\$PATH:\$(pwd -P)/${PATH_TO_SCRIPTS}
 
-                        ${PATH_TO_SCRIPTS}/build-server-pipeline
+                        ${PATH_TO_SCRIPTS}/build-server-rpm-all
                     """
                 }
             }
