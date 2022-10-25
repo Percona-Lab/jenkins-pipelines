@@ -7,15 +7,15 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/ppg-server/ppg-server_builder.sh -O ppg-server_builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/ppg-server-ha/ppg-server-ha_builder.sh -O ppg-server-ha_builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./ppg-server_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./ppg-server_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./ppg-server-ha_builder.sh --builddir=\${build_dir}/test --install_deps=1
+            bash -x ./ppg-server-ha_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${PPG_REPO} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -34,11 +34,11 @@ pipeline {
     parameters {
         string(
             defaultValue: 'https://github.com/percona/postgres-packaging.git',
-            description: 'URL for ppg-server repository',
+            description: 'URL for ppg-server-ha repository',
             name: 'GIT_REPO')
         string(
             defaultValue: '14.4',
-            description: 'Tag/Branch for ppg-server repository',
+            description: 'Tag/Branch for ppg-server-ha repository',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '1',
@@ -49,11 +49,7 @@ pipeline {
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
-            defaultValue: '14.4',
-            description: 'VERSION value',
-            name: 'VERSION')
-        string(
-            defaultValue: 'ppg',
+            defaultValue: 'ppg-14.4',
             description: 'PPG repo name',
             name: 'PPG_REPO')
         choice(
@@ -67,17 +63,17 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
     }
     stages {
-        stage('Create PPG_SERVER source tarball') {
+        stage('Create PPG_SERVER_HA source tarball') {
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH}")
                 cleanUpWS()
                 buildStage("centos:7", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/ppg-server.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/ppg-server-ha.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/ppg-server.properties
+                   cat test/ppg-server-ha.properties
                    cat uploadPath
                 '''
                 script {
@@ -88,9 +84,9 @@ pipeline {
                 uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
-        stage('Build PPG-SERVER generic source packages') {
+        stage('Build PPG-SERVER_HA generic source packages') {
             parallel {
-                stage('Build PPG-SERVER generic source rpm') {
+                stage('Build PPG-SERVER_HA generic source rpm') {
                     agent {
                         label 'docker'
                     }
@@ -103,7 +99,7 @@ pipeline {
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Build PPG-SERVER generic source deb') {
+                stage('Build PPG-SERVER_HA generic source deb') {
                     agent {
                         label 'docker'
                     }
@@ -118,7 +114,7 @@ pipeline {
                 }
             }  //parallel
         } // stage
-        stage('Build PPG-SERVER RPMs/DEBs/Binary tarballs') {
+        stage('Build PPG-SERVER-HA RPMs/DEBs/Binary tarballs') {
             parallel {
                 stage('Centos 7') {
                     agent {
