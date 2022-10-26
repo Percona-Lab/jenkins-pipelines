@@ -21,7 +21,7 @@ netMap['eu-central-1b'] = 'subnet-085deaca8c1c59a4f'
 netMap['eu-central-1c'] = 'subnet-0643c0784b4e3cedd'
 
 imageMap = [:]
-imageMap['eu-central-1a.micro-amazon'] = 'ami-099ccc441b2ef41ec'
+imageMap['eu-central-1a.micro-amazon'] = 'ami-0b920b0594b5288fb'
 imageMap['eu-central-1b.micro-amazon'] = imageMap['eu-central-1a.micro-amazon']
 imageMap['eu-central-1c.micro-amazon'] = imageMap['eu-central-1a.micro-amazon']
 
@@ -29,13 +29,13 @@ imageMap['eu-central-1a.min-centos-7-x64'] = 'ami-08b6d44b4f6f7b279'
 imageMap['eu-central-1b.min-centos-7-x64'] = imageMap['eu-central-1a.min-centos-7-x64']
 imageMap['eu-central-1c.min-centos-7-x64'] = imageMap['eu-central-1a.min-centos-7-x64']
 
-imageMap['eu-central-1a.min-ol-8-x64'] = 'ami-07e51b655b107cd9b'
+imageMap['eu-central-1a.min-ol-8-x64'] = 'ami-059d20a9c4cb68026'
 imageMap['eu-central-1b.min-ol-8-x64'] = imageMap['eu-central-1a.min-ol-8-x64']
 imageMap['eu-central-1c.min-ol-8-x64'] = imageMap['eu-central-1a.min-ol-8-x64']
 
-imageMap['eu-central-1a.min-rhel-9-x64'] = 'ami-025d24108be0a614c'
-imageMap['eu-central-1b.min-rhel-9-x64'] = imageMap['eu-central-1a.min-rhel-9-x64']
-imageMap['eu-central-1c.min-rhel-9-x64'] = imageMap['eu-central-1a.min-rhel-9-x64']
+imageMap['eu-central-1a.min-ol-9-x64'] = 'ami-0387d68a9c60ce485'
+imageMap['eu-central-1b.min-ol-9-x64'] = imageMap['eu-central-1a.min-ol-9-x64']
+imageMap['eu-central-1c.min-ol-9-x64'] = imageMap['eu-central-1a.min-ol-9-x64']
 
 priceMap = [:]
 priceMap['t2.medium']   = '0.05'
@@ -46,13 +46,13 @@ priceMap['m4.2xlarge']  = '0.20'
 priceMap['r4.4xlarge']  = '0.35'
 priceMap['m5d.2xlarge'] = '0.20'
 priceMap['c5d.xlarge']  = '0.20'
-priceMap['r5b.2xlarge'] = '0.40'
+priceMap['r5a.2xlarge'] = '0.40'
 
 userMap = [:]
 userMap['micro-amazon']     = 'ec2-user'
 userMap['min-centos-7-x64'] = 'centos'
 userMap['min-ol-8-x64']     = userMap['micro-amazon']
-userMap['min-rhel-9-x64']   = userMap['micro-amazon']
+userMap['min-ol-9-x64']     = userMap['micro-amazon']
 
 initMap = [:]
 initMap['micro-amazon'] = '''
@@ -73,7 +73,10 @@ initMap['micro-amazon'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git || :
+    sudo amazon-linux-extras install epel -y
+    sudo amazon-linux-extras install java-openjdk11 -y || :
+    sudo yum -y install java-11-openjdk git || :
+    sudo yum -y install git || :
     sudo yum -y install awscli || :
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
@@ -81,7 +84,7 @@ initMap['micro-amazon'] = '''
 
 initMap['min-centos-7-x64'] = initMap['micro-amazon']
 initMap['min-ol-8-x64']     = initMap['micro-amazon']
-initMap['min-rhel-9-x64']   = initMap['micro-amazon']
+initMap['min-ol-9-x64']     = initMap['micro-amazon']
 
 capMap = [:]
 capMap['c4.xlarge']   = '60'
@@ -89,31 +92,31 @@ capMap['m4.xlarge']   = '5'
 capMap['m4.2xlarge']  = '40'
 capMap['r4.4xlarge']  = '40'
 capMap['c5d.xlarge']  = '10'
-capMap['r5b.2xlarge'] = '40'
+capMap['r5a.2xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon']     = 't2.medium'
 typeMap['min-centos-7-x64'] = 't2.medium'
 typeMap['min-ol-8-x64']     = 't2.medium'
-typeMap['min-rhel-9-x64']   = 'r5b.2xlarge'
+typeMap['min-ol-9-x64']     = 'r5a.2xlarge'
 
 execMap = [:]
 execMap['micro-amazon']     = '30'
 execMap['min-centos-7-x64'] = '1'
 execMap['min-ol-8-x64']     = '1'
-execMap['min-rhel-9-x64']   = '1'
+execMap['min-ol-9-x64']     = '1'
 
 devMap = [:]
 devMap['micro-amazon']     = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-centos-7-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-ol-8-x64']     = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['min-rhel-9-x64']   = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-ol-9-x64']     = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
 
 labelMap = [:]
 labelMap['micro-amazon']     = 'master'
 labelMap['min-centos-7-x64'] = 'min-centos-7-x64'
 labelMap['min-ol-8-x64']     = 'min-ol-8-x64'
-labelMap['min-rhel-9-x64']   = 'min-rhel-9-x64'
+labelMap['min-ol-9-x64']     = 'min-ol-9-x64'
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -133,7 +136,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
-        new UnixData('', '', '', '22'),             // AMITypeData amiType
+        new UnixData('', '', '', '22', ''),         // AMITypeData amiType
         '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
@@ -186,7 +189,7 @@ String region = 'eu-central-1'
             getTemplate('micro-amazon',      "${region}${it}"),
             getTemplate('min-centos-7-x64',  "${region}${it}"),
             getTemplate('min-ol-8-x64',      "${region}${it}"),
-            getTemplate('min-rhel-9-x64',    "${region}${it}"),
+            getTemplate('min-ol-9-x64',      "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''

@@ -139,7 +139,7 @@ void installRpms() {
 pipeline {
     parameters {
         string(
-            defaultValue: '4.7.22',
+            defaultValue: '4.10.30',
             description: 'OpenShift version to use',
             name: 'PLATFORM_VER')
         string(

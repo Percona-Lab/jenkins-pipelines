@@ -22,7 +22,7 @@ netMap['us-west-2b'] = 'subnet-011f09cf273aeef73'
 netMap['us-west-2c'] = 'subnet-00b0d1d8bd8af5c07'
 
 imageMap = [:]
-imageMap['docker'] = 'ami-0e21d4d9303512b8e'
+imageMap['docker'] = 'ami-0f9f005c313373218'
 imageMap['docker-32gb'] = imageMap['docker']
 imageMap['micro-amazon'] = imageMap['docker']
 imageMap['min-centos-6-x32'] = 'ami-cb1382fb'
@@ -30,6 +30,7 @@ imageMap['min-centos-6-x64'] = 'ami-0e025868cef8764d8'
 imageMap['min-centos-7-x64'] = 'ami-0686851c4e7b1a8e1'
 imageMap['min-centos-8-x64'] = 'ami-0155c31ea13d4abd2'
 imageMap['min-ol-8-x64']     = 'ami-000b99c02c2b64925'
+imageMap['min-ol-9-x64']     = 'ami-00a5d5bcea31bb02c'
 imageMap['min-bionic-x64']   = 'ami-0bdef2eb518663879'
 imageMap['min-stretch-x64']  = 'ami-025f3bcb64ebe6e83'
 imageMap['min-buster-x64']   = 'ami-090cd3aed687b1ee1'
@@ -45,7 +46,7 @@ priceMap['m1.medium'] = '0.05'
 priceMap['c5ad.2xlarge'] = '0.18'
 priceMap['m3.2xlarge'] = '0.23'
 priceMap['m5zn.2xlarge'] = '0.23'
-priceMap['m5zn.3xlarge'] = '0.27'
+priceMap['c5ad.4xlarge'] = '0.40'
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
@@ -58,6 +59,7 @@ userMap['min-centos-7-x64'] = 'centos'
 userMap['fips-centos-7-x64'] = 'centos'
 userMap['min-centos-8-x64'] = 'centos'
 userMap['min-ol-8-x64'] = 'ec2-user'
+userMap['min-ol-9-x64'] = 'ec2-user'
 userMap['min-stretch-x64'] = 'admin'
 userMap['min-buster-x64'] = 'admin'
 userMap['min-focal-x64'] = 'ubuntu'
@@ -89,7 +91,8 @@ initMap['docker'] = '''
     done
 
     sudo amazon-linux-extras install epel -y
-    sudo yum -y install java-1.8.0-openjdk git docker p7zip
+    sudo amazon-linux-extras install java-openjdk11 -y || :
+    sudo yum -y install git docker p7zip
     sudo yum -y remove java-1.7.0-openjdk awscli
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
@@ -178,6 +181,7 @@ initMap['rpmMap'] = '''
     fi
     if [[ $SYSREL -eq 2 ]]; then
         sudo amazon-linux-extras install epel -y
+        sudo amazon-linux-extras install java-openjdk11 -y || :
         PKGLIST="p7zip"
     fi
     if [[ ${RHVER} -eq 8 ]]; then
@@ -188,7 +192,7 @@ initMap['rpmMap'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git ${PKGLIST} || :
+    sudo yum -y install java-11-openjdk git ${PKGLIST} || :
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     # CentOS 6 x32 workarounds
@@ -244,7 +248,7 @@ initMap['debMap'] = '''
     if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]]; then
         JAVA_VER="openjdk-11-jre-headless"
     else
-        JAVA_VER="openjdk-8-jre-headless"
+        JAVA_VER="openjdk-11-jre-headless"
     fi
     sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ${JAVA_VER} git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
@@ -256,6 +260,7 @@ initMap['min-centos-7-x64'] = initMap['rpmMap']
 initMap['fips-centos-7-x64'] = initMap['rpmMap']
 initMap['min-centos-8-x64'] = initMap['rpmMap']
 initMap['min-ol-8-x64'] = initMap['rpmMap']
+initMap['min-ol-9-x64'] = initMap['rpmMap']
 initMap['min-centos-6-x32'] = initMap['rpmMap']
 
 initMap['min-stretch-x64'] = initMap['debMap']
@@ -273,17 +278,18 @@ capMap = [:]
 capMap['c5ad.2xlarge'] = '80'
 capMap['m3.2xlarge'] = '60'
 capMap['m5zn.2xlarge'] = '80'
-capMap['m5zn.3xlarge'] = '80'
+capMap['c5ad.4xlarge'] = '80'
 capMap['m1.medium'] = '10'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't3a.medium'
 typeMap['docker'] = 'm5zn.2xlarge'
-typeMap['docker-32gb'] = 'm5zn.3xlarge'
+typeMap['docker-32gb'] = 'c5ad.4xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-8-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-ol-8-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-ol-9-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-jammy-x64'] = typeMap['min-centos-7-x64']
@@ -306,6 +312,7 @@ execMap['min-centos-7-x64'] = '1'
 execMap['fips-centos-7-x64'] = '1'
 execMap['min-centos-8-x64'] = '1'
 execMap['min-ol-8-x64'] = '1'
+execMap['min-ol-9-x64'] = '1'
 execMap['min-stretch-x64'] = '1'
 execMap['min-buster-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
@@ -326,6 +333,7 @@ devMap['min-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-centos-8-x64'] = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-ol-8-x64'] = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-ol-9-x64'] = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-stretch-x64'] = 'xvda=:30:true:gp2,xvdd=:80:true:gp2'
 devMap['min-buster-x64'] = '/dev/xvda=:30:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-bullseye-x64'] = '/dev/xvda=:30:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -346,6 +354,7 @@ labelMap['min-centos-7-x64'] = ''
 labelMap['fips-centos-7-x64'] = ''
 labelMap['min-centos-8-x64'] = ''
 labelMap['min-ol-8-x64'] = ''
+labelMap['min-ol-9-x64'] = ''
 labelMap['min-stretch-x64'] = ''
 labelMap['min-buster-x64'] = ''
 labelMap['min-xenial-x64'] = ''
@@ -370,7 +379,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
-        new UnixData('', '', '', '22'),             // AMITypeData amiType
+        new UnixData('', '', '', '22', ''),         // AMITypeData amiType
         '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
@@ -428,6 +437,7 @@ String region = 'us-west-2'
             getTemplate('min-centos-7-x64', "${region}${it}"),
             getTemplate('min-centos-8-x64', "${region}${it}"),
             getTemplate('min-ol-8-x64', "${region}${it}"),
+            getTemplate('min-ol-9-x64', "${region}${it}"),
             getTemplate('min-stretch-x64', "${region}${it}"),
             getTemplate('min-buster-x64', "${region}${it}"),
             getTemplate('min-xenial-x64', "${region}${it}"),

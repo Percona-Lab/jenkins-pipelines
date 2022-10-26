@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'cli'
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
@@ -14,6 +14,7 @@ pipeline {
     stages {
         stage('List instances') {
             steps {
+                deleteDir()
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         copy_tags() {
@@ -122,7 +123,7 @@ pipeline {
                             aws ec2 describe-spot-instance-requests \
                                 --region us-east-2 \
                                 --output text \
-                                --spot-instance-request-ids $(cat init_instances | cut -f 3 | xargs echo) \
+                                --spot-instance-request-ids $(cat init_instances | cut -f 3 | grep -v None | xargs echo) \
                                 --query 'SpotInstanceRequests[].[
                                             SpotInstanceRequestId,
                                             State,
@@ -202,6 +203,7 @@ pipeline {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
                 }
             }
+            deleteDir()
         }
     }
 }
