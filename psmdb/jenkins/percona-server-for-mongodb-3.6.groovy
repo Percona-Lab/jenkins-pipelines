@@ -258,11 +258,6 @@ pipeline {
                 sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
             }
         }
-        stage('Publish docker images for tests in Perconalab') {
-            steps {
-                buildDockerImageForPerconaLab(${PSMDB_VERSION})
-            }
-        }
     }
     post {
         success {
