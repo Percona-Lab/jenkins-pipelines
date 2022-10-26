@@ -339,20 +339,18 @@ pipeline {
                         slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
                     }
                 } else {
-                    if(env.API_TESTS_RESULT != "SUCCESS") {
+                    if(env.API_TESTS_RESULT != "SUCCESS" && env.API_TESTS_URL) {
                         addComment("API tests have failed, Please check: API: ${API_TESTS_URL}")
                     }
-                    if(env.BATS_TESTS_RESULT != "SUCCESS") {
+                    if(env.BATS_TESTS_RESULT != "SUCCESS" && env.BATS_TESTS_URL) {
                         addComment("pmm2-client testsuite has failed, Please check: BATS: ${BATS_TESTS_URL}")
                     }
-                    if(env.UI_TESTS_RESULT != "SUCCESS") {
+                    if(env.UI_TESTS_RESULT != "SUCCESS" && env.UI_TESTS_URL) {
                         addComment("UI tests have failed, Please check: UI: ${UI_TESTS_URL}")
                     }
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} build job link: ${BUILD_URL}"
                 }
             }
-            sh 'sudo make clean'
-            deleteDir()
         }
     }
 }
