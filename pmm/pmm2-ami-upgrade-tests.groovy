@@ -243,15 +243,18 @@ pipeline {
                     set -x
                     COUNT=0
                     SLEEP_FOR=150
+                    RET_VAL=1
                     while true; do
-                        if [[ $(curl -s -o /dev/null -w "%{http_code}" ${PMM_URL}/ping) != "200" ]]; then
+                        if [ $(curl -s -o /dev/null -w "%{http_code}" ${PMM_URL}/ping) != "200" ]; then
                             sleep 5
                         else
+                            RET_VAL=0
                             break
                         fi
                         ((COUNT+=5))
                         [ $COUNT -ge $SLEEP_FOR ] && break
                     done
+                    [[ $RET_VAL ]]
                 '''
             }
         }
