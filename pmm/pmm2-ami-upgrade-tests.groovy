@@ -58,8 +58,7 @@ void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_Q
         env.PMM_URL = "http://admin:admin@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
     }
-    else
-    {
+    else {
         env.PMM_URL = "http://admin:admin@${VM_IP}"
         env.PMM_UI_URL = "http://${VM_IP}/"
     }
@@ -301,21 +300,19 @@ pipeline {
     }
     post {
         always {
-            // stop staging
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             fetchAgentLog(CLIENT_VERSION)
+            // stop staging
             script {
-                if(env.AMI_INSTANCE_IP) {
+                if (env.AMI_INSTANCE_IP) {
                     runAMIStaginStop(AMI_INSTANCE_ID)
                 }
-                if(env.VM_CLIENT_NAME)
-                {
+                if (env.VM_CLIENT_NAME) {
                     destroyStaging(VM_CLIENT_IP)
                 }
-                if(env.VM_CLIENT_NAME_DB)
-                {
+                if (env.VM_CLIENT_NAME_DB) {
                     destroyStaging(VM_CLIENT_IP_DB)
                 }
             }
@@ -340,11 +337,6 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
-            sh '''
-                sudo rm -r node_modules/
-                sudo rm -r tests/output
-            '''
-            deleteDir()
         }
     }
 }
