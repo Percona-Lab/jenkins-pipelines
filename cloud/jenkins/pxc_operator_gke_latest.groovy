@@ -14,7 +14,7 @@ void CreateCluster(String CLUSTER_SUFFIX) {
                 ret_val=0
                 gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version ${params.PLATFORM_VER} --zone $GKERegion --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=3 --min-nodes=3 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} && \
+                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version ${params.PLATFORM_VER} --zone $GKERegion --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=3 --min-nodes=3 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} --cluster-ipv4-cidr=10.\$(( RANDOM % 250 )).\$(( RANDOM % 30 * 8 )).0/21 && \
                 gcloud container clusters update --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX} --update-labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
@@ -312,7 +312,8 @@ pipeline {
                         runTest('upgrade-proxysql', 'upgrade')
                         ShutdownCluster('upgrade')
                         CreateCluster('upgrade')
-                        runTest('smart-update', 'upgrade')
+                        runTest('smart-update1', 'upgrade')
+                        runTest('smart-update2', 'upgrade')
                         runTest('upgrade-consistency', 'upgrade')
                         ShutdownCluster('upgrade')
                     }
@@ -366,6 +367,7 @@ pipeline {
                         runTest('recreate', 'backups')
                         runTest('restore-to-encrypted-cluster', 'backups')
                         runTest('demand-backup', 'backups')
+                        runTest('demand-backup-cloud', 'backups')
                         runTest('demand-backup-encrypted-with-tls', 'backups')
                         runTest('pitr','backups')
                         ShutdownCluster('backups')
