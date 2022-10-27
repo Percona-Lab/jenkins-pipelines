@@ -84,13 +84,6 @@ pipeline {
         stage('Run VM') {
             steps {
                 launchSpotInstance('c5n.4xlarge', 'FAIR', 70)
-                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh """
-                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP) 'java -version; sudo yum install -y java-1.8.0-openjdk; sudo /usr/sbin/alternatives --set java /usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java; java -version;' ; do
-                            sleep 5
-                        done
-                    """
-                }
                 script {
                     env.IP      = sh(returnStdout: true, script: "cat IP").trim()
                     env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
@@ -99,7 +92,7 @@ pipeline {
                     currentBuild.description = "PRICE: $SPOT_PRICE IP: $env.IP"
 
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'aws-jenkins')
-                    DumbSlave node = new DumbSlave(env.VM_NAME, "spot instance job", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
+                    DumbSlave node = new DumbSlave(env.VM_NAME, "k8s cluster staging instance: ${VM_NAME}", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
 
                     Jenkins.instance.addNode(node)
                 }
@@ -146,10 +139,7 @@ pipeline {
                                 set -o errexit
                                 set -o xtrace
                                 sudo yum -y install curl
-                                sudo curl -Lo /usr/local/sbin/minikube https://github.com/kubernetes/minikube/releases/download/v1.16.0/minikube-linux-amd64
-                                sudo chmod +x /usr/local/sbin/minikube
-                                sudo ln -s /usr/local/sbin/minikube /usr/sbin/minikube
-                                alias kubectl='minikube kubectl --'
+                                /srv/pmm-qa/pmm-tests/install_k8s_tools.sh --minikube --kubectl --sudo
                                 sleep 5
                             """
                         }
@@ -199,15 +189,15 @@ pipeline {
                                 set -o errexit
                                 set -o xtrace
                                 export PATH=\$PATH:/usr/sbin
-                                minikube kubectl -- get nodes
-                                minikube kubectl -- get pods
+                                kubectl get nodes
+                                kubectl get pods
 
                                 if [ "${PXC_OPERATOR_VERSION}" != none ]; then
-                                    minikube kubectl -- wait --for=condition=Available --timeout=60s deployment percona-xtradb-cluster-operator
+                                    kubectl wait --for=condition=Available --timeout=60s deployment percona-xtradb-cluster-operator
                                 fi
 
                                 if [ "${PSMDB_OPERATOR_VERSION}" != none ]; then
-                                    minikube kubectl -- wait --for=condition=Available --timeout=60s deployment percona-server-mongodb-operator
+                                    kubectl wait --for=condition=Available --timeout=60s deployment percona-server-mongodb-operator
                                 fi                                
                             """
                         }
@@ -228,7 +218,7 @@ pipeline {
                                 set -o errexit
                                 set -o xtrace
                                 export PATH=\$PATH:/usr/sbin
-                                minikube kubectl -- config view --flatten --minify > kubeconfig.yml
+                                kubectl config view --flatten --minify > kubeconfig.yml
                             """
                         }
                         withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {

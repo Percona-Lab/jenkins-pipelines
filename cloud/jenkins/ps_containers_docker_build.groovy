@@ -1,35 +1,45 @@
 void build(String IMAGE_POSTFIX){
     sh """
         cd ./source/
-        docker build --no-cache --squash --progress plain \
-            -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
-            -f ./orchestrator/Dockerfile ./orchestrator
+        if [ "${IMAGE_POSTFIX}" == "orchestrator" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./orchestrator/Dockerfile ./orchestrator
+        elif [ "${IMAGE_POSTFIX}" == "backup" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./percona-xtrabackup-8.0/Dockerfile ./percona-xtrabackup-8.0
+        elif [ "${IMAGE_POSTFIX}" == "router" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./mysql-router/Dockerfile ./mysql-router
+        elif [ "${IMAGE_POSTFIX}" == "psmysql" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./percona-server-8.0/Dockerfile ./percona-server-8.0
+        elif [ "${IMAGE_POSTFIX}" == "toolkit" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./percona-toolkit/Dockerfile ./percona-toolkit
+        elif [ "${IMAGE_POSTFIX}" == "haproxy" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./haproxy/Dockerfile ./haproxy
+        fi
     """
 }
-void checkImageForDocker(String IMAGE_POSTFIX){
+void checkImageForDocker(String IMAGE_SUFFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            sg docker -c '
+            IMAGE_SUFFIX=${IMAGE_SUFFIX}
+            IMAGE_NAME='percona-server-mysql-operator'
+            TrivyLog="$WORKSPACE/trivy-\$IMAGE_NAME-\${IMAGE_SUFFIX}.xml"
+            wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
+
+            sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
-
-                TrityHightLog="$WORKSPACE/trivy-hight-percona-server-mysql-operator-${IMAGE_POSTFIX}.xml"
-                TrityCriticaltLog="$WORKSPACE/trivy-critical-percona-server-mysql-operator-${IMAGE_POSTFIX}.xml"
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH \
-                    perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}
-
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL \
-                    perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}
-
-                if [ ! -s \$TrityHightLog ]; then
-                    rm -rf \$TrityHightLog
-                fi
-
-                if [ ! -s \$TrityCriticaltLog ]; then
-                    rm -rf \$TrityCriticaltLog
-                fi
-            '
-
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrivyLog --ignore-unfixed  --timeout 10m --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-\${IMAGE_SUFFIX}
+            "
         """
     }
 }
@@ -83,6 +93,7 @@ pipeline {
                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                 """
@@ -104,20 +115,49 @@ pipeline {
                 retry(3) {
                     build('orchestrator')
                 }
+                retry(3) {
+                    build('backup')
+                }
+                retry(3) {
+                    build('router')
+                }
+                retry(3) {
+                    build('psmysql')
+                }
+                retry(3) {
+                    build('toolkit')
+                }
+                retry(3) {
+                    build('haproxy')
+                }
             }
         }
         stage('Push Images to Docker registry') {
             steps {
                 pushImageToDocker('orchestrator')
+                pushImageToDocker('backup')
+                pushImageToDocker('router')
+                pushImageToDocker('psmysql')
+                pushImageToDocker('toolkit')
+                pushImageToDocker('haproxy')
             }
         }
-        stage('Check Docker images') {
-            steps {
-                checkImageForDocker('orchestrator')
-            }
-            post {
-                always {
-                    junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-orchestrator.xml"
+        stage('Trivy Checks') {
+            parallel {
+                stage('Check Docker images') {
+                    steps {
+                        checkImageForDocker('orchestrator')
+                        checkImageForDocker('backup')
+                        checkImageForDocker('router')
+                        checkImageForDocker('psmysql')
+                        checkImageForDocker('toolkit')
+                        checkImageForDocker('haproxy')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "trivy-*.xml"
+                        }
+                    }
                 }
             }
         }

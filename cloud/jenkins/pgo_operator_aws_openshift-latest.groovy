@@ -218,7 +218,7 @@ pipeline {
                     gcloud components update kubectl
                     gcloud version
 
-                    curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
                     curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OS_VERSION/openshift-client-linux.tar.gz \
@@ -237,6 +237,7 @@ pipeline {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'),file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
                     sh '''
+                        sudo sudo git config --global --add safe.directory '*'
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf source

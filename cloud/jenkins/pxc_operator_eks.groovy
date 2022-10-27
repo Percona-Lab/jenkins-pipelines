@@ -87,6 +87,14 @@ void runTest(String TEST_NAME) {
                                 export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
                             fi
 
+                            if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                                export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                            fi
+
+                            if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                                export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                            fi
+
                             export PATH=/home/ec2-user/.local/bin:$PATH
                             source $HOME/google-cloud-sdk/path.bash.inc
                             export KUBECONFIG=~/.kube/config
@@ -141,7 +149,7 @@ pipeline {
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.20',
+            defaultValue: '1.21',
             description: 'EKS kubernetes version',
             name: 'PLATFORM_VER')
         choice(
@@ -176,6 +184,14 @@ pipeline {
             defaultValue: '',
             description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
             name: 'IMAGE_LOGCOLLECTOR')
+        string(
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     environment {
         CLEAN_NAMESPACE = 1
@@ -203,10 +219,10 @@ pipeline {
                     gcloud components update kubectl
                     gcloud version
 
-                    curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
 
                     curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
@@ -220,6 +236,7 @@ pipeline {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
                     sh '''
+                        sudo sudo git config --global --add safe.directory '*'
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf source
@@ -257,6 +274,13 @@ metadata:
     name: eks-pxc-cluster
     region: eu-west-3
     version: "$PLATFORM_VER"
+iam:
+  withOIDC: true
+
+addons:
+- name: aws-ebs-csi-driver
+  wellKnownPolicies:
+    ebsCSIController: true
 
 nodeGroups:
     - name: ng-1
@@ -387,6 +411,7 @@ EOF
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     unstash 'cluster_conf'
                     sh """
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster eks-pxc-cluster --region eu-west-3
                         eksctl delete cluster -f cluster.yaml --wait --force
                     """
                 }

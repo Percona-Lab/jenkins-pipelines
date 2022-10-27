@@ -25,29 +25,14 @@ void checkImageForDocker(String IMAGE_PREFIX){
         sh """
             IMAGE_PREFIX=${IMAGE_PREFIX}
             IMAGE_NAME='percona-xtradb-cluster-operator'
-            TrityHightLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_PREFIX}.xml"
-            TrityCriticaltLog="$WORKSPACE/trivy-critical-\$IMAGE_NAME-${IMAGE_PREFIX}.xml"
+            TrivyLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_PREFIX}.xml"
             wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrityHightLog --ignore-unfixed  --timeout 10m --exit-code 0 --severity HIGH perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrityCriticaltLog --ignore-unfixed --timeout 10m --exit-code 0 --severity CRITICAL perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrivyLog --ignore-unfixed  --timeout 10m --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
             "
         """
-    }
-}
-void checkImageForCVE(String IMAGE_SUFFIX){
-    try {
-        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
-            sh """
-                IMAGE_NAME='percona-xtradb-cluster-operator'
-                docker run -v \$(pwd):/tmp/pgo --rm quay.io/sysdig/secure-inline-scan:2 perconalab/\$IMAGE_NAME:main-${IMAGE_SUFFIX} --sysdig-token '${SYSDIG_API_KEY}' --sysdig-url https://us2.app.sysdig.com -r /tmp/pgo
-            """
-        }
-    } catch (error) {
-        echo "${IMAGE_SUFFIX} has some CVE error(s) please check the reports."
-        currentBuild.result = 'FAILURE'
     }
 }
 void pushImageToDocker(String IMAGE_PREFIX){
@@ -101,6 +86,7 @@ pipeline {
                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                 """
@@ -247,19 +233,6 @@ pipeline {
                         }
                     }
                 }
-            }
-        }
-        stage('Check Docker images for CVE') {
-            steps {
-                checkImageForCVE('pxc5.7')
-                checkImageForCVE('pxc8.0')
-                checkImageForCVE('pxc5.7-debug')
-                checkImageForCVE('pxc8.0-debug')
-                checkImageForCVE('proxysql')
-                checkImageForCVE('pxc5.7-backup')
-                checkImageForCVE('pxc8.0-backup')
-                checkImageForCVE('haproxy')
-                checkImageForCVE('logcollector')
             }
         }
     }

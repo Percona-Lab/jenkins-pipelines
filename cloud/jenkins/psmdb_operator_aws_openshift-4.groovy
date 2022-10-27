@@ -1,3 +1,9 @@
+void IsRunTestsInClusterWide() {
+    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+        env.OPERATOR_NS = 'psmdb-operator'
+    }
+}
+
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -42,10 +48,10 @@ void runTest(String TEST_NAME) {
             testsReportMap[TEST_NAME] = 'failure'
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
 
-            popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
+            popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
 
             sh """
-                if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG" ]; then
+                if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                     echo Skip $TEST_NAME test
                 else
                     cd ./source
@@ -67,6 +73,14 @@ void runTest(String TEST_NAME) {
                         export IMAGE_PMM=${IMAGE_PMM}
                     fi
 
+                    if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                    fi
+
+                    if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                        export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                    fi
+
                     source $HOME/google-cloud-sdk/path.bash.inc
                     export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
                     oc whoami
@@ -74,7 +88,7 @@ void runTest(String TEST_NAME) {
                     ./e2e-tests/$TEST_NAME/run
                 fi
             """
-            pushArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
+            pushArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
@@ -110,7 +124,7 @@ void installRpms() {
 pipeline {
     parameters {
         string(
-            defaultValue: '4.6.23',
+            defaultValue: '4.10.30',
             description: 'OpenShift version to use',
             name: 'PLATFORM_VER')
         string(
@@ -121,6 +135,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with cluster wide',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
@@ -137,6 +155,14 @@ pipeline {
             defaultValue: '',
             description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
             name: 'IMAGE_PMM')
+        string(
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     environment {
         TF_IN_AUTOMATION = 'true'
@@ -170,7 +196,7 @@ pipeline {
                     gcloud components update kubectl
                     gcloud version
 
-                    curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
                     curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux-$PLATFORM_VER.tar.gz \
@@ -189,6 +215,7 @@ pipeline {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
                     sh '''
+                        sudo sudo git config --global --add safe.directory '*'
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf source
@@ -214,6 +241,8 @@ pipeline {
         }
         stage('Create AWS Infrastructure') {
             steps {
+                IsRunTestsInClusterWide()
+
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'psmdb-openshift4-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
                      sh """
                          mkdir openshift
@@ -251,6 +280,7 @@ pipeline {
                 runTest('monitoring-2-0')
                 runTest('non-voting')
                 runTest('cross-site-sharded')
+                runTest('data-at-rest-encryption')
            }
         }
         stage('E2E SelfHealing') {

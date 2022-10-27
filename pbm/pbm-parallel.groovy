@@ -62,10 +62,16 @@ pipeline {
          }
   }
     post {
+        success {
+            slackNotify("#opensource-psmdb", "#00FF00", "[${JOB_NAME}]: package tests for PBM ${VERSION} repo ${install_repo} finished succesfully")
+        }
+        failure {
+            slackNotify("#opensource-psmdb", "#FF0000", "[${JOB_NAME}]: package tests for PBM ${VERSION} repo ${install_repo} failed ")
+        }
         always {
-          script {
-              moleculeParallelPostDestroy(pdmdbOperatingSystems(), moleculeDir)
-         }
-      }
-  }
+            script {
+                moleculeParallelPostDestroy(pdmdbOperatingSystems(), moleculeDir)
+            }
+        }
+    }
 }

@@ -31,36 +31,37 @@ pipeline {
             name: 'VERSION'
         )
         string(
-            defaultValue: '2.0.18',
+            defaultValue: '2.3.2',
             description: 'Updated Proxysql version',
             name: 'PROXYSQL_VERSION'
          )
         string(
-            defaultValue: '8.0.23',
+            defaultValue: '8.0.29',
             description: 'Updated PXB version',
             name: 'PXB_VERSION'
          )
         string(
-            defaultValue: '3.3.1',
+            defaultValue: '3.4.0',
             description: 'Updated Percona Toolkit version',
             name: 'PT_VERSION'
          )
         string(
-            defaultValue: '3.1.4',
+            defaultValue: '3.2.6',
             description: 'Updated Percona Orchestrator version',
             name: 'ORCHESTRATOR_VERSION'
          )
         string(
             defaultValue: 'master',
             description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
+            name: 'TESTING_BRANCH'
+        )
   }
   options {
           withCredentials(moleculePdpsJenkinsCreds())
           disableConcurrentBuilds()
   }
   stages {
-        stage ('Test install') {
+        stage ('Test install: minor repo') {
             when {
                 expression { env.TO_REPO != 'release' }
             }
@@ -76,6 +77,7 @@ pipeline {
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
                         string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        booleanParam(name: 'MAJOR_REPO', value: false)
                         ]
                     }
                     catch (err) {
@@ -85,7 +87,7 @@ pipeline {
                 }
             }
         }
-        stage ('Test setup') {
+        stage ('Test setup: minor repo') {
             when {
                 expression { env.TO_REPO == 'release' }
             }
@@ -96,11 +98,38 @@ pipeline {
                         string(name: 'REPO', value: "${env.TO_REPO}"),
                         string(name: 'VERSION', value: "${env.VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pdps-setup"),
+                        string(name: 'SCENARIO', value: "pdps_setup"),
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
                         string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        booleanParam(name: 'MAJOR_REPO', value: false)
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'Test setup' failed, but we continue"
+                    }
+                }
+            }
+        }
+        stage ('Test setup: major repo') {
+            when {
+                expression { env.TO_REPO == 'release' }
+            }
+            steps {
+                script {
+                    try {
+                        build job: 'pdps-parallel', parameters: [
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'VERSION', value: "${env.VERSION}"),
+                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'SCENARIO', value: "pdps_setup"),
+                        string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
+                        string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
+                        string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
+                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        booleanParam(name: 'MAJOR_REPO', value: true)
                         ]
                     }
                     catch (err) {
@@ -111,6 +140,9 @@ pipeline {
             }
         }
         stage ('Test minor upgrade') {
+            when {
+                expression { env.TO_REPO != 'release' }
+            }
             steps {
                 script {
                     try {
@@ -130,30 +162,6 @@ pipeline {
                     catch (err) {
                         currentBuild.result = "FAILURE"
                         echo "Stage 'Test minor upgrade' failed, but we continue"
-                    }
-                }
-            }
-        }
-        stage ('Test minor downgrade') {
-            steps {
-                script {
-                    try {
-                        build job: 'pdps-upgrade-parallel', parameters: [
-                        string(name: 'FROM_REPO', value: "${env.TO_REPO}"),
-                        string(name: 'FROM_VERSION', value: "${env.VERSION}"),
-                        string(name: 'TO_REPO', value: "${env.FROM_REPO}"),
-                        string(name: 'VERSION', value: "${env.FROM_VERSION}"),
-                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pdps-minor-upgrade"),
-                        string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
-                        string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
-                        string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
-                        ]
-                    }
-                    catch (err) {
-                        currentBuild.result = "FAILURE"
-                        echo "Stage 'Test minor downgrade' failed, but we continue"
                     }
                 }
             }

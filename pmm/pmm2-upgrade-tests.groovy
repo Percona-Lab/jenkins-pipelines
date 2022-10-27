@@ -14,7 +14,10 @@ void performDockerWayUpgrade(String PMM_VERSION) {
 void checkUpgrade(String PMM_VERSION, String PRE_POST) {
     sh """
         export PMM_VERSION=${PMM_VERSION}
+        export PRE_POST=${PRE_POST}
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
+        echo $PMM_VERSION
+        echo $PRE_POST
         bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh ${PMM_VERSION} ${PRE_POST}
     """
 }
@@ -22,6 +25,7 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
 void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
     sh """
         export PMM_VERSION=${PMM_VERSION}
+        export PRE_POST=${PRE_POST}
         echo "Upgrading pmm2-client";
         sudo yum clean all
         sudo yum makecache
@@ -29,19 +33,6 @@ void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
         sleep 30
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
         bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION} ${PRE_POST}
-    """
-}
-
-void fetchAgentLog(String CLIENT_VERSION) {
-    sh """
-        export CLIENT_VERSION=${CLIENT_VERSION}
-        if [[ \$CLIENT_VERSION != http* ]]; then
-            journalctl -u pmm-agent.service > /var/log/pmm-agent.log
-            sudo chown ec2-user:ec2-user /var/log/pmm-agent.log
-        fi
-        if [[ -e /var/log/pmm-agent.log ]]; then
-            cp /var/log/pmm-agent.log .
-        fi
     """
 }
 
@@ -53,7 +44,7 @@ def getMinorVersion(VERSION) {
 
 pipeline {
     agent {
-        label 'docker-farm'
+        label 'agent-amd64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -79,6 +70,10 @@ pipeline {
         INFLUXDB_USER=credentials('influxdb-user')
         INFLUXDB_USER_PASSWORD=credentials('influxdb-user-password')
         MONITORING_HOST=credentials('monitoring-host')
+        PMM_QA_AURORA2_MYSQL_HOST=credentials('PMM_QA_AURORA2_MYSQL_HOST')
+        PMM_QA_AURORA2_MYSQL_PASSWORD=credentials('PMM_QA_AURORA2_MYSQL_PASSWORD')
+        PMM_QA_AWS_ACCESS_KEY_ID=credentials('PMM_QA_AWS_ACCESS_KEY_ID')
+        PMM_QA_AWS_ACCESS_KEY=credentials('PMM_QA_AWS_ACCESS_KEY')
         MAILOSAUR_API_KEY=credentials('MAILOSAUR_API_KEY')
         MAILOSAUR_SERVER_ID=credentials('MAILOSAUR_SERVER_ID')
         MAILOSAUR_SMTP_PASSWORD=credentials('MAILOSAUR_SMTP_PASSWORD')
@@ -86,8 +81,8 @@ pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for UI Tests Repo repository',
-            name: 'GIT_BRANCH')
+            description: 'Tag/Branch for UI Tests repository',
+            name: 'PMM_UI_GIT_BRANCH')
         choice(
             choices: versionsList,
             description: 'PMM Server Version to test for Upgrade',
@@ -154,19 +149,18 @@ pipeline {
                     }
                 }
                 // fetch pmm-ui-tests repository
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
+                git poll: false,
+                    branch: PMM_UI_GIT_BRANCH,
+                    url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
-                    sudo yum -y install svn
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                         sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
-                        sudo chmod 755 pmm-tests/install-google-chrome.sh
-                        bash ./pmm-tests/install-google-chrome.sh
                     popd
-                    sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
+                    sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
         }
@@ -293,7 +287,9 @@ pipeline {
         }
         stage('Check Packages before Upgrade') {
             steps {
-                checkUpgrade(DOCKER_VERSION, "pre");
+                script {
+                    runPython('check_upgrade', "-v ${DOCKER_VERSION} -p pre")
+                }
             }
         }
         stage('Run UI way Upgrade Tests') {
@@ -309,7 +305,7 @@ pipeline {
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
                 """
-                }
+            }
         }
         stage('Run Docker Way Upgrade Tests') {
             when {
@@ -331,12 +327,14 @@ pipeline {
                     sleep 30
                     ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@post-upgrade'
                 """
-                }
+            }
 
         }
         stage('Check Packages after Upgrade') {
             steps {
-                checkUpgrade(PMM_SERVER_LATEST, "post");
+                script {
+                    runPython('check_upgrade', "-v ${PMM_SERVER_LATEST}")
+                }
             }
         }
         stage('Check Client Upgrade') {
@@ -345,7 +343,7 @@ pipeline {
                 sh """
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    sleep 30
+                    sleep 60
                     ./node_modules/.bin/codeceptjs run --debug --steps -c pr.codecept.js --grep '@post-client-upgrade'
                 """
             }
@@ -353,16 +351,22 @@ pipeline {
     }
     post {
         always {
-            // stop staging
             sh '''
+                # fetch all the logs from PMM server
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-            '''
-            fetchAgentLog(CLIENT_VERSION)
-            sh '''
+
+                # get logs from systemd pmm-agent.service
+                if [[ \$CLIENT_VERSION != http* ]]; then
+                    journalctl -u pmm-agent.service >  ./pmm-agent.log
+                fi
+
+                # get logs from managed and update-perform
                 echo --- pmm-managed logs from pmm-server --- >> pmm-managed-full.log
                 docker exec pmm-server cat /srv/logs/pmm-managed.log >> pmm-managed-full.log || true
                 docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
                 echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
+                
+                # stop the containers
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
@@ -371,17 +375,16 @@ pipeline {
             script {
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
                 archiveArtifacts artifacts: 'pmm-update-perform.log'
+                archiveArtifacts artifacts: 'pmm-agent.log'
+                archiveArtifacts artifacts: 'logs.zip'
+
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/parallel_chunk*/*.xml'
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'pmm-agent.log'
                 } else {
-                    junit 'tests/output/parallel_chunk*/*.xml'
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'pmm-agent.log'
                 }
+
+                junit 'tests/output/parallel_chunk*/*.xml'
             }
             allure([
                 includeProperties: false,
@@ -390,10 +393,6 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
-            sh '''
-                sudo rm -r node_modules/
-                sudo rm -r tests/output
-            '''
             deleteDir()
         }
     }

@@ -33,7 +33,7 @@ Resources:
         Protocol: email
       - Endpoint: "alexander.tymchuk@percona.com"
         Protocol: email
-      - Endpoint: "nikita.beletskii@percona.com"
+      - Endpoint: "talha.rizwan@percona.com"
         Protocol: email
 
   TerminationSNSPolicy:

@@ -8,7 +8,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENT_INSTANCE, SE
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e ENABLE_DBAAS=1 -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: DOCKER_ENV_VARIABLE),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
@@ -46,7 +46,7 @@ void destroyStaging(IP) {
 
 pipeline {
     agent {
-        label 'docker'
+        label 'agent-amd64'
     }
     parameters {
         string(
@@ -65,6 +65,10 @@ pipeline {
             defaultValue: 'dev-latest',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
+        string(
+            defaultValue: '-e PMM_DEBUG=1 -e ENABLE_DBAAS=1 -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1 -e PERCONA_TEST_DBAAS_PMM_CLIENT=perconalab/pmm-client:dev-latest',
+            description: 'Envirnomental variables',
+            name: 'DOCKER_ENV_VARIABLE')    
         string(
             defaultValue: "'@dbaas'",
             description: 'Pass test tags ex. @dbaas',
@@ -112,25 +116,21 @@ pipeline {
             steps {
                 // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
+                git poll: false,
+                    branch: GIT_BRANCH,
+                    url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                installDocker()
-                setupDockerCompose()
                 sh '''
                     docker-compose --version
-                    sudo yum -y update --security
-                    sudo yum -y install php php-mysqlnd php-pdo jq svn bats mysql
-                    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-                    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-                    sudo amazon-linux-extras install epel -y
+                    sudo yum -y install mysql
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                         sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
                         sudo chmod 755 pmm-tests/install-google-chrome.sh
-                        bash ./pmm-tests/install-google-chrome.sh
                     popd
-                    sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
+                    /srv/pmm-qa/pmm-tests/install_k8s_tools.sh --kubectl --sudo
+                    sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
         }
@@ -159,7 +159,7 @@ pipeline {
                 }
             }
         }
-        stage('Setup') {
+        stage('Sanity check and Node install') {
             parallel {
                 stage('Sanity check') {
                     steps {
@@ -168,9 +168,8 @@ pipeline {
                 }
                 stage('Setup Node') {
                     steps {
-                        setupNodejs()
                         sh """
-                            sudo yum install -y gettext
+                            npm ci
                             envsubst < env.list > env.generated.list
                         """
                     }
@@ -187,6 +186,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
+
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium

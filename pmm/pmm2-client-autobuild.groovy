@@ -22,10 +22,13 @@ pipeline {
     triggers {
         upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
     }
+    environment {
+        PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
+    }
     stages {
         stage('Build PMM Client') {
             agent {
-                label 'docker-farm'
+                label 'agent-amd64'
             }
             stages {
                 stage('Prepare') {
@@ -33,7 +36,7 @@ pipeline {
                         git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
                         sh '''
                             git reset --hard
-                            sudo git clean -xdf
+                            git clean -xdf
                             git submodule update --init --jobs 10
                             git submodule status
 
@@ -58,7 +61,7 @@ pipeline {
                 }
                 stage('Build client source') {
                     steps {
-                        sh './build/bin/build-client-source'
+                        sh "${PATH_TO_SCRIPTS}/build-client-source"
                         stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
                         uploadTarball('source')
                     }
@@ -66,11 +69,11 @@ pipeline {
                 stage('Build client binary') {
                     steps {
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            sh '''
-                                ./build/bin/build-client-binary
+                            sh """
+                                ${PATH_TO_SCRIPTS}/build-client-binary
                                 aws s3 cp --acl public-read results/tarball/pmm2-client-*.tar.gz \
                                     s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz
-                            '''
+                            """
                         }
                         stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
                         uploadTarball('binary')
@@ -83,13 +86,13 @@ pipeline {
                                 echo "${PASS}" | docker login -u "${USER}" --password-stdin
                             """
                         }
-                        sh '''
+                        sh """
                             set -o xtrace
 
                             export PUSH_DOCKER=1
-                            export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')
+                            export DOCKER_CLIENT_TAG=perconalab/pmm-client:\$(date -u '+%Y%m%d%H%M')
 
-                            ./build/bin/build-client-docker
+                            ${PATH_TO_SCRIPTS}/build-client-docker
 
                             if [ ! -z \${DOCKER_RC_TAG+x} ]; then
                                 docker tag  \${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_RC_TAG}
@@ -101,22 +104,23 @@ pipeline {
                             docker push perconalab/pmm-client:\${DOCKER_LATEST_TAG}
                             docker rmi  \${DOCKER_CLIENT_TAG}
                             docker rmi  perconalab/pmm-client:\${DOCKER_LATEST_TAG}
-                        '''
+                        """
                         stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
                         archiveArtifacts 'results/docker/CLIENT_TAG'
                     }
                 }
                 stage('Build client source rpm') {
                     steps {
-                        sh './build/bin/build-client-srpm centos:7'
+                        sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7"
                         stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
                         uploadRPM()
                     }
                 }
                 stage('Build client binary rpm') {
                     steps {
-                        sh './build/bin/build-client-rpm centos:7'
-                        sh './build/bin/build-client-rpm rockylinux:8'
+                        sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
+                        sh "${PATH_TO_SCRIPTS}/build-client-rpm rockylinux:8"
+                        sh "${PATH_TO_SCRIPTS}/build-client-rpm almalinux:9.0"
                         stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
                         uploadRPM()
                     }
@@ -124,19 +128,18 @@ pipeline {
 
                 stage('Build client source deb') {
                     steps {
-                        sh './build/bin/build-client-sdeb ubuntu:bionic'
+                        sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:bionic"
                         stash includes: 'results/source_deb/*', name: 'debs'
                         uploadDEB()
                     }
                 }
                 stage('Build client binary debs') {
                     steps {
-                        sh './build/bin/build-client-deb debian:buster'
-                        sh './build/bin/build-client-deb debian:stretch'
-                        sh './build/bin/build-client-deb debian:bullseye'
-                        sh './build/bin/build-client-deb ubuntu:jammy'
-                        sh './build/bin/build-client-deb ubuntu:bionic'
-                        sh './build/bin/build-client-deb ubuntu:focal'
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:buster"
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:bionic"
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
                         stash includes: 'results/deb/*.deb', name: 'debs'
                         uploadDEB()
                     }
@@ -151,15 +154,22 @@ pipeline {
         }
         stage('Push to public repository') {
             agent {
-                label 'virtualbox'
+                label 'master'
             }
             steps {
                 // sync packages
                 sync2ProdPMM(DESTINATION, 'yes')
-
-                // upload tarball
-                unstash 'binary.tarball'
-                sh 'scp -i ~/.ssh/id_rsa_downloads -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no results/tarball/*.tar.* jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/'
+                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    script {
+                        unstash 'uploadPath'
+                        def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
+                        sh """
+                            ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
+                            scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${path_to_build}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
+ENDSSH
+                        """      
+                    }  
+                }
             }
         }
     }

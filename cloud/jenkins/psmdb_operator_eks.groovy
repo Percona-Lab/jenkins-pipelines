@@ -1,3 +1,9 @@
+void IsRunTestsInClusterWide() {
+    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+        env.OPERATOR_NS = 'psmdb-operator'
+    }
+}
+
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -42,11 +48,11 @@ void runTest(String TEST_NAME) {
             testsReportMap[TEST_NAME] = 'failure'
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
 
-            popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
+            popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
 
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
                 sh """
-                    if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG" ]; then
+                    if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                         echo Skip $TEST_NAME test
                     else
                         cd ./source
@@ -68,6 +74,14 @@ void runTest(String TEST_NAME) {
                             export IMAGE_PMM=${IMAGE_PMM}
                         fi
 
+                        if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                            export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                        fi
+
+                        if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                            export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                        fi
+
                         export PATH=/home/ec2-user/.local/bin:$PATH
                         source $HOME/google-cloud-sdk/path.bash.inc
                         export KUBECONFIG=~/.kube/config
@@ -76,7 +90,7 @@ void runTest(String TEST_NAME) {
                     fi
                 """
             }
-            pushArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
+            pushArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
@@ -119,9 +133,13 @@ pipeline {
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.20',
+            defaultValue: '1.21',
             description: 'EKS kubernetes version',
             name: 'PLATFORM_VER')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with cluster wide',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
@@ -138,6 +156,14 @@ pipeline {
             defaultValue: '',
             description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
             name: 'IMAGE_PMM')
+        string(
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     environment {
         CLEAN_NAMESPACE = 1
@@ -165,7 +191,7 @@ pipeline {
                     gcloud components update kubectl
                     gcloud version
 
-                    curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
                     curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
@@ -182,6 +208,7 @@ pipeline {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
                     sh '''
+                        sudo sudo git config --global --add safe.directory '*'
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf source
@@ -207,6 +234,7 @@ pipeline {
         }
         stage('Create EKS Infrastructure') {
             steps {
+                IsRunTestsInClusterWide()
                 sh '''
 cat <<-EOF > cluster.yaml
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
@@ -218,6 +246,14 @@ metadata:
     name: eks-psmdb-cluster
     region: eu-west-3
     version: "$PLATFORM_VER"
+
+iam:
+  withOIDC: true
+
+addons:
+- name: aws-ebs-csi-driver
+  wellKnownPolicies:
+    ebsCSIController: true
 
 nodeGroups:
     - name: ng-1
@@ -275,6 +311,7 @@ EOF
                 runTest('data-sharded')
                 runTest('non-voting')
                 runTest('cross-site-sharded')
+                runTest('data-at-rest-encryption')
            }
         }
         stage('E2E SelfHealing') {
@@ -316,7 +353,8 @@ EOF
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     unstash 'cluster_conf'
                     sh """
-                        eksctl delete cluster -f cluster.yaml --wait --force
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster eks-psmdb-cluster --region eu-west-3
+                        eksctl delete cluster -f cluster.yaml --wait --force --disable-nodegroup-eviction
                     """
                 }
 

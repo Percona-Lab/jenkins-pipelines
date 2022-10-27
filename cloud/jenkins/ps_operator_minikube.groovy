@@ -38,7 +38,7 @@ void runTest(String TEST_NAME) {
             GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
             PS_TAG = sh(script: "if [ -n \"\${IMAGE_MYSQL}\" ] ; then echo ${IMAGE_MYSQL} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-            FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}-$PS_TAG"
+            def FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}-$PS_TAG"
             testsReportMap[TEST_NAME] = 'failure'
 
             popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
@@ -67,6 +67,10 @@ void runTest(String TEST_NAME) {
 
                     if [ -n "${IMAGE_BACKUP}" ]; then
                         export IMAGE_BACKUP=${IMAGE_BACKUP}
+                    fi
+
+                    if [ -n "${IMAGE_TOOLKIT}" ]; then
+                        export IMAGE_TOOLKIT=${IMAGE_TOOLKIT}
                     fi
 
                     if [ -n "${IMAGE_PMM}" ]; then
@@ -161,6 +165,14 @@ pipeline {
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
+            description: 'Toolkit image: perconalab/percona-server-mysql-operator:main-toolkit',
+            name: 'IMAGE_TOOLKIT')
+        string(
+            defaultValue: '',
+            description: 'HAProxy image: perconalab/percona-server-mysql-operator:main-haproxy',
+            name: 'IMAGE_HAPROXY')
+        string(
+            defaultValue: '',
             description: 'PMM image: perconalab/pmm-client:dev-latest',
             name: 'IMAGE_PMM')
         string(
@@ -194,6 +206,7 @@ pipeline {
                 sh """
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
@@ -235,6 +248,8 @@ pipeline {
                 steps {
                     sh '''
                         sudo yum install -y conntrack
+                        sudo usermod -aG docker $USER
+
                         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                             rm -rf $HOME/google-cloud-sdk
                             curl https://sdk.cloud.google.com | bash
@@ -244,9 +259,9 @@ pipeline {
                         gcloud components install alpha
                         gcloud components install kubectl
 
-                        curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                        curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.16.2/yq_linux_amd64 > /usr/local/bin/yq"
                         sudo chmod +x /usr/local/bin/yq
 
 						cd "$(mktemp -d)"
@@ -261,11 +276,7 @@ pipeline {
 
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
-                        export CHANGE_MINIKUBE_NONE_USER=true
-                        sudo -E /usr/local/bin/minikube start --vm-driver=none --kubernetes-version ${PLATFORM_VER}
-                        sudo mv /root/.kube /root/.minikube $HOME
-                        sudo chown -R $USER $HOME/.kube $HOME/.minikube
-                        sed -i s:/root:$HOME:g $HOME/.kube/config
+                        /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER}
                     '''
 
                     unstash "sourceFILES"
@@ -276,17 +287,22 @@ pipeline {
                     }
 
                     installRpms()
-                    runTest('affinity')
-                    runTest('auto-tuning')
+                    runTest('auto-config')
+                    runTest('config')
+                    runTest('demand-backup')
+                    runTest('gr-demand-backup')
+                    runTest('init-deploy')
+                    runTest('gr-init-deploy')
                     runTest('limits')
+                    runTest('monitoring')
                     runTest('one-pod')
-                    runTest('operator-self-healing')
-                    runTest('operator-self-healing-chaos')
                     runTest('scaling')
-                    runTest('self-healing')
-                    runTest('self-healing-advanced')
-                    runTest('self-healing-advanced-chaos')
-                    runTest('validation-hook')
+                    runTest('semi-sync')
+                    runTest('service-per-pod')
+                    runTest('sidecars')
+                    runTest('tls-cert-manager')
+                    runTest('users')
+                    runTest('version-service')
             }
             post {
                 always {

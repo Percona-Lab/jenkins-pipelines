@@ -27,7 +27,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: slava
+    Default: jenkins-master
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
@@ -43,9 +43,9 @@ Parameters:
 Mappings:
   AmazonLinux2:
     eu-west-1:
-      x64: ami-058b1b7fe545997ae
+      x64: ami-0af7a5885e3ff0439
     eu-central-1:
-      x64: ami-00f22f6155d6d92c5
+      x64: ami-08658d5197becde34
 
 Resources:
 
@@ -436,11 +436,11 @@ Resources:
     Type: AWS::EC2::SpotFleet
     Properties:
       SpotFleetRequestConfigData:
-        AllocationStrategy: lowestPrice
+        AllocationStrategy: capacityOptimized
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true
-        SpotPrice: 0.10
+        SpotPrice: 0.15
         TargetCapacity: 1
         TerminateInstancesWithExpiration: false
         Type: maintain
@@ -449,16 +449,16 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !GetAtt JMasterTemplate.LatestVersionNumber
           Overrides:
-          - InstanceType: m4.large
+          - InstanceType: c5.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: m5.large
+          - InstanceType: c5a.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5.large
+          - InstanceType: c5d.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5d.large
+          - InstanceType: c5ad.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
 
@@ -549,8 +549,9 @@ Resources:
                   wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                   amazon-linux-extras install epel -y
+                  amazon-linux-extras install java-openjdk11 -y
                   yum -y update --security
-                  yum -y install java-1.8.0-openjdk jenkins-2.289.2 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install jenkins-2.361.2 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -614,9 +615,27 @@ Resources:
 
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
-                  sed -i 's^"-Djava.awt.headless=true"^"-Djava.awt.headless=true -Xms2048m -Xmx4096m -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc-%t.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2 -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"^' /etc/sysconfig/jenkins
-                  echo JENKINS_HOME=/mnt/$JENKINS_HOST \
-                      | tee -a /etc/sysconfig/jenkins
+                  mkdir -p /etc/systemd/system/jenkins.service.d
+                  cat <<-EOF | tee /etc/systemd/system/jenkins.service.d/override.conf
+                       [Service]
+                       # Directory where Jenkins stores its configuration and workspaces
+                       Environment="JENKINS_HOME=/mnt/$JENKINS_HOST"
+                       WorkingDirectory=/mnt/$JENKINS_HOST
+
+                       # Location of the exploded WAR
+                       Environment="JENKINS_WEBROOT=/var/cache/jenkins/war"
+
+                       # Location of the Jenkins log.
+                       Environment="JENKINS_LOG=/var/log/jenkins/jenkins.log"
+              	EOF
+
+                  cat <<-"EOF" | tee -a /etc/systemd/system/jenkins.service.d/override.conf
+
+                       # Arguments for the Jenkins JVM
+                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+              	EOF
+
+                  systemctl daemon-reload
                   systemctl enable jenkins
                   systemctl start jenkins
 
@@ -764,7 +783,7 @@ Resources:
               }
 
               setup_ssh_keys() {
-                KEYS_LIST="mykola.marzhan evgeniy.patlan slava.sarzhan illia.pshonkin alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen"
+                KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets surabhi.bhat"
 
                 for KEY in $KEYS_LIST; do
                     RETRY="3"

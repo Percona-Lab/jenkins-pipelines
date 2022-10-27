@@ -15,7 +15,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=r${PSMDB_VERSION} --jemalloc_tag=${JEMALLOC_TAG} ${STAGE_PARAM}"
+            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=r${PSMDB_VERSION} ${STAGE_PARAM}"
     """
 }
 
@@ -53,15 +53,11 @@ pipeline {
             description: 'https://docs.mongodb.com/database-tools/installation/',
             name: 'MONGO_TOOLS_TAG')
         string(
-            defaultValue: 'psmdb-3.2.11-3.1',
-            description: 'JEMALLOC_TAG value',
-            name: 'JEMALLOC_TAG')
-        string(
             defaultValue: 'psmdb-42',
             description: 'PSMDB repo name',
             name: 'PSMDB_REPO')
         choice(
-            choices: 'laboratory\ntesting\nexperimental\nrelease',
+            choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
     }
@@ -152,19 +148,6 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu Xenial(16.04)') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:xenial", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Ubuntu Bionic(18.04)') {
                     agent {
                         label 'docker'
@@ -199,19 +182,6 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Debian Stretch(9)') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:stretch", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
@@ -254,6 +224,7 @@ pipeline {
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                        uploadTarballOnJenkinsDeployServer("tarball", ${PSMDB_VERSION})
                     }
                 }
                 stage('Centos 7 debug binary tarball(glibc2.17)') {
@@ -279,6 +250,7 @@ pipeline {
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                        uploadTarballOnJenkinsDeployServer("tarball", ${PSMDB_VERSION})
                     }
                 }
                 stage('Ubuntu Jammy(22.04) debug binary tarball(glibc2.35)') {

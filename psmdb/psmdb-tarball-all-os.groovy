@@ -64,7 +64,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos-7', 'debian-9', 'debian-10', 'debian-11', 'ubuntu-focal', 'ubuntu-bionic', 'rhel8'
+                        values 'centos-7', 'debian-10', 'debian-11', 'ubuntu-focal', 'ubuntu-bionic', 'rhel8'
                     }
                 }
                 stages {

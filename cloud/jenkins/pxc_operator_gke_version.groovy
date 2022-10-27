@@ -1,3 +1,5 @@
+GKERegion='us-central1-a'
+
 void CreateCluster(String CLUSTER_PREFIX) {
     if ( "${params.CLUSTER_WIDE}" == "YES" ) {
         env.OPERATOR_NS = 'pxc-operator'
@@ -13,9 +15,6 @@ void runGKEcluster(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             NODES_NUM=3
-            if [ ${CLUSTER_PREFIX} == 'backups' ]; then
-                NODES_NUM=4
-            fi
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
@@ -24,7 +23,8 @@ void runGKEcluster(String CLUSTER_PREFIX) {
                 ret_val=0
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud container clusters create --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version $PLATFORM_VER --machine-type n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade && \
+                gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version $PLATFORM_VER --machine-type n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade && \
+                gcloud container clusters update --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --update-labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -44,7 +44,8 @@ void runGKEclusterAlpha(String CLUSTER_PREFIX) {
                 ret_val=0
                 gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version $PLATFORM_VER --zone us-central1-a --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --enable-autoscaling --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} && \
+                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version $PLATFORM_VER --zone $GKERegion --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --enable-autoscaling --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} && \
+                gcloud alpha container clusters update --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --update-labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -61,7 +62,7 @@ void ShutdownCluster(String CLUSTER_PREFIX) {
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX}
+            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX}
         """
    }
 }
@@ -144,6 +145,14 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                             export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
                         fi
 
+                        if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                            export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                        fi
+
+                        if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                            export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                        fi
+
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
                         source $HOME/google-cloud-sdk/path.bash.inc
                         ./e2e-tests/$TEST_NAME/run
@@ -198,7 +207,7 @@ pipeline {
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.20',
+            defaultValue: '1.21',
             description: 'GKE version',
             name: 'PLATFORM_VER')
         choice(
@@ -237,6 +246,14 @@ pipeline {
             defaultValue: '',
             description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
             name: 'IMAGE_LOGCOLLECTOR')
+        string(
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     agent {
         label 'docker'
@@ -253,6 +270,7 @@ pipeline {
                 sh """
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
@@ -271,11 +289,11 @@ pipeline {
                     gcloud components install alpha
                     gcloud components install kubectl
 
-                    curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
                     curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
                 '''
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
@@ -380,8 +398,14 @@ pipeline {
                         runTest('demand-backup', 'backups')
                         runTest('demand-backup-encrypted-with-tls', 'backups')
                         runTest('pitr','backups')
-                        runTest('scheduled-backup', 'backups')
                         ShutdownCluster('backups')
+                    }
+                }
+                stage('E2E Scheduled-backups') {
+                    steps {
+                        CreateCluster('scheduled')
+                        runTest('scheduled-backup', 'scheduled')
+                        ShutdownCluster('scheduled')
                     }
                 }
                 stage('E2E BigData') {
@@ -416,7 +440,7 @@ pipeline {
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
                     gcloud config set project $GCP_PROJECT
-                    gcloud alpha container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups $CLUSTER_NAME-bigdata $CLUSTER_NAME-upgrade | true
+                    gcloud alpha container clusters delete --zone $GKERegion $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups $CLUSTER_NAME-bigdata $CLUSTER_NAME-upgrade | true
                 '''
             }
             sh '''

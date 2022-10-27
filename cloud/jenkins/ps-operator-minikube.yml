@@ -53,6 +53,14 @@
         default: perconalab/percona-server-mysql-operator:main-backup
         description: XtraBackup image
     - string:
+        name: IMAGE_TOOLKIT
+        default: perconalab/percona-server-mysql-operator:main-toolkit
+        description: Toolkit image
+    - string:
+        name: IMAGE_HAPROXY
+        default: perconalab/percona-server-mysql-operator:main-haproxy
+        description: HAProxy image
+    - string:
         name: IMAGE_PMM
         default: perconalab/pmm-client:dev-latest
         description: PMM image

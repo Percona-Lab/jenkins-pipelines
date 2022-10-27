@@ -11,7 +11,8 @@ void CreateCluster(String CLUSTER_SUFFIX) {
                 ret_val=0
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone ${GKERegion} --cluster-version $GKE_VERSION --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} && \
+                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone ${GKERegion} --cluster-version $GKE_VERSION --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-pg-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} && \
+                gcloud container clusters update --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX} --update-labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -82,7 +83,7 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
             PPG_TAG = sh(script: "if [ -n \"\${PGO_POSTGRES_HA_IMAGE}\" ] ; then echo ${PGO_POSTGRES_HA_IMAGE} | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' ; else echo 'main-ppg13'; fi", , returnStdout: true).trim()
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG")
 
-            timeout(time: 90, unit: 'MINUTES') {
+            timeout(time: 120, unit: 'MINUTES') {
                 sh """
                     if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG" ]; then
                         echo Skip $TEST_NAME test
@@ -247,6 +248,7 @@ pipeline {
                 sh """
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
@@ -265,7 +267,7 @@ pipeline {
                     gcloud components install alpha
                     gcloud components install kubectl
 
-                    curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
                     curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
@@ -308,12 +310,18 @@ pipeline {
                         ShutdownCluster('sandbox')
                     }
                 }
-                stage('E2E Backups') {
+                stage('E2E demand-backup') {
                     steps {
-                        CreateCluster('backups')
-                        runTest('demand-backup', 'backups')
-                        runTest('scheduled-backup', 'backups')
-                        ShutdownCluster('backups')
+                        CreateCluster('demand-backup')
+                        runTest('demand-backup', 'demand-backup')
+                        ShutdownCluster('demand-backup')
+                    }
+                }
+                stage('E2E scheduled-backup') {
+                    steps {
+                        CreateCluster('scheduled-backup')
+                        runTest('scheduled-backup', 'scheduled-backup')
+                        ShutdownCluster('scheduled-backup')
                     }
                 }
                 stage('E2E Upgrade') {
@@ -321,8 +329,14 @@ pipeline {
                         CreateCluster('upgrade')
                         runTest('upgrade', 'upgrade')
                         runTest('smart-update', 'upgrade')
-                        runTest('version-service', 'upgrade')
                         ShutdownCluster('upgrade')
+                    }
+                }
+                stage('E2E Version-service') {
+                    steps {
+                        CreateCluster('version-service')
+                        runTest('version-service', 'version-service')
+                        ShutdownCluster('version-service')
                     }
                 }
             }

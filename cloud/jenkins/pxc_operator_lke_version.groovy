@@ -133,6 +133,14 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                             export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
                         fi
 
+                        if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                            export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                        fi
+
+                        if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                            export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                        fi
+
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
                         ./e2e-tests/$TEST_NAME/run
                     fi
@@ -221,6 +229,14 @@ pipeline {
             defaultValue: '',
             description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
             name: 'IMAGE_LOGCOLLECTOR')
+        string(
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     agent {
         label 'docker'
@@ -237,6 +253,7 @@ pipeline {
                 sh """
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
@@ -248,9 +265,9 @@ pipeline {
                 sh '''
                     sudo pip3 install --upgrade linode-cli
 
-                    curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
                 '''
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'LINODE-CONFIG', variable: 'LKE_CLIENT_FILE')]) {
