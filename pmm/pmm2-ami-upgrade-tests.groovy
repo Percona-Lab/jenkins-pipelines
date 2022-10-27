@@ -312,15 +312,16 @@ pipeline {
     }
     post {
         always {
-            try {
-                sh '''
-                    curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-                '''
-                fetchAgentLog(CLIENT_VERSION)
-            } catch (err) {
-                echo err.getMessage()
+            script {
+                try {
+                    sh '''
+                        curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+                    '''
+                    fetchAgentLog(CLIENT_VERSION)
+                } catch (err) {
+                    echo err.getMessage()
+                }
             }
-
             // stop staging
             script {
                 if (env.AMI_INSTANCE_IP) {
