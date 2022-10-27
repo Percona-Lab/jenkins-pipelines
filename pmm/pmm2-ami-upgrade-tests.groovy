@@ -57,8 +57,7 @@ void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_Q
     if ( CLIENT_INSTANCE == clientInstance ) {
         env.PMM_URL = "http://admin:admin@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
-    }
-    else {
+    } else {
         env.PMM_URL = "http://admin:admin@${VM_IP}"
         env.PMM_UI_URL = "http://${VM_IP}/"
     }
@@ -99,7 +98,7 @@ void checkClientAfterUpgrade(String PMM_VERSION) {
     }
 }
 
-void fetchAgentLog(String CLIENT_VERSION) {
+void fetchAgentLogs(String CLIENT_VERSION) {
      withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP_DB} '
@@ -240,7 +239,20 @@ pipeline {
         }
         stage('Sanity check') {
             steps {
-                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+                sh '''
+                    set -x
+                    COUNT=0
+                    SLEEP_FOR=150
+                    while true; do
+                        if [[ $(curl -s -o /dev/null -w "%{http_code}" ${PMM_URL}/ping) != "200" ]]; then
+                            sleep 5
+                        else
+                            break
+                        fi
+                        ((COUNT+=5))
+                        [ $COUNT -ge $SLEEP_FOR ] && break
+                    done
+                '''
             }
         }
         stage('Setup PMM Client Instances, Remote and Actual DB clients') {
@@ -300,10 +312,15 @@ pipeline {
     }
     post {
         always {
-            sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-            '''
-            fetchAgentLog(CLIENT_VERSION)
+            try {
+                sh '''
+                    curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+                '''
+                fetchAgentLog(CLIENT_VERSION)
+            } catch (err) {
+                echo err.getMessage()
+            }
+
             // stop staging
             script {
                 if (env.AMI_INSTANCE_IP) {
