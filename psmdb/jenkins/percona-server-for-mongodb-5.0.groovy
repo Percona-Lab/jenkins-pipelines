@@ -224,7 +224,7 @@ pipeline {
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                        uploadTarballOnJenkinsDeployServer("tarball", ${PSMDB_VERSION})
+                        uploadTarballOnJenkinsDeployServer("tarball/", PSMDB_VERSION, 'binary')
                     }
                 }
                 stage('Centos 7 debug binary tarball(glibc2.17)') {
@@ -250,7 +250,7 @@ pipeline {
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                        uploadTarballOnJenkinsDeployServer("tarball", ${PSMDB_VERSION})
+                        uploadTarballOnJenkinsDeployServer("tarball/", PSMDB_VERSION, 'binary')
                     }
                 }
                 stage('Ubuntu Jammy(22.04) debug binary tarball(glibc2.35)') {

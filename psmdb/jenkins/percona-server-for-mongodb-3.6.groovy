@@ -228,7 +228,7 @@ pipeline {
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                        uploadTarballOnJenkinsDeployServer("tarball", ${PSMDB_VERSION})
+                        uploadTarballOnJenkinsDeployServer("tarball/", PSMDB_VERSION, 'binary'})
                     }
                 }
                 stage('Centos 7 debug tarball') {
