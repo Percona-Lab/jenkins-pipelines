@@ -38,16 +38,19 @@ imageMap['psmdb']            = imageMap['min-xenial-x64']
 imageMap['psmdb-bionic']     = imageMap['min-bionic-x64']
 imageMap['docker']           = imageMap['micro-amazon']
 imageMap['docker-32gb']      = imageMap['micro-amazon']
+imageMap['docker-64gb']      = imageMap['micro-amazon']
 
 priceMap = [:]
 priceMap['t2.medium']   = '0.03'
 priceMap['c5ad.2xlarge']  = '0.18'
 priceMap['m5zn.2xlarge'] = '0.22'
 priceMap['c5ad.4xlarge'] = '0.40'
+priceMap['g4ad.4xlarge'] = '0.40' // type=g4ad.4xlarge, vCPU=16, memory=64GiB, saving=70%, interruption='<5%'
 
 userMap = [:]
 userMap['docker']           = 'ec2-user'
 userMap['docker-32gb']      = userMap['docker']
+userMap['docker-64gb']      = userMap['docker']
 userMap['micro-amazon']     = userMap['docker']
 userMap['min-centos-7-x64'] = 'centos'
 userMap['min-centos-8-x64'] = 'centos'
@@ -240,6 +243,7 @@ initMap['debMap'] = '''
 '''
 
 
+initMap['docker-64gb']       = initMap['docker-32gb']
 initMap['micro-amazon']      = initMap['rpmMap']
 initMap['min-centos-7-x64']  = initMap['rpmMap']
 initMap['min-centos-8-x64']  = initMap['rpmMap']
@@ -261,11 +265,13 @@ capMap = [:]
 capMap['c5ad.2xlarge'] = '60'
 capMap['m5zn.2xlarge'] = '60'
 capMap['c5ad.4xlarge'] = '80'
+capMap['g4ad.4xlarge'] = '20'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.medium'
 typeMap['docker']            = 'c5ad.2xlarge'
 typeMap['docker-32gb']       = 'c5ad.4xlarge'
+typeMap['docker-64gb']       = 'g4ad.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
 typeMap['min-centos-8-x64']  = typeMap['docker-32gb']
 typeMap['min-ol-8-x64']      = typeMap['docker-32gb']
@@ -283,6 +289,7 @@ typeMap['psmdb-bionic']      = typeMap['docker-32gb']
 execMap = [:]
 execMap['docker']           = '1'
 execMap['docker-32gb']      = execMap['docker']
+execMap['docker-64gb']      = execMap['docker']
 execMap['micro-amazon']     = '30'
 execMap['min-centos-7-x64'] = '1'
 execMap['min-centos-8-x64'] = '1'
@@ -300,9 +307,10 @@ execMap['psmdb-bionic']     = '1'
 
 devMap = [:]
 devMap['docker']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:500:true:gp2'
+devMap['docker-32gb']      = devMap['docker']
+devMap['docker-64gb']      = devMap['docker']
 devMap['psmdb']            = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
 devMap['psmdb-bionic']     = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
-devMap['docker-32gb']      = devMap['docker']
 devMap['micro-amazon']     = '/dev/xvda=:8:true:gp2,/dev/xvdd=:160:true:gp2'
 devMap['min-centos-7-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:500:true:gp2'
 devMap['min-centos-8-x64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:500:true:gp2'
@@ -319,6 +327,7 @@ devMap['min-jammy-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
 labelMap = [:]
 labelMap['docker']           = ''
 labelMap['docker-32gb']      = ''
+labelMap['docker-64gb']      = ''
 labelMap['micro-amazon']     = 'master'
 labelMap['min-centos-7-x64'] = ''
 labelMap['min-centos-8-x64'] = ''
@@ -404,6 +413,7 @@ String region = 'us-west-2'
         [
             getTemplate('docker',           "${region}${it}"),
             getTemplate('docker-32gb',      "${region}${it}"),
+            getTemplate('docker-64gb',      "${region}${it}"),
             getTemplate('psmdb',            "${region}${it}"),
             getTemplate('psmdb-bionic',     "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
