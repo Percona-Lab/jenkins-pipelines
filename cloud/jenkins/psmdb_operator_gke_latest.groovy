@@ -1,3 +1,5 @@
+GKERegion='us-central1-a'
+
 void CreateCluster(String CLUSTER_SUFFIX) {
     if ( "${params.CLUSTER_WIDE}" == "YES" ) {
         env.OPERATOR_NS = 'psmdb-operator'
@@ -13,7 +15,8 @@ void CreateCluster(String CLUSTER_SUFFIX) {
                 ret_val=0
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone us-central1-a --cluster-version $PLATFORM_VER --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} --labels delete-cluster-after-hours=6 && \
+                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone $GKERegion --cluster-version $PLATFORM_VER --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} && \
+                gcloud container clusters update --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX} --update-labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -30,7 +33,7 @@ void ShutdownCluster(String CLUSTER_SUFFIX) {
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-${CLUSTER_SUFFIX}
+            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX}
         """
    }
 }
@@ -369,7 +372,7 @@ pipeline {
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
                     gcloud config set project $GCP_PROJECT
-                    gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone us-central1-a --quiet || true
+                    gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
                 '''
             }
             sh '''
