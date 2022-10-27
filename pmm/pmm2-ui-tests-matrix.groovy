@@ -21,7 +21,7 @@ void runUITestsJob(String GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VE
 
 pipeline {
     agent {
-        label 'docker-farm'
+        label 'agent-amd64'
     }
     parameters {
         string(
