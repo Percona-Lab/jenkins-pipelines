@@ -29,7 +29,7 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'docker-32gb'
+        label 'docker-64gb'
     }
     parameters {
         string(
@@ -94,7 +94,7 @@ pipeline {
             parallel {
                 stage('Build PSMDB generic source rpm') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
@@ -107,7 +107,7 @@ pipeline {
                 }
                 stage('Build PSMDB generic source deb') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
@@ -124,7 +124,7 @@ pipeline {
             parallel {
                 stage('Centos 7') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
@@ -137,7 +137,7 @@ pipeline {
                 }
                 stage('Oracle Linux 8') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
@@ -150,7 +150,7 @@ pipeline {
                 }
                 stage('Ubuntu Bionic(18.04)') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
@@ -163,7 +163,7 @@ pipeline {
                 }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
@@ -176,7 +176,7 @@ pipeline {
                 }
                 stage('Ubuntu Jammy(22.04)') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
@@ -189,7 +189,7 @@ pipeline {
                 }
                 stage('Debian Buster(10)') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
@@ -202,7 +202,7 @@ pipeline {
                 }
                 stage('Debian Bullseye(11)') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
@@ -215,7 +215,7 @@ pipeline {
                 }
                 stage('Centos 7 binary tarball(glibc2.17)') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
@@ -224,12 +224,11 @@ pipeline {
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                        //uploadTarballOnJenkinsDeployServer("tarball", "${PSMDB_VERSION}")
                     }
                 }
                 stage('Centos 7 debug binary tarball(glibc2.17)') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
@@ -241,7 +240,7 @@ pipeline {
                 }
                 stage('Ubuntu Jammy(22.04) binary tarball(glibc2.35)') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
@@ -250,12 +249,11 @@ pipeline {
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                        //uploadTarballOnJenkinsDeployServer("tarball", "${PSMDB_VERSION}")
                     }
                 }
                 stage('Ubuntu Jammy(22.04) debug binary tarball(glibc2.35)') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
@@ -278,6 +276,19 @@ pipeline {
             steps {
                 // sync packages
                 sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
+            }
+        }
+        stage('Push Tarballs to TESTING download area') {
+            steps {
+                script {
+                    try {
+                        uploadTarballToDownloadsTesting("psmdb", "${PSMDB_VERSION}")
+                    }
+                    catch (err) {
+                        echo "Caught: ${err}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
             }
         }
 
