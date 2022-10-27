@@ -254,7 +254,7 @@ pipeline {
                         ((COUNT+=5))
                         [ $COUNT -ge $SLEEP_FOR ] && break
                     done
-                    [[ $RET_VAL ]]
+                    exit $RET_VAL
                 '''
             }
         }
