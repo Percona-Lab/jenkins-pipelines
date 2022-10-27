@@ -66,8 +66,7 @@ void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_Q
     if ( CLIENT_INSTANCE == clientInstance ) {
         env.PMM_URL = "http://admin:admin@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
-    }
-    else {
+    } else {
         env.PMM_URL = "http://admin:admin@${VM_IP}"
         env.PMM_UI_URL = "http://${VM_IP}/"
     }
@@ -220,8 +219,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                // clean up workspace and fetch pmm-ui-tests repository
-                deleteDir()
+                // fetch pmm-ui-tests repository
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"

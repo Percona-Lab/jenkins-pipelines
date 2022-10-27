@@ -23,7 +23,9 @@ def call(String type='latest') {
   ]
 
   List<String> versionsList = new ArrayList<>(versions.keySet());
-  List<String> ovfVersions = ['2.30.0', '2.29.1', '2.29.0', '2.28.0', '2.27.0', '2.26.0', '2.25.0', '2.24.0', '2.23.0', '2.22.0'];
+  // Grab 10 latest versions
+  List<String> ovfVersions = ['2.31.0', '2.30.0', '2.29.0', '2.28.0', '2.27.0', '2.26.0', '2.25.0', '2.24.0', '2.23.0', '2.22.0'];
+
   switch(type) {
     case 'latest':
       def latestVersion = httpRequest "https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/PMM-2.0/VERSION"
