@@ -317,7 +317,7 @@ pipeline {
                     sh '''
                         curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                     '''
-                    fetchAgentLog(CLIENT_VERSION)
+                    fetchAgentLogs(CLIENT_VERSION)
                 } catch (err) {
                     echo err.getMessage()
                 }
