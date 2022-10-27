@@ -11,7 +11,7 @@ void runAMIStagingStart(AMI_ID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, AMI_UPGR
         string(name: 'AMI_UPGRADE_TESTING_INSTANCE', value: AMI_UPGRADE_TESTING_INSTANCE)
     ]
     env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
-    env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.IP
+    env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
     env.VM_IP = env.AMI_INSTANCE_IP
     env.PMM_URL = "http://admin:admin@${AMI_INSTANCE_IP}"
     env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}"
@@ -213,8 +213,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                // clean up workspace and fetch pmm-ui-tests repository
-                deleteDir()
+                // fetch pmm-ui-tests repository
                 git poll: false,
                     branch: GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-ui-tests.git'
