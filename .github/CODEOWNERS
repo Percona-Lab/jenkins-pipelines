@@ -1,7 +1,7 @@
 # Global owners
 * @Percona-Lab/build-engineers
 
-/cloud/gcp-functions @egegunes @inelpandzic
+/cloud/gcp-functions/ @egegunes @inelpandzic
 /cloud/ @hors @tplavcic @nmarukovich @cap1984 
 /pmm/ @talhabinrizwan @atymchuk @puneet0191 @Percona-Lab/build-engineers
 /IaC/pmm.cd/ @talhabinrizwan @atymchuk @Percona-Lab/build-engineers
