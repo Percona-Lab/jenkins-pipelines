@@ -240,19 +240,25 @@ pipeline {
         stage('Sanity check') {
             steps {
                 sh '''
-                    set -x
+                    set +xe
                     COUNT=0
-                    SLEEP_FOR=150
+                    TIMEOUT=30
                     RET_VAL=1
+
                     while true; do
-                        if [ $(curl -s -o /dev/null -w "%{http_code}" ${PMM_URL}/ping) != "200" ]; then
-                            sleep 5
+                        set -x
+                        # we only want to see the http code to improve troubleshooting
+                        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 ${PMM_URL}/ping)
+                        set +x
+                        if [[ $HTTP_CODE != "200" ]]; then
+                            # curl wil timeout in 5 secs if 000, so we only sleep if otherwise
+                            [ $HTTP_CODE != "000" ] && sleep 5
+                            ((COUNT+=5))
                         else
                             RET_VAL=0
                             break
                         fi
-                        ((COUNT+=5))
-                        [ $COUNT -ge $SLEEP_FOR ] && break
+                        [ $COUNT -ge $TIMEOUT ] && break
                     done
                     exit $RET_VAL
                 '''
