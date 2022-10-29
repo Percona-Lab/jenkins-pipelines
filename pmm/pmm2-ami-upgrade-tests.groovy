@@ -242,7 +242,7 @@ pipeline {
                 sh '''
                     set +xe
                     COUNT=0
-                    TIMEOUT=30
+                    TIMEOUT=100
                     RET_VAL=1
 
                     while true; do
