@@ -19,7 +19,7 @@ def call(String type='latest') {
     '2.29.0': 'ami-0e68224439dd6f200',
     '2.29.1': 'ami-01ce74cdab54cabcd',
     '2.30.0': 'ami-0ac4cb922edec19e0',
-    '2.31.0': 'ami-0fbc6c59937464afa'
+    '2.31.0': 'ami-04c7431377165bca7'
   ]
 
   List<String> versionsList = new ArrayList<>(versions.keySet());
