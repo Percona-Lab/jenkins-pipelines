@@ -1,36 +1,45 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+import hudson.model.Node.Mode
+import hudson.slaves.*
+import jenkins.model.Jenkins
+import hudson.plugins.sshslaves.SSHLauncher
+
+
+library changelog: false, identifier: 'lib@PMM-8016', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runAMIStagingStart(AMI_ID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, AMI_UPGRADE_TESTING_INSTANCE) {
-    amiStagingJob = build job: 'pmm2-ami-staging-start', parameters: [
-        string(name: 'AMI_ID', value: AMI_ID),
+void runOVFStagingStart(SERVER_VERSION, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO) {
+    ovfStagingJob = build job: 'pmm2-ovf-staging-start', parameters: [
+        string(name: 'OVA_VERSION', value: SERVER_VERSION),
         string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'AMI_UPGRADE_TESTING_INSTANCE', value: AMI_UPGRADE_TESTING_INSTANCE)
+        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: ENABLE_EXPERIMENTAL_REPO)
     ]
-    env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
-    env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
-    env.VM_IP = env.AMI_INSTANCE_IP
-    env.PMM_URL = "http://admin:admin@${AMI_INSTANCE_IP}"
-    env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}"
+    env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
+    env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
+    env.VM_IP = env.OVF_INSTANCE_IP
+    env.PMM_URL = "http://admin:admin@${OVF_INSTANCE_IP}"
+    env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}"
 }
 
-void runAMIStaginStop(INSTANCE_ID) {
-    amiStagingStopJob = build job: 'pmm2-ami-staging-stop', parameters: [
-        string(name: 'AMI_ID', value: INSTANCE_ID),
+void runOVFStaginStop(OVF_INSTANCE_NAME) {
+    ovfStagingStopJob = build job: 'pmm2-ovf-staging-stop', parameters: [
+        string(name: 'VM', value: OVF_INSTANCE_NAME),
     ]
 }
 
-void customSetupAMIInstance(INSTANCE_IP) {
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${INSTANCE_IP} '
-                sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
-                bash -x /srv/pmm-qa/pmm-tests/pmm-framework.sh --pmm2 --setup-custom-ami
-            '
-        """
+void customSetupOVFInstance(INSTANCE_IP, OVF_INSTANCE_NAME) {
+    node(env.OVF_INSTANCE_NAME) {
+        withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+            sh """
+                ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${INSTANCE_IP} '
+                    export OVF_INSTANCE_NAME=${OVF_INSTANCE_NAME}
+                    sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
+                    bash -x /srv/pmm-qa/pmm-tests/pmm-framework.sh --pmm2 --setup-custom-ami
+                '
+            """
+        }
     }
 }
 
@@ -69,15 +78,18 @@ void destroyStaging(IP) {
     ]
 }
 
-void checkUpgrade(String PMM_VERSION, String PRE_POST) {
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${VM_IP} '
-                export PMM_VERSION=${PMM_VERSION}
-                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
-                bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh --distribution=ami --prepost-upgrade=${PRE_POST} --pmm-version=${PMM_VERSION}
-            '
-        """
+void checkUpgrade(String PMM_VERSION, String PRE_POST, String OVF_INSTANCE_NAME) {
+    node(env.OVF_INSTANCE_NAME) {
+        withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+            sh """
+                ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${OVF_INSTANCE_IP} '
+                    export PMM_VERSION=${PMM_VERSION}
+                    export OVF_INSTANCE_NAME=${OVF_INSTANCE_NAME}
+                    sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
+                    bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh --distribution=ami --prepost-upgrade=${PRE_POST} --pmm-version=${PMM_VERSION}
+                '
+            """
+        }
     }
 }
 
@@ -98,7 +110,7 @@ void checkClientAfterUpgrade(String PMM_VERSION) {
     }
 }
 
-void fetchAgentLogs(String CLIENT_VERSION) {
+void fetchAgentLog(String CLIENT_VERSION) {
      withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP_DB} '
@@ -129,11 +141,7 @@ void fetchAgentLogs(String CLIENT_VERSION) {
 }
 
 def latestVersion = pmmVersion()
-def versionsList = pmmVersion('list')
-Map amiList = pmmVersion('ami')
-
-def amiID = amiList.containsKey(SERVER_VERSION.trim()) ? amiList[SERVER_VERSION.trim()] : AMI_ID_CUSTOM
-currentBuild.description = "AMI: $amiID"
+def versionsList = pmmVersion('ovf')
 
 pipeline {
     agent {
@@ -176,13 +184,9 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for UI Tests Repo repository',
             name: 'GIT_BRANCH')
-        string(
-            defaultValue: '',
-            description: 'PMM Server AMI ID',
-            name: 'AMI_ID_CUSTOM')
         choice(
-            choices: versionsList + ['custom'],
-            description: 'PMM Server AMI ID to test for Upgrade',
+            choices: versionsList,
+            description: 'OVA Image version, for installing already released version, pass 2.x.y ex. 2.28.0',
             name: 'SERVER_VERSION')
         choice(
             choices: versionsList,
@@ -201,9 +205,13 @@ pipeline {
             description: 'Enable Testing Repo, for RC testing',
             name: 'ENABLE_TESTING_REPO')
         choice(
+            choices: ['yes', 'no'],
+            description: 'Enable Experimental, for Dev Latest testing',
+            name: 'ENABLE_EXPERIMENTAL_REPO')
+        choice(
             choices: ['true', 'false'],
             description: 'Enable to setup Docker-compose for remote instances',
-            name: 'AMI_UPGRADE_TESTING_INSTANCE')
+            name: 'OVF_UPGRADE_TESTING_INSTANCE')
     }
     options {
         skipDefaultCheckout()
@@ -212,13 +220,10 @@ pipeline {
         stage('Prepare') {
             steps {
                 // fetch pmm-ui-tests repository
-                git poll: false,
-                    branch: GIT_BRANCH,
-                    url: 'https://github.com/percona/pmm-ui-tests.git'
+                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                slackSend channel: '#pmm-ci',
-                          color: '#FFFF00',
-                          message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                installDocker()
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
@@ -231,43 +236,32 @@ pipeline {
                 '''
             }
         }
-        stage('Start AMI Server') {
+        stage('Start OVF Server') {
             steps {
-                runAMIStagingStart(amiID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, AMI_UPGRADE_TESTING_INSTANCE)
-                customSetupAMIInstance(AMI_INSTANCE_IP)
+                runOVFStagingStart(SERVER_VERSION, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO)
+                script {
+                    SSHLauncher ssh_connection = new SSHLauncher(OVF_INSTANCE_IP, 22, 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e')
+                    DumbSlave node = new DumbSlave(OVF_INSTANCE_NAME, "OVA staging instance: ${OVF_INSTANCE_NAME}", "/root", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
+                    Jenkins.instance.addNode(node)
+                }
+                customSetupOVFInstance(OVF_INSTANCE_IP, OVF_INSTANCE_NAME)
             }
         }
         stage('Sanity check') {
             steps {
-                sh '''
-                    set -x
-                    COUNT=0
-                    SLEEP_FOR=150
-                    RET_VAL=1
-                    while true; do
-                        if [ $(curl -s -o /dev/null -w "%{http_code}" ${PMM_URL}/ping) != "200" ]; then
-                            sleep 5
-                        else
-                            RET_VAL=0
-                            break
-                        fi
-                        ((COUNT+=5))
-                        [ $COUNT -ge $SLEEP_FOR ] && break
-                    done
-                    exit $RET_VAL
-                '''
+                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
         stage('Setup PMM Client Instances, Remote and Actual DB clients') {
             parallel {
                 stage('Start Client Instance Remote Instance') {
                     steps {
-                        runStagingClient(CLIENT_VERSION, '--setup-remote-db', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, 'remote-node')
+                        runStagingClient(CLIENT_VERSION, '--setup-remote-db', 'yes', OVF_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, 'remote-node')
                     }
                 }
                 stage('Start Client Instance DB connect Instance') {
                     steps {
-                        runStagingClient(CLIENT_VERSION, '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-queries', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, 'db-node')
+                        runStagingClient(CLIENT_VERSION, '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-queries', 'yes', OVF_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, 'db-node')
                     }
                 }
             }
@@ -279,26 +273,26 @@ pipeline {
         }
         stage('Check Packages before Upgrade') {
             steps {
-                checkUpgrade(SERVER_VERSION, "pre");
+                checkUpgrade(SERVER_VERSION, "pre", OVF_INSTANCE_NAME);
             }
         }
         stage('Run UI Upgrade Tests') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        npm ci
                         envsubst < env.list > env.generated.list
+                        npm ci
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@ami-upgrade'
+                        ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@ovf-upgrade'
                     """
                     }
                 }
         }
         stage('Check Packages after Upgrade') {
             steps {
-                checkUpgrade(PMM_SERVER_LATEST, "afterUpgrade");
+                checkUpgrade(PMM_SERVER_LATEST, "afterUpgrade", OVF_INSTANCE_NAME);
             }
         }
         stage('Check Client Upgrade') {
@@ -308,34 +302,32 @@ pipeline {
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
                     sleep 30
-                    ./node_modules/.bin/codeceptjs run --debug --steps -c pr.codecept.js --grep '(?=.*@post-client-upgrade)(?=.*@ami-upgrade)'
+                    ./node_modules/.bin/codeceptjs run --debug --steps -c pr.codecept.js --grep '(?=.*@post-client-upgrade)(?=.*@ovf-upgrade)'
                 """
             }
         }
     }
     post {
         always {
-            script {
-                try {
-                    sh '''
-                        curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-                    '''
-                    fetchAgentLogs(CLIENT_VERSION)
-                } catch (err) {
-                    echo err.getMessage()
-                }
-            }
             // stop staging
+            sh '''
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+            '''
             script {
-                if (env.AMI_INSTANCE_IP) {
-                    runAMIStaginStop(AMI_INSTANCE_ID)
+                if(env.OVF_INSTANCE_IP) {
+                    runOVFStaginStop(OVF_INSTANCE_NAME)
                 }
-                if (env.VM_CLIENT_NAME) {
+                if(env.VM_CLIENT_NAME)
+                {
                     destroyStaging(VM_CLIENT_IP)
                 }
-                if (env.VM_CLIENT_NAME_DB) {
+                if(env.VM_CLIENT_IP_DB)
+                {
+                    fetchAgentLog(CLIENT_VERSION)
                     destroyStaging(VM_CLIENT_IP_DB)
                 }
+                def node = Jenkins.instance.getNode(OVF_INSTANCE_NAME)
+                Jenkins.instance.removeNode(node)
             }
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
@@ -348,7 +340,6 @@ pipeline {
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-agent.log'
-                    archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
             allure([
@@ -358,6 +349,11 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            sh '''
+                sudo rm -r node_modules/ || true
+                sudo rm -r tests/output || true
+            '''
+            deleteDir()
         }
     }
 }
