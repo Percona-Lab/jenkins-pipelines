@@ -224,7 +224,6 @@ pipeline {
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                        uploadTarballOnJenkinsDeployServer("tarball", ${PSMDB_VERSION})
                     }
                 }
                 stage('Centos 7 debug binary tarball(glibc2.17)') {
@@ -250,7 +249,6 @@ pipeline {
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                        uploadTarballOnJenkinsDeployServer("tarball", ${PSMDB_VERSION})
                     }
                 }
                 stage('Ubuntu Jammy(22.04) debug binary tarball(glibc2.35)') {
@@ -280,13 +278,26 @@ pipeline {
                 sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
             }
         }
+        stage('Push Tarballs to TESTING download area') {
+            steps {
+                script {
+                    try {
+                        uploadTarballToDownloadsTesting("psmdb", "${PSMDB_VERSION}")
+                    }
+                    catch (err) {
+                        echo "Caught: ${err}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
+            }
+        }
 
     }
     post {
         success {
             slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH}"
+                currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
             }
             deleteDir()
         }
