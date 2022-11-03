@@ -329,13 +329,13 @@ pipeline {
             }
 
         }
-        stage('Check Packages after Upgrade') {
-            steps {
-                script {
-//                     runPython('check_upgrade', "-v ${PMM_SERVER_LATEST}")
-                }
-            }
-        }
+//         stage('Check Packages after Upgrade') {
+//             steps {
+//                 script {
+// //                     runPython('check_upgrade', "-v ${PMM_SERVER_LATEST}")
+//                 }
+//             }
+//         }
         stage('Check Client Upgrade') {
             steps {
                 checkClientAfterUpgrade(PMM_SERVER_LATEST);
