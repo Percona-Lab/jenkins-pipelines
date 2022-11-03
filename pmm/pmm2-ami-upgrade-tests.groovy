@@ -257,12 +257,12 @@ pipeline {
                         fi
                         
                         # 000 means the host is unreachable
-                        # curl wil timeout in 5 secs if the host is unreachable, so we only sleep if otherwise
+                        # curl will timeout in 5 secs if the host is unreachable, so we only sleep if otherwise
                         [ $HTTP_CODE != "000" ] && sleep 5
                         ((COUNT+=5))
                         [ $COUNT -ge $TIMEOUT ] && break
                     done
-                    
+
                     exit $RET_VAL
                 '''
             }
