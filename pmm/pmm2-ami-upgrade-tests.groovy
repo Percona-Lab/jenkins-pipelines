@@ -301,8 +301,8 @@ pipeline {
                         export CHROMIUM_PATH=/usr/bin/chromium
                         ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@ami-upgrade'
                     """
-                    }
                 }
+            }
         }
         stage('Check Packages after Upgrade') {
             steps {
