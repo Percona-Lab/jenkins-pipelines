@@ -99,7 +99,7 @@ void checkClientAfterUpgrade(String PMM_VERSION) {
 }
 
 void fetchAgentLogs(String CLIENT_VERSION) {
-     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP_DB} '
                 set -o errexit
@@ -115,15 +115,11 @@ void fetchAgentLogs(String CLIENT_VERSION) {
                     ${USER}@${VM_CLIENT_IP_DB}:pmm-agent.log \
                     pmm-agent.log
             fi
-        """
-    }
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
             if [[ \$CLIENT_VERSION == http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                     ${USER}@${VM_CLIENT_IP_DB}:workspace/aws-staging-start/pmm-agent.log \
                     pmm-agent.log
-            fi
+            fi            
         """
     }
 }
@@ -260,9 +256,12 @@ pipeline {
                         # curl is set to timeout in 5 secs if the host is unreachable, so we only sleep if otherwise
                         [ $HTTP_CODE != "000" ] && sleep 5
                         ((COUNT+=5))
-                        [ $COUNT -ge $TIMEOUT ] && break
-                    done
 
+                        if [ $COUNT -ge $TIMEOUT ]; then
+                            echo "Warning: could not connect to ${PMM_URL}"
+                            break
+                        fi
+                    done
                     exit $RET_VAL
                 '''
             }
