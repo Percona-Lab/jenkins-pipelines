@@ -250,16 +250,19 @@ pipeline {
                         # we only want to see the http code to improve troubleshooting
                         HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 ${PMM_URL}/ping)
                         set +x
-                        if [[ $HTTP_CODE != "200" ]]; then
-                            # curl wil timeout in 5 secs if 000, so we only sleep if otherwise
-                            [ $HTTP_CODE != "000" ] && sleep 5
-                            ((COUNT+=5))
-                        else
+                    
+                        if [[ $HTTP_CODE == "200" ]]; then
                             RET_VAL=0
                             break
                         fi
+                        
+                        # 000 means the host is unreachable
+                        # curl wil timeout in 5 secs if the host is unreachable, so we only sleep if otherwise
+                        [ $HTTP_CODE != "000" ] && sleep 5
+                        ((COUNT+=5))
                         [ $COUNT -ge $TIMEOUT ] && break
                     done
+                    
                     exit $RET_VAL
                 '''
             }
