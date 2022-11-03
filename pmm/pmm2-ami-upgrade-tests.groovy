@@ -119,7 +119,7 @@ void fetchAgentLogs(String CLIENT_VERSION) {
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                     ${USER}@${VM_CLIENT_IP_DB}:workspace/aws-staging-start/pmm-agent.log \
                     pmm-agent.log
-            fi            
+            fi
         """
     }
 }
