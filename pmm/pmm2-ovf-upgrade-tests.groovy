@@ -349,11 +349,6 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
-            sh '''
-                sudo rm -r node_modules/ || true
-                sudo rm -r tests/output || true
-            '''
-            deleteDir()
         }
     }
 }
