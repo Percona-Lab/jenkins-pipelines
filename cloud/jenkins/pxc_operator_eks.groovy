@@ -358,11 +358,8 @@ EOF
             }
             steps {
                 runTest('storage')
-                runTest('self-healing')
                 runTest('self-healing-chaos')
-                runTest('self-healing-advanced')
                 runTest('self-healing-advanced-chaos')
-                runTest('operator-self-healing')
                 runTest('operator-self-healing-chaos')
             }
         }
