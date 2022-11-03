@@ -84,9 +84,9 @@ priceMap['m5.large'] = '0.05'
 priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
-priceMap['c6i.4xlarge'] = '0.37'
+priceMap['c6i.4xlarge'] = '0.47'
 priceMap['r5b.4xlarge'] = '0.70'
-priceMap['m5d.2xlarge'] = '0.20'
+priceMap['m5d.2xlarge'] = '0.27'
 priceMap['c5d.xlarge'] = '0.20'
 priceMap['r5a.2xlarge'] = '0.40'
 
@@ -240,6 +240,8 @@ initMap['rpmMap'] = '''
     done
 
     sudo yum -y install git || :
+    sudo yum -y remove java-1.8.0-openjdk || :
+    sudo yum -y remove java-1.8.0-openjdk-headless || :
     sudo yum -y install java-11-openjdk || :
     sudo yum -y install ${PKGLIST} || :
     sudo yum -y remove java-1.7.0-openjdk || :
@@ -330,7 +332,7 @@ initMap['min-xenial-x64']   = initMap['debMap']
 capMap = [:]
 capMap['c4.xlarge']  = '60'
 capMap['m5.large']  = '5'
-capMap['c6i.4xlarge'] = '40'
+capMap['m5d.2xlarge'] = '40'
 capMap['r5b.4xlarge'] = '40'
 capMap['c5d.xlarge'] = '60'
 capMap['r5a.2xlarge'] = '40'
@@ -338,7 +340,7 @@ capMap['r5a.2xlarge'] = '40'
 typeMap = [:]
 typeMap['micro-amazon']      = 'm5.large'
 typeMap['docker']            = 'c5d.xlarge'
-typeMap['docker-32gb']       = 'c6i.4xlarge'
+typeMap['docker-32gb']       = 'm5d.2xlarge'
 typeMap['docker2']           = 'r5b.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
