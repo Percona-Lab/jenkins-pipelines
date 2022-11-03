@@ -101,7 +101,7 @@ pipeline {
         string(
             defaultValue: 'admin-password',
             description: 'pmm-server admin user default password',
-            name: 'ADMIN_PASSWORD')  
+            name: 'ADMIN_PASSWORD')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
@@ -332,7 +332,7 @@ pipeline {
         stage('Check Packages after Upgrade') {
             steps {
                 script {
-                    runPython('check_upgrade', "-v ${PMM_SERVER_LATEST}")
+//                     runPython('check_upgrade', "-v ${PMM_SERVER_LATEST}")
                 }
             }
         }
@@ -364,7 +364,7 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-managed.log >> pmm-managed-full.log || true
                 docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
                 echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
-                
+
                 # stop the containers
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
