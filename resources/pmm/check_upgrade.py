@@ -95,7 +95,7 @@ def main():
                 f"docker exec {pmm_server_docker_container} supervisorctl status | grep vmalert | grep "
                 f"RUNNING")
             verify_command(
-                f"docker exec {pmm_server_docker_container} victoriametrics --version | grep victoria-metrics-20221031-101137-pmm-6401-v1.82.1")
+                f"docker exec {pmm_server_docker_container} victoriametrics --version | grep victoria-metrics-20220721-122019-pmm-6401-v1.77.1")
 
             docker_version = os.getenv("DOCKER_VERSION")
             do_docker_way = os.getenv("PERFORM_DOCKER_WAY_UPGRADE")
