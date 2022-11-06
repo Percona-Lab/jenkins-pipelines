@@ -18,7 +18,6 @@ void runOVFStagingStart(SERVER_VERSION, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, 
     ]
     env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
     env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
-    env.VM_IP = env.OVF_INSTANCE_IP
     env.PMM_URL = "http://admin:admin@${OVF_INSTANCE_IP}"
     env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}"
 }
@@ -56,13 +55,12 @@ void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_Q
         env.VM_CLIENT_NAME_DB = stagingJob.buildVariables.VM_NAME
     }
 
-    def clientInstance = "yes";
-    if ( CLIENT_INSTANCE == clientInstance ) {
+    if ( CLIENT_INSTANCE == "yes" ) {
         env.PMM_URL = "http://admin:admin@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
     } else {
-        env.PMM_URL = "http://admin:admin@${VM_IP}"
-        env.PMM_UI_URL = "http://${VM_IP}/"
+        env.PMM_URL = "http://admin:admin@${OVF_INSTANCE_IP}"
+        env.PMM_UI_URL = "http://${OVF_INSTANCE_IP}/"
     }
 }
 
@@ -302,11 +300,39 @@ pipeline {
         }
     }
     post {
+        // https://www.jenkins.io/doc/book/pipeline/syntax/#post-conditions
         always {
-            // stop staging
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
+            def shouldRunJUnit = sh(returnStdout: true, script: 'ls -1 tests/output/*.xml | wc -l').trim().toInteger()
+            script {
+                if (shouldRunJUnit > 0) {
+                    junit 'tests/output/*.xml'
+                }
+                archiveArtifacts artifacts: 'logs.zip'
+                archiveArtifacts artifacts: 'pmm-agent.log'
+            }
+            allure([
+                includeProperties: false,
+                jdk: '',
+                properties: [],
+                reportBuildPolicy: 'ALWAYS',
+                results: [[path: 'tests/output/allure']]
+            ])
+        }
+        success {
+            script {
+                slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
+            }
+
+        }
+        failure {
+            script {
+                slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+            }
+        }
+        cleanup {
             script {
                 if (env.OVF_INSTANCE_IP) {
                     ovfStagingStopJob = build job: 'pmm2-ovf-staging-stop', parameters: [
@@ -325,26 +351,6 @@ pipeline {
                     Jenkins.instance.removeNode(node)
                 }
             }
-            script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/*.xml'
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'pmm-agent.log'
-                } else {
-                    junit 'tests/output/*.xml'
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'pmm-agent.log'
-                }
-            }
-            allure([
-                includeProperties: false,
-                jdk: '',
-                properties: [],
-                reportBuildPolicy: 'ALWAYS',
-                results: [[path: 'tests/output/allure']]
-            ])
         }
     }
 }
