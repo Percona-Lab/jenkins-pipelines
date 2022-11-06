@@ -59,7 +59,6 @@ pipeline {
         timeout(time: 1, unit: 'DAYS')
     }
     environment {
-        VM_NAME = "pmm-ovf-staging-${BUILD_ID}"
         VM_MEMORY = "10240"
         OVF_PUBLIC_KEY=credentials('OVF_STAGING_PUB_KEY_QA')
     }
@@ -71,6 +70,9 @@ pipeline {
                         sshUserPrivateKey(credentialsId: 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER'),
                         string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')
                     ]) {
+
+                    env.VM_NAME = "pmm-ovf-staging-${BUILD_ID}"
+
                     sh '''
                         set -o xtrace
                         SSH_KEY_ID=$(doctl compute ssh-key list | grep Jenkins | awk '{ print \$1}')
