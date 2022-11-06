@@ -221,7 +221,7 @@ pipeline {
                 }
                 script {
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'aws-jenkins')
-                    DumbSlave node = new DumbSlave(env.VM_NAME, "aws-staging-start", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "/etc/alternatives/java", ssh_connection, RetentionStrategy.INSTANCE)
+                    DumbSlave node = new DumbSlave(env.VM_NAME, "aws-staging-start", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
 
                     currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME} PRICE: ${env.SPOT_PRICE}"
                     Jenkins.instance.addNode(node)
@@ -236,10 +236,10 @@ pipeline {
                             echo '${SSH_KEY}' >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
-                        sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-                        sudo yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-                        sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum-config-manager --disable hashicorp
+                        sudo amazon-linux-extras install epel -y
+                        sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                        sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum repolist all
 
                         # exclude unavailable mirrors
@@ -248,9 +248,6 @@ pipeline {
                         sudo amazon-linux-extras enable epel
                         sudo amazon-linux-extras enable php7.4
                         sudo yum --enablerepo epel install php -y
-
-                        # Removed due to an repo incident at hashicorp
-                        # sudo amazon-linux-extras install epel -y
 
                         sudo yum install sysbench mysql-client -y
                         sudo mkdir -p /srv/pmm-qa || :
