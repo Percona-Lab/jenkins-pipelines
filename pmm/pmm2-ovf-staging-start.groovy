@@ -75,19 +75,18 @@ pipeline {
 
                     sh '''
                         set -o xtrace
+
                         SSH_KEY_ID=$(doctl compute ssh-key list | grep Jenkins | awk '{ print \$1}')
                         IMAGE_ID=$(doctl compute image list | grep pmm-agent | awk '{ print \$1}')
                         PUBLIC_IP=$(doctl compute droplet create --region ams3 --image $IMAGE_ID --wait --ssh-keys $SSH_KEY_ID --tag-name jenkins-pmm --size s-8vcpu-16gb-intel ${VM_NAME} -o json | jq -r '.[0].networks.v4[0].ip_address')
+                        echo "$PUBLIC_IP" | tee IP
+                        echo "pmm-ovf-staging-${BUILD_ID}"
                         
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@$PUBLIC_IP; do
                             sleep 5
-                        done
-                        
-                        echo "$PUBLIC_IP" | tee IP
-                        echo "pmm-ovf-staging-${BUILD_ID}"
+                        done                        
                     '''
-                }
-                script {
+
                     env.IP = sh(returnStdout: true, script: "cat IP").trim()
                 }
                 script {
@@ -99,7 +98,7 @@ pipeline {
                 }
                 node(env.VM_NAME){
                     sh """
-                        if [[ \$OVA_VERSION = 2* ]]; then
+                        if [ ${OVA_VERSION} = 2* ]; then
                             wget -nv -O ${VM_NAME}.ova https://downloads.percona.com/downloads/pmm2/${OVA_VERSION}/ova/pmm-server-${OVA_VERSION}.ova
                         else
                             wget -nv -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
