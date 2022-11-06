@@ -254,7 +254,6 @@ pipeline {
                     Jenkins.instance.removeNode(node)
                     Jenkins.instance.addNode(node)
                 }
-                archiveArtifacts 'IP'
             }
         }
         stage('Run Docker') {
