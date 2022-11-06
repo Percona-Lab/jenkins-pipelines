@@ -13,7 +13,7 @@
  * TODO: refactor poor side effects.
 **/
 
-def call(String VM_PREFIX') {
+def call(String VM_PREFIX) {
     String VM_NAME_TEMP = '';
     String OWNER_TEMP = '';
     String OWNER_SLACK_TEMP = '';
