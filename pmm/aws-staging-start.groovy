@@ -3,7 +3,7 @@ import hudson.slaves.*
 import jenkins.model.Jenkins
 import hudson.plugins.sshslaves.SSHLauncher
 
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-10729-fix-job-owner-detection4', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -164,17 +164,7 @@ pipeline {
             steps {
                 deleteDir()
                 script {
-                    wrap([$class: 'BuildUser']) {
-                        env.OWNER = (env.BUILD_USER_EMAIL ?: '').split('@')[0] ?: env.BUILD_USER_ID
-                        env.OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: env.BUILD_USER_EMAIL, tokenCredentialId: 'JenkinsCI-SlackBot-v2')
-                        env.VM_NAME = 'pmm-' + env.OWNER.replaceAll("[^a-zA-Z0-9_.-]", "") + '-' + (new Date()).format("yyyyMMdd.HHmmss") + '-' + env.BUILD_NUMBER
-
-                        sh """
-                            set -x
-                            echo "${VM_NAME}" > VM_NAME
-                            echo "${OWNER}" > OWNER_FULL
-                        """
-                    }
+                    getPMMBuildParams('pmm-')
 
                     echo """
                         DOCKER_VERSION: ${DOCKER_VERSION}
