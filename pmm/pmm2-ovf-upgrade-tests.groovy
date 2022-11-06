@@ -305,8 +305,8 @@ pipeline {
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
-            def shouldRunJUnit = sh(returnStdout: true, script: 'ls -1 tests/output/*.xml | wc -l').trim().toInteger()
             script {
+                def shouldRunJUnit = sh(returnStdout: true, script: 'ls -1 tests/output/*.xml | wc -l').trim().toInteger()
                 if (shouldRunJUnit > 0) {
                     junit 'tests/output/*.xml'
                 }
