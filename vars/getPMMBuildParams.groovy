@@ -9,7 +9,7 @@
  *
  * Side effects: it will set the relevant envvars so the developer does not have to.
  * Poor side effects: it will persist the VM_NAME and OWNER to the file system because some parts of 
- * code rely on those values being persisted as files.
+ * code rely on those values being persisted as files. This a bad idea, especially when done on one-off agents.
  * TODO: refactor poor side effects.
 **/
 

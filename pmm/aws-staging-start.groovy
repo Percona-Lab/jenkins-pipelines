@@ -433,6 +433,7 @@ pipeline {
             script {
                 def node = Jenkins.instance.getNode(env.VM_NAME)
                 if (node) {
+                    echo "Removing the node from Jenkins: " + env.VM_NAME
                     Jenkins.instance.removeNode(node)
                 }
             }
@@ -466,6 +467,9 @@ pipeline {
                     }
                 }
             }
+        }
+        cleanup {
+            deleteDir()
         }
     }
 }
