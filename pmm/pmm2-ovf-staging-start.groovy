@@ -66,13 +66,13 @@ pipeline {
         stage('Run staging server') {
             steps {
                 deleteDir()
+                script {
+                    env.VM_NAME = "pmm-ovf-staging-${BUILD_ID}"
+                }
                 withCredentials([
                         sshUserPrivateKey(credentialsId: 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER'),
                         string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')
                     ]) {
-
-                    env.VM_NAME = "pmm-ovf-staging-${BUILD_ID}"
-
                     sh '''
                         set -o xtrace
 
@@ -86,10 +86,10 @@ pipeline {
                             sleep 5
                         done                        
                     '''
-
-                    env.IP = sh(returnStdout: true, script: "cat IP").trim()
                 }
                 script {
+                    env.IP = sh(returnStdout: true, script: "cat IP").trim()
+    
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e')
                     DumbSlave node = new DumbSlave(env.VM_NAME, "OVA staging instance: ${VM_NAME}", "/root", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
 
