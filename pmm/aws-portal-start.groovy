@@ -48,10 +48,10 @@ pipeline {
             defaultValue: '1',
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
-        string(
-            defaultValue: 'true',
-            description: 'notify',
-            name: 'NOTIFY')
+        choice(
+            choices: ['true', 'false'],
+            description: 'Enable Slack notification',
+            name: 'NOTIFY')            
     }
 
     environment {
@@ -124,10 +124,11 @@ pipeline {
                         fi
 
                         sudo yum -y update --security
-                        sudo yum -y install git svn docker
-                        sudo amazon-linux-extras install epel -y
+                        # see the list of installed software to every ec2 instance
+                        # https://github.com/percona/pmm-infra/blob/main/packer/ansible/agent.yml#L38-L122
                         sudo usermod -aG docker ec2-user
                         sudo systemctl start docker
+                        docker version
 
                         # Install golang, conntrack, nss-tools and minisign
                         sudo yum install golang conntrack nss-tools minisign -y
@@ -229,10 +230,10 @@ export TELEMETRYD_TAG=$TELEMETRYD_TAG
 export MINIKUBE_MEM=$MINIKUBE_MEM
 export MINIKUBE_CPU=$MINIKUBE_CPU
 EOF
-                            direnv allow
-                            make env-up
-                            sudo -E chown -R \$(stat --format="%U:%G" \${HOME}) /etc/hosts
-                            make tunnel-background
+                                direnv allow
+                                make env-up
+                                sudo -E chown -R \$(stat --format="%U:%G" \${HOME}) /etc/hosts
+                                make tunnel-background
                             """
                             script {
                                 env.MINIKUBE_IP = sh(returnStdout: true, script: "awk -F _ 'END{print}' /etc/hosts | cut -d' ' -f 1").trim()
@@ -253,19 +254,21 @@ EOF
         }
         success {
             script {
-                if ("${NOTIFY}" == "true") {
+                if (params.NOTIFY == "true") {
                     def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
-                    def SLACK_MESSAGE = """[${JOB_NAME}]: build finished - ${env.IP}. In order to access the instance you need:
-1. make sure that `/etc/hosts` file on your machine contains the following line
+                    def SLACK_MESSAGE = """[${JOB_NAME}]: build finished, IP: ${env.IP}
+In order to access the instance you need:
+1. make sure that `/etc/hosts` on your machine contains the following line
 ```127.0.0.1 platform.localhost check.localhost pmm.localhost```
-2. execute this command in your terminal
+2. run the following command in your terminal to proxy-pass http(s) ports:
 ```sudo ssh -L :443:${env.MINIKUBE_IP}:443 -L :80:${env.MINIKUBE_IP}:80 ec2-user@${env.IP}```
-3. open https://platform.localhost URL in your browser
-4. to allow accessing the unstance for another person please run this command in terminal
+3. open https://platform.localhost in your browser
+4. to allow another person to access the instance, please run this command in your terminal:
 ```ssh ec2-user@${env.IP} 'echo "NEW_PERSON_SSH_KEY" >> ~/.ssh/authorized_keys'```
-*Note new user should also execute through 1-2 steps*"""
+*Note: the other user should also complete the steps 1-2*
+                    """
 
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "${SLACK_MESSAGE}"
                     slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "${SLACK_MESSAGE}"
@@ -284,7 +287,7 @@ EOF
                 '''
             }
             script {
-                if ("${NOTIFY}" == "true") {
+                if (params.NOTIFY == "true") {
                     def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
