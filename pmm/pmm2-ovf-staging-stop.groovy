@@ -23,7 +23,7 @@ pipeline {
                     withCredentials([
                             string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')
                         ]) {
-                        if ( "${VM}" == "ALL" ) {
+                        if ( params.VM == "ALL" ) {
                             runPython('do_remove_droplets')
                         } else {
                             runPython('do_remove_droplets', "-o ${VM}")
