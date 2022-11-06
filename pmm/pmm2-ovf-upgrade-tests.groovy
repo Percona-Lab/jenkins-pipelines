@@ -23,12 +23,6 @@ void runOVFStagingStart(SERVER_VERSION, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, 
     env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}"
 }
 
-void runOVFStaginStop(OVF_INSTANCE_NAME) {
-    ovfStagingStopJob = build job: 'pmm2-ovf-staging-stop', parameters: [
-        string(name: 'VM', value: OVF_INSTANCE_NAME),
-    ]
-}
-
 void customSetupOVFInstance(INSTANCE_IP, OVF_INSTANCE_NAME) {
     node(env.OVF_INSTANCE_NAME) {
         withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
@@ -222,7 +216,7 @@ pipeline {
                 // fetch pmm-ui-tests repository
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 installDocker()
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
@@ -314,20 +308,22 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             script {
-                if(env.OVF_INSTANCE_IP) {
-                    runOVFStaginStop(OVF_INSTANCE_NAME)
+                if (env.OVF_INSTANCE_IP) {
+                    ovfStagingStopJob = build job: 'pmm2-ovf-staging-stop', parameters: [
+                        string(name: 'VM', value: env.OVF_INSTANCE_NAME),
+                    ]
                 }
-                if(env.VM_CLIENT_NAME)
-                {
+                if (env.VM_CLIENT_NAME) {
                     destroyStaging(VM_CLIENT_IP)
                 }
-                if(env.VM_CLIENT_IP_DB)
-                {
+                if (env.VM_CLIENT_IP_DB) {
                     fetchAgentLog(CLIENT_VERSION)
                     destroyStaging(VM_CLIENT_IP_DB)
                 }
-                def node = Jenkins.instance.getNode(OVF_INSTANCE_NAME)
-                Jenkins.instance.removeNode(node)
+                def node = Jenkins.instance.getNode(env.OVF_INSTANCE_NAME)
+                if (node) {
+                    Jenkins.instance.removeNode(node)
+                }
             }
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
