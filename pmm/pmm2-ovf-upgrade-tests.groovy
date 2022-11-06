@@ -306,9 +306,11 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             script {
-                def shouldRunJUnit = sh(returnStdout: true, script: 'ls -1 tests/output/*.xml | wc -l').trim().toInteger()
-                if (shouldRunJUnit > 0) {
+                // JUnit is known to fail if there are no files in `tests/output`
+                try {
                     junit 'tests/output/*.xml'
+                } catch (err) {
+                    echo err.getMessage()
                 }
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'pmm-agent.log'
