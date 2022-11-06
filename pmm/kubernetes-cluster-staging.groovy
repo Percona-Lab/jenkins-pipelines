@@ -131,9 +131,6 @@ pipeline {
             steps {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        sh """
-                            export VM_NAME=\$(cat VM_NAME)
-                        """
                         node(env.VM_NAME){
                             sh """
                                 set -o errexit
@@ -151,9 +148,6 @@ pipeline {
             steps {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        sh """
-                            export VM_NAME=\$(cat VM_NAME)
-                        """
                         node(env.VM_NAME){
                             sh """
                                 set -o errexit
