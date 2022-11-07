@@ -124,7 +124,7 @@ pipeline {
                         fi
 
                         sudo yum -y update --security
-                        # see the list of installed software to every ec2 instance
+                        # see what software gets installed to every ec2 instance
                         # https://github.com/percona/pmm-infra/blob/main/packer/ansible/agent.yml#L38-L122
                         sudo usermod -aG docker ec2-user
                         sudo systemctl start docker
