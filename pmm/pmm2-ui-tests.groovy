@@ -370,7 +370,7 @@ pipeline {
             }
             steps {
                 script {
-                            env.CODECEPT_TAG = "'" + "${TAG}" + "'"
+                    env.CODECEPT_TAG = "'" + "${TAG}" + "'"
                 }
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
@@ -408,12 +408,10 @@ pipeline {
                 sudo chown -R ec2-user:ec2-user . || true
             '''
             script {
-                if(env.VM_NAME)
-                {
+                if (env.VM_NAME) {
                     destroyStaging(VM_NAME)
                 }
-                if(env.VM_CLIENT_NAME)
-                {
+                if (env.VM_CLIENT_NAME) {
                     destroyStaging(VM_CLIENT_NAME)
                 }
             }
@@ -427,9 +425,6 @@ pipeline {
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'job_logs.txt'
                 junit env.PATH_TO_REPORT_RESULTS
-                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                }
             }
             allure([
                 includeProperties: false,
@@ -438,11 +433,11 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
-            sh '''
-                sudo rm -r node_modules/
-                sudo rm -r tests/output
-            '''
-            deleteDir()
+        }
+        failure {
+            script {
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+            }
         }
     }
 }
