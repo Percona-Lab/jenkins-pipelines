@@ -20,7 +20,7 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
         echo $PMM_VERSION
         echo $PRE_POST
-        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v ${PMM_VERSION} -p ${PRE_POST}
+        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v ${pmm_version} -p ${PRE_POST}
     """
 }
 
