@@ -24,7 +24,7 @@ if [ "$SOURCE_NAME" == 'PXB80' -o "$SOURCE_NAME" == 'ALL' ]; then
 
     sudo rm -rf ${PXB80_ROOT_DIR}
 
-    git clone "${PXB80_REPO:-https://github.com/percona/percona-xtrabackup}" "${PXB80_ROOT_DIR}"
+    git clone --depth 1 --branch $PXB80_BRANCH "${PXB80_REPO:-https://github.com/percona/percona-xtrabackup}" "${PXB80_ROOT_DIR}"
 
     pushd $PXB80_ROOT_DIR
         if [ -n "${PXB80_REPO}" ]; then
@@ -55,7 +55,7 @@ if [ "$SOURCE_NAME" == 'PXB24' -o "$SOURCE_NAME" == 'ALL' ]; then
  
     sudo rm -rf ${PXB24_ROOT_DIR}
 
-    git clone "${PXB24_REPO:-https://github.com/percona/percona-xtrabackup}" "${PXB24_ROOT_DIR}"
+    git clone --depth 1 --branch $PXB24_BRANCH "${PXB24_REPO:-https://github.com/percona/percona-xtrabackup}" "${PXB24_ROOT_DIR}"
 
     pushd $PXB24_ROOT_DIR
         if [ -n "${PXB24_REPO}" ]; then
