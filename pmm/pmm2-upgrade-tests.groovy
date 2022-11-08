@@ -12,13 +12,15 @@ void performDockerWayUpgrade(String PMM_VERSION) {
 }
 
 void checkUpgrade(String PMM_VERSION, String PRE_POST) {
+    def pmm_version = PMM_VERSION.trim();
+    
     sh """
-        export PMM_VERSION=${PMM_VERSION}
+        export PMM_VERSION=${pmm_version}
         export PRE_POST=${PRE_POST}
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
         echo $PMM_VERSION
         echo $PRE_POST
-        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v ${PMM_VERSION} -p ${PRE_POST}
+        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v ${pmm_version} -p ${PRE_POST}
     """
 }
 
