@@ -75,14 +75,15 @@ pipeline {
                     ]) {
                     sh '''
                         # Constants we rely on for PMM builds/tests:
-                        # - droplet tag: has a substring of `jenkins-pmm`
-                        # - ssh-key name: has a substring of `Jenkins`
+                        # - droplet tag name: is set to `jenkins-pmm`
+                        # - image id: is set to `pmm-agent-jdk11`
+                        # - ssh-key name: is set to `Jenkins`
                         # - firewall name: is set to `pmm-firewall`
                         
                         set -o xtrace
 
-                        SSH_KEY_ID=$(doctl compute ssh-key list | grep Jenkins | awk '{ print \$1}')
-                        IMAGE_ID=$(doctl compute image list | grep pmm-agent | awk '{ print \$1}')
+                        SSH_KEY_ID=$(doctl compute ssh-key list -o json | jq -r '.[] | select(.name=="Jenkins") | .id')
+                        IMAGE_ID=$(doctl compute image list -o json | jq -r '.[] | select(.name=="pmm-agent-jdk11") | .id')
                         DROPLET=$(doctl compute droplet create --region ams3 --image $IMAGE_ID --wait --ssh-keys $SSH_KEY_ID --tag-name jenkins-pmm --size s-8vcpu-16gb-intel ${VM_NAME} -o json)
                         PUBLIC_IP=$(echo $DROPLET | jq -r '.[0].networks.v4[0].ip_address')
                         DROPLET_ID=$(echo $DROPLET | jq -r '.[0].id')
