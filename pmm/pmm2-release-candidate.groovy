@@ -281,15 +281,11 @@ pipeline {
         }
     }
     post {
-        always {
-            sh 'sudo rm -r /tmp/'
-            deleteDir()
-        }
         success {
             slackSend botUser: true,
                       channel: '#pmm-dev',
                       color: '#00FF00',
-                      message: """Release candidate build was finished :thisisfine:
+                      message: """New Release Candidate is out :rocket:
 Server: perconalab/pmm-server:${VERSION}-rc
 Client: perconalab/pmm-client:${VERSION}-rc
 OVA: https://percona-vm.s3.amazonaws.com/PMM2-Server-${VERSION}.ova

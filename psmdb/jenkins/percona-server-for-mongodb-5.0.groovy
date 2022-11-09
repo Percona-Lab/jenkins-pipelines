@@ -70,7 +70,7 @@ pipeline {
     stages {
         stage('Create PSMDB source tarball') {
             steps {
-                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH}")
+                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 buildStage("centos:7", "--get_sources=1")
                 sh '''
@@ -278,18 +278,31 @@ pipeline {
                 sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
             }
         }
+        stage('Push Tarballs to TESTING download area') {
+            steps {
+                script {
+                    try {
+                        uploadTarballToDownloadsTesting("psmdb", "${PSMDB_VERSION}")
+                    }
+                    catch (err) {
+                        echo "Caught: ${err}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
+            }
+        }
 
     }
     post {
         success {
-            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH}")
+            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH}"
+                currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
             }
             deleteDir()
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH}")
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {

@@ -12,27 +12,28 @@ void performDockerWayUpgrade(String PMM_VERSION) {
 }
 
 void checkUpgrade(String PMM_VERSION, String PRE_POST) {
+    def pmm_version = PMM_VERSION.trim();
+    
     sh """
-        export PMM_VERSION=${PMM_VERSION}
+        export PMM_VERSION=${pmm_version}
         export PRE_POST=${PRE_POST}
-        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
+        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
         echo $PMM_VERSION
         echo $PRE_POST
-        bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh ${PMM_VERSION} ${PRE_POST}
+        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v ${pmm_version} -p ${PRE_POST}
     """
 }
 
-void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
+void checkClientAfterUpgrade(String PMM_VERSION) {
     sh """
         export PMM_VERSION=${PMM_VERSION}
-        export PRE_POST=${PRE_POST}
         echo "Upgrading pmm2-client";
         sudo yum clean all
         sudo yum makecache
         sudo yum -y install pmm2-client
         sleep 30
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
-        bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION} ${PRE_POST}
+        bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION}
     """
 }
 
@@ -102,7 +103,7 @@ pipeline {
         string(
             defaultValue: 'admin-password',
             description: 'pmm-server admin user default password',
-            name: 'ADMIN_PASSWORD')  
+            name: 'ADMIN_PASSWORD')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
@@ -153,7 +154,7 @@ pipeline {
                     branch: PMM_UI_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
@@ -288,7 +289,7 @@ pipeline {
         stage('Check Packages before Upgrade') {
             steps {
                 script {
-                    runPython('check_upgrade', "-v ${DOCKER_VERSION} -p pre")
+                    checkUpgrade(DOCKER_VERSION, "pre")
                 }
             }
         }
@@ -333,13 +334,13 @@ pipeline {
         stage('Check Packages after Upgrade') {
             steps {
                 script {
-                    runPython('check_upgrade', "-v ${PMM_SERVER_LATEST}")
+                    checkUpgrade(PMM_SERVER_LATEST, "post")
                 }
             }
         }
         stage('Check Client Upgrade') {
             steps {
-                checkClientAfterUpgrade(PMM_SERVER_LATEST, "post");
+                checkClientAfterUpgrade(PMM_SERVER_LATEST);
                 sh """
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
@@ -365,7 +366,7 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-managed.log >> pmm-managed-full.log || true
                 docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
                 echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
-                
+
                 # stop the containers
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true

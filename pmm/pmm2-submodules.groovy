@@ -118,7 +118,7 @@ pipeline {
                 stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
                 stash includes: 'pmmUITestsCommitSha', name: 'pmmUITestsCommitSha'
                 stash includes: 'fbCommitSha', name: 'fbCommitSha'
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
         stage('Build client source') {
@@ -214,19 +214,7 @@ pipeline {
                         export RPM_EPOCH=1
                         export PATH=\$PATH:\$(pwd -P)/${PATH_TO_SCRIPTS}
 
-                        # 1st-party
-                        build-server-rpm percona-dashboards grafana-dashboards
-                        build-server-rpm pmm-managed pmm
-                        build-server-rpm percona-qan-api2 qan-api2
-                        build-server-rpm pmm-update
-                        build-server-rpm dbaas-controller
-                        build-server-rpm dbaas-tools
-                        build-server-rpm pmm-dump
-
-                        # 3rd-party
-                        build-server-rpm victoriametrics
-                        build-server-rpm alertmanager
-                        build-server-rpm grafana
+                        ${PATH_TO_SCRIPTS}/build-server-rpm-all
                     """
                 }
             }
@@ -351,20 +339,18 @@ pipeline {
                         slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
                     }
                 } else {
-                    if(env.API_TESTS_RESULT != "SUCCESS") {
+                    if(env.API_TESTS_RESULT != "SUCCESS" && env.API_TESTS_URL) {
                         addComment("API tests have failed, Please check: API: ${API_TESTS_URL}")
                     }
-                    if(env.BATS_TESTS_RESULT != "SUCCESS") {
+                    if(env.BATS_TESTS_RESULT != "SUCCESS" && env.BATS_TESTS_URL) {
                         addComment("pmm2-client testsuite has failed, Please check: BATS: ${BATS_TESTS_URL}")
                     }
-                    if(env.UI_TESTS_RESULT != "SUCCESS") {
+                    if(env.UI_TESTS_RESULT != "SUCCESS" && env.UI_TESTS_URL) {
                         addComment("UI tests have failed, Please check: UI: ${UI_TESTS_URL}")
                     }
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} build job link: ${BUILD_URL}"
                 }
             }
-            sh 'sudo make clean'
-            deleteDir()
         }
     }
 }

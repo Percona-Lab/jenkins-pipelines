@@ -243,6 +243,7 @@ labelMap['min-buster-x64']    = 'min-buster-x64'
 labelMap['min-bullseye-x64']  = 'min-bullseye-x64'
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
+// https://javadoc.jenkins.io/plugin/ec2/index.html?hudson/plugins/ec2/UnixData.html
 SlaveTemplate getTemplate(String OSType, String AZ) {
     return new SlaveTemplate(
         imageMap[AZ + '.' + OSType],                // String ami
@@ -260,7 +261,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
-        new UnixData('', '', '', '', '22'),         // AMITypeData amiType
+        new UnixData('', '', '', '22', ''),         // AMITypeData amiType
         '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId

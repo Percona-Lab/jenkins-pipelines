@@ -67,6 +67,7 @@ pipeline {
                         OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: env.BUILD_USER_EMAIL, tokenCredentialId: 'JenkinsCI-SlackBot-v2')
                         env.VM_NAME = 'pmm-' + OWNER.replaceAll("[^a-zA-Z0-9_.-]", "") + '-' + (new Date()).format("yyyyMMdd.HHmmss") + '-' + env.BUILD_NUMBER
                     }
+
                     echo """
                         AMI Image ID: ${AMI_ID}
                         OWNER:          ${OWNER}
@@ -250,7 +251,7 @@ pipeline {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
                             sudo git clone --single-branch --branch ${GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
                             cd pmm-ui-tests
                             sudo PWD=$(pwd) docker-compose up -d mysql
@@ -259,7 +260,7 @@ pipeline {
                             sudo PWD=$(pwd) docker-compose up -d proxysql
                             sleep 30
                             sudo bash -x testdata/db_setup.sh
-                        '
+                        "
                     '''
                 }
             }

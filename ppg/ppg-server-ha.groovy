@@ -7,15 +7,15 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/percona-packaging/scripts/psmdb_builder.sh -O psmdb_builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/ppg-server-ha/ppg-server-ha_builder.sh -O ppg-server-ha_builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}"
+            bash -x ./ppg-server-ha_builder.sh --builddir=\${build_dir}/test --install_deps=1
+            bash -x ./ppg-server-ha_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${PPG_REPO} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -29,33 +29,29 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'docker-64gb'
+        label 'docker'
     }
     parameters {
         string(
-            defaultValue: 'https://github.com/percona/percona-server-mongodb.git',
-            description: 'URL for  percona-server-mongodb repository',
+            defaultValue: 'https://github.com/percona/postgres-packaging.git',
+            description: 'URL for ppg-server-ha repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'v6.0',
-            description: 'Tag/Branch for percona-server-mongodb repository',
+            defaultValue: '14.4',
+            description: 'Tag/Branch for ppg-server-ha repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '6.0.0',
-            description: 'PSMDB release value',
-            name: 'PSMDB_VERSION')
+            defaultValue: '1',
+            description: 'RPM release value',
+            name: 'RPM_RELEASE')
         string(
             defaultValue: '1',
-            description: 'PSMDB release value',
-            name: 'PSMDB_RELEASE')
+            description: 'DEB release value',
+            name: 'DEB_RELEASE')
         string(
-            defaultValue: '100.5.4',
-            description: 'https://docs.mongodb.com/database-tools/installation/',
-            name: 'MONGO_TOOLS_TAG')
-        string(
-            defaultValue: 'psmdb-60',
-            description: 'PSMDB repo name',
-            name: 'PSMDB_REPO')
+            defaultValue: 'ppg-14.4',
+            description: 'PPG repo name',
+            name: 'PPG_REPO')
         choice(
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
@@ -65,22 +61,20 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
-        timestamps ()
     }
     stages {
-        stage('Create PSMDB source tarball') {
+        stage('Create PPG_SERVER_HA source tarball') {
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 buildStage("centos:7", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-60.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/ppg-server-ha.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/percona-server-mongodb-60.properties
+                   cat test/ppg-server-ha.properties
                    cat uploadPath
-                   cat awsUploadPath
                 '''
                 script {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
@@ -90,11 +84,11 @@ pipeline {
                 uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
-        stage('Build PSMDB generic source packages') {
+        stage('Build PPG-SERVER_HA generic source packages') {
             parallel {
-                stage('Build PSMDB generic source rpm') {
+                stage('Build PPG-SERVER_HA generic source rpm') {
                     agent {
-                        label 'docker-64gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -105,14 +99,14 @@ pipeline {
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Build PSMDB generic source deb') {
+                stage('Build PPG-SERVER_HA generic source deb') {
                     agent {
-                        label 'docker-64gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:bionic", "--build_src_deb=1")
+                        buildStage("debian:stretch", "--build_src_deb=1")
 
                         pushArtifactFolder("source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
@@ -120,11 +114,11 @@ pipeline {
                 }
             }  //parallel
         } // stage
-        stage('Build PSMDB RPMs/DEBs/Binary tarballs') {
+        stage('Build PPG-SERVER-HA RPMs/DEBs/Binary tarballs') {
             parallel {
                 stage('Centos 7') {
                     agent {
-                        label 'docker-64gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -137,7 +131,7 @@ pipeline {
                 }
                 stage('Oracle Linux 8') {
                     agent {
-                        label 'docker-64gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -150,7 +144,7 @@ pipeline {
                 }
                 stage('Ubuntu Bionic(18.04)') {
                     agent {
-                        label 'docker-64gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -163,7 +157,7 @@ pipeline {
                 }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
-                        label 'docker-64gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -176,7 +170,7 @@ pipeline {
                 }
                 stage('Ubuntu Jammy(22.04)') {
                     agent {
-                        label 'docker-64gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -189,7 +183,7 @@ pipeline {
                 }
                 stage('Debian Buster(10)') {
                     agent {
-                        label 'docker-64gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -202,7 +196,7 @@ pipeline {
                 }
                 stage('Debian Bullseye(11)') {
                     agent {
-                        label 'docker-64gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -211,56 +205,6 @@ pipeline {
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Centos 7 binary tarball(glibc2.17)') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_tarball=1")
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                    }
-                }
-                stage('Centos 7 debug binary tarball(glibc2.17)') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--debug=1")
-
-                        pushArtifactFolder("debug/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Ubuntu Jammy(22.04) binary tarball(glibc2.35)') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:jammy", "--build_tarball=1")
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                    }
-                }
-                stage('Ubuntu Jammy(22.04) debug binary tarball(glibc2.35)') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:jammy", "--debug=1")
-
-                        pushArtifactFolder("debug/", AWS_STASH_PATH)
                     }
                 }
             }
@@ -275,29 +219,16 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
-            }
-        }
-        stage('Push Tarballs to TESTING download area') {
-            steps {
-                script {
-                    try {
-                        uploadTarballToDownloadsTesting("psmdb", "${PSMDB_VERSION}")
-                    }
-                    catch (err) {
-                        echo "Caught: ${err}"
-                        currentBuild.result = 'UNSTABLE'
-                    }
-                }
+                sync2ProdAutoBuild(PPG_REPO, COMPONENT)
             }
         }
 
     }
     post {
         success {
-            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
+                currentBuild.description = "Built on ${GIT_BRANCH}"
             }
             deleteDir()
         }

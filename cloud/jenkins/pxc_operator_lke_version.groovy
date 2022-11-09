@@ -321,7 +321,8 @@ pipeline {
                         runTest('upgrade-proxysql', 'upgrade')
                         ShutdownCluster('upgrade')
                         CreateCluster('upgrade')
-                        runTest('smart-update', 'upgrade')
+                        runTest('smart-update1', 'upgrade')
+                        runTest('smart-update2', 'upgrade')
                         runTest('upgrade-consistency', 'upgrade')
                         ShutdownCluster('upgrade')
                     }
@@ -358,11 +359,8 @@ pipeline {
                     steps {
                         CreateCluster('selfheal')
                         runTest('storage', 'selfheal')
-                        runTest('self-healing', 'selfheal')
                         runTest('self-healing-chaos', 'selfheal')
-                        runTest('self-healing-advanced', 'selfheal')
                         runTest('self-healing-advanced-chaos', 'selfheal')
-                        runTest('operator-self-healing', 'selfheal')
                         runTest('operator-self-healing-chaos', 'selfheal')
                         ShutdownCluster('selfheal')
                     }
@@ -373,6 +371,7 @@ pipeline {
                         runTest('recreate', 'backups')
                         runTest('restore-to-encrypted-cluster', 'backups')
                         runTest('demand-backup', 'backups')
+                        runTest('demand-backup-cloud', 'backups')
                         runTest('demand-backup-encrypted-with-tls', 'backups')
                         runTest('pitr','backups')
                         runTest('scheduled-backup', 'backups')

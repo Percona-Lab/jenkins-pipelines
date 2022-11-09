@@ -71,7 +71,7 @@ pipeline {
     stages {
         stage('Create MongoDB Shell source tarball') {
             steps {
-                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for ${MONGOSH_GIT_BRANCH}")
+                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for ${MONGOSH_GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 buildStage("centos:7", "--get_sources=1")
                 sh '''
@@ -228,14 +228,14 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${MONGOSH_GIT_BRANCH}")
+            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${MONGOSH_GIT_BRANCH} - [${BUILD_URL}]")
             script {
                 currentBuild.description = "Built on ${MONGOSH_GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
             }
             deleteDir()
         }
         failure {
-            slackNotify("#releases", "#FF0000", "[${JOB_NAME}]: build failed for ${MONGOSH_GIT_BRANCH}")
+            slackNotify("#releases", "#FF0000", "[${JOB_NAME}]: build failed for ${MONGOSH_GIT_BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {

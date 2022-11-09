@@ -66,15 +66,15 @@ pipeline {
             description: 'Postgre SQL Server version',
             name: 'PGSQL_VERSION')
         string(
-            defaultValue: '--addclient=haproxy,1 --setup-external-service --mongo-replica-for-backup',
+            defaultValue: '--addclient=haproxy,1 --setup-external-service --mongo-replica-for-backup --setup-bm-mysql',
             description: 'Configure PMM Clients. ps - Percona Server for MySQL, pxc - Percona XtraDB Cluster, ms - MySQL Community Server, md - MariaDB Server, MO - Percona Server for MongoDB, pgsql - Postgre SQL Server',
             name: 'CLIENTS')
-        string(
-            defaultValue: 'true',
+        choice(
+            choices: ['true', 'false'],
             description: 'Enable Slack notification (option for high level pipelines)',
             name: 'NOTIFY')
-        string(
-            defaultValue: 'true',
+        choice(
+            choices: ['true', 'false'],
             description: 'Use this OVA Setup as PMM-client',
             name: 'SETUP_CLIENT')
         string(
@@ -91,6 +91,16 @@ pipeline {
         stage('Prepare') {
             steps {
                 deleteDir()
+                withCredentials([string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+                    sh '''
+                        set -o xtrace
+
+                        # https://docs.digitalocean.com/products/droplets/how-to/retrieve-droplet-metadata/
+                        DROPLET_ID=$(curl -s http://169.254.169.254/metadata/v1/id)
+                        FIREWALL_ID=$(doctl compute firewall list -o json | jq -r '.[] | select(.name=="pmm-firewall") | .id')
+                        doctl compute firewall add-droplets $FIREWALL_ID --droplet-ids $DROPLET_ID
+                    '''
+                }
                 withCredentials([usernamePassword(credentialsId: 'Jenkins API', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
                         curl -s -u ${USER}:${PASS} ${BUILD_URL}api/json \
@@ -114,7 +124,7 @@ pipeline {
                         CLIENTS:        ${CLIENTS}
                         OWNER:          ${OWNER}
                     """
-                    if ("${NOTIFY}" == "true") {
+                    if (params.NOTIFY == "true") {
                         slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         slackSend botUser: true, channel: "@${OWNER}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                     }
@@ -216,7 +226,10 @@ pipeline {
                     env.OWNER   = sh(returnStdout: true, script: "cat OWNER | cut -d . -f 1").trim()
                     env.ADMIN_PASSWORD = "admin"
                 }
+
+                currentBuild.description = "VM_NAME: ${VM_NAME}, IP: ${PUBLIC_IP}"
                 setupPMMClient(env.PUBLIC_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'ovf_setup', env.ADMIN_PASSWORD)
+
                 sh """
                     set -o errexit
                     set -o xtrace
@@ -232,8 +245,6 @@ pipeline {
                     sleep 10
                     pmm-admin list
                 """
-                archiveArtifacts 'PUBLIC_IP'
-                archiveArtifacts 'VM_NAME'
             }
         }
         stage('Start UI Tests') {
@@ -264,7 +275,7 @@ pipeline {
                         rm -r /tmp/$VM_NAME
                     fi
                 '''
-                if ("${NOTIFY}" == "true") {
+                if (params.NOTIFY == "true") {
                     def PUBLIC_IP = sh(returnStdout: true, script: "cat PUBLIC_IP").trim()
                     def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
 
@@ -284,7 +295,7 @@ pipeline {
                 fi
             '''
             script {
-                if ("${NOTIFY}" == "true") {
+                if (params.NOTIFY == "true") {
                     def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
 
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"

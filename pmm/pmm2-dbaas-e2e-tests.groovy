@@ -13,16 +13,15 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENT_INSTANCE, SE
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
     ]
+
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
     env.ADMIN_PASSWORD = "admin"
-    def clientInstance = "yes";
-    if ( CLIENT_INSTANCE == clientInstance ) {
+
+    if ( CLIENT_INSTANCE == "yes" ) {
         env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
-    }
-    else
-    {
+    } else {
         env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
         env.PMM_UI_URL = "http://${VM_IP}/"
     }
@@ -272,11 +271,6 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
-            sh '''
-                sudo rm -r node_modules/
-                sudo rm -r tests/output
-            '''
-            deleteDir()
         }
     }
 }

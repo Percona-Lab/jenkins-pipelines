@@ -19,10 +19,13 @@ def call(String type='latest') {
     '2.29.0': 'ami-0e68224439dd6f200',
     '2.29.1': 'ami-01ce74cdab54cabcd',
     '2.30.0': 'ami-0ac4cb922edec19e0',
-    '2.31.0': 'ami-0fbc6c59937464afa'
+    '2.31.0': 'ami-04c7431377165bca7',
+    '2.32.0': 'ami-02cfe7580e77fb5fa'
   ]
 
   List<String> versionsList = new ArrayList<>(versions.keySet());
+  // Grab 10 latest versions
+  List<String> ovfVersions = ['2.31.0', '2.30.0', '2.29.1', '2.28.0', '2.27.0', '2.26.0', '2.25.0', '2.24.0', '2.23.0', '2.22.0'];
 
   switch(type) {
     case 'latest':
@@ -32,8 +35,12 @@ def call(String type='latest') {
       return versionsList[versionsList.size() - 2]
     case 'ami':
       return versions
+    case 'ovf':
+      return ovfVersions
     case 'list':
       return versionsList
+    case 'ovf':
+      return ovfVersions
     case 'list_with_old':
       return oldVersions + versionsList
   }

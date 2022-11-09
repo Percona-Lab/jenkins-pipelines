@@ -12,6 +12,7 @@ void CreateCluster(String CLUSTER_SUFFIX) {
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
                 gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone ${GKERegion} --cluster-version $GKE_VERSION --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-pg-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} && \
+                gcloud container clusters update --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX} --update-labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
