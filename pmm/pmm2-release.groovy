@@ -504,7 +504,6 @@ ENDSSH
                         declare -A repos=(
                             ["percona-grafana"]="percona-platform/grafana"
                             ["percona-dashboards"]="percona/grafana-dashboards"
-                            ["percona-qan-api2"]="percona/qan-api2"
                             ["pmm-update"]="percona/pmm-update"
                             ["pmm"]="percona/pmm"
                         )

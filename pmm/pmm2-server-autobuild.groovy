@@ -105,7 +105,7 @@ pipeline {
                         # 1st-party
                         build-server-rpm percona-dashboards grafana-dashboards
                         build-server-rpm pmm-managed pmm
-                        build-server-rpm percona-qan-api2 qan-api2
+                        build-server-rpm percona-qan-api2 pmm
                         build-server-rpm pmm-update
                         build-server-rpm dbaas-controller
                         build-server-rpm dbaas-tools
