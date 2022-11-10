@@ -1,7 +1,8 @@
 String call() {
-    // You need to add your keys to https://github.com/settings/keys
+    // For this to work, devs should add keys to https://github.com/settings/keys
     String sshKeys = ''
-    final List additional_keys = ['talhabinrizwan', 'atymchuk', 'nailya', 'puneet0191', 'BupycHuk', ] // github users
+    // github users
+    final List additional_keys = ['talhabinrizwan', 'atymchuk', 'nailya', 'puneet0191', 'BupycHuk', ] 
     additional_keys.each { item ->
         response = httpRequest "https://github.com/${item}.keys"
         sshKeys += response.content + '\n'
