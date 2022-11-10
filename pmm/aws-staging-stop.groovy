@@ -65,14 +65,14 @@ pipeline {
                             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                             credentialsId: 'pmm-staging-slave',
                             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
 
-                        REQUEST_ID=$(echo '${VMList}' | grep '${VM}' | awk '{print \$2}' | cut -d '|' -f1)
-                        INSTANCE_ID=$(echo '${VMList}' | grep '${VM}' | awk '{print \$3}')
+                        REQUEST_ID=$(echo "${VMList}" | grep "${VM}" | awk '{print $2}' | cut -d '|' -f1)
+                        INSTANCE_ID=$(echo '${VMList}' | grep "${VM}" | awk '{print $3}')
                         aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids $REQUEST_ID
                         aws ec2 --region us-east-2 terminate-instances --instance-ids $INSTANCE_ID
-                    """
+                    '''
                 }
             }
         }
