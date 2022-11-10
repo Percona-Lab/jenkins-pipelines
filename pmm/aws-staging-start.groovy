@@ -212,10 +212,10 @@ pipeline {
 
                     currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME} PRICE: ${env.SPOT_PRICE}"
                     Jenkins.instance.addNode(node)
+
+                    env.DEFAULT_SSH_KEYS = getSHHKeysPMM()
                 }
                 node(env.VM_NAME){
-                    env.DEFAULT_SSH_KEYS = getSHHKeysPMM()
-
                     sh """
                         set -o errexit
                         set -o xtrace

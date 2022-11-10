@@ -51,10 +51,10 @@ pipeline {
                                     name: 'Name or IP')
                                 ]
                             echo "VM passed: ${NAME_OR_IP}"
-                            env.INPUT = NAME_OR_IP
+                            env.INPUT = NAME_OR_IP.trim()
                         }
                     } else {
-                        env.INPUT = params.VM
+                        env.INPUT = params.VM.trim()
                     }
                     if (!env.VMList.toLowerCase().contains(env.INPUT.toLowerCase())) {
                         error 'Unknown VM'
