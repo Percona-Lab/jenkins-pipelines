@@ -45,7 +45,7 @@ pipeline {
                             please copy VM name below and press 'Input requested' button
                         """
                         timeout(time:10, unit:'MINUTES') {
-                            VM = input message: 'What VM do you want to stop?',
+                            params.VM = input message: 'What VM do you want to stop?',
                                  parameters: [string(defaultValue: '',
                                  description: '',
                                  name: 'Name or IP')]
@@ -73,6 +73,11 @@ pipeline {
                         set -x
                         echo $REQUEST_ID
                         echo $INSTANCE_ID
+                        if [ -z "$REQUEST_ID" -o -z "$INSTANCE_ID" ]; then
+                            echo "Wrong or not enough parameters passed"
+                            echo "REQUEST_ID: '$REQUEST_ID', INSTANCE_ID: '$INSTANCE_ID'"
+                            exit 1
+                        fi
                         aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids $REQUEST_ID
                         aws ec2 --region us-east-2 terminate-instances --instance-ids $INSTANCE_ID
                     '''
