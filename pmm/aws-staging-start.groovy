@@ -213,7 +213,8 @@ pipeline {
                     currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME} PRICE: ${env.SPOT_PRICE}"
                     Jenkins.instance.addNode(node)
 
-                    env.DEFAULT_SSH_KEYS = getSHHKeysPMM()
+                    def DEFAULT_SSH_KEYS = getSHHKeysPMM()
+                    env.DEFAULT_SSH_KEYS = DEFAULT_SSH_KEYS
                 }
                 node(env.VM_NAME){
                     sh """
