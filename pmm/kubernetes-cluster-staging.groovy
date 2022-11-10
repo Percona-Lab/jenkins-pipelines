@@ -63,9 +63,9 @@ pipeline {
                     echo "KUBE_VERSION: ${KUBE_VERSION}"
 
                     if (params.NOTIFY == "true") {
-                        slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: cluster creation - ${BUILD_URL}"
+                        slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: cluster creation - ${BUILD_URL}"
                         if (env.OWNER_SLACK) {
-                            slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FFFF00', message: "[${JOB_NAME}]: cluster creation - ${BUILD_URL}"
+                            slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#0000FF', message: "[${JOB_NAME}]: cluster creation - ${BUILD_URL}"
                         }
                     }
                 }
