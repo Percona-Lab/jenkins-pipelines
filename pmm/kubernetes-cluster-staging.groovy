@@ -97,7 +97,6 @@ pipeline {
                         fi
 
                         sudo yum -y update --security
-                        sudo yum -y install git svn docker
                         sudo amazon-linux-extras install epel -y
                         sudo usermod -aG docker ec2-user
                         sudo systemctl start docker
