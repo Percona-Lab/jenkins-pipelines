@@ -192,10 +192,11 @@ pipeline {
                         fi
                         sleep 10
                     done
+
                     echo \$IP > IP
-                    PUBIP=\$(curl ifconfig.me)
-                    echo \$PUBIP > PUBLIC_IP
-                    cat PUBLIC_IP
+                    PUBLIC_IP=\$(curl ifconfig.me)
+                    echo \$PUBLIC_IP > PUBLIC_IP
+
                     if [ "X\$IP" = "X." ]; then
                         echo Error during DHCP configure. exiting
                         exit 1
@@ -225,9 +226,9 @@ pipeline {
                     env.PUB_KEY = sh(returnStdout: true, script: "cat PUB_KEY").trim()
                     env.OWNER   = sh(returnStdout: true, script: "cat OWNER | cut -d . -f 1").trim()
                     env.ADMIN_PASSWORD = "admin"
+                    currentBuild.description = "VM_NAME: ${VM_NAME}, IP: ${PUBLIC_IP}"
                 }
 
-                currentBuild.description = "VM_NAME: ${VM_NAME}, IP: ${PUBLIC_IP}"
                 setupPMMClient(env.PUBLIC_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'ovf_setup', env.ADMIN_PASSWORD)
 
                 sh """
