@@ -424,7 +424,11 @@ pipeline {
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'job_logs.txt'
-                junit env.PATH_TO_REPORT_RESULTS
+                try {
+                    junit env.PATH_TO_REPORT_RESULTS
+                } catch (err) {
+                    error "No test report files found at path: ${PATH_TO_REPORT_RESULTS}"
+                }
             }
             allure([
                 includeProperties: false,
