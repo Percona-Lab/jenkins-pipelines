@@ -41,20 +41,22 @@ pipeline {
                     if ( params.VM == "list-all-vms" ) {
                         echo """
                             What VM do you want to stop?
-                            Please copy a VM name from above and press 'Input requested' button.
+                            Please copy a VM name from above and press 'Proceed'.
                         """
                         timeout(time: 10, unit: 'MINUTES') {
                             def NAME_OR_IP = input message: 'What VM do you want to stop?',
-                                 parameters: [string(defaultValue: '',
-                                 description: '',
-                                 name: 'Name or IP')]
+                                 parameters: [
+                                    string(defaultValue: '',
+                                    description: '',
+                                    name: 'Name or IP')
+                                ]
                             echo "VM passed: ${NAME_OR_IP}"
                             env.INPUT = NAME_OR_IP
                         }
                     } else {
                         env.INPUT = params.VM
                     }
-                    if (!env.VMList.toLowerCase().contains(VM.toLowerCase())) {
+                    if (!env.VMList.toLowerCase().contains(env.INPUT.toLowerCase())) {
                         error 'Unknown VM'
                     }
                 }
