@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-10729-fix-job-owner-detection4', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -100,20 +100,16 @@ pipeline {
                         FIREWALL_ID=$(doctl compute firewall list -o json | jq -r '.[] | select(.name=="pmm-firewall") | .id')
                         doctl compute firewall add-droplets $FIREWALL_ID --droplet-ids $DROPLET_ID
                     '''
+                    env.PUBLIC_IP = sh(
+                        returnStdout: true, 
+                        script: 'curl -s http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address'
+                    ).trim()
                 }
-                withCredentials([usernamePassword(credentialsId: 'Jenkins API', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
-                        curl -s -u ${USER}:${PASS} ${BUILD_URL}api/json \
-                            | python -c "import sys, json; print json.load(sys.stdin)['actions'][1]['causes'][0]['userId']" \
-                            | sed -e 's/@percona.com//' \
-                            > OWNER
-                        echo "pmm-\$(cat OWNER | cut -d . -f 1)-\$(date -u '+%Y%m%d%H%M')" \
-                            > VM_NAME
-                    """
-                }
-                stash includes: 'OWNER,VM_NAME', name: 'VM_NAME'
+
                 script {
-                    def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
+                    // getPMMBuildParams sets envvars: VM_NAME, OWNER, OWNER_SLACK
+                    getPMMBuildParams('ovf-image-test')
+
                     echo """
                         PXC_VERSION:    ${PXC_VERSION}
                         PS_VERSION:     ${PS_VERSION}
@@ -126,14 +122,15 @@ pipeline {
                     """
                     if (params.NOTIFY == "true") {
                         slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                        slackSend botUser: true, channel: "@${OWNER}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        if (env.OWNER_SLACK) {
+                            slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        }
                     }
                 }
             }
         }
         stage('Run PMM-Server') {
             steps {
-                unstash 'VM_NAME'
                 sh """
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
@@ -141,7 +138,7 @@ pipeline {
                         sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
                         sudo chmod 755 get_download_link.sh
                     popd
-                    sudo git clone --single-branch --branch \${GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
+                    sudo git clone --single-branch --branch ${GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
                     pushd pmm-ui-tests
                     PWD=\$(pwd) docker-compose up -d mysql
                     PWD=\$(pwd) docker-compose up -d mongo
@@ -158,35 +155,32 @@ pipeline {
                     popd
                 """
                 sh '''
-                    wget -O \$(cat VM_NAME).ova http://percona-vm.s3-website-us-east-1.amazonaws.com/\${OVA_VERSION} > /dev/null
+                    wget -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION} > /dev/null
                 '''
                 sh '''
-                    export VM_NAME=\$(cat VM_NAME)
-                    export OWNER=\$(cat OWNER)
-
                     export BUILD_ID=dear-jenkins-please-dont-kill-virtualbox
                     export JENKINS_NODE_COOKIE=dear-jenkins-please-dont-kill-virtualbox
                     export JENKINS_SERVER_COOKIE=dear-jenkins-please-dont-kill-virtualbox
 
-                    tar xvf \$VM_NAME.ova
+                    tar xvf ${VM_NAME}.ova
                     export ovf_name=$(find -type f -name '*.ovf');
                     export VM_MEMORY=4096
-                    VBoxManage import \$ovf_name --vsys 0 --memory \$VM_MEMORY --vmname \$VM_NAME > /dev/null
-                    VBoxManage modifyvm \$VM_NAME \
+                    VBoxManage import \$ovf_name --vsys 0 --memory \$VM_MEMORY --vmname ${VM_NAME} > /dev/null
+                    VBoxManage modifyvm ${VM_NAME} \
                         --memory \$VM_MEMORY \
                         --audio none \
                         --natpf1 "guestssh,tcp,,80,,80" \
-                        --uart1 0x3F8 4 --uartmode1 file /tmp/\$VM_NAME-console.log \
-                        --groups "/\$OWNER,/${JOB_NAME}"
-                    VBoxManage modifyvm \$VM_NAME --natpf1 "guesthttps,tcp,,443,,443"
+                        --uart1 0x3F8 4 --uartmode1 file /tmp/${VM_NAME}-console.log \
+                        --groups "/${OWNER},/${JOB_NAME}"
+                    VBoxManage modifyvm ${VM_NAME} --natpf1 "guesthttps,tcp,,443,,443"
                     for p in $(seq 0 15); do
-                        VBoxManage modifyvm \$VM_NAME --natpf1 "guestexporters\$p,tcp,,4200\$p,,4200\$p"
+                        VBoxManage modifyvm ${VM_NAME} --natpf1 "guestexporters\$p,tcp,,4200\$p,,4200\$p"
                     done
-                    VBoxManage startvm --type headless \$VM_NAME
+                    VBoxManage startvm --type headless ${VM_NAME}
                     sleep 180
-                    cat /tmp/\$VM_NAME-console.log
+                    cat /tmp/${VM_NAME}-console.log
                     for I in $(seq 1 6); do
-                        IP=\$(grep eth0 /tmp/\$VM_NAME-console.log | cut -d '|' -f 4 | sed -e 's/ //g' | head -n 1)
+                        IP=\$(grep eth0 /tmp/${VM_NAME}-console.log | cut -d '|' -f 4 | sed -e 's/ //g' | head -n 1)
                         if [ -n "\$IP" ]; then
                             break
                         fi
@@ -194,8 +188,6 @@ pipeline {
                     done
 
                     echo \$IP > IP
-                    PUBLIC_IP=\$(curl ifconfig.me)
-                    echo \$PUBLIC_IP > PUBLIC_IP
 
                     if [ "X\$IP" = "X." ]; then
                         echo Error during DHCP configure. exiting
@@ -206,43 +198,37 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'Jenkins API', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
                         set +x
-                        export VM_NAME=\$(cat VM_NAME)
+                        mkdir -p /tmp/${VM_NAME}
+                        rm -rf /tmp/${VM_NAME}/sshkey
+                        touch /tmp/${VM_NAME}/sshkey
 
-                        mkdir -p /tmp/\$VM_NAME
-                        rm -rf /tmp/\$VM_NAME/sshkey
-                        touch /tmp/\$VM_NAME/sshkey
-
-                        yes y | ssh-keygen -f "/tmp/\$VM_NAME/sshkey" -N "" > /dev/null
-                        cat "/tmp/\$VM_NAME/sshkey.pub" > PUB_KEY
-                        chmod 600 /tmp/\$VM_NAME/sshkey
+                        yes y | ssh-keygen -f "/tmp/${VM_NAME}/sshkey" -N "" > /dev/null
+                        cat "/tmp/${VM_NAME}/sshkey.pub" > PUB_KEY
+                        chmod 600 /tmp/${VM_NAME}/sshkey
                         set -x
                     """
                 }
-                stash includes: 'PUB_KEY', name: 'PUB_ACCESS'
                 script {
                     env.IP      = sh(returnStdout: true, script: "cat IP | cut -f1 -d' '").trim()
-                    env.PUBLIC_IP = sh(returnStdout: true, script: "cat PUBLIC_IP").trim()
-                    env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
                     env.PUB_KEY = sh(returnStdout: true, script: "cat PUB_KEY").trim()
-                    env.OWNER   = sh(returnStdout: true, script: "cat OWNER | cut -d . -f 1").trim()
                     env.ADMIN_PASSWORD = "admin"
                     currentBuild.description = "VM_NAME: ${VM_NAME}, IP: ${PUBLIC_IP}"
                 }
 
-                setupPMMClient(env.PUBLIC_IP, CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'ovf_setup', env.ADMIN_PASSWORD)
+                setupPMMClient(env.PUBLIC_IP, params.CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'ovf_setup', env.ADMIN_PASSWORD)
 
                 sh """
                     set -o errexit
                     set -o xtrace
-                    export PATH=\$PATH:/usr/sbin
-                    if [[ \$CLIENT_VERSION != dev-latest ]]; then
+                    export PATH=$PATH:/usr/sbin
+                    if [[ ${CLIENT_VERSION} != dev-latest ]]; then
                         export PATH="`pwd`/pmm2-client/bin:$PATH"
                     fi
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --download \
                         --addclient=haproxy,1 --setup-external-service \
                         --pmm2 \
-                        --pmm2-server-ip=\$PUBLIC_IP
+                        --pmm2-server-ip=${PUBLIC_IP}
                     sleep 10
                     pmm-admin list
                 """
@@ -250,7 +236,7 @@ pipeline {
         }
         stage('Start UI Tests') {
             steps {
-                runUITests(CLIENT_VERSION, 'yes', "${env.PUBLIC_IP}", GIT_BRANCH, CLIENTS)
+                runUITests(env.CLIENT_VERSION, 'yes', env.PUBLIC_IP, params.GIT_BRANCH, env.CLIENTS)
             }
         }
     }
@@ -268,39 +254,36 @@ pipeline {
         success {
             script {
                 sh '''
-                    export VM_NAME=\$(cat VM_NAME)
-                    if [ -n "$VM_NAME" ]; then
-                        VBoxManage controlvm $VM_NAME poweroff
+                    if [ -n "${VM_NAME}" ]; then
+                        VBoxManage controlvm ${VM_NAME} poweroff
                         sleep 10
-                        VBoxManage unregistervm --delete $VM_NAME
-                        rm -r /tmp/$VM_NAME
+                        VBoxManage unregistervm --delete ${VM_NAME}
+                        rm -r /tmp/${VM_NAME}
                     fi
                 '''
                 if (params.NOTIFY == "true") {
-                    def PUBLIC_IP = sh(returnStdout: true, script: "cat PUBLIC_IP").trim()
-                    def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
-
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
-                    slackSend botUser: true, channel: "@${OWNER}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
+                    if (env.OWNER_SLACK) {
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
+                    }
                 }
             }
         }
         failure {
             sh '''
-                export VM_NAME=\$(cat VM_NAME)
-                if [ -n "$VM_NAME" ]; then
-                    VBoxManage controlvm $VM_NAME poweroff
+                if [ -n "${VM_NAME}" ]; then
+                    VBoxManage controlvm ${VM_NAME} poweroff
                     sleep 10
-                    VBoxManage unregistervm --delete $VM_NAME
-                    rm -r /tmp/$VM_NAME
+                    VBoxManage unregistervm --delete ${VM_NAME}
+                    rm -r /tmp/${VM_NAME}
                 fi
             '''
             script {
                 if (params.NOTIFY == "true") {
-                    def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
-
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
-                    slackSend botUser: true, channel: "@${OWNER}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                    if (env.OWNER_SLACK) {
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                    }
                 }
             }
         }
