@@ -37,7 +37,7 @@ pipeline {
                         '''
                     }
                     
-                    echo "\n${VMList}"
+                    echo "${VMList}"
                     
                     if ( params.VM == "list-all-vms" ) {
                         echo """
@@ -45,10 +45,11 @@ pipeline {
                             please copy VM name below and press 'Input requested' button
                         """
                         timeout(time:10, unit:'MINUTES') {
-                            params.VM = input message: 'What VM do you want to stop?',
+                            VM = input message: 'What VM do you want to stop?',
                                  parameters: [string(defaultValue: '',
                                  description: '',
                                  name: 'Name or IP')]
+                            echo "VM passed: ${VM}"
                         }
                     }
                     if (!env.VMList.toLowerCase().contains(VM.toLowerCase())) {
