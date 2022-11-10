@@ -14,9 +14,9 @@
 **/
 
 def call(String VM_PREFIX) {
-    String VM_NAME_TEMP = '';
-    String OWNER_TEMP = '';
-    String OWNER_SLACK_TEMP = '';
+    String VM_NAME = '';
+    String OWNER = '';
+    String OWNER_SLACK = '';
 
     if (!VM_PREFIX) {
         error "Error: 'VM_PREFIX' must be a non-empty string"
@@ -24,15 +24,15 @@ def call(String VM_PREFIX) {
 
     wrap([$class: 'BuildUser']) {
         // ONWER => BUILD_USER or BUILD_USER_ID or CHANGE_AUTHOR or CHANGE_ID
-        OWNER_TEMP = (env.BUILD_USER_EMAIL ?: '').split('@')[0] ?: (env.BUILD_USER_ID ?: (env.CHANGE_AUTHOR ?: env.CHANGE_ID))
-        OWNER_TEMP = OWNER_TEMP ?: 'system'
-        OWNER_SLACK_TEMP = slackUserIdFromEmail(botUser: true, email: env.BUILD_USER_EMAIL ?: env.CHANGE_AUTHOR_EMAIL, tokenCredentialId: 'JenkinsCI-SlackBot-v2')
-        VM_NAME_TEMP = VM_PREFIX + OWNER_TEMP.replaceAll("[^a-zA-Z0-9_.-]", "") + '-' + (new Date()).format("yyyyMMdd.HHmmss") + '-' + env.BUILD_NUMBER
+        OWNER = (env.BUILD_USER_EMAIL ?: '').split('@')[0] ?: (env.BUILD_USER_ID ?: (env.CHANGE_AUTHOR ?: env.CHANGE_ID))
+        OWNER = OWNER ?: 'system'
+        OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: env.BUILD_USER_EMAIL ?: env.CHANGE_AUTHOR_EMAIL, tokenCredentialId: 'JenkinsCI-SlackBot-v2')
+        VM_NAME = VM_PREFIX + OWNER.replaceAll("[^a-zA-Z0-9_.-]", "") + '-' + (new Date()).format("yyyyMMdd.HHmmss") + '-' + env.BUILD_NUMBER
     }
 
-    env.VM_NAME = VM_NAME_TEMP
-    env.OWNER = OWNER_TEMP
-    env.OWNER_SLACK = OWNER_SLACK_TEMP
+    env.VM_NAME = VM_NAME
+    env.OWNER = OWNER
+    env.OWNER_SLACK = OWNER_SLACK
 
     // Some pipelines rely on those values being persisted as files.
     sh """
@@ -41,5 +41,5 @@ def call(String VM_PREFIX) {
         echo "${OWNER}" > OWNER_FULL
     """
 
-    return [ VM_NAME, OWNER, OWNER_SLACK_TEMP ];
+    return [ VM_NAME, OWNER, OWNER_SLACK ];
 }
