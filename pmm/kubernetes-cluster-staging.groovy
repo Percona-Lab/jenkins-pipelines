@@ -3,7 +3,7 @@ import hudson.slaves.*
 import jenkins.model.Jenkins
 import hudson.plugins.sshslaves.SSHLauncher
 
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-10729-fix-job-owner-detection4', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -56,26 +56,17 @@ pipeline {
         stage('Prepare') {
             steps {
                 deleteDir()
-                wrap([$class: 'BuildUser']) {
-                    sh """
-                        echo "\${BUILD_USER_EMAIL}" > OWNER_EMAIL
-                        echo "\${BUILD_USER_EMAIL}" | awk -F '@' '{print \$1}' > OWNER_FULL
-                        echo "pmm-kubernetes-cluster-\$(cat OWNER_FULL)-\$(date -u '+%Y%m%d%H%M%S')-${BUILD_NUMBER}" \
-                            > VM_NAME
-                    """
-                }
                 script {
-                    def OWNER = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
-                    def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
-                    def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
+                    // This sets envvars as folows: VM_NAME, OWNER, OWNER_SLACK
+                    getPMMBuildParams('pmm-k8s-cluster-')
 
-                    echo """
-                        KUBE_VERSION: ${KUBE_VERSION}
-                    """                  
+                    echo "KUBE_VERSION: ${KUBE_VERSION}"
 
-                    if ("${NOTIFY}" == "true") {
+                    if (params.NOTIFY == "true") {
                         slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: cluster creation - ${BUILD_URL}"
-                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FFFF00', message: "[${JOB_NAME}]: cluster creation - ${BUILD_URL}"
+                        if (env.OWNER_SLACK) {
+                            slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FFFF00', message: "[${JOB_NAME}]: cluster creation - ${BUILD_URL}"
+                        }
                     }
                 }
             }
@@ -83,13 +74,11 @@ pipeline {
 
         stage('Run VM') {
             steps {
+                // This sets envvars as follows: SPOT_PRICE, REQUEST_ID, IP, ID (AMI_ID)
                 launchSpotInstance('c5n.4xlarge', 'FAIR', 70)
-                script {
-                    env.IP      = sh(returnStdout: true, script: "cat IP").trim()
-                    env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
-                    def SPOT_PRICE = sh(returnStdout: true, script: "cat SPOT_PRICE").trim()
 
-                    currentBuild.description = "PRICE: $SPOT_PRICE IP: $env.IP"
+                script {
+                    currentBuild.description = "PRICE: ${SPOT_PRICE}, IP: ${IP}, OWNER: ${OWNER}"
 
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'aws-jenkins')
                     DumbSlave node = new DumbSlave(env.VM_NAME, "k8s cluster staging instance: ${VM_NAME}", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
@@ -124,7 +113,6 @@ pipeline {
                     Jenkins.instance.removeNode(node)
                     Jenkins.instance.addNode(node)
                 }
-                archiveArtifacts 'IP'
             }
         }
         stage('Setup Minikube') {
@@ -175,9 +163,6 @@ pipeline {
             steps {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        sh """
-                            export VM_NAME=\$(cat VM_NAME)
-                        """
                         node(env.VM_NAME){
                             sh """
                                 set -o errexit
@@ -203,10 +188,6 @@ pipeline {
             steps {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        sh """
-                            export IP=\$(cat IP)
-                            export VM_NAME=\$(cat VM_NAME)
-                        """
                         node(env.VM_NAME){
                             sh """
                                 set -o errexit
@@ -237,19 +218,18 @@ pipeline {
         always {
             script {
                 def node = Jenkins.instance.getNode(env.VM_NAME)
-                Jenkins.instance.removeNode(node)
+                if (node) {
+                    Jenkins.instance.removeNode(node)
+                }
             }
         }
         success {
             script {
-                if ("${NOTIFY}" == "true") {
-                    def PUBLIC_IP = sh(returnStdout: true, script: "cat IP").trim()
-                    def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
-                    def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
-                    def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
-
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: cluster creation finished, owner: @${OWNER_FULL}, Cluster IP: ${PUBLIC_IP}, Build: ${BUILD_URL}"
-                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: cluster creation finished - Cluster IP: ${PUBLIC_IP}, Build: ${BUILD_URL}"
+                if (params.NOTIFY == "true") {
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: cluster creation finished, owner: @${OWNER}, Cluster IP: ${IP}, Build: ${BUILD_URL}"
+                    if (env.OWNER_SLACK) {
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: cluster creation finished - Cluster IP: ${IP}, Build: ${BUILD_URL}"
+                    }
                 }
             }
         }
@@ -257,21 +237,18 @@ pipeline {
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                 sh '''
                     set -o xtrace
-                    export REQUEST_ID=\$(cat REQUEST_ID)
-                    if [ -n "$REQUEST_ID" ]; then
-                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids \$REQUEST_ID
-                        aws ec2 --region us-east-2 terminate-instances --instance-ids \$(cat ID)
+                    if [ -n "${REQUEST_ID}" ]; then
+                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids ${REQUEST_ID}
+                        aws ec2 --region us-east-2 terminate-instances --instance-ids ${ID}
                     fi
                 '''
             }
             script {
-                if ("${NOTIFY}" == "true") {
-                    def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
-                    def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
-                    def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
-
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: cluster creation failed, owner: @${OWNER_FULL}, Failed Build: ${BUILD_URL}"
-                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: cluster creation failed, Failed Build: ${BUILD_URL}"
+                if (params.NOTIFY == "true") {
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: cluster creation failed, owner: @${OWNER}, Failed Build: ${BUILD_URL}"
+                    if (env.OWNER_SLACK) {
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: cluster creation failed, Failed Build: ${BUILD_URL}"
+                    }
                 }
             }
         }
