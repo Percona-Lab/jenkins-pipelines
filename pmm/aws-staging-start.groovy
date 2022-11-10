@@ -164,6 +164,7 @@ pipeline {
             steps {
                 deleteDir()
                 script {
+                    // getPMMBuildParams sets envvars: VM_NAME, OWNER, OWNER_SLACK
                     getPMMBuildParams('pmm-')
 
                     echo """
@@ -242,8 +243,8 @@ pipeline {
                         sudo yum install sysbench mysql-client -y
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
-                            sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                            sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
+                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                            sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
                             sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
                             sudo chmod 755 get_download_link.sh
                         popd
@@ -300,6 +301,7 @@ pipeline {
 
                                         sleep 10
                                         docker logs ${VM_NAME}-server
+
                                         if [ ${ADMIN_PASSWORD} != admin ]; then
                                             if [ ${CHANGE_USER_PASSWORD_UTILITY} == yes ]; then
                                                 docker exec ${VM_NAME}-server change-admin-password ${ADMIN_PASSWORD}
