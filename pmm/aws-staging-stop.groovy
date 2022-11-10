@@ -37,11 +37,12 @@ pipeline {
                     }
                                         
                     if ( params.VM == "list-all-vms" ) {
-                        echo "${VMList}"
                         echo """
                             What VM do you want to stop?
-                            Please copy a VM name or IP from above and press 'Proceed'.
+                            Please copy a VM name or IP from below and press 'Proceed'.
                         """
+                        echo "${VMList}"
+
                         timeout(time: 10, unit: 'MINUTES') {
                             def NAME_OR_IP = input message: 'What VM do you want to stop?',
                                  parameters: [
