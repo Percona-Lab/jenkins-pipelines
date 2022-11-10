@@ -22,8 +22,6 @@ def changeUserPasswordUtility(dockerImage) {
         return "yes"
 }
 
-def DEFAULT_SSH_KEYS = getSHHKeysPMM()
-
 pipeline {
     agent {
         label 'cli'
@@ -168,21 +166,21 @@ pipeline {
                     getPMMBuildParams('pmm-')
 
                     echo """
-                        DOCKER_VERSION: ${DOCKER_VERSION}
-                        CLIENT_VERSION: ${CLIENT_VERSION}
-                        PMM_VERSION:    ${PMM_VERSION}
-                        PXC_VERSION:    ${PXC_VERSION}
-                        PS_VERSION:     ${PS_VERSION}
-                        MS_VERSION:     ${MS_VERSION}
-                        MD_VERSION:     ${MD_VERSION}
-                        MO_VERSION:     ${MO_VERSION}
-                        MODB_VERSION:   ${MODB_VERSION}
-                        PGSQL_VERSION:  ${PGSQL_VERSION}
+                        DOCKER_VERSION:  ${DOCKER_VERSION}
+                        CLIENT_VERSION:  ${CLIENT_VERSION}
+                        PMM_VERSION:     ${PMM_VERSION}
+                        PXC_VERSION:     ${PXC_VERSION}
+                        PS_VERSION:      ${PS_VERSION}
+                        MS_VERSION:      ${MS_VERSION}
+                        MD_VERSION:      ${MD_VERSION}
+                        MO_VERSION:      ${MO_VERSION}
+                        MODB_VERSION:    ${MODB_VERSION}
+                        PGSQL_VERSION:   ${PGSQL_VERSION}
                         PDPGSQL_VERSION: ${PDPGSQL_VERSION}
-                        QUERY_SOURCE:   ${QUERY_SOURCE}
-                        CLIENTS:        ${CLIENTS}
-                        OWNER:          ${OWNER}
-                        VM_NAME:        ${VM_NAME}
+                        QUERY_SOURCE:    ${QUERY_SOURCE}
+                        CLIENTS:         ${CLIENTS}
+                        OWNER:           ${OWNER}
+                        VM_NAME:         ${VM_NAME}
                         VERSION_SERVICE: ${VERSION_SERVICE_IMAGE}
                     """
 
@@ -198,11 +196,9 @@ pipeline {
 
         stage('Run VM') {
             steps {
+                // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, ID (AMI_ID)
                 launchSpotInstance('t3.large', 'FAIR', 30)
-                script {
-                    env.SPOT_PRICE = sh(returnStdout: true, script: "cat SPOT_PRICE").trim()
-                    env.IP = sh(returnStdout: true, script: "cat IP").trim()
-                }
+
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${IP} ; do
@@ -218,6 +214,8 @@ pipeline {
                     Jenkins.instance.addNode(node)
                 }
                 node(env.VM_NAME){
+                    env.DEFAULT_SSH_KEYS = getSHHKeysPMM()
+
                     sh """
                         set -o errexit
                         set -o xtrace

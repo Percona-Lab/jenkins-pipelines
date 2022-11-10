@@ -1,5 +1,9 @@
 def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
-   withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([
+        [$class: 'AmazonWebServicesCredentialsBinding',
+        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+        credentialsId: 'pmm-staging-slave',
+        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             export VM_NAME=\$(cat VM_NAME)
             export OWNER=\$(cat OWNER_FULL)
@@ -156,5 +160,9 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
             aws ec2 wait instance-status-ok \
                 --instance-ids \$(cat ID)                      
         """
+        env.SPOT_PRICE = sh(returnStdout: true, script: "cat SPOT_PRICE").trim()
+        env.REQUEST_ID = sh(returnStdout: true, script: "cat REQUEST_ID").trim()
+        env.IP = sh(returnStdout: true, script: "cat IP").trim()
+        env.ID = sh(returnStdout: true, script: "cat ID").trim()
     }
 }
