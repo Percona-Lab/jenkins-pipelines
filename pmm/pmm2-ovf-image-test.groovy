@@ -212,7 +212,7 @@ pipeline {
                     env.IP      = sh(returnStdout: true, script: "cat IP | cut -f1 -d' '").trim()
                     env.PUB_KEY = sh(returnStdout: true, script: "cat PUB_KEY").trim()
                     env.ADMIN_PASSWORD = "admin"
-                    currentBuild.description = "VM_NAME: ${VM_NAME}, IP: ${PUBLIC_IP}"
+                    currentBuild.description = "VM_NAME: ${VM_NAME}, IP: ${PUBLIC_IP}, OWNER: ${OWNER}"
                 }
 
                 setupPMMClient(env.PUBLIC_IP, params.CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'ovf_setup', env.ADMIN_PASSWORD)
