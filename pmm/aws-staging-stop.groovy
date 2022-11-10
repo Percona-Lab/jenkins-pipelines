@@ -8,7 +8,6 @@ pipeline {
             description: 'Name or IP of VM to stop. Also you can set "list-all-vms" value, in this case list of current VMs will be shown and pipeline will ask you VM again.',
             name: 'VM')
     }
-
     stages {
         stage('Ask input') {
             steps {
@@ -42,15 +41,18 @@ pipeline {
                     if ( params.VM == "list-all-vms" ) {
                         echo """
                             What VM do you want to stop?
-                            please copy VM name below and press 'Input requested' button
+                            Please copy a VM name from above and press 'Input requested' button.
                         """
-                        timeout(time:10, unit:'MINUTES') {
-                            VM = input message: 'What VM do you want to stop?',
+                        timeout(time: 10, unit: 'MINUTES') {
+                            def NAME_OR_IP = input message: 'What VM do you want to stop?',
                                  parameters: [string(defaultValue: '',
                                  description: '',
                                  name: 'Name or IP')]
-                            echo "VM passed: ${VM}"
+                            echo "VM passed: ${NAME_OR_IP}"
+                            env.INPUT = NAME_OR_IP
                         }
+                    } else {
+                        env.INPUT = params.VM
                     }
                     if (!env.VMList.toLowerCase().contains(VM.toLowerCase())) {
                         error 'Unknown VM'
@@ -69,8 +71,8 @@ pipeline {
                     sh '''
                         set -o errexit
                         set +x
-                        REQUEST_ID=$(echo "${VMList}" | grep "${VM}" | awk '{print $2}' | cut -d '|' -f1)
-                        INSTANCE_ID=$(echo "${VMList}" | grep "${VM}" | awk '{print $3}')
+                        REQUEST_ID=$(echo "${VMList}" | grep "${INPUT}" | awk '{print $2}' | cut -d '|' -f1)
+                        INSTANCE_ID=$(echo "${VMList}" | grep "${INPUT}" | awk '{print $3}')
                         set -x
                         echo $REQUEST_ID
                         echo $INSTANCE_ID
