@@ -100,10 +100,12 @@ pipeline {
                         FIREWALL_ID=$(doctl compute firewall list -o json | jq -r '.[] | select(.name=="pmm-firewall") | .id')
                         doctl compute firewall add-droplets $FIREWALL_ID --droplet-ids $DROPLET_ID
                     '''
-                    env.PUBLIC_IP = sh(
-                        returnStdout: true, 
-                        script: 'curl -s http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address'
-                    ).trim()
+                    script {
+                        env.PUBLIC_IP = sh(
+                            returnStdout: true, 
+                            script: 'curl -s http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address'
+                        ).trim()
+                    }
                 }
 
                 script {
