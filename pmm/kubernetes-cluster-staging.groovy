@@ -90,7 +90,7 @@ pipeline {
                         set -o errexit
                         set -o xtrace
 
-                        echo '$DEFAULT_SSH_KEYS' >> /home/ec2-user/.ssh/authorized_keys
+                        echo "$DEFAULT_SSH_KEYS" >> /home/ec2-user/.ssh/authorized_keys
 
                         if [ -n "$SSH_KEY" ]; then
                             echo '$SSH_KEY' >> /home/ec2-user/.ssh/authorized_keys
@@ -102,8 +102,8 @@ pipeline {
                         sudo systemctl start docker
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
-                            sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                            sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
+                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                            sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
                         popd
                     """
                 }
