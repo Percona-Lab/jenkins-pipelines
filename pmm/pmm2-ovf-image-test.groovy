@@ -110,7 +110,7 @@ pipeline {
 
                 script {
                     // getPMMBuildParams sets envvars: VM_NAME, OWNER, OWNER_SLACK
-                    getPMMBuildParams('ovf-image-test')
+                    getPMMBuildParams('ovf-image-test-')
 
                     echo """
                         PXC_VERSION:    ${PXC_VERSION}
@@ -121,11 +121,12 @@ pipeline {
                         PGSQL_VERSION:  ${PGSQL_VERSION}
                         CLIENTS:        ${CLIENTS}
                         OWNER:          ${OWNER}
+                        PUBLIC_IP:      ${PUBLIC_IP}
                     """
                     if (params.NOTIFY == "true") {
-                        slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         if (env.OWNER_SLACK) {
-                            slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                            slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         }
                     }
                 }
@@ -160,9 +161,8 @@ pipeline {
                     wget -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION} > /dev/null
                 '''
                 sh '''
-                    export BUILD_ID=dear-jenkins-please-dont-kill-virtualbox
-                    export JENKINS_NODE_COOKIE=dear-jenkins-please-dont-kill-virtualbox
-                    export JENKINS_SERVER_COOKIE=dear-jenkins-please-dont-kill-virtualbox
+                    export BUILD_ID=dont-kill-virtualbox
+                    export JENKINS_NODE_COOKIE=dont-kill-virtualbox
 
                     tar xvf ${VM_NAME}.ova
                     export ovf_name=$(find -type f -name '*.ovf');
@@ -178,8 +178,10 @@ pipeline {
                     for p in $(seq 0 15); do
                         VBoxManage modifyvm ${VM_NAME} --natpf1 "guestexporters\$p,tcp,,4200\$p,,4200\$p"
                     done
+
                     VBoxManage startvm --type headless ${VM_NAME}
                     sleep 180
+
                     cat /tmp/${VM_NAME}-console.log
                     for I in $(seq 1 6); do
                         IP=\$(grep eth0 /tmp/${VM_NAME}-console.log | cut -d '|' -f 4 | sed -e 's/ //g' | head -n 1)
