@@ -132,7 +132,7 @@ pipeline {
                 }
             }
         }
-        stage('Run PMM-Server') {
+        stage('Run PMM Server') {
             steps {
                 sh """
                     sudo mkdir -p /srv/pmm-qa || :
@@ -165,18 +165,20 @@ pipeline {
                     export JENKINS_NODE_COOKIE=dont-kill-virtualbox
 
                     tar xvf ${VM_NAME}.ova
-                    export ovf_name=$(find -type f -name '*.ovf');
+                    export OVF_NAME=$(find -type f -name '*.ovf');
                     export VM_MEMORY=4096
-                    VBoxManage import \$ovf_name --vsys 0 --memory \$VM_MEMORY --vmname ${VM_NAME} > /dev/null
+
+                    VBoxManage import $OVF_NAME --vsys 0 --memory $VM_MEMORY --vmname ${VM_NAME} > /dev/null
                     VBoxManage modifyvm ${VM_NAME} \
-                        --memory \$VM_MEMORY \
+                        --memory $VM_MEMORY \
                         --audio none \
                         --natpf1 "guestssh,tcp,,80,,80" \
                         --uart1 0x3F8 4 --uartmode1 file /tmp/${VM_NAME}-console.log \
                         --groups "/${OWNER},/${JOB_NAME}"
                     VBoxManage modifyvm ${VM_NAME} --natpf1 "guesthttps,tcp,,443,,443"
+
                     for p in $(seq 0 15); do
-                        VBoxManage modifyvm ${VM_NAME} --natpf1 "guestexporters\$p,tcp,,4200\$p,,4200\$p"
+                        VBoxManage modifyvm ${VM_NAME} --natpf1 "guestexporters$p,tcp,,4200$p,,4200$p"
                     done
 
                     VBoxManage startvm --type headless ${VM_NAME}
@@ -184,16 +186,16 @@ pipeline {
 
                     cat /tmp/${VM_NAME}-console.log
                     for I in $(seq 1 6); do
-                        IP=\$(grep eth0 /tmp/${VM_NAME}-console.log | cut -d '|' -f 4 | sed -e 's/ //g' | head -n 1)
-                        if [ -n "\$IP" ]; then
+                        IP=$(grep eth0 /tmp/${VM_NAME}-console.log | cut -d '|' -f 4 | sed -e 's/ //g' | head -n 1)
+                        if [ -n "$IP" ]; then
                             break
                         fi
                         sleep 10
                     done
 
-                    echo \$IP > IP
+                    echo $IP > IP
 
-                    if [ "X\$IP" = "X." ]; then
+                    if [ "X$IP" = "X." ]; then
                         echo Error during DHCP configure. exiting
                         exit 1
                     fi
@@ -284,9 +286,9 @@ pipeline {
             '''
             script {
                 if (params.NOTIFY == "true") {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed - ${BUILD_URL}"
                     if (env.OWNER_SLACK) {
-                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed - ${BUILD_URL}"
                     }
                 }
             }
