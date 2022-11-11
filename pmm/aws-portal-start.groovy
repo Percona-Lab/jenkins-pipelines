@@ -76,51 +76,38 @@ pipeline {
         stage('Prepare') {
             steps {
                 deleteDir()
-                wrap([$class: 'BuildUser']) {
-                    sh """
-                        echo "\${BUILD_USER_EMAIL}" > OWNER_EMAIL
-                        echo "\${BUILD_USER_EMAIL}" | awk -F '@' '{print \$1}' > OWNER_FULL
-                        echo "portal-\$(cat OWNER_FULL)-\$(date -u '+%Y%m%d%H%M%S')-${BUILD_NUMBER}" \
-                            > VM_NAME
-                    """
-                }
-                script {
-                    def OWNER = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
-                    def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
-                    def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
-                }
+                // getPMMBuildParams sets envvars: VM_NAME, OWNER, OWNER_SLACK
+                getPMMBuildParams('portal-')
             }
         }
 
         stage('Run VM') {
             steps {
+                // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, ID (AMI_ID)
                 launchSpotInstance('m5.2xlarge', 'FAIR', 25)
+
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
-                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@\$(cat IP); do
+                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${IP}; do
                             sleep 5
                         done
-
-                        pwd
                     """
                 }
                 script {
-                    env.IP      = sh(returnStdout: true, script: "cat IP").trim()
-                    env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
-
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'aws-jenkins')
                     DumbSlave node = new DumbSlave(env.VM_NAME, "Portal staging instance: ${VM_NAME}", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
 
                     Jenkins.instance.addNode(node)
+                    currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME} PRICE: ${env.SPOT_PRICE}"
                 }
                 node(env.VM_NAME){
                     sh """
                         set -o errexit
                         set -o xtrace
 
-                        echo '$DEFAULT_SSH_KEYS' >> /home/ec2-user/.ssh/authorized_keys
-                        if [ -n "$SSH_KEY" ]; then
-                            echo '$SSH_KEY' >> /home/ec2-user/.ssh/authorized_keys
+                        echo "${DEFAULT_SSH_KEYS}" >> /home/ec2-user/.ssh/authorized_keys
+                        if [ -n "${SSH_KEY}" ]; then
+                            echo "${SSH_KEY}" >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
                         sudo yum -y update --security
@@ -162,19 +149,12 @@ pipeline {
                     Jenkins.instance.removeNode(node)
                     Jenkins.instance.addNode(node)
                 }
-                archiveArtifacts 'IP'
             }
         }
         stage('Configure and start minikube') {
             steps {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        sh """
-                        pwd
-
-                        echo \$IP
-                        echo \$VM_NAME
-                        """
                         node(env.VM_NAME){
                             git branch: GIT_BRANCH, credentialsId: 'GitHub SSH Key', url: 'git@github.com:percona-platform/infra.git'
                             sh """
@@ -249,29 +229,30 @@ EOF
         always {
             script {
                 def node = Jenkins.instance.getNode(env.VM_NAME)
-                Jenkins.instance.removeNode(node)
+                if (node) {
+                    Jenkins.instance.removeNode(node)
+                }
             }
         }
         success {
             script {
                 if (params.NOTIFY == "true") {
-                    def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
-                    def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
-                    def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
                     def SLACK_MESSAGE = """[${JOB_NAME}]: build finished, IP: ${env.IP}
 In order to access the instance you need:
 1. make sure that `/etc/hosts` on your machine contains the following line
 ```127.0.0.1 platform.localhost check.localhost pmm.localhost```
 2. run the following command in your terminal to proxy-pass http(s) ports:
-```sudo ssh -L :443:${env.MINIKUBE_IP}:443 -L :80:${env.MINIKUBE_IP}:80 ec2-user@${env.IP}```
+```sudo ssh -N -L :443:${env.MINIKUBE_IP}:443 -N -L :80:${env.MINIKUBE_IP}:80 ec2-user@${env.IP}```
 3. open https://platform.localhost in your browser
 4. to allow another person to access the instance, please run this command in your terminal:
-```ssh ec2-user@${env.IP} 'echo "NEW_PERSON_SSH_KEY" >> ~/.ssh/authorized_keys'```
+```ssh ec2-user@${env.IP} 'echo "THEIR_PUBLIC_SSH_KEY" >> ~/.ssh/authorized_keys'```
 *Note: the other user should also complete the steps 1-2*
                     """
 
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "${SLACK_MESSAGE}"
-                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "${SLACK_MESSAGE}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "${SLACK_MESSAGE}"
+                    if (env.OWNER_SLACK) {
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "${SLACK_MESSAGE}"
+                    }
                 }
             }
         }
@@ -279,21 +260,18 @@ In order to access the instance you need:
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                 sh '''
                     set -o xtrace
-                    export REQUEST_ID=\$(cat REQUEST_ID)
-                    if [ -n "$REQUEST_ID" ]; then
-                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids \$REQUEST_ID
-                        aws ec2 --region us-east-2 terminate-instances --instance-ids \$(cat ID)
+                    if [ -n "${REQUEST_ID}" ]; then
+                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids ${REQUEST_ID}
+                        aws ec2 --region us-east-2 terminate-instances --instance-ids ${ID}
                     fi
                 '''
             }
             script {
                 if (params.NOTIFY == "true") {
-                    def OWNER_FULL = sh(returnStdout: true, script: "cat OWNER_FULL").trim()
-                    def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
-                    def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
-
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed"
-                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
+                    if (env.OWNER_SLACK) {
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
+                    }
                 }
             }
         }
