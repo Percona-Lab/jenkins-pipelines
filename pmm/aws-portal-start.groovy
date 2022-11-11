@@ -34,6 +34,10 @@ pipeline {
             name: 'ORGD_TAG')
         string(
             defaultValue: 'latest',
+            description: 'Docker tag for eventd service',
+            name: 'EVENTD_TAG')
+        string(
+            defaultValue: 'latest',
             description: 'Docker tag for telemetryd service',
             name: 'TELEMETRYD_TAG')
         string(
@@ -61,6 +65,7 @@ pipeline {
         OAUTH_PMM_CLIENT_ID=credentials('OAUTH_PMM_CLIENT_ID');
         OAUTH_PMM_CLIENT_SECRET=credentials('OAUTH_PMM_CLIENT_SECRET');
         DOCKER_REGISTRY_PASSWORD=credentials('DOCKER_REGISTRY_PASSWORD');
+        ORGD_CIVO_APIKEY=credentials('ORGD_CIVO_APIKEY');
         ORGD_SES_KEY=credentials('ORGD_SES_KEY');
         ORGD_SES_SECRET=credentials('ORGD_SES_SECRET');
         ORGD_SERVICENOW_PASSWORD=credentials('ORGD_SERVICENOW_PASSWORD');
@@ -110,7 +115,7 @@ pipeline {
                             echo "${SSH_KEY}" >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
-                        sudo yum -y update --security
+                        # sudo yum -y update --security      # disabled on 20220926 due to failure with existing image
                         # see what software gets installed to every ec2 instance
                         # https://github.com/percona/pmm-infra/blob/main/packer/ansible/agent.yml#L38-L122
                         sudo usermod -aG docker ec2-user
@@ -172,13 +177,11 @@ pipeline {
 echo LOCAL MINIKUBE
 
 # Login into GitHub registry to pull private images (authed, checked, orgd and etc.)
-#
 export DOCKER_REGISTRY_USERNAME=$DOCKER_REGISTRY_USERNAME
 export DOCKER_REGISTRY_PASSWORD=$DOCKER_REGISTRY_PASSWORD
 
 
 # OKTA config
-#
 export OKTA_TOKEN=$OKTA_TOKEN
 export OKTA_URL_DEV=$OKTA_URL_DEV
 
@@ -189,20 +192,19 @@ export OAUTH_SCOPES=$OAUTH_SCOPES
 
 
 # AWS SES credentials
-#
 export ORGD_SES_KEY=$ORGD_SES_KEY
 export ORGD_SES_SECRET=$ORGD_SES_SECRET
+export ORGD_CIVO_APIKEY=$ORGD_CIVO_APIKEY
 
 
 # ServiceNow credentials
-#
 export ORGD_SERVICENOW_PASSWORD=$ORGD_SERVICENOW_PASSWORD
 
 
 # Control of docker image tags, which will be pulled during 'make env-up'
-#
 export AUTHED_TAG=$AUTHED_TAG
 export CHECKED_TAG=$CHECKED_TAG
+export EVENTD_TAG=$EVENTD_TAG
 export ORGD_TAG=$ORGD_TAG
 export SAAS_UI_TAG=$SAAS_UI_TAG
 export TELEMETRYD_TAG=$TELEMETRYD_TAG
