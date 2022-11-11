@@ -375,7 +375,7 @@ parameters {
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_tarball=1 --with_zenfs=1")
+                        buildStage("ubuntu:focal", "--build_tarball=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
