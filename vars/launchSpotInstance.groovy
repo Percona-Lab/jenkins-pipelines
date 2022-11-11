@@ -38,13 +38,16 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
             while true
             do
                 if [ "$SPOT_PRICE" = "FAIR" ]; then
-                    export SPOT_PRICE=\$(
+                    set +x
+                    PRICE_HISTORY=\$(
                         aws ec2 describe-spot-price-history \
                             --instance-types \$INSTANCE_TYPE \
                             --region us-east-2 --output text \
-                            --product-description "Linux/UNIX (Amazon VPC)" | head -n 1 | awk '{ print \$5}'
+                            --product-description "Linux/UNIX (Amazon VPC)"
                     )
-                    # increase price on 15% each time
+                    export SPOT_PRICE=\$(echo \$PRICE_HISTORY | head -n 1 | awk '{ print \$5}')
+                    set -x
+                    # increase price by 15% each time
                     export SPOT_PRICE=\$(bc -l <<< "scale=8; \$SPOT_PRICE + ((\$SPOT_PRICE / 100) * (15 * \$PRICE_MULTIPLIER))" | sed 's/^\\./0./')
                     echo SET PRICE: \$SPOT_PRICE
                     echo \$SPOT_PRICE > SPOT_PRICE

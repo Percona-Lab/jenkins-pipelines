@@ -99,7 +99,7 @@ void checkClientAfterUpgrade(String PMM_VERSION) {
 }
 
 void fetchAgentLogs(String CLIENT_VERSION) {
-     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP_DB} '
                 set -o errexit
@@ -115,10 +115,6 @@ void fetchAgentLogs(String CLIENT_VERSION) {
                     ${USER}@${VM_CLIENT_IP_DB}:pmm-agent.log \
                     pmm-agent.log
             fi
-        """
-    }
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
             if [[ \$CLIENT_VERSION == http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
                     ${USER}@${VM_CLIENT_IP_DB}:workspace/aws-staging-start/pmm-agent.log \
@@ -240,19 +236,31 @@ pipeline {
         stage('Sanity check') {
             steps {
                 sh '''
-                    set -x
+                    set +xe
                     COUNT=0
-                    SLEEP_FOR=150
+                    TIMEOUT=100
                     RET_VAL=1
+
                     while true; do
-                        if [ $(curl -s -o /dev/null -w "%{http_code}" ${PMM_URL}/ping) != "200" ]; then
-                            sleep 5
-                        else
+                        set -x
+                        # we only want to see the http code to improve troubleshooting
+                        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 ${PMM_URL}/ping)
+                        set +x
+                    
+                        if [[ $HTTP_CODE == "200" ]]; then
                             RET_VAL=0
                             break
                         fi
+                        
+                        # 000 means the host is unreachable
+                        # curl is set to timeout in 5 secs if the host is unreachable, so we only sleep if otherwise
+                        [ $HTTP_CODE != "000" ] && sleep 5
                         ((COUNT+=5))
-                        [ $COUNT -ge $SLEEP_FOR ] && break
+
+                        if [ $COUNT -ge $TIMEOUT ]; then
+                            echo "Warning: could not connect to ${PMM_URL}"
+                            break
+                        fi
                     done
                     exit $RET_VAL
                 '''
@@ -293,8 +301,8 @@ pipeline {
                         export CHROMIUM_PATH=/usr/bin/chromium
                         ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@ami-upgrade'
                     """
-                    }
                 }
+            }
         }
         stage('Check Packages after Upgrade') {
             steps {

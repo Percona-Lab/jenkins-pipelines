@@ -324,6 +324,20 @@ parameters {
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
+                stage('Oracle Linux 9 binary tarball') {
+                    agent {
+                        label 'min-ol-9-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_tarball=1 ")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
                 stage('Bionic(18.04) binary tarball') {
                     agent {
                         label 'min-bionic-x64'
@@ -362,6 +376,21 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--build_tarball=1 --with_zenfs=1")
+
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Ubuntu Jammy(22.04) ZenFS tarball') {
+                    agent {
+                        label 'min-jammy-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_tarball=1 --with_zenfs=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')

@@ -294,11 +294,8 @@ pipeline {
                     runTest('auto-tuning')
                     runTest('limits')
                     runTest('one-pod')
-                    runTest('operator-self-healing')
                     runTest('operator-self-healing-chaos')
                     runTest('scaling')
-                    runTest('self-healing')
-                    runTest('self-healing-advanced')
                     runTest('self-healing-advanced-chaos')
                     runTest('validation-hook')
             }

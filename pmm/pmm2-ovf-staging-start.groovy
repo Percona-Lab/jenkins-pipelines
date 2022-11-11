@@ -72,10 +72,20 @@ pipeline {
                         string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')
                     ]) {
                     sh '''
+                        # Constants we rely on for PMM builds/tests:
+                        # - droplet tag: has a substring of `jenkins-pmm`
+                        # - ssh-key name: has a substring of `Jenkins`
+                        # - firewall name: is set to `pmm-firewall`
+                        
                         set -o xtrace
+
                         SSH_KEY_ID=$(doctl compute ssh-key list | grep Jenkins | awk '{ print \$1}')
                         IMAGE_ID=$(doctl compute image list | grep pmm-agent | awk '{ print \$1}')
-                        PUBLIC_IP=$(doctl compute droplet create --region ams3 --image $IMAGE_ID --wait --ssh-keys $SSH_KEY_ID --tag-name jenkins-pmm --size s-8vcpu-16gb-intel ${VM_NAME} -o json | jq -r '.[0].networks.v4[0].ip_address')
+                        DROPLET=$(doctl compute droplet create --region ams3 --image $IMAGE_ID --wait --ssh-keys $SSH_KEY_ID --tag-name jenkins-pmm --size s-8vcpu-16gb-intel ${VM_NAME} -o json)
+                        PUBLIC_IP=$(echo $DROPLET | jq -r '.[0].networks.v4[0].ip_address')
+                        DROPLET_ID=$(echo $DROPLET | jq -r '.[0].id')
+                        FIREWALL_ID=$(doctl compute firewall list -o json | jq -r '.[] | select(.name=="pmm-firewall") | .id')
+                        doctl compute firewall add-droplets $FIREWALL_ID --droplet-ids $DROPLET_ID
                         
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@$PUBLIC_IP; do
                             sleep 5
