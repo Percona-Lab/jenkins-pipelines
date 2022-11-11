@@ -51,7 +51,7 @@ pipeline {
         choice(
             choices: ['true', 'false'],
             description: 'Enable Slack notification',
-            name: 'NOTIFY')            
+            name: 'NOTIFY')
     }
 
     environment {
@@ -84,7 +84,7 @@ pipeline {
         stage('Run VM') {
             steps {
                 // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, ID (AMI_ID)
-                launchSpotInstance('m5.2xlarge', 'FAIR', 25)
+                launchSpotInstance('m5.2xlarge', 'FAIR', 30)
 
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
