@@ -1,5 +1,3 @@
-def VMList = ''
-
 pipeline {
     agent {
         label 'cli'
@@ -10,7 +8,6 @@ pipeline {
             description: 'Name or IP of VM to stop. Also you can set "list-all-vms" value, in this case list of current VMs will be shown and pipeline will ask you VM again.',
             name: 'VM')
     }
-
     stages {
         stage('Ask input') {
             steps {
@@ -20,38 +17,47 @@ pipeline {
                                 accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                                 credentialsId: 'pmm-staging-slave',
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                        VMList = sh returnStdout: true, script: '''
+
+                        env.VMList = sh returnStdout: true, script: '''
                             set +o xtrace
 
                             aws ec2 describe-instances \
-                                --output text \
+                                --output table \
                                 --region us-east-2 \
                                 --filters "Name=tag:iit-billing-tag,Values=pmm-staging" \
                                           "Name=instance-state-name,Values=running" \
-                                --query 'Reservations[].Instances[].[
-                                    SpotInstanceRequestId,
-                                    InstanceId,
-                                    PublicIpAddress,
-                                    Tags[?Key==`Name`].Value,
-                                    Tags[?Key==`owner`].Value
-                                ]' | perl -p -e 's/\n/\t/; s/sir/\nsir/'
+                                --query 'Reservations[].Instances[].{
+                                    A_RequestId:SpotInstanceRequestId,
+                                    InstanceId:InstanceId,
+                                    IpAddress:PublicIpAddress,
+                                    Name:[Tags[?Key==`Name`].Value][0][0],
+                                    Owner:[Tags[?Key==`owner`].Value][0][0]
+                                }'
                         '''
                     }
-                    if ( "${VM}" == "list-all-vms" ) {
+                                        
+                    if ( params.VM == "list-all-vms" ) {
                         echo """
                             What VM do you want to stop?
-                            please copy VM name below and press 'Input requested' button
+                            Please copy a VM name or IP from below and press 'Proceed'.
                         """
                         echo "${VMList}"
-                        timeout(time:10, unit:'MINUTES') {
-                            VM = input message: 'What VM do you want to stop?',
-                                 parameters: [string(defaultValue: '',
-                                 description: '',
-                                 name: 'Name or IP')]
+
+                        timeout(time: 10, unit: 'MINUTES') {
+                            def NAME_OR_IP = input message: 'What VM do you want to stop?',
+                                 parameters: [
+                                    string(defaultValue: '',
+                                    description: '',
+                                    name: 'Name or IP')
+                                ]
+                            echo "VM passed: ${NAME_OR_IP}"
+                            env.INPUT = NAME_OR_IP.trim()
                         }
+                    } else {
+                        echo "${VMList}"
+                        env.INPUT = params.VM.trim()
                     }
-                    if ( !VMList.toLowerCase().contains(VM.toLowerCase())) {
-                        echo 'Unknown VM'
+                    if (!env.VMList.toLowerCase().contains(env.INPUT.toLowerCase())) {
                         error 'Unknown VM'
                     }
                 }
@@ -65,14 +71,22 @@ pipeline {
                             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                             credentialsId: 'pmm-staging-slave',
                             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
-
-                        REQUEST_ID=\$(echo '${VMList}' | grep '${VM}' | awk '{print\$1}')
-                        INSTANCE_ID=\$(echo '${VMList}' | grep '${VM}' | awk '{print\$2}')
-                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids \$REQUEST_ID
-                        aws ec2 --region us-east-2 terminate-instances --instance-ids \$INSTANCE_ID
-                    """
+                        set +x
+                        REQUEST_ID=$(echo "${VMList}" | grep "${INPUT}" | awk '{print $2}' | cut -d '|' -f1)
+                        INSTANCE_ID=$(echo "${VMList}" | grep "${INPUT}" | awk '{print $3}')
+                        set -x
+                        echo $REQUEST_ID
+                        echo $INSTANCE_ID
+                        if [ -z "$REQUEST_ID" -o -z "$INSTANCE_ID" ]; then
+                            echo "Wrong or not enough parameters passed"
+                            echo "REQUEST_ID: '$REQUEST_ID', INSTANCE_ID: '$INSTANCE_ID'"
+                            exit 1
+                        fi
+                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids $REQUEST_ID
+                        aws ec2 --region us-east-2 terminate-instances --instance-ids $INSTANCE_ID
+                    '''
                 }
             }
         }

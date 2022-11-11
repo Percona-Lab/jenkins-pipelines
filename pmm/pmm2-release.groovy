@@ -290,7 +290,7 @@ ENDSSH
             }
             steps {
                 installDocker()
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: release started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: release started - ${BUILD_URL}"
                 sh "sg docker -c 'docker run ${SERVER_IMAGE} /usr/bin/rpm -qa' > rpms.list"
                 stash includes: 'rpms.list', name: 'rpms'
             }
