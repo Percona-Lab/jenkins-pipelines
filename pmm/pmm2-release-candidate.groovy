@@ -42,7 +42,6 @@ void runPMM2OVFBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
 def pmm_submodules() {
     return [
         "pmm",
-        "qan-api2",
         "pmm-update",
         "grafana-dashboards",
         "pmm-ui-tests",
@@ -281,15 +280,11 @@ pipeline {
         }
     }
     post {
-        always {
-            sh 'sudo rm -r /tmp/'
-            deleteDir()
-        }
         success {
             slackSend botUser: true,
                       channel: '#pmm-dev',
                       color: '#00FF00',
-                      message: """Release candidate build was finished :thisisfine:
+                      message: """New Release Candidate is out :rocket:
 Server: perconalab/pmm-server:${VERSION}-rc
 Client: perconalab/pmm-client:${VERSION}-rc
 OVA: https://percona-vm.s3.amazonaws.com/PMM2-Server-${VERSION}.ova

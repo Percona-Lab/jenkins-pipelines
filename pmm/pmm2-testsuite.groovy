@@ -152,7 +152,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 slackSend channel: '#pmm-ci',
-                          color: '#FFFF00',
+                          color: '#0000FF',
                           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
                     npm install tap-junit

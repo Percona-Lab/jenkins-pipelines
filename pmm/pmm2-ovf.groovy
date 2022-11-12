@@ -32,6 +32,16 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                withCredentials([string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+                    sh '''
+                        set -o xtrace
+
+                        # https://docs.digitalocean.com/products/droplets/how-to/retrieve-droplet-metadata/
+                        DROPLET_ID=$(curl -s http://169.254.169.254/metadata/v1/id)
+                        FIREWALL_ID=$(doctl compute firewall list -o json | jq -r '.[] | select(.name=="pmm-firewall") | .id')
+                        doctl compute firewall add-droplets $FIREWALL_ID --droplet-ids $DROPLET_ID
+                    '''
+                }                
                 slackSend botUser: true,
                           channel: '#pmm-ci',
                           color: '#FFFF00',
@@ -43,10 +53,10 @@ pipeline {
                           reference: '',
                           shallow: true]],
                           userRemoteConfigs: [[url: 'https://github.com/percona/pmm.git']]])
-                dir("build") {
-                    sh """
+                dir('build') {
+                    sh '''
                         make fetch
-                    """
+                    '''
                 }
             }
         }

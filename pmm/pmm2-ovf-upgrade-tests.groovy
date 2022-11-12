@@ -4,7 +4,7 @@ import jenkins.model.Jenkins
 import hudson.plugins.sshslaves.SSHLauncher
 
 
-library changelog: false, identifier: 'lib@PMM-8016', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -18,15 +18,8 @@ void runOVFStagingStart(SERVER_VERSION, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, 
     ]
     env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
     env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
-    env.VM_IP = env.OVF_INSTANCE_IP
     env.PMM_URL = "http://admin:admin@${OVF_INSTANCE_IP}"
     env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}"
-}
-
-void runOVFStaginStop(OVF_INSTANCE_NAME) {
-    ovfStagingStopJob = build job: 'pmm2-ovf-staging-stop', parameters: [
-        string(name: 'VM', value: OVF_INSTANCE_NAME),
-    ]
 }
 
 void customSetupOVFInstance(INSTANCE_IP, OVF_INSTANCE_NAME) {
@@ -62,13 +55,12 @@ void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_Q
         env.VM_CLIENT_NAME_DB = stagingJob.buildVariables.VM_NAME
     }
 
-    def clientInstance = "yes";
-    if ( CLIENT_INSTANCE == clientInstance ) {
+    if ( CLIENT_INSTANCE == "yes" ) {
         env.PMM_URL = "http://admin:admin@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
     } else {
-        env.PMM_URL = "http://admin:admin@${VM_IP}"
-        env.PMM_UI_URL = "http://${VM_IP}/"
+        env.PMM_URL = "http://admin:admin@${OVF_INSTANCE_IP}"
+        env.PMM_UI_URL = "http://${OVF_INSTANCE_IP}/"
     }
 }
 
@@ -222,7 +214,7 @@ pipeline {
                 // fetch pmm-ui-tests repository
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 installDocker()
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
@@ -308,39 +300,20 @@ pipeline {
         }
     }
     post {
+        // https://www.jenkins.io/doc/book/pipeline/syntax/#post-conditions
         always {
-            // stop staging
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             script {
-                if(env.OVF_INSTANCE_IP) {
-                    runOVFStaginStop(OVF_INSTANCE_NAME)
-                }
-                if(env.VM_CLIENT_NAME)
-                {
-                    destroyStaging(VM_CLIENT_IP)
-                }
-                if(env.VM_CLIENT_IP_DB)
-                {
-                    fetchAgentLog(CLIENT_VERSION)
-                    destroyStaging(VM_CLIENT_IP_DB)
-                }
-                def node = Jenkins.instance.getNode(OVF_INSTANCE_NAME)
-                Jenkins.instance.removeNode(node)
-            }
-            script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
+                // JUnit is known to fail if there are no files in `tests/output`
+                try {
                     junit 'tests/output/*.xml'
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'pmm-agent.log'
-                } else {
-                    junit 'tests/output/*.xml'
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'pmm-agent.log'
+                } catch (err) {
+                    echo err.getMessage()
                 }
+                archiveArtifacts artifacts: 'logs.zip'
+                archiveArtifacts artifacts: 'pmm-agent.log'
             }
             allure([
                 includeProperties: false,
@@ -349,11 +322,37 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
-            sh '''
-                sudo rm -r node_modules/ || true
-                sudo rm -r tests/output || true
-            '''
-            deleteDir()
+        }
+        success {
+            script {
+                slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
+            }
+
+        }
+        failure {
+            script {
+                slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+            }
+        }
+        cleanup {
+            script {
+                if (env.OVF_INSTANCE_IP) {
+                    ovfStagingStopJob = build job: 'pmm2-ovf-staging-stop', parameters: [
+                        string(name: 'VM', value: env.OVF_INSTANCE_NAME),
+                    ]
+                }
+                if (env.VM_CLIENT_NAME) {
+                    destroyStaging(VM_CLIENT_IP)
+                }
+                if (env.VM_CLIENT_IP_DB) {
+                    fetchAgentLog(CLIENT_VERSION)
+                    destroyStaging(VM_CLIENT_IP_DB)
+                }
+                def node = Jenkins.instance.getNode(env.OVF_INSTANCE_NAME)
+                if (node) {
+                    Jenkins.instance.removeNode(node)
+                }
+            }
         }
     }
 }
