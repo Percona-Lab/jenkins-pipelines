@@ -213,7 +213,7 @@ pipeline {
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 slackSend channel: '#pmm-ci',
-                          color: '#FFFF00',
+                          color: '#0000FF',
                           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :

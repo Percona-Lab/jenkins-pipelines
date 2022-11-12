@@ -3,14 +3,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void performDockerWayUpgrade(String PMM_VERSION) {
-    sh """
-        export PMM_VERSION=${PMM_VERSION}
-        sudo chmod 755 /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh
-        bash -xe /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh ${PMM_VERSION}
-    """
-}
-
 void checkUpgrade(String PMM_VERSION, String PRE_POST) {
     def pmm_version = PMM_VERSION.trim();
     
@@ -98,7 +90,7 @@ pipeline {
             name: 'PMM_SERVER_LATEST')
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
-            description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
+            description: 'PMM Server Tag to be upgraded to via container replacement',
             name: 'PMM_SERVER_TAG')
         string(
             defaultValue: 'admin-password',
@@ -158,8 +150,8 @@ pipeline {
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
-                        sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                        sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
+                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                        sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
                     popd
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
@@ -267,7 +259,7 @@ pipeline {
                 sh """
                     set -o errexit
                     set -o xtrace
-                    export PATH=\$PATH:/usr/sbin
+                    export PATH=$PATH:/usr/sbin
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --download \
                         ${CLIENTS} \
@@ -302,7 +294,7 @@ pipeline {
                     npm ci
                     envsubst < env.list > env.generated.list
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                    export PWD=\$(pwd);
+                    export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
                 """
@@ -314,16 +306,23 @@ pipeline {
             }
             steps {
                 sh """
+                    # run pre-upgrade tests
                     npm ci
                     envsubst < env.list > env.generated.list
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                    export PWD=\$(pwd);
+                    export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pre-upgrade'
                 """
-                performDockerWayUpgrade(PMM_SERVER_TAG)
                 sh """
-                    export PWD=\$(pwd);
+                    # run the upgrade script
+                    export PMM_VERSION=${PMM_VERSION}
+                    sudo chmod 755 /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh
+                    bash -xe /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh ${PMM_VERSION}
+                """
+                sh """
+                    # run post-upgrade tests
+                    export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                     sleep 30
                     ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@post-upgrade'
@@ -357,7 +356,7 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
 
                 # get logs from systemd pmm-agent.service
-                if [[ \$CLIENT_VERSION != http* ]]; then
+                if [[ ${CLIENT_VERSION} != http* ]]; then
                     journalctl -u pmm-agent.service >  ./pmm-agent.log
                 fi
 
@@ -379,13 +378,14 @@ pipeline {
                 archiveArtifacts artifacts: 'pmm-agent.log'
                 archiveArtifacts artifacts: 'logs.zip'
 
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
-                } else {
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                def PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
+                try {
+                    junit PATH_TO_REPORT_RESULTS
+                } catch (err) {
+                    error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
                 }
 
-                junit 'tests/output/parallel_chunk*/*.xml'
+                slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
             }
             allure([
                 includeProperties: false,
@@ -394,7 +394,11 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
-            deleteDir()
+        }
+        failure {
+            slackSend channel: '#pmm-ci', 
+                      color: '#FF0000', 
+                      message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, ver: ${DOCKER_VERSION}"
         }
     }
 }
