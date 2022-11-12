@@ -160,7 +160,7 @@ pipeline {
         stage('Start Server Instance') {
             steps {
                 sh """
-                    PWD=\$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:\${DOCKER_VERSION} docker-compose up -d
+                    PWD=$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:${DOCKER_VERSION} docker-compose up -d
                 """
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
                 waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
