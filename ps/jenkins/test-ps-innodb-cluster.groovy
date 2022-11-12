@@ -1,6 +1,6 @@
 library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 void installDependencies() {
@@ -16,7 +16,7 @@ void installDependencies() {
 
     sh '''
         rm -rf package-testing
-        git clone https://github.com/Percona-QA/package-testing
+        git clone -b PS-8481 https://github.com/kaushikpuneet07/package-testing
     '''
 }
 
@@ -105,10 +105,12 @@ pipeline {
             choices: [
                 'ubuntu-focal',
                 'ubuntu-bionic',
+                'ubuntu-jammy',
                 'debian-11',
                 'debian-10',
                 'centos-7',
-                'oracle-8'
+                'oracle-8',
+                'oracle-9'
             ],
             description: 'Distribution to run test'
         )
