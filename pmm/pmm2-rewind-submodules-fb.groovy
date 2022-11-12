@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'cli'
     }
     parameters {
         string(
@@ -18,12 +18,13 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                deleteDir()
+
                 git branch: GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
+                
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
-                        echo "/usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh
-                        chmod 755 github-ssh.sh
-                        export GIT_SSH=$(pwd -P)/github-ssh.sh
+                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
                         git reset --hard
                         git clean -xdff
@@ -55,9 +56,7 @@ pipeline {
 
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
-                        echo "/usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh
-                        chmod 755 github-ssh.sh
-                        export GIT_SSH=$(pwd -P)/github-ssh.sh
+                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
                         git config --global push.default matching
                         git push
@@ -77,6 +76,9 @@ pipeline {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
                 }
             }
+        }
+        cleanup {
+            deleteDir()
         }
     }
 }
