@@ -3,7 +3,7 @@ pipeline {
         label 'cli'
     }
     options {
-        buildDiscarder(logRotator(numToKeepStr: '10'))
+        buildDiscarder(logRotator(numToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
         skipStagesAfterUnstable()
