@@ -56,7 +56,7 @@ pipeline {
     options {
         skipDefaultCheckout()
         buildDiscarder(logRotator(numToKeepStr: '30', artifactNumToKeepStr: '30'))
-        timeout(time: 1, unit: 'DAYS')
+        timeout(time: 6, unit: 'HOURS')
     }
     environment {
         VM_MEMORY = "10240"
@@ -84,8 +84,8 @@ pipeline {
 
                         SSH_KEY_ID=$(doctl compute ssh-key list -o json | jq -r '.[] | select(.name=="Jenkins") | .id')
                         IMAGE_ID=$(doctl compute image list -o json | jq -r '.[] | select(.name=="pmm-agent-jdk11") | .id')
-                        DROPLET=$(doctl compute droplet create --region ams3 --image $IMAGE_ID --wait --ssh-keys $SSH_KEY_ID --tag-name jenkins-pmm --size s-8vcpu-16gb-intel ${VM_NAME} -o json)
                         set +x
+                        DROPLET=$(doctl compute droplet create --region ams3 --image $IMAGE_ID --wait --ssh-keys $SSH_KEY_ID --tag-name jenkins-pmm --size s-8vcpu-16gb-intel ${VM_NAME} -o json)
                         PUBLIC_IP=$(echo $DROPLET | jq -r '.[0].networks.v4[0].ip_address')
                         DROPLET_ID=$(echo $DROPLET | jq -r '.[0].id')
                         set -x
