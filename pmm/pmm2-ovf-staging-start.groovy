@@ -95,15 +95,12 @@ pipeline {
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@$PUBLIC_IP; do
                             sleep 5
                         done
+                        echo "$PUBLIC_IP" | tee IP
                     '''
-                    script {
-                        env.IP = sh(
-                            returnStdout: true, 
-                            script: 'curl -s http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address'
-                        ).trim()
-                    }
                 }
                 script {
+                    env.IP = sh(returnStdout: true, script: "cat IP").trim()
+
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e')
                     DumbSlave node = new DumbSlave(env.VM_NAME, "OVA staging instance: ${VM_NAME}", "/root", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
 
