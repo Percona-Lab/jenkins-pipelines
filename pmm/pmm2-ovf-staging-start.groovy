@@ -136,7 +136,7 @@ pipeline {
                         done
                         VBoxManage startvm --type headless ${VM_NAME}
                         cat /tmp/${VM_NAME}-console.log
-                        timeout 100 bash -c 'until curl --insecure -I https://${IP}; do sleep 5; done' || true
+                        timeout 100 bash -c 'until curl --insecure -LI https://${IP}; do sleep 5; done' || true
                     """
                     sh """
                         # This fails sometimes, so we want to isolate this step
