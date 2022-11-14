@@ -92,8 +92,11 @@ pipeline {
                         
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@$PUBLIC_IP; do
                             sleep 5
-                        done                        
+                        done
+
+                        echo "$PUBLIC_IP" | tee IP
                     '''
+                    
                 }
                 script {
                     env.IP = sh(returnStdout: true, script: "cat IP").trim()
