@@ -106,6 +106,50 @@ pipeline {
                 }
             }
         }
+        stage ('Test install meta HA packages') {
+            when {
+                expression { env.TO_REPO != 'release' }
+            }
+            steps {
+                script {
+                    try {
+                        build job: 'ppg-parallel', parameters: [
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'VERSION', value: "${env.VERSION}"),
+                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-meta-ha"),
+                        booleanParam(name: 'MAJOR_REPO', value: false),
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'Test install' failed, but we continue"
+                    }
+                }
+            }
+        }
+        stage ('Test install meta server packages') {
+            when {
+                expression { env.TO_REPO != 'release' }
+            }
+            steps {
+                script {
+                    try {
+                        build job: 'ppg-parallel', parameters: [
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'VERSION', value: "${env.VERSION}"),
+                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-meta-server"),
+                        booleanParam(name: 'MAJOR_REPO', value: false),
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'Test install' failed, but we continue"
+                    }
+                }
+            }
+        }
         stage ('Test pg_stat_monitor') {
             steps {
                 script {
@@ -375,6 +419,7 @@ pipeline {
                 }
             }
         }
+
         stage ('Test Percona Components with Vanila Postgresql') {
             steps {
                 script {
