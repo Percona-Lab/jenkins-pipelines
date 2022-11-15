@@ -1,0 +1,46 @@
+- job:
+    name: wip-pxc-package-testing
+    project-type: pipeline
+    description: |
+        Work in progress, please ignore
+        Do not edit this job through the web!
+    concurrent: true
+    properties:
+        - build-discarder:
+            artifact-days-to-keep: -1
+            artifact-num-to-keep: 10
+            days-to-keep: -1
+            num-to-keep: 10
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                branches:
+                    - 'master'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: pxc/jenkins/pxc-package-testing.groovy
+    parameters:
+        - choice:
+            name: VERSION
+            choices:
+                - 'pxc80'
+                - 'pxc57'
+            description: "PXC version to test"
+        - choice:
+            name: TEST_DIST
+            choices:
+                - 'ubuntu-focal'
+                - 'ubuntu-bionic'
+                - 'debian-11'
+                - 'debian-10'
+                - 'centos-7'
+                - 'ol-8'                
+            description: "Distribution to run test"
+        - choice:
+            name: INSTALL_REPO
+            choices:
+                - "testing"
+                - "main"
+                - "experimental"
+            description: "Repo to install packages from"
