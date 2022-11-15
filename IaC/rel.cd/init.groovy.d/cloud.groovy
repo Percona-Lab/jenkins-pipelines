@@ -83,13 +83,13 @@ imageMap['eu-west-1c.min-bionic-x64-zenfs']  = imageMap['eu-west-1a.min-bionic-x
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
 priceMap['m1.medium'] = '0.05'
-priceMap['c5.xlarge'] = '0.10'
-priceMap['m4.xlarge'] = '0.10'
-priceMap['r5b.2xlarge'] = '0.32'
-priceMap['r4.4xlarge'] = '0.38'
-priceMap['m5d.2xlarge'] = '0.20'
-priceMap['c5d.xlarge'] = '0.20'
-priceMap['i4i.2xlarge'] = '0.40'
+priceMap['c5.xlarge'] = '0.15'   // old 0.10
+priceMap['m4.xlarge'] = '0.15'   // old 0.10
+priceMap['r5b.2xlarge'] = '0.45' // old 0.32
+priceMap['r4.4xlarge'] = '0.48'  // old 0.38
+priceMap['m5d.2xlarge'] = '0.35' // old 0.20
+priceMap['c5d.xlarge'] = '0.35'  // old 0.20
+priceMap['i4i.2xlarge'] = '0.50' // old 0.40
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -136,7 +136,8 @@ initMap['docker'] = '''
     done
 
     sudo amazon-linux-extras install epel -y
-    sudo amazon-linux-extras install java-openjdk11 -y
+    sudo amazon-linux-extras install java-openjdk11 -y || :
+    sudo yum -y install java-11-openjdk || :
     sudo yum -y install git docker p7zip
     sudo yum -y remove awscli
 
@@ -206,6 +207,7 @@ initMap['micro-amazon'] = '''
     done
     sudo amazon-linux-extras install epel -y
     sudo amazon-linux-extras install java-openjdk11 -y || :
+    sudo yum -y install java-11-openjdk || :
     sudo yum -y install git || :
     sudo yum -y install aws-cli || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
