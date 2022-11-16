@@ -105,10 +105,12 @@ pipeline {
             choices: [
                 'ubuntu-focal',
                 'ubuntu-bionic',
+                'ubuntu-jammy',
                 'debian-11',
                 'debian-10',
                 'centos-7',
-                'oracle-8'
+                'oracle-8',
+                'oracle-9'
             ],
             description: 'Distribution to run test'
         )
