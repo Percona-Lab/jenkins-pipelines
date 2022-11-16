@@ -1,0 +1,45 @@
+- job:
+    name: wip-pxc-package-testing-parallel
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    properties:
+        - build-discarder:
+            artifact-days-to-keep: -1
+            artifact-num-to-keep: 10
+            days-to-keep: -1
+            num-to-keep: 10
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                branches:
+                    - 'master'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: pxc/jenkins/pxc-package-testing-parallel.groovy
+    parameters:
+        - choice:
+            name: product_to_test
+            choices:
+                - "pxc57"
+                - "pxc80"
+            description: "Product for which the packages will be tested"
+        - choice:
+            name: install_repo
+            choices:
+                - "testing"
+                - "main"
+                - "experimental"
+            description: "Repo to use in install test"
+        - choice:
+            name: node_to_test
+            choices:
+                - "all"
+                - "ubuntu-focal"
+                - "ubuntu-bionic"
+                - "debian-11"
+                - "debian-10"
+                - "centos-7"
+                - "ol-8"
+            description: "Node in which to test the product"

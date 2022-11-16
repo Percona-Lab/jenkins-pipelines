@@ -8,9 +8,9 @@
     properties:
         - build-discarder:
             artifact-days-to-keep: -1
-            artifact-num-to-keep: 10
+            artifact-num-to-keep: 20
             days-to-keep: -1
-            num-to-keep: 10
+            num-to-keep: 20
     pipeline-scm:
         scm:
             - git:
@@ -30,12 +30,13 @@
         - choice:
             name: TEST_DIST
             choices:
+                - 'ubuntu-jammy'
                 - 'ubuntu-focal'
                 - 'ubuntu-bionic'
                 - 'debian-11'
                 - 'debian-10'
                 - 'centos-7'
-                - 'ol-8'                
+                - 'ol-8'
             description: "Distribution to run test"
         - choice:
             name: INSTALL_REPO
