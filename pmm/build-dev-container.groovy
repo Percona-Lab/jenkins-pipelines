@@ -11,6 +11,10 @@ pipeline {
     triggers {
         upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        skipDefaultCheckout()
+    }    
     stages {
         stage('Clone repo') {
             steps {
