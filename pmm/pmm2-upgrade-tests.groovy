@@ -159,9 +159,9 @@ pipeline {
         }
         stage('Start Server Instance') {
             steps {
-                sh """
+                sh '''
                     PWD=$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:${DOCKER_VERSION} docker-compose up -d
-                """
+                '''
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
                 waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
                 waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
@@ -181,12 +181,9 @@ pipeline {
                 expression { getMinorVersion(DOCKER_VERSION) >= 27 }
             }
             steps {
-                sh """
-                    docker exec pmm-server change-admin-password \${ADMIN_PASSWORD}
-                """
-                script {
-                    env.ADMIN_PASSWORD = ADMIN_PASSWORD
-                }
+                sh '''
+                    docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
+                '''
             }
         }
         stage('Change admin password for <= 2.26') {
@@ -194,12 +191,9 @@ pipeline {
                 expression { getMinorVersion(DOCKER_VERSION) <= 26 }
             }
             steps {
-                sh """
-                    docker exec pmm-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
-                """
-                script {
-                    env.ADMIN_PASSWORD = ADMIN_PASSWORD
-                }
+                sh '''
+                    docker exec pmm-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password ${ADMIN_PASSWORD}
+                '''
             }
         }
         stage('Enable Testing Repo') {
@@ -216,7 +210,7 @@ pipeline {
                         docker exec pmm-server percona-release enable percona testing
                         docker exec pmm-server yum clean all
                     """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'yes', 'yes', 'compose_setup', env.ADMIN_PASSWORD)
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'yes', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
                 }
             }
         }
@@ -234,7 +228,7 @@ pipeline {
                         docker exec pmm-server percona-release enable percona experimental
                         docker exec pmm-server yum clean all
                     """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup', ADMIN_PASSWORD)
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
                 }
             }
         }
@@ -250,7 +244,7 @@ pipeline {
                         docker exec pmm-server yum update -y percona-release || true
                         docker exec pmm-server yum clean all
                     """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup', ADMIN_PASSWORD)
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
                 }
             }
         }
@@ -290,14 +284,14 @@ pipeline {
                 expression { env.PERFORM_DOCKER_WAY_UPGRADE == "no" }
             }
             steps {
-                sh """
+                sh '''
                     npm ci
                     envsubst < env.list > env.generated.list
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
-                """
+                '''
             }
         }
         stage('Run Docker Way Upgrade Tests') {
@@ -305,7 +299,7 @@ pipeline {
                 expression { env.PERFORM_DOCKER_WAY_UPGRADE == "yes" }
             }
             steps {
-                sh """
+                sh '''
                     # run pre-upgrade tests
                     npm ci
                     envsubst < env.list > env.generated.list
@@ -313,20 +307,20 @@ pipeline {
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pre-upgrade'
-                """
-                sh """
+                '''
+                sh '''
                     # run the upgrade script
                     export PMM_VERSION=${PMM_VERSION}
                     sudo chmod 755 /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh
                     bash -xe /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh ${PMM_VERSION}
-                """
-                sh """
+                '''
+                sh '''
                     # run post-upgrade tests
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                     sleep 30
                     ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@post-upgrade'
-                """
+                '''
             }
 
         }
@@ -340,12 +334,12 @@ pipeline {
         stage('Check Client Upgrade') {
             steps {
                 checkClientAfterUpgrade(PMM_SERVER_LATEST);
-                sh """
-                    export PWD=\$(pwd);
+                sh '''
+                    export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                     sleep 60
                     ./node_modules/.bin/codeceptjs run --debug --steps -c pr.codecept.js --grep '@post-client-upgrade'
-                """
+                '''
             }
         }
     }
