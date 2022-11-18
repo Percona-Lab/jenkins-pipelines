@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'cli'
     }
     parameters {
         string(
@@ -10,7 +10,7 @@ pipeline {
         )
     }
     options {
-        buildDiscarder(logRotator(numToKeepStr: '10'))
+        buildDiscarder(logRotator(numToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
         skipStagesAfterUnstable()
@@ -18,12 +18,13 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                deleteDir()
+
                 git branch: GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
+                
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
-                        echo "/usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh
-                        chmod 755 github-ssh.sh
-                        export GIT_SSH=$(pwd -P)/github-ssh.sh
+                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
                         git reset --hard
                         git clean -xdff
@@ -55,9 +56,7 @@ pipeline {
 
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
-                        echo "/usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh
-                        chmod 755 github-ssh.sh
-                        export GIT_SSH=$(pwd -P)/github-ssh.sh
+                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
                         git config --global push.default matching
                         git push
@@ -70,13 +69,16 @@ pipeline {
         always {
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build successful"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build successful ${BUILD_URL}"
                 } else if (currentBuild.result == 'UNSTABLE') {
                     echo 'everything up to date'
                 } else {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}  ${BUILD_URL}"
                 }
             }
+        }
+        cleanup {
+            deleteDir()
         }
     }
 }

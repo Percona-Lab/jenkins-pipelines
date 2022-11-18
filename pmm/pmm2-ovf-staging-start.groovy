@@ -56,7 +56,7 @@ pipeline {
     options {
         skipDefaultCheckout()
         buildDiscarder(logRotator(numToKeepStr: '30', artifactNumToKeepStr: '30'))
-        timeout(time: 1, unit: 'DAYS')
+        timeout(time: 6, unit: 'HOURS')
     }
     environment {
         VM_MEMORY = "10240"
@@ -84,20 +84,23 @@ pipeline {
 
                         SSH_KEY_ID=$(doctl compute ssh-key list -o json | jq -r '.[] | select(.name=="Jenkins") | .id')
                         IMAGE_ID=$(doctl compute image list -o json | jq -r '.[] | select(.name=="pmm-agent-jdk11") | .id')
+                        set +x
                         DROPLET=$(doctl compute droplet create --region ams3 --image $IMAGE_ID --wait --ssh-keys $SSH_KEY_ID --tag-name jenkins-pmm --size s-8vcpu-16gb-intel ${VM_NAME} -o json)
                         PUBLIC_IP=$(echo $DROPLET | jq -r '.[0].networks.v4[0].ip_address')
                         DROPLET_ID=$(echo $DROPLET | jq -r '.[0].id')
+                        set -x
                         FIREWALL_ID=$(doctl compute firewall list -o json | jq -r '.[] | select(.name=="pmm-firewall") | .id')
                         doctl compute firewall add-droplets $FIREWALL_ID --droplet-ids $DROPLET_ID
                         
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@$PUBLIC_IP; do
                             sleep 5
-                        done                        
+                        done
+                        echo "$PUBLIC_IP" | tee IP
                     '''
                 }
                 script {
                     env.IP = sh(returnStdout: true, script: "cat IP").trim()
-    
+
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e')
                     DumbSlave node = new DumbSlave(env.VM_NAME, "OVA staging instance: ${VM_NAME}", "/root", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
 
@@ -133,7 +136,7 @@ pipeline {
                         done
                         VBoxManage startvm --type headless ${VM_NAME}
                         cat /tmp/${VM_NAME}-console.log
-                        timeout 50 bash -c 'until curl --insecure -I https://${IP}; do sleep 5; done' || true
+                        timeout 100 bash -c 'until curl --insecure -LI https://${IP}; do sleep 5; done' || true
                     """
                     sh """
                         # This fails sometimes, so we want to isolate this step
@@ -205,17 +208,6 @@ pipeline {
         }
     }
     post {
-        always {
-            script {
-                deleteDir()
-                def node = Jenkins.instance.getNode(env.VM_NAME)
-                if (node) {
-                    Jenkins.instance.removeNode(node)
-                } else {
-                    echo "Warning: no node to remove"
-                }
-            }
-        }
         success {
             script {
                 wrap([$class: 'BuildUser']) {
@@ -231,6 +223,28 @@ pipeline {
                             channel: "@${OWNER_SLACK}",
                             color: '#00FF00',
                             message: "OVF instance of ${OVA_VERSION} has been created. IP: https://${IP}\nYou can stop it with: https://pmm.cd.percona.com/job/pmm2-ovf-staging-stop/parambuild/?VM=${IP}"
+                }
+            }
+        }
+        failure {
+            withCredentials([string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+                sh '''
+                    set -o xtrace
+
+                    # https://docs.digitalocean.com/products/droplets/how-to/retrieve-droplet-metadata/
+                    DROPLET_ID=$(curl -s http://169.254.169.254/metadata/v1/id)
+                    doctl compute droplet delete $DROPLET_ID
+                '''
+            }
+        }
+        cleanup {
+            script {
+                deleteDir()
+                def node = Jenkins.instance.getNode(env.VM_NAME)
+                if (node) {
+                    Jenkins.instance.removeNode(node)
+                } else {
+                    echo "Warning: no node to remove"
                 }
             }
         }

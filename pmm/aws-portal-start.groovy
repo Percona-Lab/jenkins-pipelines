@@ -239,7 +239,7 @@ EOF
         success {
             script {
                 if (params.NOTIFY == "true") {
-                    def SLACK_MESSAGE = """[${JOB_NAME}]: build finished, IP: ${env.IP}
+                    def SLACK_MESSAGE = """[${JOB_NAME}]: build finished, URL: ${BUILD_URL}, IP: ${env.IP}
 In order to access the instance you need:
 1. make sure that `/etc/hosts` on your machine contains the following line
 ```127.0.0.1 platform.localhost check.localhost pmm.localhost```
