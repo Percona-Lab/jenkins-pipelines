@@ -174,6 +174,11 @@ pipeline {
             description: 'Recreate Release branches, Option to be used only to recreate release branches',
             name: 'REMOVE_RELEASE_BRANCH')
     }
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        skipDefaultCheckout()
+        disableConcurrentBuilds()
+    }
     stages {
         stage('Get version') {
             steps {

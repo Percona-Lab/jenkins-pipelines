@@ -19,6 +19,7 @@ pipeline {
             name: 'DESTINATION')
     }
     options {
+        buildDiscarder(logRotator(numToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
