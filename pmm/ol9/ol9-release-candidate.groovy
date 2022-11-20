@@ -3,61 +3,12 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runSubmodulesRewind(String SUBMODULES_GIT_BRANCH) {
-    rewindSubmodule = build job: 'pmm2-rewind-submodules-fb', propagate: false, parameters: [
-        string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH)
-    ]
-}
-
-void runPMM2ServerAutobuild(String SUBMODULES_GIT_BRANCH, String DESTINATION) {
-    pmm2Server = build job: 'pmm2-server-autobuild', parameters: [
-        string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH),
-        string(name: 'DESTINATION', value: DESTINATION)
-    ]
-}
-
-void runPMM2ClientAutobuild(String SUBMODULES_GIT_BRANCH, String DESTINATION) {
-    pmm2Client = build job: 'pmm2-client-autobuilds', parameters: [
-        string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH),
-        string(name: 'DESTINATION', value: DESTINATION)
-    ]
-    env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL
-}
-
 void runPMM2AMIBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
     pmm2AMI = build job: 'pmm2-ami', parameters: [
         string(name: 'PMM_BRANCH', value: SUBMODULES_GIT_BRANCH),
         string(name: 'RELEASE_CANDIDATE', value: RELEASE_CANDIDATE)
     ]
     env.AMI_ID = pmm2AMI.buildVariables.AMI_ID
-}
-
-void runPMM2OVFBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
-    pmm2OVF = build job: 'pmm2-ovf', parameters: [
-        string(name: 'PMM_BRANCH', value: SUBMODULES_GIT_BRANCH),
-        string(name: 'RELEASE_CANDIDATE', value: RELEASE_CANDIDATE)
-    ]
-}
-
-def pmm_submodules() {
-    return [
-        "pmm",
-        "pmm-update",
-        "grafana-dashboards",
-        "pmm-ui-tests",
-        "pmm-qa",
-        "mysqld_exporter",
-        "grafana",
-        "dbaas-controller",
-        "node_exporter",
-        "postgres_exporter",
-        "clickhouse_exporter",
-        "proxysql_exporter",
-        "rds_exporter",
-        "azure_metrics_exporter",
-        "percona-toolkit",
-        "pmm-dump"
-    ]
 }
 
 String DEFAULT_BRANCH = 'PMM-6352-custom-build-ol9'
@@ -76,7 +27,11 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
-    }    
+    }
+    environment {
+        // intentionally hard-coded
+        REMOVE_RELEASE_BRANCH = 'no'
+    }  
     stages {
         stage('Get version') {
             steps {
@@ -86,7 +41,7 @@ pipeline {
                         poll: false,
                         url: 'git@github.com:Percona-Lab/pmm-submodules'
                     env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
-                    env.RELEASE_BRANCH = 'pmm-' + VERSION
+                    env.RELEASE_BRANCH = DEFAULT_BRANCH
                 }
             }
         }
@@ -100,7 +55,7 @@ pipeline {
                         color: '#0000FF',
                         message: "Special build for PMM $VERSION has started. You can check progress at: ${BUILD_URL}"
                     env.EXIST = sh (
-                        script: 'git ls-remote --heads https://github.com/Percona-Lab/pmm-submodules pmm-${VERSION} | wc -l',
+                        script: 'git ls-remote --heads https://github.com/Percona-Lab/pmm-submodules ${RELEASE_BRANCH} | wc -l',
                         returnStdout: true
                     ).trim()
                 }
@@ -111,7 +66,7 @@ pipeline {
                 expression { env.EXIST.toInteger() == 0 }
             }
             steps {
-                error "The branch does not exist. Please create a bramch in percona/pmm-submodules"
+                error "The branch does not exist. Please create a branch in percona/pmm-submodules"
             }
         }
         stage('Rewind Release Submodule') {
@@ -119,33 +74,46 @@ pipeline {
                 expression { env.REMOVE_RELEASE_BRANCH == "no"}
             }
             steps {
-                runSubmodulesRewind(RELEASE_BRANCH)
+                echo "No rewind for the time being"
+                // build job: 'pmm2-rewind-submodules-fb', propagate: false, parameters: [
+                //     string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH)
+                // ]              
             }
         }
-        stage('Autobuilds RC for Server & Client') {
+        stage('Build Server & Client') {
             when {
                 expression { env.REMOVE_RELEASE_BRANCH == "no"}
             }
             parallel {
-                stage('Start PMM2 Server Autobuild') {
+                stage('Start OL9 Server Build') {
                     steps {
-                        runPMM2ServerAutobuild(RELEASE_BRANCH, 'experimental')
+                        build job: 'ol9-build-server', parameters: [
+                            string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                            string(name: 'DESTINATION', value: 'experimental')
+                        ]
                     }
                 }
-                stage('Start PMM2 Client Autobuild') {
+                stage('Start OL9 Client Build') {
                     steps {
-                        runPMM2ClientAutobuild(RELEASE_BRANCH, 'experimental')
+                        pmm2Client = build job: 'ol9-build-client', parameters: [
+                            string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                            string(name: 'DESTINATION', value: 'experimental')
+                        ]
+                        env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL
                     }
                 }
             }
         }
-        stage('Autobuilds RC for OVF & AMI') {
+        stage('Build OVF') {
             when {
                 expression { env.REMOVE_RELEASE_BRANCH == "no"}
             }
-            stage('Start OVF Build for RC') {
+            stage('Start OL9 OVF Build') {
                 steps {
-                    runPMM2OVFBuild("pmm-${VERSION}", 'yes')
+                    build job: 'pmm2-ovf', parameters: [
+                        string(name: 'PMM_BRANCH', value: 'PMM-6352-custom-build-ol9'),
+                        string(name: 'RELEASE_CANDIDATE', value: 'no')
+                    ]                    
                 }
             }
         }
@@ -153,9 +121,9 @@ pipeline {
     post {
         success {
             slackSend botUser: true,
-                      channel: '#pmm-dev',
+                      channel: '@alexander.tymchuk',
                       color: '#00FF00',
-                      message: """New Release Candidate is out :rocket:
+                      message: """New OL9 RC is out :rocket:
 Server: perconalab/pmm-server:${VERSION}-rc
 Client: perconalab/pmm-client:${VERSION}-rc
 OVA: https://percona-vm.s3.amazonaws.com/PMM2-Server-${VERSION}.ova
