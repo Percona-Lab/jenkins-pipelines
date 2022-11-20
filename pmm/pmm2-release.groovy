@@ -481,11 +481,11 @@ ENDSSH
             steps {
                 sh """
                     until curl https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory > /tmp/crawler; do
-                        tail /tmp/crawler
                         sleep 10
                     done
-                    tail /tmp/crawler
+                    # tail /tmp/crawler
                 """
+                archiveArtifacts artifacts: '/tmp/crawler'
             }
         }
         stage('Set git release tags') {
