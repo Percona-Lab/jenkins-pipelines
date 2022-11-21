@@ -15,7 +15,7 @@ String DEFAULT_BRANCH = 'PMM-6352-custom-build-ol9'
 
 pipeline {
     agent {
-        label 'master'
+        label 'cli'
     }
     parameters {
         string(
@@ -110,7 +110,7 @@ pipeline {
         //     }
         //     stage('Start OL9 OVF Build') {
         //         steps {
-        //             build job: 'pmm2-ovf', parameters: [
+        //             build job: 'ol9-build-ovf', parameters: [
         //                 string(name: 'PMM_BRANCH', value: 'PMM-6352-custom-build-ol9'),
         //                 string(name: 'RELEASE_CANDIDATE', value: 'no')
         //             ]                    
