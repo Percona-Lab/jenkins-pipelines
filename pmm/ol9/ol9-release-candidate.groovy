@@ -66,7 +66,7 @@ pipeline {
                 expression { env.EXIST.toInteger() == 0 }
             }
             steps {
-                error "The branch does not exist. Please create a branch in percona/pmm-submodules"
+                error "The branch does not exist. Please create a branch in Percona-Lab/pmm-submodules"
             }
         }
         stage('Rewind Release Submodule') {
@@ -74,10 +74,10 @@ pipeline {
                 expression { env.REMOVE_RELEASE_BRANCH == "no" }
             }
             steps {
-                echo "No rewind for the time being"
-                // build job: 'pmm2-rewind-submodules-fb', propagate: false, parameters: [
-                //     string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH)
-                // ]              
+                echo "Rewind: pull latest changes for every submodule"
+                build job: 'pmm2-rewind-submodules-fb', propagate: false, parameters: [
+                    string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH)
+                ]              
             }
         }
         stage('Build Server & Client') {
