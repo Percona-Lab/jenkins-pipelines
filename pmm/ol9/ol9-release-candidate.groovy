@@ -34,8 +34,8 @@ pipeline {
     }
     stages {
         stage('Get version') {
-            deleteDir()
             steps {
+                deleteDir()
                 script {
                     git branch: env.SUBMODULES_GIT_BRANCH,
                         credentialsId: 'GitHub SSH Key',
