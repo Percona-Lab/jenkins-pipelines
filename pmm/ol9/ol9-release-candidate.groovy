@@ -53,7 +53,7 @@ pipeline {
                     slackSend botUser: true,
                         channel: '@alexander.tymchuk',
                         color: '#0000FF',
-                        message: "Special build for PMM $VERSION has started. You can check progress at: ${BUILD_URL}"
+                        message: "OL9 build for PMM $VERSION has started. You can check progress at: ${BUILD_URL}"
                     env.EXIST = sh (
                         script: 'git ls-remote --heads https://github.com/Percona-Lab/pmm-submodules ${RELEASE_BRANCH} | wc -l',
                         returnStdout: true

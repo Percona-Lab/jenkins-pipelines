@@ -118,6 +118,7 @@ pipeline {
                         export ROOT_DIR=${WORKSPACE}
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                         export PATH=$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
+                        export RPMBUILD_DIST_PARAM="dist .el9"
 
                         # 1st-party
                         build-server-rpm percona-dashboards grafana-dashboards
