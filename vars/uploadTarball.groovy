@@ -5,15 +5,16 @@ def call(String TarballType) {
         unstash 'uploadPath'
         withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
             sh '''
-                export PATH_TO_BUILD=`cat uploadPath`
+                PATH_TO_BUILD=`cat uploadPath`
+                TARBALL_TYPE="${TarballType}"
 
                 ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
-                    mkdir -p ${PATH_TO_BUILD}/${TarballType}/tarball
+                    mkdir -p ${PATH_TO_BUILD}/${TARBALL_TYPE}/tarball
                 "
 
                 scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} \
                     `find . -name '*.tar.*'` \
-                    "${USER}@repo.ci.percona.com:${PATH_TO_BUILD}/${TarballType}/tarball/"
+                    "${USER}@repo.ci.percona.com:${PATH_TO_BUILD}/${TARBALL_TYPE}/tarball/"
             '''
         }
         deleteDir()
