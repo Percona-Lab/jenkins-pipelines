@@ -19,9 +19,9 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-    triggers {
-        upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
-    }
+    // triggers {
+    //     upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
+    // }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
     }
