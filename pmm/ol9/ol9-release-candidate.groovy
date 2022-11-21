@@ -31,9 +31,10 @@ pipeline {
     environment {
         // TODO: remove once tested, it's intentionally hard-coded
         REMOVE_RELEASE_BRANCH = 'no'
-    }  
+    }
     stages {
         stage('Get version') {
+            deleteDir()
             steps {
                 script {
                     git branch: env.SUBMODULES_GIT_BRANCH,
@@ -47,7 +48,6 @@ pipeline {
         }
         stage('Check if Release Branch Exists') {
             steps {
-                deleteDir()
                 script {
                     currentBuild.description = "$VERSION"
                     slackSend botUser: true,
@@ -130,6 +130,9 @@ OVA: https://percona-vm.s3.amazonaws.com/PMM2-Server-${VERSION}.ova
 AMI: ${env.AMI_ID}
 Tarball: ${env.TARBALL_URL}
                       """
+        }
+        cleanup {
+            deleteDir()
         }
     }
 }

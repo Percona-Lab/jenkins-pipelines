@@ -115,10 +115,11 @@ pipeline {
                     sh '''
                         set -o errexit
 
+                        # These are used by `src/github.com/percona/pmm/build/scripts/vars`
                         export ROOT_DIR=${WORKSPACE}
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                        export RPMBUILD_DIST_PARAM=".el9"
                         export PATH=$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
-                        export RPMBUILD_DIST_PARAM="dist .el9"
 
                         # 1st-party
                         build-server-rpm percona-dashboards grafana-dashboards
@@ -155,7 +156,7 @@ pipeline {
                     export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                     ${PATH_TO_SCRIPTS}/build-server-docker
 
-                    if [ -n ${DOCKER_RC_TAG+x} ]; then
+                    if [ -n ${DOCKER_RC_TAG} ]; then
                         docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
                         docker push perconalab/pmm-server:${DOCKER_RC_TAG}
                         docker rmi perconalab/pmm-server:${DOCKER_RC_TAG}
