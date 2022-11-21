@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-6352-custom-build-ol9', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -9,7 +9,8 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM-2.0',
+            // TODO: change this back to `PMM-2.0` once tested
+            defaultValue: 'PMM-6352-custom-build-ol9',
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(
@@ -21,6 +22,7 @@ pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         skipDefaultCheckout()
+        // TODO: remove this once tested
         disableConcurrentBuilds()
     }
     triggers {
@@ -41,13 +43,13 @@ pipeline {
                     git submodule status
 
                     git rev-parse --short HEAD > shortCommit
-                    echo "UPLOAD/pmm2-components/yum/${DESTINATION}/${JOB_NAME}/pmm/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
+                    echo "UPLOAD/pmm2-components/yum/${DESTINATION}/${JOB_NAME}/pmm/$(cat VERSION)/${GIT_BRANCH}/$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
                 '''
 
                 script {
                     def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
                     if (params.DESTINATION == "testing") {
-                        env.DOCKER_LATEST_TAG = "${versionTag}-ol9${BUILD_NUMBER}"
+                        env.DOCKER_LATEST_TAG = "${versionTag}-ol9B${BUILD_NUMBER}"
                         env.DOCKER_RC_TAG = "${versionTag}-ol9"
                     } else {
                         env.DOCKER_LATEST_TAG = "dev-latest"
@@ -62,21 +64,32 @@ pipeline {
         }
         stage('Build client source') {
             steps {
-                sh "${PATH_TO_SCRIPTS}/build-client-source"
+                // NOTE: this only creates tarballs of all repos
+                sh '''
+                    export ROOT_DIR=${WORKSPACE}
+                    ${PATH_TO_SCRIPTS}/build-client-source
+                '''
                 stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
                 uploadTarball('source')
             }
         }
         stage('Build client binary') {
             steps {
-                sh "${PATH_TO_SCRIPTS}/build-client-binary"
+                sh """
+                    export ROOT_DIR=${WORKSPACE}
+                    export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                    ${PATH_TO_SCRIPTS}/build-client-binary
+                """
                 stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
                 uploadTarball('binary')
             }
         }
         stage('Build client source rpm') {
             steps {
-                sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7"
+                sh """
+                    export ROOT_DIR=${WORKSPACE}
+                    ${PATH_TO_SCRIPTS}/build-client-srpm oraclelinux:9
+                """
                 stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
                 uploadRPM()
             }
@@ -86,7 +99,8 @@ pipeline {
                 sh """
                     set -o errexit
 
-                    ${PATH_TO_SCRIPTS}/build-client-rpm centos:7
+                    export ROOT_DIR=${WORKSPACE}
+                    ${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:9
 
                     mkdir -p tmp/pmm-server/RPMS/
                     cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
@@ -98,10 +112,11 @@ pipeline {
         stage('Build server packages') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
 
-                        export PATH=\$PATH:\$(pwd -P)/${PATH_TO_SCRIPTS}
+                        export ROOT_DIR=${WORKSPACE}
+                        export PATH=$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
 
                         # 1st-party
                         build-server-rpm percona-dashboards grafana-dashboards
@@ -116,7 +131,7 @@ pipeline {
                         build-server-rpm victoriametrics
                         build-server-rpm alertmanager
                         build-server-rpm grafana
-                    """
+                    '''
                 }
                 stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'
                 uploadRPM()
@@ -133,9 +148,9 @@ pipeline {
                 sh '''
                     set -o errexit
 
-                    export PUSH_DOCKER=1
-                    export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
+                    DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
 
+                    export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                     ${PATH_TO_SCRIPTS}/build-server-docker
 
                     if [ -n ${DOCKER_RC_TAG+x} ]; then

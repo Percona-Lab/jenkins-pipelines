@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-6352-custom-build-ol9', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -29,7 +29,7 @@ pipeline {
         disableConcurrentBuilds()
     }
     environment {
-        // intentionally hard-coded
+        // TODO: remove once tested, it's intentionally hard-coded
         REMOVE_RELEASE_BRANCH = 'no'
     }  
     stages {
@@ -71,7 +71,7 @@ pipeline {
         }
         stage('Rewind Release Submodule') {
             when {
-                expression { env.REMOVE_RELEASE_BRANCH == "no"}
+                expression { env.REMOVE_RELEASE_BRANCH == "no" }
             }
             steps {
                 echo "No rewind for the time being"
@@ -82,7 +82,7 @@ pipeline {
         }
         stage('Build Server & Client') {
             when {
-                expression { env.REMOVE_RELEASE_BRANCH == "no"}
+                expression { env.REMOVE_RELEASE_BRANCH == "no" }
             }
             parallel {
                 stage('Start OL9 Server Build') {
@@ -93,30 +93,30 @@ pipeline {
                         ]
                     }
                 }
-                stage('Start OL9 Client Build') {
-                    steps {
-                        pmm2Client = build job: 'ol9-build-client', parameters: [
-                            string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                            string(name: 'DESTINATION', value: 'experimental')
-                        ]
-                        env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL
-                    }
-                }
+                // stage('Start OL9 Client Build') {
+                //     steps {
+                //         pmm2Client = build job: 'ol9-build-client', parameters: [
+                //             string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                //             string(name: 'DESTINATION', value: 'experimental')
+                //         ]
+                //         env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL
+                //     }
+                // }
             }
         }
-        stage('Build OVF') {
-            when {
-                expression { env.REMOVE_RELEASE_BRANCH == "no"}
-            }
-            stage('Start OL9 OVF Build') {
-                steps {
-                    build job: 'pmm2-ovf', parameters: [
-                        string(name: 'PMM_BRANCH', value: 'PMM-6352-custom-build-ol9'),
-                        string(name: 'RELEASE_CANDIDATE', value: 'no')
-                    ]                    
-                }
-            }
-        }
+        // stage('Build OVF') {
+        //     when {
+        //         expression { env.REMOVE_RELEASE_BRANCH == "no" }
+        //     }
+        //     stage('Start OL9 OVF Build') {
+        //         steps {
+        //             build job: 'pmm2-ovf', parameters: [
+        //                 string(name: 'PMM_BRANCH', value: 'PMM-6352-custom-build-ol9'),
+        //                 string(name: 'RELEASE_CANDIDATE', value: 'no')
+        //             ]                    
+        //         }
+        //     }
+        // }
     }
     post {
         success {
