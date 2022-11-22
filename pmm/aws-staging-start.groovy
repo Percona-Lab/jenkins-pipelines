@@ -164,34 +164,25 @@ pipeline {
             steps {
                 deleteDir()
                 script {
-                    wrap([$class: 'BuildUser']) {
-                        env.OWNER = (env.BUILD_USER_EMAIL ?: '').split('@')[0] ?: env.BUILD_USER_ID
-                        env.OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: env.BUILD_USER_EMAIL, tokenCredentialId: 'JenkinsCI-SlackBot-v2')
-                        env.VM_NAME = 'pmm-' + env.OWNER.replaceAll("[^a-zA-Z0-9_.-]", "") + '-' + (new Date()).format("yyyyMMdd.HHmmss") + '-' + env.BUILD_NUMBER
-
-                        sh """
-                            set -x
-                            echo "${VM_NAME}" > VM_NAME
-                            echo "${OWNER}" > OWNER_FULL
-                        """
-                    }
+                    // getPMMBuildParams sets envvars: VM_NAME, OWNER, OWNER_SLACK
+                    getPMMBuildParams('pmm-')
 
                     echo """
-                        DOCKER_VERSION: ${DOCKER_VERSION}
-                        CLIENT_VERSION: ${CLIENT_VERSION}
-                        PMM_VERSION:    ${PMM_VERSION}
-                        PXC_VERSION:    ${PXC_VERSION}
-                        PS_VERSION:     ${PS_VERSION}
-                        MS_VERSION:     ${MS_VERSION}
-                        MD_VERSION:     ${MD_VERSION}
-                        MO_VERSION:     ${MO_VERSION}
-                        MODB_VERSION:   ${MODB_VERSION}
-                        PGSQL_VERSION:  ${PGSQL_VERSION}
+                        DOCKER_VERSION:  ${DOCKER_VERSION}
+                        CLIENT_VERSION:  ${CLIENT_VERSION}
+                        PMM_VERSION:     ${PMM_VERSION}
+                        PXC_VERSION:     ${PXC_VERSION}
+                        PS_VERSION:      ${PS_VERSION}
+                        MS_VERSION:      ${MS_VERSION}
+                        MD_VERSION:      ${MD_VERSION}
+                        MO_VERSION:      ${MO_VERSION}
+                        MODB_VERSION:    ${MODB_VERSION}
+                        PGSQL_VERSION:   ${PGSQL_VERSION}
                         PDPGSQL_VERSION: ${PDPGSQL_VERSION}
-                        QUERY_SOURCE:   ${QUERY_SOURCE}
-                        CLIENTS:        ${CLIENTS}
-                        OWNER:          ${OWNER}
-                        VM_NAME:        ${VM_NAME}
+                        QUERY_SOURCE:    ${QUERY_SOURCE}
+                        CLIENTS:         ${CLIENTS}
+                        OWNER:           ${OWNER}
+                        VM_NAME:         ${VM_NAME}
                         VERSION_SERVICE: ${VERSION_SERVICE_IMAGE}
                     """
 
@@ -207,21 +198,19 @@ pipeline {
 
         stage('Run VM') {
             steps {
+                // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, ID (AMI_ID)
                 launchSpotInstance('t3.large', 'FAIR', 30)
-                script {
-                    env.SPOT_PRICE = sh(returnStdout: true, script: "cat SPOT_PRICE").trim()
-                    env.IP = sh(returnStdout: true, script: "cat IP").trim()
-                }
+
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
-                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${IP} ; do
+                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${USER}@${IP} ; do
                             sleep 5
                         done
                     '''
                 }
                 script {
                     SSHLauncher ssh_connection = new SSHLauncher(env.IP, 22, 'aws-jenkins')
-                    DumbSlave node = new DumbSlave(env.VM_NAME, "aws-staging-start", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "/etc/alternatives/java", ssh_connection, RetentionStrategy.INSTANCE)
+                    DumbSlave node = new DumbSlave(env.VM_NAME, "aws-staging-start", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
 
                     currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME} PRICE: ${env.SPOT_PRICE}"
                     Jenkins.instance.addNode(node)
@@ -236,10 +225,10 @@ pipeline {
                             echo '${SSH_KEY}' >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
-                        sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-                        sudo yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-                        sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum-config-manager --disable hashicorp
+                        sudo amazon-linux-extras install epel -y
+                        sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                        sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum repolist all
 
                         # exclude unavailable mirrors
@@ -249,14 +238,11 @@ pipeline {
                         sudo amazon-linux-extras enable php7.4
                         sudo yum --enablerepo epel install php -y
 
-                        # Removed due to an repo incident at hashicorp
-                        # sudo amazon-linux-extras install epel -y
-
                         sudo yum install sysbench mysql-client -y
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
-                            sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                            sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
+                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                            sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
                             sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
                             sudo chmod 755 get_download_link.sh
                         popd
@@ -267,7 +253,6 @@ pipeline {
                     Jenkins.instance.removeNode(node)
                     Jenkins.instance.addNode(node)
                 }
-                archiveArtifacts 'IP'
             }
         }
         stage('Run Docker') {
@@ -314,6 +299,7 @@ pipeline {
 
                                         sleep 10
                                         docker logs ${VM_NAME}-server
+
                                         if [ ${ADMIN_PASSWORD} != admin ]; then
                                             if [ ${CHANGE_USER_PASSWORD_UTILITY} == yes ]; then
                                                 docker exec ${VM_NAME}-server change-admin-password ${ADMIN_PASSWORD}
@@ -445,7 +431,10 @@ pipeline {
         always {
             script {
                 def node = Jenkins.instance.getNode(env.VM_NAME)
-                Jenkins.instance.removeNode(node)
+                if (node) {
+                    echo "Removing the node from Jenkins: " + env.VM_NAME
+                    Jenkins.instance.removeNode(node)
+                }
             }
         }
         success {
@@ -477,6 +466,9 @@ pipeline {
                     }
                 }
             }
+        }
+        cleanup {
+            deleteDir()
         }
     }
 }

@@ -11,10 +11,15 @@ pipeline {
     triggers {
         upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        skipDefaultCheckout()
+    }    
     stages {
         stage('Clone repo') {
             steps {
-                git poll: true,
+                git changelog: false,
+                    poll: false,
                     branch: 'main',
                     url: "https://github.com/percona/pmm.git"
             }
@@ -22,9 +27,9 @@ pipeline {
         stage('Build dev-container') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
+                    sh '''
                         echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                    """
+                    '''
                 }
                 sh 'docker build -t $DOCKER_IMAGE -f devcontainer.Dockerfile .'
                 sh 'docker push $DOCKER_IMAGE'

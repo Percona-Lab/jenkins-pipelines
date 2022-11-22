@@ -146,7 +146,7 @@ pipeline {
                     """
                 }
                 script {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 }
                 sh '''
                     which chromium-browser
