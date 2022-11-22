@@ -75,9 +75,9 @@ pipeline {
             }
             steps {
                 echo "Rewind: pull latest changes for every submodule"
-                build job: 'pmm2-rewind-submodules-fb', propagate: false, parameters: [
-                    string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH)
-                ]              
+                // build job: 'pmm2-rewind-submodules-fb', propagate: false, parameters: [
+                //     string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH)
+                // ]              
             }
         }
         stage('Build Server & Client') {
