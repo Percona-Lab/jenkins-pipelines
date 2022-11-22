@@ -120,6 +120,7 @@ pipeline {
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                         export RPMBUILD_DIST_PARAM=".el9"
                         export PATH=$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
+                        export FORCE_REBUILD=1
 
                         # 1st-party
                         build-server-rpm percona-dashboards grafana-dashboards
@@ -134,6 +135,7 @@ pipeline {
                         build-server-rpm victoriametrics
                         build-server-rpm alertmanager
                         build-server-rpm grafana
+                        # build-server-rpm grafana-db-migrator
                     '''
                 }
                 stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'
