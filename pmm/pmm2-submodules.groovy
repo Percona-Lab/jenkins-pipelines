@@ -150,7 +150,7 @@ pipeline {
                     """
                 }
                 script {
-                    def clientPackageURL = sh script:'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL', returnStdout: true
+                    sh script: 'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL'
                     env.CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                 }
                 stash includes: 'CLIENT_URL', name: 'CLIENT_URL'
