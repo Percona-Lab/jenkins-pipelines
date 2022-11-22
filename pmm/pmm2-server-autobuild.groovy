@@ -174,22 +174,22 @@ pipeline {
         }
     }
     post {
-        always {
+        success {
             script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    unstash 'IMAGE'
-                    def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE} - ${BUILD_URL}"
-                    slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
-                    if ("${DESTINATION}" == "testing")
-                    {
-                      currentBuild.description = "Release Candidate Build"
-                      slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished"
-                    }
-                } else {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                unstash 'IMAGE'
+                def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE} - ${BUILD_URL}"
+                slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE} - ${BUILD_URL}"
+                if (params.DESTINATION == "testing") {
+                    currentBuild.description = "RR Build, Docker Image: ${IMAGE}"
+                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: RC build finished - ${IMAGE} - ${BUILD_URL}"
                 }
+            }
+        }
+        failure {
+            script {
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
             }
         }
     }

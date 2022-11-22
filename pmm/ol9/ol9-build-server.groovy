@@ -120,6 +120,7 @@ pipeline {
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                         export RPMBUILD_DIST_PARAM=".el9"
                         export PATH=$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
+                        # All rpms need to be rebuilt to avoid pulling .el7 pkgs from the S3 build cache
                         export FORCE_REBUILD=1
 
                         # 1st-party
@@ -156,6 +157,7 @@ pipeline {
                     DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
 
                     export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                    export DOCKERFILE=Dockerfile.ol9
                     ${PATH_TO_SCRIPTS}/build-server-docker
 
                     if [ -n ${DOCKER_RC_TAG} ]; then
@@ -169,8 +171,8 @@ pipeline {
                     docker rmi  ${DOCKER_TAG}
                     docker rmi perconalab/pmm-server:${DOCKER_LATEST_TAG}
                 '''
-                stash includes: 'results/docker/TAG', name: 'IMAGE'
-                archiveArtifacts 'results/docker/TAG'
+                // stash includes: 'results/docker/TAG', name: 'IMAGE'
+                env.IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
             }
         }
         stage('Sign packages') {
@@ -185,13 +187,11 @@ pipeline {
         }
     }
     post {
-        always {
+        success {
             script {
-                unstash 'IMAGE'
-                def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                 // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE} - ${BUILD_URL}"
                 if (params.DESTINATION == "testing") {
-                    currentBuild.description = "OL9 RC Build"
+                    currentBuild.description = "OL9 RC Build, Image:" + env.IMAGE
                     slackSend botUser: true, channel: '@alexander.tymchuk', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
                 //   slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished"
                 }
