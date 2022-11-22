@@ -1,3 +1,4 @@
+
 pipeline {
     parameters {
         string(
@@ -10,11 +11,11 @@ pipeline {
             name: 'GIT_REPO')
     }
     agent {
-         label 'docker' 
+         label 'docker'
     }
     environment {
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
-        DOCKER_TAG = sh(script: "echo ${GIT_BRANCH} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+        DOCKER_TAG = sh(script: "echo ${GIT_BRANCH} | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
     }
     options {
         skipDefaultCheckout()
@@ -31,6 +32,7 @@ pipeline {
                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
@@ -39,18 +41,14 @@ pipeline {
                 stash includes: "source/**", name: "sourceFILES"
             }
         }
-        
+
         stage('Build docker image') {
             steps {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
                         cd ./source/
-                        sg docker -c "
-                            docker login -u '${USER}' -p '${PASS}'
-                            RHEL=1 ./e2e-tests/build
-                            docker logout
-                        "
+                        DOCKER_PUSH=0 ./e2e-tests/build
                         sudo rm -rf ./build
                     '''
                 }
@@ -80,22 +78,14 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
                         IMAGE_NAME='percona-xtradb-cluster-operator'
-                        TrityHightLog="$WORKSPACE/trivy-hight-pxc.log"
-                        TrityCriticaltLog="$WORKSPACE/trivy-critical-pxc.log"
+                        TrivyLog="$WORKSPACE/trivy-hight-pxc.xml"
+                        wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
 
                         sg docker -c "
                             docker login -u '${USER}' -p '${PASS}'
-                            /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --timeout 5m0s --ignore-unfixed --exit-code 0 --severity HIGH  perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
-                            /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --timeout 5m0s --ignore-unfixed --exit-code 1 --severity CRITICAL  perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
+                            /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrivyLog --timeout 5m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
                         "
 
-                        if [ ! -s \$TrityHightLog ]; then
-                            rm -rf \$TrityHightLog
-                        fi
-
-                        if [ ! -s \$TrityCriticaltLog ]; then
-                            rm -rf \$TrityCriticaltLog
-                        fi
                     """
                 }
             }
@@ -104,11 +94,14 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: '*-pxc.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: '*.pdf', allowEmptyArchive: true
             deleteDir()
         }
+        unstable {
+            slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PXC operator docker images unstable. Please check the log ${BUILD_URL}"
+        }
         failure {
-            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PXC image failed. Please check the log ${BUILD_URL}"
+            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PXC operator docker image failed. Please check the log ${BUILD_URL}"
         }
     }
 }

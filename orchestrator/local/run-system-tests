@@ -1,0 +1,36 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+status=0
+
+function process_tests_output {
+# parameters are:
+  local infile=${1}
+
+  local fail_cnt
+
+# For now just a simple decision: pass/fail
+  fail_cnt=`grep -c "\+ FAIL" $infile` || true
+  echo "Failures count: $fail_cnt"
+  if [[ "$fail_cnt" != "0" ]] ; then
+    status=1
+  fi
+}
+
+ROOT_DIR=$(cd $(dirname $0)/../sources/orchestrator; pwd -P)
+
+export RUN_TESTS=YES
+export ALLOW_TESTS_FAILURES=YES
+export TARBALL_URL=${PS_TARBALL}
+export CI_ENV_REPO=${CI_ENV_GIT_REPO}
+export CI_ENV_BRANCH=${CI_ENV_BRANCH}
+
+cd ${ROOT_DIR}
+script/dock system-no-it | tee system-tests.log
+
+process_tests_output "system-tests.log"
+
+echo "Exiting with status: $status"
+exit $status

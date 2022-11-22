@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 void runPackageTestingJob(String GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, TESTS, METRICS_MODE, INSTALL_REPO) {
-    upgradeJob = build job: 'package-testing', parameters: [
+    upgradeJob = build job: 'pmm2-package-testing', parameters: [
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
@@ -14,9 +14,11 @@ void runPackageTestingJob(String GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM
     ]
 }
 
+def latestVersion = pmmVersion()
+
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'cli'
     }
     parameters {
         string(
@@ -28,7 +30,7 @@ pipeline {
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
@@ -36,11 +38,11 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.22.0',
+            defaultValue: latestVersion,
             description: 'PMM Version for testing',
             name: 'PMM_VERSION')
         choice(
-            choices: ['experimental', 'testing', 'main'],
+            choices: ['experimental', 'testing', 'main', 'tools-main', 'pmm2-client-main'],
             description: 'Enable Repo for Client Nodes',
             name: 'INSTALL_REPO')
         choice(
@@ -52,8 +54,8 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-    triggers { 
-        cron('0 4 * * *') 
+    triggers {
+        cron('0 4 * * *')
     }
     stages {
         stage('Integration Playbook'){
@@ -67,6 +69,13 @@ pipeline {
             steps {
                 script {
                     runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, 'pmm2-client_integration_upgrade', METRICS_MODE, INSTALL_REPO);
+                }
+            }
+        }
+        stage('Integration Upgrade Playbook with Custom Path'){
+            steps {
+                script {
+                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, 'pmm2-client_integration_upgrade_custom_path', METRICS_MODE, INSTALL_REPO);
                 }
             }
         }

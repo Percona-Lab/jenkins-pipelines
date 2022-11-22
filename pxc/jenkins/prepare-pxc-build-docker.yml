@@ -60,6 +60,7 @@
                             "debian:jessie":  { build('debian:jessie') },
                             "debian:stretch":  { build('debian:stretch') },
                             "debian:buster":   { build('debian:buster') },
+                            "debian:bullseye":   { build('debian:bullseye') },
                         )
                     }
                 }

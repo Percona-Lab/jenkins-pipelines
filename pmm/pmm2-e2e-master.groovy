@@ -55,17 +55,19 @@ void runAMIUpgradeTests(DOCKER_VERSION, CLIENT_VERSION, GIT_BRANCH, PMM_QA_GIT_B
     ]
 }
 
+def versionsList = pmmVersion('list')
+
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'cli'
     }
     parameters {
         choice(
-            choices: ['2.19.0', '2.18.0', '2.17.0', '2.20.0', '2.21.0'],
+            choices: versionsList,
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_VERSION')
         choice(
-            choices: ['2.19.0', '2.18.0', '2.17.0', '2.20.0', '2.21.0'],
+            choices: versionsList,
             description: 'PMM2 Client version',
             name: 'CLIENT_VERSION')
         string(
@@ -73,7 +75,7 @@ pipeline {
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
             name: 'PMM_SERVER_TAG')
         string(
@@ -81,7 +83,7 @@ pipeline {
             description: 'PMM Client Tag, which client to be installed',
             name: 'PMM_CLIENT_TAG')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
     }

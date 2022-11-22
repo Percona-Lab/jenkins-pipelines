@@ -11,13 +11,15 @@ void runGKEcluster(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud container clusters create --zone ${GKERegion} $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version $GKE_VERSION --machine-type n1-standard-4 --preemptible --num-nodes=3 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade && \
+                gcloud container clusters create --zone ${GKERegion} \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --cluster-version $GKE_VERSION --machine-type n1-standard-4 --preemptible --num-nodes=3 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_PREFIX} --no-enable-autoupgrade && \
+                gcloud container clusters update --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --update-labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -30,13 +32,14 @@ void runGKEclusterAlpha(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
                 gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_PREFIX} --zone ${GKERegion} --cluster-version $GKE_VERSION --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --enable-autoscaling --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} && \
+                gcloud alpha container clusters create --release-channel rapid \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --zone ${GKERegion} --cluster-version $GKE_VERSION --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_PREFIX} && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -49,10 +52,11 @@ void ShutdownCluster(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --zone ${GKERegion} $CLUSTER_NAME-${CLUSTER_PREFIX}
+            gcloud container clusters delete --zone ${GKERegion} \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40)
         """
    }
 }
@@ -81,6 +85,15 @@ void popArtifactFile(String FILE_NAME) {
 }
 
 testsResultsMap = [:]
+testsReportMap = [:]
+TestsReport = '<testsuite name=\\"PGO\\">\n'
+
+void makeReport() {
+    for ( test in testsReportMap ) {
+        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
+    }
+    TestsReport = TestsReport + '</testsuite>\n'
+}
 
 void setTestsresults() {
     testsResultsMap.each { file ->
@@ -93,15 +106,19 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
+            testsReportMap[TEST_NAME] = 'failure'
             PPG_TAG = sh(script: "if [ -n \"\${PGO_POSTGRES_HA_IMAGE}\" ] ; then echo ${PGO_POSTGRES_HA_IMAGE} | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' ; else echo 'main-ppg13'; fi", , returnStdout: true).trim()
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG")
 
-            timeout(time: 90, unit: 'MINUTES') {
+            timeout(time: 120, unit: 'MINUTES') {
                 sh """
                     if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG" ]; then
                         echo Skip $TEST_NAME test
                     else
                         cd ./source
+                        if [ -n "${PG_VERSION}" ]; then
+                            export PG_VER=${PG_VERSION}
+                        fi
                         if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
                             export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
                         else
@@ -144,6 +161,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
 
                         if [ -n "${PGO_POSTGRES_HA_IMAGE}" ]; then
                             export IMAGE_PG_HA=${PGO_POSTGRES_HA_IMAGE}
+                            export PG_VER=\$(echo \${IMAGE_PG_HA} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                         fi
 
                         if [ -n "${PGO_BACKREST_IMAGE}" ]; then
@@ -158,6 +176,18 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                             export IMAGE_PGBADGER=${PGO_PGBADGER_IMAGE}
                         fi
 
+                        if [ -n "${PMM_SERVER_IMAGE_BASE}" ]; then
+                            export IMAGE_PMM_SERVER_REPO=${PMM_SERVER_IMAGE_BASE}
+                        fi
+
+                        if [ -n "${PMM_SERVER_IMAGE_TAG}" ]; then
+                            export IMAGE_PMM_SERVER_TAG=${PMM_SERVER_IMAGE_TAG}
+                        fi
+
+                        if [ -n "${PMM_CLIENT_IMAGE}" ]; then
+                            export IMAGE_PMM=${PMM_CLIENT_IMAGE}
+                        fi
+
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
                         source $HOME/google-cloud-sdk/path.bash.inc
                         ./e2e-tests/$TEST_NAME/run
@@ -166,6 +196,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             }
             pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG")
             testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.GKE_VERSION}-$PPG_TAG"] = 'passed'
+            testsReportMap[TEST_NAME] = 'passed'
             return true
         }
         catch (exc) {
@@ -202,9 +233,13 @@ pipeline {
             description: 'percona-postgresql-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.19',
+            defaultValue: '1.24',
             description: 'GKE version',
             name: 'GKE_VERSION')
+        string(
+            defaultValue: '',
+            description: 'PG version',
+            name: 'PG_VERSION')
         choice(
             choices: 'NO\nYES',
             description: 'GKE alpha/stable',
@@ -253,6 +288,18 @@ pipeline {
             defaultValue: '',
             description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg13-pgbadger',
             name: 'PGO_PGBADGER_IMAGE')
+        string(
+            defaultValue: 'perconalab/pmm-server',
+            description: 'PMM server image base: perconalab/pmm-server',
+            name: 'PMM_SERVER_IMAGE_BASE')
+        string(
+            defaultValue: 'dev-latest',
+            description: 'PMM server image tag: dev-latest',
+            name: 'PMM_SERVER_IMAGE_TAG')
+        string(
+            defaultValue: 'perconalab/pmm-client:dev-latest',
+            description: 'PMM server image: perconalab/pmm-client:dev-latest',
+            name: 'PMM_CLIENT_IMAGE')
     }
     agent {
         label 'docker'
@@ -269,6 +316,7 @@ pipeline {
                 sh """
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
@@ -287,7 +335,7 @@ pipeline {
                     gcloud components install alpha
                     gcloud components install kubectl
 
-                    curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
                     curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
@@ -331,7 +379,7 @@ pipeline {
                 CLEAN_NAMESPACE = 1
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                 VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
-                CLUSTER_NAME = sh(script: "echo jenkins-par-pgo-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                CLUSTER_NAME = sh(script: "echo jkns-ver-pgo-${PG_VERSION}-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
                 PGO_K8S_NAME = "${env.CLUSTER_NAME}-upstream"
                 ECR = "119175775298.dkr.ecr.us-east-1.amazonaws.com"
             }
@@ -347,24 +395,41 @@ pipeline {
                         runTest('affinity', 'sandbox')
                         runTest('monitoring', 'sandbox')
                         runTest('self-healing', 'sandbox')
+                        runTest('operator-self-healing', 'sandbox')
                         runTest('clone-cluster', 'sandbox')
+                        runTest('tls-check', 'sandbox')
+                        runTest('users', 'sandbox')
+                        runTest('ns-mode', 'sandbox')
                         ShutdownCluster('sandbox')
                     }
                 }
-                stage('E2E Backups') {
+                stage('E2E demand-backup') {
                     steps {
-                        CreateCluster('backups')
-                        runTest('demand-backup', 'backups')
-                        ShutdownCluster('backups')
+                        CreateCluster('demand-backup')
+                        runTest('demand-backup', 'demand-backup')
+                        ShutdownCluster('demand-backup')
                     }
                 }
-                stage('E2E Data migration') {
+                stage('E2E scheduled-backup') {
                     steps {
-                        CreateCluster('upstream')
-                        CreateCluster('migration')
-                        runTest('data-migration-gcs', 'migration')
-                        ShutdownCluster('migration')
-                        ShutdownCluster('upstream')
+                        CreateCluster('scheduled-backup')
+                        runTest('scheduled-backup', 'scheduled-backup')
+                        ShutdownCluster('scheduled-backup')
+                    }
+                }
+                stage('E2E Upgrade') {
+                    steps {
+                        CreateCluster('upgrade')
+                        runTest('upgrade', 'upgrade')
+                        runTest('smart-update', 'upgrade')
+                        ShutdownCluster('upgrade')
+                    }
+                }
+                stage('E2E Version-service') {
+                    steps {
+                        CreateCluster('version-service')
+                        runTest('version-service', 'version-service')
+                        ShutdownCluster('version-service')
                     }
                 }
             }
@@ -373,9 +438,17 @@ pipeline {
     post {
         always {
             setTestsresults()
+
+            makeReport()
+            sh """
+                echo "${TestsReport}" > TestsReport.xml
+            """
+            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            archiveArtifacts '*.xml'
+
             withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                 sh '''
-                    export CLUSTER_NAME=$(echo jenkins-par-pgo-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+                    export CLUSTER_NAME=$(echo jkns-ver-pgo-${PG_VERSION}-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
                     gcloud config set project $GCP_PROJECT

@@ -21,26 +21,32 @@ netMap['us-west-1b'] = 'subnet-016104ddcdfbf521b'
 netMap['us-west-1c'] = 'subnet-08c73ba89640dfa60'
 
 imageMap = [:]
-imageMap['us-west-1a.docker']            = 'ami-0ed05376b59b90e46'
-imageMap['us-west-1a.docker-32gb']       = 'ami-0ed05376b59b90e46'
-imageMap['us-west-1a.micro-amazon']      = 'ami-0ed05376b59b90e46'
+imageMap['us-west-1a.docker']            = 'ami-061352bb71c4724b2'
+imageMap['us-west-1a.docker-32gb']       = 'ami-061352bb71c4724b2'
+imageMap['us-west-1a.micro-amazon']      = 'ami-061352bb71c4724b2'
+imageMap['us-west-1a.min-ol-8-x64']      = 'ami-01c58ced87b56372e'
+imageMap['us-west-1a.min-ol-9-x64']      = 'ami-0d1958c85fb6a7b3e'
 imageMap['us-west-1a.min-centos-7-x64']  = 'ami-08d2d8b00f270d03b'
 imageMap['us-west-1a.fips-centos-7-x64'] = 'ami-0f472ecc4a3e9620c'
 imageMap['us-west-1a.min-centos-6-x64']  = 'ami-ade6e5cd'
-imageMap['us-west-1a.min-bullseye-x64']  = 'ami-0530fb16aab9b92fd'
+imageMap['us-west-1a.min-bullseye-x64']  = 'ami-09b4378b1d3387f81'
 imageMap['us-west-1a.min-buster-x64']    = 'ami-0462fab5ea5a8f709'
 imageMap['us-west-1a.min-stretch-x64']   = 'ami-0e6b87a6c1ea9add1'
+imageMap['us-west-1a.min-jammy-x64']     = 'ami-0dc5e9ff792ec08e3'
 imageMap['us-west-1a.min-bionic-x64']    = 'ami-0558dde970ca91ee5'
 imageMap['us-west-1a.min-xenial-x64']    = 'ami-0ce448b1704085256'
 
 imageMap['us-west-1b.docker']            = imageMap['us-west-1a.docker']
 imageMap['us-west-1b.docker-32gb']       = imageMap['us-west-1a.docker-32gb']
 imageMap['us-west-1b.micro-amazon']      = imageMap['us-west-1a.micro-amazon']
+imageMap['us-west-1b.min-ol-8-x64']      = imageMap['us-west-1a.min-ol-8-x64']
+imageMap['us-west-1b.min-ol-9-x64']      = imageMap['us-west-1a.min-ol-9-x64']
 imageMap['us-west-1b.min-centos-7-x64']  = imageMap['us-west-1a.min-centos-7-x64']
 imageMap['us-west-1b.fips-centos-7-x64'] = imageMap['us-west-1a.fips-centos-7-x64']
 imageMap['us-west-1b.min-centos-6-x64']  = imageMap['us-west-1a.min-centos-6-x64']
 imageMap['us-west-1b.min-bullseye-x64']  = imageMap['us-west-1a.min-bullseye-x64']
 imageMap['us-west-1b.min-buster-x64']    = imageMap['us-west-1a.min-buster-x64']
+imageMap['us-west-1b.min-jammy-x64']     = imageMap['us-west-1a.min-jammy-x64']
 imageMap['us-west-1b.min-bionic-x64']    = imageMap['us-west-1a.min-bionic-x64']
 imageMap['us-west-1b.min-stretch-x64']   = imageMap['us-west-1a.min-stretch-x64']
 imageMap['us-west-1b.min-xenial-x64']    = imageMap['us-west-1a.min-xenial-x64']
@@ -48,19 +54,22 @@ imageMap['us-west-1b.min-xenial-x64']    = imageMap['us-west-1a.min-xenial-x64']
 imageMap['us-west-1c.docker']            = imageMap['us-west-1a.docker']
 imageMap['us-west-1c.docker-32gb']       = imageMap['us-west-1a.docker-32gb']
 imageMap['us-west-1c.micro-amazon']      = imageMap['us-west-1a.micro-amazon']
+imageMap['us-west-1c.min-ol-8-x64']      = imageMap['us-west-1a.min-ol-8-x64']
+imageMap['us-west-1c.min-ol-9-x64']      = imageMap['us-west-1a.min-ol-9-x64']
 imageMap['us-west-1c.min-centos-7-x64']  = imageMap['us-west-1a.min-centos-7-x64']
 imageMap['us-west-1c.fips-centos-7-x64'] = imageMap['us-west-1a.fips-centos-7-x64']
 imageMap['us-west-1c.min-centos-6-x64']  = imageMap['us-west-1a.min-centos-6-x64']
 imageMap['us-west-1c.min-bullseye-x64']  = imageMap['us-west-1a.min-bullseye-x64']
 imageMap['us-west-1c.min-buster-x64']    = imageMap['us-west-1a.min-buster-x64']
+imageMap['us-west-1c.min-jammy-x64']     = imageMap['us-west-1a.min-jammy-x64']
 imageMap['us-west-1c.min-bionic-x64']    = imageMap['us-west-1a.min-bionic-x64']
 imageMap['us-west-1c.min-stretch-x64']   = imageMap['us-west-1a.min-stretch-x64']
 imageMap['us-west-1c.min-xenial-x64']    = imageMap['us-west-1a.min-xenial-x64']
 
 priceMap = [:]
-priceMap['t2.small'] = '0.01'
+priceMap['t2.small'] = '0.02'
 priceMap['m1.medium'] = '0.05'
-priceMap['c4.xlarge'] = '0.10'
+priceMap['c4.xlarge'] = '0.11'
 priceMap['m4.xlarge'] = '0.10'
 priceMap['m4.2xlarge'] = '0.20'
 priceMap['m5d.2xlarge'] = '0.20'
@@ -69,12 +78,15 @@ userMap = [:]
 userMap['docker']            = 'ec2-user'
 userMap['docker-32gb']       = userMap['docker']
 userMap['micro-amazon']      = userMap['docker']
+userMap['min-jammy-x64']     = 'ubuntu'
 userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-xenial-x64']    = 'ubuntu'
 userMap['min-centos-6-x32']  = 'root'
 userMap['min-centos-6-x64']  = 'centos'
 userMap['min-centos-7-x64']  = 'centos'
 userMap['fips-centos-7-x64'] = 'centos'
+userMap['min-ol-8-x64']      = 'ec2-user'
+userMap['min-ol-9-x64']      = 'ec2-user'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
 userMap['min-bullseye-x64']  = 'admin'
@@ -102,8 +114,9 @@ initMap['docker'] = '''
     done
 
     sudo amazon-linux-extras install epel -y
-    sudo yum -y install java-1.8.0-openjdk git docker p7zip
-    sudo yum -y remove java-1.7.0-openjdk awscli
+    sudo amazon-linux-extras install java-openjdk11 -y || :
+    sudo yum -y install git docker p7zip
+    sudo yum -y remove awscli
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
@@ -161,7 +174,11 @@ initMap['rpmMap'] = '''
     fi
 
     if [[ ${RHVER} -eq 6 ]]; then
-        sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
+        if [[ ${ARCH} == "x86_64" ]]; then
+            sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
+        else
+            sudo curl -k https://jenkins.percona.com/downloads/cent6/centos6-eol-s3.repo --output /etc/yum.repos.d/CentOS-Base.repo
+        fi
         until sudo yum makecache; do
             sleep 1
             echo try again
@@ -185,6 +202,7 @@ initMap['rpmMap'] = '''
 
     if [[ $SYSREL -eq 2 ]]; then
         sudo amazon-linux-extras install epel -y
+        sudo amazon-linux-extras install java-openjdk11 -y || :
         PKGLIST="p7zip"
     else
         PKGLIST="aws-cli"
@@ -195,8 +213,9 @@ initMap['rpmMap'] = '''
         echo try again
     done
 
-    sudo yum -y install java-1.8.0-openjdk git ${PKGLIST} || :
-    sudo yum -y remove java-1.7.0-openjdk || :
+    sudo yum -y install java-11-openjdk || :
+    sudo yum -y install git || :
+    sudo yum -y install ${PKGLIST} || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
     # CentOS 6 x32 workarounds
@@ -254,7 +273,7 @@ initMap['debMap'] = '''
     if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]]; then
         JAVA_VER="openjdk-11-jre-headless"
     else
-        JAVA_VER="openjdk-8-jre-headless"
+        JAVA_VER="openjdk-11-jre-headless"
     fi
     sudo apt-get -y install ${JAVA_VER} git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
@@ -264,14 +283,16 @@ initMap['micro-amazon']      = initMap['rpmMap']
 initMap['min-centos-6-x64']  = initMap['rpmMap']
 initMap['min-centos-7-x64']  = initMap['rpmMap']
 initMap['fips-centos-7-x64'] = initMap['rpmMap']
+initMap['min-ol-8-x64']      = initMap['rpmMap']
+initMap['min-ol-9-x64']      = initMap['rpmMap']
 initMap['min-centos-6-x32']  = initMap['rpmMap']
 
-initMap['min-bionic-x64']  = initMap['debMap']
 initMap['min-bullseye-x64'] = initMap['debMap']
-initMap['min-buster-x64']  = initMap['debMap']
-initMap['min-bionic-x64']  = initMap['debMap']
-initMap['min-stretch-x64'] = initMap['debMap']
-initMap['min-xenial-x64']  = initMap['debMap']
+initMap['min-buster-x64']   = initMap['debMap']
+initMap['min-jammy-x64']    = initMap['debMap']
+initMap['min-bionic-x64']   = initMap['debMap']
+initMap['min-stretch-x64']  = initMap['debMap']
+initMap['min-xenial-x64']   = initMap['debMap']
 
 capMap = [:]
 capMap['c4.xlarge']  = '60'
@@ -285,6 +306,9 @@ typeMap['docker-32gb']       = 'm4.2xlarge'
 
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-ol-8-x64']      = typeMap['min-centos-7-x64']
+typeMap['min-ol-9-x64']      = typeMap['min-centos-7-x64']
+typeMap['min-jammy-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
@@ -298,11 +322,14 @@ execMap['docker']            = '1'
 execMap['docker-32gb']       = execMap['docker']
 
 execMap['micro-amazon']      = '30'
+execMap['min-jammy-x64']     = '1'
 execMap['min-bionic-x64']    = '1'
 execMap['min-centos-6-x32']  = '1'
 execMap['min-centos-6-x64']  = '1'
 execMap['min-centos-7-x64']  = '1'
 execMap['fips-centos-7-x64'] = '1'
+execMap['min-ol-8-x64']      = '1'
+execMap['min-ol-9-x64']      = '1'
 execMap['min-stretch-x64']   = '1'
 execMap['min-xenial-x64']    = '1'
 execMap['min-buster-x64']    = '1'
@@ -314,9 +341,12 @@ devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb']       = devMap['docker']
 devMap['micro-amazon']      = devMap['docker']
 devMap['min-bionic-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-jammy-x64']     = devMap['min-bionic-x64']
 devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
+devMap['min-ol-8-x64']      = devMap['min-bionic-x64']
+devMap['min-ol-9-x64']      = devMap['min-bionic-x64']
 devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
@@ -329,10 +359,13 @@ labelMap['docker-32gb']       = ''
 
 labelMap['micro-amazon']      = 'master'
 labelMap['min-bionic-x64']    = 'asan'
+labelMap['min-jammy-x64']     = ''
 labelMap['min-centos-6-x32']  = ''
 labelMap['min-centos-6-x64']  = ''
 labelMap['min-centos-7-x64']  = ''
 labelMap['fips-centos-7-x64'] = ''
+labelMap['min-ol-8-x64']      = ''
+labelMap['min-ol-9-x64']      = ''
 labelMap['min-stretch-x64']   = ''
 labelMap['min-xenial-x64']    = ''
 labelMap['min-buster-x64']    = ''
@@ -356,7 +389,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
-        new UnixData('', '', '', '22'),             // AMITypeData amiType
+        new UnixData('', '', '', '22', ''),         // AMITypeData amiType
         '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
@@ -409,9 +442,12 @@ String region = 'us-west-1'
             getTemplate('docker',             "${region}${it}"),
             getTemplate('docker-32gb',        "${region}${it}"),
             getTemplate('micro-amazon',       "${region}${it}"),
+            getTemplate('min-ol-8-x64',       "${region}${it}"),
+            getTemplate('min-ol-9-x64',       "${region}${it}"),
             getTemplate('min-centos-7-x64',   "${region}${it}"),
             getTemplate('fips-centos-7-x64',  "${region}${it}"),
             getTemplate('min-centos-6-x64',   "${region}${it}"),
+            getTemplate('min-jammy-x64' ,     "${region}${it}"),
             getTemplate('min-bionic-x64',     "${region}${it}"),
             getTemplate('min-bullseye-x64',   "${region}${it}"),
             getTemplate('min-buster-x64',     "${region}${it}"),

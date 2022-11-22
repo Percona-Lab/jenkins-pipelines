@@ -21,98 +21,130 @@ netMap['us-west-2b'] = 'subnet-0c0b7f0b15c1d68be'
 netMap['us-west-2c'] = 'subnet-024be5829372c4f38'
 
 imageMap = [:]
-imageMap['us-west-2a.docker']            = 'ami-0dc8f589abe99f538'
-imageMap['us-west-2a.docker-32gb']       = 'ami-0dc8f589abe99f538'
-imageMap['us-west-2a.docker-32gb-hirsute'] = 'ami-0cbdf6c0f39fd3950'
-imageMap['us-west-2a.docker-32gb-focal']  = 'ami-0ebe6e463e9912d81'
-imageMap['us-west-2a.docker2']           = 'ami-0dc8f589abe99f538'
-imageMap['us-west-2a.micro-amazon']      = 'ami-0dc8f589abe99f538'
-imageMap['us-west-2a.min-amazon-2-x64']  = 'ami-0dc8f589abe99f538'
+imageMap['us-west-2a.docker']            = 'ami-0f9f005c313373218'
+imageMap['us-west-2a.docker-32gb']       = 'ami-0f9f005c313373218'
+imageMap['us-west-2a.docker-32gb-hirsute']  = 'ami-0cbdf6c0f39fd3950'
+imageMap['us-west-2a.docker-32gb-jammy']    = 'ami-0ee8244746ec5d6d4'
+imageMap['us-west-2a.docker-32gb-focal']    = 'ami-0ebe6e463e9912d81'
+imageMap['us-west-2a.docker-32gb-bullseye'] = 'ami-0d0f7602aa5c2425d'
+imageMap['us-west-2a.docker2']           = 'ami-0f9f005c313373218'
+imageMap['us-west-2a.micro-amazon']      = 'ami-0f9f005c313373218'
+imageMap['us-west-2a.min-amazon-2-x64']  = 'ami-0f9f005c313373218'
 imageMap['us-west-2a.min-centos-8-x64']  = 'ami-0155c31ea13d4abd2'
+imageMap['us-west-2a.min-ol-8-x64']      = 'ami-000b99c02c2b64925'
+imageMap['us-west-2a.min-ol-9-x64']      = 'ami-00a5d5bcea31bb02c'
 imageMap['us-west-2a.min-centos-7-x64']  = 'ami-0686851c4e7b1a8e1'
 imageMap['us-west-2a.fips-centos-7-x64'] = 'ami-036d2cdf95d86d256'
-imageMap['us-west-2a.min-centos-6-x64']  = 'ami-0f3565dfdcdbfccfa'
-imageMap['us-west-2a.min-buster-x64']    = 'ami-090cd3aed687b1ee1'
-imageMap['us-west-2a.min-focal-x64']     = 'ami-01773ce53581acf22'
-imageMap['us-west-2a.min-bionic-x64']    = 'ami-0bdef2eb518663879'
-imageMap['us-west-2a.min-stretch-x64']   = 'ami-025f3bcb64ebe6e83'
+imageMap['us-west-2a.min-centos-6-x64']  = 'ami-052ff42ae3be02b6a'
+imageMap['us-west-2a.min-buster-x64']    = 'ami-013e2c587714af230'
+imageMap['us-west-2a.min-jammy-x64']     = 'ami-0ee8244746ec5d6d4'
+imageMap['us-west-2a.min-focal-x64']     = 'ami-0892d3c7ee96c0bf7'
+imageMap['us-west-2a.min-bionic-x64']    = 'ami-074251216af698218'
+imageMap['us-west-2a.min-stretch-x64']   = 'ami-01bc069bbdca81d56'
 imageMap['us-west-2a.min-xenial-x64']    = 'ami-079e7a3f57cc8e0d0'
-imageMap['us-west-2a.min-bullseye-x64']  = 'ami-05f9dcaa9ddb9a15e'
+imageMap['us-west-2a.min-bullseye-x64']  = 'ami-0d0f7602aa5c2425d'
+
+imageMap['us-west-2a.docker-32gb-aarch64'] = 'ami-0d3127dab514c6a1a'
 
 imageMap['us-west-2b.docker']            = imageMap['us-west-2a.docker']
 imageMap['us-west-2b.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
-imageMap['us-west-2b.docker-32gb-hirsute'] = imageMap['us-west-2a.docker-32gb-hirsute']
-imageMap['us-west-2b.docker-32gb-focal'] = imageMap['us-west-2a.docker-32gb-focal']
+imageMap['us-west-2b.docker-32gb-hirsute']  = imageMap['us-west-2a.docker-32gb-hirsute']
+imageMap['us-west-2b.docker-32gb-jammy']    = imageMap['us-west-2a.docker-32gb-jammy']
+imageMap['us-west-2b.docker-32gb-focal']    = imageMap['us-west-2a.docker-32gb-focal']
+imageMap['us-west-2b.docker-32gb-bullseye'] = imageMap['us-west-2a.docker-32gb-bullseye']
 imageMap['us-west-2b.docker2']           = imageMap['us-west-2a.docker2']
 imageMap['us-west-2b.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
 imageMap['us-west-2b.min-amazon-2-x64']  = imageMap['us-west-2a.min-amazon-2-x64']
 imageMap['us-west-2b.min-centos-8-x64']  = imageMap['us-west-2a.min-centos-8-x64']
+imageMap['us-west-2b.min-ol-8-x64']      = imageMap['us-west-2a.min-ol-8-x64']
+imageMap['us-west-2b.min-ol-9-x64']      = imageMap['us-west-2a.min-ol-9-x64']
 imageMap['us-west-2b.min-centos-7-x64']  = imageMap['us-west-2a.min-centos-7-x64']
 imageMap['us-west-2b.fips-centos-7-x64'] = imageMap['us-west-2a.fips-centos-7-x64']
 imageMap['us-west-2b.min-centos-6-x64']  = imageMap['us-west-2a.min-centos-6-x64']
 imageMap['us-west-2b.min-buster-x64']    = imageMap['us-west-2a.min-buster-x64']
+imageMap['us-west-2b.min-jammy-x64' ]    = imageMap['us-west-2a.min-jammy-x64']
 imageMap['us-west-2b.min-focal-x64' ]    = imageMap['us-west-2a.min-focal-x64']
 imageMap['us-west-2b.min-bionic-x64']    = imageMap['us-west-2a.min-bionic-x64']
 imageMap['us-west-2b.min-stretch-x64']   = imageMap['us-west-2a.min-stretch-x64']
 imageMap['us-west-2b.min-xenial-x64']    = imageMap['us-west-2a.min-xenial-x64']
-imageMap['us-west-2b.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64'] 
+imageMap['us-west-2b.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64']
+
+imageMap['us-west-2b.docker-32gb-aarch64'] = imageMap['us-west-2a.docker-32gb-aarch64']
 
 imageMap['us-west-2c.docker']            = imageMap['us-west-2a.docker']
 imageMap['us-west-2c.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
-imageMap['us-west-2c.docker-32gb-hirsute'] = imageMap['us-west-2a.docker-32gb-hirsute']
-imageMap['us-west-2c.docker-32gb-focal'] = imageMap['us-west-2a.docker-32gb-focal']
+imageMap['us-west-2c.docker-32gb-hirsute']  = imageMap['us-west-2a.docker-32gb-hirsute']
+imageMap['us-west-2c.docker-32gb-jammy']    = imageMap['us-west-2a.docker-32gb-jammy']
+imageMap['us-west-2c.docker-32gb-focal']    = imageMap['us-west-2a.docker-32gb-focal']
+imageMap['us-west-2c.docker-32gb-bullseye'] = imageMap['us-west-2a.docker-32gb-bullseye']
 imageMap['us-west-2c.docker2']           = imageMap['us-west-2a.docker2']
 imageMap['us-west-2c.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
 imageMap['us-west-2c.min-amazon-2-x64']  = imageMap['us-west-2a.min-amazon-2-x64']
 imageMap['us-west-2c.min-centos-8-x64']  = imageMap['us-west-2a.min-centos-8-x64']
+imageMap['us-west-2c.min-ol-8-x64']      = imageMap['us-west-2a.min-ol-8-x64']
+imageMap['us-west-2c.min-ol-9-x64']      = imageMap['us-west-2a.min-ol-9-x64']
 imageMap['us-west-2c.min-centos-7-x64']  = imageMap['us-west-2a.min-centos-7-x64']
 imageMap['us-west-2c.fips-centos-7-x64'] = imageMap['us-west-2a.fips-centos-7-x64']
 imageMap['us-west-2c.min-centos-6-x64']  = imageMap['us-west-2a.min-centos-6-x64']
 imageMap['us-west-2c.min-buster-x64']    = imageMap['us-west-2a.min-buster-x64']
+imageMap['us-west-2c.min-jammy-x64' ]    = imageMap['us-west-2a.min-jammy-x64']
 imageMap['us-west-2c.min-focal-x64' ]    = imageMap['us-west-2a.min-focal-x64']
 imageMap['us-west-2c.min-bionic-x64']    = imageMap['us-west-2a.min-bionic-x64']
 imageMap['us-west-2c.min-stretch-x64']   = imageMap['us-west-2a.min-stretch-x64']
 imageMap['us-west-2c.min-xenial-x64']    = imageMap['us-west-2a.min-xenial-x64']
-imageMap['us-west-2c.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64'] 
+imageMap['us-west-2c.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64']
+
+imageMap['us-west-2c.docker-32gb-aarch64'] = imageMap['us-west-2a.docker-32gb-aarch64']
 
 imageMap['us-west-2d.docker']            = imageMap['us-west-2a.docker']
 imageMap['us-west-2d.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
-imageMap['us-west-2d.docker-32gb-hirsute'] = imageMap['us-west-2d.docker-32gb-hirsute']
-imageMap['us-west-2d.docker-32gb-focal'] = imageMap['us-west-2d.docker-32gb-focal']
+imageMap['us-west-2d.docker-32gb-hirsute']  = imageMap['us-west-2a.docker-32gb-hirsute']
+imageMap['us-west-2d.docker-32gb-jammy']    = imageMap['us-west-2a.docker-32gb-jammy']
+imageMap['us-west-2d.docker-32gb-focal']    = imageMap['us-west-2a.docker-32gb-focal']
+imageMap['us-west-2d.docker-32gb-bullseye'] = imageMap['us-west-2a.docker-32gb-bullseye']
 imageMap['us-west-2d.docker2']           = imageMap['us-west-2a.docker2']
 imageMap['us-west-2d.micro-amazon']      = imageMap['us-west-2a.micro-amazon']
 imageMap['us-west-2d.min-amazon-2-x64']  = imageMap['us-west-2a.min-amazon-2-x64']
 imageMap['us-west-2d.min-centos-8-x64']  = imageMap['us-west-2a.min-centos-8-x64']
+imageMap['us-west-2d.min-ol-8-x64']      = imageMap['us-west-2a.min-ol-8-x64']
+imageMap['us-west-2d.min-ol-9-x64']      = imageMap['us-west-2a.min-ol-9-x64']
 imageMap['us-west-2d.min-centos-7-x64']  = imageMap['us-west-2a.min-centos-7-x64']
 imageMap['us-west-2d.fips-centos-7-x64'] = imageMap['us-west-2a.fips-centos-7-x64']
 imageMap['us-west-2d.min-centos-6-x64']  = imageMap['us-west-2a.min-centos-6-x64']
 imageMap['us-west-2d.min-buster-x64']    = imageMap['us-west-2a.min-buster-x64']
+imageMap['us-west-2d.min-jammy-x64' ]    = imageMap['us-west-2a.min-jammy-x64']
 imageMap['us-west-2d.min-focal-x64' ]    = imageMap['us-west-2a.min-focal-x64']
 imageMap['us-west-2d.min-bionic-x64']    = imageMap['us-west-2a.min-bionic-x64']
 imageMap['us-west-2d.min-stretch-x64']   = imageMap['us-west-2a.min-stretch-x64']
 imageMap['us-west-2d.min-xenial-x64']    = imageMap['us-west-2a.min-xenial-x64']
-imageMap['us-west-2d.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64'] 
+imageMap['us-west-2d.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64']
+
+imageMap['us-west-2d.docker-32gb-aarch64'] = imageMap['us-west-2a.docker-32gb-aarch64']
 
 priceMap = [:]
-priceMap['t2.small'] = '0.01'
-priceMap['m1.medium'] = '0.05'
-priceMap['c5.xlarge'] = '0.10'
-priceMap['c3.xlarge'] = '0.14'
-priceMap['m4.xlarge'] = '0.10'
-priceMap['m4.2xlarge'] = '0.20'
-priceMap['m5a.2xlarge'] = '0.25'
-priceMap['r4.4xlarge'] = '0.38'
-priceMap['m5d.2xlarge'] = '0.20'
-priceMap['c5d.xlarge'] = '0.20'
+priceMap['t2.medium'] = '0.03'
+priceMap['t2.large'] = '0.07'
+priceMap['m3.2xlarge'] = '0.17'
+priceMap['c5n.2xlarge'] = '0.22'
+priceMap['m5a.2xlarge'] = '0.32' // type=m5a.2xlarge, vCPU=8, memory=32GiB, saving=50%, interruption='<5%', price=0.250600
+priceMap['r6i.4xlarge'] = '0.47'
+priceMap['r5b.2xlarge'] = '0.22'
+priceMap['m5d.xlarge'] = '0.20'
+priceMap['m4.2xlarge'] = '0.25'
+
+priceMap['r6gd.2xlarge'] = '0.20'
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
 userMap['docker-32gb']       = userMap['docker']
-userMap['docker-32gb-hirsute'] = 'ubuntu'
-userMap['docker-32gb-focal'] = 'ubuntu'
+userMap['docker-32gb-hirsute']  = 'ubuntu'
+userMap['docker-32gb-jammy']    = 'ubuntu'
+userMap['docker-32gb-focal']    = 'ubuntu'
+userMap['docker-32gb-bullseye'] = 'admin' // userMap['min-bullseye-x64']
 userMap['docker2']           = userMap['docker']
 userMap['micro-amazon']      = userMap['docker']
 userMap['min-amazon-2-x64']  = userMap['docker']
+userMap['min-jammy-x64']     = 'ubuntu'
 userMap['min-focal-x64']     = 'ubuntu'
 userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-xenial-x64']    = 'ubuntu'
@@ -120,30 +152,41 @@ userMap['min-centos-6-x64']  = 'centos'
 userMap['min-centos-7-x64']  = 'centos'
 userMap['fips-centos-7-x64'] = 'centos'
 userMap['min-centos-8-x64']  = 'centos'
+userMap['min-ol-8-x64']      = 'ec2-user'
+userMap['min-ol-9-x64']      = 'ec2-user'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
 userMap['min-bullseye-x64']  = 'admin'
+
+userMap['docker-32gb-aarch64'] = 'ec2-user'
 
 userMap['psmdb'] = userMap['min-xenial-x64']
 
 modeMap = [:]
 modeMap['docker']            = 'Node.Mode.NORMAL'
 modeMap['docker-32gb']       = modeMap['docker']
-modeMap['docker-32gb-hirsute']       = modeMap['docker']
-modeMap['docker-32gb-focal']       = modeMap['docker']
+modeMap['docker-32gb-hirsute']  = modeMap['docker']
+modeMap['docker-32gb-jammy']    = modeMap['docker']
+modeMap['docker-32gb-focal']    = modeMap['docker']
+modeMap['docker-32gb-bullseye'] = modeMap['docker']
 modeMap['docker2']           = modeMap['docker']
 modeMap['micro-amazon']      = modeMap['docker']
 modeMap['min-amazon-2-x64']  = modeMap['docker']
+modeMap['min-jammy-x64']     = 'Node.Mode.EXCLUSIVE'
 modeMap['min-focal-x64']     = 'Node.Mode.EXCLUSIVE'
 modeMap['min-bionic-x64']    = modeMap['min-focal-x64']
 modeMap['min-xenial-x64']    = modeMap['min-focal-x64']
 modeMap['min-centos-6-x64']  = modeMap['min-focal-x64']
 modeMap['min-centos-7-x64']  = modeMap['min-focal-x64']
 modeMap['min-centos-8-x64']  = modeMap['min-focal-x64']
+modeMap['min-ol-8-x64']      = modeMap['min-focal-x64']
+modeMap['min-ol-9-x64']      = modeMap['min-focal-x64']
 modeMap['fips-centos-7-x64'] = modeMap['min-focal-x64']
 modeMap['min-stretch-x64']   = modeMap['min-focal-x64']
 modeMap['min-buster-x64']    = modeMap['min-focal-x64']
-modeMap['min-bullseye-x64']    = modeMap['min-focal-x64']
+modeMap['min-bullseye-x64']  = modeMap['min-focal-x64']
+
+modeMap['docker-32gb-aarch64'] = 'Node.Mode.EXCLUSIVE'
 
 initMap = [:]
 initMap['docker'] = '''
@@ -168,13 +211,14 @@ initMap['docker'] = '''
     done
 
     sudo amazon-linux-extras install epel -y
-    sudo yum -y install java-1.8.0-openjdk git docker p7zip
-    sudo yum -y remove java-1.7.0-openjdk awscli
+    sudo amazon-linux-extras install java-openjdk11 -y || :
+    sudo yum -y install git docker p7zip
+    sudo yum -y remove awscli
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
 
-        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "/tmp/awscliv2.zip"; do
             sleep 1
             echo try again
         done
@@ -220,24 +264,23 @@ initMap['docker-32gb-hirsute'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
-    export DEBIAN_FRONTEND=noninteractive
-    until sudo apt-get update; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
         echo try again
     done
 
-    until sudo apt-get -y install openjdk-8-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openjdk-11-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
         sleep 1
         echo try again
     done
 
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-    until sudo apt-get update; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
         echo try again
     done
-    until sudo apt-get -y install docker-ce docker-ce-cli containerd.io; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get -y install docker-ce docker-ce-cli containerd.io; do
         sleep 1
         echo try again
     done
@@ -274,7 +317,75 @@ initMap['docker-32gb-hirsute'] = '''
     sudo systemctl restart docker
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
+initMap['docker-32gb-jammy'] = initMap['docker-32gb-hirsute']
 initMap['docker-32gb-focal'] = initMap['docker-32gb-hirsute']
+initMap['docker-32gb-bullseye'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext2 ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
+    fi
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
+        sleep 1
+        echo try again
+    done
+
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openjdk-11-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
+        sleep 1
+        echo try again
+    done
+
+    curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
+        sleep 1
+        echo try again
+    done
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get -y install docker-ce docker-ce-cli containerd.io; do
+        sleep 1
+        echo try again
+    done
+
+    if ! $(aws --version | grep -q 'aws-cli/2'); then
+        find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
+
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
+            sleep 1
+            echo try again
+        done
+
+        unzip -o /tmp/awscliv2.zip -d /tmp 
+        cd /tmp/aws && sudo ./install
+    fi
+
+
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+
+    sudo sysctl net.ipv4.tcp_fin_timeout=15
+    sudo sysctl net.ipv4.tcp_tw_reuse=1
+    sudo sysctl net.ipv6.conf.all.disable_ipv6=1
+    sudo sysctl net.ipv6.conf.default.disable_ipv6=1
+    sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
+    sudo sysctl -w fs.aio-max-nr=1048576 || true
+    sudo sysctl -w fs.file-max=6815744 || true
+    echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service
+    sudo systemctl daemon-reload
+    sudo install -o root -g root -d /mnt/docker
+    sudo usermod -aG docker $(id -u -n)
+    sudo mkdir -p /etc/docker
+    echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
+    sudo systemctl restart docker
+    echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+'''
 initMap['docker2'] = initMap['docker']
 initMap['micro-amazon'] = '''
     set -o xtrace
@@ -290,13 +401,23 @@ initMap['micro-amazon'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
+
+    if [ -f /etc/redhat-release ]; then
+        if grep -q 'CentOS.* 8\\.' /etc/redhat-release; then
+            sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-*
+            sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Linux-*
+        fi
+    fi
+
     until sudo yum makecache; do
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk aws-cli || :
+    sudo amazon-linux-extras install epel -y || :
+    sudo amazon-linux-extras install java-openjdk11 -y || :
+    sudo yum -y install java-11-openjdk || :
+    sudo yum -y install aws-cli || :
     sudo yum -y install git || :
-    sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 initMap['min-amazon-2-x64'] = initMap['micro-amazon']
@@ -334,9 +455,11 @@ initMap['min-centos-6-x64'] = '''
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
-initMap['min-centos-7-x64'] = initMap['micro-amazon']
+initMap['min-centos-7-x64']  = initMap['micro-amazon']
 initMap['fips-centos-7-x64'] = initMap['micro-amazon']
-initMap['min-centos-8-x64'] = initMap['micro-amazon']
+initMap['min-centos-8-x64']  = initMap['micro-amazon']
+initMap['min-ol-8-x64']      = initMap['micro-amazon']
+initMap['min-ol-9-x64']      = initMap['micro-amazon']
 initMap['min-bionic-x64'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -351,11 +474,11 @@ initMap['min-bionic-x64'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
-    until sudo apt-get update; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
         echo try again
     done
-    sudo apt-get -y install openjdk-8-jre-headless git
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openjdk-11-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 initMap['min-buster-x64'] = '''
@@ -372,102 +495,134 @@ initMap['min-buster-x64'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
-    until sudo apt-get update; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
         echo try again
     done
-    sudo apt-get -y install openjdk-11-jre-headless git
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openjdk-11-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
+initMap['min-jammy-x64'] = initMap['min-bionic-x64']
 initMap['min-focal-x64'] = initMap['min-bionic-x64']
 initMap['min-stretch-x64'] = initMap['min-bionic-x64']
 initMap['min-xenial-x64'] = initMap['min-bionic-x64']
 initMap['min-bullseye-x64'] = initMap['min-buster-x64']
 
+initMap['docker-32gb-aarch64'] = initMap['docker']
+
 capMap = [:]
-capMap['c5.xlarge'] = '60'
-capMap['c3.xlarge'] = '60'
-capMap['m4.xlarge'] = '5'
-capMap['m4.2xlarge'] = '40'
-capMap['m5a.2xlarge'] = '40'
-capMap['r4.4xlarge'] = '40'
-capMap['c5d.xlarge'] = '10'
+capMap['m3.2xlarge'] = '60'
+capMap['c5n.2xlarge'] = '60'
+capMap['m3.2xlarge'] = '5'
+capMap['m5a.2xlarge'] = '80'
+capMap['r6i.4xlarge'] = '60'
+capMap['m5d.xlarge'] = '60'
+capMap['m4.2xlarge'] = '60'
+capMap['r6gd.2xlarge'] = '40'
 
 typeMap = [:]
-typeMap['micro-amazon']      = 't2.small'
-typeMap['docker']            = 'c3.xlarge'
+typeMap['micro-amazon']      = 't2.medium'
+typeMap['docker']            = 'm4.2xlarge'
 typeMap['docker-32gb']       = 'm5a.2xlarge'
-typeMap['docker-32gb-hirsute'] = 'm4.2xlarge'
-typeMap['docker-32gb-focal'] = 'm4.2xlarge'
-typeMap['docker2']           = 'r4.4xlarge'
+typeMap['docker-32gb-hirsute']  = 'r6i.4xlarge'
+typeMap['docker-32gb-jammy']    = 'r6i.4xlarge'
+typeMap['docker-32gb-focal']    = 'r6i.4xlarge'
+typeMap['docker-32gb-bullseye'] = 'r6i.4xlarge'
+typeMap['docker2']           = 'r6i.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['min-centos-8-x64']  = typeMap['docker']
+typeMap['min-ol-8-x64']      = typeMap['docker']
+typeMap['min-ol-9-x64']      = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['docker-32gb']
+typeMap['min-jammy-x64']     = 'r6i.4xlarge'
 typeMap['min-focal-x64']     = typeMap['docker']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
-typeMap['min-centos-6-x64']  = typeMap['docker']
+typeMap['min-centos-6-x64']  = 'm4.2xlarge'
 typeMap['min-stretch-x64']   = typeMap['docker']
 typeMap['min-xenial-x64']    = typeMap['docker']
 typeMap['min-amazon-2-x64']  = typeMap['docker']
 typeMap['min-bullseye-x64']  = typeMap['docker']
 
+typeMap['docker-32gb-aarch64'] = 'r6gd.2xlarge'
+
 execMap = [:]
 execMap['docker']            = '1'
 execMap['docker-32gb']       = execMap['docker']
-execMap['docker-32gb-hirsute'] = execMap['docker']
-execMap['docker-32gb-focal'] = execMap['docker']
+execMap['docker-32gb-hirsute']  = execMap['docker']
+execMap['docker-32gb-jammy']    = execMap['docker']
+execMap['docker-32gb-focal']    = execMap['docker']
+execMap['docker-32gb-bullseye'] = execMap['docker']
 execMap['docker2']           = execMap['docker']
 execMap['micro-amazon']      = '30'
 execMap['min-amazon-2-x64']  = '1'
 execMap['min-bionic-x64']    = '1'
 execMap['min-focal-x64']     = '1'
+execMap['min-jammy-x64']     = '1'
 execMap['min-centos-6-x64']  = '1'
 execMap['min-centos-7-x64']  = '1'
 execMap['fips-centos-7-x64'] = '1'
 execMap['min-centos-8-x64']  = '1'
+execMap['min-ol-8-x64']      = '1'
+execMap['min-ol-9-x64']      = '1'
 execMap['min-stretch-x64']   = '1'
 execMap['min-xenial-x64']    = '1'
 execMap['min-buster-x64']    = '1'
 execMap['min-bullseye-x64']  = '1'
 
+execMap['docker-32gb-aarch64'] = '1'
+
 devMap = [:]
 devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['docker2']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb']       = devMap['docker']
-devMap['docker-32gb-hirsute'] = devMap['docker']
-devMap['docker-32gb-focal'] = devMap['docker']
+devMap['docker-32gb-hirsute']  = devMap['docker']
+devMap['docker-32gb-jammy']    = devMap['docker']
+devMap['docker-32gb-focal']    = devMap['docker']
+devMap['docker-32gb-bullseye'] = devMap['docker']
 devMap['micro-amazon']      = '/dev/xvda=:30:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-amazon-2-x64']  = '/dev/xvda=:30:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['min-bionic-x64']    = '/dev/sda1=:30:true:gp2,/dev/sdd=:120:true:gp2'
 devMap['min-focal-x64']     = devMap['min-bionic-x64']
+devMap['min-jammy-x64']     = devMap['min-bionic-x64']
 devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-centos-8-x64']  = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-ol-8-x64']      = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-ol-9-x64']      = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-stretch-x64']   = 'xvda=:30:true:gp2,xvdd=:120:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-buster-x64']    = '/dev/xvda=:30:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['min-bullseye-x64']  = '/dev/xvda=:30:true:gp2,/dev/xvdd=:120:true:gp2'
 
+devMap['docker-32gb-aarch64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
+
 labelMap = [:]
 labelMap['docker']            = ''
 labelMap['docker-32gb']       = ''
-labelMap['docker-32gb-hirsute'] = ''
-labelMap['docker-32gb-focal'] = ''
+labelMap['docker-32gb-hirsute']  = ''
+labelMap['docker-32gb-jammy']    = ''
+labelMap['docker-32gb-focal']    = ''
+labelMap['docker-32gb-bullseye'] = ''
 labelMap['docker2']           = ''
 labelMap['micro-amazon']      = 'master'
 labelMap['min-amazon-2-x64']  = ''
 labelMap['min-bionic-x64']    = 'asan'
 labelMap['min-focal-x64']     = ''
+labelMap['min-jammy-x64']     = ''
 labelMap['min-centos-6-x64']  = ''
 labelMap['min-centos-7-x64']  = ''
 labelMap['fips-centos-7-x64'] = ''
 labelMap['min-centos-8-x64']  = ''
+labelMap['min-ol-8-x64']      = ''
+labelMap['min-ol-9-x64']      = ''
 labelMap['min-stretch-x64']   = ''
 labelMap['min-xenial-x64']    = ''
 labelMap['min-buster-x64']    = ''
 labelMap['min-bullseye-x64']  = ''
+
+labelMap['docker-32gb-aarch64'] = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -487,7 +642,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
-        new UnixData('', '', '', '22'),             // AMITypeData amiType
+        new UnixData('', '', '', '22', ''),         // AMITypeData amiType
         '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
@@ -537,22 +692,28 @@ String region = 'us-west-2'
         sshKeysCredentialsId,                   // String sshKeysCredentialsId
         '240',                                   // String instanceCapStr
         [
-            getTemplate('docker',             "${region}${it}"),
-            getTemplate('docker-32gb',        "${region}${it}"),
-            getTemplate('docker-32gb-hirsute', "${region}${it}"),
-            getTemplate('docker-32gb-focal', "${region}${it}"),
-            getTemplate('micro-amazon',       "${region}${it}"),
-            getTemplate('min-amazon-2-x64',   "${region}${it}"),
-            getTemplate('min-centos-8-x64',   "${region}${it}"),
-            getTemplate('min-centos-7-x64',   "${region}${it}"),
-            getTemplate('fips-centos-7-x64',  "${region}${it}"),
-            getTemplate('min-centos-6-x64',   "${region}${it}"),
-            getTemplate('min-bionic-x64',     "${region}${it}"),
-            getTemplate('min-focal-x64',      "${region}${it}"),
-            getTemplate('min-buster-x64',     "${region}${it}"),
-            getTemplate('min-stretch-x64',    "${region}${it}"),
-            getTemplate('min-xenial-x64',     "${region}${it}"),
-            getTemplate('min-bullseye-x64',   "${region}${it}"),
+            getTemplate('docker',               "${region}${it}"),
+            getTemplate('docker-32gb',          "${region}${it}"),
+            getTemplate('docker-32gb-hirsute',  "${region}${it}"),
+            getTemplate('docker-32gb-jammy',    "${region}${it}"),
+            getTemplate('docker-32gb-focal',    "${region}${it}"),
+            getTemplate('docker-32gb-bullseye', "${region}${it}"),
+            getTemplate('micro-amazon',         "${region}${it}"),
+            getTemplate('min-amazon-2-x64',     "${region}${it}"),
+            getTemplate('min-centos-8-x64',     "${region}${it}"),
+            getTemplate('min-ol-8-x64',         "${region}${it}"),
+            getTemplate('min-ol-9-x64',         "${region}${it}"),
+            getTemplate('min-centos-7-x64',     "${region}${it}"),
+            getTemplate('fips-centos-7-x64',    "${region}${it}"),
+            getTemplate('min-centos-6-x64',     "${region}${it}"),
+            getTemplate('min-bionic-x64',       "${region}${it}"),
+            getTemplate('min-focal-x64',        "${region}${it}"),
+            getTemplate('min-jammy-x64',        "${region}${it}"),
+            getTemplate('min-buster-x64',       "${region}${it}"),
+            getTemplate('min-stretch-x64',      "${region}${it}"),
+            getTemplate('min-xenial-x64',       "${region}${it}"),
+            getTemplate('min-bullseye-x64',     "${region}${it}"),
+            getTemplate('docker-32gb-aarch64',  "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates 
         '',
         ''

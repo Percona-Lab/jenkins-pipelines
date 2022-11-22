@@ -29,4 +29,7 @@ pushd $ROOT_DIR
     if [ -n "${GIT_REPO}" -a -n "${BRANCH}" ]; then
         git pull origin ${BRANCH}
     fi
+    git submodule deinit -f . || true
+    git submodule init
+    git submodule update
 popd

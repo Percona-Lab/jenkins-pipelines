@@ -1,4 +1,10 @@
+GKERegion='us-central1-a'
+
 void CreateCluster(String CLUSTER_PREFIX) {
+    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+        env.OPERATOR_NS = 'psmdb-operator'
+    }
+
     if ( "${params.IS_GKE_ALPHA}" == "YES" ) {
         runGKEclusterAlpha(CLUSTER_PREFIX)
     } else {
@@ -9,13 +15,15 @@ void runGKEcluster(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud container clusters create --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version $PLATFORM_VER --machine-type n1-standard-4 --preemptible --num-nodes=3 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade && \
+                gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version $PLATFORM_VER --machine-type n1-standard-4 --preemptible --num-nodes=3 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade && \
+                gcloud container clusters update --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --update-labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -28,13 +36,15 @@ void runGKEclusterAlpha(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
                 gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_PREFIX} --zone us-central1-a --cluster-version $PLATFORM_VER --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --enable-autoscaling --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} && \
+                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_PREFIX} --zone $GKERegion --cluster-version $PLATFORM_VER --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} && \
+                gcloud container clusters update --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --update-labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -47,10 +57,11 @@ void ShutdownCluster(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX}
+            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX}
         """
    }
 }
@@ -79,10 +90,11 @@ void popArtifactFile(String FILE_NAME) {
 }
 
 testsResultsMap = [:]
+testsReportMap = [:]
 TestsReport = '<testsuite name=\\"PSMDB\\">\n'
 
 void makeReport() {
-    for ( test in testsResultsMap ) {
+    for ( test in testsReportMap ) {
         TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
     }
     TestsReport = TestsReport + '</testsuite>\n'
@@ -101,13 +113,12 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
-
+            testsReportMap[TEST_NAME] = 'failure'
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
-            popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
-            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG"] = 'failure'
+            popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
 
             sh """
-                if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG" ]; then
+                if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                     echo Skip $TEST_NAME test
                 else
                     cd ./source
@@ -129,13 +140,22 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                         export IMAGE_PMM=${IMAGE_PMM}
                     fi
 
+                    if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                    fi
+
+                    if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                        export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                    fi
+
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
                     source $HOME/google-cloud-sdk/path.bash.inc
                     ./e2e-tests/$TEST_NAME/run
                 fi
             """
-            pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
-            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG"] = 'passed'
+            pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
+            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}"] = 'passed'
+            testsReportMap[TEST_NAME] = 'passed'
             return true
         }
         catch (exc) {
@@ -163,9 +183,7 @@ void conditionalRunTest(String TEST_NAME, String CLUSTER_PREFIX) {
 
 void installRpms() {
     sh '''
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 jq | true
+        sudo yum install -y jq | true
     '''
 }
 pipeline {
@@ -182,13 +200,17 @@ pipeline {
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.20',
+            defaultValue: '1.21',
             description: 'GKE version',
             name: 'PLATFORM_VER')
         choice(
             choices: 'NO\nYES',
             description: 'GKE alpha/stable',
             name: 'IS_GKE_ALPHA')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests in cluster wide mode',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
@@ -205,6 +227,14 @@ pipeline {
             defaultValue: '',
             description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
             name: 'IMAGE_PMM')
+        string(
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     agent {
         label 'docker'
@@ -221,6 +251,7 @@ pipeline {
                 sh """
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
@@ -239,7 +270,7 @@ pipeline {
                     gcloud components install alpha
                     gcloud components install kubectl
 
-                    curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
                     curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
@@ -278,6 +309,7 @@ pipeline {
         stage('Run Tests') {
             environment {
                 CLOUDSDK_CORE_DISABLE_PROMPTS = 1
+                CLEAN_NAMESPACE = 1
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                 VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
                 CLUSTER_NAME = sh(script: "echo jenkins-par-psmdb-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
@@ -293,20 +325,22 @@ pipeline {
                         runTest('smart-update', 'scaling')
                         runTest('version-service', 'scaling')
                         runTest('rs-shard-migration', 'scaling')
+                        runTest('data-sharded', 'scaling')
+                        runTest('non-voting', 'scaling')
+                        runTest('data-at-rest-encryption', 'scaling')
                         ShutdownCluster('scaling')
                    }
                 }
                 stage('E2E Basic Tests') {
                     steps {
                         CreateCluster('basic')
-//                        conditionalRunTest('default-cr', 'basic')
+                        conditionalRunTest('default-cr', 'basic')
                         runTest('one-pod', 'basic')
                         runTest('monitoring-2-0', 'basic')
                         runTest('arbiter', 'basic')
                         runTest('service-per-pod', 'basic')
                         runTest('liveness', 'basic')
                         runTest('users', 'basic')
-                        runTest('data-sharded', 'basic')
                         ShutdownCluster('basic')
                     }
                 }
@@ -330,10 +364,17 @@ pipeline {
                         runTest('demand-backup', 'backups')
                         runTest('demand-backup-sharded', 'backups')
                         runTest('scheduled-backup', 'backups')
-                        runTest('upgrade-sharded', 'backups')
-                        runTest('pitr', 'backups')
-                        runTest('pitr-sharded', 'backups')
                         ShutdownCluster('backups')
+                    }
+                }
+                stage('CrossSite replication') {
+                    steps {
+                        CreateCluster('cross-site')
+                        runTest('cross-site-sharded', 'cross-site')
+                        runTest('upgrade-sharded', 'cross-site')
+                        runTest('pitr', 'cross-site')
+                        runTest('pitr-sharded', 'cross-site')
+                        ShutdownCluster('cross-site')
                     }
                 }
             }
@@ -355,7 +396,7 @@ pipeline {
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
                     gcloud config set project $GCP_PROJECT
-                    gcloud alpha container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups | true
+                    gcloud alpha container clusters delete --zone $GKERegion $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups | true
                 '''
             }
             sh '''

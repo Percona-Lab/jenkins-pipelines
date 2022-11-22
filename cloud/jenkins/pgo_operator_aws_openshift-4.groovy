@@ -47,6 +47,9 @@ void runTest(String TEST_NAME) {
                     echo Skip $TEST_NAME test
                 else
                     cd ./source
+                    if [ -n "${PG_VERSION}" ]; then
+                        export PG_VER=${PG_VERSION}
+                    fi
                     if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
                         export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
                     else
@@ -89,6 +92,7 @@ void runTest(String TEST_NAME) {
 
                     if [ -n "${PGO_POSTGRES_HA_IMAGE}" ]; then
                         export IMAGE_PG_HA=${PGO_POSTGRES_HA_IMAGE}
+                        export PG_VER=\$(echo \${IMAGE_PG_HA} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                     fi
 
                     if [ -n "${PGO_BACKREST_IMAGE}" ]; then
@@ -101,6 +105,18 @@ void runTest(String TEST_NAME) {
 
                     if [ -n "${PGO_PGBADGER_IMAGE}" ]; then
                         export IMAGE_PGBADGER=${PGO_PGBADGER_IMAGE}
+                    fi
+
+                    if [ -n "${PMM_SERVER_IMAGE_BASE}" ]; then
+                        export IMAGE_PMM_SERVER_REPO=${PMM_SERVER_IMAGE_BASE}
+                    fi
+
+                    if [ -n "${PMM_SERVER_IMAGE_TAG}" ]; then
+                        export IMAGE_PMM_SERVER_TAG=${PMM_SERVER_IMAGE_TAG}
+                    fi
+
+                    if [ -n "${PMM_CLIENT_IMAGE}" ]; then
+                        export IMAGE_PMM=${PMM_CLIENT_IMAGE}
                     fi
 
                     source $HOME/google-cloud-sdk/path.bash.inc
@@ -149,6 +165,10 @@ pipeline {
             name: 'GIT_REPO')
         string(
             defaultValue: '',
+            description: 'PG version',
+            name: 'PG_VERSION')
+        string(
+            defaultValue: '',
             description: 'Operator image: perconalab/percona-postgresql-operator:main-postgres-operator',
             name: 'PGO_OPERATOR_IMAGE')
         string(
@@ -191,6 +211,18 @@ pipeline {
             defaultValue: '',
             description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg13-pgbadger',
             name: 'PGO_PGBADGER_IMAGE')
+        string(
+            defaultValue: 'perconalab/pmm-server',
+            description: 'PMM server image base: perconalab/pmm-server',
+            name: 'PMM_SERVER_IMAGE_BASE')
+        string(
+            defaultValue: 'dev-latest',
+            description: 'PMM server image tag: dev-latest',
+            name: 'PMM_SERVER_IMAGE_TAG')
+        string(
+            defaultValue: 'perconalab/pmm-client:dev-latest',
+            description: 'PMM server image: perconalab/pmm-client:dev-latest',
+            name: 'PMM_CLIENT_IMAGE')
     }
     environment {
         TF_IN_AUTOMATION = 'true'
@@ -226,7 +258,7 @@ pipeline {
                         gcloud config set project $GCP_PROJECT
                         gcloud version
 
-                        curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                        curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
                         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OS_VERSION/openshift-client-linux-$OS_VERSION.tar.gz \
@@ -246,6 +278,7 @@ pipeline {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'),file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
                     sh '''
+                        sudo sudo git config --global --add safe.directory '*'
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf source
@@ -296,7 +329,15 @@ pipeline {
                 runTest('recreate')
                 runTest('affinity')
                 runTest('monitoring')
+                runTest('self-healing')
+                runTest('operator-self-healing')
                 runTest('demand-backup')
+                runTest('scheduled-backup')
+                runTest('upgrade')
+                runTest('smart-update')
+                runTest('version-service')
+                runTest('users')
+                runTest('ns-mode')
             }
         }
         stage('Make report') {

@@ -54,8 +54,7 @@ node_setups = [
     "min-buster-x64": setup_buster_bullseye_package_tests,
     "min-bullseye-x64": setup_buster_bullseye_package_tests,
     "min-centos-7-x64": setup_centos_package_tests,
-    "min-centos-8-x64": setup_centos_package_tests,
-    "min-xenial-x64": setup_ubuntu_package_tests,
+    "min-ol-8-x64": setup_centos_package_tests,
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
 ]
@@ -77,6 +76,7 @@ void runPlaybook(String action_to_test) {
     sh """
         export install_repo="\${install_repo}"
         export client_to_test="\${client_to_test}"
+        export repo_for_client_to_test="\${repo_for_client_to_test}"
 
         ansible-playbook \
         --connection=local \
@@ -99,8 +99,7 @@ pipeline {
         choice(
             choices: [
                 'min-centos-7-x64',
-                'min-centos-8-x64',
-                'min-xenial-x64',
+                'min-ol-8-x64',
                 'min-bionic-x64',
                 'min-focal-x64',
                 'min-stretch-x64',
@@ -112,7 +111,7 @@ pipeline {
         )
         choice(
             choices: ['testing', 'main', 'experimental'],
-            description: 'Choose the repo to install packages and run the tests',
+            description: 'Choose the repo to install proxysql packages from',
             name: 'install_repo'
         )
         string(
@@ -132,7 +131,7 @@ pipeline {
         stage("Prepare") {
             steps {
                 script {
-                    currentBuild.displayName = "#${BUILD_NUMBER}-${params.product_to_test}-${params.install_repo}-${params.node_to_test}"
+                    currentBuild.displayName = "#${BUILD_NUMBER}-${params.product_to_test}-${params.install_repo}-${params.node_to_test}-${params.client_to_test}-${params.repo_for_client_to_test}"
                 }
             }
         }

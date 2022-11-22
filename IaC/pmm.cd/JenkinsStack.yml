@@ -1,4 +1,7 @@
+# Roll out for the first time
 # aws cloudformation --region us-east-2 create-stack --template-body file://IaC/pmm.cd/JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-pmm-amzn2 --tags Key=iit-billing-tag,Value=jenkins-pmm
+# Perform a maintenance update
+# aws cloudformation --region us-east-2 deploy --template-file IaC/pmm.cd/JenkinsStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name jenkins-pmm-amzn2 --tags Key=iit-billing-tag,Value=jenkins-pmm
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
@@ -27,7 +30,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: illia
+    Default: alex.tymchuk
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
@@ -43,11 +46,11 @@ Parameters:
 Mappings:
   AmazonLinux2:
     us-east-1:
-      x64: ami-0dc2d3e4c0f9ebd18
+      x64: ami-02538f8925e3aa27a
     us-east-2:
-      x64: ami-0233c2d874b811deb
+      x64: ami-0ee5c62243ab25259
     us-west-2:
-      x64: ami-0dc8f589abe99f538
+      x64: ami-07d59d159373b8030
 
 Resources:
 
@@ -212,19 +215,7 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 176.37.55.60/32
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
         CidrIp: 188.163.20.103/32
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
-        CidrIp: 213.159.239.48/32
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
-        CidrIp: 46.149.86.84/32
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
@@ -236,15 +227,7 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: 95.27.48.91/32
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
-        CidrIp: 93.81.255.68/32
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
-        CidrIp: 195.91.212.140/32
+        CidrIp: 51.158.106.12/32
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
@@ -388,7 +371,7 @@ Resources:
             - ec2:DescribeSubnets
             - ec2:DescribeInstanceStatus
             - ec2:ModifyInstanceAttribute
-  
+
   JMasterRole: # create Role for jenkins master (needed for run workers)
     Type: AWS::IAM::Role
     Properties:
@@ -514,13 +497,13 @@ Resources:
       AvailabilityZone:
         Fn::Select: [ 1, !GetAZs '' ]
       Encrypted: false
-      Size: 100
+      Size: 200
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
       - Key: Name
         Value: !Join [ ' ', [ !Ref JShortName, 'DATA, do not remove' ]]
-      VolumeType: gp2
+      VolumeType: gp3
 
   JMasterInstance: # create jenkins master as spot instance
     Type: AWS::EC2::SpotFleet
@@ -636,14 +619,14 @@ Resources:
                   wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                   amazon-linux-extras install epel -y
+                  amazon-linux-extras install java-openjdk11 -y
                   yum -y update --security
-                  yum -y install java-1.8.0-openjdk jenkins-2.289.2 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install jenkins-2.361.2 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
                   echo "exclude=java*" >> /etc/yum/yum-cron.conf
                   systemctl enable --now yum-cron
-
               }
 
               volume_state() {
@@ -700,16 +683,12 @@ Resources:
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
                   chown -R jenkins:jenkins /mnt/$JENKINS_HOST
 
-                  printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
+                  printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
-                  sed -i 's^"-Djava.awt.headless=true"^"-Djava.awt.headless=true -Xms2048m -Xmx4096m -server -XX:+AlwaysPreTouch -verbose:gc -Xloggc:$JENKINS_HOME/gc-%t.log -XX:NumberOfGCLogFiles=5 -XX:+UseGCLogFileRotation -XX:GCLogFileSize=20m -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintHeapAtGC -XX:+PrintGCCause -XX:+PrintTenuringDistribution -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+UseConcMarkSweepGC -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses -XX:+CMSParallelRemarkEnabled -XX:+ParallelRefProcEnabled -XX:+CMSClassUnloadingEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:NewSize=512m -XX:MaxNewSize=3g -XX:NewRatio=2 -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"^' /etc/sysconfig/jenkins
-                  echo JENKINS_HOME=/mnt/$JENKINS_HOST \
-                      | tee -a /etc/sysconfig/jenkins
-                  systemctl enable jenkins # it will redirect to chkconfig, so enable --now wont work
-                  systemctl start jenkins
-
-                  #echo "/usr/bin/aws s3 sync --sse-kms-key-id alias/jenkins-pmm-backup --sse aws:kms --exclude '*/caches/*' --exclude '*/config-history/nodes/*' --exclude '*/secretFiles/*' --delete /mnt/ s3://backup.cd.percona.com/" > /etc/cron.daily/jenkins-backup
-                  #chmod 755 /etc/cron.daily/jenkins-backup
+                  sed -i 's|-Djava.awt.headless=true|-Djava.awt.headless=true -Xms3072m -Xmx3072m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600|' /usr/lib/systemd/system/jenkins.service
+                  sed -i 's/\/var\/lib\/jenkins/\/mnt\/pmm.cd.percona.com/g' /usr/lib/systemd/system/jenkins.service
+                  systemctl daemon-reload
+                  systemctl enable --now jenkins
 
                   printf "* * * * * root bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n* * * * * root sleep 30; bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n" > /etc/cron.d/terminate-check
               }
@@ -765,7 +744,7 @@ Resources:
               			}
 
               			server {
-              			  listen 443 ssl;
+              			  listen 443 ssl http2;
               			  server_name $JENKINS_HOST;
 
               			  ssl_certificate             /etc/nginx/ssl/certificate.crt;
@@ -777,6 +756,14 @@ Resources:
               			  lua_ssl_trusted_certificate /etc/pki/tls/certs/ca-bundle.crt;
               			  lua_ssl_verify_depth        3;
               			  satisfy                     any;
+
+                      ssl_session_timeout 1d;
+                      ssl_session_cache shared:MozSSL:10m;  # about 40000 sessions
+                      ssl_session_tickets off;
+
+                      ssl_protocols TLSv1.2 TLSv1.3;
+                      ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+                      ssl_prefer_server_ciphers off;
 
               			  location / {
               			    proxy_set_header        Host \$host:\$server_port;
@@ -833,7 +820,7 @@ Resources:
                 LIST_ALLOWED_KEY="ssh-ed25519,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,ssh-rsa,ssh-dss"
                 LIST_ALLOWED_ENC="aes128-gcm@openssh.com,chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr"
                 LIST_ALLOWED_MAC="hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com"
-                
+
                 sed -i 's/Ciphers .*//g; s/HostKeyAlgorithms .*//g; s/KexAlgorithms .*//g; s/MACs .*//g' /etc/ssh/sshd_config
                 echo "Ciphers $LIST_ALLOWED_ENC" | tee -a /etc/ssh/sshd_config
                 echo "HostKeyAlgorithms $LIST_ALLOWED_KEY" | tee -a /etc/ssh/sshd_config
@@ -844,15 +831,12 @@ Resources:
 
               setup_ssh_keys() {
                 KEYS_LIST="alexander.tymchuk \
-                           mykola.marzhan \
                            evgeniy.patlan \
-                           slava.sarzhan \
-                           illia.pshonkin \
                            alex.miroshnychenko \
                            eduardo.casarero \
                            santiago.ruiz \
                            andrew.siemen \
-                           nikita.beletskii"
+                           talha.rizwan"
                 for KEY in $KEYS_LIST; do
                     RETRY="3"
                     while [ $RETRY != "0" ]; do

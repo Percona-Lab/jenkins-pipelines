@@ -8,21 +8,21 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENT_INSTANCE, SE
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e ENABLE_DBAAS=1 -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: DOCKER_ENV_VARIABLE),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
     ]
+
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    def clientInstance = "yes";
-    if ( CLIENT_INSTANCE == clientInstance ) {
-        env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+    env.ADMIN_PASSWORD = "admin"
+
+    if ( CLIENT_INSTANCE == "yes" ) {
+        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
-    }
-    else
-    {
-        env.PMM_URL = "http://admin:admin@${VM_IP}"
+    } else {
+        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
         env.PMM_UI_URL = "http://${VM_IP}/"
     }
 }
@@ -45,7 +45,7 @@ void destroyStaging(IP) {
 
 pipeline {
     agent {
-        label 'docker'
+        label 'agent-amd64'
     }
     parameters {
         string(
@@ -57,13 +57,17 @@ pipeline {
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
             defaultValue: 'dev-latest',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
+        string(
+            defaultValue: '-e PMM_DEBUG=1 -e ENABLE_DBAAS=1 -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1 -e PERCONA_TEST_DBAAS_PMM_CLIENT=perconalab/pmm-client:dev-latest',
+            description: 'Envirnomental variables',
+            name: 'DOCKER_ENV_VARIABLE')    
         string(
             defaultValue: "'@dbaas'",
             description: 'Pass test tags ex. @dbaas',
@@ -81,7 +85,7 @@ pipeline {
             description: 'Value for Server Public IP, to use this instance just as client',
             name: 'SERVER_IP')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         text(
@@ -111,25 +115,21 @@ pipeline {
             steps {
                 // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
+                git poll: false,
+                    branch: GIT_BRANCH,
+                    url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                installDocker()
-                setupDockerCompose()
                 sh '''
                     docker-compose --version
-                    sudo yum -y update --security
-                    sudo yum -y install php php-mysqlnd php-pdo jq svn bats mysql
-                    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-                    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-                    sudo amazon-linux-extras install epel -y
+                    sudo yum -y install mysql
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                         sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
                         sudo chmod 755 pmm-tests/install-google-chrome.sh
-                        bash ./pmm-tests/install-google-chrome.sh
                     popd
-                    sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
+                    /srv/pmm-qa/pmm-tests/install_k8s_tools.sh --kubectl --sudo
+                    sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
         }
@@ -153,12 +153,12 @@ pipeline {
                         expression { env.OVF_TEST == "no" }
                     }
                     steps {
-                        runClusterStaging('master')
+                        runClusterStaging('main')
                     }
                 }
             }
         }
-        stage('Setup') {
+        stage('Sanity check and Node install') {
             parallel {
                 stage('Sanity check') {
                     steps {
@@ -168,13 +168,7 @@ pipeline {
                 stage('Setup Node') {
                     steps {
                         sh """
-                            curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
-                            sudo yum -y install nodejs
-
-                            npm install
-                            node -v
-                            npm -v
-                            sudo yum install -y gettext
+                            npm ci
                             envsubst < env.list > env.generated.list
                         """
                     }
@@ -191,6 +185,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
+
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
@@ -201,7 +196,7 @@ pipeline {
         }
         stage('Run UI Tests Docker') {
             options {
-                timeout(time: 90, unit: "MINUTES")
+                timeout(time: 150, unit: "MINUTES")
             }
             when {
                 expression { env.OVF_TEST == "no" }
@@ -276,11 +271,6 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
-            sh '''
-                sudo rm -r node_modules/
-                sudo rm -r tests/output
-            '''
-            deleteDir()
         }
     }
 }

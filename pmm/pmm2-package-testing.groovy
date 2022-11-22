@@ -40,7 +40,7 @@ void setup_debian_package_tests()
         echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
         sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
         sudo apt update -y
-        sudo apt-get install -y ansible git wget 
+        sudo apt-get install -y ansible git wget
     '''
 }
 
@@ -50,7 +50,7 @@ void setup_ubuntu_package_tests()
         sudo apt update -y
         sudo apt install -y software-properties-common
         sudo apt-add-repository --yes --update ppa:ansible/ansible
-        sudo apt-get install -y ansible git wget 
+        sudo apt-get install -y ansible git wget
     '''
 }
 
@@ -67,8 +67,13 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
         --limit 127.0.0.1 playbooks/\${TESTS}.yml
     '''
 }
+
+def latestVersion = pmmVersion()
+
 pipeline {
-    agent any
+    agent {
+        label 'agent-amd64'
+    }
     parameters {
         string(
             defaultValue: 'master',
@@ -79,7 +84,7 @@ pipeline {
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
@@ -87,15 +92,15 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.22.0',
+            defaultValue: latestVersion,
             description: 'PMM Version for testing',
             name: 'PMM_VERSION')
-        choice(
-            choices: ['pmm2-client', 'pmm2-client_upgrade', 'pmm2-client_integration_upgrade', 'pmm2-client_integration'],
-            description: 'Type of Tests?',
+        string(
+            defaultValue: 'pmm2-client',
+            description: 'Name of Playbook? ex: pmm2-client_integration, pmm2-client_integration_custom_path',
             name: 'TESTS')
         choice(
-            choices: ['testing', 'experimental', 'main'],
+            choices: ['testing', 'experimental', 'main', 'tools-main', 'pmm2-client-main'],
             description: 'Enable Repo for Client Nodes',
             name: 'INSTALL_REPO')
         choice(
@@ -114,9 +119,9 @@ pipeline {
         }
         stage('Execute Package Tests') {
             parallel {
-                stage('centos-7-x64') {
+                stage('rhel-7-x64') {
                     agent {
-                        label 'min-centos-7-x64'
+                        label 'min-rhel-7-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -128,9 +133,9 @@ pipeline {
                         }
                     }
                 }
-                stage('centos-8-x64') {
+                stage('rhel-8-x64') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-rhel-8-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -142,6 +147,20 @@ pipeline {
                         }
                     }
                 }
+//                 stage('rhel-9-x64') {
+//                     agent {
+//                         label 'min-rhel-9-x64'
+//                     }
+//                     steps{
+//                         setup_rhel_package_tests()
+//                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+//                     }
+//                     post {
+//                         always {
+//                             deleteDir()
+//                         }
+//                     }
+//                 }
                 stage('focal-x64') {
                     agent {
                         label 'min-focal-x64'
@@ -170,9 +189,12 @@ pipeline {
                         }
                     }
                 }
-                stage('xenial-x64') {
+                stage('jammy-x64') {
                     agent {
-                        label 'min-xenial-x64'
+                        label 'min-jammy-x64'
+                    }
+                    when {
+                        expression { env.TESTS == "pmm2-client" }
                     }
                     steps{
                         setup_ubuntu_package_tests()
@@ -198,11 +220,14 @@ pipeline {
                         }
                     }
                 }
-                stage('stretch-x64') {
-                    agent {
-                        label 'min-stretch-x64'
+                stage('bullseye-x64') {
+                    when {
+                        expression { env.TESTS == "pmm2-client" || env.TESTS == "pmm2-client_upgrade" }
                     }
-                    steps{
+                    agent {
+                        label 'min-bullseye-x64'
+                    }
+                    steps {
                         setup_debian_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
                     }

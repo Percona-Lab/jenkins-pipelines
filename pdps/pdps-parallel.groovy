@@ -3,8 +3,6 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def operatingSystems = ['centos-6', 'centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
-
 pipeline {
   agent {
       label 'min-centos-7-x64'
@@ -25,27 +23,27 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.23',
+            defaultValue: '8.0.29',
             description: 'PDMYSQL version for test',
             name: 'VERSION'
          )
         string(
-            defaultValue: '2.0.18',
+            defaultValue: '2.3.2',
             description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
          )
         string(
-            defaultValue: '8.0.23',
+            defaultValue: '8.0.29',
             description: 'PXB version for test',
             name: 'PXB_VERSION'
          )
         string(
-            defaultValue: '3.3.1',
+            defaultValue: '3.4.0',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
          )
         string(
-            defaultValue: '3.1.4',
+            defaultValue: '3.2.6',
             description: 'Percona orchestrator version for test',
             name: 'ORCHESTRATOR_VERSION'
          )
@@ -56,8 +54,17 @@ pipeline {
         )
         string(
             defaultValue: 'master',
-            description: 'Branch for testing repository',
+            description: 'Branch for package-testing repository',
             name: 'TESTING_BRANCH')
+        string(
+            defaultValue: 'master',
+            description: 'Tests will be run from branch of  https://github.com/percona/orchestrator',
+            name: 'ORCHESTRATOR_TESTS_VERSION'
+        )
+        booleanParam(
+            name: 'MAJOR_REPO',
+            description: "Enable to use major (pdps-8.0) repo instead of pdps-8.0.XX"
+        )
   }
   options {
           withCredentials(moleculePdpsJenkinsCreds())
@@ -67,7 +74,7 @@ pipeline {
         stage('Set build name'){
           steps {
                     script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.MAJOR_REPO}"
                     }
                 }
             }
@@ -87,7 +94,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(operatingSystems, env.MOLECULE_DIR)
+                    moleculeParallelTest(pdpsOperatingSystems(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -95,7 +102,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(operatingSystems, env.MOLECULE_DIR)
+              moleculeParallelPostDestroy(pdpsOperatingSystems(), env.MOLECULE_DIR)
          }
       }
    }

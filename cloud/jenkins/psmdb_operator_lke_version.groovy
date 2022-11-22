@@ -1,5 +1,9 @@
 
 void CreateCluster(String CLUSTER_PREFIX) {
+    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+        env.OPERATOR_NS = 'psmdb-operator'
+    }
+
     sh '''
         retry() {
             local max=\$1
@@ -69,6 +73,15 @@ void popArtifactFile(String FILE_NAME) {
 }
 
 testsResultsMap = [:]
+testsReportMap = [:]
+TestsReport = '<testsuite name=\\"PSMDB\\">\n'
+
+void makeReport() {
+    for ( test in testsReportMap ) {
+        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
+    }
+    TestsReport = TestsReport + '</testsuite>\n'
+}
 
 void setTestsresults() {
     testsResultsMap.each { file ->
@@ -81,13 +94,13 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
+            testsReportMap[TEST_NAME] = 'failure'
 
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
-            popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}")
-            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG"] = 'failure'
+            popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
 
             sh """
-                if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG" ]; then
+                if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                     echo Skip $TEST_NAME test
                 else
                     cd ./source
@@ -109,12 +122,21 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                         export IMAGE_PMM=${IMAGE_PMM}
                     fi
 
+                    if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                    fi
+
+                    if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                        export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                    fi
+
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
                     ./e2e-tests/$TEST_NAME/run
                 fi
             """
-            pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG")
-            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG"] = 'passed'
+            pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
+            testsReportMap[TEST_NAME] = 'passed'
+            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}"] = 'passed'
             return true
         }
         catch (exc) {
@@ -141,9 +163,7 @@ repo_gpgcheck=0
 gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
         sudo mv /tmp/kubernetes.repo /etc/yum.repos.d
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 jq python3-pip kubectl || true
+        sudo yum install -y jq python3-pip kubectl || true
     '''
 }
 pipeline {
@@ -160,6 +180,10 @@ pipeline {
             defaultValue: '1.16',
             description: 'LKE version',
             name: 'PLATFORM_VER')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with cluster wide',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
@@ -176,6 +200,14 @@ pipeline {
             defaultValue: '',
             description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
             name: 'IMAGE_PMM')
+        string(
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     agent {
         label 'docker'
@@ -203,7 +235,7 @@ pipeline {
                 sh '''
                     sudo pip3 install --upgrade linode-cli
 
-                    curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
                     sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
@@ -242,6 +274,7 @@ pipeline {
         stage('Run Tests') {
             environment {
                 CLOUDSDK_CORE_DISABLE_PROMPTS = 1
+                CLEAN_NAMESPACE = 1
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                 VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
                 CLUSTER_NAME = sh(script: "echo jenkins-psmdb-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
@@ -273,6 +306,7 @@ pipeline {
                         runTest('liveness', 'basic')
                         runTest('users', 'basic')
                         runTest('data-sharded', 'basic')
+                        runTest('non-voting', 'basic')
                         ShutdownCluster('basic')
                     }
                 }
@@ -307,6 +341,13 @@ pipeline {
     post {
         always {
             setTestsresults()
+            makeReport()
+            sh """
+                echo "${TestsReport}" > TestsReport.xml
+            """
+            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            archiveArtifacts '*.xml'
+
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./*

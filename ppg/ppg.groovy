@@ -33,6 +33,18 @@ pipeline {
             description: 'PG scenario for test',
             choices: ppgScenarios()
         )
+        string(
+            defaultValue: 'main',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH')
+        string(
+            defaultValue: 'no',
+            description: 'Destroy VM after tests',
+            name: 'DESTROY_ENV')
+        booleanParam(
+            name: 'MAJOR_REPO',
+            description: "Enable to use major (ppg-14) repo instead of ppg-14.3"
+        )
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
@@ -53,7 +65,7 @@ pipeline {
     stage('Checkout') {
       steps {
             deleteDir()
-            git poll: false, branch: 'master', url: 'https://github.com/Percona-QA/ppg-testing.git'
+            git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/ppg-testing.git'
         }
     }
     stage ('Prepare') {
@@ -95,7 +107,9 @@ pipeline {
   post {
     always {
           script {
-             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+             if (env.DESTROY_ENV == "yes") {
+                        moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                    }
         }
     }
   }

@@ -1,0 +1,31 @@
+- job:
+    name: pgov2-docker-build
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: false
+    quiet-period: 28800
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 10
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 10
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - master
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: cloud/jenkins/pgo_docker_build.groovy
+    parameters:
+    - string:
+        name: GIT_REPO
+        default: https://github.com/percona/percona-postgresql-operator
+        description: percona/percona-postgresql-operator repository
+    - string:
+        name: GIT_BRANCH
+        default: pg_2.0
+        description: Tag/Branch for percona/percona-postgresql-operator repository

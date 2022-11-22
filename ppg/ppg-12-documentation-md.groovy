@@ -89,7 +89,7 @@ pipeline {
                     sh '''
                         sg docker -c "
                             docker pull perconalab/pmm-doc-md:latest
-                            docker run -i -v `pwd`:/docs -e USER_ID=$UID -e UMASK=0777 perconalab/pmm-doc-md mkdocs build -f mkdocs-pdf.yml
+                            docker run -i -v `pwd`:/docs -e USER_ID=$UID -e UMASK=0777 -e ENABLE_PDF_EXPORT=1 perconalab/pmm-doc-md mkdocs build -f mkdocs-pdf.yml
                         "
                     '''
                 }

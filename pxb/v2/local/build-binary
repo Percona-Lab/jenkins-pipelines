@@ -78,7 +78,7 @@ if [[ -n "$(which git)" ]] && [[ -d "${SOURCEDIR}/.git" ]]; then
 fi
 
 if [[ "${ASAN_SWITCH}" == "ON" ]]; then
-    CMAKE_OPTS=+" -DWITH_ASAN=ON"
+    CMAKE_OPTS+=" -DWITH_ASAN=ON"
     TAG+="-asan"
 fi
 

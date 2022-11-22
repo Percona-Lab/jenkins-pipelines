@@ -3,7 +3,6 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def operatingSystems = ['centos-6', 'centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
 
 pipeline {
   agent {
@@ -17,7 +16,7 @@ pipeline {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: operatingSystems
+            choices: pdpxcOperatingSystems()
         )
         choice(
             name: 'REPO',
@@ -61,7 +60,12 @@ pipeline {
         string(
             defaultValue: 'master',
             description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
+            name: 'TESTING_BRANCH'
+        )
+        booleanParam(
+            name: 'MAJOR_REPO',
+            description: "Enable to use major (pdpxc-8.0) repo instead of pdpxc-8.0.XX"
+        )
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())
@@ -71,7 +75,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-${env.SCENARIO}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-${env.SCENARIO}-${env.MAJOR_REPO}"
                 }
             }
         }

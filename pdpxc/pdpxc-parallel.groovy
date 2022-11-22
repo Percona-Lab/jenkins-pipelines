@@ -3,7 +3,6 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def operatingSystems = ['centos-6', 'centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
 
 pipeline {
   agent {
@@ -57,7 +56,12 @@ pipeline {
         string(
             defaultValue: 'master',
             description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
+            name: 'TESTING_BRANCH'
+        )
+        booleanParam(
+            name: 'MAJOR_REPO',
+            description: "Enable to use major (pdpxc-8.0) repo instead of pdpxc-8.0.XX"
+        )
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())
@@ -67,7 +71,7 @@ pipeline {
         stage('Set build name'){
           steps {
                     script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.MAJOR_REPO}"
                     }
                 }
             }
@@ -87,7 +91,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(operatingSystems, env.MOLECULE_DIR)
+                    moleculeParallelTest(pdpxcOperatingSystems(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -95,7 +99,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(operatingSystems, env.MOLECULE_DIR)
+              moleculeParallelPostDestroy(pdpxcOperatingSystems(), env.MOLECULE_DIR)
          }
       }
    }

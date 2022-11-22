@@ -2,159 +2,88 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
-void runUpgradeJob(String GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO) {
+
+void runUpgradeJob(String PMM_UI_GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO, PERFORM_DOCKER_WAY_UPGRADE, PMM_SERVER_TAG) {
     upgradeJob = build job: 'pmm2-upgrade-tests', parameters: [
-        string(name: 'GIT_BRANCH', value: GIT_BRANCH),
-        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
-        string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
+        string(name: 'PMM_UI_GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
+        string(name: 'CLIENT_VERSION', value: PMM_VERSION),
+        string(name: 'DOCKER_VERSION', value: PMM_VERSION),
         string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
-        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO)
+        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
+        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: ENABLE_EXPERIMENTAL_REPO),
+        string(name: 'PERFORM_DOCKER_WAY_UPGRADE', value: PERFORM_DOCKER_WAY_UPGRADE),
+        string(name: 'PMM_SERVER_TAG', value: PMM_SERVER_TAG)
     ]
 }
 
+def versions = pmmVersion('list_with_old')
+def parallelStagesMatrix = versions.collectEntries {
+    ["${it}" : generateStage(it)]
+}
+
+def generateStage(VERSION) {
+    return {
+        stage("${VERSION}") {
+            runUpgradeJob(
+                PMM_UI_GIT_BRANCH,
+                VERSION,
+                PMM_SERVER_LATEST,
+                ENABLE_TESTING_REPO,
+                ENABLE_EXPERIMENTAL_REPO,
+                PERFORM_DOCKER_WAY_UPGRADE,
+                PMM_SERVER_TAG
+            )
+        }
+    }
+}
+
+def latestVersion = pmmVersion()
+
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'cli'
     }
     parameters {
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-ui-tests repository',
-            name: 'GIT_BRANCH')
+            name: 'PMM_UI_GIT_BRANCH')
         string(
-            defaultValue: '2.22.0',
+            defaultValue: latestVersion,
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: '2.22.0',
+            defaultValue: latestVersion,
             description: 'RC PMM Server Version',
             name: 'PMM_SERVER_RC')
         choice(
             choices: ['no', 'yes'],
             description: 'Enable Testing Repo for RC',
             name: 'ENABLE_TESTING_REPO')
+        choice(
+            choices: ['yes', 'no'],
+            description: 'Enable EXPERIMENTAL Repo for Dev-latest',
+            name: 'ENABLE_EXPERIMENTAL_REPO')
+        choice(
+            choices: ['no', 'yes'],
+            description: 'Perform Docker way Upgrade using this option',
+            name: 'PERFORM_DOCKER_WAY_UPGRADE')
+        string(
+            defaultValue: 'perconalab/pmm-server:dev-latest',
+            description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
+            name: 'PMM_SERVER_TAG')
     }
     options {
-        skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-    triggers { 
-        cron('0 3 * * *') 
+    triggers {
+        cron('0 3 * * *')
     }
-    stages {
-        stage('Run Upgrade Matrix-1') {
-            parallel {
-                stage('Upgrade from 2.20.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.20.0', '2.20.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.21.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.21.0', '2.21.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.9.1'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.9.1', '2.9.1', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.10.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.10.0', '2.10.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.10.1'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.10.1', '2.10.1', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.11.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.11.0', '2.11.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.11.1'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.11.1', '2.11.1', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.12.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.12.0', '2.12.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.13.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.13.0', '2.13.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.14.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.14.0', '2.14.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.15.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.15.0', '2.15.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.15.1'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.15.1', '2.15.1', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.16.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.16.0', '2.16.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.17.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.17.0', '2.17.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.18.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.18.0', '2.18.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
-                }
-                stage('Upgrade from 2.19.0'){
-                    steps {
-                        script {
-                            runUpgradeJob(GIT_BRANCH,'2.19.0', '2.19.0', PMM_SERVER_LATEST, ENABLE_TESTING_REPO );
-                        }
-                    }
+    stages{
+        stage('Upgrade Matrix'){
+            steps{
+                script {
+                    parallel parallelStagesMatrix
                 }
             }
         }
@@ -168,7 +97,6 @@ pipeline {
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
             }
-            deleteDir()
         }
     }
 }

@@ -11,7 +11,7 @@ void runAMIStagingStart(AMI_ID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, AMI_UPGR
         string(name: 'AMI_UPGRADE_TESTING_INSTANCE', value: AMI_UPGRADE_TESTING_INSTANCE)
     ]
     env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
-    env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.IP
+    env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
     env.VM_IP = env.AMI_INSTANCE_IP
     env.PMM_URL = "http://admin:admin@${AMI_INSTANCE_IP}"
     env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}"
@@ -34,39 +34,7 @@ void customSetupAMIInstance(INSTANCE_IP) {
     }
 }
 
-void setInstanceAMIId(PMM_VERSION) {
-    switch(PMM_VERSION) {
-        case "2.15.0":
-            env.AMI_ID = "ami-086a3a95eefa9567f"
-            break;
-        case "2.15.1":
-            env.AMI_ID = "ami-073928dbea8c7ebc3"
-            break;
-        case "2.16.0":
-            env.AMI_ID = "ami-01097b383f63f7db5"
-            break;
-        case "2.17.0":
-            env.AMI_ID = "ami-03af848f3557ff8d0"
-            break;
-        case "2.18.0":
-            env.AMI_ID = "ami-0184c7b18b45d2a7b"
-            break;
-        case "2.19.0":
-            env.AMI_ID = "ami-0d3c21da426d248d3"
-            break;
-        case "2.20.0":
-            env.AMI_ID = "ami-04ad85dd7364bba21"
-            break;
-        case "2.21.0":
-            env.AMI_ID = "ami-0605d9dbdc9d6a233"
-            break;
-        case "custom":
-            env.AMI_ID = env.AMI_ID_CUSTOM
-            break;
-    }
-}
-
-void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO) {
+void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, NODE_TYPE) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
@@ -77,15 +45,19 @@ void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_Q
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
     ]
-    env.VM_CLIENT_IP = stagingJob.buildVariables.IP
-    env.VM_CLIENT_NAME = stagingJob.buildVariables.VM_NAME
+    if ( NODE_TYPE == 'remote-node' ) {
+        env.VM_CLIENT_IP = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME = stagingJob.buildVariables.VM_NAME
+    } else {
+        env.VM_CLIENT_IP_DB = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_DB = stagingJob.buildVariables.VM_NAME
+    }
+
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
         env.PMM_URL = "http://admin:admin@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
-    }
-    else
-    {
+    } else {
         env.PMM_URL = "http://admin:admin@${VM_IP}"
         env.PMM_UI_URL = "http://${VM_IP}/"
     }
@@ -103,65 +75,65 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${VM_IP} '
                 export PMM_VERSION=${PMM_VERSION}
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
-                bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh ${PMM_VERSION} ${PRE_POST} ami
+                bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh --distribution=ami --prepost-upgrade=${PRE_POST} --pmm-version=${PMM_VERSION}
             '
         """
     }
 }
 
-void checkClientAfterUpgrade(String PMM_VERSION, String PRE_POST) {
+void checkClientAfterUpgrade(String PMM_VERSION) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP} '
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP_DB} '
                 export PMM_VERSION=${PMM_VERSION}
                 echo "Upgrading pmm2-client";
                 sudo yum clean all
                 sudo yum makecache
                 sudo yum -y install pmm2-client
-                sudo yum -y update
+                sleep 20
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
-                bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION} ${PRE_POST}
+                bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION}
             '
         """
     }
 }
 
-void fetchAgentLog(String CLIENT_VERSION) {
-     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+void fetchAgentLogs(String CLIENT_VERSION) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP} '
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP_DB} '
                 set -o errexit
                 set -o xtrace
                 export CLIENT_VERSION=${CLIENT_VERSION}
                 if [[ \$CLIENT_VERSION != http* ]]; then
-                    journalctl -u pmm-agent.service > /var/log/pmm-agent.log
-                    sudo chmod 777 /var/log/pmm-agent.log
-                fi
-                if [[ -e /var/log/pmm-agent.log ]]; then
-                    cp /var/log/pmm-agent.log .
+                    journalctl -u pmm-agent.service > pmm-agent.log
+                    sudo chown ec2-user:ec2-user pmm-agent.log
                 fi
             '
             if [[ \$CLIENT_VERSION != http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
-                    ${USER}@${VM_CLIENT_IP}:pmm-agent.log \
+                    ${USER}@${VM_CLIENT_IP_DB}:pmm-agent.log \
                     pmm-agent.log
             fi
-        """
-    }
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
             if [[ \$CLIENT_VERSION == http* ]]; then
                 scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
-                    ${USER}@${VM_CLIENT_IP}:workspace/aws-staging-start/pmm-agent.log \
+                    ${USER}@${VM_CLIENT_IP_DB}:workspace/aws-staging-start/pmm-agent.log \
                     pmm-agent.log
             fi
         """
     }
 }
 
+def latestVersion = pmmVersion()
+def versionsList = pmmVersion('list')
+Map amiList = pmmVersion('ami')
+
+def amiID = amiList.containsKey(SERVER_VERSION.trim()) ? amiList[SERVER_VERSION.trim()] : AMI_ID_CUSTOM
+currentBuild.description = "AMI: $amiID"
+
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'agent-amd64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -187,6 +159,10 @@ pipeline {
         MAILOSAUR_API_KEY=credentials('MAILOSAUR_API_KEY')
         MAILOSAUR_SERVER_ID=credentials('MAILOSAUR_SERVER_ID')
         MAILOSAUR_SMTP_PASSWORD=credentials('MAILOSAUR_SMTP_PASSWORD')
+        PMM_QA_AURORA2_MYSQL_HOST=credentials('PMM_QA_AURORA2_MYSQL_HOST')
+        PMM_QA_AURORA2_MYSQL_PASSWORD=credentials('PMM_QA_AURORA2_MYSQL_PASSWORD')
+        PMM_QA_AWS_ACCESS_KEY_ID=credentials('PMM_QA_AWS_ACCESS_KEY_ID')
+        PMM_QA_AWS_ACCESS_KEY=credentials('PMM_QA_AWS_ACCESS_KEY')
         GCP_SERVER_IP=credentials('GCP_SERVER_IP')
         GCP_USER=credentials('GCP_USER')
         GCP_USER_PASSWORD=credentials('GCP_USER_PASSWORD')
@@ -201,19 +177,19 @@ pipeline {
             description: 'PMM Server AMI ID',
             name: 'AMI_ID_CUSTOM')
         choice(
-            choices: ['2.15.0','2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0', 'custom'],
+            choices: versionsList + ['custom'],
             description: 'PMM Server AMI ID to test for Upgrade',
             name: 'SERVER_VERSION')
         choice(
-            choices: ['2.15.0', '2.15.1', '2.16.0', '2.17.0', '2.18.0', '2.19.0', '2.20.0', '2.21.0'],
+            choices: versionsList,
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '2.22.0',
+            defaultValue: latestVersion,
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
@@ -231,42 +207,77 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                // clean up workspace and fetch pmm-ui-tests repository
-                deleteDir()
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
+                // fetch pmm-ui-tests repository
+                git poll: false,
+                    branch: GIT_BRANCH,
+                    url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                installDocker()
-                setInstanceAMIId(SERVER_VERSION)
+                slackSend channel: '#pmm-ci',
+                          color: '#0000FF',
+                          message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
-                    sudo yum -y install jq svn
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                         sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
-                        sudo chmod 755 pmm-tests/install-google-chrome.sh
-                        bash ./pmm-tests/install-google-chrome.sh
                         sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
                         sudo chmod 755 get_download_link.sh
                     popd
-                    sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
+                    sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
         }
         stage('Start AMI Server') {
             steps {
-                runAMIStagingStart(AMI_ID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, AMI_UPGRADE_TESTING_INSTANCE)
+                runAMIStagingStart(amiID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, AMI_UPGRADE_TESTING_INSTANCE)
                 customSetupAMIInstance(AMI_INSTANCE_IP)
             }
         }
         stage('Sanity check') {
             steps {
-                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+                sh '''
+                    set +xe
+                    COUNT=0
+                    TIMEOUT=100
+                    RET_VAL=1
+
+                    while true; do
+                        set -x
+                        # we only want to see the http code to improve troubleshooting
+                        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 ${PMM_URL}/ping)
+                        set +x
+                    
+                        if [[ $HTTP_CODE == "200" ]]; then
+                            RET_VAL=0
+                            break
+                        fi
+                        
+                        # 000 means the host is unreachable
+                        # curl is set to timeout in 5 secs if the host is unreachable, so we only sleep if otherwise
+                        [ $HTTP_CODE != "000" ] && sleep 5
+                        ((COUNT+=5))
+
+                        if [ $COUNT -ge $TIMEOUT ]; then
+                            echo "Warning: could not connect to ${PMM_URL}"
+                            break
+                        fi
+                    done
+                    exit $RET_VAL
+                '''
             }
         }
-        stage('Start Client Instance') {
-            steps {
-                runStagingClient(CLIENT_VERSION, '--addclient=ps,1 --setup-with-custom-queries --setup-remote-db', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO)
+        stage('Setup PMM Client Instances, Remote and Actual DB clients') {
+            parallel {
+                stage('Start Client Instance Remote Instance') {
+                    steps {
+                        runStagingClient(CLIENT_VERSION, '--setup-remote-db', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, 'remote-node')
+                    }
+                }
+                stage('Start Client Instance DB connect Instance') {
+                    steps {
+                        runStagingClient(CLIENT_VERSION, '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-queries', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, 'db-node')
+                    }
+                }
             }
         }
         stage('Sleep') {
@@ -283,63 +294,66 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
-                        sudo yum -y install nodejs
-                        npm install
-                        node -v
-                        npm -v
-                        sudo yum install -y gettext
+                        npm ci
                         envsubst < env.list > env.generated.list
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
                         ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@ami-upgrade'
                     """
-                    }
                 }
+            }
         }
         stage('Check Packages after Upgrade') {
             steps {
-                checkUpgrade(PMM_SERVER_LATEST, "post");
+                checkUpgrade(PMM_SERVER_LATEST, "afterUpgrade");
             }
         }
         stage('Check Client Upgrade') {
             steps {
-                checkClientAfterUpgrade(PMM_SERVER_LATEST, "post");
+                checkClientAfterUpgrade(PMM_SERVER_LATEST);
+                sh """
+                    export PWD=\$(pwd);
+                    export CHROMIUM_PATH=/usr/bin/chromium
+                    sleep 30
+                    ./node_modules/.bin/codeceptjs run --debug --steps -c pr.codecept.js --grep '(?=.*@post-client-upgrade)(?=.*@ami-upgrade)'
+                """
             }
         }
     }
     post {
         always {
-            // stop staging
-            sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-            '''
-            fetchAgentLog(CLIENT_VERSION)
             script {
-                if(env.AMI_INSTANCE_IP) {
-                    runAMIStaginStop(AMI_INSTANCE_ID)
-                }
-                if(env.VM_CLIENT_NAME)
-                {
-                    destroyStaging(VM_CLIENT_IP)
+                try {
+                    sh '''
+                        curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+                    '''
+                    fetchAgentLogs(CLIENT_VERSION)
+                } catch (err) {
+                    echo err.getMessage()
                 }
             }
-            sh '''
-                ./node_modules/.bin/mochawesome-merge tests/output/*.json > tests/output/combine_results.json || true
-                ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
-            '''
+            // stop staging
+            script {
+                if (env.AMI_INSTANCE_IP) {
+                    runAMIStaginStop(AMI_INSTANCE_ID)
+                }
+                if (env.VM_CLIENT_NAME) {
+                    destroyStaging(VM_CLIENT_IP)
+                }
+                if (env.VM_CLIENT_NAME_DB) {
+                    destroyStaging(VM_CLIENT_IP_DB)
+                }
+            }
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'tests/output/*.xml'
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
-                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-agent.log'
                 } else {
                     junit 'tests/output/*.xml'
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-agent.log'
                     archiveArtifacts artifacts: 'tests/output/*.png'
@@ -352,11 +366,6 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
-            sh '''
-                sudo rm -r node_modules/
-                sudo rm -r tests/output
-            '''
-            deleteDir()
         }
     }
 }

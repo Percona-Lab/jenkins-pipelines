@@ -17,11 +17,11 @@ pipeline {
             description: 'Repo components to create(coma separated)',
             name: 'COMPONENTS')
         string(
-            defaultValue: '6,7,8',
+            defaultValue: '7,8,9',
             description: 'Centos versions(coma separated)',
             name: 'CENTOS_VERSIONS')
         string(
-            defaultValue: 'stretch,buster,xenial,bionic,focal',
+            defaultValue: 'buster,bullseye,bionic,focal,jammy',
             description: 'Debian and Ubuntu release codenames(coma separated)',
             name: 'DEB_CODE_NAMES')
         string(

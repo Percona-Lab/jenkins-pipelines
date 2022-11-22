@@ -1,0 +1,15 @@
+- job:
+    name: update-repo-index
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+        Check repo.percona.com/index.html and update it if needed 
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'master'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: rel/jenkins/update-repo-index.groovy

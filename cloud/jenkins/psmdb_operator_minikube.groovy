@@ -1,3 +1,9 @@
+void IsRunTestsInClusterWide() {
+    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+        env.OPERATOR_NS = 'psmdb-operator'
+    }
+}
+
 void pushArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -37,11 +43,11 @@ void runTest(String TEST_NAME) {
 
             GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
             VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-            FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}"
+            def FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}"
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             testsReportMap[TEST_NAME] = 'failure'
 
-            popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG")
+            popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
             sh """
                 if [ -f "$FILE_NAME" ]; then
                     echo Skip $TEST_NAME test
@@ -65,11 +71,19 @@ void runTest(String TEST_NAME) {
                         export IMAGE_PMM=${IMAGE_PMM}
                     fi
 
+                    if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                    fi
+
+                    if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                        export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                    fi
+
                     sudo rm -rf /tmp/hostpath-provisioner/*
                     ./e2e-tests/$TEST_NAME/run
                 fi
             """
-            pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG")
+            pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
@@ -88,6 +102,17 @@ void runTest(String TEST_NAME) {
 
     echo "The $TEST_NAME test was finished!"
 }
+
+void conditionalRunTest(String TEST_NAME) {
+    if ( TEST_NAME == 'default-cr' ) {
+        if ( params.GIT_BRANCH.contains('release-') ) {
+            runTest(TEST_NAME)
+        }
+        return 0
+    }
+    runTest(TEST_NAME)
+}
+
 void installRpms() {
     sh '''
         cat <<EOF > /tmp/kubernetes.repo
@@ -101,10 +126,9 @@ gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cl
 EOF
         sudo mv /tmp/kubernetes.repo /etc/yum.repos.d/
 
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
         sudo yum clean all || true
-        sudo yum install -y percona-xtrabackup-80 jq kubectl socat
+        sudo rm -rf /var/cache/yum
+        sudo yum install -y jq kubectl socat
     '''
 }
 pipeline {
@@ -117,6 +141,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with cluster wide',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
@@ -134,10 +162,18 @@ pipeline {
             description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
             name: 'IMAGE_PMM')
         string(
-            defaultValue: 'v1.14.8',
+            defaultValue: 'v1.24.3',
             description: 'Kubernetes Version',
             name: 'PLATFORM_VER',
             trim: true)
+        string(
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     agent {
          label 'micro-amazon'
@@ -154,6 +190,7 @@ pipeline {
                 sh """
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
@@ -191,8 +228,12 @@ pipeline {
         stage('Tests') {
             agent { label 'docker-32gb' }
                 steps {
+                    IsRunTestsInClusterWide()
+
                     sh '''
                         sudo yum install -y conntrack
+                        sudo usermod -aG docker $USER
+
                         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                             rm -rf $HOME/google-cloud-sdk
                             curl https://sdk.cloud.google.com | bash
@@ -202,15 +243,12 @@ pipeline {
                         gcloud components install alpha
                         gcloud components install kubectl
 
-                        curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                        curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
                         export CHANGE_MINIKUBE_NONE_USER=true
-                        sudo -E /usr/local/bin/minikube start --vm-driver=none --kubernetes-version ${PLATFORM_VER}
-                        sudo mv /root/.kube /root/.minikube $HOME
-                        sudo chown -R $USER $HOME/.kube $HOME/.minikube
-                        sed -i s:/root:$HOME:g $HOME/.kube/config
+                        /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER}
 
                         sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
                         sudo chmod +x /usr/local/bin/yq
@@ -224,6 +262,7 @@ pipeline {
                     }
 
                     installRpms()
+                    conditionalRunTest('default-cr')
                     runTest('arbiter')
                     runTest('demand-backup')
                     runTest('limits')

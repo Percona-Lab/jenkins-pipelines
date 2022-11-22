@@ -50,6 +50,10 @@ pipeline {
             description: 'PG version for test',
             choices: ppgUpgradeScenarios()
         )
+        string(
+            defaultValue: 'main',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH')
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
@@ -66,7 +70,7 @@ pipeline {
     stage('Checkout') {
       steps {
             deleteDir()
-            git poll: false, branch: 'master', url: 'https://github.com/Percona-QA/ppg-testing.git'
+            git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/ppg-testing.git'
         }
     }
     stage ('Prepare') {
@@ -95,7 +99,6 @@ pipeline {
             script{
               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
             }
-            junit "${MOLECULE_DIR}/molecule/${PLATFORM}/report.xml"
         }
     }
       stage ('Start Cleanup ') {

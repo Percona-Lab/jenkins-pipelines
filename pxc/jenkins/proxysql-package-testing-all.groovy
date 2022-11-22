@@ -12,6 +12,7 @@ void runNodeBuild(String node_to_test) {
             string(name: 'node_to_test', value: node_to_test),
             string(name: 'git_repo', value: params.git_repo),
             string(name: 'client_to_test', value: params.client_to_test),
+            string(name: 'repo_for_client_to_test', value: params.repo_for_client_to_test)
         ],
         propagate: true,
         wait: true
@@ -29,7 +30,7 @@ pipeline {
         )
         choice(
             choices: ['testing', 'main', 'experimental'],
-            description: 'Choose the repo from which to install packages and run the tests',
+            description: 'Choose the repo to install proxysql packages from',
             name: 'install_repo'
         )
         string(
@@ -72,12 +73,6 @@ pipeline {
                     }
                 }
 
-                stage('Ubuntu Xenial') {
-                    steps {
-                        runNodeBuild('min-xenial-x64')
-                    }
-                }
-
                 stage('Ubuntu Bionic') {
                     steps {
                         runNodeBuild('min-bionic-x64')
@@ -102,13 +97,13 @@ pipeline {
                     }
                 }
 
-                stage('Centos 8') {
+                stage('Oracle Linux 8') {
                     steps {
                         script{
                             if (env.product_to_test == 'proxysql') {
-                                echo 'Proxysql is not available for Centos 8'
+                                echo 'Proxysql is not available for Oracle Linux 8'
                             } else {
-                                runNodeBuild('min-centos-8-x64')
+                                runNodeBuild('min-ol-8-x64')
                             }
                         }
                     }

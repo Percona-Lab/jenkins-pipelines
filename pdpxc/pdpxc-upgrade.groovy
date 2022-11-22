@@ -3,21 +3,19 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def operatingSystems = ['centos-6', 'centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
-
 pipeline {
   agent {
   label 'min-centos-7-x64'
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "molecule/pdmysql/pdpxc-upgrade";
+      MOLECULE_DIR = "molecule/pdmysql/pdpxc-minor-upgrade";
   }
   parameters {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: operatingSystems
+            choices: pdpxcOperatingSystems()
         )
         choice(
             name: 'FROM_REPO',
@@ -50,6 +48,26 @@ pipeline {
             defaultValue: 'master',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
+        string(
+            defaultValue: '2.0.18',
+            description: 'Proxysql version for test',
+            name: 'PROXYSQL_VERSION'
+         )
+        string(
+            defaultValue: '2.3.10',
+            description: 'HAProxy version for test',
+            name: 'HAPROXY_VERSION'
+         )
+        string(
+            defaultValue: '8.0.23',
+            description: 'PXB version for test',
+            name: 'PXB_VERSION'
+         )
+        string(
+            defaultValue: '3.3.1',
+            description: 'Percona toolkit version for test',
+            name: 'PT_VERSION'
+         )
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())
@@ -83,7 +101,7 @@ pipeline {
             }
         }
     }
-    stage ('Run playbook for test') {env.MOLECULE_DIR
+    stage ('Run playbook for test') {
       steps {
           script{
               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
@@ -95,7 +113,6 @@ pipeline {
             script{
               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
             }
-            junit "${MOLECULE_DIR}/report.xml"
         }
     }
     stage ('Start Cleanup ') {
@@ -109,7 +126,8 @@ pipeline {
   post {
     always {
           script {
-             moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.PLATFORM)
+             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+             junit "${MOLECULE_DIR}/report.xml"
         }
     }
   }

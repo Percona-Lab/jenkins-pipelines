@@ -61,6 +61,9 @@ wget_loop() {
 BOOST_VERSION=$(grep 'SET(BOOST_PACKAGE_NAME' ${SOURCEDIR}/cmake/boost.cmake | sed -re 's/.*([0-9]+_[0-9]+_[0-9]+).*/\1/')
 wget_loop "boost_${BOOST_VERSION}.tar.gz" "http://downloads.sourceforge.net/boost/boost/${BOOST_VERSION//_/.}/boost_${BOOST_VERSION}.tar.gz"
 GMOCK_VERSION=$(grep 'SET(GMOCK_PACKAGE_NAME' ${SOURCEDIR}/cmake/googletest.cmake | sed -re 's/.*([0-9]+[.][0-9]+[.][0-9]+).*/\1/')
+if [ -z ${GMOCK_VERSION} ]; then
+    GMOCK_VERSION=$(grep 'SET(GOOGLETEST_RELEASE' ${SOURCEDIR}/cmake/googletest.cmake | sed -re 's/.*([0-9]+[.][0-9]+[.][0-9]+).*/\1/')
+fi
 wget_loop "googletest-release-${GMOCK_VERSION}.zip" "https://github.com/google/googletest/archive/release-${GMOCK_VERSION}.zip"
 
 
@@ -106,7 +109,7 @@ PERCONA_SERVER_VERSION="$(echo $MYSQL_VERSION_EXTRA | sed 's/^-//')"
 PRODUCT="Percona-XtraDB-Cluster_$MYSQL_VERSION-$PERCONA_SERVER_VERSION"
 TOKUDB_BACKUP_VERSION="${MYSQL_VERSION}${MYSQL_VERSION_EXTRA}"
 PRODUCT_FULL="Percona-XtraDB-Cluster_${MYSQL_VERSION}-${PERCONA_SERVER_VERSION}${BUILD_COMMENT}-${TAG}$(uname -s)${DIST_NAME}.${TARGET_ARCH}${SSL_VER}"
-COMMENT="Percona XtraDB Cluster binar  (GPL), Release ${MYSQL_VERSION_EXTRA#-}, Revision ${REVISION:-}${BUILD_COMMENT}"
+COMMENT="Percona XtraDB Cluster binary  (GPL), Release ${MYSQL_VERSION_EXTRA#-}, Revision ${REVISION:-}${BUILD_COMMENT}"
 if [[ -n "$(which git)" ]] && [[ -f "$SOURCEDIR/percona-xtradb-cluster-galera/.git" ]]; then
     pushd $SOURCEDIR/percona-xtradb-cluster-galera
     GALERA_REVISION=$(git rev-parse --short HEAD)
