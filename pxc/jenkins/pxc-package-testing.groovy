@@ -193,7 +193,6 @@ pipeline {
         choice(
             name: 'node_to_test',
             choices: [
-                'ubuntu-jammy',
                 'ubuntu-focal',
                 'ubuntu-bionic',
                 'debian-11',

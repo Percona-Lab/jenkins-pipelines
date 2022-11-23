@@ -35,7 +35,9 @@ void runNodeBuild(String node_to_test) {
 }
 
 pipeline {
-    agent none
+    agent {
+        label 'docker'
+    }
 
     parameters {
         choice(
