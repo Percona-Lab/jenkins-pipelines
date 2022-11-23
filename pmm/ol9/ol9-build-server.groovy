@@ -120,23 +120,10 @@ pipeline {
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                         export RPMBUILD_DIST_PARAM=".el9"
                         # All rpms need to be rebuilt to avoid pulling .el7 pkgs from the S3 build cache
-                        export FORCE_REBUILD=1
+                        // export FORCE_REBUILD=1
                         export PATH=$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
 
-                        # 1st-party
-                        build-server-rpm percona-dashboards grafana-dashboards
-                        build-server-rpm pmm-managed pmm
-                        build-server-rpm percona-qan-api2 pmm
-                        build-server-rpm pmm-update
-                        build-server-rpm dbaas-controller
-                        build-server-rpm dbaas-tools
-                        build-server-rpm pmm-dump
-
-                        # 3rd-party
-                        build-server-rpm victoriametrics
-                        build-server-rpm alertmanager
-                        build-server-rpm grafana
-                        # build-server-rpm grafana-db-migrator
+                        build-server-rpm-all
                     '''
                 }
                 stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'
