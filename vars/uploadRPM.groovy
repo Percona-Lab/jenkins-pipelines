@@ -4,7 +4,7 @@ def call() {
         unstash 'rpms'
         unstash 'uploadPath'
         withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
-            sh """
+            sh '''
                 export path_to_build=`cat uploadPath`
 
                 # Upload source packages
@@ -19,7 +19,7 @@ def call() {
 
                 # Upload binary packages
                 RHEL=("6" "7" "8" "9")
-                for rhel in ${RHEL[*]}; do
+                for rhel in ${RHEL[@]}; do
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                         mkdir -p ${path_to_build}/binary/redhat/${rhel}/x86_64
                     if [ `find . -name "*.el${rhel}.noarch.rpm" -o -name "*.el${rhel}.x86_64.rpm" | wc -l` -gt 0 ]; then
@@ -28,7 +28,7 @@ def call() {
                             ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/${rhel}/x86_64/
                     fi
                 done
-            """
+            '''
         }
         deleteDir()
     }
