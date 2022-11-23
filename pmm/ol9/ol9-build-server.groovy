@@ -57,8 +57,8 @@ pipeline {
                 }
 
                 archiveArtifacts 'uploadPath'
-                stash includes: 'uploadPath', name: 'uploadPath'
                 archiveArtifacts 'shortCommit'
+                stash includes: 'uploadPath', name: 'uploadPath'
                 slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
@@ -119,9 +119,9 @@ pipeline {
                         export ROOT_DIR=${WORKSPACE}
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                         export RPMBUILD_DIST_PARAM=".el9"
-                        export PATH=$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
                         # All rpms need to be rebuilt to avoid pulling .el7 pkgs from the S3 build cache
                         export FORCE_REBUILD=1
+                        export PATH=$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
 
                         # 1st-party
                         build-server-rpm percona-dashboards grafana-dashboards
@@ -156,7 +156,7 @@ pipeline {
 
                     export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
                     export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                    export DOCKERFILE=Dockerfile.ol9
+                    export DOCKERFILE=Dockerfile.el9
                     # Build a docker image
                     ${PATH_TO_SCRIPTS}/build-server-docker
 
