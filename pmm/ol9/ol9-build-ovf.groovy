@@ -1,7 +1,4 @@
 def pmmVersion = 'dev-latest'
-if (RELEASE_CANDIDATE == 'yes') {
-    pmmVersion = PMM_BRANCH.split('-')[1] //release branch should be in format: pmm-2.x.y
-}
 
 pipeline {
     agent {
@@ -27,6 +24,11 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                script {
+                    if (params.RELEASE_CANDIDATE == 'yes') {
+                        pmmVersion = PMM_BRANCH.split('-')[1] //release branch should be in format: pmm-2.x.y
+                    }
+                }
                 withCredentials([string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
                     sh '''
                         set -o xtrace
@@ -58,7 +60,7 @@ pipeline {
 
         stage('Build Image Release Candidate') {
             when {
-                expression { env.RELEASE_CANDIDATE == "yes" }
+                expression { params.RELEASE_CANDIDATE == "yes" }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -80,7 +82,7 @@ pipeline {
         }
         stage('Build Image Dev-Latest') {
             when {
-                expression { env.RELEASE_CANDIDATE == "no" }
+                expression { params.RELEASE_CANDIDATE == "no" }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -103,7 +105,7 @@ pipeline {
 
         stage('Upload Release Candidate') {
             when {
-                expression { env.RELEASE_CANDIDATE == "yes" }
+                expression { params.RELEASE_CANDIDATE == "yes" }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -129,7 +131,7 @@ pipeline {
         }
         stage('Upload Dev-Latest') {
             when {
-                expression { env.RELEASE_CANDIDATE == "no" }
+                expression { params.RELEASE_CANDIDATE == "no" }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
