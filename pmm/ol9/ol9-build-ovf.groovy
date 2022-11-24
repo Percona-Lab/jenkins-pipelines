@@ -63,14 +63,14 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     dir("build") {
-                        sh """
+                        sh '''
                             /usr/bin/packer build \
                             -var 'pmm_client_repos=original testing' \
                             -var 'pmm_client_repo_name=percona-testing-x86_64' \
                             -var 'pmm2_server_repo=testing' \
                             -only virtualbox-ovf -color=false packer/pmm2.el9.json \
                                 | tee build.log
-                        """
+                        '''
                     }
                 }
                 sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
@@ -85,14 +85,14 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     dir("build") {
-                        sh """
+                        sh '''
                             /usr/bin/packer build \
                             -var 'pmm_client_repos=original experimental' \
                             -var 'pmm_client_repo_name=percona-experimental-x86_64' \
                             -var 'pmm2_server_repo=experimental' \
                             -only virtualbox-ovf -color=false packer/pmm2.json \
                                 | tee build.log
-                        """
+                        '''
                     }
                 }
                 sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
@@ -107,21 +107,23 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        FILE=\$(ls */*/*.ova)
-                        NAME=\$(basename \${FILE})
-                        aws s3 cp \
-                            --only-show-errors \
-                            --acl public-read \
-                            \${FILE} \
-                            s3://percona-vm/\${NAME}
+                    withEnv(['pmmVersion=' + pmmVersion]) {
+                        sh '''
+                            FILE=$(ls */*/*.ova)
+                            NAME=$(basename ${FILE})
+                            aws s3 cp \
+                                --only-show-errors \
+                                --acl public-read \
+                                ${FILE} \
+                                s3://percona-vm/${NAME}
 
-                        aws s3 cp \
-                            --only-show-errors \
-                            --acl public-read \
-                            s3://percona-vm/\${NAME} \
-                            s3://percona-vm/PMM2-Server-${pmmVersion}.ova
-                    """
+                            aws s3 cp \
+                                --only-show-errors \
+                                --acl public-read \
+                                s3://percona-vm/${NAME} \
+                                s3://percona-vm/PMM2-Server-${pmmVersion}.ova
+                        '''
+                    }
                 }
             }
         }
@@ -131,7 +133,7 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         FILE=$(ls */*/*.ova)
                         NAME=$(basename ${FILE})
                         aws s3 cp \
@@ -148,7 +150,7 @@ pipeline {
                             --website-redirect /${NAME} \
                             PMM2-Server-dev-latest.ova \
                             s3://percona-vm/PMM2-Server-dev-latest.ova
-                    """
+                    '''
                 }
             }
         }
