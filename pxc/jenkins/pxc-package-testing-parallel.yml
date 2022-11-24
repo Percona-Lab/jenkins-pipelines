@@ -43,3 +43,9 @@
                 - "centos-7"
                 - "ol-8"
             description: "Node in which to test the product"
+        - choice:
+            name: pxc57_repo
+            choices:
+                - "original"
+                - "pxc57"
+            description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."

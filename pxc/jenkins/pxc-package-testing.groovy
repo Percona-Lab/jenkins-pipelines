@@ -41,6 +41,7 @@ void runMoleculeAction(String action, String product_to_test, String scenario) {
             source venv/bin/activate
             export MOLECULE_DEBUG=0
             export install_repo=${params.install_repo}
+            export pxc57repo=${params.pxc57_repo}
             cd package-testing/molecule/pxc
 
             cd ${product_to_test}-bootstrap
@@ -210,6 +211,11 @@ pipeline {
                 'experimental'
             ],
             description: 'Repo to install packages from'
+        )
+        choice(
+            name: "pxc57_repo",
+            choices: ["original","pxc57" ],
+            description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."
         )
     }
 
