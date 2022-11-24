@@ -119,11 +119,10 @@ pipeline {
                         export ROOT_DIR=${WORKSPACE}
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                         export RPMBUILD_DIST_PARAM=".el9"
-                        # All rpms need to be rebuilt to avoid pulling .el7 pkgs from the S3 build cache
+                        # Set this variable if we need to rebuils all rpms, for example to refresh stale assets stored in S3 build cache
                         # export FORCE_REBUILD=1
-                        export PATH=$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
 
-                        build-server-rpm-all
+                        ${PATH_TO_SCRIPTS}/build-server-rpm-all
                     '''
                 }
                 stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'

@@ -1,12 +1,7 @@
-/**
- * This is a clone of pmm2-ovf.groovy that is adapted for building an OVF image using ol9
-*/
-
 def pmmVersion = 'dev-latest'
 if (RELEASE_CANDIDATE == 'yes') {
     pmmVersion = PMM_BRANCH.split('-')[1] //release branch should be in format: pmm-2.x.y
 }
-
 
 pipeline {
     environment {
