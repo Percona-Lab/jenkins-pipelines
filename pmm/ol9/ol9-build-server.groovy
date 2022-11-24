@@ -129,37 +129,37 @@ pipeline {
                 uploadRPM()
             }
         }
-        stage('Build server docker') {
-            steps {
-                withCredentials([
-                    usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                        sh '''
-                            echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                        '''
-                }
-                sh '''
-                    set -o errexit
+        // stage('Build server docker') {
+        //     steps {
+        //         withCredentials([
+        //             usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        //                 sh '''
+        //                     echo "${PASS}" | docker login -u "${USER}" --password-stdin
+        //                 '''
+        //         }
+        //         sh '''
+        //             set -o errexit
 
-                    export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
-                    export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                    export DOCKERFILE=Dockerfile.el9
-                    # Build a docker image
-                    ${PATH_TO_SCRIPTS}/build-server-docker
+        //             export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
+        //             export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+        //             export DOCKERFILE=Dockerfile.el9
+        //             # Build a docker image
+        //             ${PATH_TO_SCRIPTS}/build-server-docker
 
-                    if [ -n ${DOCKER_RC_TAG} ]; then
-                        docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
-                        docker push perconalab/pmm-server:${DOCKER_RC_TAG}
-                    fi
-                    docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                    docker push ${DOCKER_TAG}
-                    docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                '''
-                // stash includes: 'results/docker/TAG', name: 'IMAGE'
-                script {
-                    env.IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                }
-            }
-        }
+        //             if [ -n ${DOCKER_RC_TAG} ]; then
+        //                 docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
+        //                 docker push perconalab/pmm-server:${DOCKER_RC_TAG}
+        //             fi
+        //             docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
+        //             docker push ${DOCKER_TAG}
+        //             docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
+        //         '''
+        //         // stash includes: 'results/docker/TAG', name: 'IMAGE'
+        //         script {
+        //             env.IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+        //         }
+        //     }
+        // }
         stage('Sign packages') {
             steps {
                 signRPM()
