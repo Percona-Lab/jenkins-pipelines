@@ -6,7 +6,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'main',
+            defaultValue: 'PMM-6352-custom-build-el9',
             description: 'Tag/Branch for pmm repository',
             name: 'PMM_BRANCH')
         choice(
