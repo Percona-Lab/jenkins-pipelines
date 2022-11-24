@@ -108,6 +108,41 @@ void uploadAllureArtifacts() {
         """
     }
 }
+
+void fetchAgentLog(String CLIENT_VERSION, String CLIENT_HOST_IP, String AGENT_LOG_NAME) {
+     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${CLIENT_HOST_IP} '
+                set -o errexit
+                set -o xtrace
+                export CLIENT_VERSION=${CLIENT_VERSION}
+                if [[ \$CLIENT_VERSION != http* ]]; then
+                    ls -la
+                    pwd
+                    journalctl -u pmm-agent.service > pmm-agent.log
+                    sudo chown ec2-user:ec2-user pmm-agent.log
+                fi
+            '
+            if [[ \$CLIENT_VERSION != http* ]]; then
+                scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+                    ${USER}@${CLIENT_HOST_IP}:pmm-agent.log \
+                    ${AGENT_LOG_NAME}.log
+            fi
+        """
+    }
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            export CLIENT_HOST_IP=${CLIENT_HOST_IP}
+            export AGENT_LOG_NAME=${AGENT_LOG_NAME}
+            if [[ \$CLIENT_VERSION == http* ]]; then
+                scp -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+                    ${USER}@${CLIENT_HOST_IP}:workspace/aws-staging-start/pmm-agent.log \
+                    ${AGENT_LOG_NAME}.log
+            fi
+        """
+    }
+}
+
 pipeline {
     agent {
         label 'min-focal-x64'
@@ -331,7 +366,7 @@ pipeline {
                             sh """
                                 sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                                 export PWD=\$(pwd);
-                                npx codeceptjs run --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
+                                npx codeceptjs run --steps -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
                             """
                         }
                     }
@@ -373,19 +408,9 @@ pipeline {
                 }
                 if(env.VM_CLIENT_NAME_MYSQL)
                 {
+                    fetchAgentLog(CLIENT_VERSION, VM_CLIENT_IP_MYSQL, 'mysql_client_pmm_agent')
                     destroyStaging(VM_CLIENT_NAME_MYSQL)
-                }
-                if(env.VM_CLIENT_NAME_MONGO)
-                {
-                    destroyStaging(VM_CLIENT_NAME_MONGO)
-                }
-                if(env.VM_CLIENT_NAME_PXC)
-                {
-                    destroyStaging(VM_CLIENT_NAME_PXC)
-                }
-                if(env.VM_CLIENT_NAME_PGSQL)
-                {
-                    destroyStaging(VM_CLIENT_NAME_PGSQL)
+                    archiveArtifacts artifacts: 'mysql_client_pmm_agent.log'
                 }
             }
             script {
