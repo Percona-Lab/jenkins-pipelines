@@ -41,7 +41,14 @@ void runMoleculeAction(String action, String product_to_test, String scenario) {
             source venv/bin/activate
             export MOLECULE_DEBUG=0
             export install_repo=${params.install_repo}
-            export pxc57repo=${params.pxc57_repo}
+            
+            if [[ ${product_to_test} = "pxc57" ]];
+            then
+                export pxc57repo=${params.pxc57_repo}
+            else
+                echo "Product is not pxc57 so skipping value assignment to it"
+            fi
+            
             cd package-testing/molecule/pxc
 
             cd ${product_to_test}-bootstrap
