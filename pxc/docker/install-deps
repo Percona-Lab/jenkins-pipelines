@@ -370,8 +370,13 @@ if [ -f /usr/bin/yum ]; then
 fi
 
 export PERL_MM_USE_DEFAULT=1
-cpan -T Memcached::libmemcached
-cpan -T Cache::Memcached::libmemcached
+if [[ ${RHVER} -eq 7 ]]; then
+    sudo cpan -T Memcached::libmemcached
+    sudo cpan -T Cache::Memcached::libmemcached
+else
+    cpan -T Memcached::libmemcached
+    cpan -T Cache::Memcached::libmemcached
+fi
 
 # getting rid of the "fatal: detected dubious ownership in repository at ..." error
 git config --system --add safe.directory '*'
