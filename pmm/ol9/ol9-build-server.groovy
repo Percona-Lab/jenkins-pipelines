@@ -118,7 +118,7 @@ pipeline {
                         # These are used by `src/github.com/percona/pmm/build/scripts/vars`
                         export ROOT_DIR=${WORKSPACE}
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                        export RPMBUILD_DIST_PARAM=".el9"
+                        export RPMBUILD_DIST_PARAM="el9"
                         # Set this variable if we need to rebuils all rpms, for example to refresh stale assets stored in S3 build cache
                         # export FORCE_REBUILD=1
 
