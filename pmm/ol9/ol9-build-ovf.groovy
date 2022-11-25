@@ -1,4 +1,4 @@
-def PMM_VERSION = 'dev-latest'
+def PMM_VERSION = 'dev-latest-el9'
 
 pipeline {
     agent {
@@ -144,14 +144,14 @@ pipeline {
                             ${FILE} \
                             s3://percona-vm/${NAME}
 
-                        # Investigate, seems like a failover for whoever relies on this filename
-                        echo /${NAME} > PMM2-Server-dev-latest.ova
+                        # This will redirect to the image above
+                        echo /${NAME} > PMM2-Server-dev-latest-el9.ova
 
                         aws s3 cp \
                             --only-show-errors \
                             --website-redirect /${NAME} \
-                            PMM2-Server-dev-latest.ova \
-                            s3://percona-vm/PMM2-Server-dev-latest.ova
+                            PMM2-Server-dev-latest-el9.ova \
+                            s3://percona-vm/PMM2-Server-dev-latest-el9.ova
                     '''
                 }
             }
