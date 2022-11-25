@@ -72,7 +72,7 @@ pipeline {
                             sh """
                                 ${PATH_TO_SCRIPTS}/build-client-binary
                                 aws s3 cp --acl public-read results/tarball/pmm2-client-*.tar.gz \
-                                    s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz
+                                    s3://pmm-build-cache/PR-BUILDS/el9/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz
                             """
                         }
                         stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
@@ -176,7 +176,7 @@ ENDSSH
     post {
         always {
             script {
-                env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz"
+                env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/el9/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz"
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
                     slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo"
