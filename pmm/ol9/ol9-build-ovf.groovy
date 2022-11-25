@@ -1,4 +1,4 @@
-def pmmVersion = 'dev-latest'
+def PMM_VERSION = 'dev-latest'
 
 pipeline {
     agent {
@@ -26,7 +26,7 @@ pipeline {
             steps {
                 script {
                     if (params.RELEASE_CANDIDATE == 'yes') {
-                        pmmVersion = PMM_BRANCH.split('-')[1] //release branch should be in format: pmm-2.x.y
+                        PMM_VERSION = PMM_BRANCH.split('-')[1] //release branch should be in format: pmm-2.x.y
                     }
                 }
                 withCredentials([string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
@@ -52,7 +52,7 @@ pipeline {
                           userRemoteConfigs: [[url: 'https://github.com/percona/pmm.git']]])
                 dir('build') {
                     sh '''
-                        make fetch
+                        make fetch-el9
                     '''
                 }
             }
@@ -109,7 +109,7 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    withEnv(['pmmVersion=' + pmmVersion]) {
+                    withEnv(['PMM_VERSION=' + PMM_VERSION]) {
                         sh '''
                             FILE=$(ls */*/*.ova)
                             NAME=$(basename ${FILE})
@@ -123,7 +123,7 @@ pipeline {
                                 --only-show-errors \
                                 --acl public-read \
                                 s3://percona-vm/${NAME} \
-                                s3://percona-vm/PMM2-Server-${pmmVersion}.ova
+                                s3://percona-vm/PMM2-Server-${PMM_VERSION}.ova
                         '''
                     }
                 }
@@ -165,7 +165,7 @@ pipeline {
                 def IMAGE = sh(returnStdout: true, script: "cat IMAGE").trim()
                 if (params.RELEASE_CANDIDATE == "yes"){
                     currentBuild.description = "OL9 RC Build, Image: " + IMAGE
-                    // slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} OL9 RC build finished - http://percona-vm.s3.amazonaws.com/PMM2-Server-${pmmVersion}.ova"
+                    // slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} OL9 RC build finished - http://percona-vm.s3.amazonaws.com/PMM2-Server-${PMM_VERSION}.ova"
                 } else {
                     slackSend botUser: true, channel: '@alexander.tymchuk', color: '#00FF00', message: "[${JOB_NAME}]: build finished - http://percona-vm.s3.amazonaws.com/${IMAGE}"
                     // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - http://percona-vm.s3.amazonaws.com/${IMAGE}"
