@@ -22,13 +22,13 @@
         script-path: pxc/jenkins/pxc-package-testing.groovy
     parameters:
         - choice:
-            name: VERSION
+            name: product_to_test
             choices:
                 - 'pxc80'
                 - 'pxc57'
             description: "PXC version to test"
         - choice:
-            name: TEST_DIST
+            name: node_to_test
             choices:
                 - 'ubuntu-focal'
                 - 'ubuntu-bionic'
@@ -38,7 +38,7 @@
                 - 'ol-8'
             description: "Distribution to run test"
         - choice:
-            name: INSTALL_REPO
+            name: install_repo
             choices:
                 - "testing"
                 - "main"
