@@ -380,6 +380,9 @@ pipeline {
             }
         }
         stage ('Test major upgrade') {
+            when {
+                expression { env.MAJOR_VERSION != '11' }
+            }
             steps {
                 script {
                     try {
