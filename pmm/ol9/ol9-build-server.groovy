@@ -37,20 +37,22 @@ pipeline {
                 git poll: true,
                     branch: GIT_BRANCH,
                     url: 'http://github.com/Percona-Lab/pmm-submodules'
+                script {
+                    env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+                }
                 sh '''
                     set -o errexit
                     git submodule update --init --jobs 10
                     git submodule status
 
                     git rev-parse --short HEAD > shortCommit
-                    echo "UPLOAD/pmm2-components/yum/${DESTINATION}/${JOB_NAME}/pmm/$(cat VERSION)/${GIT_BRANCH}/$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
+                    echo "UPLOAD/pmm2-components/yum/${DESTINATION}/${JOB_NAME}/pmm/${VERSION}/${GIT_BRANCH}/$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
                 '''
 
                 script {
-                    def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
                     if (params.DESTINATION == "testing") {
-                        env.DOCKER_LATEST_TAG = "${versionTag}-ol9B${BUILD_NUMBER}"
-                        env.DOCKER_RC_TAG = "${versionTag}-ol9"
+                        env.DOCKER_LATEST_TAG = "${VERSION}-ol9B${BUILD_NUMBER}"
+                        env.DOCKER_RC_TAG = "${VERSION}-ol9"
                     } else {
                         env.DOCKER_LATEST_TAG = "dev-latest"
                     }
@@ -129,37 +131,43 @@ pipeline {
                 uploadRPM()
             }
         }
-        // stage('Build server docker') {
-        //     steps {
-        //         withCredentials([
-        //             usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        //                 sh '''
-        //                     echo "${PASS}" | docker login -u "${USER}" --password-stdin
-        //                 '''
-        //         }
-        //         sh '''
-        //             set -o errexit
+        stage('Build server docker') {
+            steps {
+                withCredentials([
+                    usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                        sh '''
+                            echo "${PASS}" | docker login -u "${USER}" --password-stdin
+                        '''
+                }
+                sh '''
+                    set -o errexit
 
-        //             export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
-        //             export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-        //             export DOCKERFILE=Dockerfile.el9
-        //             # Build a docker image
-        //             ${PATH_TO_SCRIPTS}/build-server-docker
+                    # TODO: DOCKER_TAG for RC should be a real version, not a date
+                    if [ -n ${DOCKER_RC_TAG} ]; then
+                        export DOCKER_TAG=perconalab/pmm-server:${VERSION}
+                    else
+                        export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
+                    fi
 
-        //             if [ -n ${DOCKER_RC_TAG} ]; then
-        //                 docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
-        //                 docker push perconalab/pmm-server:${DOCKER_RC_TAG}
-        //             fi
-        //             docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
-        //             docker push ${DOCKER_TAG}
-        //             docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
-        //         '''
-        //         // stash includes: 'results/docker/TAG', name: 'IMAGE'
-        //         script {
-        //             env.IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-        //         }
-        //     }
-        // }
+                    export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                    export DOCKERFILE=Dockerfile.el9
+                    # Build a docker image
+                    ${PATH_TO_SCRIPTS}/build-server-docker
+
+                    if [ -n ${DOCKER_RC_TAG} ]; then
+                        docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
+                        docker push perconalab/pmm-server:${DOCKER_RC_TAG}
+                    fi
+                    docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
+                    docker push ${DOCKER_TAG}
+                    docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
+                '''
+                // stash includes: 'results/docker/TAG', name: 'IMAGE'
+                script {
+                    env.IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                }
+            }
+        }
         stage('Sign packages') {
             steps {
                 signRPM()
