@@ -146,6 +146,18 @@ pipeline {
                 }
             }
         }
+        stage('Upgrade workaround for nginx package') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        export REPO=${REPO}
+                        export PUBLIC_IP=${PUBLIC_IP}
+                        ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${PUBLIC_IP} '
+                            sudo sed -i 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
+                        '
+                    """
+            }
+        }
         stage('Enable Testing Repo') {
             when {
                 expression { env.ENABLE_TESTING_REPO == "yes" && env.ENABLE_EXPERIMENTAL_REPO == "no" }
