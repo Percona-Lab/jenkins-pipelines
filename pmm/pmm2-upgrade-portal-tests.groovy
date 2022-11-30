@@ -46,6 +46,10 @@ def getPMMClientVersion(String PMM_CLIENT_VERSION, String PMM_CLIENT_VERSION_CUS
     return PMM_CLIENT_VERSION == "custom" ? PMM_CLIENT_VERSION_CUSTOM : PMM_CLIENT_VERSION
 }
 
+def getMinorVersion(VERSION) {
+    return VERSION.split("\\.")[1].toInteger()
+}
+
 pipeline {
     agent {
         label 'agent-amd64'
@@ -151,6 +155,22 @@ pipeline {
         stage('Sleep') {
             steps {
                 sleep 60
+            }
+        }
+        stage('Upgrade workaround for nginx package') {
+            when {
+                expression { getMinorVersion(DOCKER_VERSION) <= 32 }
+            }
+            steps{
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} ' 
+                            set -o errexit
+                            set -o xtrace
+                            docker exec ${VM_NAME}-server sed -i 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
+                        '
+                    """
+                }
             }
         }
         stage('Enable Testing Repo') {

@@ -196,6 +196,16 @@ pipeline {
                 '''
             }
         }
+        stage('Upgrade workaround for nginx package') {
+            when {
+                expression { getMinorVersion(DOCKER_VERSION) <= 32 }
+            }
+            steps {
+                sh '''
+                    docker exec pmm-server sed -i 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
+                '''
+            }
+        }
         stage('Enable Testing Repo') {
             when {
                 expression { env.ENABLE_TESTING_REPO == "yes" && env.ENABLE_EXPERIMENTAL_REPO == "no" }
