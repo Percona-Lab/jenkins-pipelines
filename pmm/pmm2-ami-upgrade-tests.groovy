@@ -72,6 +72,8 @@ void destroyStaging(IP) {
 void checkUpgrade(String PMM_VERSION, String PRE_POST) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
+            sudo apt-get update
+            sudo apt-get install python3.6
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${VM_IP} '
                 export PMM_VERSION=${PMM_VERSION}
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
