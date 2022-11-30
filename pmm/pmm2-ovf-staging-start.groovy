@@ -152,10 +152,11 @@ pipeline {
                     sh """
                         export REPO=${REPO}
                         export PUBLIC_IP=${PUBLIC_IP}
-                        ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${PUBLIC_IP} '
+                        ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${PUBLIC_IP} "
                             sudo sed -i 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
-                        '
+                        "
                     """
+                }
             }
         }
         stage('Enable Testing Repo') {
