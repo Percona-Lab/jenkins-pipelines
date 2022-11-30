@@ -74,12 +74,13 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST, String OVF_INSTANCE_NAME)
     node(env.OVF_INSTANCE_NAME) {
         withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
             sh """
-                sudo yum install -y python3
                 ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${OVF_INSTANCE_IP} '
+                    sudo yum update -y
+                    sudo yum install -y python3
                     export PMM_VERSION=${PMM_VERSION}
                     export OVF_INSTANCE_NAME=${OVF_INSTANCE_NAME}
                     sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-                    python /srv/pmm-qa/pmm-tests/check_upgrade.py --env=ami --pre_post=${PRE_POST} --version=${PMM_VERSION}
+                    python3 /srv/pmm-qa/pmm-tests/check_upgrade.py --env=ami --pre_post=${PRE_POST} --version=${PMM_VERSION}
                 '
             """
         }

@@ -72,11 +72,13 @@ void destroyStaging(IP) {
 void checkUpgrade(String PMM_VERSION, String PRE_POST) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
-            sudo yum install -y python3
+
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${VM_IP} '
+                sudo yum update -y
+                sudo yum install -y python3
                 export PMM_VERSION=${PMM_VERSION}
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-                python /srv/pmm-qa/pmm-tests/check_upgrade.py --env=ami --pre_post=${PRE_POST} --version=${PMM_VERSION}
+                python3 /srv/pmm-qa/pmm-tests/check_upgrade.py --env=ami --pre_post=${PRE_POST} --version=${PMM_VERSION}
             '
         """
     }
