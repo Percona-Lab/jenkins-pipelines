@@ -77,8 +77,8 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST, String OVF_INSTANCE_NAME)
                 ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${OVF_INSTANCE_IP} '
                     export PMM_VERSION=${PMM_VERSION}
                     export OVF_INSTANCE_NAME=${OVF_INSTANCE_NAME}
-                    sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
-                    bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh --distribution=ami --prepost-upgrade=${PRE_POST} --pmm-version=${PMM_VERSION}
+                    sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
+                    python3 /srv/pmm-qa/pmm-tests/check_upgrade.py --env=ami --pre_post=${PRE_POST} --version=${PMM_VERSION}
                 '
             """
         }
