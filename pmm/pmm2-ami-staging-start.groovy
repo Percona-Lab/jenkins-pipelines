@@ -214,9 +214,9 @@ pipeline {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
-                            sudo sed -i ''s/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
-                        '
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
+                            sudo sed -i 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
+                        "
                     '''
                 }
             }
