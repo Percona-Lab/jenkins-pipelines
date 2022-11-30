@@ -159,7 +159,7 @@ pipeline {
         }
         stage('Upgrade workaround for nginx package') {
             when {
-                expression { getMinorVersion(DOCKER_VERSION) <= 32 }
+                expression { getMinorVersion(PMM_DOCKER_HUB) <= 32 }
             }
             steps{
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
