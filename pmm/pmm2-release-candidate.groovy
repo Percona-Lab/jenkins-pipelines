@@ -67,15 +67,15 @@ void deleteReleaseBranches(String VERSION) {
         deleteBranch(submodule, 'pmm-' + VERSION)
     }
     withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
-        sh """
+        sh '''
             set -o errexit
             set -o xtrace
 
-            echo "/usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh
-            chmod 755 github-ssh.sh
-            export GIT_SSH=\$(pwd -P)/github-ssh.sh
-            git push origin --delete \${RELEASE_BRANCH}
-        """
+            # Configure git to push using ssh
+            export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+            git push origin --delete ${RELEASE_BRANCH}
+        '''
     }
 }
 
@@ -89,30 +89,29 @@ void setupReleaseBranches(String VERSION) {
         createBranch(submodule, 'pmm-' + VERSION)
     }
     withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
-        sh """
+        sh '''
             set -o errexit
             set -o xtrace
 
-            echo "/usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh
-            chmod 755 github-ssh.sh
-            export GIT_SSH=\$(pwd -P)/github-ssh.sh
+            # Configure git to push using ssh
+            export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+
             git commit -a -m "Prepare Release Branch Submodules"
             git branch
-            git push --set-upstream origin \${RELEASE_BRANCH}
-        """
+            git push --set-upstream origin ${RELEASE_BRANCH}
+        '''
     }
 }
 
-void createBranch(String SUBMODULE, String BRANCH)
-{
+void createBranch(String SUBMODULE, String BRANCH) {
     withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
         sh """
             set -o errexit
             set -o xtrace
 
-            echo "/usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh
-            chmod 755 github-ssh.sh
-            export GIT_SSH=\$(pwd -P)/github-ssh.sh
+            # Configure git to push using ssh
+            export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
             export SUBMODULE=${SUBMODULE}
             export BRANCH=${BRANCH}
             export submodule_url=\$(git config --file=.gitmodules submodule.\${SUBMODULE}.url)
@@ -132,16 +131,14 @@ void createBranch(String SUBMODULE, String BRANCH)
     }
 }
 
-void deleteBranch(String SUBMODULE, String BRANCH)
-{
+void deleteBranch(String SUBMODULE, String BRANCH) {
     withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
         sh """
             set -o errexit
             set -o xtrace
 
-            echo "/usr/bin/ssh -i "${SSHKEY}" -o StrictHostKeyChecking=no \\\"\\\$@\\\"" > github-ssh.sh
-            chmod 755 github-ssh.sh
-            export GIT_SSH=\$(pwd -P)/github-ssh.sh
+            # Configure git to push using ssh
+            export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
             export SUBMODULE=${SUBMODULE}
             export BRANCH=${BRANCH}
             export submodule_url=\$(git config --file=.gitmodules submodule.\${SUBMODULE}.url)
@@ -278,6 +275,22 @@ pipeline {
                 }
             }
         }
+        stage('Launch a staging instance') {
+            steps {
+                script {
+                    pmm2Staging = build job: 'aws-staging-start', propagate: false, parameters: [
+                        string(name: 'DOCKER_VERSION', value: 'perconalab/pmm-server:' + env.VERSION + '-rc')
+                        string(name: 'CLIENT_VERSION', value: 'pmm2-rc'),
+                        string(name: 'ENABLE_TESTING_REPO', value: 'yes'),
+                        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no'),
+                        string(name: 'NOTIFY', value: 'false'),
+                        string(name: 'DAYS', value: '14')
+                    ]
+                    env.IP = pmm2Staging.buildVariables.IP
+                    env.TEST_URL = env.IP ? "Testing environment (14d): https://${env.IP}" : ""
+                }
+            }
+        }
         stage('Scan Image for Vulnerabilities') {
             when {
                 expression { env.REMOVE_RELEASE_BRANCH == "no"}
@@ -309,6 +322,7 @@ Client: perconalab/pmm-client:${VERSION}-rc
 OVA: https://percona-vm.s3.amazonaws.com/PMM2-Server-${VERSION}.ova
 AMI: ${env.AMI_ID}
 Tarball: ${env.TARBALL_URL}
+${env.TEST_URL}
                       """
         }
     }
