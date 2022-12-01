@@ -278,6 +278,25 @@ pipeline {
                 }
             }
         }
+        stage('Scan Image for Vulnerabilities') {
+            when {
+                expression { env.REMOVE_RELEASE_BRANCH == "no"}
+            }
+            steps {
+                script {
+                    imageScan = build job: 'pmm2-image-scanning', propagate: false, parameters: [
+                        string(name: 'IMAGE', value: "perconalab/pmm-server"),
+                        string(name: 'TAG', value: "${VERSION}-rc")
+                    ]
+
+                    if (imageScan.result == 'SUCCESS') {
+                        copyArtifacts filter: 'report.html', projectName: 'pmm2-image-scanning'
+                        sh 'mv report.html report-${VERSION}-rc.html'
+                        archiveArtifacts "report-${VERSION}-rc.html"
+                    }
+                }
+            }
+        }
     }
     post {
         success {
