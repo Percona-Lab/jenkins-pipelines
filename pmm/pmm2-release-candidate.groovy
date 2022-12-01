@@ -276,10 +276,13 @@ pipeline {
             }
         }
         stage('Launch a staging instance') {
+            when {
+                expression { env.REMOVE_RELEASE_BRANCH == "no"}
+            }            
             steps {
                 script {
                     pmm2Staging = build job: 'aws-staging-start', propagate: false, parameters: [
-                        string(name: 'DOCKER_VERSION', value: 'perconalab/pmm-server:' + env.VERSION + '-rc')
+                        string(name: 'DOCKER_VERSION', value: "perconalab/pmm-server:${VERSION}-rc")
                         string(name: 'CLIENT_VERSION', value: 'pmm2-rc'),
                         string(name: 'ENABLE_TESTING_REPO', value: 'yes'),
                         string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no'),
@@ -291,7 +294,7 @@ pipeline {
                 }
             }
         }
-        stage('Scan Image for Vulnerabilities') {
+        stage('Scan image for vulnerabilities') {
             when {
                 expression { env.REMOVE_RELEASE_BRANCH == "no"}
             }
