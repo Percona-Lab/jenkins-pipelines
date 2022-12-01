@@ -82,7 +82,7 @@ void setInventories(){
                 SSH_USER="admin"            
                 KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/${product_to_test}-bootstrap/${params.node_to_test}/ssh_key-us-west-2"
                 KEYPATH_COMMON="/home/ec2-user/.cache/molecule/${product_to_test}-common/${params.node_to_test}/ssh_key-us-west-2"
-            elif [[ (${params.node_to_test} == "ol-8") ]];
+            elif [[ (${params.node_to_test} == "ol-8") || (${params.node_to_test} == "ol-9") ]];
             then
                 SSH_USER="ec2-user"
                 KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/${product_to_test}-bootstrap/${params.node_to_test}/ssh_key-us-west-2"
@@ -201,12 +201,14 @@ pipeline {
         choice(
             name: 'node_to_test',
             choices: [
+                'ubuntu-jammy',
                 'ubuntu-focal',
                 'ubuntu-bionic',
                 'debian-11',
                 'debian-10',
                 'centos-7',
-                'ol-8'
+                'ol-8',
+                'ol-9'
             ],
             description: 'Distribution to run test'
         )
