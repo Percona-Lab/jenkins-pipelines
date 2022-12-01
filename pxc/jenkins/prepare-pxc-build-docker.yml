@@ -51,7 +51,6 @@
                 stage('Build') {
                     steps {
                         parallel(
-                            "centos:6":       { build('centos:6') },
                             "centos:7":       { build('centos:7') },
                             "centos:8":       { build('centos:8') },
                             "ubuntu:xenial":  { build('ubuntu:xenial') },

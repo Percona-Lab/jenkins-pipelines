@@ -90,6 +90,16 @@ if [[ "$COMPILER" != "default" ]]; then
     export CXX=$(echo ${COMPILER} | sed -e 's/gcc/g++/; s/clang/clang++/')
 fi
 
+# CentOS 7
+RHVER=0
+if [[ -f /etc/redhat-release ]]; then
+    RHVER="$(rpm --eval %rhel)"
+fi
+
+if [[ ${RHVER} -eq 7 ]]; then
+    JOB_CMAKE='cmake3'
+fi
+
 # ------------------------------------------------------------------------------
 # set version
 # ------------------------------------------------------------------------------
