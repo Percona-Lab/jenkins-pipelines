@@ -27,7 +27,7 @@ pipeline {
             name: 'PXB24_BRANCH',
             trim: true)
         choice(
-            choices: 'centos:6\ncentos:7\ncentos:8\nubuntu:bionic\nubuntu:focal\ndebian:buster',
+            choices: 'centos:7\ncentos:8\nubuntu:bionic\nubuntu:focal\ndebian:buster',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
