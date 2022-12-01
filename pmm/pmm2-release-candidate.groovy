@@ -276,16 +276,42 @@ pipeline {
             }
         }
         stage('Launch a staging instance') {
-            pmm2Staging = build job: 'aws-staging-start', propagate: false, parameters: [
-                string(name: 'DOCKER_VERSION', value: 'perconalab/pmm-server:' + env.VERSION + '-rc')
-                string(name: 'CLIENT_VERSION', value: 'pmm2-rc'),
-                string(name: 'ENABLE_TESTING_REPO', value: 'yes'),
-                string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no'),
-                string(name: 'NOTIFY', value: 'false'),
-                string(name: 'DAYS', value: '14')
-            ]
-            env.IP = pmm2Staging.buildVariables.IP
-            env.TEST_URL = env.IP ? "Testing environment (14d): https://${env.IP}" : ""
+            when {
+                expression { env.REMOVE_RELEASE_BRANCH == "no"}
+            }            
+            steps {
+                script {
+                    pmm2Staging = build job: 'aws-staging-start', propagate: false, parameters: [
+                        string(name: 'DOCKER_VERSION', value: "perconalab/pmm-server:${VERSION}-rc")
+                        string(name: 'CLIENT_VERSION', value: 'pmm2-rc'),
+                        string(name: 'ENABLE_TESTING_REPO', value: 'yes'),
+                        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no'),
+                        string(name: 'NOTIFY', value: 'false'),
+                        string(name: 'DAYS', value: '14')
+                    ]
+                    env.IP = pmm2Staging.buildVariables.IP
+                    env.TEST_URL = env.IP ? "Testing environment (14d): https://${env.IP}" : ""
+                }
+            }
+        }
+        stage('Scan image for vulnerabilities') {
+            when {
+                expression { env.REMOVE_RELEASE_BRANCH == "no"}
+            }
+            steps {
+                script {
+                    imageScan = build job: 'pmm2-image-scanning', propagate: false, parameters: [
+                        string(name: 'IMAGE', value: "perconalab/pmm-server"),
+                        string(name: 'TAG', value: "${VERSION}-rc")
+                    ]
+
+                    if (imageScan.result == 'SUCCESS') {
+                        copyArtifacts filter: 'report.html', projectName: 'pmm2-image-scanning'
+                        sh 'mv report.html report-${VERSION}-rc.html'
+                        archiveArtifacts "report-${VERSION}-rc.html"
+                    }
+                }
+            }
         }
     }
     post {
