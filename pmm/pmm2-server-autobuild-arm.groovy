@@ -35,8 +35,6 @@ pipeline {
                     env.DOCKER_LATEST_TAG = "dev-latest-arm"
                 }
 
-                archiveArtifacts 'uploadPath'
-                stash includes: 'uploadPath', name: 'uploadPath'
                 archiveArtifacts 'shortCommit'
             }
         }
