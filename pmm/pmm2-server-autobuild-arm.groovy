@@ -17,6 +17,9 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
+    environment {
+        PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
+    }
     stages {
         stage('Prepare') {
             steps {
@@ -40,19 +43,19 @@ pipeline {
         }
         stage('Build client source') {
             steps {
-                sh './build/bin/build-client-source'
+                sh '${PATH_TO_SCRIPTS}/build-client-source'
                 stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
             }
         }
         stage('Build client binary') {
             steps {
-                sh "./build/bin/build-client-binary"
+                sh "${PATH_TO_SCRIPTS}/build-client-binary"
                 stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
             }
         }
         stage('Build client source rpm') {
             steps {
-                sh "./build/bin/build-client-srpm centos:7"
+                sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7"
                 stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
             }
         }
@@ -61,7 +64,7 @@ pipeline {
                 sh """
                     set -o errexit
 
-                    ./build/bin/build-client-rpm centos:7
+                    ${PATH_TO_SCRIPTS}/build-client-rpm centos:7
 
                     mkdir -p tmp/pmm-server/RPMS/
                     cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
@@ -75,7 +78,7 @@ pipeline {
                     sh """
                         set -o errexit
 
-                        export PATH=\$PATH:\$(pwd -P)/build/bin
+                        export PATH=\$PATH:\$(pwd -P)/${PATH_TO_SCRIPTS}
 
                         # 1st-party
                         build-server-rpm percona-dashboards grafana-dashboards
@@ -117,7 +120,7 @@ pipeline {
                         export PUSH_DOCKER=1
                         export DOCKER_TAG=perconalab/pmm-server:\$(date -u '+%Y%m%d%H%M')-arm
 
-                        ./build/bin/build-server-docker
+                        ${PATH_TO_SCRIPTS}/build-server-docker
 
                         docker tag \${DOCKER_TAG} perconalab/pmm-server:\${DOCKER_LATEST_TAG}
                         docker push \${DOCKER_TAG}
