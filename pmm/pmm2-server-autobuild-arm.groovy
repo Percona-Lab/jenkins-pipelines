@@ -41,15 +41,27 @@ pipeline {
                 archiveArtifacts 'shortCommit'
             }
         }
-        stage('Build client source') {
+//        stage('Build client source') {
+//            steps {
+//                sh '${PATH_TO_SCRIPTS}/build-client-source'
+//                stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
+//            }
+//        }
+        stage('Build client binary') {
             steps {
-                sh '${PATH_TO_SCRIPTS}/build-client-source'
-                stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
+                sh "${PATH_TO_SCRIPTS}/build-client-binary"
+                stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
             }
         }
         stage('Build client binary') {
             steps {
-                sh "${PATH_TO_SCRIPTS}/build-client-binary"
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh '''
+                                ./build/bin/build-client-binary
+                                aws s3 cp --acl public-read results/tarball/pmm2-client-*.tar.gz \
+                                    s3://pmm-build-cache/pmm2-client/ARM/pmm2-client-latest-arm-${BUILD_ID}.tar.gz
+                            '''
+                }
                 stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
             }
         }
