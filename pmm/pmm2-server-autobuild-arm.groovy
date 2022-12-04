@@ -41,12 +41,12 @@ pipeline {
                 archiveArtifacts 'shortCommit'
             }
         }
-//        stage('Build client source') {
-//            steps {
-//                sh '${PATH_TO_SCRIPTS}/build-client-source'
-//                stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
-//            }
-//        }
+        stage('Build client source') {
+            steps {
+                sh '${PATH_TO_SCRIPTS}/build-client-source'
+                stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
+            }
+        }
         stage('Build client binary') {
             steps {
                 sh "${PATH_TO_SCRIPTS}/build-client-binary"
