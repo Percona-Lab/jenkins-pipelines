@@ -71,5 +71,18 @@ pipeline {
                 stash includes: 'fbCommitSha', name: 'fbCommitSha'
             }
         }
+        stage('Build client source') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        set -o errexit
+
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+
+                        ${PATH_TO_SCRIPTS}/build-client-source
+                    """
+                }
+            }
+        }
     }
 }
