@@ -204,18 +204,54 @@ pipeline {
             }
         }
         stage('Build server packages') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        set -o errexit
+            parallel {
+                stage('Percona packages') {
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh """
+                                set -o errexit
 
-                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                                aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                        export RPM_EPOCH=1
-                        export PATH=\$PATH:\$(pwd -P)/${PATH_TO_SCRIPTS}
+                                export RPM_EPOCH=1
+                                export PATH=\$PATH:\$(pwd -P)/${PATH_TO_SCRIPTS}
 
-                        ${PATH_TO_SCRIPTS}/build-server-rpm-all
-                    """
+                                . $(dirname $0)/vars
+
+                                # 1st-party
+                                ${bin_dir}/build-server-rpm percona-dashboards grafana-dashboards
+                                ${bin_dir}/build-server-rpm pmm-managed pmm
+                                ${bin_dir}/build-server-rpm percona-qan-api2 pmm
+                                ${bin_dir}/build-server-rpm pmm-update
+                                ${bin_dir}/build-server-rpm dbaas-controller
+                                ${bin_dir}/build-server-rpm dbaas-tools
+                                ${bin_dir}/build-server-rpm pmm-dump
+                                ${bin_dir}/build-server-rpm vmproxy pmm
+                            """
+                        }
+                    }
+                }
+
+                stage('3rd party packages') {
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh """
+                                set -o errexit
+
+                                aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+
+                                export RPM_EPOCH=1
+                                export PATH=\$PATH:\$(pwd -P)/${PATH_TO_SCRIPTS}
+
+                                . $(dirname $0)/vars
+
+                                # 3rd-party
+                                ${bin_dir}/build-server-rpm victoriametrics
+                                ${bin_dir}/build-server-rpm alertmanager
+                                ${bin_dir}/build-server-rpm grafana
+                            """
+                        }
+                    }
                 }
             }
         }
