@@ -25,7 +25,10 @@ void runGKEcluster(String CLUSTER_PREFIX) {
                 gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version $PLATFORM_VER --machine-type n1-standard-4 --preemptible --num-nodes=3 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade && \
                 gcloud container clusters update --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --update-labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
-                if [ \${ret_val} -eq 0 ]; then break; fi
+                if [ \${ret_val} -eq 0 ]; then
+                    curl https://raw.githubusercontent.com/Percona-QA/cloud-qa/main/chaos-mesh/chaos-mesh-gke-permissions.yml | sed "s/name: USER_ACCOUNT/name: jenkins@\"$GCP_PROJECT\"/" | kubectl apply -f -
+                    break
+                fi
                 ret_num=\$((ret_num + 1))
             done
             if [ \${ret_num} -eq 15 ]; then exit 1; fi
@@ -46,7 +49,10 @@ void runGKEclusterAlpha(String CLUSTER_PREFIX) {
                 gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_PREFIX} --zone $GKERegion --cluster-version $PLATFORM_VER --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} && \
                 gcloud container clusters update --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --update-labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
-                if [ \${ret_val} -eq 0 ]; then break; fi
+                if [ \${ret_val} -eq 0 ]; then
+                    curl https://raw.githubusercontent.com/Percona-QA/cloud-qa/main/chaos-mesh/chaos-mesh-gke-permissions.yml | sed "s/name: USER_ACCOUNT/name: jenkins@\"$GCP_PROJECT\"/" | kubectl apply -f -
+                    break
+                fi
                 ret_num=\$((ret_num + 1))
             done
             if [ \${ret_num} -eq 15 ]; then exit 1; fi

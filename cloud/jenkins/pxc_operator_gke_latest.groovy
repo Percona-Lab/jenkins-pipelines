@@ -18,7 +18,10 @@ void CreateCluster(String CLUSTER_SUFFIX) {
                 gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version ${params.PLATFORM_VER} --zone $GKERegion --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=3 --min-nodes=3 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} --cluster-ipv4-cidr=10.\$(( RANDOM % 250 )).\$(( RANDOM % 30 * 8 )).0/21 && \
                 gcloud container clusters update --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX} --update-labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
-                if [ \${ret_val} -eq 0 ]; then break; fi
+                if [ \${ret_val} -eq 0 ]; then
+                    curl https://raw.githubusercontent.com/Percona-QA/cloud-qa/main/chaos-mesh/chaos-mesh-gke-permissions.yml | sed "s/name: USER_ACCOUNT/name: jenkins@\"$GCP_PROJECT\"/" | kubectl apply -f -
+                    break
+                fi
                 ret_num=\$((ret_num + 1))
             done
             if [ \${ret_num} -eq 15 ]; then exit 1; fi
