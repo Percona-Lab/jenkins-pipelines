@@ -282,7 +282,7 @@ pipeline {
             steps {
                 script {
                     pmm2Staging = build job: 'aws-staging-start', propagate: false, parameters: [
-                        string(name: 'DOCKER_VERSION', value: "perconalab/pmm-server:${VERSION}-rc")
+                        string(name: 'DOCKER_VERSION', value: "perconalab/pmm-server:${VERSION}-rc"),
                         string(name: 'CLIENT_VERSION', value: "pmm2-rc"),
                         string(name: 'ENABLE_TESTING_REPO', value: "yes"),
                         string(name: 'ENABLE_EXPERIMENTAL_REPO', value: "no"),
