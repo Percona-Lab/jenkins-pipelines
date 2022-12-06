@@ -283,11 +283,11 @@ pipeline {
                 script {
                     pmm2Staging = build job: 'aws-staging-start', propagate: false, parameters: [
                         string(name: 'DOCKER_VERSION', value: "perconalab/pmm-server:${VERSION}-rc")
-                        string(name: 'CLIENT_VERSION', value: 'pmm2-rc'),
-                        string(name: 'ENABLE_TESTING_REPO', value: 'yes'),
-                        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no'),
-                        string(name: 'NOTIFY', value: 'false'),
-                        string(name: 'DAYS', value: '14')
+                        string(name: 'CLIENT_VERSION', value: "pmm2-rc"),
+                        string(name: 'ENABLE_TESTING_REPO', value: "yes"),
+                        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: "no"),
+                        string(name: 'NOTIFY', value: "false"),
+                        string(name: 'DAYS', value: "14")
                     ]
                     env.IP = pmm2Staging.buildVariables.IP
                     env.TEST_URL = env.IP ? "Testing environment (14d): https://${env.IP}" : ""
