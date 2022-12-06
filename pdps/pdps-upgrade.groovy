@@ -9,7 +9,7 @@ pipeline {
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-        MOLECULE_DIR = "molecule/pdmysql/pdps-minor-upgrade";
+        MOLECULE_DIR = "molecule/pdmysql/pdps_minor_upgrade";
     }
     parameters {
         choice(
@@ -46,7 +46,7 @@ pipeline {
             name: 'VERSION'
         )
         string(
-            defaultValue: 'master',
+            defaultValue: 'DISTMYSQL-221_distro_tests',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
@@ -94,7 +94,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/eleo007/package-testing.git'
             }
         }
         stage ('Prepare') {
