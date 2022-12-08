@@ -573,10 +573,12 @@ ENDSSH
                         string(name: 'TAG', value: "${VERSION}")
                     ]
 
+                    env.SCAN_REPORT_URL = ""
                     if (imageScan.result == 'SUCCESS') {
                         copyArtifacts filter: 'report.html', projectName: 'pmm2-image-scanning'
                         sh 'mv report.html report-${VERSION}.html'
                         archiveArtifacts "report-${VERSION}.html"
+                        env.SCAN_REPORT_URL = "Scan Report: ${BUILD_URL}artifact/report-${VERSION}.html"
                     }
                 }
             }
@@ -587,8 +589,8 @@ ENDSSH
             deleteDir()
         }
         success {
-            slackSend botUser: true, channel: '#pmm-dev', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}"
-            slackSend botUser: true, channel: '#releases', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}"
+            slackSend botUser: true, channel: '#pmm-dev', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
+            slackSend botUser: true, channel: '#releases', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
         }
         failure {
             slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: release failed - ${BUILD_URL}"
