@@ -40,7 +40,7 @@ pipeline {
                     sed -E "s/ENV PSMDB_REPO (.+)/ENV PSMDB_REPO ${params.PSMDB_REPO}/" -i Dockerfile
                     docker build . -t percona-server-mongodb 
                     if [ ${params.DEBUG} = "true" ]; then
-                       sed -E "s/percona\/percona-server-mongodb(.+)/percona-server-mongodb/" -i Dockerfile.debug
+                       sed -E "s/FROM percona(.+)/FROM percona-server-mongodb/" -i Dockerfile.debug
                        docker build . -f Dockerfile.debug -t percona-server-mongodb-debug
                     fi
                     """
