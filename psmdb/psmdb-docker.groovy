@@ -60,10 +60,6 @@ pipeline {
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
                                          --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-server-mongodb
                     fi
-                    if [ ${params.DEBUG} = "yes" ]; then
-                        /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-debug-junit.xml \
-                                         --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-server-mongodb-debug
-                    fi
                """
             }
             post {
