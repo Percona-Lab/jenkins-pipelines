@@ -14,6 +14,7 @@ pipeline {
         choice(name: 'PSMDB_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PSMDB_VERSION', defaultValue: '6.0.2-1', description: 'PSMDB version')
         choice(name: 'LATEST', choices: ['no','yes'], description: 'Tag image as latest')
+        choice(name: 'DEBUG', choices: ['no','yes'], description: 'Additionally build debug image')
     }
     options {
         disableConcurrentBuilds()
@@ -38,6 +39,10 @@ pipeline {
                     sed -E "s/ENV PSMDB_VERSION (.+)/ENV PSMDB_VERSION ${params.PSMDB_VERSION}/" -i Dockerfile
                     sed -E "s/ENV PSMDB_REPO (.+)/ENV PSMDB_REPO ${params.PSMDB_REPO}/" -i Dockerfile
                     docker build . -t percona-server-mongodb 
+                    if [ ${params.DEBUG} = "true" ]; then
+                       sed -E "s/percona\/percona-server-mongodb(.+)/percona-server-mongodb/" -i Dockerfile.debug
+                       docker build . -f Dockerfile.debug -t percona-server-mongodb-debug
+                    fi
                     """
             }
         }
@@ -54,6 +59,10 @@ pipeline {
                     else
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
                                          --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-server-mongodb
+                    fi
+                    if [ ${params.DEBUG} = "true" ]; then
+                        /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-debug-junit.xml \
+                                         --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-server-mongodb-debug
                     fi
                """
             }
@@ -77,6 +86,10 @@ pipeline {
                          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
                          docker tag percona-server-mongodb public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}
                          docker push public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}
+                         if [ ${params.DEBUG} = "true" ]; then
+                            docker tag percona-server-mongodb-debug public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}-debug
+                            docker push public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}-debug
+                         fi
                      """
                 }
             }
@@ -101,6 +114,10 @@ pipeline {
                              docker tag percona-server-mongodb perconalab/percona-server-mongodb:latest
                              docker push perconalab/percona-server-mongodb:latest
                          fi
+                         if [ ${params.DEBUG} = "true" ]; then
+                             docker tag percona-server-mongodb-debug perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-debug
+                             docker push perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-debug
+                         fi
                      """
                 }
             }
@@ -124,6 +141,10 @@ pipeline {
                          if [ ${params.LATEST} = "yes" ]; then
                              docker tag percona-server-mongodb percona/percona-server-mongodb:latest
                              docker push percona/percona-server-mongodb:latest
+                         fi
+                         if [ ${params.DEBUG} = "true" ]; then
+                             docker tag percona-server-mongodb-debug percona/percona-server-mongodb:${params.PSMDB_VERSION}-debug
+                             docker push percona/percona-server-mongodb:${params.PSMDB_VERSION}-debug
                          fi
                      """
                 }
