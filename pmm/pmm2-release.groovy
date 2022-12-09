@@ -510,7 +510,7 @@ ENDSSH
 
                         # Configure git settings globally
                         git config --global advice.detachedHead false
-                        git config --global user.email "dev-services@percona.com"
+                        git config --global user.email "noreply@percona.com"
                         git config --global user.name "PMM Jenkins"
 
                         # Configure git to push using ssh

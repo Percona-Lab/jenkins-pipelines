@@ -226,7 +226,7 @@ pipeline {
             steps {
                 git branch: SUBMODULES_GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
                 sh """
-                    git config --global user.email "dev-services@percona.com"
+                    git config --global user.email "noreply@percona.com"
                     git config --global user.name "PMM Jenkins"
                 """
                 setupReleaseBranches(VERSION)

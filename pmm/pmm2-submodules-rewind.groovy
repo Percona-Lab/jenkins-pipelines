@@ -43,7 +43,7 @@ pipeline {
         stage('Commit') {
             steps {
                 sh """
-                    git config --global user.email "dev-services@percona.com"
+                    git config --global user.email "noreply@percona.com"
                     git config --global user.name "PMM Jenkins"
 
                     git commit -a -m "rewind submodules"
