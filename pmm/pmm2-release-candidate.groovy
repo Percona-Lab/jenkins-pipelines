@@ -3,12 +3,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runSubmodulesRewind(String SUBMODULES_GIT_BRANCH) {
-    rewindSubmodule = build job: 'pmm2-rewind-submodules-fb', propagate: false, parameters: [
-        string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH)
-    ]
-}
-
 void runPMM2ServerAutobuild(String SUBMODULES_GIT_BRANCH, String DESTINATION) {
     pmm2Server = build job: 'pmm2-server-autobuild', parameters: [
         string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH),
@@ -243,7 +237,9 @@ pipeline {
                 expression { env.REMOVE_RELEASE_BRANCH == "no"}
             }
             steps {
-                runSubmodulesRewind(RELEASE_BRANCH)
+                rewindSubmodule = build job: 'pmm2-rewind-submodules-fb', propagate: false, parameters: [
+                    string(name: 'GIT_BRANCH', value: RELEASE_BRANCH)
+                ]
             }
         }
         stage('Autobuilds RC for Server & Client') {

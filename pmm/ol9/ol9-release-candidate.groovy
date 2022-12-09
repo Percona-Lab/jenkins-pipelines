@@ -11,6 +11,7 @@ void runPMM2AMIBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
     env.AMI_ID = pmm2AMI.buildVariables.AMI_ID
 }
 
+// String DEFAULT_BRANCH = 'PMM-2.0'
 String DEFAULT_BRANCH = 'PMM-6352-custom-build-ol9'
 
 pipeline {
@@ -27,6 +28,7 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
+        parallelsAlwaysFailFast()
     }
     environment {
         // TODO: remove once tested, it's intentionally hard-coded
@@ -87,21 +89,22 @@ pipeline {
             parallel {
                 stage('Start OL9 Server Build') {
                     steps {
-                        build job: 'ol9-build-server', parameters: [
+                        echo "Skipping the server build..."
+                        // build job: 'ol9-build-server', parameters: [
+                        //     string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                        //     string(name: 'DESTINATION', value: 'experimental') // TODO: revert to the original value
+                        // ]
+                    }
+                }
+                stage('Start OL9 Client Build') {
+                    steps {
+                        pmm2Client = build job: 'ol9-build-client', parameters: [
                             string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
                             string(name: 'DESTINATION', value: 'experimental')
                         ]
+                        env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL
                     }
                 }
-                // stage('Start OL9 Client Build') {
-                //     steps {
-                //         pmm2Client = build job: 'ol9-build-client', parameters: [
-                //             string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                //             string(name: 'DESTINATION', value: 'experimental')
-                //         ]
-                //         env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL
-                //     }
-                // }
             }
         }
         // stage('Build OVF') {

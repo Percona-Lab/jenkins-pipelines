@@ -51,17 +51,17 @@ pipeline {
 
                 script {
                     if (params.DESTINATION == "testing") {
-                        env.DOCKER_LATEST_TAG = "${VERSION}-ol9B${BUILD_NUMBER}"
-                        env.DOCKER_RC_TAG = "${VERSION}-ol9"
+                        env.DOCKER_LATEST_TAG = "${VERSION}-el9-${BUILD_NUMBER}"
+                        env.DOCKER_RC_TAG = "${VERSION}-el9"
                     } else {
-                        env.DOCKER_LATEST_TAG = "dev-latest"
+                        env.DOCKER_LATEST_TAG = "dev-latest-el9"
                     }
                 }
 
                 archiveArtifacts 'uploadPath'
                 archiveArtifacts 'shortCommit'
                 stash includes: 'uploadPath', name: 'uploadPath'
-                slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                // slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
         stage('Build client source') {
@@ -184,7 +184,7 @@ pipeline {
             script {
                 // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE} - ${BUILD_URL}"
                 if (params.DESTINATION == "testing") {
-                    currentBuild.description = "OL9 RC Build, Image:" + env.IMAGE
+                    currentBuild.description = "RHEL9 RC Build, Image:" + env.IMAGE
                     slackSend botUser: true, channel: '@alexander.tymchuk', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
                 //   slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished"
                 }

@@ -7,21 +7,20 @@ pipeline {
     agent none
     parameters {
         string(
-            defaultValue: 'PMM-2.0',
+            // TODO: change this back to `PMM-2.0` once tested
+            defaultValue: 'PMM-6352-custom-build-ol9',
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(
             choices: ['experimental', 'testing', 'laboratory'],
-            description: 'publish result package to: testing (internal RC), experimental: (dev-latest repository), laboratory: (internal repository for FB)',
+            description: 'Publish packages to repositories: testing (for RC), experimental: (for dev-latest), laboratory: (for FBs)',
             name: 'DESTINATION')
     }
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
+        parallelsAlwaysFailFast()
     }
-    // triggers {
-    //     upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
-    // }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
     }
@@ -45,18 +44,18 @@ pipeline {
                         '''
                         script {
                             def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
-                            if ("${DESTINATION}" == "testing") {
-                                env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}"
+                            if (params.DESTINATION == "testing") {
+                                env.DOCKER_LATEST_TAG = "${versionTag}-el9-${BUILD_NUMBER}"
                                 env.DOCKER_RC_TAG = "${versionTag}-rc"
                             } else {
-                                env.DOCKER_LATEST_TAG = "dev-latest"
+                                env.DOCKER_LATEST_TAG = "dev-latest-el9"
                             }
                         }
 
                         archiveArtifacts 'uploadPath'
-                        stash includes: 'uploadPath', name: 'uploadPath'
                         archiveArtifacts 'shortCommit'
-                        slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        stash includes: 'uploadPath', name: 'uploadPath'
+                        // slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                     }
                 }
                 stage('Build client source') {
@@ -82,72 +81,72 @@ pipeline {
                 stage('Build client docker') {
                     steps {
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                            sh """
+                            sh '''
                                 echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                            """
+                                set -o xtrace
+
+                                export PUSH_DOCKER=1
+                                export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')
+
+                                ${PATH_TO_SCRIPTS}/build-client-docker
+
+                                if [ -n ${DOCKER_RC_TAG} ]; then
+                                    docker tag  ${DOCKER_CLIENT_TAG} perconalab/pmm-client:${DOCKER_RC_TAG}
+                                    docker push perconalab/pmm-client:${DOCKER_RC_TAG}
+                                fi
+                                docker tag  ${DOCKER_CLIENT_TAG} perconalab/pmm-client:${DOCKER_LATEST_TAG}
+                                docker push ${DOCKER_CLIENT_TAG}
+                                docker push perconalab/pmm-client:${DOCKER_LATEST_TAG}
+                            '''
                         }
-                        sh """
-                            set -o xtrace
-
-                            export PUSH_DOCKER=1
-                            export DOCKER_CLIENT_TAG=perconalab/pmm-client:\$(date -u '+%Y%m%d%H%M')
-
-                            ${PATH_TO_SCRIPTS}/build-client-docker
-
-                            if [ ! -z \${DOCKER_RC_TAG+x} ]; then
-                                docker tag  \${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_RC_TAG}
-                                docker push perconalab/pmm-client:\${DOCKER_RC_TAG}
-                                docker rmi perconalab/pmm-client:\${DOCKER_RC_TAG}
-                            fi
-                            docker tag  \${DOCKER_CLIENT_TAG} perconalab/pmm-client:\${DOCKER_LATEST_TAG}
-                            docker push \${DOCKER_CLIENT_TAG}
-                            docker push perconalab/pmm-client:\${DOCKER_LATEST_TAG}
-                            docker rmi  \${DOCKER_CLIENT_TAG}
-                            docker rmi  perconalab/pmm-client:\${DOCKER_LATEST_TAG}
-                        """
                         stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
                         archiveArtifacts 'results/docker/CLIENT_TAG'
                     }
                 }
                 stage('Build client source rpm') {
                     steps {
-                        sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7"
+                        sh """
+                            # export RPMBUILD_DOCKER_IMAGE=
+                            ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                        """
                         stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
                         uploadRPM()
                     }
                 }
                 stage('Build client binary rpm') {
                     steps {
-                        sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
-                        sh "${PATH_TO_SCRIPTS}/build-client-rpm rockylinux:8"
-                        sh "${PATH_TO_SCRIPTS}/build-client-rpm almalinux:9.0"
+                        // sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
+                        // sh "${PATH_TO_SCRIPTS}/build-client-rpm rockylinux:8"
+                        sh """
+                            # export RPMBUILD_DOCKER_IMAGE=
+                            ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                        """
                         stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
                         uploadRPM()
                     }
                 }
-
-                stage('Build client source deb') {
-                    steps {
-                        sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:bionic"
-                        stash includes: 'results/source_deb/*', name: 'debs'
-                        uploadDEB()
-                    }
-                }
-                stage('Build client binary debs') {
-                    steps {
-                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:buster"
-                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
-                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
-                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:bionic"
-                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
-                        stash includes: 'results/deb/*.deb', name: 'debs'
-                        uploadDEB()
-                    }
-                }
+                // stage('Build client source deb') {
+                //     steps {
+                //         sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:bionic"
+                //         stash includes: 'results/source_deb/*', name: 'debs'
+                //         uploadDEB()
+                //     }
+                // }
+                // stage('Build client binary debs') {
+                //     steps {
+                //         sh "${PATH_TO_SCRIPTS}/build-client-deb debian:buster"
+                //         sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
+                //         sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
+                //         sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:bionic"
+                //         sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
+                //         stash includes: 'results/deb/*.deb', name: 'debs'
+                //         uploadDEB()
+                //     }
+                // }
                 stage('Sign packages') {
                     steps {
                         signRPM()
-                        signDEB()
+                        // signDEB()
                     }
                 }
             }
@@ -162,36 +161,37 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     script {
                         unstash 'uploadPath'
-                        def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
-                        sh """
-                            ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
-                            scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${path_to_build}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
-ENDSSH
-                        """      
+                        sh '''
+                            PATH_TO_BUILD=$(cat uploadPath)
+                            ssh -o StrictHostKeyChecking=no UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
+                                scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${PATH_TO_BUILD}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
+                            "
+                        '''   
                     }  
                 }
             }
         }
     }
     post {
-        always {
+        sucess {
             script {
                 env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/el9/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz"
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
-                    slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo"
-                    if ("${DESTINATION}" == "testing")
-                    {
-                      currentBuild.description = "Release Candidate Build: "
-                      slackSend botUser: true,
-                                channel: '#pmm-qa',
-                                color: '#00FF00',
-                                message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished\nClient Tarball: ${env.TARBALL_URL}"
+                    // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
+                    // slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo"
+                    if (params.DESTINATION == "testing") {
+                      currentBuild.description = "RHEL9 RC Build, tarball: " + env.TARBALL_URL
+                    //   slackSend botUser: true,
+                    //             channel: '#pmm-qa',
+                    //             color: '#00FF00',
+                    //             message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished\nClient Tarball: ${env.TARBALL_URL}"
                     }
-                } else {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                }
+            }
+        }
+        failure {
+            script {
+                echo "Pipeline failed"
+                // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                // slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
             }
         }
     }

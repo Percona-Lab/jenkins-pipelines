@@ -11,7 +11,7 @@ pipeline {
             name: 'PMM_BRANCH')
         choice(
             choices: ['no', 'yes'],
-            description: "Build Release Candidate?",
+            description: "Build a Release Candidate?",
             name: 'RELEASE_CANDIDATE')
     }
     options {
@@ -58,7 +58,7 @@ pipeline {
             }
         }
 
-        stage('Build Image Release Candidate') {
+        stage('Build Release Candidate Image') {
             when {
                 expression { params.RELEASE_CANDIDATE == "yes" }
             }
@@ -80,7 +80,7 @@ pipeline {
                 archiveArtifacts 'IMAGE'
             }
         }
-        stage('Build Image Dev-Latest') {
+        stage('Build Dev-Latest Image') {
             when {
                 expression { params.RELEASE_CANDIDATE == "no" }
             }
