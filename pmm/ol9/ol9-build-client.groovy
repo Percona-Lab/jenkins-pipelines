@@ -83,6 +83,8 @@ pipeline {
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                             sh '''
                                 echo "${PASS}" | docker login -u "${USER}" --password-stdin
+                            '''
+                            sh """
                                 set -o xtrace
 
                                 export PUSH_DOCKER=1
@@ -97,7 +99,7 @@ pipeline {
                                 docker tag  ${DOCKER_CLIENT_TAG} perconalab/pmm-client:${DOCKER_LATEST_TAG}
                                 docker push ${DOCKER_CLIENT_TAG}
                                 docker push perconalab/pmm-client:${DOCKER_LATEST_TAG}
-                            '''
+                            """
                         }
                         stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
                         archiveArtifacts 'results/docker/CLIENT_TAG'
