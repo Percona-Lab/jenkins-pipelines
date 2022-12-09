@@ -98,11 +98,13 @@ pipeline {
                 }
                 stage('Start OL9 Client Build') {
                     steps {
-                        pmm2Client = build job: 'ol9-build-client', parameters: [
-                            string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                            string(name: 'DESTINATION', value: 'experimental')
-                        ]
-                        env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL
+                        script {
+                            pmm2Client = build job: 'ol9-build-client', parameters: [
+                                string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                                string(name: 'DESTINATION', value: 'experimental')
+                            ]
+                            env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL                        
+                        }
                     }
                 }
             }
