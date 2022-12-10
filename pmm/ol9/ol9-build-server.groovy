@@ -90,7 +90,8 @@ pipeline {
             steps {
                 sh """
                     export ROOT_DIR=${WORKSPACE}
-                    ${PATH_TO_SCRIPTS}/build-client-srpm oraclelinux:9
+                    # ${PATH_TO_SCRIPTS}/build-client-srpm oraclelinux:9
+                    ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                 """
                 stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
                 uploadRPM()
@@ -102,7 +103,8 @@ pipeline {
                     set -o errexit
 
                     export ROOT_DIR=${WORKSPACE}
-                    ${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:9
+                    # ${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:9
+                    ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
 
                     mkdir -p tmp/pmm-server/RPMS/
                     cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
@@ -120,25 +122,25 @@ pipeline {
                         # These are used by `src/github.com/percona/pmm/build/scripts/vars`
                         export ROOT_DIR=${WORKSPACE}
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                        export RPMBUILD_DIST_PARAM="el9"
+                        export RPMBUILD_DIST="el9"
                         # Set this variable if we need to rebuils all rpms, for example to refresh stale assets stored in S3 build cache
                         # export FORCE_REBUILD=1
 
-                        # ${PATH_TO_SCRIPTS}/build-server-rpm-all
+                        ${PATH_TO_SCRIPTS}/build-server-rpm-all
 
                         # 1st-party
-                        ${PATH_TO_SCRIPTS}/build-server-rpm percona-dashboards grafana-dashboards
-                        ${PATH_TO_SCRIPTS}/build-server-rpm pmm-managed pmm
-                        ${PATH_TO_SCRIPTS}/build-server-rpm percona-qan-api2 pmm
-                        ${PATH_TO_SCRIPTS}/build-server-rpm pmm-update pmm
-                        ${PATH_TO_SCRIPTS}/build-server-rpm dbaas-controller
-                        ${PATH_TO_SCRIPTS}/build-server-rpm dbaas-tools
-                        ${PATH_TO_SCRIPTS}/build-server-rpm pmm-dump
+                        # ${PATH_TO_SCRIPTS}/build-server-rpm percona-dashboards grafana-dashboards
+                        # ${PATH_TO_SCRIPTS}/build-server-rpm pmm-managed pmm
+                        # ${PATH_TO_SCRIPTS}/build-server-rpm percona-qan-api2 pmm
+                        # ${PATH_TO_SCRIPTS}/build-server-rpm pmm-update pmm
+                        # ${PATH_TO_SCRIPTS}/build-server-rpm dbaas-controller
+                        # ${PATH_TO_SCRIPTS}/build-server-rpm dbaas-tools
+                        # ${PATH_TO_SCRIPTS}/build-server-rpm pmm-dump
 
                         # 3rd-party
-                        ${PATH_TO_SCRIPTS}/build-server-rpm victoriametrics
-                        ${PATH_TO_SCRIPTS}/build-server-rpm alertmanager
-                        ${PATH_TO_SCRIPTS}/build-server-rpm grafana
+                        # ${PATH_TO_SCRIPTS}/build-server-rpm victoriametrics
+                        # ${PATH_TO_SCRIPTS}/build-server-rpm alertmanager
+                        # ${PATH_TO_SCRIPTS}/build-server-rpm grafana
                     '''
                 }
                 stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'
