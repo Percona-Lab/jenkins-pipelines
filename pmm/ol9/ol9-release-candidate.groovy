@@ -98,17 +98,17 @@ pipeline {
                         }
                     }
                 }
-                stage('Start OL9 Client Build') {
-                    steps {
-                        script {
-                            pmm2Client = build job: 'ol9-build-client', parameters: [
-                                string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                                string(name: 'DESTINATION', value: 'testing')
-                            ]
-                            env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL                        
-                        }
-                    }
-                }
+                // stage('Start OL9 Client Build') {
+                //     steps {
+                //         script {
+                //             pmm2Client = build job: 'ol9-build-client', parameters: [
+                //                 string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                //                 string(name: 'DESTINATION', value: 'testing')
+                //             ]
+                //             env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL                        
+                //         }
+                //     }
+                // }
             }
         }
         // stage('Build OVF') {

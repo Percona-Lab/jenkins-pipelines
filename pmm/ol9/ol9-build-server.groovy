@@ -124,7 +124,21 @@ pipeline {
                         # Set this variable if we need to rebuils all rpms, for example to refresh stale assets stored in S3 build cache
                         # export FORCE_REBUILD=1
 
-                        ${PATH_TO_SCRIPTS}/build-server-rpm-all
+                        # ${PATH_TO_SCRIPTS}/build-server-rpm-all
+
+                        # 1st-party
+                        ${PATH_TO_SCRIPTS}/build-server-rpm percona-dashboards grafana-dashboards
+                        ${PATH_TO_SCRIPTS}/build-server-rpm pmm-managed pmm
+                        ${PATH_TO_SCRIPTS}/build-server-rpm percona-qan-api2 pmm
+                        ${PATH_TO_SCRIPTS}/build-server-rpm pmm-update pmm
+                        ${PATH_TO_SCRIPTS}/build-server-rpm dbaas-controller
+                        ${PATH_TO_SCRIPTS}/build-server-rpm dbaas-tools
+                        ${PATH_TO_SCRIPTS}/build-server-rpm pmm-dump
+
+                        # 3rd-party
+                        ${PATH_TO_SCRIPTS}/build-server-rpm victoriametrics
+                        ${PATH_TO_SCRIPTS}/build-server-rpm alertmanager
+                        ${PATH_TO_SCRIPTS}/build-server-rpm grafana
                     '''
                 }
                 stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'

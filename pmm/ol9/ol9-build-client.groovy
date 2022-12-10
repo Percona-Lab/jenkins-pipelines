@@ -108,7 +108,6 @@ pipeline {
                 stage('Build client source rpm') {
                     steps {
                         sh """
-                            # export RPMBUILD_DOCKER_IMAGE=
                             ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                         """
                         stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
@@ -120,7 +119,6 @@ pipeline {
                         // sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
                         // sh "${PATH_TO_SCRIPTS}/build-client-rpm rockylinux:8"
                         sh """
-                            # export RPMBUILD_DOCKER_IMAGE=
                             ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                         """
                         stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
