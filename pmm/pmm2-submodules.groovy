@@ -222,9 +222,9 @@ pipeline {
         stage('Build server docker') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
+                    sh '''
                         docker login -u "${USER}" -p "${PASS}"
-                    """
+                    '''
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
@@ -240,7 +240,7 @@ pipeline {
                 archiveArtifacts 'results/docker/TAG'
             }
         }
-        stage('Create FB tags')
+        stage('Interact with FB github')
         {
             steps{
                 script{
