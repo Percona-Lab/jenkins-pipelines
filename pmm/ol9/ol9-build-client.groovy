@@ -81,7 +81,7 @@ pipeline {
                 stage('Build client docker') {
                     steps {
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                            withEnv(["DOCKER_RC_TAG=" + env.DOCKER_RC_TAG, "DOCKER_LATEST_TAG=" + env.DOCKER_LATEST_TAG]) {
+                            withEnv(['PATH_TO_SCRIPTS=' + env.PATH_TO_SCRIPTS]) {
                                 sh '''
                                     echo "${PASS}" | docker login -u "${USER}" --password-stdin
                                     set -o xtrace
@@ -165,7 +165,7 @@ pipeline {
                         unstash 'uploadPath'
                         sh '''
                             PATH_TO_BUILD=$(cat uploadPath)
-                            ssh -o StrictHostKeyChecking=no UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
+                            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
                                 scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${PATH_TO_BUILD}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
                             "
                         '''   
