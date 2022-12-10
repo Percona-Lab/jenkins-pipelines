@@ -90,10 +90,12 @@ pipeline {
                 stage('Start OL9 Server Build') {
                     steps {
                         echo "Skipping the server build..."
-                        // build job: 'ol9-build-server', parameters: [
-                        //     string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                        //     string(name: 'DESTINATION', value: 'experimental') // TODO: revert to the original value
-                        // ]
+                        script {
+                            build job: 'ol9-build-server', parameters: [
+                                string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                                string(name: 'DESTINATION', value: 'testing') // TODO: revert to the original value
+                            ]
+                        }
                     }
                 }
                 stage('Start OL9 Client Build') {
@@ -101,7 +103,7 @@ pipeline {
                         script {
                             pmm2Client = build job: 'ol9-build-client', parameters: [
                                 string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                                string(name: 'DESTINATION', value: 'experimental')
+                                string(name: 'DESTINATION', value: 'testing')
                             ]
                             env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL                        
                         }
@@ -128,7 +130,7 @@ pipeline {
             slackSend botUser: true,
                       channel: '@alexander.tymchuk',
                       color: '#00FF00',
-                      message: """New OL9 RC is out :rocket:
+                      message: """New RHEL9 RC is out :rocket:
 Server: perconalab/pmm-server:${VERSION}-rc
 Client: perconalab/pmm-client:${VERSION}-rc
 OVA: https://percona-vm.s3.amazonaws.com/PMM2-Server-${VERSION}.ova
