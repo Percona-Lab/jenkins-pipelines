@@ -178,8 +178,9 @@ pipeline {
                     docker push ${DOCKER_TAG}
                     docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
                 '''
-                // stash includes: 'results/docker/TAG', name: 'IMAGE'
+                stash includes: 'results/docker/TAG', name: 'IMAGE'
                 script {
+                    unstash 'IMAGE'
                     env.IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                 }
             }
