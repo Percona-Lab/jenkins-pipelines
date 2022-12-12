@@ -77,7 +77,6 @@ pipeline {
                 }
                 sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
                 stash includes: 'IMAGE', name: 'IMAGE'
-                archiveArtifacts 'IMAGE'
             }
         }
         stage('Build Dev-Latest Image') {
@@ -99,7 +98,6 @@ pipeline {
                 }
                 sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
                 stash includes: 'IMAGE', name: 'IMAGE'
-                archiveArtifacts 'IMAGE'
             }
         }
 
