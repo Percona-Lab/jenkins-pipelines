@@ -80,6 +80,10 @@ imageMap['eu-west-1c.min-hirsute-x64-zenfs'] = imageMap['eu-west-1a.min-hirsute-
 imageMap['eu-west-1c.min-focal-x64-zenfs'] = imageMap['eu-west-1a.min-focal-x64-zenfs']
 imageMap['eu-west-1c.min-bionic-x64-zenfs']  = imageMap['eu-west-1a.min-bionic-x64-zenfs']
 
+imageMap['eu-west-1a.docker-32gb-aarch64']  = 'ami-06db897520fb93106'
+imageMap['eu-west-1b.docker-32gb-aarch64']  = imageMap['eu-west-1a.docker-32gb-aarch64']
+imageMap['eu-west-1c.docker-32gb-aarch64']  = imageMap['eu-west-1a.docker-32gb-aarch64']
+
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
 priceMap['m1.medium'] = '0.05'
@@ -90,6 +94,8 @@ priceMap['r4.4xlarge'] = '0.48'  // old 0.38
 priceMap['m5d.2xlarge'] = '0.35' // old 0.20
 priceMap['c5d.xlarge'] = '0.35'  // old 0.20
 priceMap['i4i.2xlarge'] = '0.50' // old 0.40
+
+priceMap['m6gd.2xlarge'] = '0.23' // aarch64 type=m6gd.2xlarge, vCPU=8, memory=32GiB, saving=62%, interruption='<5%', price=0.151500
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -109,6 +115,8 @@ userMap['min-bullseye-x64']  = 'admin'
 userMap['min-hirsute-x64-zenfs']    = 'ubuntu'
 userMap['min-focal-x64-zenfs']    = 'ubuntu'
 userMap['min-bionic-x64-zenfs']   = 'ubuntu'
+
+userMap['docker-32gb-aarch64'] = userMap['docker']
 
 initMap = [:]
 initMap['docker'] = '''
@@ -144,7 +152,7 @@ initMap['docker'] = '''
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
 
-        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "/tmp/awscliv2.zip"; do
             sleep 1
             echo try again
         done
@@ -275,6 +283,8 @@ initMap['min-hirsute-x64-zenfs'] = initMap['min-bionic-x64']
 initMap['min-focal-x64-zenfs'] = initMap['min-bionic-x64']
 initMap['min-bionic-x64-zenfs'] = initMap['min-bionic-x64']
 
+initMap['docker-32gb-aarch64'] = initMap['docker']
+
 capMap = [:]
 capMap['c5.xlarge']    = '60'
 capMap['m4.xlarge']    = '5'
@@ -282,6 +292,8 @@ capMap['r5b.2xlarge'] = '40'
 capMap['r4.4xlarge']   = '40'
 capMap['c5d.xlarge']   = '10'
 capMap['i4i.2xlarge']  = '40'
+
+capMap['m6gd.2xlarge'] = '20'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.small'
@@ -302,6 +314,8 @@ typeMap['min-hirsute-x64-zenfs'] = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64-zenfs'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64-zenfs'] = typeMap['min-centos-7-x64']
 
+typeMap['docker-32gb-aarch64'] = 'm6gd.2xlarge'
+
 execMap = [:]
 execMap['docker']            = '1'
 execMap['docker-32gb']       = execMap['docker']
@@ -320,6 +334,8 @@ execMap['min-bullseye-x64']  = '1'
 execMap['min-hirsute-x64-zenfs'] = '1'
 execMap['min-focal-x64-zenfs'] = '1'
 execMap['min-bionic-x64-zenfs'] = '1'
+
+execMap['docker-32gb-aarch64'] = execMap['docker']
 
 devMap = [:]
 devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:180:true:gp2'
@@ -340,6 +356,8 @@ devMap['min-hirsute-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2
 devMap['min-focal-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
 devMap['min-bionic-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
 
+devMap['docker-32gb-aarch64'] = devMap['docker']
+
 labelMap = [:]
 labelMap['docker']            = ''
 labelMap['docker-32gb']       = ''
@@ -358,6 +376,8 @@ labelMap['min-bullseye-x64']  = ''
 labelMap['min-hirsute-x64-zenfs']  = ''
 labelMap['min-focal-x64-zenfs']    = ''
 labelMap['min-bionic-x64-zenfs']   = ''
+
+labelMap['docker-32gb-aarch64'] = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -442,6 +462,7 @@ String region = 'eu-west-1'
             getTemplate('min-hirsute-x64-zenfs', "${region}${it}"),
             getTemplate('min-focal-x64-zenfs',   "${region}${it}"),
             getTemplate('min-bionic-x64-zenfs',  "${region}${it}"),
+            getTemplate('docker-32gb-aarch64',   "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''

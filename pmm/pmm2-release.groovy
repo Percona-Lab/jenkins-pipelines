@@ -565,6 +565,22 @@ ENDSSH
                 ]
             }
         }
+        stage('Scan Image for Vulnerabilities') {
+            steps {
+                script {
+                    imageScan = build job: 'pmm2-image-scanning', propagate: false, parameters: [
+                        string(name: 'IMAGE', value: "perconalab/pmm-server"),
+                        string(name: 'TAG', value: "${VERSION}")
+                    ]
+
+                    if (imageScan.result == 'SUCCESS') {
+                        copyArtifacts filter: 'report.html', projectName: 'pmm2-image-scanning'
+                        sh 'mv report.html report-${VERSION}.html'
+                        archiveArtifacts "report-${VERSION}.html"
+                    }
+                }
+            }
+        }
     }
     post {
         always {

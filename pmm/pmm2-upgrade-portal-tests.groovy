@@ -38,6 +38,10 @@ void destroyStaging(IP) {
 
 def versionsList = pmmVersion('list').reverse()
 
+def getMinorVersion(VERSION) {
+    return VERSION.split("\\.")[1].toInteger()
+}
+
 def getPMMServerVersion(String PMM_SERVER_VERSION, String PMM_SERVER_VERSION_CUSTOM) {
     return PMM_CLIENT_VERSION == "custom" ? PMM_SERVER_VERSION_CUSTOM : PMM_SERVER_VERSION
 }
@@ -57,6 +61,7 @@ void performDockerWayUpgrade(String PMM_VERSION, String VM_IP) {
             '
         """
     }
+
 }
 
 pipeline {
@@ -181,6 +186,22 @@ pipeline {
         stage('Sleep') {
             steps {
                 sleep 60
+            }
+        }
+        stage('Upgrade workaround for nginx package') {
+            when {
+                expression { getMinorVersion(DOCKER_VERSION) <= 32 }
+            }
+            steps{
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} ' 
+                            set -o errexit
+                            set -o xtrace
+                            docker exec ${VM_NAME}-server sed -i 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
+                        '
+                    """
+                }
             }
         }
         stage('Enable Testing Repo') {

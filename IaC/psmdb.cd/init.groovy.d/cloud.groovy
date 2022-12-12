@@ -40,12 +40,15 @@ imageMap['docker']           = imageMap['micro-amazon']
 imageMap['docker-32gb']      = imageMap['micro-amazon']
 imageMap['docker-64gb']      = imageMap['micro-amazon']
 
+imageMap['docker-64gb-aarch64'] = 'ami-0710985fd660e8917'
+
 priceMap = [:]
 priceMap['t2.medium']   = '0.03'
 priceMap['c5ad.2xlarge']  = '0.18'
 priceMap['m5zn.2xlarge'] = '0.22'
 priceMap['c5ad.4xlarge'] = '0.40'
 priceMap['g4ad.4xlarge'] = '0.40' // type=g4ad.4xlarge, vCPU=16, memory=64GiB, saving=70%, interruption='<5%'
+priceMap['m6gd.4xlarge'] = '0.35' // aarch64 type=m6gd.4xlarge, vCPU=16, memory=64GiB, saving=61%, interruption='<5%', price=0.284000
 
 userMap = [:]
 userMap['docker']           = 'ec2-user'
@@ -65,6 +68,8 @@ userMap['min-jammy-x64']    = 'ubuntu'
 userMap['min-bullseye-x64'] = 'admin'
 userMap['psmdb']            = userMap['min-xenial-x64']
 userMap['psmdb-bionic']     = userMap['min-xenial-x64']
+
+userMap['docker-64gb-aarch64'] = userMap['docker']
 
 initMap = [:]
 initMap['docker'] = '''
@@ -261,11 +266,14 @@ initMap['min-xenial-x64']  = initMap['debMap']
 initMap['psmdb']           = initMap['debMap']
 initMap['psmdb-bionic']    = initMap['debMap']
 
+initMap['docker-64gb-aarch64'] = initMap['docker-32gb']
+
 capMap = [:]
 capMap['c5ad.2xlarge'] = '60'
 capMap['m5zn.2xlarge'] = '60'
 capMap['c5ad.4xlarge'] = '80'
 capMap['g4ad.4xlarge'] = '20'
+capMap['m6gd.4xlarge'] = '20'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.medium'
@@ -286,6 +294,8 @@ typeMap['min-jammy-x64']     = typeMap['docker-32gb']
 typeMap['psmdb']             = typeMap['docker-32gb']
 typeMap['psmdb-bionic']      = typeMap['docker-32gb']
 
+typeMap['docker-64gb-aarch64'] = 'm6gd.4xlarge'
+
 execMap = [:]
 execMap['docker']           = '1'
 execMap['docker-32gb']      = execMap['docker']
@@ -304,6 +314,8 @@ execMap['min-focal-x64']    = '1'
 execMap['min-jammy-x64']    = '1'
 execMap['psmdb']            = '1'
 execMap['psmdb-bionic']     = '1'
+
+execMap['docker-64gb-aarch64'] = execMap['docker']
 
 devMap = [:]
 devMap['docker']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:500:true:gp2'
@@ -324,6 +336,8 @@ devMap['min-bionic-x64']   = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
 devMap['min-focal-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
 devMap['min-jammy-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
 
+devMap['docker-64gb-aarch64'] = devMap['docker']
+
 labelMap = [:]
 labelMap['docker']           = ''
 labelMap['docker-32gb']      = ''
@@ -342,6 +356,8 @@ labelMap['min-focal-x64']    = ''
 labelMap['min-jammy-x64']    = ''
 labelMap['psmdb']            = ''
 labelMap['psmdb-bionic']     = ''
+
+labelMap['docker-64gb-aarch64'] = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -428,6 +444,7 @@ String region = 'us-west-2'
             getTemplate('min-bionic-x64',   "${region}${it}"),
             getTemplate('min-xenial-x64',   "${region}${it}"),
             getTemplate('micro-amazon',     "${region}${it}"),
+            getTemplate('docker-64gb-aarch64', "${region}${it}"),
         ],
         '',
         ''                                    // List<? extends SlaveTemplate> templates

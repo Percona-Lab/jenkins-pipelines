@@ -19,6 +19,11 @@ if [ -f /usr/bin/yum ]; then
   RHVER="$(rpm --eval %rhel)"
   rpm --eval %_arch > /etc/yum/vars/basearch
 
+  if [[ ${RHVER} -eq 9 ]]; then
+      # repo for procps-ng-devel
+      yum install -y https://yum.oracle.com/repo/OracleLinux/OL9/distro/builder/x86_64/getPackage/procps-ng-devel-3.3.17-8.el9.x86_64.rpm
+  fi
+
   if [[ ${RHVER} -eq 8 ]]; then
       sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-*
       sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Linux-*
@@ -64,6 +69,17 @@ if [ -f /usr/bin/yum ]; then
       PKGLIST+=" libedit-devel python3-docutils"
   fi
 
+  if [[ ${RHVER} -eq 9 ]]; then
+      PKGLIST+=" dnf-utils"
+      until yum -y install ${PKGLIST} ; do
+        echo "waiting"
+        sleep 1
+      done
+
+      dnf config-manager --enable ol9_codeready_builder
+      PKGLIST+=" libedit-devel"
+  fi
+
   if [[ ${RHVER} -lt 8 ]]; then
       PKGLIST+=" python-docutils procps-ng-devel"
       until yum -y install centos-release-scl; do
@@ -85,19 +101,20 @@ if [ -f /usr/bin/yum ]; then
       dnf config-manager --set-enabled powertools
   fi
 
+  # Percona Server
   PKGLIST=" \
-    gcc-c++ gperf ncurses-devel perl readline-devel openssl-devel libmicrohttpd-devel jemalloc unzip \
-    time zlib-devel libaio-devel bison cmake pam-devel jemalloc-devel valgrind re2-devel \
+    gcc-c++ gperf ncurses-devel perl readline-devel openssl-devel jemalloc zip unzip \
+    time zlib-devel libaio-devel bison cmake pam-devel jemalloc-devel valgrind \
     perl-Time-HiRes openldap-devel perl-Env perl-Data-Dumper libicu-devel perl-Sys-MemInfo \
-    perl-JSON MySQL-python perl-Digest perl-Digest-MD5 \
-    numactl-devel git which make rpm-build ccache libtool redhat-lsb-core sudo libasan lz4-devel \
-    libzstd-devel tzdata check-devel scons libgcrypt-devel libev-devel zlib-devel libaio-devel \
-    ncurses-devel readline-devel pam-devel vim-common openssl perl-CPAN rsync libcurl-devel \
-    python3 sysbench perl-DBD-mysql \
-    patchelf lsof automake bzip2 gnutls gnutls-devel patch lsof socat qpress perl-XML-Simple \
-    stunnel \
-    cyrus-sasl-scram \
-    libudev-devel \
+    perl-JSON perl-Digest perl-Digest-MD5 \
+    numactl-devel git which make rpm-build ccache libtool sudo libasan lz4-devel \
+    libzstd-devel tzdata zstd mysql-devel perl-DBI perl-DBD-mysql jq openssl perl-XML-Simple libcurl-devel perl-Test-Simple \
+    cyrus-sasl-devel cyrus-sasl-scram krb5-devel libudev-devel python3-pip python3-devel libevent-devel \
+    "
+
+  # PXC specific
+  PKGLIST+=" libmicrohttpd-devel re2-devel check-devel scons libgcrypt-devel libev-devel vim-common \
+    perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat qpress stunnel \
     "
 
     if [[ ${RHVER} -eq 8 ]]; then
@@ -107,6 +124,14 @@ if [ -f /usr/bin/yum ]; then
         DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-libasan-devel gcc-toolset-10-libubsan-devel"
     else
         PKGLIST+=" asio-devel"
+    fi
+
+    if [[ ${RHVER} -eq 9 ]]; then
+        PKGLIST+=" gflags-devel util-linux libtirpc-devel rpcgen boost-devel"
+    fi
+
+    if [[ ${RHVER} -lt 9 ]]; then
+        PKGLIST+=" sysbench MySQL-python redhat-lsb-core"
     fi
 
 # Percona-Server
@@ -188,7 +213,7 @@ if [ -f /usr/bin/apt-get ]; then
     percona-release enable tools testing
 
     DIST=$(lsb_release -sc)
-    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' ]]; then
+    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' && ${DIST} != 'jammy' ]]; then
         echo "deb http://jenkins.percona.com/apt-repo/ ${DIST} main" > /etc/apt/sources.list.d/percona-dev.list
         wget -q -O - http://jenkins.percona.com/apt-repo/8507EFA5.pub | apt-key add -
         wget -q -O - http://jenkins.percona.com/apt-repo/CD2EFD2A.pub | apt-key add -
@@ -199,30 +224,47 @@ if [ -f /usr/bin/apt-get ]; then
         echo "waiting"
     done
 
+    # Percona Server
     PKGLIST=" \
-        curl bison cmake make perl libssl-dev gcc g++ libaio-dev libldap2-dev libwrap0-dev gdb unzip gawk \
-        libmecab-dev libncurses5-dev libreadline-dev libpam-dev zlib1g-dev libcurl4-openssl-dev build-essential \
+        curl bison cmake perl libssl-dev gcc g++ libaio-dev libldap2-dev libwrap0-dev gdb zip unzip gawk \
+        libmecab-dev libncurses5-dev libreadline-dev libpam-dev zlib1g-dev libcurl4-openssl-dev \
         libnuma-dev libjemalloc-dev libc6-dbg valgrind libjson-perl libevent-dev pkg-config \
         libmecab2 mecab mecab-ipadic git autoconf libgsasl7 libsasl2-dev libsasl2-modules devscripts \
         debconf debhelper fakeroot po-debconf psmisc ccache libtool sudo liblz4-dev liblz4-tool libedit-dev libssl-dev \
-        tzdata check scons libreadline-dev libgcrypt-dev libev-dev zlib1g-dev libasio-dev ncurses-dev \
-        libpam-dev vim-common python3-pip libboost-all-dev rsync \
-        python3 sysbench libdbd-mysql-perl \
-        patchelf lynx librtmp-dev lsof socat qpress libncurses5 libtinfo5 libxml-simple-perl python3-sphinx \
-        stunnel \
-        libkrb5-dev libsasl2-dev libsasl2-modules-gssapi-mit \
-        libudev-dev \
-        libprocps-dev \
+        tzdata golang libunwind-dev zstd python3-mysqldb libdbi-perl libdbd-mysql-perl \
+        jq openssl libxml-simple-perl \
+        libsasl2-dev libsasl2-modules-gssapi-mit libkrb5-dev libudev-dev libzstd-dev libsys-meminfo-perl \
     "
 
-    if [[ ${DIST} != 'bullseye' ]]; then
+    # PXC specific
+    PKGLIST+=" make build-essential check scons  libgcrypt-dev libev-dev  libasio-dev  vim-common python3-pip \
+        libboost-all-dev rsync python3 sysbench patchelf lynx librtmp-dev lsof socat qpress libncurses5 libtinfo5 \
+        python3-sphinx stunnel libprocps-dev \
+    "
+
+    if [[ ${DIST} == 'jammy' ]]; then
+        PKGLIST+=" python2"
+    else
+        PKGLIST+=" python"
+    fi
+
+    if [[ ${DIST} != 'bullseye' && ${DIST} != 'jammy' ]]; then
         PKGLIST+=" dh-systemd"
     fi
-    
-    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' ]]; then
+
+    if [[ ${DIST} == 'jammy' ]] || [[ ${DIST} == 'bullseye' ]]; then
+        PKGLIST+=" libgflags-dev util-linux"
+    fi
+
+    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' && ${DIST} != 'jammy' ]]; then
         PKGLIST+=" python-mysqldb"
     else
         PKGLIST+=" python3-mysqldb"
+    fi
+
+    # PS-7834: 8.0.26 requires GCC 8 on bionic
+    if [[ ${DIST} == "bionic" ]]; then
+        PKGLIST+=" gcc-8 g++-8"
     fi
 
     DISTRIBUTOR_ID=$(lsb_release -i -s)
@@ -267,7 +309,7 @@ if [ -f /usr/bin/apt-get ]; then
 	pip3 install mysql-connector
     apt-get -y install build-essential devscripts
     # deps from spec files
-    if [[ ${DIST} != 'bullseye' ]]; then
+    if [[ ${DIST} != 'bullseye' && ${DIST} != 'jammy' ]]; then
         apt-get -y install debhelper pkg-config cmake dh-systemd
     else
         apt-get -y install debhelper pkg-config cmake
@@ -275,11 +317,17 @@ if [ -f /usr/bin/apt-get ]; then
     # missing build deps
     apt-get -y install libssl-dev gawk lynx zlib1g-dev
     apt-get -y purge librtmp-dev || true
-    apt-get -y install automake bzip2 cmake make g++ gcc git openssl libssl-dev libgnutls28-dev libtool patch patchelf python
+    apt-get -y install automake bzip2 cmake make g++ gcc git openssl libssl-dev libgnutls28-dev libtool patch patchelf
     apt-get -y clean
+
 
     if [[ ${DIST} == 'focal' ]]; then
         update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+    fi
+
+    if [[ ${DIST} == "bionic" ]]; then
+        update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 700 --slave /usr/bin/g++ g++ /usr/bin/g++-7
+        update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 800 --slave /usr/bin/g++ g++ /usr/bin/g++-8
     fi
 fi
 
@@ -322,16 +370,26 @@ if [ -f /usr/bin/yum ]; then
 fi
 
 export PERL_MM_USE_DEFAULT=1
-sudo -E cpan -T Memcached::libmemcached
-sudo -E cpan -T Cache::Memcached::libmemcached
+if [[ ${RHVER} -eq 7 ]]; then
+    sudo cpan -T Memcached::libmemcached
+    sudo cpan -T Cache::Memcached::libmemcached
+else
+    cpan -T Memcached::libmemcached
+    cpan -T Cache::Memcached::libmemcached
+fi
+
+# getting rid of the "fatal: detected dubious ownership in repository at ..." error
+git config --system --add safe.directory '*'
+
+# PS-7159 remove localhost from ipv6 
+sed -re "s/^(::1.*)\slocalhost\b(.*)$/\1 \2/g" /etc/hosts 1<> /etc/hosts
 
 # NB: resulting docker image will be used for building all branches: 5.6, 5.7, 8.0
 # boost 1.59.0 needed for percona-server 5.7
 wget_loop 'boost_1_59_0.tar.gz' 'http://downloads.sourceforge.net/boost/boost/1.59.0/boost_1_59_0.tar.gz'
 
-# boost 1.67.0 needed for percona-server 8.0
-wget_loop 'boost_1_67_0.tar.gz' 'http://downloads.sourceforge.net/boost/boost/1.67.0/boost_1_67_0.tar.gz'
-wget_loop 'boost_1_70_0.tar.gz' 'http://downloads.sourceforge.net/boost/boost/1.70.0/boost_1_70_0.tar.gz'
+# boost 1.77.0 needed for percona-server 8.0
+wget_loop 'boost_1_77_0.tar.bz2' 'http://downloads.sourceforge.net/boost/boost/1.77.0/boost_1_77_0.tar.bz2'
 
 # googletest 1.8.0 needed for percona-server versions 5.6 to 8.0
 wget_loop 'googletest-release-1.8.0.zip' 'https://github.com/google/googletest/archive/release-1.8.0.zip'

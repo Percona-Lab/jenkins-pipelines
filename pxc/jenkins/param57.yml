@@ -99,7 +99,6 @@
          type: user-defined
          name: DOCKER_OS
          values:
-          - centos:6
           - centos:7
           - centos:8
           - ubuntu:bionic
