@@ -310,7 +310,7 @@ pipeline {
                         copyArtifacts filter: 'report.html', projectName: 'pmm2-image-scanning'
                         sh 'mv report.html report-${VERSION}-rc.html'
                         archiveArtifacts "report-${VERSION}-rc.html"
-                        env.SCAN_REPORT_URL = "Scan Report: ${BUILD_URL}artifact/report-${VERSION}-rc.html"
+                        env.SCAN_REPORT_URL = "CVE Scan Report: ${BUILD_URL}artifact/report-${VERSION}-rc.html"
                     }
                 }
             }
