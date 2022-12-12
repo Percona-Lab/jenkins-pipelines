@@ -1,5 +1,3 @@
-def PMM_VERSION = 'dev-latest-el9'
-
 pipeline {
     agent {
         label 'ovf-do'
@@ -22,8 +20,10 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
+                    env.PMM_VERSION = 'dev-latest-el9'
                     if (params.RELEASE_CANDIDATE == 'yes') {
-                        PMM_VERSION = PMM_BRANCH.split('-')[1] //release branch should be in format: pmm-2.x.y
+                        // release branch should be in the format: pmm-2.x.y
+                        env.PMM_VERSION = PMM_BRANCH.split('-')[1] 
                     }
                 }
                 withCredentials([string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
@@ -47,6 +47,10 @@ pipeline {
                           reference: '',
                           shallow: true]],
                           userRemoteConfigs: [[url: 'https://github.com/percona/pmm.git']]])
+                sh '''
+                    mkdir -p build/update
+                    cp -rpav update/ansible/playbook/* build/update
+                '''
                 dir('build') {
                     sh '''
                         make fetch-el9
@@ -61,7 +65,7 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    dir("build") {
+                    dir('build') {
                         sh '''
                             /usr/bin/packer build \
                             -var 'pmm_client_repos=original testing' \
@@ -82,7 +86,7 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    dir("build") {
+                    dir('build') {
                         sh '''
                             /usr/bin/packer build \
                             -var 'pmm_client_repos=original experimental' \
@@ -104,23 +108,21 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    withEnv(['PMM_VERSION=' + PMM_VERSION]) {
-                        sh '''
-                            FILE=$(ls */*/*.ova)
-                            NAME=$(basename ${FILE})
-                            aws s3 cp \
-                                --only-show-errors \
-                                --acl public-read \
-                                ${FILE} \
-                                s3://percona-vm/${NAME}
+                    sh '''
+                        FILE=$(ls */*/*.ova)
+                        NAME=$(basename ${FILE})
+                        aws s3 cp \
+                            --only-show-errors \
+                            --acl public-read \
+                            ${FILE} \
+                            s3://percona-vm/${NAME}
 
-                            aws s3 cp \
-                                --only-show-errors \
-                                --acl public-read \
-                                s3://percona-vm/${NAME} \
-                                s3://percona-vm/PMM2-Server-${PMM_VERSION}.el9.ova
-                        '''
-                    }
+                        aws s3 cp \
+                            --only-show-errors \
+                            --acl public-read \
+                            s3://percona-vm/${NAME} \
+                            s3://percona-vm/PMM2-Server-${PMM_VERSION}.el9.ova
+                    '''
                 }
             }
         }
