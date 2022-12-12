@@ -130,9 +130,9 @@ pipeline {
                       channel: '@alexander.tymchuk',
                       color: '#00FF00',
                       message: """New RHEL9 RC is out :rocket:
-Server: perconalab/pmm-server:${VERSION}-rc
-Client: perconalab/pmm-client:${VERSION}-rc
-OVA: https://percona-vm.s3.amazonaws.com/PMM2-Server-${VERSION}.ova
+Server: perconalab/pmm-server:${VERSION}-rc-el9
+Client: perconalab/pmm-client:${VERSION}-rc-el9
+OVA: https://percona-vm.s3.amazonaws.com/PMM2-Server-${VERSION}.el9.ova
 AMI: ${env.AMI_ID}
 Tarball: ${env.TARBALL_URL}
                       """
