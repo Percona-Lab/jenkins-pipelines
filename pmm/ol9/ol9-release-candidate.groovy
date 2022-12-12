@@ -92,7 +92,7 @@ pipeline {
                         script {
                             build job: 'ol9-build-server', parameters: [
                                 // string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                                string(name: 'GIT_BRANCH', value: 'PMM-6352-custom-build-el9'),
+                                string(name: 'GIT_BRANCH', value: 'PMM-6352-custom-build-ol9'),
                                 string(name: 'DESTINATION', value: 'testing') // TODO: revert to the original value
                             ]
                         }
