@@ -89,7 +89,6 @@ pipeline {
             parallel {
                 stage('Start OL9 Server Build') {
                     steps {
-                        echo "Skipping the server build..."
                         script {
                             build job: 'ol9-build-server', parameters: [
                                 string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
@@ -111,19 +110,19 @@ pipeline {
                 // }
             }
         }
-        // stage('Build OVF') {
-        //     when {
-        //         expression { env.REMOVE_RELEASE_BRANCH == "no" }
-        //     }
-        //     stage('Start OL9 OVF Build') {
-        //         steps {
-        //             build job: 'ol9-build-ovf', parameters: [
-        //                 string(name: 'PMM_BRANCH', value: 'PMM-6352-custom-build-ol9'),
-        //                 string(name: 'RELEASE_CANDIDATE', value: 'no')
-        //             ]                    
-        //         }
-        //     }
-        // }
+        stage('Build OVF') {
+            when {
+                expression { env.REMOVE_RELEASE_BRANCH == "no" }
+            }
+            steps {
+                script {
+                    build job: 'ol9-build-ovf', parameters: [
+                        string(name: 'PMM_BRANCH', value: 'PMM-6352-custom-build-el9'),
+                        string(name: 'RELEASE_CANDIDATE', value: 'yes')
+                    ]                    
+                }
+            }
+        }
     }
     post {
         success {

@@ -18,9 +18,6 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-    triggers {
-        upstream upstreamProjects: 'ol9-build-server', threshold: hudson.model.Result.SUCCESS
-    }
     stages {
         stage('Prepare') {
             steps {
@@ -121,7 +118,7 @@ pipeline {
                                 --only-show-errors \
                                 --acl public-read \
                                 s3://percona-vm/${NAME} \
-                                s3://percona-vm/PMM2-Server-${PMM_VERSION}.ova
+                                s3://percona-vm/PMM2-Server-${PMM_VERSION}.el9.ova
                         '''
                     }
                 }
@@ -143,13 +140,13 @@ pipeline {
                             s3://percona-vm/${NAME}
 
                         # This will redirect to the image above
-                        echo /${NAME} > PMM2-Server-dev-latest-el9.ova
+                        echo /${NAME} > PMM2-Server-dev-latest.el9.ova
 
                         aws s3 cp \
                             --only-show-errors \
                             --website-redirect /${NAME} \
-                            PMM2-Server-dev-latest-el9.ova \
-                            s3://percona-vm/PMM2-Server-dev-latest-el9.ova
+                            PMM2-Server-dev-latest.el9.ova \
+                            s3://percona-vm/PMM2-Server-dev-latest.el9.ova
                     '''
                 }
             }
