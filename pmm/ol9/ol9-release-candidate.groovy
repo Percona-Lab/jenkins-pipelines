@@ -91,8 +91,7 @@ pipeline {
                     steps {
                         script {
                             build job: 'ol9-build-server', parameters: [
-                                // string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                                string(name: 'GIT_BRANCH', value: 'PMM-6352-custom-build-ol9'),
+                                string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
                                 string(name: 'DESTINATION', value: 'testing') // TODO: revert to the original value
                             ]
                         }
@@ -118,7 +117,8 @@ pipeline {
             steps {
                 script {
                     build job: 'ol9-build-ovf', parameters: [
-                        string(name: 'PMM_BRANCH', value: 'PMM-6352-custom-build-el9'),
+                        // TODO: get the branch from pmm-submodules' cy.yml
+                        string(name: 'PMM_BRANCH', value: 'PMM-6352-custom-build-el9'), 
                         string(name: 'RELEASE_CANDIDATE', value: 'yes')
                     ]                    
                 }
