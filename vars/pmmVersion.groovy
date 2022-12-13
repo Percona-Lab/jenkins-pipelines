@@ -25,7 +25,7 @@ def call(String type='latest') {
 
   List<String> versionsList = new ArrayList<>(versions.keySet());
   // Grab 10 latest versions
-  List<String> ovfVersions = ['2.31.0', '2.30.0', '2.29.1', '2.28.0', '2.27.0', '2.26.0', '2.25.0', '2.24.0', '2.23.0', '2.22.0'];
+  List<String> ovfVersions = ['2.32.0', '2.31.0', '2.30.0', '2.29.1', '2.28.0', '2.27.0', '2.26.0', '2.25.0', '2.24.0', '2.23.0', '2.22.0'];
 
   switch(type) {
     case 'latest':

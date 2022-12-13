@@ -4,8 +4,6 @@
         name: Host
         type: label-expression
         values:
-        - min-centos-6-x32
-        - min-centos-6-x64
         - min-centos-7-x64
         - min-jessie-x64
         - min-stretch-x64
@@ -19,7 +17,7 @@
         if [ -f /usr/bin/yum ]; then
             sudo yum clean all
             sudo -E yum -y install epel-release
-            sudo -E yum -y install gcc gcc-c++ check-devel openssl-devel cmake bison boost-devel curl-devel curl wget vim-common
+            sudo -E yum -y install gcc gcc-c++ check-devel openssl-devel cmake cmake3 bison boost-devel curl-devel curl wget vim-common
             sudo -E yum -y install libev-devel libgcrypt-devel zlib-devel ncurses-devel python-docutils libgcrypt-devel bison
             sudo -E yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat python-docutils
 
@@ -56,7 +54,7 @@
             sleep 5
             sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ bison libasio-dev libssl-dev libtool libc-dev libgpg-error-dev python-sphinx
             sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check python-sphinx libgcrypt-dev python-docutils
-            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat libev-dev libcurl4-openssl-dev
+            sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake cmake3 libboost-all-dev libreadline-dev libpam-dev socat libev-dev libcurl4-openssl-dev
             sudo -E DEBIAN_FRONTEND=noninteractive apt-get -y install lsb-release python3-pip
 
             # TODO REMOVE AFTER image fix

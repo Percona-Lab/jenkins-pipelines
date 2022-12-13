@@ -18,6 +18,7 @@ void enableRepo(String REPO, String PUBLIC_IP) {
             export REPO=${REPO}
             export PUBLIC_IP=${PUBLIC_IP}
             ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${PUBLIC_IP} '
+                sudo sed -i'' 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
                 sudo yum update -y percona-release || true
                 sudo sed -i'' -e 's^/release/^/${REPO}/^' /etc/yum.repos.d/pmm2-server.repo
                 sudo percona-release enable percona ${REPO}
@@ -144,18 +145,6 @@ pipeline {
                         curl -s --user admin:admin http://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}'
                     """
                 }
-            }
-        }
-        stage('Upgrade workaround for nginx package') {
-            steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh """
-                        export REPO=${REPO}
-                        export PUBLIC_IP=${PUBLIC_IP}
-                        ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${PUBLIC_IP} '
-                            sudo sed -i 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
-                        '
-                    """
             }
         }
         stage('Enable Testing Repo') {
