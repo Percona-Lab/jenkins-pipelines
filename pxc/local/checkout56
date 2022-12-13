@@ -84,7 +84,8 @@ if [ "$SOURCE_NAME" == 'PXB23' -o "$SOURCE_NAME" == 'ALL' ]; then
         git clean -xdf
 
         if [ -n "${PXB23_BRANCH}" ]; then
-            git checkout "${PXB23_BRANCH}" -b "tag-${PXB23_BRANCH}"
+            git checkout "${PXB23_BRANCH}"
+            git checkout -b "tag-${PXB23_BRANCH}"
         fi
         if [ -n "${PXB23_REPO}" -a -n "${PXB23_BRANCH}" ]; then
             git pull origin ${PXB23_BRANCH}
@@ -112,7 +113,8 @@ if [ "$SOURCE_NAME" == 'GALERA3' -o "$SOURCE_NAME" == 'ALL' ]; then
         git clean -xdf
 
         if [ -n "${GALERA3_BRANCH}" ]; then
-            git checkout "origin/${GALERA3_BRANCH}" -b "tag-${GALERA3_BRANCH}"
+            git checkout "origin/${GALERA3_BRANCH}"
+            git checkout -b "tag-${GALERA3_BRANCH}"
         fi
         if [ -n "${GALERA3_REPO}" -a -n "${GALERA3_BRANCH}" ]; then
             git pull origin ${GALERA3_BRANCH}
