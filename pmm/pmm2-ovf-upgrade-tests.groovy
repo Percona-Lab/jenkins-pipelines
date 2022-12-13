@@ -285,7 +285,7 @@ pipeline {
         }
         stage('Check Packages after Upgrade') {
             steps {
-                checkUpgrade(PMM_SERVER_LATEST, "afterUpgrade", OVF_INSTANCE_NAME);
+                checkUpgrade(PMM_SERVER_LATEST, "post", OVF_INSTANCE_NAME);
             }
         }
         stage('Check Client Upgrade') {
