@@ -152,7 +152,7 @@ pipeline {
                         string(name: 'TO_REPO', value: "${env.TO_REPO}"),
                         string(name: 'VERSION', value: "${env.VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pdps-minor-upgrade"),
+                        string(name: 'SCENARIO', value: "pdps_minor_upgrade"),
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
