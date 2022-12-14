@@ -1,16 +1,14 @@
 - job:
-    name: wip-pxc-package-testing
+    name: wip-pxc-package-testing-parallel
     project-type: pipeline
     description: |
-        Work in progress, please ignore
         Do not edit this job through the web!
-    concurrent: true
     properties:
         - build-discarder:
             artifact-days-to-keep: -1
-            artifact-num-to-keep: 20
+            artifact-num-to-keep: 10
             days-to-keep: -1
-            num-to-keep: 20
+            num-to-keep: 10
     pipeline-scm:
         scm:
             - git:
@@ -19,31 +17,32 @@
                     - 'master'
                 wipe-workspace: true
         lightweight-checkout: true
-        script-path: pxc/jenkins/pxc-package-testing.groovy
+        script-path: pxc/jenkins/pxc-package-testing-parallel.groovy
     parameters:
         - choice:
             name: product_to_test
             choices:
-                - 'pxc80'
-                - 'pxc57'
-            description: "PXC version to test"
-        - choice:
-            name: node_to_test
-            choices:
-                - 'ubuntu-focal'
-                - 'ubuntu-bionic'
-                - 'debian-11'
-                - 'debian-10'
-                - 'centos-7'
-                - 'ol-8'
-            description: "Distribution to run test"
+                - "pxc57"
+                - "pxc80"
+            description: "Product for which the packages will be tested"
         - choice:
             name: install_repo
             choices:
                 - "testing"
                 - "main"
                 - "experimental"
-            description: "Repo to install packages from"
+            description: "Repo to use in install test"
+        - choice:
+            name: node_to_test
+            choices:
+                - "all"
+                - "ubuntu-focal"
+                - "ubuntu-bionic"
+                - "debian-11"
+                - "debian-10"
+                - "centos-7"
+                - "ol-8"
+            description: "Node in which to test the product"
         - choice:
             name: pxc57_repo
             choices:

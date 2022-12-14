@@ -80,15 +80,14 @@ imageMap['eu-central-1c.min-bullseye-x64']  = imageMap['eu-central-1a.min-bullse
 
 priceMap = [:]
 priceMap['t2.small'] = '0.01'
-priceMap['m5.large'] = '0.05'
+priceMap['m4.large'] = '0.07' // type=m4.large, vCPU=2, memory=8GiB, saving=64%, interruption='<5%', price=.044500
 priceMap['m1.medium'] = '0.05'
 priceMap['c4.xlarge'] = '0.10'
 priceMap['m4.xlarge'] = '0.10'
 priceMap['c6i.4xlarge'] = '0.47'
-priceMap['r5b.4xlarge'] = '0.70'
-priceMap['m5d.2xlarge'] = '0.27'
+priceMap['i4i.4xlarge'] = '0.70'
 priceMap['c5d.xlarge'] = '0.20'
-priceMap['r5a.2xlarge'] = '0.40'
+priceMap['i3en.2xlarge'] = '0.40' // type=i3en.2xlarge, vCPU=8, memory=64GiB, saving=70%, interruption='<5%', price=0.324000
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -331,22 +330,22 @@ initMap['min-xenial-x64']   = initMap['debMap']
 
 capMap = [:]
 capMap['c4.xlarge']  = '60'
-capMap['m5.large']  = '5'
-capMap['m5d.2xlarge'] = '40'
-capMap['r5b.4xlarge'] = '40'
+capMap['m4.large']  = '5'
+capMap['i3en.2xlarge'] = '40'
+capMap['i4i.4xlarge'] = '40'
 capMap['c5d.xlarge'] = '60'
-capMap['r5a.2xlarge'] = '40'
+capMap['i3en.2xlarge'] = '40'
 
 typeMap = [:]
-typeMap['micro-amazon']      = 'm5.large'
+typeMap['micro-amazon']      = 'm4.large'
 typeMap['docker']            = 'c5d.xlarge'
-typeMap['docker-32gb']       = 'm5d.2xlarge'
-typeMap['docker2']           = 'r5b.4xlarge'
+typeMap['docker-32gb']       = 'i3en.2xlarge'
+typeMap['docker2']           = 'i4i.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-8-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-ol-8-x64']      = typeMap['min-centos-7-x64']
-typeMap['min-ol-9-x64']      = 'r5a.2xlarge'
+typeMap['min-ol-9-x64']      = 'i3en.2xlarge'
 typeMap['min-jammy-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']

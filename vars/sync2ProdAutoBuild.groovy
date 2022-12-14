@@ -15,7 +15,7 @@ def call(String REPO_NAME, String DESTINATION) {
                         set -o xtrace
 
                         pushd ${path_to_build}/binary
-                            if [ "x${REPO_NAME}" == "xpsmdb-50" ]; then
+                            if [ "x${REPO_NAME}" == "xpsmdb-50" -o "x${REPO_NAME}" == "xpsmdb-60" ]; then
                                 createrepo_opts=" --no-database "
                             fi
 

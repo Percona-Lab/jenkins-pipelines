@@ -19,35 +19,41 @@ def call(String FOLDER_NAME, String AWS_STASH_PATH) {
                         ${USER}@repo.ci.percona.com:\${path_to_build}/source/redhat/
                 fi
 
-                if [ `find . -name '*.el6.noarch.rpm' -o -name '*.el6.x86_64.rpm' | wc -l` -gt 0 ]; then
-                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                        mkdir -p \${path_to_build}/binary/redhat/6/x86_64
-                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                        `find . -name '*.el6.noarch.rpm' -o -name '*.el6.x86_64.rpm'` \
-                        ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/6/x86_64/
-                fi
+                export arch_list=\$( find . -name '*.el[6-9].*.rpm' | awk -F'[.]' '{print \$(NF -1)}' | uniq )
 
-                if [ `find . -name '*.el7.noarch.rpm' -o -name '*.el7.x86_64.rpm' | wc -l` -gt 0 ]; then
-                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                        mkdir -p \${path_to_build}/binary/redhat/7/x86_64
-                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                        `find . -name '*.el7.noarch.rpm' -o -name '*.el7.x86_64.rpm'` \
-                        ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/7/x86_64/
-                fi
-                if [ `find . -name '*.el8.noarch.rpm' -o -name '*.el8.x86_64.rpm' | wc -l` -gt 0 ]; then
-                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                        mkdir -p \${path_to_build}/binary/redhat/8/x86_64
-                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                        `find . -name '*.el8.noarch.rpm' -o -name '*.el8.x86_64.rpm'` \
-                        ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/8/x86_64/
-                fi
-                if [ `find . -name '*.el9.noarch.rpm' -o -name '*.el9.x86_64.rpm' | wc -l` -gt 0 ]; then
-                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                        mkdir -p \${path_to_build}/binary/redhat/9/x86_64
-                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                        `find . -name '*.el9.noarch.rpm' -o -name '*.el9.x86_64.rpm'` \
-                        ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/9/x86_64/
-                fi
+                for arch in \${arch_list}; do
+                    if [ `find . -name "*.el6.\${arch}.rpm" | wc -l` -gt 0 ]; then
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                            mkdir -p \${path_to_build}/binary/redhat/6/\${arch}
+                        scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                            `find . -name "*.el6.\${arch}.rpm"` \
+                            ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/6/\${arch}/
+                    fi
+
+                    if [ `find . -name "*.el7.\${arch}.rpm" | wc -l` -gt 0 ]; then
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                            mkdir -p \${path_to_build}/binary/redhat/7/\${arch}
+                        scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                            `find . -name "*.el7.\${arch}.rpm"` \
+                            ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/7/\${arch}/
+                    fi
+
+                    if [ `find . -name "*.el8.\${arch}.rpm" | wc -l` -gt 0 ]; then
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                            mkdir -p \${path_to_build}/binary/redhat/8/\${arch}
+                        scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                            `find . -name "*.el8.\${arch}.rpm"` \
+                            ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/8/\${arch}/
+                    fi
+
+                    if [ `find . -name "*.el9.\${arch}.rpm" | wc -l` -gt 0 ]; then
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                            mkdir -p \${path_to_build}/binary/redhat/9/\${arch}
+                        scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                            `find . -name "*.el9.\${arch}.rpm"` \
+                            ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/9/\${arch}/
+                    fi
+                done
             """
         }
         deleteDir()
