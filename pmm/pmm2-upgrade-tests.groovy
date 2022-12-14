@@ -294,14 +294,16 @@ pipeline {
                 expression { env.PERFORM_DOCKER_WAY_UPGRADE == "no" }
             }
             steps {
-                sh '''
+                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh '''
                     npm ci
                     envsubst < env.list > env.generated.list
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
-                '''
+                    '''
+                }
             }
         }
         stage('Run Docker Way Upgrade Tests') {
@@ -309,7 +311,8 @@ pipeline {
                 expression { env.PERFORM_DOCKER_WAY_UPGRADE == "yes" }
             }
             steps {
-                sh '''
+                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh '''
                     # run pre-upgrade tests
                     npm ci
                     envsubst < env.list > env.generated.list
@@ -318,21 +321,21 @@ pipeline {
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pre-upgrade'
                 '''
-                sh '''
+                    sh '''
                     # run the upgrade script
                     export PMM_VERSION=${PMM_SERVER_TAG}
                     sudo chmod 755 /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh
                     bash -xe /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh ${PMM_VERSION}
                 '''
-                sh '''
+                    sh '''
                     # run post-upgrade tests
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                     sleep 30
                     ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@post-upgrade'
                 '''
+                }
             }
-
         }
         stage('Check Packages after Upgrade') {
             steps {
