@@ -4,7 +4,6 @@
         name: Host
         type: label-expression
         values:
-        - min-centos-6-x64
         - min-centos-7-x64
         - min-stretch-x64
         - min-xenial-x64

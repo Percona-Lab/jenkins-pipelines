@@ -176,7 +176,7 @@ pipeline {
                                                         echo "finish suite ${suiteName}"
                                                     """
                                                 }
-                                                junit testResults: "test_results/junit.xml", keepLongStdio: true
+                                                junit testResults: "test_results/junit.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
                                                 sh """
                                                     rm -rf test_results
                                                 """                                                
@@ -268,7 +268,7 @@ pipeline {
                                                         echo "finish suite ${suiteName}"
                                                     """
                                                 }
-                                                junit testResults: "test_results/junit.xml", keepLongStdio: true
+                                                junit testResults: "test_results/junit.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
                                                 sh """
                                                     rm -rf test_results
                                                 """                                                
@@ -361,7 +361,7 @@ pipeline {
                                                         echo "finish suite ${suiteName}"
                                                     """
                                                 }
-                                                junit testResults: "test_results/junit.xml", keepLongStdio: true
+                                                junit testResults: "test_results/junit.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
                                                 sh """
                                                     rm -rf test_results
                                                 """                                                
