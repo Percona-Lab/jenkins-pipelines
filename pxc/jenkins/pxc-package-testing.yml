@@ -38,6 +38,7 @@
                 - 'centos-7'
                 - 'ol-8'
                 - 'ol-9'
+                - 'min-amazon-2'
             description: "Distribution to run test"
         - choice:
             name: install_repo
