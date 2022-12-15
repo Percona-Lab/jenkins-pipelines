@@ -36,12 +36,14 @@
             name: node_to_test
             choices:
                 - "all"
+                - "ubuntu-jammy"
                 - "ubuntu-focal"
                 - "ubuntu-bionic"
                 - "debian-11"
                 - "debian-10"
                 - "centos-7"
                 - "ol-8"
+                - "ol-9"
             description: "Node in which to test the product"
         - choice:
             name: pxc57_repo
