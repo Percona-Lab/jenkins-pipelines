@@ -11,7 +11,8 @@ List all_nodes = [
                 'debian-10',
                 'centos-7',
                 'ol-8',
-                'ol-9'
+                'ol-9',
+                'min-amazon-2'
 ]
 
 product_to_test = params.product_to_test
@@ -174,6 +175,18 @@ pipeline {
 
                     steps {
                         runNodeBuild("ubuntu-focal")
+                    }
+                }
+
+                stage("min-amazon-2") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("min-amazon-2")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("min-amazon-2")
                     }
                 }
             }

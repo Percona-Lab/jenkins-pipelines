@@ -44,6 +44,7 @@
                 - "centos-7"
                 - "ol-8"
                 - "ol-9"
+                - 'min-amazon-2'
             description: "Node in which to test the product"
         - choice:
             name: pxc57_repo
