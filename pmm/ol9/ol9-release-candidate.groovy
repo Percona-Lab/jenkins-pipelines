@@ -72,22 +72,28 @@ pipeline {
                 error "The branch does not exist. Please create a branch in Percona-Lab/pmm-submodules"
             }
         }
-        stage('Rewind Release Submodule') {
+        stage('Rewind Release Submodules') {
             when {
                 expression { env.REMOVE_RELEASE_BRANCH == "no" }
             }
             steps {
-                echo "Rewind: pull latest changes for every submodule"
                 script {
                     // build job: 'pmm2-rewind-submodules-fb', propagate: false, parameters: [
                     //     string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH)
                     // ]
-                    sh '''
-                    	git submodule update --init --remote --jobs 10
-                    	git submodule status
-                        ls -la sources/pmm/src/github.com/percona/pmm/build/scripts
-                        ${PATH_TO_SCRIPTS}/build-submodules
-                    '''
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                        sh '''
+                            git submodule update --init --remote --jobs 10
+                            git submodule status | grep "^\+" | sed -e "s/\+//" | cut -d " " -f2 > remotes.txt
+                            cat remotes.txt
+                            for path in `cat remotes.txt`; do
+                                cd $path
+                                git pull origin 
+                            done
+                            ls -la sources/pmm/src/github.com/percona/pmm/build/scripts
+                            ${PATH_TO_SCRIPTS}/build-submodules
+                        '''
+                    }
                 }
             }
         }
