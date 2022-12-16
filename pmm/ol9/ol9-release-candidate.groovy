@@ -83,17 +83,40 @@ pipeline {
                     // ]
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         sh '''
+                            function need-to-pull() {
+                                local UPSTREAM=${1:-'@{u}'}
+                                local LOCAL=$(git rev-parse @)
+                                local BASE=$(git merge-base @ "$UPSTREAM")
+
+                                [[ $LOCAL = $BASE ]]
+                            }
+
                             git config -f .gitmodules submodule.grafana.shallow true
                             git config -f .gitmodules submodule.grafana-dashboards.shallow true
 
                             git submodule update --init --remote --jobs 10
                             git submodule status | grep "^\\+" | sed -e "s/\\+//" | cut -d " " -f2 > remotes.txt
                             cat remotes.txt
+                            COUNT=0
                             for sub in $(cat remotes.txt); do
                                 cd $sub
-                                git pull origin
-                                cd -
+                                git fetch
+                                if need-to-pull; then
+                                    git pull origin
+                                    git log --oneline -n 3
+                                    cd -
+                                    git add $sub
+                                    git status --short
+                                    ((COUNT+=1))
+                                else
+                                    cd -
+                                    echo "${sub} is up-to-date with upstream"
+                                fi
                             done
+                            if [ $COUNT -gt 0 ]; then
+                                git commit -m "rewind submodule ${sub}"
+                                git push
+                            fi
                             ls -la sources/pmm/src/github.com/percona/pmm/build/scripts
                             ${PATH_TO_SCRIPTS}/build-submodules
                         '''
