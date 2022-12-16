@@ -99,10 +99,11 @@ pipeline {
                                 git fetch
                                 git remote update
 
-                                if [ "$sub" != "sources/pmm/src/github.com/percona/pmm" ]; then 
+                                if [ "$sub" = "sources/pmm/src/github.com/percona/pmm" ]; then 
                                     git checkout PMM-6352-custom-build-el9
                                 else
-                                    git checkout main
+                                    # we assume tho remote base branch is `main`
+                                    git checkout main 
                                 fi
                                 
                                 LOCAL=$(git rev-parse @)
