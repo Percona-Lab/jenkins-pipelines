@@ -83,11 +83,13 @@ pipeline {
                     // ]
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         sh """
+                            git config -f .gitmodules submodule.grafana.shallow true
+                            git config -f .gitmodules submodule.grafana-dashboards.shallow true
                             git submodule update --init --remote --jobs 10
                             git submodule status | grep "^\\+" | sed -e "s/\\+//" | cut -d " " -f2 > remotes.txt
                             cat remotes.txt
-                            for path in `cat remotes.txt`; do
-                                cd $path
+                            for source in `cat remotes.txt`; do
+                                cd $source
                                 git pull origin
                                 cd -
                             done
