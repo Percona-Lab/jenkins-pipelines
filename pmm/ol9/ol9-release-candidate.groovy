@@ -132,8 +132,8 @@ pipeline {
                             fi
 
                             # check if changes are present
-                            ls -la sources/pmm/src/github.com/percona/pmm/build/scripts
-                            ${PATH_TO_SCRIPTS}/build-submodules
+                            # ls -la ${PATH_TO_SCRIPTS}
+                            # ${PATH_TO_SCRIPTS}/build-submodules
                         '''
                     }
                 }
