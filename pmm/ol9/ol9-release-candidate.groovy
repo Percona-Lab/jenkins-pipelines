@@ -88,7 +88,7 @@ pipeline {
                             git config -f .gitmodules submodule.grafana.shallow true
                             git config -f .gitmodules submodule.grafana-dashboards.shallow true
                             git config -f .gitmodules submodule.pmm-qa.shallow true
-                            git config -f .gitmodules submodule.percona-toolkit.shallow true
+                            // git config -f .gitmodules submodule.percona-toolkit.shallow true
                             git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
                             git config push.default "current"
 
