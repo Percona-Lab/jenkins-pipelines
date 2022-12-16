@@ -83,7 +83,7 @@ pipeline {
                     // ]
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         sh '''
-                            function need-to-pull() {
+                            need-to-pull() {
                                 local UPSTREAM=${1:-'@{u}'}
                                 local LOCAL=$(git rev-parse @)
                                 local BASE=$(git merge-base @ "$UPSTREAM")
