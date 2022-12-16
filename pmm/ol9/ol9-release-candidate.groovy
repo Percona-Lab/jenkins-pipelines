@@ -88,7 +88,8 @@ pipeline {
                             cat remotes.txt
                             for path in `cat remotes.txt`; do
                                 cd $path
-                                git pull origin 
+                                git pull origin
+                                cd -
                             done
                             ls -la sources/pmm/src/github.com/percona/pmm/build/scripts
                             ${PATH_TO_SCRIPTS}/build-submodules
