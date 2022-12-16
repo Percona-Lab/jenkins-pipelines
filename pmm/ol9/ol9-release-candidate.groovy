@@ -95,16 +95,21 @@ pipeline {
 
                             COUNT=0
                             for sub in $(cat remotes.txt); do
-                                if [ "$sub" != "sources/pmm/src/github.com/percona/pmm" ]; then continue; fi
-                                
                                 cd $sub
                                 git fetch
-                                git checkout PMM-6352-custom-build-el9
+                                git remote update
+
+                                if [ "$sub" != "sources/pmm/src/github.com/percona/pmm" ]; then 
+                                    git checkout PMM-6352-custom-build-el9
+                                else
+                                    git checkout main
+                                fi
                                 
                                 LOCAL=$(git rev-parse @)
-                                BASE=$(git merge-base @ "@{u}" 2>/dev/null || main)
+                                BASE=$(git merge-base @ @{u} 2>/dev/null)
+                                REMOTE=$(git rev-parse @{u})
 
-                                if [ $BASE = main -o $LOCAL = $BASE ]; then
+                                if [ $LOCAL = $BASE ]; then
                                     git pull origin
                                     git log --oneline -n 3
                                     cd -
