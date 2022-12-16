@@ -83,14 +83,6 @@ pipeline {
                     // ]
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         sh '''
-                            need-to-pull() {
-                                local UPSTREAM=${1:-'@{u}'}
-                                local LOCAL=$(git rev-parse @)
-                                local BASE=$(git merge-base @ "$UPSTREAM")
-
-                                [[ $LOCAL = $BASE ]]
-                            }
-
                             git config -f .gitmodules submodule.grafana.shallow true
                             git config -f .gitmodules submodule.grafana-dashboards.shallow true
 
@@ -101,7 +93,11 @@ pipeline {
                             for sub in $(cat remotes.txt); do
                                 cd $sub
                                 git fetch
-                                if need-to-pull; then
+                                
+                                LOCAL=$(git rev-parse @)
+                                BASE=$(git merge-base @ "@{u}")
+
+                                if [[ $LOCAL = $BASE ]]; then
                                     git pull origin
                                     git log --oneline -n 3
                                     cd -
@@ -113,10 +109,13 @@ pipeline {
                                     echo "${sub} is up-to-date with upstream"
                                 fi
                             done
+
                             if [ $COUNT -gt 0 ]; then
                                 git commit -m "rewind submodule ${sub}"
                                 git push
                             fi
+
+                            # check if changes are present
                             ls -la sources/pmm/src/github.com/percona/pmm/build/scripts
                             ${PATH_TO_SCRIPTS}/build-submodules
                         '''
