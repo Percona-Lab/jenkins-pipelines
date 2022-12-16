@@ -41,7 +41,7 @@ pipeline {
                 deleteDir()
                 script {
                     git branch: env.SUBMODULES_GIT_BRANCH,
-                        // credentialsId: 'GitHub SSH Key',
+                        credentialsId: 'GitHub SSH Key',
                         poll: false,
                         url: 'git@github.com:Percona-Lab/pmm-submodules'
                     env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
