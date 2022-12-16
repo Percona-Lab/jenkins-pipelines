@@ -83,6 +83,9 @@ pipeline {
                     //     string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH)
                     // ]
                     sh '''
+                    	git submodule update --init --remote --jobs 10
+                    	git submodule status
+                        ls -la sources/pmm/src/github.com/percona/pmm/build/scripts
                         ${PATH_TO_SCRIPTS}/build-submodules
                     '''
                 }
