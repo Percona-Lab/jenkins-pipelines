@@ -128,7 +128,7 @@ pipeline {
 
                             if [ $COUNT -gt 0 ]; then
                                 git commit -m "rewind submodules"
-                                git push
+                                # git push
                             fi
 
                             # check if changes are present
