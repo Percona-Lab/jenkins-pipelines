@@ -330,15 +330,18 @@ pipeline {
         }
     }
     post {
+        success {
+            script {
+                if (env.CHANGE_URL) {
+                    unstash 'IMAGE'
+                    def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
+                }
+            }
+        }
         always {
             script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    if (env.CHANGE_URL) {
-                        unstash 'IMAGE'
-                        def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                        slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
-                    }
-                } else {
+                if (currentBuild.result != "SUCCESS" && currentBuild.result != null) {
                     if(env.API_TESTS_RESULT != "SUCCESS" && env.API_TESTS_URL) {
                         addComment("API tests have failed, Please check: API: ${API_TESTS_URL}")
                     }
@@ -348,7 +351,7 @@ pipeline {
                     if(env.UI_TESTS_RESULT != "SUCCESS" && env.UI_TESTS_URL) {
                         addComment("UI tests have failed, Please check: UI: ${UI_TESTS_URL}")
                     }
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} build job link: ${BUILD_URL}"
+                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, build URL: ${BUILD_URL}"
                 }
             }
         }

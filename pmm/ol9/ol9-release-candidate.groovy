@@ -33,6 +33,7 @@ pipeline {
     environment {
         // TODO: remove once tested, it's intentionally hard-coded
         REMOVE_RELEASE_BRANCH = 'no'
+        PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
     }
     stages {
         stage('Get version') {
@@ -40,7 +41,7 @@ pipeline {
                 deleteDir()
                 script {
                     git branch: env.SUBMODULES_GIT_BRANCH,
-                        credentialsId: 'GitHub SSH Key',
+                        // credentialsId: 'GitHub SSH Key',
                         poll: false,
                         url: 'git@github.com:Percona-Lab/pmm-submodules'
                     env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
@@ -51,12 +52,12 @@ pipeline {
         stage('Check if Release Branch Exists') {
             steps {
                 script {
-                    currentBuild.description = "$VERSION"
+                    currentBuild.description = env.VERSION
                     slackSend botUser: true,
                         channel: '@alexander.tymchuk',
                         color: '#0000FF',
-                        message: "OL9 build for PMM $VERSION has started. You can check progress at: ${BUILD_URL}"
-                    env.EXIST = sh (
+                        message: "OL9 build for PMM ${VERSION} has started. You can check progress at: ${BUILD_URL}"
+                    env.EXIST = sh(
                         script: 'git ls-remote --heads https://github.com/Percona-Lab/pmm-submodules ${RELEASE_BRANCH} | wc -l',
                         returnStdout: true
                     ).trim()
@@ -77,39 +78,44 @@ pipeline {
             }
             steps {
                 echo "Rewind: pull latest changes for every submodule"
-                // build job: 'pmm2-rewind-submodules-fb', propagate: false, parameters: [
-                //     string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH)
-                // ]              
-            }
-        }
-        stage('Build Server & Client') {
-            when {
-                expression { env.REMOVE_RELEASE_BRANCH == "no" }
-            }
-            parallel {
-                stage('Start OL9 Server Build') {
-                    steps {
-                        script {
-                            build job: 'ol9-build-server', parameters: [
-                                string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                                string(name: 'DESTINATION', value: 'testing') // TODO: revert to the original value
-                            ]
-                        }
-                    }
+                script {
+                    // build job: 'pmm2-rewind-submodules-fb', propagate: false, parameters: [
+                    //     string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH)
+                    // ]
+                    sh '''
+                        ${PATH_TO_SCRIPTS}/build-submodules
+                    '''
                 }
-                // stage('Start OL9 Client Build') {
-                //     steps {
-                //         script {
-                //             pmm2Client = build job: 'ol9-build-client', parameters: [
-                //                 string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                //                 string(name: 'DESTINATION', value: 'testing')
-                //             ]
-                //             env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL                        
-                //         }
-                //     }
-                // }
             }
         }
+        // stage('Build Server & Client') {
+        //     when {
+        //         expression { env.REMOVE_RELEASE_BRANCH == "no" }
+        //     }
+        //     parallel {
+        //         stage('Start OL9 Server Build') {
+        //             steps {
+        //                 script {
+        //                     build job: 'ol9-build-server', parameters: [
+        //                         string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+        //                         string(name: 'DESTINATION', value: 'testing') // TODO: revert to the original value
+        //                     ]
+        //                 }
+        //             }
+        //         }
+        //         stage('Start OL9 Client Build') {
+        //             steps {
+        //                 script {
+        //                     pmm2Client = build job: 'ol9-build-client', parameters: [
+        //                         string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+        //                         string(name: 'DESTINATION', value: 'testing')
+        //                     ]
+        //                     env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL                        
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
         stage('Build OVF') {
             when {
                 expression { env.REMOVE_RELEASE_BRANCH == "no" }
