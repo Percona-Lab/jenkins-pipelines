@@ -85,19 +85,26 @@ pipeline {
                         sh '''
                             git config -f .gitmodules submodule.grafana.shallow true
                             git config -f .gitmodules submodule.grafana-dashboards.shallow true
+                            git config -f .gitmodules submodule.pmm-qa.shallow true
+                            git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+                            git config push.default "current"
 
                             git submodule update --init --remote --jobs 10
                             git submodule status | grep "^\\+" | sed -e "s/\\+//" | cut -d " " -f2 > remotes.txt
                             cat remotes.txt
+
                             COUNT=0
                             for sub in $(cat remotes.txt); do
+                                if [ "$sub" != "sources/pmm/src/github.com/percona/pmm" ]; then continue; fi
+                                
                                 cd $sub
                                 git fetch
+                                git checkout PMM-6352-custom-build-el9
                                 
                                 LOCAL=$(git rev-parse @)
-                                BASE=$(git merge-base @ "@{u}")
+                                BASE=$(git merge-base @ "@{u}" 2>/dev/null || main)
 
-                                if [[ $LOCAL = $BASE ]]; then
+                                if [ $BASE = main -o $LOCAL = $BASE ]; then
                                     git pull origin
                                     git log --oneline -n 3
                                     cd -
@@ -111,7 +118,7 @@ pipeline {
                             done
 
                             if [ $COUNT -gt 0 ]; then
-                                git commit -m "rewind submodule ${sub}"
+                                git commit -m "rewind submodules"
                                 git push
                             fi
 
