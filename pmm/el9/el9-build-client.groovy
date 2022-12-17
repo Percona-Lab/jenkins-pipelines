@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@PMM-6352-custom-build-ol9', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-6352-custom-build-el9', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -8,7 +8,7 @@ pipeline {
     parameters {
         string(
             // TODO: change this back to `PMM-2.0` once tested
-            defaultValue: 'PMM-6352-custom-build-ol9',
+            defaultValue: 'PMM-6352-custom-build-el9',
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(

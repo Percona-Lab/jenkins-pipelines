@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@PMM-6352-custom-build-ol9', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-6352-custom-build-el9', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -12,7 +12,7 @@ void runPMM2AMIBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
 }
 
 // String DEFAULT_BRANCH = 'PMM-2.0'
-String DEFAULT_BRANCH = 'PMM-6352-custom-build-ol9'
+String DEFAULT_BRANCH = 'PMM-6352-custom-build-el9'
 
 pipeline {
     agent {
@@ -27,6 +27,7 @@ pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         skipDefaultCheckout()
+        skipStagesAfterUnstable()
         disableConcurrentBuilds()
         parallelsAlwaysFailFast()
     }
