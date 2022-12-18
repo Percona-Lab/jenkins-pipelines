@@ -136,7 +136,7 @@ pipeline {
         //         stage('Start OL9 Server Build') {
         //             steps {
         //                 script {
-        //                     build job: 'ol9-build-server', parameters: [
+        //                     build job: 'el9-build-server', parameters: [
         //                         string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
         //                         string(name: 'DESTINATION', value: 'testing') // TODO: revert to the original value
         //                     ]
@@ -146,7 +146,7 @@ pipeline {
         //         stage('Start OL9 Client Build') {
         //             steps {
         //                 script {
-        //                     pmm2Client = build job: 'ol9-build-client', parameters: [
+        //                     pmm2Client = build job: 'el9-build-client', parameters: [
         //                         string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
         //                         string(name: 'DESTINATION', value: 'testing')
         //                     ]
@@ -162,7 +162,7 @@ pipeline {
             }
             steps {
                 script {
-                    build job: 'ol9-build-ovf', parameters: [
+                    build job: 'el9-build-ovf', parameters: [
                         // TODO: get the branch from pmm-submodules' cy.yml
                         string(name: 'PMM_BRANCH', value: params.RELEASE_BRANCH), 
                         string(name: 'RELEASE_CANDIDATE', value: 'yes')
@@ -176,7 +176,7 @@ pipeline {
         //     }
         //     steps {
         //         script {
-        //             pmm2AMI = build job: 'ol9-build-ami', parameters: [
+        //             pmm2AMI = build job: 'el9-build-ami', parameters: [
         //                 // TODO: get the branch from pmm-submodules' cy.yml
         //                 string(name: 'PMM_BRANCH', value: params.RELEASE_BRANCH),
         //                 string(name: 'RELEASE_CANDIDATE', value: 'yes')
