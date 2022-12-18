@@ -3,26 +3,15 @@ library changelog: false, identifier: 'lib@PMM-6352-custom-build-el9', retriever
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runPMM2AMIBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
-    pmm2AMI = build job: 'pmm2-ami', parameters: [
-        string(name: 'PMM_BRANCH', value: SUBMODULES_GIT_BRANCH),
-        string(name: 'RELEASE_CANDIDATE', value: RELEASE_CANDIDATE)
-    ]
-    env.AMI_ID = pmm2AMI.buildVariables.AMI_ID
-}
-
-// String DEFAULT_BRANCH = 'PMM-2.0'
-String DEFAULT_BRANCH = 'PMM-6352-custom-build-el9'
-
 pipeline {
     agent {
         label 'cli'
     }
     parameters {
         string(
-            defaultValue: DEFAULT_BRANCH,
-            description: 'Choose a pmm-submodules branch to build the image from',
-            name: 'SUBMODULES_GIT_BRANCH')
+            defaultValue: 'PMM-6352-custom-build-el9', // TODO: set to 'PMM-2.0'
+            description: 'Choose a pmm-submodules branch to build the RC from',
+            name: 'RELEASE_BRANCH')
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
@@ -41,12 +30,11 @@ pipeline {
             steps {
                 deleteDir()
                 script {
-                    git branch: env.SUBMODULES_GIT_BRANCH,
+                    git branch: params.RELEASE_BRANCH,
                         credentialsId: 'GitHub SSH Key',
                         poll: false,
                         url: 'git@github.com:Percona-Lab/pmm-submodules'
                     env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
-                    env.RELEASE_BRANCH = DEFAULT_BRANCH
                 }
             }
         }
@@ -80,31 +68,29 @@ pipeline {
             steps {
                 script {
                     // build job: 'pmm2-rewind-submodules-fb', propagate: false, parameters: [
-                    //     string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH)
+                    //     string(name: 'GIT_BRANCH', value: RELEASE_BRANCH)
                     // ]
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         sh '''
                             git config --global user.email "noreply@percona.com"
                             git config --global user.name "PMM Jenkins"                            
-                            git config -f .gitmodules submodule.grafana.shallow true
-                            git config -f .gitmodules submodule.grafana-dashboards.shallow true
-                            git config -f .gitmodules submodule.pmm-qa.shallow true
-                            # git config -f .gitmodules submodule.percona-toolkit.shallow true
+                            git config -f .gitmodules submodule.percona-toolkit.shallow false
                             git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
                             git config push.default "current"
 
-                            git submodule update --init --remote --jobs 10
+                            git submodule update --init --remote --recommend-shallow --jobs 10
                             git submodule status | grep "^\\+" | sed -e "s/\\+//" | cut -d " " -f2 > remotes.txt
                             cat remotes.txt
 
                             COUNT=0
-                            for sub in $(cat remotes.txt); do
-                                cd $sub
+                            for SUBMODULE in $(cat remotes.txt); do
+                                cd $SUBMODULE
                                 git fetch
                                 git remote update
 
-                                if [ "$sub" = "sources/pmm/src/github.com/percona/pmm" ]; then 
-                                    git checkout PMM-6352-custom-build-el9
+                                if [ "$SUBMODULE" = "sources/pmm/src/github.com/percona/pmm" ]; then
+                                    # NOTE: it assumes the branch name in /pmm is the same as in /pmm-submodules
+                                    git checkout ${RELEASE_BRANCH}
                                 else
                                     # we assume tho remote base branch is `main`
                                     git checkout main 
@@ -118,12 +104,12 @@ pipeline {
                                     git pull origin
                                     git log --oneline -n 3
                                     cd -
-                                    git add $sub
+                                    git add $SUBMODULE
                                     git status --short
                                     ((COUNT+=1))
                                 else
                                     cd -
-                                    echo "${sub} is up-to-date with upstream"
+                                    echo "${SUBMODULE} is up-to-date with upstream"
                                 fi
                             done
 
@@ -132,8 +118,10 @@ pipeline {
                                 # git push
                             fi
 
-                            # check if changes are present
-                            # ls -la ${PATH_TO_SCRIPTS}
+                            rm -f remotes.txt
+                            git submodule --quiet summary
+
+                            # run the build script
                             # ${PATH_TO_SCRIPTS}/build-submodules
                         '''
                     }
@@ -176,12 +164,27 @@ pipeline {
                 script {
                     build job: 'ol9-build-ovf', parameters: [
                         // TODO: get the branch from pmm-submodules' cy.yml
-                        string(name: 'PMM_BRANCH', value: 'PMM-6352-custom-build-el9'), 
+                        string(name: 'PMM_BRANCH', value: params.RELEASE_BRANCH), 
                         string(name: 'RELEASE_CANDIDATE', value: 'yes')
                     ]                    
                 }
             }
         }
+        // stage('Build AMI') {
+        //     when {
+        //         expression { env.REMOVE_RELEASE_BRANCH == "no" }
+        //     }
+        //     steps {
+        //         script {
+        //             pmm2AMI = build job: 'ol9-build-ami', parameters: [
+        //                 // TODO: get the branch from pmm-submodules' cy.yml
+        //                 string(name: 'PMM_BRANCH', value: params.RELEASE_BRANCH),
+        //                 string(name: 'RELEASE_CANDIDATE', value: 'yes')
+        //             ]
+        //             env.AMI_ID = pmm2AMI.buildVariables.AMI_ID
+        //         }
+        //     }
+        // }
     }
     post {
         success {

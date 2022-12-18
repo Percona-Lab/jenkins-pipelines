@@ -9,8 +9,7 @@ pipeline {
     }
     parameters {
         string(
-            // TODO: change this back to `PMM-2.0` once tested
-            defaultValue: 'PMM-6352-custom-build-el9',
+            defaultValue: 'PMM-2.0',
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(
