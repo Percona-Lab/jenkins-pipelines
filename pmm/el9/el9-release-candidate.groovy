@@ -78,60 +78,52 @@ pipeline {
                             git config remote.origin.fetch "+refs/heads/*:/refs/remotes/origin/*"
                             git config push.default "current"
 
-                            if [ -s non-existent.txt ]; then
-                                git submodule update --init --remote --recommend-shallow --jobs 10
-                                git submodule status | grep "^\\+" | sed -e "s/\\+//" | cut -d " " -f2 > remotes.txt
-                                cat remotes.txt
+                            git submodule update --init --remote --recommend-shallow --jobs 10
+                            git submodule status | grep "^\\+" | sed -e "s/\\+//" | cut -d " " -f2 > remotes.txt
+                            cat remotes.txt
 
-                                COUNT=0
-                                for SUBMODULE in $(cat remotes.txt); do
-                                    cd $SUBMODULE
-                                    git fetch
-                                    git remote update
+                            COUNT=0
+                            for SUBMODULE in $(cat remotes.txt); do
+                                cd $SUBMODULE
+                                git fetch
+                                git remote update
 
-                                    CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD)
-                                    REMOTE_BRANCHES=$(git ls-remote --heads origin | awk -F '/' '{print $NF}')
+                                CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD)
+                                # REMOTE_BRANCHES=$(git ls-remote --heads origin | awk -F '/' '{print $NF}')
 
-                                    if [ "$SUBMODULE" = "sources/pmm/src/github.com/percona/pmm" ]; then
-                                        # NOTE: it assumes the branch name in /pmm is the same as in /pmm-submodules
-                                        git checkout ${RELEASE_BRANCH}
-                                    else
-                                        # we assume tho remote base branch is `main`
-                                        git checkout main 
-                                    fi
-                                    
-                                    LOCAL=$(git rev-parse @)
-                                    BASE=$(git merge-base @ @{u} 2>/dev/null)
-                                    REMOTE=$(git rev-parse @{u})
-
-                                    if [ $LOCAL = $BASE ]; then
-                                        git pull origin
-                                        git log --oneline -n 3
-                                        cd -
-                                        git add $SUBMODULE
-                                        git status --short
-                                        ((COUNT+=1))
-                                    else
-                                        cd -
-                                        echo "${SUBMODULE} is up-to-date with upstream"
-                                    fi
-                                done
-
-                                rm -f remotes.txt
-                                git submodule --quiet summary
-
-                                if [ $COUNT -gt 0 ]; then
-                                    git commit -m "rewind submodules"
-                                    # git push
+                                if [ "$SUBMODULE" = "sources/pmm/src/github.com/percona/pmm" ]; then
+                                    # NOTE: it assumes the branch name in /pmm is the same as in /pmm-submodules
+                                    git checkout ${RELEASE_BRANCH}
+                                else
+                                    # we assume tho remote base branch is `main`
+                                    git checkout main 
                                 fi
+                                
+                                LOCAL=$(git rev-parse @)
+                                BASE=$(git merge-base @ @{u} 2>/dev/null)
+                                REMOTE=$(git rev-parse @{u})
+
+                                if [ $LOCAL = $BASE ]; then
+                                    git pull origin
+                                    git log --oneline -n 3
+                                    cd -
+                                    git add $SUBMODULE
+                                    git status --short
+                                    ((COUNT+=1))
+                                else
+                                    cd -
+                                    echo "${SUBMODULE} is up-to-date with upstream"
+                                fi
+                            done
+
+                            rm -f remotes.txt
+                            git submodule --quiet summary
+
+                            if [ $COUNT -gt 0 ]; then
+                                git commit -m "rewind submodules"
+                                # git push
                             fi
 
-                            if [ -s ci.yml ]; then
-                                cat ci.yml
-                                git reset --hard
-                                git clean -fdx
-                                python3 ci.py
-                            fi
                             # run the build script
                             # ${PATH_TO_SCRIPTS}/build-submodules
                         '''
