@@ -86,12 +86,7 @@ pipeline {
                             ./e2e-tests/build
 
                             export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-pgo-apiserver
-                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-pgo-event
-                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-pgo-rmdata
-                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-pgo-scheduler
-                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-postgres-operator
-                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-pgo-deployer
+                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX
 
                             docker logout
                         "
@@ -103,61 +98,11 @@ pipeline {
             parallel {
                 stage('pgo-apiserver'){
                     steps {
-                        checkImageForDocker('\$GIT_BRANCH-pgo-apiserver')
+                        checkImageForDocker('\$GIT_BRANCH')
                     }
                     post {
                         always {
                             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-apiserver.xml"
-                        }
-                    }
-                }
-                stage('pgo-event'){
-                    steps {
-                        checkImageForDocker('\$GIT_BRANCH-pgo-event')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-event.xml"
-                        }
-                    }
-                }
-                stage('pgo-rmdata'){
-                    steps {
-                        checkImageForDocker('\$GIT_BRANCH-pgo-rmdata')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-rmdata.xml"
-                        }
-                    }
-                }
-                stage('pgo-schedule'){
-                    steps {
-                        checkImageForDocker('\$GIT_BRANCH-pgo-scheduler')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-schedule.xml"
-                        }
-                    }
-                }
-                stage('postgres-operator'){
-                    steps {
-                        checkImageForDocker('\$GIT_BRANCH-postgres-operator')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-operator.xml"
-                        }
-                    }
-                }
-                stage('pgo-deployer'){
-                    steps {
-                        checkImageForDocker('\$GIT_BRANCH-pgo-deployer')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgo-deployer.xml"
                         }
                     }
                 }
