@@ -128,6 +128,8 @@ pipeline {
 
                             if [ -s ci.yml ]; then
                                 cat ci.yml
+                                git reset --hard
+                                git clean -fdx
                                 python3 ci.py
                             fi
                             # run the build script
