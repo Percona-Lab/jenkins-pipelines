@@ -20,12 +20,13 @@ def call(String type='latest') {
     '2.29.1': 'ami-01ce74cdab54cabcd',
     '2.30.0': 'ami-0ac4cb922edec19e0',
     '2.31.0': 'ami-04c7431377165bca7',
-    '2.32.0': 'ami-02cfe7580e77fb5fa'
+    '2.32.0': 'ami-02cfe7580e77fb5fa',
+    '2.33.0': 'ami-005acacf35adcfa57',
   ]
 
   List<String> versionsList = new ArrayList<>(versions.keySet());
   // Grab 10 latest versions
-  List<String> ovfVersions = ['2.31.0', '2.30.0', '2.29.1', '2.28.0', '2.27.0', '2.26.0', '2.25.0', '2.24.0', '2.23.0', '2.22.0'];
+  List<String> ovfVersions = ['2.33.0', '2.32.0', '2.31.0', '2.30.0', '2.29.1', '2.28.0', '2.27.0', '2.26.0', '2.25.0', '2.24.0', '2.23.0', '2.22.0'];
 
   switch(type) {
     case 'latest':

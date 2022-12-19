@@ -250,7 +250,7 @@ pipeline {
                         export CHANGE_MINIKUBE_NONE_USER=true
                         /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER}
 
-                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                         sudo chmod +x /usr/local/bin/yq
                     '''
 
@@ -268,13 +268,11 @@ pipeline {
                     runTest('limits')
                     runTest('liveness')
                     runTest('one-pod')
-                    runTest('operator-self-healing')
                     runTest('operator-self-healing-chaos')
                     runTest('pitr')
                     runTest('scaling')
                     runTest('scheduled-backup')
                     runTest('security-context')
-                    runTest('self-healing')
                     runTest('self-healing-chaos')
                     runTest('smart-update')
                     runTest('upgrade-consistency')

@@ -73,9 +73,10 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${VM_IP} '
+                sudo yum install -y python3
                 export PMM_VERSION=${PMM_VERSION}
-                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.sh
-                bash -xe /srv/pmm-qa/pmm-tests/check_upgrade.sh --distribution=ami --prepost-upgrade=${PRE_POST} --pmm-version=${PMM_VERSION}
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
+                python3 /srv/pmm-qa/pmm-tests/check_upgrade.py --env=ami --pre_post=${PRE_POST} --version=${PMM_VERSION}
             '
         """
     }
@@ -306,7 +307,7 @@ pipeline {
         }
         stage('Check Packages after Upgrade') {
             steps {
-                checkUpgrade(PMM_SERVER_LATEST, "afterUpgrade");
+                checkUpgrade(PMM_SERVER_LATEST, "post");
             }
         }
         stage('Check Client Upgrade') {

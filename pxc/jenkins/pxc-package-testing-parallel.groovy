@@ -4,12 +4,15 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 List all_nodes = [
+                'ubuntu-jammy',
                 'ubuntu-focal',
                 'ubuntu-bionic',
                 'debian-11',
                 'debian-10',
                 'centos-7',
-                'ol-8'
+                'ol-8',
+                'ol-9',
+                'min-amazon-2'
 ]
 
 product_to_test = params.product_to_test
@@ -126,6 +129,31 @@ pipeline {
                     }
                 }
 
+                stage("ol-9") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("ol-9")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("ol-9")
+                    }
+                }
+
+
+                stage("ubuntu-jammy") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("ubuntu-jammy")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("ubuntu-jammy")
+                    }
+                }
+
                 stage("ubuntu-bionic") {
                     when {
                         expression {
@@ -150,6 +178,17 @@ pipeline {
                     }
                 }
 
+                stage("min-amazon-2") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("min-amazon-2")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("min-amazon-2")
+                    }
+                }
             }
         }
     }

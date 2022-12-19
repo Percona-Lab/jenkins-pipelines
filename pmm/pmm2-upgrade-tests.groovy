@@ -196,6 +196,16 @@ pipeline {
                 '''
             }
         }
+        stage('Upgrade workaround for nginx package') {
+            when {
+                expression { getMinorVersion(DOCKER_VERSION) <= 32 }
+            }
+            steps {
+                sh '''
+                    docker exec pmm-server sed -i 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
+                '''
+            }
+        }
         stage('Enable Testing Repo') {
             when {
                 expression { env.ENABLE_TESTING_REPO == "yes" && env.ENABLE_EXPERIMENTAL_REPO == "no" }
@@ -310,7 +320,7 @@ pipeline {
                 '''
                 sh '''
                     # run the upgrade script
-                    export PMM_VERSION=${PMM_VERSION}
+                    export PMM_VERSION=${PMM_SERVER_TAG}
                     sudo chmod 755 /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh
                     bash -xe /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh ${PMM_VERSION}
                 '''
