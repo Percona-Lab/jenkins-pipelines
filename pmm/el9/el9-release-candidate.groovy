@@ -127,7 +127,8 @@ pipeline {
                             fi
 
                             if [ -s ci.yml ]; then
-                                python ci.py
+                                cat ci.yml
+                                python3 ci.py
                             fi
                             # run the build script
                             # ${PATH_TO_SCRIPTS}/build-submodules
