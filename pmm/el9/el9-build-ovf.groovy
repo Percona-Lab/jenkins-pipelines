@@ -49,6 +49,7 @@ pipeline {
                           userRemoteConfigs: [[url: 'https://github.com/percona/pmm.git']]])
                 sh '''
                     mkdir -p build/update
+                    # copy update playbook to `build` to not have to pull it from pmm-update
                     cp -rpav update/ansible/playbook/* build/update
                 '''
                 dir('build') {
