@@ -40,7 +40,8 @@ void runMoleculeAction(String action, String product_to_test, String scenario) {
         sh """
             source venv/bin/activate
             export MOLECULE_DEBUG=0
-            export install_repo=${params.install_repo}
+            export test_repo=${params.test_repo}
+            export test_type=${params.test_type}
             
             if [[ ${product_to_test} = "pxc57" ]];
             then
@@ -49,6 +50,18 @@ void runMoleculeAction(String action, String product_to_test, String scenario) {
                 echo "Product is not pxc57 so skipping value assignment to it"
             fi
             
+	        if [[ ${test_type} = "install" ]];
+            then
+                export install_repo=${params.test_repo}
+            elif [[ ${test_type} == "upgrade" ]]
+            then
+                export install_repo="main"
+                export check_version="no"
+                export upgrade_repo=${test_repo}
+            else 
+                echo "Unknown condition"
+            fi
+
             cd package-testing/molecule/pxc
 
             cd ${product_to_test}-bootstrap
@@ -82,7 +95,7 @@ void setInventories(){
                 SSH_USER="admin"            
                 KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/${product_to_test}-bootstrap/${params.node_to_test}/ssh_key-us-west-2"
                 KEYPATH_COMMON="/home/ec2-user/.cache/molecule/${product_to_test}-common/${params.node_to_test}/ssh_key-us-west-2"
-            elif [[ (${params.node_to_test} == "ol-8") || (${params.node_to_test} == "ol-9") ]];
+            elif [[ (${params.node_to_test} == "ol-8") || (${params.node_to_test} == "ol-9") || (${params.node_to_test} == "min-amazon-2") ]];
             then
                 SSH_USER="ec2-user"
                 KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/${product_to_test}-bootstrap/${params.node_to_test}/ssh_key-us-west-2"
@@ -208,12 +221,13 @@ pipeline {
                 'debian-10',
                 'centos-7',
                 'ol-8',
-                'ol-9'
+                'ol-9',
+                'min-amazon-2'
             ],
             description: 'Distribution to run test'
         )
         choice(
-            name: 'install_repo',
+	        name: 'test_repo',
             choices: [
                 'testing',
                 'main',
@@ -221,6 +235,14 @@ pipeline {
             ],
             description: 'Repo to install packages from'
         )
+        choice(
+            name: 'test_type',
+            choices: [
+                'install',
+                'upgrade'
+            ],
+            description: 'Set test type for testing'
+        )      
         choice(
             name: "pxc57_repo",
             choices: ["original","pxc57" ],
@@ -238,7 +260,13 @@ pipeline {
         stage("Set up") {
             steps {             
                 script{
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${params.product_to_test}-${params.node_to_test}-${params.install_repo}"                    
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${params.product_to_test}-${params.node_to_test}-${params.test_repo}-${params.test_type}"                    
+                    if (( params.test_type == "upgrade" ) && ( params.test_repo == "main" )) {
+                         echo "Skipping as the upgrade and main are not supported together."
+                         error "Exiting the Stage as the inputs are invalid."
+                    } else {
+                         echo "Continue with the package tests"
+                    }                
                 }   
                 echo "${JENWORKSPACE}"
                 installDependencies()
@@ -262,6 +290,16 @@ pipeline {
             }
         }
 
+        stage("Upgrade") {
+            steps {
+                script{
+                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                        runMoleculeAction("side-effect", params.product_to_test, params.node_to_test)
+                    }
+                }
+            }
+        }
+
         stage("Logs Backup ansible playbook") {
             steps {
                 setInventories()
@@ -272,18 +310,20 @@ pipeline {
     }
 
     post {
+
         always {
             script {
                 runMoleculeAction("destroy", params.product_to_test, params.node_to_test)
             }
             archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
         }
+
         unstable {
-            slackSend channel: '#dev-server-qa', color: '#DEFF13', message: "[${env.JOB_NAME}]: Failed during the Package testing (Unstable Build) [${env.BUILD_URL}] Parameters: product_to_test: ${params.product_to_test} , node_to_test: ${params.node_to_test} , install_repo: ${params.install_repo}"
+                slackSend channel: '#dev-server-qa', color: '#DEFF13', message: "[${env.JOB_NAME}]: Failed during the Package testing (Unstable Build) [${env.BUILD_URL}] Parameters: product_to_test: ${params.product_to_test} , node_to_test: ${params.node_to_test} , test_repo: ${params.test_repo}"
         }
 
         failure {
-            slackSend channel: '#dev-server-qa', color: '#FF0000', message: "[${env.JOB_NAME}]: Failed during the Package testing (Build Failed) [${env.BUILD_URL}] Parameters: product_to_test: ${params.product_to_test} , node_to_test: ${params.node_to_test} , install_repo: ${params.install_repo}"
+                slackSend channel: '#dev-server-qa', color: '#FF0000', message: "[${env.JOB_NAME}]: Failed during the Package testing (Build Failed) [${env.BUILD_URL}] Parameters: product_to_test: ${params.product_to_test} , node_to_test: ${params.node_to_test} , test_repo: ${params.test_repo}"
         }
 
 
