@@ -98,10 +98,10 @@ pipeline {
                         }
                     }
                 }
-                stage('Run Settings Tests using @settings @cli'){
+                stage('Run Tests using @settings @cli @pgss-pmm-integration'){
                     steps {
                         script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@settings|@cli', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@settings|@cli|@pgss-pmm-integration', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--setup-pmm-pgss-integration');
                         }
                     }
                 }
@@ -119,10 +119,10 @@ pipeline {
                         }
                     }
                 }
-                stage('Run PMM+PGSM Integration, Mongodb Exporter tests pgsm/pgss Integration @exporters & @mongodb-exporter'){
+                stage('Run PMM+PGSM Integration @exporters & @mongodb-exporter'){
                     steps {
                         script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@pgsm-pmm-integration|@mongodb-exporter|@pgss-pmm-integration|@exporters', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--addclient=modb,1 --setup-pmm-pgsm-integration --setup-pmm-pgss-integration');
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@pgsm-pmm-integration|@mongodb-exporter|@exporters', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--addclient=modb,1 --setup-pmm-pgsm-integration');
                         }
                     }
                 }
