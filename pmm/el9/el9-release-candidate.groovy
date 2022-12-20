@@ -67,9 +67,10 @@ pipeline {
             }
             steps {
                 script {
-                    // build job: 'pmm2-rewind-submodules-fb', propagate: false, parameters: [
-                    //     string(name: 'GIT_BRANCH', value: RELEASE_BRANCH)
-                    // ]
+                    sh '''
+                        wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_arm64 -O /usr/bin/yq
+                        chmod +x /usr/bin/yq
+                    '''
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         sh '''
                             git config --global user.email "noreply@percona.com"
@@ -80,6 +81,8 @@ pipeline {
 
                             git submodule update --init --remote --recommend-shallow --jobs 10
                             git submodule status | grep "^\\+" | sed -e "s/\\+//" | cut -d " " -f2 > remotes.txt
+                            # or
+                            yq ea 'select(fileIndex == 0) *d select(fileIndex == 1) | .deps' ci-default.yml ci.yml > branches.yml
                             cat remotes.txt
 
                             COUNT=0
@@ -91,12 +94,12 @@ pipeline {
                                 CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD)
                                 # REMOTE_BRANCHES=$(git ls-remote --heads origin | awk -F '/' '{print $NF}')
 
-                                if [ "$SUBMODULE" = "sources/pmm/src/github.com/percona/pmm" ]; then
-                                    # NOTE: it assumes the branch name in /pmm is the same as in /pmm-submodules
-                                    git checkout ${RELEASE_BRANCH}
+                                BRANCH=$(cat branches.yml | yq '.[] | select(.path == env(SUBMODULE)) | .branch')
+                                if [ -n $BRANCH ]; then
+                                    git checkout $BRANCH
                                 else
-                                    # we assume tho remote base branch is `main`
-                                    git checkout main 
+                                    echo "Error: no branch found for ${SUBMODULE} in ci.yml"
+                                    exit 1
                                 fi
                                 
                                 LOCAL=$(git rev-parse @)
