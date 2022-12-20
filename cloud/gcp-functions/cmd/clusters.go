@@ -34,6 +34,8 @@ func CleanClusters(w http.ResponseWriter, r *http.Request) {
 
     for _, cluster := range clusters.Clusters {
 
+        clusterUri := fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, cluster.Location, cluster.Name)
+
         creationTime, err := time.Parse(time.RFC3339, cluster.CreateTime)
         if err != nil {
             log.Printf("Error getting cluster creation time : %v", err)
@@ -42,6 +44,12 @@ func CleanClusters(w http.ResponseWriter, r *http.Request) {
 
         deleteClusterAfterHours, ok := cluster.ResourceLabels["delete-cluster-after-hours"]
         if !ok {
+            resp, err := containerService.Projects.Locations.Clusters.Delete(clusterUri).Context(ctx).Do()
+            if err != nil {
+                log.Printf("Cluster deletion error: %v", err)
+                continue
+            }
+            log.Printf("Cluster without label: %s was deleted with status %s\n", cluster.Name, resp.Status)
             continue
         }
 
@@ -52,8 +60,6 @@ func CleanClusters(w http.ResponseWriter, r *http.Request) {
         }
 
         if int64(math.Round(currentTime.Sub(creationTime).Hours())) > deleteClusterAfterHoursInt {
-
-            clusterUri := fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, cluster.Location, cluster.Name)
 
             resp, err := containerService.Projects.Locations.Clusters.Delete(clusterUri).Context(ctx).Do()
             if err != nil {
