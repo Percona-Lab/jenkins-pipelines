@@ -124,7 +124,7 @@ pipeline {
 
                             if [ $COUNT -gt 0 ]; then
                                 git commit -m "rewind submodules"
-                                git push
+                                git push origin ${RELEASE_BRANCH}
                             fi
 
                             # run the build script
