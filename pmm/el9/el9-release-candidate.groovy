@@ -91,7 +91,7 @@ pipeline {
                                 git fetch origin
                                 git remote update
 
-                                CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD)
+                                # CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD)
                                 # REMOTE_BRANCHES=$(git ls-remote --heads origin | awk -F '/' '{print $NF}')
                                 
                                 BRANCH=$(cat $OLDPWD/branches.yml | yq '.[] | select(.path == "'$SUBMODULE'") | .branch')
@@ -111,7 +111,6 @@ pipeline {
                                     git log --oneline -n 3
                                     cd -
                                     git add $SUBMODULE
-                                    git status --short
                                     ((COUNT+=1))
                                 else
                                     cd -
@@ -122,7 +121,9 @@ pipeline {
                             rm -f remotes.txt branches.yml
                             git submodule --quiet summary
 
-                            if [ $COUNT -gt 0 ]; then
+                            COUNT_LINES=$(git status --short | wc -l | xargs echo)
+
+                            if [ $COUNT -gt 0 && $COUNT_LINES -gt 0 ]; then
                                 TICKET=$(echo $RELEASE_BRANCH | sed -E "s/^(PMM-[0-9]{1,5})(.*)/\\1/i")
                                 git commit -m "$TICKET rewind submodules"
                                 git push origin ${RELEASE_BRANCH}
