@@ -93,8 +93,8 @@ pipeline {
 
                                 CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD)
                                 # REMOTE_BRANCHES=$(git ls-remote --heads origin | awk -F '/' '{print $NF}')
-
-                                BRANCH=$(cat ${OLDPWD}/branches.yml | yq '.[] | select(.path == env(SUBMODULE)) | .branch')
+                                echo $OLDPWD/branches.yml
+                                BRANCH=$(cat $OLDPWD/branches.yml | yq '.[] | select(.path == env(SUBMODULE)) | .branch')
                                 if [ -n $BRANCH ]; then
                                     git checkout $BRANCH
                                 else
@@ -115,7 +115,7 @@ pipeline {
                                     ((COUNT+=1))
                                 else
                                     cd -
-                                    echo "${SUBMODULE} is up-to-date with upstream"
+                                    echo "$SUBMODULE is up-to-date with upstream"
                                 fi
                             done
 
