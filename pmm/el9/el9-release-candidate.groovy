@@ -68,8 +68,8 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_arm64 -O /usr/bin/yq
-                        chmod +x /usr/bin/yq
+                        sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_arm64 -O /usr/bin/yq
+                        sudo chmod +x /usr/bin/yq
                     '''
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         sh '''
