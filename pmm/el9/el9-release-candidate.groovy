@@ -81,9 +81,10 @@ pipeline {
 
                             git submodule update --init --remote --recommend-shallow --jobs 10
                             git submodule status | grep "^\\+" | sed -e "s/\\+//" | cut -d " " -f2 > remotes.txt
-                            # or
-                            yq ea 'select(fileIndex == 0) *d select(fileIndex == 1) | .deps' ci-default.yml ci.yml > branches.yml
+
                             cat remotes.txt
+                            ls -la
+                            yq ea 'select(fileIndex == 0) *d select(fileIndex == 1) | .deps' ci-default.yml ci.yml > branches.yml
 
                             COUNT=0
                             for SUBMODULE in $(cat remotes.txt); do
