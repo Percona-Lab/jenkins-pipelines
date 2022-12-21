@@ -71,13 +71,14 @@ pipeline {
                         sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_arm64 -O /usr/bin/yq
                         sudo chmod +x /usr/bin/yq
                     '''
-                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                    withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                         sh '''
+                            # Configure git to push using ssh
+                            export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
                             git config --global user.email "noreply@percona.com"
                             git config --global user.name "PMM Jenkins"                            
                             git config -f .gitmodules submodule.percona-toolkit.shallow false
-                            # git config remote.origin.fetch "+refs/heads/*:/refs/remotes/origin/*"
-                            git config push.default "current"
 
                             git submodule update --init --remote --recommend-shallow --jobs 10
                             git submodule status | grep "^\\+" | sed -e "s/\\+//" | cut -d " " -f2 > remotes.txt
@@ -123,7 +124,7 @@ pipeline {
                             git submodule --quiet summary
 
                             if [ $COUNT -gt 0 ]; then
-                                TICKET=$(echo $RELEASE_BRANCH | sed -E "s/^(PMM-[0-9]{1,5})(.*)/\\\1/i")
+                                TICKET=$(echo $RELEASE_BRANCH | sed -E "s/^(PMM-[0-9]{1,5})(.*)/\\1/i")
                                 git commit -m "$TICKET rewind submodules"
                                 git branch --show-current
                                 git push origin ${RELEASE_BRANCH}
