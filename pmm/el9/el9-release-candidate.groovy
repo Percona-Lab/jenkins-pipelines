@@ -76,7 +76,7 @@ pipeline {
                             git config --global user.email "noreply@percona.com"
                             git config --global user.name "PMM Jenkins"                            
                             git config -f .gitmodules submodule.percona-toolkit.shallow false
-                            git config remote.origin.fetch "+refs/heads/*:/refs/remotes/origin/*"
+                            # git config remote.origin.fetch "+refs/heads/*:/refs/remotes/origin/*"
                             git config push.default "current"
 
                             git submodule update --init --remote --recommend-shallow --jobs 10
@@ -88,7 +88,7 @@ pipeline {
                             COUNT=0
                             for SUBMODULE in $(cat remotes.txt); do
                                 cd $SUBMODULE
-                                git fetch
+                                git fetch origin
                                 git remote update
 
                                 CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD)
@@ -123,7 +123,9 @@ pipeline {
                             git submodule --quiet summary
 
                             if [ $COUNT -gt 0 ]; then
-                                git commit -m "rewind submodules"
+                                TICKET=$(echo $RELEASE_BRANCH | sed -E "s/^(PMM-[0-9]{1,5})(.*)/\\\1/i")
+                                git commit -m "$TICKET rewind submodules"
+                                git branch --show-current
                                 git push origin ${RELEASE_BRANCH}
                             fi
 
