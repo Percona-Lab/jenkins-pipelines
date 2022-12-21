@@ -83,7 +83,7 @@ pipeline {
                             git submodule status | grep "^\\+" | sed -e "s/\\+//" | cut -d " " -f2 > remotes.txt
 
                             cat remotes.txt
-                            yq ea 'select(fileIndex == 0) *d select(fileIndex == 1) | .deps' ci-default.yml ci.yml | tee branches.yml
+                            yq ea 'select(fileIndex == 0) *d select(fileIndex == 1) | .deps' ci-default.yml ci.yml > branches.yml
 
                             COUNT=0
                             for SUBMODULE in $(cat remotes.txt); do
@@ -94,7 +94,7 @@ pipeline {
                                 CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD)
                                 # REMOTE_BRANCHES=$(git ls-remote --heads origin | awk -F '/' '{print $NF}')
 
-                                BRANCH=$(cat branches.yml | yq '.[] | select(.path == env(SUBMODULE)) | .branch')
+                                BRANCH=$(cat ${OLDPWD}/branches.yml | yq '.[] | select(.path == env(SUBMODULE)) | .branch')
                                 if [ -n $BRANCH ]; then
                                     git checkout $BRANCH
                                 else
