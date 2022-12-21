@@ -138,10 +138,6 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                             export IMAGE_BACKREST=${PGO_BACKREST_IMAGE}
                         fi
 
-                        if [ -n "${PGO_BACKREST_REPO_IMAGE}" ]; then
-                            export IMAGE_BACKREST_REPO=${PGO_BACKREST_REPO_IMAGE}
-                        fi
-
                         if [ -n "${PGO_PGBADGER_IMAGE}" ]; then
                             export IMAGE_PGBADGER=${PGO_PGBADGER_IMAGE}
                         fi
@@ -233,10 +229,6 @@ pipeline {
             defaultValue: '',
             description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg13-pgbackrest',
             name: 'PGO_BACKREST_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg13-pgbackrest-repo',
-            name: 'PGO_BACKREST_REPO_IMAGE')
         string(
             defaultValue: '',
             description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg13-pgbadger',
