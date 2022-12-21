@@ -5,24 +5,24 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'docker-32gb'
+        label 'master'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
         choice(name: 'image', choices: ['build','tarball','predefined'], description: 'Build image from sources, build image from tarball, or use predefined docker image for tests')
-        string(name: 'branch', defaultValue: 'release-4.4.9-10', description: 'Repo branch for build image from sources')
-        string(name: 'version', defaultValue: '4.4.9', description: 'Version for build tag (psm_ver) to build image from sources')
-        string(name: 'release', defaultValue: '10', description: 'Release for build tag (psm_release) to build image from sources')
-        string(name: 'mongo_tools', defaultValue: '100.4.1', description: 'Mongo tools tag (mongo_tools_tag) to build image from sources')
+        string(name: 'branch', defaultValue: 'v6.0', description: 'Repo branch for build image from sources')
+        string(name: 'version', defaultValue: '6.0.3', description: 'Version for build tag (psm_ver) to build image from sources')
+        string(name: 'release', defaultValue: '3', description: 'Release for build tag (psm_release) to build image from sources')
+        string(name: 'mongo_tools', defaultValue: '100.6.0', description: 'Mongo tools tag (mongo_tools_tag) to build image from sources')
         string(name: 'srctarball', defaultValue: 'https://downloads.percona.com/downloads/percona-server-mongodb-LATEST/percona-server-mongodb-4.4.9-10/source/tarball/percona-server-mongodb-4.4.9-10.tar.gz', description: 'Tarball with sources to build image from ready tarballs')
         string(name: 'bintarball', defaultValue: 'https://downloads.percona.com/downloads/percona-server-mongodb-LATEST/percona-server-mongodb-4.4.9-10/binary/tarball/percona-server-mongodb-4.4.9-10-x86_64.glibc2.17.tar.gz', description: 'Tarball with binaries to build image from ready tarballs')
-        string(name: 'tag', defaultValue: '4.4.9', description: 'Docker image tag to push/pull to/from registry, should be defined manually')
+        string(name: 'tag', defaultValue: '6.0.3', description: 'Docker image tag to push/pull to/from registry, should be defined manually')
         string(name: 'parallelexecutors', defaultValue: '1', description: 'Number of parallel executors')
         string(name: 'testsuites', defaultValue: 'core', description: 'Comma-separated list of testuites')
         string(name: 'listsuites', defaultValue: '', description: 'URL with list of testuites')
-        choice(name: 'instance', choices: ['docker','docker-32gb'], description: 'Ec2 instance type for running suites')
+        choice(name: 'instance', choices: ['docker-64gb','docker-64gb-aarch64'], description: 'Ec2 instance type for running suites')
         string(name: 'paralleljobs', defaultValue: '2', description: 'Number of parallel jobs passed to resmoke.py')
         booleanParam(name: 'unittests',defaultValue: false, description: 'Check if list of suites contains unittests')
         booleanParam(name: 'integrationtests',defaultValue: false, description: 'Check if list of suites contains integration tests')
@@ -40,7 +40,7 @@ pipeline {
             }
         }
         stage ('Build image from sources') {
-            agent { label 'docker-32gb' }
+            agent { label "${params.instance}" }
             when {
                 beforeAgent true
                 environment name: 'image', value: 'build'
@@ -50,7 +50,11 @@ pipeline {
                 withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                      sh """
                          rm -rf *
-                         curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                         if [[ ${params.instance} =~ "aarch64" ]]; then
+                            curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
+                         else
+                            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                         fi
                          if [ -f "/usr/bin/yum" ] ; then sudo yum install -y unzip ; else sudo apt-get update && apt-get -y install unzip ; fi
                          unzip -o awscliv2.zip
                          sudo ./aws/install
@@ -78,7 +82,7 @@ pipeline {
             }
         }
         stage ('Build image from tarball') {
-            agent { label 'docker-32gb' }
+            agent { label "${params.instance}" }
             when {
                 beforeAgent true
                 environment name: 'image', value: 'tarball'
@@ -86,7 +90,11 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                      sh """
-                         curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                         if [[ ${params.instance} =~ "aarch64" ]]; then
+                            curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
+                         else
+                            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                         fi
                          if [ -f "/usr/bin/yum" ] ; then sudo yum install -y unzip ; else sudo apt-get update && apt-get -y install unzip ; fi
                          unzip -o awscliv2.zip
                          sudo ./aws/install
@@ -192,19 +200,12 @@ pipeline {
                     }
                     if (params.unittests) {
                         runners["unittests"] = {
-                            node("psmdb-bionic") {
+                            node("${params.instance}") {
                                 stage ("node ${env.NODE_NAME}") {
                                     withEnv(['PATH=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin:/bin']){
                                     sh '''
-                                        curl https://get.docker.com -o get-docker.sh
-                                        sudo sh get-docker.sh
-                                        sudo install -o root -g root -d /mnt/docker
-                                        sudo usermod -aG docker $(id -u -n)
-                                        sudo mkdir -p /etc/docker
-                                        echo -e '{\n  "experimental": true,\n  "ipv6": true,\n  "fixed-cidr-v6": "2001:db8:1::/64",\n  "data-root": "/mnt/docker"\n}' | sudo tee /etc/docker/daemon.json
+                                        echo -e '{\n  "experimental": true,\n  "ipv6": true,\n  "fixed-cidr-v6": "2001:db8:1::/64"\n}' | sudo tee /etc/docker/daemon.json
                                         sudo systemctl restart docker
-                                        sudo systemctl status docker || sudo systemctl start docker
-                                        sudo setfacl --modify user:$USER:rw /var/run/docker.sock
                                     '''
                                     script {
                                         def image = "public.ecr.aws/e7j3v3n0/psmdb-build:" + params.tag
@@ -285,19 +286,12 @@ pipeline {
                     }
                     if (params.integrationtests) {
                         runners["integration-tests"] = {
-                            node("psmdb-bionic") {
+                            node("${params.instance}") {
                                 stage ("node ${env.NODE_NAME}") {
                                     withEnv(['PATH=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin:/bin']){
                                     sh '''
-                                        curl https://get.docker.com -o get-docker.sh
-                                        sudo sh get-docker.sh
-                                        sudo install -o root -g root -d /mnt/docker
-                                        sudo usermod -aG docker $(id -u -n)
-                                        sudo mkdir -p /etc/docker
-                                        echo -e '{\n  "experimental": true,\n  "ipv6": true,\n  "fixed-cidr-v6": "2001:db8:1::/64",\n  "data-root": "/mnt/docker"\n}' | sudo tee /etc/docker/daemon.json
+                                        echo -e '{\n  "experimental": true,\n  "ipv6": true,\n  "fixed-cidr-v6": "2001:db8:1::/64"\n}' | sudo tee /etc/docker/daemon.json
                                         sudo systemctl restart docker
-                                        sudo systemctl status docker || sudo systemctl start docker
-                                        sudo setfacl --modify user:$USER:rw /var/run/docker.sock
                                     '''
                                     script {
                                         def image = "public.ecr.aws/e7j3v3n0/psmdb-build:" + params.tag
