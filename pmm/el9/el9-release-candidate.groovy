@@ -126,7 +126,6 @@ pipeline {
                             if [ $COUNT -gt 0 ]; then
                                 TICKET=$(echo $RELEASE_BRANCH | sed -E "s/^(PMM-[0-9]{1,5})(.*)/\\1/i")
                                 git commit -m "$TICKET rewind submodules"
-                                git branch --show-current
                                 git push origin ${RELEASE_BRANCH}
                             fi
 
