@@ -120,9 +120,9 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                             export PG_VER=${PG_VERSION}
                         fi
                         if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
-                            export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
+                            export IMAGE=${PGO_OPERATOR_IMAGE}
                         else
-                            export IMAGE_OPERATOR=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}
+                            export IMAGE=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}
                         fi
 
                         if [ -n "${PGO_PGBOUNCER_IMAGE}" ]; then
