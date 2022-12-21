@@ -306,10 +306,12 @@ pipeline {
                         string(name: 'TAG', value: "${VERSION}-rc")
                     ]
 
+                    env.SCAN_REPORT_URL = ""
                     if (imageScan.result == 'SUCCESS') {
                         copyArtifacts filter: 'report.html', projectName: 'pmm2-image-scanning'
                         sh 'mv report.html report-${VERSION}-rc.html'
                         archiveArtifacts "report-${VERSION}-rc.html"
+                        env.SCAN_REPORT_URL = "CVE Scan Report: ${BUILD_URL}artifact/report-${VERSION}-rc.html"
                     }
                 }
             }
@@ -327,6 +329,7 @@ OVA: https://percona-vm.s3.amazonaws.com/PMM2-Server-${VERSION}.ova
 AMI: ${env.AMI_ID}
 Tarball: ${env.TARBALL_URL}
 ${env.TEST_URL}
+${env.SCAN_REPORT_URL}
                       """
         }
     }

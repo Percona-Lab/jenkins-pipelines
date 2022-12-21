@@ -320,7 +320,7 @@ pipeline {
                 '''
                 sh '''
                     # run the upgrade script
-                    export PMM_VERSION=${PMM_VERSION}
+                    export PMM_VERSION=${PMM_SERVER_TAG}
                     sudo chmod 755 /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh
                     bash -xe /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh ${PMM_VERSION}
                 '''
