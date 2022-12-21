@@ -123,7 +123,7 @@ pipeline {
 
                             COUNT_LINES=$(git status --short | wc -l | xargs echo)
 
-                            if [ $COUNT -gt 0 && $COUNT_LINES -gt 0 ]; then
+                            if [ $COUNT -gt 0 ] && [ $COUNT_LINES -gt 0 ]; then
                                 TICKET=$(echo $RELEASE_BRANCH | sed -E "s/^(PMM-[0-9]{1,5})(.*)/\\1/i")
                                 git commit -m "$TICKET rewind submodules"
                                 git push origin ${RELEASE_BRANCH}
