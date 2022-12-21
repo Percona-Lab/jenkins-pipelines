@@ -16,15 +16,19 @@ void runGKEcluster(String CLUSTER_PREFIX) {
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
-                gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE && \
-                gcloud config set project $GCP_PROJECT && \
-                gcloud container clusters create --zone ${GKERegion} \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --cluster-version $GKE_VERSION --machine-type n1-standard-4 --preemptible --num-nodes=3 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_PREFIX} --no-enable-autoupgrade && \
-                gcloud container clusters update --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --update-labels delete-cluster-after-hours=6 && \
+                gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
+                gcloud config set project $GCP_PROJECT
+                gcloud container clusters list --filter \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
+                gcloud container clusters create --zone $GKERegion \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --cluster-version=$GKE_VERSION --machine-type=n1-standard-4 --preemptible --num-nodes=3 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_PREFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=/21 && \
+                gcloud container clusters update --zone $GKERegion \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --update-labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
             done
-            if [ \${ret_num} -eq 15 ]; then exit 1; fi
+            if [ \${ret_num} -eq 15 ]; then
+                gcloud container clusters list --filter \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
+                exit 1
+            fi
         """
    }
 }
