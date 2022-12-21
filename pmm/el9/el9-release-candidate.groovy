@@ -119,12 +119,12 @@ pipeline {
                                 fi
                             done
 
-                            rm -f remotes.txt
+                            rm -f remotes.txt branches.yml
                             git submodule --quiet summary
 
                             if [ $COUNT -gt 0 ]; then
                                 git commit -m "rewind submodules"
-                                # git push
+                                git push
                             fi
 
                             # run the build script
