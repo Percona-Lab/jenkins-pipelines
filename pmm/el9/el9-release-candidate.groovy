@@ -78,7 +78,6 @@ pipeline {
 
                             git config --global user.email "noreply@percona.com"
                             git config --global user.name "PMM Jenkins"                            
-                            git config -f .gitmodules submodule.percona-toolkit.shallow false
 
                             git submodule update --init --remote --recommend-shallow --jobs 10
                             git submodule status | grep "^\\+" | sed -e "s/\\+//" | cut -d " " -f2 > remotes.txt
