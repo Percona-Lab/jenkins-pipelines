@@ -93,8 +93,8 @@ pipeline {
 
                                 CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD)
                                 # REMOTE_BRANCHES=$(git ls-remote --heads origin | awk -F '/' '{print $NF}')
-                                echo $OLDPWD/branches.yml
-                                BRANCH=$(cat $OLDPWD/branches.yml | yq '.[] | select(.path == env(SUBMODULE)) | .branch')
+                                
+                                BRANCH=$(cat $OLDPWD/branches.yml | yq '.[] | select(.path == "'$SUBMODULE'") | .branch')
                                 if [ -n $BRANCH ]; then
                                     git checkout $BRANCH
                                 else
