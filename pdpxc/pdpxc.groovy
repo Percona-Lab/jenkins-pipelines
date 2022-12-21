@@ -52,6 +52,11 @@ pipeline {
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
          )
+        string(
+            defaultValue: '1.0',
+            description: 'replication-manager.sh version',
+            name: 'REPL_MANAGER_VERSION'
+        )
         choice(
             name: 'SCENARIO',
             description: 'Scenario for test',
