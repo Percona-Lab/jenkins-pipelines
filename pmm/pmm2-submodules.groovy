@@ -86,7 +86,7 @@ pipeline {
                         git submodule foreach --recursive git clean -fdx
                         git submodule status
                         export commit_sha=$(git submodule status | grep 'pmm-managed' | awk -F ' ' '{print $1}')
-                        export api_tests_commit_sha=$(git submodule status | grep 'pmm' | awk -F ' ' '{print $1}')
+                        export api_tests_commit_sha=$(git submodule status | grep 'sources/pmm/src' | awk -F ' ' '{print $1}')
                         export api_tests_branch=$(git config -f .gitmodules submodule.pmm.branch)
                         export api_tests_url=$(git config -f .gitmodules submodule.pmm.url)
                         echo $api_tests_commit_sha > apiCommitSha
@@ -263,6 +263,14 @@ pipeline {
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/jenkins-dispatch.yml/dispatches" \
                                 -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}"}}'
+                        """
+                        // trigger workflow in GH to run PMM binary cli tests
+                        sh """
+                            curl -v -X POST \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/pmm-cli.yml/dispatches" \
+                                -d '{"ref":"${CHANGE_BRANCH}","inputs":{"client_tar_url":"${CLIENT_URL}","sha":"${FB_COMMIT_HASH}"}}'
                         """
                     }
                 }
