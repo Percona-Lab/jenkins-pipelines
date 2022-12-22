@@ -78,6 +78,10 @@ pipeline {
             defaultValue: 'wal2json_2_4',
             description: 'wal2json version',
             name: 'WAL2JSON_VERSION')
+        string(
+            defaultValue: 'no',
+            description: 'Destroy VM after tests',
+            name: 'DESTROY_ENV')
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
@@ -162,6 +166,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.PGSM_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -183,6 +188,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.PGAUDIT_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -204,6 +210,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.PG_REPACK_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -225,6 +232,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.PATRONI_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -246,6 +254,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.PGBACKREST_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -267,6 +276,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.PGBADGER_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -288,6 +298,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.WAL2JSON_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -309,6 +320,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.SETUSER_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -330,6 +342,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.PGBOUNCER_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
