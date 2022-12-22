@@ -68,14 +68,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     dir('build') {
                         sh '''
-                            # cat .cache/box/*.ovf
-
-                            /usr/bin/packer build \
-                            -var 'pmm_client_repos=original testing' \
-                            -var 'pmm_client_repo_name=percona-testing-x86_64' \
-                            -var 'pmm2_server_repo=testing' \
-                            -only virtualbox-ovf -color=false packer/pmm2.el9.json \
-                                | tee build.log
+                            make pmm2-ovf-el9-rc
                         '''
                     }
                 }
@@ -91,12 +84,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     dir('build') {
                         sh '''
-                            /usr/bin/packer build \
-                            -var 'pmm_client_repos=original experimental' \
-                            -var 'pmm_client_repo_name=percona-experimental-x86_64' \
-                            -var 'pmm2_server_repo=experimental' \
-                            -only virtualbox-ovf -color=false packer/pmm2.el9.json \
-                                | tee build.log
+                            make pmm2-ovf-el9-dev-latest
                         '''
                     }
                 }
