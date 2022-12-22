@@ -249,6 +249,7 @@ pipeline {
                         def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                         def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
                         def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
+                        def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
                         sh """
                             curl -v -X POST \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
@@ -271,6 +272,14 @@ pipeline {
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/pmm-cli.yml/dispatches" \
                                 -d '{"ref":"${CHANGE_BRANCH}","inputs":{"client_tar_url":"${CLIENT_URL}","sha":"${FB_COMMIT_HASH}"}}'
+                        """
+                        // trigger workflow in GH to run PMM2-Testsuite on PMM-QA
+                        sh """
+                            curl -v -X POST \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                "https://api.github.com/repos/pmm-qa/actions/workflows/testsuite.yml/dispatches" \
+                                -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","client_version":"${CLIENT_URL}","sha":"${FB_COMMIT_HASH}", "pmm_qa_branch": "${PMM_QA_GIT_BRANCH}"}}'
                         """
                     }
                 }
