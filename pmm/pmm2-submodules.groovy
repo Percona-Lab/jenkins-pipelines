@@ -86,7 +86,7 @@ pipeline {
                         git submodule foreach --recursive git clean -fdx
                         git submodule status
                         export commit_sha=$(git submodule status | grep 'pmm-managed' | awk -F ' ' '{print $1}')
-                        export api_tests_commit_sha=$(git submodule status | grep 'pmm' | awk -F ' ' '{print $1}')
+                        export api_tests_commit_sha=$(git submodule status | grep 'sources/pmm/src' | awk -F ' ' '{print $1}')
                         export api_tests_branch=$(git config -f .gitmodules submodule.pmm.branch)
                         export api_tests_url=$(git config -f .gitmodules submodule.pmm.url)
                         echo $api_tests_commit_sha > apiCommitSha
