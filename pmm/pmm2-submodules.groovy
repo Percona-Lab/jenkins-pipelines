@@ -274,9 +274,7 @@ pipeline {
                                 -d '{"ref":"${CHANGE_BRANCH}","inputs":{"client_tar_url":"${CLIENT_URL}","sha":"${FB_COMMIT_HASH}"}}'
                         """
                         // trigger workflow in GH to run testsuite tests
-                        def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                         def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
-                        def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                         sh """
                             curl -v -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
