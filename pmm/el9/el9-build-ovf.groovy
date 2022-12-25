@@ -52,11 +52,6 @@ pipeline {
                     # copy update playbook to `build` to not have to pull it from pmm-update
                     cp -rpav update/ansible/playbook/* build/update
                 '''
-                dir('build') {
-                    sh '''
-                        make fetch-el9
-                    '''
-                }
             }
         }
 
@@ -73,7 +68,6 @@ pipeline {
                     }
                 }
                 sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
-                stash includes: 'IMAGE', name: 'IMAGE'
             }
         }
         stage('Build Dev-Latest Image') {
@@ -89,7 +83,6 @@ pipeline {
                     }
                 }
                 sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
-                stash includes: 'IMAGE', name: 'IMAGE'
             }
         }
 
@@ -114,6 +107,7 @@ pipeline {
                             s3://percona-vm/${NAME} \
                             s3://percona-vm/PMM2-Server-${PMM_VERSION}.el9.ova
                     '''
+                    env.PMM2_SERVER_OVA_S3 = "https://percona-vm.s3.amazonaws.com/PMM2-Server-${PMM_VERSION}.el9.ova"
                 }
             }
         }
@@ -141,6 +135,7 @@ pipeline {
                             PMM2-Server-dev-latest.el9.ova \
                             s3://percona-vm/PMM2-Server-dev-latest.el9.ova
                     '''
+                    env.PMM2_SERVER_OVA_S3 = "https://percona-vm.s3.amazonaws.com/PMM2-Server-dev-latest.el9.ova"
                 }
             }
         }
@@ -149,14 +144,12 @@ pipeline {
     post {
         success {
             script {
-                unstash 'IMAGE'
-                def IMAGE = sh(returnStdout: true, script: "cat IMAGE").trim()
                 if (params.RELEASE_CANDIDATE == "yes"){
-                    currentBuild.description = "OL9 RC Build, Image: " + IMAGE
-                    // slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} OL9 RC build finished - http://percona-vm.s3.amazonaws.com/PMM2-Server-${PMM_VERSION}.ova"
+                    currentBuild.description = "OL9 RC Build, Image: " + env.PMM2_SERVER_OVA_S3
+                    // slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} RHEL9 RC build finished - " + env.PMM2_SERVER_OVA_S3
                 } else {
-                    slackSend botUser: true, channel: '@alexander.tymchuk', color: '#00FF00', message: "[${JOB_NAME}]: build finished - http://percona-vm.s3.amazonaws.com/${IMAGE}"
-                    // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - http://percona-vm.s3.amazonaws.com/${IMAGE}"
+                    slackSend botUser: true, channel: '@alexander.tymchuk', color: '#00FF00', message: "[${JOB_NAME}]: build finished - " + env.PMM2_SERVER_OVA_S3
+                    // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: RHEL9 feature build finished - " + env.PMM2_SERVER_OVA_S3
                 }
             }
         }
