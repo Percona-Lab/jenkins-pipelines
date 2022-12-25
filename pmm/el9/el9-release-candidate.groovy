@@ -74,7 +74,7 @@ pipeline {
                     withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                         sh '''
                             # Configure git to push using ssh
-                            export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+                            export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o AddKeysToAgent=no"
 
                             git config --global user.email "noreply@percona.com"
                             git config --global user.name "PMM Jenkins"                            
@@ -83,6 +83,7 @@ pipeline {
                             git submodule status | grep "^\\+" | sed -e "s/\\+//" | cut -d " " -f2 > remotes.txt
 
                             cat remotes.txt
+                            # merge the two files (ci.yml will override the defaults)
                             yq ea 'select(fileIndex == 0) *d select(fileIndex == 1) | .deps' ci-default.yml ci.yml > branches.yml
 
                             COUNT=0
@@ -121,9 +122,9 @@ pipeline {
                             rm -f remotes.txt branches.yml
                             git submodule --quiet summary
 
-                            COUNT_LINES=$(git status --short | wc -l | xargs echo)
+                            HAS_CHANGES=$(git status --short | wc -l | xargs echo)
 
-                            if [ $COUNT -gt 0 ] && [ $COUNT_LINES -gt 0 ]; then
+                            if [ $COUNT -gt 0 ] && [ $HAS_CHANGES -gt 0 ]; then
                                 TICKET=$(echo $RELEASE_BRANCH | sed -E "s/^(PMM-[0-9]{1,5})(.*)/\\1/i")
                                 git commit -m "$TICKET rewind submodules"
                                 git push origin ${RELEASE_BRANCH}
