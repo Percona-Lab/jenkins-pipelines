@@ -148,8 +148,8 @@ pipeline {
     post {
         success {
             script {
+                currentBuild.description = "OL9 RC Build, Image: " + env.PMM2_SERVER_OVA_S3
                 if (params.RELEASE_CANDIDATE == "yes"){
-                    currentBuild.description = "OL9 RC Build, Image: " + env.PMM2_SERVER_OVA_S3
                     // slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} RHEL9 RC build finished - " + env.PMM2_SERVER_OVA_S3
                 } else {
                     slackSend botUser: true, channel: '@alexander.tymchuk', color: '#00FF00', message: "[${JOB_NAME}]: build finished - " + env.PMM2_SERVER_OVA_S3

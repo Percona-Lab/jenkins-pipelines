@@ -105,7 +105,7 @@ pipeline {
                                 
                                 LOCAL=$(git rev-parse @)
                                 BASE=$(git merge-base @ @{u} 2>/dev/null)
-                                REMOTE=$(git rev-parse @{u})
+                                # REMOTE=$(git rev-parse @{u})
 
                                 if [ $LOCAL = $BASE ]; then
                                     git pull origin
