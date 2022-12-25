@@ -107,6 +107,8 @@ pipeline {
                             s3://percona-vm/${NAME} \
                             s3://percona-vm/PMM2-Server-${PMM_VERSION}.el9.ova
                     '''
+                }
+                script {
                     env.PMM2_SERVER_OVA_S3 = "https://percona-vm.s3.amazonaws.com/PMM2-Server-${PMM_VERSION}.el9.ova"
                 }
             }
@@ -135,6 +137,8 @@ pipeline {
                             PMM2-Server-dev-latest.el9.ova \
                             s3://percona-vm/PMM2-Server-dev-latest.el9.ova
                     '''
+                }
+                script {
                     env.PMM2_SERVER_OVA_S3 = "https://percona-vm.s3.amazonaws.com/PMM2-Server-dev-latest.el9.ova"
                 }
             }
