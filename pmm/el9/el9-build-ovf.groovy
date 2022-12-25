@@ -160,9 +160,14 @@ pipeline {
                 }
             }
         }
-        // failure {
-        //     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
-        // }
+        failure {
+            script {
+                sh '''
+                    cat build.log
+                '''
+                // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
+            }
+        }
         cleanup {
             deleteDir()
         }
