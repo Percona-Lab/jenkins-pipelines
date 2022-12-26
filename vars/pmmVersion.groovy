@@ -1,7 +1,6 @@
 def call(String type='latest') {
   // List<String> oldVersions = ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0']
   List<String> oldVersions = ['2.12.0', '2.13.0']
-  List<String> oldVersions = []
   HashMap<String, String> versions = [
     // Historical AMIs
     // '2.15.0': 'ami-086a3a95eefa9567f',
@@ -40,7 +39,6 @@ def call(String type='latest') {
     '2.32.0': 'ami-0bd413810ebb52d5d',
     '2.31.0': 'ami-08094ef29ebc82468',
     '2.33.0': 'ami-07e19e90c30c6989c',
-
   ]
 
   List<String> versionsList = new ArrayList<>(versions.keySet());
