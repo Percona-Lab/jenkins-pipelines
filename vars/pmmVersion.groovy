@@ -53,8 +53,6 @@ def call(String type='latest') {
       return versionsList[versionsList.size() - 2]
     case 'ami':
       return versions
-    case 'ovf':
-      return ovfVersions
     case 'list':
       return versionsList
     case 'ovf':
