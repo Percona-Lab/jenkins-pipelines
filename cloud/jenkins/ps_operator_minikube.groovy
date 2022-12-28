@@ -291,6 +291,7 @@ pipeline {
                     runTest('config')
                     runTest('demand-backup')
                     runTest('gr-demand-backup')
+                    runTest('haproxy')
                     runTest('init-deploy')
                     runTest('gr-init-deploy')
                     runTest('limits')
