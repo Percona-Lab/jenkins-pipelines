@@ -24,30 +24,35 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.23',
+            defaultValue: '8.0.30',
             description: 'PXC version for test',
             name: 'VERSION'
-         )
+        )
         string(
-            defaultValue: '2.0.18',
-            description: 'Proxysql version for test',
-            name: 'PROXYSQL_VERSION'
-         )
-        string(
-            defaultValue: '2.3.10',
-            description: 'HAProxy version for test',
-            name: 'HAPROXY_VERSION'
-         )
-        string(
-            defaultValue: '8.0.23',
+            defaultValue: '8.0.30',
             description: 'PXB version for test',
             name: 'PXB_VERSION'
-         )
+        )
         string(
-            defaultValue: '3.3.1',
+            defaultValue: '2.4.4',
+            description: 'Proxysql version for test',
+            name: 'PROXYSQL_VERSION'
+        )
+        string(
+            defaultValue: '2.5.10',
+            description: 'HAProxy version for test',
+            name: 'HAPROXY_VERSION'
+        )
+        string(
+            defaultValue: '3.5.0',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
-         )
+        )
+        string(
+            defaultValue: '1.0',
+            description: 'replication-manager.sh version',
+            name: 'REPL_MANAGER_VERSION'
+        )
         choice(
             name: 'SCENARIO',
             description: 'Scenario for test',
