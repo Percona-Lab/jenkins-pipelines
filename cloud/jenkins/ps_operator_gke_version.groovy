@@ -360,6 +360,7 @@ pipeline {
                         runTest('auto-config', 'cluster1')
                         runTest('config', 'cluster1')
                         runTest('one-pod', 'cluster1')
+                        runTest('haproxy', 'cluster1')
                         ShutdownCluster('cluster1')
                     }
                 }

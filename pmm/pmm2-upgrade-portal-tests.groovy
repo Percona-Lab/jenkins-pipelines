@@ -53,11 +53,14 @@ def getPMMClientVersion(String PMM_CLIENT_VERSION, String PMM_CLIENT_VERSION_CUS
 void performDockerWayUpgrade(String PMM_VERSION, String VM_IP) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} ' 
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                 docker stop ${VM_NAME}-server
                 docker rename ${VM_NAME}-server ${VM_NAME}-server-old
                 ## Setup new Container using volume from previous container
-                docker run -d -p 80:80 -p 443:443 -p 9000:9000 --volumes-from ${VM_NAME}-data --name pmm-portal-docker-upgrade-server --restart always ${PMM_SERVER_DOCKER_TAG}
+                docker run -d -p 80:80 -p 443:443 -p 9000:9000  --volumes-from ${VM_NAME}-data \
+                --name pmm-portal-docker-upgrade-server --restart always \
+                 -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
+                  ${PMM_SERVER_DOCKER_TAG}
             '
         """
     }
@@ -211,7 +214,7 @@ pipeline {
             steps{
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} ' 
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                             set -o errexit
                             set -o xtrace
                             docker exec ${VM_NAME}-server  yum update -y percona-release || true
