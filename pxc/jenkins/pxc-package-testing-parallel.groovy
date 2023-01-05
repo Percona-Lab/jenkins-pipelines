@@ -196,17 +196,17 @@ pipeline {
                     }
                 }
 
-	            stage("min-amazon-2") {	
-                    when {	
-                        expression {	
-                            nodes_to_test.contains("min-amazon-2")	
-                        }	
-                    }	
-                    steps {	
-                        runNodeBuild("min-amazon-2")	
-                    }	
-                }
+                stage("min-amazon-2") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("min-amazon-2")
+                        }
+                    }
 
+                    steps {
+                        runNodeBuild("min-amazon-2")
+                    }
+                }
             }
         }
     }

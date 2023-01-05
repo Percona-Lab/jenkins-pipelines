@@ -22,33 +22,38 @@ pipeline {
             choices: repoList()
         )
         string(
-            defaultValue: '8.0.28',
+            defaultValue: '8.0.29',
             description: 'From this version pdpxc will be updated',
             name: 'FROM_VERSION')
         string(
-            defaultValue: '8.0.29',
+            defaultValue: '8.0.30',
             description: 'To this version pdpxc will be updated',
             name: 'VERSION'
         )
         string(
-            defaultValue: '2.0.18',
-            description: 'Proxysql version for test',
-            name: 'PROXYSQL_VERSION'
-        )
-        string(
-            defaultValue: '2.3.10',
-            description: 'HAProxy version for test',
-            name: 'HAPROXY_VERSION'
-        )
-        string(
-            defaultValue: '8.0.23',
+            defaultValue: '8.0.30',
             description: 'PXB version for test',
             name: 'PXB_VERSION'
         )
         string(
-            defaultValue: '3.3.1',
+            defaultValue: '2.4.4',
+            description: 'Proxysql version for test',
+            name: 'PROXYSQL_VERSION'
+        )
+        string(
+            defaultValue: '2.5.10',
+            description: 'HAProxy version for test',
+            name: 'HAPROXY_VERSION'
+        )
+        string(
+            defaultValue: '3.5.0',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
+        )
+        string(
+            defaultValue: '1.0',
+            description: 'replication-manager.sh version',
+            name: 'REPL_MANAGER_VERSION'
         )
         string(
             defaultValue: 'master',
@@ -77,6 +82,7 @@ pipeline {
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
                         string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        string(name: 'REPL_MANAGER_VERSION', value: "${env.REPL_MANAGER_VERSION}"),
                         booleanParam(name: 'MAJOR_REPO', value: false)
                         ]
                     }
@@ -103,6 +109,7 @@ pipeline {
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
                         string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        string(name: 'REPL_MANAGER_VERSION', value: "${env.REPL_MANAGER_VERSION}"),
                         booleanParam(name: 'MAJOR_REPO', value: false)
                         ]
                     }
@@ -129,6 +136,7 @@ pipeline {
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
                         string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        string(name: 'REPL_MANAGER_VERSION', value: "${env.REPL_MANAGER_VERSION}"),
                         booleanParam(name: 'MAJOR_REPO', value: true)
                         ]
                     }
@@ -156,6 +164,7 @@ pipeline {
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
                         string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        string(name: 'REPL_MANAGER_VERSION', value: "${env.REPL_MANAGER_VERSION}")
                         ]
                     }
                     catch (err) {
@@ -173,8 +182,8 @@ pipeline {
                 script {
                     try {
                         build job: 'haproxy', parameters: [
-                        string(name: 'REPO', value: "${env.FROM_REPO}"),
-                        string(name: 'VERSION', value: "${env.FROM_VERSION}"),
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'VERSION', value: "${env.VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
                         ]
                     }
