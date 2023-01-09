@@ -83,6 +83,14 @@ void runTest(String TEST_NAME) {
                             export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
                     fi
 
+                    if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                    fi
+
+                    if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                        export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                    fi
+
                     sudo rm -rf /tmp/hostpath-provisioner/*
                     ./e2e-tests/$TEST_NAME/run
                 fi
@@ -180,10 +188,18 @@ pipeline {
             description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
             name: 'IMAGE_LOGCOLLECTOR')
         string(
-            defaultValue: 'v1.14.8',
+            defaultValue: 'v1.24.3',
             description: 'Kubernetes Version',
             name: 'PLATFORM_VER',
             trim: true)
+        string(
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     agent {
          label 'micro-amazon'
@@ -191,7 +207,9 @@ pipeline {
     options {
         skipDefaultCheckout()
     }
-
+    environment {
+        CLEAN_NAMESPACE = 1
+    }
     stages {
         stage('Prepare') {
             agent { label 'docker' }
@@ -200,6 +218,7 @@ pipeline {
                 sh """
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
@@ -244,6 +263,7 @@ pipeline {
 
                     sh '''
                         sudo yum install -y conntrack
+                        sudo usermod -aG docker $USER
                         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                             rm -rf $HOME/google-cloud-sdk
                             curl https://sdk.cloud.google.com | bash
@@ -253,17 +273,13 @@ pipeline {
                         gcloud components install alpha
                         gcloud components install kubectl
 
-                        curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                        curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                         sudo chmod +x /usr/local/bin/yq
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
-                        export CHANGE_MINIKUBE_NONE_USER=true
-                        sudo -E /usr/local/bin/minikube start --vm-driver=none --kubernetes-version ${PLATFORM_VER}
-                        sudo mv /root/.kube /root/.minikube $HOME
-                        sudo chown -R $USER $HOME/.kube $HOME/.minikube
-                        sed -i s:/root:$HOME:g $HOME/.kube/config
+                        /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER}
                     '''
 
                     unstash "sourceFILES"
@@ -278,11 +294,8 @@ pipeline {
                     runTest('auto-tuning')
                     runTest('limits')
                     runTest('one-pod')
-                    runTest('operator-self-healing')
                     runTest('operator-self-healing-chaos')
                     runTest('scaling')
-                    runTest('self-healing')
-                    runTest('self-healing-advanced')
                     runTest('self-healing-advanced-chaos')
                     runTest('validation-hook')
             }

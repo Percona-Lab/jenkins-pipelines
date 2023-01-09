@@ -37,7 +37,7 @@ pipeline {
                         '''
 
                         archiveArtifacts 'shortCommit'
-                        slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                     }
                 }
                 stage('Build client source') {
@@ -69,6 +69,7 @@ pipeline {
                     steps {
                         sh './build/bin/build-client-rpm centos:7'
                         sh './build/bin/build-client-rpm rockylinux:8'
+                        sh './build/bin/build-client-rpm almalinux:9.0'
                         sh 'aws s3 cp --recursive --acl public-read --include "pmm*-client-*.rpm" results/rpm/ \
                                 s3://pmm-build-cache/pmm2-client/ARM/'
                         stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'

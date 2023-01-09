@@ -38,7 +38,7 @@ void runTest(String TEST_NAME) {
             echo "The $TEST_NAME test was started!"
             testsReportMap[TEST_NAME] = 'failure'
 
-            FILE_NAME = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-eks-${env.PLATFORM_VER}"
+            def FILE_NAME = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-eks-${env.PLATFORM_VER}"
             popArtifactFile("$FILE_NAME")
 
             timeout(time: 90, unit: 'MINUTES') {
@@ -57,12 +57,32 @@ void runTest(String TEST_NAME) {
                             export IMAGE_MYSQL=${IMAGE_MYSQL}
                         fi
 
+                        if [ -n "${IMAGE_ORCHESTRATOR}" ]; then
+                            export IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR}
+                        fi
+
+                        if [ -n "${IMAGE_ROUTER}" ]; then
+                            export IMAGE_ROUTER=${IMAGE_ROUTER}
+                        fi
+
+                        if [ -n "${IMAGE_BACKUP}" ]; then
+                            export IMAGE_BACKUP=${IMAGE_BACKUP}
+                        fi
+
+                        if [ -n "${IMAGE_TOOLKIT}" ]; then
+                            export IMAGE_TOOLKIT=${IMAGE_TOOLKIT}
+                        fi
+
                         if [ -n "${IMAGE_PMM}" ]; then
                             export IMAGE_PMM=${IMAGE_PMM}
                         fi
 
-                        if [ -n "${IMAGE_ORCHESTRATOR}" ]; then
-                            export IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR}
+                        if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                            export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                        fi
+
+                        if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                            export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
                         fi
 
                         export PATH="${HOME}/.krew/bin:$PATH"
@@ -70,7 +90,7 @@ void runTest(String TEST_NAME) {
                         export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
                         oc whoami
 
-                        kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "${TEST_NAME}"
+                        kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^${TEST_NAME}\$"
                     fi
                 """
             }
@@ -132,12 +152,36 @@ pipeline {
             name: 'IMAGE_MYSQL')
         string(
             defaultValue: '',
+            description: 'Orchestrator image: perconalab/percona-server-mysql-operator:main-orchestrator',
+            name: 'IMAGE_ORCHESTRATOR')
+        string(
+            defaultValue: '',
+            description: 'MySQL Router image: perconalab/percona-server-mysql-operator:main-router',
+            name: 'IMAGE_ROUTER')
+        string(
+            defaultValue: '',
+            description: 'XtraBackup image: perconalab/percona-server-mysql-operator:main-backup',
+            name: 'IMAGE_BACKUP')
+        string(
+            defaultValue: '',
+            description: 'Toolkit image: perconalab/percona-server-mysql-operator:main-toolkit',
+            name: 'IMAGE_TOOLKIT')
+        string(
+            defaultValue: '',
+            description: 'HAProxy image: perconalab/percona-server-mysql-operator:main-haproxy',
+            name: 'IMAGE_HAPROXY')
+        string(
+            defaultValue: '',
             description: 'PMM image: perconalab/pmm-client:dev-latest',
             name: 'IMAGE_PMM')
         string(
             defaultValue: '',
-            description: 'Orchestrator image: perconalab/percona-server-mysql-operator:main-orchestrator',
-            name: 'IMAGE_ORCHESTRATOR')
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     environment {
         TF_IN_AUTOMATION = 'true'
@@ -171,7 +215,7 @@ pipeline {
                     gcloud components update kubectl
                     gcloud version
 
-                    curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
                     sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.16.2/yq_linux_amd64 > /usr/local/bin/yq"
@@ -200,8 +244,9 @@ pipeline {
         stage('Build docker image') {
             steps {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
                     sh '''
+                        sudo sudo git config --global --add safe.directory '*'
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf source
@@ -250,13 +295,23 @@ pipeline {
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
+                runTest('auto-config')
                 runTest('config')
+                runTest('demand-backup')
+                runTest('gr-demand-backup')
+                runTest('gr-init-deploy')
+                runTest('haproxy')
                 runTest('init-deploy')
+                runTest('limits')
                 runTest('monitoring')
+                runTest('one-pod')
+                runTest('scaling')
                 runTest('semi-sync')
                 runTest('service-per-pod')
                 runTest('sidecars')
+                runTest('tls-cert-manager')
                 runTest('users')
+                runTest('version-service')
             }
         }
         stage('Make report') {

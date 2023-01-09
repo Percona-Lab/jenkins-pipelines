@@ -86,6 +86,14 @@ void runTest(String TEST_NAME) {
                             export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
                         fi
 
+                        if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                            export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                        fi
+
+                        if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                            export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                        fi
+
                         source $HOME/google-cloud-sdk/path.bash.inc
                         export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
                         oc whoami
@@ -131,7 +139,7 @@ void installRpms() {
 pipeline {
     parameters {
         string(
-            defaultValue: '4.7.22',
+            defaultValue: '4.10.30',
             description: 'OpenShift version to use',
             name: 'PLATFORM_VER')
         string(
@@ -174,6 +182,14 @@ pipeline {
             defaultValue: '',
             description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
             name: 'IMAGE_LOGCOLLECTOR')
+        string(
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     environment {
         TF_IN_AUTOMATION = 'true'
@@ -207,10 +223,10 @@ pipeline {
                     gcloud components update kubectl
                     gcloud version
 
-                    curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
 
                     curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux-$PLATFORM_VER.tar.gz \
@@ -226,6 +242,7 @@ pipeline {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
                     sh '''
+                        sudo sudo git config --global --add safe.directory '*'
                         sudo git reset --hard
                         sudo git clean -xdf
                         sudo rm -rf source
@@ -274,7 +291,8 @@ pipeline {
             steps {
                 runTest('upgrade-haproxy')
                 runTest('upgrade-proxysql')
-                runTest('smart-update')
+                runTest('smart-update1')
+                runTest('smart-update2')
                 runTest('upgrade-consistency')
             }
         }
@@ -328,6 +346,7 @@ pipeline {
                 runTest('recreate')
                 runTest('restore-to-encrypted-cluster')
                 runTest('demand-backup')
+                runTest('demand-backup-cloud')
                 runTest('demand-backup-encrypted-with-tls')
                 runTest('pitr')
                 runTest('scheduled-backup')

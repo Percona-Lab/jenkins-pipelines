@@ -66,33 +66,12 @@ pipeline {
                         string(name: 'VERSION', value: "${env.VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
                         string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}"),
+                        booleanParam(name: 'MAJOR_REPO', value: false),
                         ]
                     }
                     catch (err) {
                         currentBuild.result = "FAILURE"
                         echo "Stage 'Test install' failed, but we continue"
-                    }
-                }
-            }
-        }
-        stage ('Test setup') {
-            when {
-                expression { env.TO_REPO == 'release' }
-            }
-            steps {
-                script {
-                    try {
-                        build job: 'ppg', parameters: [
-                        string(name: 'PLATFORM', value: "${env.PLATFORM}"),
-                        string(name: 'REPO', value: "${env.TO_REPO}"),
-                        string(name: 'VERSION', value: "${env.TO_PBM_VERSION}"),
-                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-setup"),
-                        ]
-                    }
-                    catch (err) {
-                        currentBuild.result = "FAILURE"
-                        echo "Stage 'Test setup' failed, but we continue"
                     }
                 }
             }

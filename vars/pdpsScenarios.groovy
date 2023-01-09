@@ -1,3 +1,3 @@
 def call() {
-  return ['pdps', 'pdps-setup']
+  return ['pdps', 'pdps_setup']
 }

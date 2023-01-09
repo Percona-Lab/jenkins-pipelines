@@ -1,3 +1,6 @@
+String OWNER = ''
+String OWNER_SLACK = ''
+
 pipeline {
     agent {
         label 'cli'
@@ -43,12 +46,13 @@ pipeline {
             defaultValue: '',
             description: 'public ssh key for "admin" user, please set if you need ssh access',
             name: 'SSH_KEY')
-        string(
-            defaultValue: 'true',
+        choice(
+            choices: ['true', 'false'],
             description: 'Enable Slack notification (option for high level pipelines)',
             name: 'NOTIFY')
     }
     options {
+        buildDiscarder(logRotator(numToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
@@ -57,56 +61,52 @@ pipeline {
         stage('Prepare') {
             steps {
                 deleteDir()
-                withCredentials([usernamePassword(credentialsId: 'Jenkins API', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
-                        curl -s -u ${USER}:${PASS} ${BUILD_URL}api/json \
-                            | python -c "import sys, json; print json.load(sys.stdin)['actions'][1]['causes'][0]['userId']" \
-                            | sed -e 's/@percona.com//' \
-                            > OWNER
-                        echo "pmm-\$(cat OWNER | cut -d . -f 1)-\$(date -u '+%Y%m%d%H%M')" \
-                            > VM_NAME
-                    """
-                }
                 script {
-                    def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
+                    wrap([$class: 'BuildUser']) {
+                        OWNER = (env.BUILD_USER_EMAIL ?: '').split('@')[0] ?: env.BUILD_USER_ID
+                        OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: env.BUILD_USER_EMAIL, tokenCredentialId: 'JenkinsCI-SlackBot-v2')
+                        env.VM_NAME = 'pmm-' + OWNER.replaceAll("[^a-zA-Z0-9_.-]", "") + '-' + (new Date()).format("yyyyMMdd.HHmmss") + '-' + env.BUILD_NUMBER
+                    }
+
                     echo """
                         AMI Image ID: ${AMI_ID}
                         OWNER:          ${OWNER}
                     """
-                    if ("${NOTIFY}" == "true") {
-                        slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                        slackSend botUser: true, channel: "@${OWNER}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+
+                    if (params.NOTIFY == "true") {
+                        slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        if (OWNER_SLACK) {
+                            slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        }
                     }
                 }
             }
         }
         stage('Run VM with PMM server') {
-            steps
-            {
+            steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID',  credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        export VM_NAME=\$(cat VM_NAME)
-                        export OWNER=\$(cat OWNER)
+                        # TODO: see if this envvar is sufficient for every awscli call down below
                         export AWS_DEFAULT_REGION=us-east-1
 
-                        export SG1=\$(
+                        export SG1=$(
                             aws ec2 describe-security-groups \
-                                --region us-east-1 \
+                                --region $AWS_DEFAULT_REGION \
                                 --output text \
                                 --filters "Name=group-name,Values=pmm" \
                                 --query 'SecurityGroups[].GroupId'
                         )
-                        export SG2=\$(
+                        export SG2=$(
                             aws ec2 describe-security-groups \
-                                --region us-east-1 \
+                                --region $AWS_DEFAULT_REGION \
                                 --output text \
                                 --filters "Name=group-name,Values=SSH" \
                                 --query 'SecurityGroups[].GroupId'
                         )
 
-                        export SS1=\$(
+                        export SS1=$(
                             aws ec2 describe-subnets \
-                                --region us-east-1 \
+                                --region $AWS_DEFAULT_REGION \
                                 --output text \
                                 --query 'Subnets[].SubnetId' \
                                 --filter 'Name=tag-value,Values=pmm2-ami-staging-start'
@@ -114,103 +114,111 @@ pipeline {
 
                         IMAGE_NAME=$(
                             aws ec2 describe-images \
-                            --image-ids $AMI_ID \
-                            --query 'Images[].Name' \
-                            --output text
-                            )
+                                --image-ids $AMI_ID \
+                                --query 'Images[].Name' \
+                                --output text
+                        )
                         echo "IMAGE_NAME:    $IMAGE_NAME"
-                        aws ec2 describe-key-pairs --key-name nailya
 
-                        INSTANCE_ID=\$(
+                        # The default value of the EBS volume's `DeleteOnTermination` is set to `false`,
+                        # which leaves out unused volumes after instances get shut down.
+                        INSTANCE_ID=$(
                             aws ec2 run-instances \
-                            --image-id $AMI_ID \
-                            --security-group-ids $SG1 $SG2\
-                            --instance-type t2.large \
-                            --subnet-id $SS1 \
-                            --region us-east-1 \
-                            --key-name jenkins-admin \
-                            --query Instances[].InstanceId \
-                            --output text
+                                --image-id $AMI_ID \
+                                --security-group-ids $SG1 $SG2\
+                                --instance-type t2.large \
+                                --subnet-id $SS1 \
+                                --region $AWS_DEFAULT_REGION \
+                                --key-name jenkins-admin \
+                                --query Instances[].InstanceId \
+                                --block-device-mappings \
+                                '[{ "DeviceName": "/dev/sdb","Ebs": {"DeleteOnTermination": true} }]' \
+                                --output text \
+                                | tee INSTANCE_ID
                         )
 
-                        echo \$INSTANCE_ID > INSTANCE_ID
+                        echo "INSTANCE_ID: $INSTANCE_ID"
 
-                        INSTANCE_NAME=\$VM_NAME
-                            aws ec2 create-tags  \
+                        aws ec2 create-tags  \
                             --resources $INSTANCE_ID \
-                            --region us-east-1 \
-                            --tags Key=Name,Value=$INSTANCE_NAME \
+                            --region $AWS_DEFAULT_REGION \
+                            --tags Key=Name,Value=${VM_NAME} \
                             Key=iit-billing-tag,Value=qa \
                             Key=stop-after-days,Value=${DAYS}
 
-                        echo "INSTANCE_NAME: $INSTANCE_NAME"
+
+                        aws ec2 describe-instances \
+                            --instance-ids $INSTANCE_ID \
+                            --region $AWS_DEFAULT_REGION \
+                            --output text \
+                            --query 'Reservations[].Instances[].PublicIpAddress' \
+                            | tee PUBLIC_IP
+
+                        echo "PUBLIC_IP: $(cat PUBLIC_IP)"
 
 
-
-                       IP_PUBLIC=\$(
-                              aws ec2 describe-instances \
-                              --instance-ids $INSTANCE_ID \
-                              --region us-east-1 \
-                              --output text \
-                              --query 'Reservations[].Instances[].PublicIpAddress' \
-                             | tee IP
-                             )
-
-                        echo \$IP_PUBLIC > IP_PUBLIC
-
-
-                         IP_PRIVATE=\$(
-                            aws ec2 describe-instances \
-                              --instance-ids $INSTANCE_ID \
-                              --region us-east-1 \
-                              --output text \
-                              --query 'Reservations[].Instances[].PrivateIpAddress' \
-                             | tee IP
-                             )
-
-                        echo \$IP_PRIVATE > IP_PRIVATE
+                        aws ec2 describe-instances \
+                            --instance-ids $INSTANCE_ID \
+                            --region $AWS_DEFAULT_REGION \
+                            --output text \
+                            --query 'Reservations[].Instances[].PrivateIpAddress' \
+                            | tee PRIVATE_IP
+                        
+                        # wait for the instance to get ready
+                        aws ec2 wait instance-running \
+                            --instance-ids $INSTANCE_ID
                     '''
                 }
+                script {
+                    env.PRIVATE_IP  = sh(returnStdout: true, script: "cat PRIVATE_IP").trim()
+                    env.PUBLIC_IP  = sh(returnStdout: true, script: "cat PUBLIC_IP").trim()
+                    env.INSTANCE_ID  = sh(returnStdout: true, script: "cat INSTANCE_ID").trim()
+                    currentBuild.description = "IP: ${env.PUBLIC_IP} NAME: ${env.VM_NAME}, ID: ${env.INSTANCE_ID}"
+                }
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh """
-                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) date; do
-                            sleep 1
+                    sh '''
+                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} date; do
+                            sleep 5
                         done
 
                         if [ -n "$SSH_KEY" ]; then
-                            echo '$SSH_KEY' | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) 'cat - >> .ssh/authorized_keys'
+                            echo "$SSH_KEY" | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} 'cat - >> .ssh/authorized_keys'
                         fi
-                        sleep 60
-                    """
-                    sh """
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) "
+                    '''
+                    sh '''
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
                             set -o errexit
                             set -o xtrace
                             [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
+                            echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+                            sudo yum makecache
                             sudo yum -y install git svn docker
                             sudo systemctl start docker
-                            sudo curl -L https://github.com/docker/compose/releases/download/v2.4.1/docker-compose-linux-x86_64 | sudo tee docker-compose > /dev/null
-                            sudo mv docker-compose /usr/bin/docker-compose
+                            curl -L -s https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 | sudo tee /usr/bin/docker-compose > /dev/null
                             sudo chmod +x /usr/bin/docker-compose
                             sudo mkdir -p /srv/pmm-qa || :
                             pushd /srv/pmm-qa
-                                sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                                sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
+                                sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                                sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
                                 sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
                                 sudo chmod 755 get_download_link.sh
                             popd
                         "
-                    """
+                    '''
                 }
-                script {
-                    env.IP_PRIVATE  = sh(returnStdout: true, script: "cat IP_PRIVATE").trim()
-                    env.IP  = sh(returnStdout: true, script: "cat IP_PUBLIC").trim()
-                    env.INSTANCE_ID  = sh(returnStdout: true, script: "cat INSTANCE_ID").trim()
-                    env.VM_NAME = sh(returnStdout: true, script: "cat VM_NAME").trim()
-                    currentBuild.description = "IP: ${env.IP} NAME: ${env.VM_NAME}, ID: ${env.INSTANCE_ID}"
-                }
-                archiveArtifacts 'IP'
+                archiveArtifacts 'PUBLIC_IP'
                 archiveArtifacts 'INSTANCE_ID'
+            }
+        }
+        stage('Upgrade workaround for nginx package') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh '''
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
+                            sudo sed -i 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
+                        "
+                    '''
+                }
             }
         }
         stage('Enable Testing Repo') {
@@ -219,14 +227,14 @@ pipeline {
             }
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh """
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) '
+                    sh '''
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
                             sudo yum update -y percona-release
                             sudo sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
                             sudo percona-release enable percona testing
                             sudo yum clean all
                         '
-                    """
+                    '''
                 }
             }
         }
@@ -236,14 +244,14 @@ pipeline {
             }
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh """
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) '
+                    sh '''
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
                             sudo yum update -y percona-release
                             sudo sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
                             sudo percona-release enable percona experimental
                             sudo yum clean all
                         '
-                    """
+                    '''
                 }
             }
         }
@@ -253,18 +261,18 @@ pipeline {
             }
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh """
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@\$(cat IP_PUBLIC) '
+                    sh '''
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
                             sudo git clone --single-branch --branch ${GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
                             cd pmm-ui-tests
-                            sudo PWD=\$(pwd) docker-compose up -d mysql
-                            sudo PWD=\$(pwd) docker-compose up -d mongo
-                            sudo PWD=\$(pwd) docker-compose up -d postgres
-                            sudo PWD=\$(pwd) docker-compose up -d proxysql
+                            sudo PWD=$(pwd) docker-compose up -d mysql
+                            sudo PWD=$(pwd) docker-compose up -d mongo
+                            sudo PWD=$(pwd) docker-compose up -d postgres
+                            sudo PWD=$(pwd) docker-compose up -d proxysql
                             sleep 30
                             sudo bash -x testdata/db_setup.sh
-                        '
-                    """
+                        "
+                    '''
                 }
             }
         }
@@ -272,30 +280,34 @@ pipeline {
     post {
         success {
             script {
-                if ("${NOTIFY}" == "true") {
-                    def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
-
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER} - https://${IP} Instance ID: ${INSTANCE_ID}"
-                    slackSend botUser: true, channel: "@${OWNER}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${IP} Instance ID: ${INSTANCE_ID}"
+                if (params.NOTIFY == "true") {
+                    slackSend botUser: true, 
+                        channel: '#pmm-ci', 
+                        color: '#00FF00', 
+                        message: "[${JOB_NAME}]: build ${BUILD_URL} finished, owner: @${OWNER} - https://${PUBLIC_IP}, Instance ID: ${INSTANCE_ID}"
+                    if (OWNER_SLACK) {
+                        slackSend botUser: true, 
+                            channel: "@${OWNER_SLACK}", 
+                            color: '#00FF00', 
+                            message: "[${JOB_NAME}]: build ${BUILD_URL} finished - https://${PUBLIC_IP}, Instance ID: ${INSTANCE_ID}"
+                    }
                 }
             }
         }
         failure {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                 sh '''
-                    export INSTANCE_ID=\$(cat INSTANCE_ID)
-
-                    if [ -n "$INSTANCE_ID" ]; then
-                      aws ec2 --region us-east-1 terminate-instances --instance-ids \$INSTANCE_ID
+                    if [ -n "${INSTANCE_ID}" ]; then
+                        aws ec2 --region us-east-1 terminate-instances --instance-ids ${INSTANCE_ID}
                     fi
                 '''
             }
             script {
-                if ("${NOTIFY}" == "false") {
-                    def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
-
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER}"
-                    slackSend botUser: true, channel: "@${OWNER}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                if (params.NOTIFY == "true") {
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${BUILD_URL} failed, owner: @${OWNER}"
+                    if (OWNER_SLACK) {
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build ${BUILD_URL} failed"
+                    }
                 }
             }
         }

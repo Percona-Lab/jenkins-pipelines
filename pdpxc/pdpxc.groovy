@@ -28,30 +28,35 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.23',
+            defaultValue: '8.0.30',
             description: 'PXC version for test',
             name: 'VERSION'
-         )
+        )
         string(
-            defaultValue: '2.0.18',
-            description: 'Proxysql version for test',
-            name: 'PROXYSQL_VERSION'
-         )
-        string(
-            defaultValue: '2.3.10',
-            description: 'HAProxy version for test',
-            name: 'HAPROXY_VERSION'
-         )
-        string(
-            defaultValue: '8.0.23',
+            defaultValue: '8.0.30',
             description: 'PXB version for test',
             name: 'PXB_VERSION'
-         )
+        )
         string(
-            defaultValue: '3.3.1',
+            defaultValue: '2.4.4',
+            description: 'Proxysql version for test',
+            name: 'PROXYSQL_VERSION'
+        )
+        string(
+            defaultValue: '2.5.10',
+            description: 'HAProxy version for test',
+            name: 'HAPROXY_VERSION'
+        )
+        string(
+            defaultValue: '3.5.0',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
-         )
+        )
+        string(
+            defaultValue: '1.0',
+            description: 'replication-manager.sh version',
+            name: 'REPL_MANAGER_VERSION'
+        )
         choice(
             name: 'SCENARIO',
             description: 'Scenario for test',
@@ -60,7 +65,12 @@ pipeline {
         string(
             defaultValue: 'master',
             description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
+            name: 'TESTING_BRANCH'
+        )
+        booleanParam(
+            name: 'MAJOR_REPO',
+            description: "Enable to use major (pdpxc-8.0) repo instead of pdpxc-8.0.XX"
+        )
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())
@@ -70,7 +80,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-${env.SCENARIO}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-${env.SCENARIO}-${env.MAJOR_REPO}"
                 }
             }
         }

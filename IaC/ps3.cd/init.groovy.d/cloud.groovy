@@ -77,7 +77,7 @@ imageMap['eu-west-1a.fips-centos-7-x64']    = properties.AwsAmi['FipsCentos7_x86
 imageMap['eu-west-1a.min-centos-6-x64']     = properties.AwsAmi['Centos6_x86_64']['euWest1']
 imageMap['eu-west-1a.min-centos-7-x64']     = properties.AwsAmi['Centos7_x86_64']['euWest1']
 imageMap['eu-west-1a.min-ol-8-x64']         = properties.AwsAmi['OracleLinux8_x86_64']['euWest1']
-imageMap['eu-west-1a.min-rhel-9-x64']       = properties.AwsAmi['RHEL9_x86_64']['euWest1']
+imageMap['eu-west-1a.min-ol-9-x64']         = properties.AwsAmi['OracleLinux9_x86_64']['euWest1']
 imageMap['eu-west-1a.min-bullseye-x64']     = properties.AwsAmi['Debian11_x86_64']['euWest1']
 imageMap['eu-west-1a.min-buster-x64']       = properties.AwsAmi['Debian10_x86_64']['euWest1']
 imageMap['eu-west-1a.min-bionic-x64']       = properties.AwsAmi['Ubuntu1804_x86_64']['euWest1']
@@ -100,7 +100,7 @@ imageMap['eu-west-1b.micro-amazon']         = imageMap['eu-west-1a.micro-amazon'
 imageMap['eu-west-1b.min-centos-7-x64']     = imageMap['eu-west-1a.min-centos-7-x64']
 imageMap['eu-west-1b.fips-centos-7-x64']    = imageMap['eu-west-1a.fips-centos-7-x64']
 imageMap['eu-west-1b.min-ol-8-x64']         = imageMap['eu-west-1a.min-ol-8-x64']
-imageMap['eu-west-1b.min-rhel-9-x64']       = imageMap['eu-west-1a.min-rhel-9-x64']
+imageMap['eu-west-1b.min-ol-9-x64']         = imageMap['eu-west-1a.min-ol-9-x64']
 
 imageMap['eu-west-1b.min-centos-6-x64']     = imageMap['eu-west-1a.min-centos-6-x64']
 imageMap['eu-west-1b.min-bullseye-x64']     = imageMap['eu-west-1a.min-bullseye-x64']
@@ -125,7 +125,7 @@ imageMap['eu-west-1c.micro-amazon']         = imageMap['eu-west-1a.micro-amazon'
 imageMap['eu-west-1c.min-centos-7-x64']     = imageMap['eu-west-1a.min-centos-7-x64']
 imageMap['eu-west-1c.fips-centos-7-x64']    = imageMap['eu-west-1a.fips-centos-7-x64']
 imageMap['eu-west-1c.min-ol-8-x64']         = imageMap['eu-west-1a.min-ol-8-x64']
-imageMap['eu-west-1c.min-rhel-9-x64']       = imageMap['eu-west-1a.min-rhel-9-x64']
+imageMap['eu-west-1c.min-ol-9-x64']         = imageMap['eu-west-1a.min-ol-9-x64']
 
 imageMap['eu-west-1c.min-centos-6-x64']     = imageMap['eu-west-1a.min-centos-6-x64']
 imageMap['eu-west-1c.min-bullseye-x64']     = imageMap['eu-west-1a.min-bullseye-x64']
@@ -148,7 +148,7 @@ priceMap = [:]
 priceMap['t2.micro'] = '0.1' // Dedicated instance type for RHEL
 priceMap['t2.medium'] = '0.03'
 priceMap['t2.large'] = '0.07'
-priceMap['t3a.2xlarge'] = '0.17'
+priceMap['c5n.2xlarge'] = '0.25'
 priceMap['t3.2xlarge'] = '0.18'
 priceMap['i4i.2xlarge'] = '0.40'
 priceMap['t2.2xlarge'] = '0.18'
@@ -165,7 +165,7 @@ userMap['min-centos-6-x64']     = properties.AwsAmi['Centos6_x86_64']['user']
 userMap['min-centos-7-x64']     = properties.AwsAmi['Centos7_x86_64']['user']
 userMap['fips-centos-7-x64']    = properties.AwsAmi['FipsCentos7_x86_64']['user']
 userMap['min-ol-8-x64']         = properties.AwsAmi['OracleLinux8_x86_64']['user']
-userMap['min-rhel-9-x64']       = properties.AwsAmi['RHEL9_x86_64']['user']
+userMap['min-ol-9-x64']         = properties.AwsAmi['OracleLinux9_x86_64']['user']
 userMap['min-bullseye-x64']     = properties.AwsAmi['Debian11_x86_64']['user']
 userMap['min-stretch-x64']      = properties.AwsAmi['Debian9_x86_64']['user']
 userMap['min-buster-x64']       = properties.AwsAmi['Debian10_x86_64']['user']
@@ -203,8 +203,9 @@ initMap['docker'] = '''
     done
 
     sudo amazon-linux-extras install epel -y
-    sudo yum -y install java-1.8.0-openjdk git docker p7zip
-    sudo yum -y remove java-1.7.0-openjdk awscli
+    sudo amazon-linux-extras install java-openjdk11 -y
+    sudo yum -y install git docker p7zip
+    sudo yum -y remove awscli
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         sudo rm -rf /tmp/aws* || true
@@ -261,7 +262,7 @@ initMap['docker-32gb-hirsute'] = '''
         echo try again
     done
 
-    until sudo apt-get -y install openjdk-8-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
+    until sudo apt-get -y install openjdk-11-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
         sleep 1
         echo try again
     done
@@ -422,9 +423,9 @@ initMap['rpmMap'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git || :
+    sudo amazon-linux-extras install java-openjdk11 -y
+    sudo yum -y install git || :
     sudo yum -y install aws-cli || :
-    sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
     # CentOS 6 x32 workarounds
@@ -471,7 +472,7 @@ initMap['debMap'] = '''
     if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]]; then
         JAVA_VER="openjdk-11-jre-headless"
     else
-        JAVA_VER="openjdk-8-jre-headless"
+        JAVA_VER="openjdk-11-jre-headless"
     fi
 
     sudo apt-get -y install ${JAVA_VER} git
@@ -486,7 +487,7 @@ initMap['min-centos-6-x64']  = initMap['rpmMap']
 initMap['min-centos-7-x64']  = initMap['rpmMap']
 initMap['fips-centos-7-x64'] = initMap['rpmMap']
 initMap['min-ol-8-x64']      = initMap['rpmMap']
-initMap['min-rhel-9-x64']    = initMap['rpmMap']
+initMap['min-ol-9-x64']      = initMap['rpmMap']
 
 initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-buster-x64']  = initMap['debMap']
@@ -500,7 +501,7 @@ initMap['min-bullseye-aarch64'] = initMap['debMap']
 initMap['min-jammy-aarch64']    = initMap['debMap']
 
 capMap = [:]
-capMap['t3a.2xlarge'] = '60'
+capMap['c5n.2xlarge'] = '60'
 capMap['t3.2xlarge']  = '60'
 capMap['i4i.2xlarge'] = '40'
 capMap['t2.2xlarge']  = '10'
@@ -508,14 +509,14 @@ capMap['t2.micro']    = '10'
 capMap['r6g.2xlarge'] = '40'
 
 typeMap = [:]
-typeMap['micro-amazon']      = 't3a.2xlarge'
-typeMap['docker']            = 't3a.2xlarge'
+typeMap['micro-amazon']      = 'c5n.2xlarge'
+typeMap['docker']            = 'c5n.2xlarge'
 typeMap['docker-32gb']       = 'i4i.2xlarge'
 typeMap['docker2']           = 't2.2xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-ol-8-x64']      = typeMap['min-centos-7-x64']
-typeMap['min-rhel-9-x64']    = 'i4i.2xlarge'
+typeMap['min-ol-9-x64']      = 'i4i.2xlarge'
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
@@ -542,7 +543,7 @@ execMap['min-centos-6-x64']  = '1'
 execMap['min-centos-7-x64']  = '1'
 execMap['fips-centos-7-x64'] = '1'
 execMap['min-ol-8-x64']      = '1'
-execMap['min-rhel-9-x64']    = '1'
+execMap['min-ol-9-x64']      = '1'
 execMap['min-stretch-x64']   = '1'
 execMap['min-xenial-x64']    = '1'
 execMap['min-buster-x64']    = '1'
@@ -567,7 +568,7 @@ devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-ol-8-x64']      = devMap['min-bionic-x64']
-devMap['min-rhel-9-x64']    = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-ol-9-x64']      = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-jessie-x64']    = devMap['micro-amazon']
 devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
@@ -593,7 +594,7 @@ labelMap['min-centos-6-x64']  = ''
 labelMap['min-centos-7-x64']  = ''
 labelMap['fips-centos-7-x64'] = ''
 labelMap['min-ol-8-x64']      = ''
-labelMap['min-rhel-9-x64']    = ''
+labelMap['min-ol-9-x64']      = ''
 labelMap['min-stretch-x64']   = ''
 labelMap['min-xenial-x64']    = ''
 labelMap['min-buster-x64']    = ''
@@ -682,7 +683,7 @@ String region = 'eu-west-1'
             getTemplate('min-centos-7-x64',     "${region}${it}"),
             getTemplate('fips-centos-7-x64',    "${region}${it}"),
             getTemplate('min-ol-8-x64',         "${region}${it}"),
-            getTemplate('min-rhel-9-x64',       "${region}${it}"),
+            getTemplate('min-ol-9-x64',         "${region}${it}"),
             getTemplate('min-centos-6-x64',     "${region}${it}"),
             getTemplate('min-bionic-x64',       "${region}${it}"),
             getTemplate('min-buster-x64',       "${region}${it}"),

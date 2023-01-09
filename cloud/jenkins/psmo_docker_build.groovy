@@ -31,6 +31,7 @@ pipeline {
                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
@@ -76,23 +77,20 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
                         IMAGE_NAME='percona-server-mysql-operator'
-                        TrityHightLog="$WORKSPACE/trivy-hight-psmo.log"
-                        TrityCriticaltLog="$WORKSPACE/trivy-critical-psmo.log"
+                        TrivyLog="$WORKSPACE/trivy-ps.xml"
+                        wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
 
                         sg docker -c "
                             docker login -u '${USER}' -p '${PASS}'
-                            /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityHightLog --timeout 5m0s --ignore-unfixed --exit-code 0 --severity HIGH  perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
-                            /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrityCriticaltLog --timeout 5m0s --ignore-unfixed --exit-code 1 --severity CRITICAL  perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
+                            /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrivyLog --timeout 5m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
                         "
 
-                        if [ ! -s \$TrityHightLog ]; then
-                            rm -rf \$TrityHightLog
-                        fi
-
-                        if [ ! -s \$TrityCriticaltLog ]; then
-                            rm -rf \$TrityCriticaltLog
-                        fi
                     """
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-ps.xml"
                 }
             }
         }
@@ -100,11 +98,13 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: '*-psmo.log', allowEmptyArchive: true
             deleteDir()
         }
+        unstable {
+            slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PSM operator docker images unstable. Please check the log ${BUILD_URL}"
+        }
         failure {
-            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PSMO image failed. Please check the log ${BUILD_URL}"
+            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PSM operator docker image failed. Please check the log ${BUILD_URL}"
         }
     }
 }

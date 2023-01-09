@@ -9,11 +9,12 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENT_INSTANCE, SE
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: ""),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s'),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
-        string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
+        string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD),
+        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no')
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
@@ -37,12 +38,33 @@ void destroyStaging(IP) {
 
 def versionsList = pmmVersion('list').reverse()
 
+def getMinorVersion(VERSION) {
+    return VERSION.split("\\.")[1].toInteger()
+}
+
 def getPMMServerVersion(String PMM_SERVER_VERSION, String PMM_SERVER_VERSION_CUSTOM) {
     return PMM_CLIENT_VERSION == "custom" ? PMM_SERVER_VERSION_CUSTOM : PMM_SERVER_VERSION
 }
 
 def getPMMClientVersion(String PMM_CLIENT_VERSION, String PMM_CLIENT_VERSION_CUSTOM) {
     return PMM_CLIENT_VERSION == "custom" ? PMM_CLIENT_VERSION_CUSTOM : PMM_CLIENT_VERSION
+}
+
+void performDockerWayUpgrade(String PMM_VERSION, String VM_IP) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
+                docker stop ${VM_NAME}-server
+                docker rename ${VM_NAME}-server ${VM_NAME}-server-old
+                ## Setup new Container using volume from previous container
+                docker run -d -p 80:80 -p 443:443 -p 9000:9000  --volumes-from ${VM_NAME}-data \
+                --name pmm-portal-docker-upgrade-server --restart always \
+                 -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
+                  ${PMM_SERVER_DOCKER_TAG}
+            '
+        """
+    }
+
 }
 
 pipeline {
@@ -93,6 +115,18 @@ pipeline {
             description: "Select Testing (RC Tesing) or Experimental (dev-latest testing) Repository",
             name: 'PMM_REPOSITORY')
         string(
+            defaultValue: 'main',
+            description: 'Tag/Branch for pmm-qa repository',
+            name: 'PMM_QA_GIT_BRANCH')
+        choice(
+            choices: ['UI', 'Docker'],
+            description: "Select type of upgrade either UI or Docker way upgrade.",
+            name: 'PMM_UPGRADE_TYPE')
+        string(
+            defaultValue: 'perconalab/pmm-server:dev-latest',
+            description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
+            name: 'PMM_SERVER_DOCKER_TAG')
+        string(
             defaultValue: 'admin-password',
             description: 'Change pmm-server admin user default password.',
             name: 'ADMIN_PASSWORD')
@@ -120,12 +154,17 @@ pipeline {
                     """
                 }
                 script {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 }
                 sh '''
                     which chromium-browser
                     sudo yum -y install mysql
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
+                    sudo mkdir -p /srv/pmm-qa || :
+                    pushd /srv/pmm-qa
+                        sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                        sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
+                    popd
                 '''
             }
         }
@@ -152,6 +191,22 @@ pipeline {
                 sleep 60
             }
         }
+        stage('Upgrade workaround for nginx package') {
+            when {
+                expression { getMinorVersion(getPMMServerVersion(PMM_SERVER_VERSION, PMM_SERVER_VERSION_CUSTOM)) <= 32 }
+            }
+            steps{
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} "
+                            set -o errexit
+                            set -o xtrace
+                            docker exec ${VM_NAME}-server sed -i 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
+                        "
+                    """
+                }
+            }
+        }
         stage('Enable Testing Repo') {
             when {
                 expression { env.PMM_REPOSITORY == "Testing"}
@@ -160,6 +215,9 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
+                            set -o errexit
+                            set -o xtrace
+                            docker exec ${VM_NAME}-server  yum update -y percona-release || true
                             docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
                             docker exec ${VM_NAME}-server percona-release enable percona testing
                             docker exec ${VM_NAME}-server yum clean all
@@ -207,6 +265,9 @@ pipeline {
             }
         }
         stage('Run UI way Upgrade') {
+            when {
+                expression { env.PMM_UPGRADE_TYPE == "UI"}
+            }
             options {
                 timeout(time: 60, unit: "MINUTES")
             }
@@ -219,6 +280,17 @@ pipeline {
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-portal-upgrade'  --override '{ "helpers": { "Playwright": { "getPageTimeout": 60000 }}}'
                 """
+            }
+        }
+        stage('Run Docker way Upgrade') {
+            when {
+                expression { env.PMM_UPGRADE_TYPE == "Docker"}
+            }
+            options {
+                timeout(time: 60, unit: "MINUTES")
+            }
+            steps {
+                performDockerWayUpgrade("$PMM_DOCKER_HUB:" + getPMMServerVersion(PMM_SERVER_VERSION, PMM_SERVER_VERSION_CUSTOM), env.VM_IP)
             }
         }
         stage('Run UI post-upgrade Tests') {
@@ -255,18 +327,16 @@ pipeline {
                     junit 'tests/output/*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'result.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     if ("${NOTIFY}" == "yes") {
                     def OWNER_EMAIL = sh(returnStdout: true, script: "cat OWNER_EMAIL").trim()
                     def OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: "${OWNER_EMAIL}", tokenCredentialId: 'JenkinsCI-SlackBot-v2')
-                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                    slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     }
                 } else {
                     junit 'tests/output/*.xml'
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'result.html', reportName: 'HTML Report', reportTitles: ''])
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/result.html'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'tests/output/*.png'
                     if ("${NOTIFY}" == "yes") {

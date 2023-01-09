@@ -41,9 +41,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             if [ \${DEBIAN_VERSION} = buster ]; then
                 sudo apt-get -y update --allow-releaseinfo-change || true
             fi
-            if [ \${DEBIAN_VERSION} = stretch ]; then
-                sudo apt-get -y  install apt-transport-https ca-certificates || true
-            fi
             if [ \${DEBIAN_VERSION} = bullseye ]; then
                 sed -i 's:clang-7::g' psm_builder.sh
                 sed -i '23s:focal:bullseye:' psm_builder.sh
@@ -137,7 +134,7 @@ pipeline {
             }
             steps {
                 echo '====> Source will be downloaded from github'
-                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for PG${PG_RELEASE}, repo branch: ${BRANCH}")
+                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for PG${PG_RELEASE}, repo branch: ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 installCli("deb")
                 buildStage("ubuntu:focal", "--get_sources=1")
@@ -265,22 +262,6 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 } //stage
-                stage('Debian 9') {
-                    agent {
-                        label 'min-stretch-x64'
-                    }
-                    steps {
-                        echo "====> Build pg_stat_monitor deb on Debian 9 PG${PG_RELEASE}"
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:stretch", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                } //stage
                 stage('Debian 10') {
                     agent {
                         label 'min-buster-x64'
@@ -369,12 +350,12 @@ pipeline {
     } //stages
     post {
         success {
-              slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for PG${PG_RELEASE}, repo branch: ${BRANCH}")
+              slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for PG${PG_RELEASE}, repo branch: ${BRANCH} - [${BUILD_URL}]")
               deleteDir()
               echo "Success"
         }
         failure {
-              slackNotify("#releases", "#FF0000", "[${JOB_NAME}]: build failed for PG${PG_RELEASE}, repo branch: ${BRANCH}")
+              slackNotify("#releases", "#FF0000", "[${JOB_NAME}]: build failed for PG${PG_RELEASE}, repo branch: ${BRANCH} - [${BUILD_URL}]")
               deleteDir()
               echo "Failure"
         }

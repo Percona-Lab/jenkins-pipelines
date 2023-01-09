@@ -9,7 +9,6 @@ pipeline {
     }
 
     environment {
-        specName = 'pmm2-release'
         CLIENT_IMAGE = "perconalab/pmm-client:${VERSION}-rc"
         SERVER_IMAGE = "perconalab/pmm-server:${VERSION}-rc"
         PATH_TO_CLIENT = "testing/pmm2-client-autobuilds/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT}"
@@ -25,11 +24,15 @@ pipeline {
             description: 'Path to client packages in testing repo. Example: 12aec0c9/3052',
             name: 'PATH_TO_CLIENT')
     }
+
     stages {
         stage('Push PRM client to public repository') {
             steps {
                 script {
                     currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>PATH_TO_CLIENT: ${PATH_TO_CLIENT}"
+                    if (!params.PATH_TO_CLIENT) {
+                        error("ERROR: empty parameter PATH_TO_CLIENT")
+                    }
                 }
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
@@ -51,10 +54,10 @@ pipeline {
                                         REPOPATH=repo-copy/pmm2-client/yum
                                     fi
                                     cd /srv/UPLOAD/${PATH_TO_CLIENT}
-                                    #
+
                                     # getting the list of RH systems
                                     RHVERS=\$(ls -1 binary/redhat | grep -v 6)
-                                    #
+
                                     # source processing
                                     if [ -d source/redhat ]; then
                                         SRCRPM=\$(find source/redhat -name '*.src.rpm')
@@ -90,6 +93,7 @@ ENDSSH
                 }
             }
         }
+
         stage('Push DEB client to public repository') {
             steps {
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
@@ -165,14 +169,128 @@ ENDSSH
             }
         }
 
+        stage('Sync repos to production') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
+                        set -x
+                        set -e
+
+                        REPOS='PERCONA TOOLS PMM2-CLIENT'
+
+                        for REPOSITORY in \$REPOS; do
+                            cd /srv/repo-copy
+                            REPO=\$(echo \${REPOSITORY} | tr '[:upper:]' '[:lower:]' )
+                            date +%s > /srv/repo-copy/version
+                            RSYNC_TRANSFER_OPTS=" -avt --delete --delete-excluded --delete-after --progress"
+                            rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.10.9.209:/www/repo.percona.com/htdocs/\${REPO}/
+                            rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/version 10.10.9.209:/www/repo.percona.com/htdocs/
+                        done
+ENDSSH
+                    """
+                }
+            }
+        }
+
+        stage('Upload client to percona.com') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
+                            set -e
+                            cd  /srv/UPLOAD/${PATH_TO_CLIENT}/
+                            #
+                            PRODUCT=\$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$3}')
+                            RELEASE=\$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$4}')
+                            REVISION=\$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$6}')
+                            #
+                            RELEASEDIR="/srv/UPLOAD/${PATH_TO_CLIENT}/.tmp/\${PRODUCT}/\${RELEASE}"
+                            rm -fr /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
+                            mkdir -p \${RELEASEDIR}
+                            cp -av ./* \${RELEASEDIR}
+                            #####################
+                            # create RedHat tar bundles
+                            #
+                            cd \${RELEASEDIR}/binary/redhat
+                            for _dist in *; do
+                                cd \${_dist}
+                                for _arch in *; do
+                                    cd \${_arch}
+                                    # don't create bundle if there's only 1 package inside directory
+                                    NUM_PACKAGES=\$(find . -maxdepth 1 -type f -name '*.rpm'|wc -l)
+                                    if [ \${NUM_PACKAGES} -gt 1 ]; then
+                                        tar --owner=0 --group=0 -cf \${RELEASE}-r\${REVISION}-el\${_dist}-\${_arch}-bundle.tar  *.rpm
+                                    fi
+                                    cd ..
+                                done
+                                cd ..
+                            done
+                            #####################
+                            # create Debian tar bundles
+                            #
+                            cd \${RELEASEDIR}/binary/debian
+                            for _dist in *; do
+                                cd \${_dist}
+                                for _arch in *; do
+                                    cd \${_arch}
+                                    # don't create bundle if there's only 1 package inside directory
+                                    NUM_PACKAGES=\$(find . -maxdepth 1 -type f -name '*.deb'|wc -l)
+                                    if [ \${NUM_PACKAGES} -gt 1 ]; then
+                                        tar --owner=0 --group=0 -cf \${RELEASE}-r\${REVISION}-\${_dist}-\${_arch}-bundle.tar *.deb
+                                    fi
+                                    cd ..
+                                done
+                                cd ..
+                            done
+                            #####################
+                            # generate sha256sum for sources
+                            #
+                            cd \${RELEASEDIR}/source/tarball
+                            if [ -d source_tarball ]; then
+                                mv source_tarball/* ./
+                                rm -rf source_tarball
+                            fi
+                            for _tar in *tar.*; do
+                                sha256sum \${_tar} > \${_tar}.sha256sum
+                            done
+                            #####################
+                            # generate sha256sum for binary tarballs
+                            #
+                            if [ -d \${RELEASEDIR}/binary/tarball ]; then 
+                                cd \${RELEASEDIR}/binary/tarball
+                                for _tar in *.tar.*; do
+                                    # don't do it for symlinks (we have those in percona-agent)
+                                    if [ ! -h \${_tar} ]; then
+                                        sha256sum \${_tar} > \${_tar}.sha256sum
+                                    fi
+                                done
+                            fi
+
+                            #
+                            cd \${RELEASEDIR}/..
+                            #
+                            ln -s \${RELEASE} LATEST
+                            #
+                            cd /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
+
+                            rsync -avt -e "ssh -p 2222" --bwlimit=50000 --exclude="*yassl*" --progress \${PRODUCT} jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/
+
+                            #
+                            rm -fr /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
+ENDSSH
+                """
+                }
+            }
+        }
 
         stage('Get Docker RPMs') {
             agent {
-                label 'min-centos-7-x64'
+                label 'min-rhel-7-x64'
             }
             steps {
                 installDocker()
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${specName}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: release started - ${BUILD_URL}"
                 sh "sg docker -c 'docker run ${SERVER_IMAGE} /usr/bin/rpm -qa' > rpms.list"
                 stash includes: 'rpms.list', name: 'rpms'
             }
@@ -184,8 +302,7 @@ ENDSSH
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            ls /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64 \
-                            > repo.list
+                            ls /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64 > repo.list
                         cat rpms.list \
                             | grep -v 'pmm2-client' \
                             | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
@@ -198,7 +315,7 @@ ENDSSH
                 archiveArtifacts 'copy.list'
             }
         }
-// Publish RPMs to repo.ci.percona.com
+        // Publish RPMs to repo.ci.percona.com
         stage('Copy RPMs to PMM repo') {
             steps {
                 unstash 'copy'
@@ -210,12 +327,12 @@ ENDSSH
                 }
             }
         }
-        stage('Createrepo') {
+        stage('Create repo') {
             steps {
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com " \
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
                             createrepo --update /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/
                             if [ -f /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc ]; then
                                 rm -f /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc
@@ -228,7 +345,7 @@ ENDSSH
                 }
             }
         }
-// Publish RPMs to repo.percona.com
+        // Publish RPMs to repo.percona.com
         stage('Publish RPMs') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
@@ -244,57 +361,12 @@ ENDSSH
                 }
             }
         }
-        stage('Set Tags') {
-            steps {
-                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                    unstash 'copy'
-                    sh """
-                        echo ${GITHUB_API_TOKEN} > GITHUB_API_TOKEN
-                        echo ${VERSION} > VERSION
-                    """
-                    sh '''
-                        set -ex
-                        export VERSION=$(cat VERSION)
-                        export TOP_VER=$(cat VERSION | cut -d. -f1)
-                        export MID_VER=$(cat VERSION | cut -d. -f2)
-                        export DOCKER_MID="$TOP_VER.$MID_VER"
-                        declare -A repo=(
-                            ["percona-dashboards"]="percona/grafana-dashboards"
-                            ["pmm-server"]="percona/pmm-server"
-                            ["percona-qan-api2"]="percona/qan-api2"
-                            ["pmm-update"]="percona/pmm-update"
-                            ["pmm-managed"]="percona/pmm-managed"
-                        )
 
-                        for package in "${!repo[@]}"; do
-                            SHA=$(
-                                grep "^$package-$VERSION-" copy.list \
-                                    | perl -p -e 's/.*[.]\\d{10}[.]([0-9a-f]{7})[.]el7.*/$1/'
-                            )
-                            if [[ -n "$package" ]] && [[ -n "$SHA" ]]; then
-                                rm -fr $package
-                                mkdir $package
-                                pushd $package >/dev/null
-                                    git clone https://github.com/${repo["$package"]} ./
-                                    git checkout $SHA
-                                    FULL_SHA=$(git rev-parse HEAD)
-
-                                    echo "$FULL_SHA"
-                                    echo "$VERSION"
-                                popd >/dev/null
-                            fi
-                        done
-                    '''
-                }
-                stash includes: 'VERSION', name: 'version_file'
-            }
-        }
         stage('Set Docker Tag') {
             agent {
-                label 'min-centos-7-x64'
+                label 'min-rhel-7-x64'
             }
             steps {
-                unstash 'version_file'
                 installDocker()
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
@@ -304,6 +376,7 @@ ENDSSH
                     """
                 }
                 sh """
+                    echo ${VERSION} > VERSION
                     VERSION=\$(cat VERSION)
                     TOP_VER=\$(cat VERSION | cut -d. -f1)
                     MID_VER=\$(cat VERSION | cut -d. -f2)
@@ -354,59 +427,57 @@ ENDSSH
                     "
                 """
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -ex
-                        aws s3 cp --only-show-errors pmm-server-\${VERSION}.docker s3://percona-vm/pmm-server-\${VERSION}.docker
-                        aws s3 cp --only-show-errors pmm-client-\${VERSION}.docker s3://percona-vm/pmm-client-\${VERSION}.docker
-                    """
+                        aws s3 cp --only-show-errors pmm-server-${VERSION}.docker s3://percona-vm/pmm-server-${VERSION}.docker
+                        aws s3 cp --only-show-errors pmm-client-${VERSION}.docker s3://percona-vm/pmm-client-${VERSION}.docker
+                    '''
                 }
                 deleteDir()
             }
         }
         stage('Publish Docker image') {
-            agent {
-                label 'virtualbox'
-            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -ex
-                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.docker
-                        aws s3 cp --only-show-errors s3://percona-vm/pmm-client-\${VERSION}.docker pmm-client-\${VERSION}.docker
-                    """
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}.docker pmm-server-${VERSION}.docker
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}.docker pmm-client-${VERSION}.docker
+                    '''
                 }
-                sh """
-                    ssh -i ~/.ssh/id_rsa_downloads -p 2222 jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com "mkdir -p /data/downloads/pmm2/\${VERSION}/docker" || true
-                    sha256sum pmm-server-\${VERSION}.docker > pmm-server-\${VERSION}.sha256sum
-                    sha256sum pmm-client-\${VERSION}.docker > pmm-client-\${VERSION}.sha256sum
-                    scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-\${VERSION}.docker pmm-server-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/docker/
-                    scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-client-\${VERSION}.docker pmm-client-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/docker/
-                """
+                withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh '''
+                        sha256sum pmm-server-${VERSION}.docker | tee pmm-server-${VERSION}.sha256sum
+                        sha256sum pmm-client-${VERSION}.docker | tee pmm-client-${VERSION}.sha256sum
+                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                        ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm2/${VERSION}/docker"
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.docker pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}.docker pmm-client-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
+                        ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "ls -l /data/downloads/pmm2/${VERSION}/docker"
+                    '''
+                }
                 deleteDir()
             }
         }
         stage('Publish OVF image') {
-            agent {
-                label 'virtualbox'
-            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        aws s3 cp --only-show-errors s3://percona-vm/PMM2-Server-\${VERSION}.ova pmm-server-\${VERSION}.ova
-                    """
+                    sh '''
+                        aws s3 cp --only-show-errors s3://percona-vm/PMM2-Server-${VERSION}.ova pmm-server-${VERSION}.ova
+                    '''
                 }
-                sh """
-                    ssh -i ~/.ssh/id_rsa_downloads -p 2222 jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com "mkdir -p /data/downloads/pmm2/\${VERSION}/ova" || true
-                    sha256sum pmm-server-\${VERSION}.ova > pmm-server-\${VERSION}.sha256sum
-                    scp -i ~/.ssh/id_rsa_downloads -P 2222 pmm-server-\${VERSION}.ova pmm-server-\${VERSION}.sha256sum jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/pmm2/\${VERSION}/ova/
-                """
+                withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh '''
+                        sha256sum pmm-server-${VERSION}.ova | tee pmm-server-${VERSION}.sha256sum
+                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                        ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm2/${VERSION}/ova"
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.ova pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/ova/
+                    '''
+                }
                 deleteDir()
             }
         }
         stage('Refresh website') {
-            agent {
-                label 'virtualbox'
-            }
             steps {
                 sh """
                     until curl https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory > /tmp/crawler; do
@@ -417,11 +488,99 @@ ENDSSH
                 """
             }
         }
+        stage('Set git release tags') {
+            steps {
+                deleteDir()
+                unstash 'copy'
+                withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
+                    sh '''
+                        set -x
+                        # Do not allow this step to fail so we can create tags outside of the pipeline
+                        set +e
+                        cat copy.list
+
+                        # List of repos whose release branches need to be tagged
+                        # TODO: add pmm-submodules to the list, maybe even fallback to using submodules
+                        declare -A repos=(
+                            ["percona-grafana"]="percona-platform/grafana"
+                            ["percona-dashboards"]="percona/grafana-dashboards"
+                            ["pmm-update"]="percona/pmm-update"
+                            ["pmm"]="percona/pmm"
+                        )
+
+                        # Configure git settings globally
+                        git config --global advice.detachedHead false
+                        git config --global user.email "dev-services@percona.com"
+                        git config --global user.name "PMM Jenkins"
+
+                        # Configure git to push using ssh
+                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+                        TAG="v${VERSION}"
+                        echo "We will be tagging repos with a tag: $TAG"
+
+                        for PACKAGE in "${!repos[@]}"; do
+                            REPO=${repos["$PACKAGE"]}
+                            # Example of an entry in 'copy.list':
+                            # percona-dashboards-2.31.0-19.2209151640.25fba72.el7.x86_64.rpm
+                            SHA=$(grep "$PACKAGE-" copy.list | perl -p -e 's/.*[.]\\d{10}[.]([0-9a-f]{7})[.]el7.*/$1/')
+
+                            if [ -n "$SHA" ] && [ -n "$REPO" ]; then
+                                rm -fr $PACKAGE || true
+                                mkdir $PACKAGE
+                                pushd $PACKAGE >/dev/null
+                                    git clone https://github.com/$REPO ./
+                                    # The default is https, so we want to set it to ssh
+                                    git remote set-url origin git@github.com:$REPO.git
+                                    git checkout $SHA
+                                    echo "SHA: $(git rev-parse HEAD)"
+
+                                    git tag --message="Version $TAG." --sign $TAG
+
+                                    # If the tag already exists, we want to delete it and re-tag this SHA
+                                    if [ $? -eq 128 ]; then
+                                        git tag --delete $TAG
+                                        git push --delete origin $TAG
+                                        git tag --message="Version $TAG." --sign $TAG
+                                    fi
+
+                                    if [ $? -eq 0 ]; then
+                                        git push origin $TAG
+                                    else
+                                        echo "Error: $?"
+                                    fi
+                                popd >/dev/null
+                            else
+                                echo "Warning: the repository $REPO won't get tagged with ${VERSION}"
+                            fi
+                        done
+                    '''
+                }
+            }
+        }        
         stage('Run post-release tests') {
             steps {
                 build job: 'pmm2-release-tests', propagate: false, wait: false, parameters: [
-                    string(name: 'VERSION', value: VERSION)
+                    string(name: 'VERSION', value: params.VERSION)
                 ]
+            }
+        }
+        stage('Scan Image for Vulnerabilities') {
+            steps {
+                script {
+                    imageScan = build job: 'pmm2-image-scanning', propagate: false, parameters: [
+                        string(name: 'IMAGE', value: "perconalab/pmm-server"),
+                        string(name: 'TAG', value: "${VERSION}")
+                    ]
+
+                    env.SCAN_REPORT_URL = ""
+                    if (imageScan.result == 'SUCCESS') {
+                        copyArtifacts filter: 'report.html', projectName: 'pmm2-image-scanning'
+                        sh 'mv report.html report-${VERSION}.html'
+                        archiveArtifacts "report-${VERSION}.html"
+                        env.SCAN_REPORT_URL = "CVE Scan Report: ${BUILD_URL}artifact/report-${VERSION}.html"
+                    }
+                }
             }
         }
     }
@@ -430,21 +589,11 @@ ENDSSH
             deleteDir()
         }
         success {
-            unstash 'copy'
-            script {
-                def IMAGE = sh(returnStdout: true, script: "cat copy.list").trim()
-            }
-            slackSend botUser: true,
-                        channel: '#pmm-dev',
-                        color: '#00FF00',
-                        message: "PMM ${VERSION} was released!"
-            slackSend botUser: true,
-                      channel: '#releases',
-                      color: '#00FF00',
-                      message: "PMM ${VERSION} was released!"
+            slackSend botUser: true, channel: '#pmm-dev', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
+            slackSend botUser: true, channel: '#releases', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
+            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: release failed - ${BUILD_URL}"
         }
     }
 }

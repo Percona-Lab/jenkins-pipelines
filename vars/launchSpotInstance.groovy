@@ -1,5 +1,9 @@
 def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
-   withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([
+        [$class: 'AmazonWebServicesCredentialsBinding',
+        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+        credentialsId: 'pmm-staging-slave',
+        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             export VM_NAME=\$(cat VM_NAME)
             export OWNER=\$(cat OWNER_FULL)
@@ -38,13 +42,16 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
             while true
             do
                 if [ "$SPOT_PRICE" = "FAIR" ]; then
-                    export SPOT_PRICE=\$(
+                    set +x
+                    PRICE_HISTORY=\$(
                         aws ec2 describe-spot-price-history \
                             --instance-types \$INSTANCE_TYPE \
                             --region us-east-2 --output text \
-                            --product-description "Linux/UNIX (Amazon VPC)" | head -n 1 | awk '{ print \$5}'
+                            --product-description "Linux/UNIX (Amazon VPC)"
                     )
-                    # increase price on 15% each time
+                    export SPOT_PRICE=\$(echo \$PRICE_HISTORY | head -n 1 | awk '{ print \$5}')
+                    set -x
+                    # increase price by 15% each time
                     export SPOT_PRICE=\$(bc -l <<< "scale=8; \$SPOT_PRICE + ((\$SPOT_PRICE / 100) * (15 * \$PRICE_MULTIPLIER))" | sed 's/^\\./0./')
                     echo SET PRICE: \$SPOT_PRICE
                     echo \$SPOT_PRICE > SPOT_PRICE
@@ -148,6 +155,14 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                        Key=iit-billing-tag,Value=pmm-staging \
                        Key=stop-after-days,Value=${DAYS} \
                        Key=owner,Value=\$OWNER
+
+            # wait for the instance to get ready
+            aws ec2 wait instance-status-ok \
+                --instance-ids \$(cat ID)                      
         """
+        env.SPOT_PRICE = sh(returnStdout: true, script: "cat SPOT_PRICE").trim()
+        env.REQUEST_ID = sh(returnStdout: true, script: "cat REQUEST_ID").trim()
+        env.IP = sh(returnStdout: true, script: "cat IP").trim()
+        env.ID = sh(returnStdout: true, script: "cat ID").trim()
     }
 }

@@ -28,7 +28,7 @@ def changeUserPasswordUtility(dockerImage) {
 
 pipeline {
     agent {
-        label 'docker'
+        label 'agent-amd64'
     }
     environment {
         AZURE_CLIENT_ID=credentials('AZURE_CLIENT_ID');
@@ -110,6 +110,12 @@ pipeline {
         PORTAL_BASE_URL=credentials('PORTAL_BASE_URL')
         PAGER_DUTY_SERVICE_KEY=credentials('PAGER_DUTY_SERVICE_KEY')
         PAGER_DUTY_API_KEY=credentials('PAGER_DUTY_API_KEY')
+        PMM_QA_AURORA2_MYSQL_HOST=credentials('PMM_QA_AURORA2_MYSQL_HOST')
+        PMM_QA_AURORA2_MYSQL_PASSWORD=credentials('PMM_QA_AURORA2_MYSQL_PASSWORD')
+        PMM_QA_AURORA3_MYSQL_HOST=credentials('PMM_QA_AURORA3_MYSQL_HOST')
+        PMM_QA_AURORA3_MYSQL_PASSWORD=credentials('PMM_QA_AURORA3_MYSQL_PASSWORD')
+        PMM_QA_AWS_ACCESS_KEY_ID=credentials('PMM_QA_AWS_ACCESS_KEY_ID')
+        PMM_QA_AWS_ACCESS_KEY=credentials('PMM_QA_AWS_ACCESS_KEY')
     }
     parameters {
         string(
@@ -155,13 +161,13 @@ pipeline {
         string(
             defaultValue: 'admin-password',
             description: 'pmm-server admin user default password',
-            name: 'ADMIN_PASSWORD')  
+            name: 'ADMIN_PASSWORD')
         string(
             defaultValue: 'percona:5.7',
             description: 'Percona Server Docker Container Image',
             name: 'MYSQL_IMAGE')
         string(
-            defaultValue: 'perconalab/percona-distribution-postgresql:14.3',
+            defaultValue: 'perconalab/percona-distribution-postgresql:15.0',
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
         string(
@@ -195,9 +201,6 @@ pipeline {
     options {
         skipDefaultCheckout()
     }
-    triggers {
-        upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
-    }
     stages {
         stage('Prepare') {
             steps {
@@ -209,25 +212,18 @@ pipeline {
                 }
                 // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
+                git poll: false,
+                    branch: GIT_BRANCH,
+                    url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                installDocker()
-                setupDockerCompose()
                 sh '''
-                    docker-compose --version
-                    sudo yum -y update --security
-                    sudo yum -y install php php-mysqlnd php-pdo jq svn bats mysql
-                    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-                    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-                    sudo amazon-linux-extras install epel -y
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                         sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
-                        sudo chmod 755 pmm-tests/install-google-chrome.sh
-                        bash ./pmm-tests/install-google-chrome.sh
                     popd
-                    sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
+                    /srv/pmm-qa/pmm-tests/install_k8s_tools.sh --kubectl --sudo
+                    sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
         }
@@ -246,7 +242,6 @@ pipeline {
                         expression { env.CLIENT_INSTANCE == "no" }
                     }
                     steps {
-                        installAWSv2()
                         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                             sh """
                                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
@@ -314,9 +309,8 @@ pipeline {
                 }
                 stage('Setup Node') {
                     steps {
-                        setupNodejs()
                         sh """
-                            sudo yum install -y gettext
+                            npm ci
                             envsubst < env.list > env.generated.list
                         """
                     }
@@ -376,7 +370,7 @@ pipeline {
             }
             steps {
                 script {
-                            env.CODECEPT_TAG = "'" + "${TAG}" + "'"
+                    env.CODECEPT_TAG = "'" + "${TAG}" + "'"
                 }
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
@@ -406,18 +400,18 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-managed.log > pmm-managed-full.log || true
                 echo --- pmm-agent logs from pmm-server --- >> pmm-agent-full.log
                 docker exec pmm-server cat /srv/logs/pmm-agent.log > pmm-agent-full.log || true
+                docker stop webhookd || true
+                docker rm webhookd || true
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
                 sudo chown -R ec2-user:ec2-user . || true
             '''
             script {
-                if(env.VM_NAME)
-                {
+                if (env.VM_NAME) {
                     destroyStaging(VM_NAME)
                 }
-                if(env.VM_CLIENT_NAME)
-                {
+                if (env.VM_CLIENT_NAME) {
                     destroyStaging(VM_CLIENT_NAME)
                 }
             }
@@ -430,9 +424,10 @@ pipeline {
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'job_logs.txt'
-                junit env.PATH_TO_REPORT_RESULTS
-                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                try {
+                    junit env.PATH_TO_REPORT_RESULTS
+                } catch (err) {
+                    error "No test report files found at path: ${PATH_TO_REPORT_RESULTS}"
                 }
             }
             allure([
@@ -442,11 +437,11 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
-            sh '''
-                sudo rm -r node_modules/
-                sudo rm -r tests/output
-            '''
-            deleteDir()
+        }
+        failure {
+            script {
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+            }
         }
     }
 }

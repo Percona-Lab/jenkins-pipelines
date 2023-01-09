@@ -18,11 +18,11 @@ pipeline {
         )
         choice(
             name: 'FROM_REPO',
-            description: 'From this repo will be upgraded pdpxc',
+            description: 'PDPXC will be upgraded from this repository'
             choices: [
+                'release',
                 'testing',
-                'experimental',
-                'release'
+                'experimental'
             ]
         )
         choice(
@@ -35,45 +35,52 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.28',
-            description: 'From this version pdmysql will be updated',
-            name: 'FROM_VERSION')
-        string(
             defaultValue: '8.0.29',
+            description: 'From this version pdmysql will be updated',
+            name: 'FROM_VERSION'
+        )
+        string(
+            defaultValue: '8.0.30',
             description: 'To this version pdmysql will be updated',
             name: 'VERSION'
         )
         string(
-            defaultValue: 'master',
-            description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
-        string(
-            defaultValue: '2.0.18',
-            description: 'Proxysql version for test',
-            name: 'PROXYSQL_VERSION'
-         )
-        string(
-            defaultValue: '2.3.10',
-            description: 'HAProxy version for test',
-            name: 'HAPROXY_VERSION'
-         )
-        string(
-            defaultValue: '8.0.23',
+            defaultValue: '8.0.30',
             description: 'PXB version for test',
             name: 'PXB_VERSION'
-         )
+        )
         string(
-            defaultValue: '3.3.1',
+            defaultValue: '2.4.4',
+            description: 'Proxysql version for test',
+            name: 'PROXYSQL_VERSION'
+        )
+        string(
+            defaultValue: '2.5.10',
+            description: 'HAProxy version for test',
+            name: 'HAPROXY_VERSION'
+        )
+        string(
+            defaultValue: '3.5.0',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
-         )
+        )
+        string(
+            defaultValue: '1.0',
+            description: 'replication-manager.sh version',
+            name: 'REPL_MANAGER_VERSION'
+        )
+        string(
+            defaultValue: 'master',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH'
+        )
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())
           disableConcurrentBuilds()
   }
   stages {
-        stage ('Test install') {
+        stage ('Test install: minor repo') {
             when {
                 expression { env.TO_REPO != 'release' }
             }
@@ -89,7 +96,9 @@ pipeline {
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        string(name: 'REPL_MANAGER_VERSION', value: "${env.REPL_MANAGER_VERSION}"),
+                        booleanParam(name: 'MAJOR_REPO', value: false)
                         ]
                     }
                     catch (err) {
@@ -99,7 +108,7 @@ pipeline {
                 }
             }
         }
-        stage ('Test setup') {
+        stage ('Test setup: minor repo') {
             when {
                 expression { env.TO_REPO == 'release' }
             }
@@ -111,11 +120,41 @@ pipeline {
                         string(name: 'REPO', value: "${env.TO_REPO}"),
                         string(name: 'VERSION', value: "${env.VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pdpxc-setup"),
+                        string(name: 'SCENARIO', value: "pdpxc_setup"),
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        string(name: 'REPL_MANAGER_VERSION', value: "${env.REPL_MANAGER_VERSION}"),
+                        booleanParam(name: 'MAJOR_REPO', value: false)
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'Test setup' failed, but we continue"
+                    }
+                }
+            }
+        }
+        stage ('Test setup: major repo') {
+            when {
+                expression { env.TO_REPO == 'release' }
+            }
+            steps {
+                script {
+                    try {
+                        build job: 'pdpxc', parameters: [
+                        string(name: 'PLATFORM', value: "${env.PLATFORM}"),
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'VERSION', value: "${env.VERSION}"),
+                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'SCENARIO', value: "pdpxc_setup"),
+                        string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
+                        string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
+                        string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
+                        string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        string(name: 'REPL_MANAGER_VERSION', value: "${env.REPL_MANAGER_VERSION}"),
+                        booleanParam(name: 'MAJOR_REPO', value: true)
                         ]
                     }
                     catch (err) {
@@ -126,6 +165,9 @@ pipeline {
             }
         }
         stage ('Test minor upgrade') {
+            when {
+                expression { env.TO_REPO != 'release' }
+            }
             steps {
                 script {
                     try {
@@ -136,11 +178,11 @@ pipeline {
                         string(name: 'TO_REPO', value: "${env.TO_REPO}"),
                         string(name: 'VERSION', value: "${env.VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pdpxc-minor-upgrade"),
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
+                        string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        string(name: 'REPL_MANAGER_VERSION', value: "${env.REPL_MANAGER_VERSION}"),
                         ]
                     }
                     catch (err) {
@@ -150,38 +192,16 @@ pipeline {
                 }
             }
         }
-        stage ('Test minor downgrade') {
-            steps {
-                script {
-                    try {
-                        build job: 'pdpxc-upgrade', parameters: [
-                        string(name: 'PLATFORM', value: "${env.PLATFORM}"),
-                        string(name: 'FROM_REPO', value: "${env.TO_REPO}"),
-                        string(name: 'FROM_VERSION', value: "${env.VERSION}"),
-                        string(name: 'TO_REPO', value: "${env.FROM_REPO}"),
-                        string(name: 'VERSION', value: "${env.FROM_VERSION}"),
-                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pdpxc-minor-upgrade"),
-                        string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
-                        string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
-                        string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
-                        string(name: 'ORCHESTRATOR_VERSION', value: "${env.ORCHESTRATOR_VERSION}"),
-                        ]
-                    }
-                    catch (err) {
-                        currentBuild.result = "FAILURE"
-                        echo "Stage 'Test minor downgrade' failed, but we continue"
-                    }
-                }
-            }
-        }
         stage ('Test haproxy') {
+            when {
+                expression { env.TO_REPO != 'release' }
+            }
             steps {
                 script {
                     try {
                         build job: 'haproxy', parameters: [
-                        string(name: 'REPO', value: "${env.FROM_REPO}"),
-                        string(name: 'VERSION', value: "${env.FROM_VERSION}"),
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'VERSION', value: "${env.VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
                         ]
                     }

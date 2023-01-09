@@ -6,7 +6,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 void installDependencies() {
     sh '''
         export PATH=${PATH}:~/.local/bin
-        sudo yum install -y git python3-pip jq
+        sudo yum install -y git python3-pip jq tar
         sudo amazon-linux-extras install ansible2
         python3 -m venv venv
         source venv/bin/activate
@@ -38,7 +38,6 @@ void runMoleculeAction(String action, String scenario) {
     withCredentials(awsCredentials) {
         sh """
             source venv/bin/activate
-            export MOLECULE_DEBUG=1
             cd package-testing/molecule/ps-innodb-cluster
             cd server
             export INSTANCE_PRIVATE_IP=\${SERVER_INSTANCE_PRIVATE_IP}
@@ -106,13 +105,12 @@ pipeline {
             choices: [
                 'ubuntu-focal',
                 'ubuntu-bionic',
-                'ubuntu-xenial',
+                'ubuntu-jammy',
                 'debian-11',
                 'debian-10',
-                'debian-9',
-                'centos-8',
                 'centos-7',
-                'centos-6'
+                'oracle-8',
+                'oracle-9'
             ],
             description: 'Distribution to run test'
         )

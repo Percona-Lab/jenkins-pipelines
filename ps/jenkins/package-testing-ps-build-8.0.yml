@@ -44,6 +44,8 @@
                 - "min-bionic-x64"
                 - "min-focal-x64"
                 - "min-amazon-2-x64"
+                - "min-jammy-x64"
+                - "min-ol-9-x64"  
             description: "Node in which to test the product"
         - choice:
             name: action_to_test
@@ -52,4 +54,18 @@
                 - "install"
                 - "upgrade"
                 - "maj-upgrade-to"
+                - "kmip"
             description: "Action to test on the product"
+        - choice:
+            name: check_warnings
+            choices:
+                - "yes"
+                - "no"
+            description: "check warning in client_test"
+        - choice:
+            name: install_mysql_shell
+            choices:
+                - "yes"
+                - "no"
+            description: "install and check mysql-shell for ps80"
+

@@ -3,6 +3,18 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
+def sendSlackNotification(componentName, ppgVersion, componentVersion)
+{
+ if ( currentBuild.result == "SUCCESS" ) {
+  buildSummary = "Job: ${env.JOB_NAME}\nComponent: ${componentName}\nComponent Version: ${componentVersion}\nPPG Version: ${ppgVersion}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
+  slackSend color : "good", message: "${buildSummary}", channel: '#postgresql-test'
+ }
+ else {
+  buildSummary = "Job: ${env.JOB_NAME}\nComponent: ${componentName}\nComponent Version: ${componentVersion}\nPPG Version: ${ppgVersion}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
+  slackSend color : "danger", message: "${buildSummary}", channel: '#postgresql-test'
+ }
+}
+
 pipeline {
   agent {
   label 'min-centos-7-x64'
@@ -47,10 +59,6 @@ pipeline {
                       'patroni',
                       'pgbackrest',
                       'pg_stat_monitor',
-                      'pgadmin4',
-                      'postgis30_13',
-                      'pgrouting30_13',
-                      'plr13',
                       'pgaudit13_set_user',
                       'pgbadger',
                       'pgbouncer',
@@ -59,7 +67,7 @@ pipeline {
         choice(
             name: 'SCENARIO',
             description: 'PPG major version to test',
-            choices: ['ppg-11', 'ppg-12', 'ppg-13', 'ppg-14']
+            choices: ['ppg-11', 'ppg-12', 'ppg-13', 'ppg-14', 'ppg-15']
         )
   }
   environment {
@@ -103,6 +111,7 @@ pipeline {
     always {
           script {
              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "default")
+             sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION)
         }
     }
   }

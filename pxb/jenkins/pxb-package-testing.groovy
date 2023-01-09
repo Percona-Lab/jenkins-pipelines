@@ -8,7 +8,8 @@ product_action_playbooks = [
         install: 'pxb_80.yml',
         upgrade: 'pxb_80_upgrade.yml',
         upstream: 'pxb_80_upstream.yml',
-        tarball: 'pxb_80_tarball.yml'
+        tarball: 'pxb_80_tarball.yml',
+        kmip: 'pxb_80_kmip.yml'
     ],
     pxb24: [
         install: 'pxb_24.yml',
@@ -26,18 +27,23 @@ setup_centos_package_tests = { ->
     '''
 }
 
-setup_stretch_package_tests = { ->
+setup_oracle8_package_tests = { ->
     sh '''
-        sudo apt-get update
-        sudo apt-get install -y dirmngr gnupg2
-        echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
-        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
+        sudo yum install -y epel-release
+        sudo yum -y update
+        sudo yum install -y ansible
+        sudo yum install -y tar
+    '''
+}
+
+setup_buster_package_tests = { ->
+    sh '''
         sudo apt-get update
         sudo apt-get install -y ansible
     '''
 }
 
-setup_buster_package_tests = { ->
+setup_bullseye_package_tests = { ->
     sh '''
         sudo apt-get update
         sudo apt-get install -y ansible
@@ -54,13 +60,13 @@ setup_ubuntu_package_tests = { ->
 }
 
 node_setups = [
-    "min-stretch-x64": setup_stretch_package_tests,
     "min-buster-x64": setup_buster_package_tests,
+    "min-bullseye-x64": setup_bullseye_package_tests,
     "min-centos-7-x64": setup_centos_package_tests,
-    "min-centos-8-x64": setup_centos_package_tests,
-    "min-xenial-x64": setup_ubuntu_package_tests,
+    "min-ol-8-x64": setup_oracle8_package_tests,
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
+    "min-jammy-x64": setup_ubuntu_package_tests,
 ]
 
 void setup_package_tests() {
@@ -101,12 +107,12 @@ pipeline {
         choice(
             choices: [
                 'min-centos-7-x64',
-                'min-centos-8-x64',
-                'min-xenial-x64',
+                'min-ol-8-x64',
                 'min-bionic-x64',
                 'min-focal-x64',
-                'min-stretch-x64',
-                'min-buster-x64'
+                'min-jammy-x64',
+                'min-buster-x64',
+                'min-bullseye-x64'
             ],
             description: 'Node to run tests',
             name: 'node_to_test'
@@ -177,6 +183,16 @@ pipeline {
 
                     steps {
                         runPlaybook("tarball")
+                    }
+                }
+
+                stage('Kmip') {
+                    agent {
+                        label params.node_to_test
+                    }
+
+                    steps {
+                        runPlaybook("kmip")
                     }
                 }
             }

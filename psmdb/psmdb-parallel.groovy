@@ -11,6 +11,7 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+      ANSIBLE_DISPLAY_SKIPPED_HOSTS = false
   }
   parameters {
         choice(
@@ -26,6 +27,14 @@ pipeline {
             defaultValue: '4.4.8',
             description: 'PSMDB Version for tests',
             name: 'PSMDB_VERSION')
+        choice( 
+            name: 'ENABLE_TOOLKIT',
+            description: 'Enable or disable percona toolkit check',
+            choices: [
+                'false',
+                'true'
+            ]
+        )
         string(
             defaultValue: 'main',
             description: 'Branch for testing repository',
@@ -58,10 +67,16 @@ pipeline {
          }
   }
     post {
-    always {
-      script {
-          moleculeParallelPostDestroy(pdmdbOperatingSystems(), moleculeDir)
-         }
-      }
-   }
+        success {
+            slackNotify("#opensource-psmdb", "#00FF00", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION} repo ${REPO} finished succesfully - [${BUILD_URL}]")
+        }
+        failure {
+            slackNotify("#opensource-psmdb", "#FF0000", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION} repo ${REPO} failed - [${BUILD_URL}]")
+        }
+        always {
+            script {
+                moleculeParallelPostDestroy(pdmdbOperatingSystems(), moleculeDir)
+            }
+        }
+    }
 }

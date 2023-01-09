@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 void runPackageTestingJob(String GIT_BRANCH, DOCKER_VERSION, CLIENT_VERSION, PMM_VERSION, TESTS, METRICS_MODE, INSTALL_REPO) {
-    upgradeJob = build job: 'package-testing', parameters: [
+    upgradeJob = build job: 'pmm2-package-testing', parameters: [
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
@@ -18,7 +18,7 @@ def latestVersion = pmmVersion()
 
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'cli'
     }
     parameters {
         string(
@@ -35,7 +35,7 @@ pipeline {
             name: 'DOCKER_VERSION')
         string(
             defaultValue: 'dev-latest',
-            description: 'PMM Client version',
+            description: 'PMM Client version(dev-latest|pmm2-rc|image-name:version-tag)',
             name: 'CLIENT_VERSION')
         string(
             defaultValue: latestVersion,

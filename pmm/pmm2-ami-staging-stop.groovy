@@ -1,3 +1,6 @@
+String OWNER = ''
+String OWNER_SLACK = ''
+
 pipeline {
     agent {
         label 'cli'
@@ -13,6 +16,7 @@ pipeline {
             name: 'NOTIFY')
     }
     options {
+        buildDiscarder(logRotator(numToKeepStr: '30', daysToKeepStr: '60'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
@@ -21,36 +25,32 @@ pipeline {
         stage('Prepare') {
             steps {
                 deleteDir()
-                withCredentials([usernamePassword(credentialsId: 'Jenkins API', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
-                        curl -s -u ${USER}:${PASS} ${BUILD_URL}api/json \
-                            | python -c "import sys, json; print json.load(sys.stdin)['actions'][1]['causes'][0]['userId']" \
-                            | sed -e 's/@percona.com//' \
-                            > OWNER
-                        echo "pmm-\$(cat OWNER | cut -d . -f 1)-\$(date -u '+%Y%m%d%H%M')" \
-                            > VM_NAME
-                    """
-                }
                 script {
-                    def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
+                    wrap([$class: 'BuildUser']) {
+                        OWNER = (env.BUILD_USER_EMAIL ?: '').split('@')[0] ?: env.BUILD_USER_ID
+                        OWNER_SLACK = slackUserIdFromEmail(botUser: true, email: env.BUILD_USER_EMAIL, tokenCredentialId: 'JenkinsCI-SlackBot-v2')
+                    }
+
                     echo """
-                        Instance ID:   ${AMI_ID}
+                        AMI Instance ID: ${AMI_ID}
                         OWNER:          ${OWNER}
                     """
-                    if ("${NOTIFY}" == "true") {
-                        slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                        slackSend botUser: true, channel: "@${OWNER}", color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+
+                    if (params.NOTIFY == "true") {
+                        slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        if (OWNER_SLACK) {
+                            slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        }
                     }
                 }
             }
         }
         stage('Run VM with PMM server') {
-            steps
-            {
+            steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID',  credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                    sh """
                         if [ -n "${AMI_ID}" ]; then
-                          aws ec2 --region us-east-1 terminate-instances --instance-ids "${AMI_ID}"
+                            aws ec2 --region us-east-1 terminate-instances --instance-ids "${AMI_ID}"
                         fi
                     """
                 }
@@ -60,21 +60,21 @@ pipeline {
     post {
         success {
             script {
-                if ("${NOTIFY}" == "true") {
-                    def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
-
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER} Instance ID: ${AMI_ID}"
-                    slackSend botUser: true, channel: "@${OWNER}", color: '#00FF00', message: "[${JOB_NAME}]: build finished Instance ID: ${AMI_ID}"
+                if (params.NOTIFY == "true") {
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build ${BUILD_URL} finished, owner: @${OWNER}, Instance ID: ${AMI_ID}"
+                    if (OWNER_SLACK) {
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build ${BUILD_URL} finished, Instance ID: ${AMI_ID}"
+                    }
                 }
             }
         }
         failure {
             script {
-                if ("${NOTIFY}" == "false") {
-                    def OWNER = sh(returnStdout: true, script: "cat OWNER").trim()
-
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER}"
-                    slackSend botUser: true, channel: "@${OWNER}", color: '#FF0000', message: "[${JOB_NAME}]: build failed"
+                if (params.NOTIFY == "true") {
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${BUILD_URL} failed, owner: @${OWNER}"
+                    if (OWNER_SLACK) {
+                        slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build ${BUILD_URL} failed"
+                    }
                 }
             }
         }

@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 void runNodeBuild(String node_to_test) {
     build(
-        job: 'pxb-package-testing',
+        job: 'pxb-node-tests-branch',
         parameters: [
             string(name: 'product_to_test', value: product_to_test),
             string(name: 'install_repo', value: params.install_repo),
@@ -47,21 +47,15 @@ pipeline {
     stages {
         stage('Run parallel') {
             parallel {
-                stage('Debian Stretch') {
-                    steps {
-                        runNodeBuild('min-stretch-x64')
-                    }
-                }
-
                 stage('Debian Buster') {
                     steps {
                         runNodeBuild('min-buster-x64')
                     }
                 }
 
-                stage('Ubuntu Xenial') {
+                stage('Debian Bullseye') {
                     steps {
-                        runNodeBuild('min-xenial-x64')
+                        runNodeBuild('min-bullseye-x64')
                     }
                 }
 
@@ -77,15 +71,21 @@ pipeline {
                     }
                 }
 
+                stage('Ubuntu Jammy') {
+                    steps {
+                        runNodeBuild('min-jammy-x64')
+                    }
+                }
+
                 stage('Centos 7') {
                     steps {
                         runNodeBuild('min-centos-7-x64')
                     }
                 }
 
-                stage('Centos 8') {
+                stage('Oracle Centos 8') {
                     steps {
-                        runNodeBuild('min-centos-8-x64')
+                        runNodeBuild('min-ol-8-x64')
                     }
                 }
             }

@@ -7,7 +7,7 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e DISABLE_TELEMETRY=true -e DATA_RETENTION=48h'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e DISABLE_TELEMETRY=true -e DATA_RETENTION=48h -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX'),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
@@ -71,7 +71,9 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
 def latestVersion = pmmVersion()
 
 pipeline {
-    agent any
+    agent {
+        label 'agent-amd64'
+    }
     parameters {
         string(
             defaultValue: 'master',
@@ -87,7 +89,7 @@ pipeline {
             name: 'DOCKER_VERSION')
         string(
             defaultValue: 'dev-latest',
-            description: 'PMM Client version',
+            description: 'PMM Client version(dev-latest|pmm2-rc|image-name:version-tag)',
             name: 'CLIENT_VERSION')
         string(
             defaultValue: latestVersion,
@@ -117,9 +119,9 @@ pipeline {
         }
         stage('Execute Package Tests') {
             parallel {
-                stage('centos-7-x64') {
+                stage('rhel-7-x64') {
                     agent {
-                        label 'min-centos-7-x64'
+                        label 'min-rhel-7-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -131,9 +133,9 @@ pipeline {
                         }
                     }
                 }
-                stage('centos-8-x64') {
+                stage('rhel-8-x64') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-rhel-8-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -145,6 +147,20 @@ pipeline {
                         }
                     }
                 }
+//                 stage('rhel-9-x64') {
+//                     agent {
+//                         label 'min-rhel-9-x64'
+//                     }
+//                     steps{
+//                         setup_rhel_package_tests()
+//                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+//                     }
+//                     post {
+//                         always {
+//                             deleteDir()
+//                         }
+//                     }
+//                 }
                 stage('focal-x64') {
                     agent {
                         label 'min-focal-x64'
@@ -193,20 +209,6 @@ pipeline {
                 stage('buster-x64') {
                     agent {
                         label 'min-buster-x64'
-                    }
-                    steps{
-                        setup_debian_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
-                stage('stretch-x64') {
-                    agent {
-                        label 'min-stretch-x64'
                     }
                     steps{
                         setup_debian_package_tests()

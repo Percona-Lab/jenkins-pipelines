@@ -9,13 +9,13 @@ pipeline {
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-        MOLECULE_DIR = "molecule/pdmysql/pdps-minor-upgrade";
+        MOLECULE_DIR = "molecule/pdmysql/pdps_minor_upgrade";
     }
     parameters {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: pdmysqlOperatingSystems()
+            choices: pdpsOperatingSystems()
         )
         choice(
             name: 'FROM_REPO',

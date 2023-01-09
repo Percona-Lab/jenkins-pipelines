@@ -14,15 +14,19 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             export CLIENT_INSTANCE=${CLIENT_INSTANCE}
             export SETUP_TYPE=${SETUP_TYPE}
             export ADMIN_PASSWORD=${ADMIN_PASSWORD}
+
             if [[ \$SETUP_TYPE == compose_setup ]]; then
                 export IP=192.168.0.1
             fi
             if [ -z \$ADMIN_PASSWORD ]; then
                 export ADMIN_PASSWORD=admin
             fi
+
+            echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
             sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
             sudo yum clean all
             sudo yum makecache
+
             if [[ \$CLIENT_VERSION = dev-latest ]]; then
                 sudo percona-release enable-only original experimental
                 sudo yum -y install pmm2-client
@@ -66,9 +70,9 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     else
                         wget -O pmm2-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm2/\${CLIENT_VERSION}/binary/tarball/pmm2-client-\${CLIENT_VERSION}.tar.gz"
                     fi
-                    export BUILD_ID=dear-jenkins-please-dont-kill-virtualbox
-                    export JENKINS_NODE_COOKIE=dear-jenkins-please-dont-kill-virtualbox
-                    export JENKINS_SERVER_COOKIE=dear-jenkins-please-dont-kill-virtualbox
+                    export BUILD_ID=dont-kill-virtualbox
+                    export JENKINS_NODE_COOKIE=dont-kill-virtualbox
+                    export JENKINS_SERVER_COOKIE=dont-kill-virtualbox
                     tar -zxpf pmm2-client.tar.gz
                     rm -r pmm2-client.tar.gz
                     mv pmm2-client-* pmm2-client
@@ -91,7 +95,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                         pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD \$IP
                     fi
                     sleep 10
-                    JENKINS_NODE_COOKIE=dontKillMe nohup bash -c 'pmm-agent --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
+                    nohup bash -c 'pmm-agent --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
                     sleep 10
                     cat pmm-agent.log
                     pmm-admin status
