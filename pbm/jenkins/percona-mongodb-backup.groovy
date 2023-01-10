@@ -69,6 +69,9 @@ pipeline {
     }
     stages {
         stage('Create PBM source tarball') {
+            agent {
+                label 'docker'
+            }
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
