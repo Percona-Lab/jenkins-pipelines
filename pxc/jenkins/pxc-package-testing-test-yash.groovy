@@ -67,13 +67,13 @@ void runMoleculeAction(String action, String product_to_test, String scenario) {
             cd ${product_to_test}-bootstrap
             export INSTANCE_PRIVATE_IP=\${BOOTSTRAP_INSTANCE_PRIVATE_IP}
             export INSTANCE_PUBLIC_IP=\${BOOTSTRAP_INSTANCE_PUBLIC_IP}            
-            molecule --debug ${action} -s ${scenario}
+            molecule ${action} -s ${scenario}
             cd -
 
             cd ${product_to_test}-common
             export INSTANCE_PRIVATE_IP=\${COMMON_INSTANCE_PRIVATE_IP}
             export INSTANCE_PUBLIC_IP=\${COMMON_INSTANCE_PUBLIC_IP}        
-            molecule --debug ${action} -s ${scenario}
+            molecule ${action} -s ${scenario}
             cd -
         """
     }
