@@ -19,9 +19,12 @@
         choices:
           - centos:7
           - centos:8
+          - oraclelinux:9
           - ubuntu:bionic
           - ubuntu:focal
+          - ubuntu:jammy
           - debian:buster
+          - debian:bullseye
           - asan
         description: OS version for compilation
     - choice:
