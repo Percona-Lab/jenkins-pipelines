@@ -52,6 +52,7 @@
             choices:
                 - "install"
                 - "upgrade"
+                - "install_and_upgrade"
             description: "Set test type for testing"     
         - choice:
             name: pxc57_repo

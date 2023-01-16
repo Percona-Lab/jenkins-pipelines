@@ -26,13 +26,13 @@ if (params.node_to_test == "all") {
 
 void runNodeBuild(String node_to_test) {
     build(
-        job: 'wip-pxc-package-testing',
+        job: 'wip-pxc-package-testing-test-1',
         parameters: [
-            string(name: "product_to_test", value: product_to_test),
+            string(name: "product_to_test", value: params.product_to_test),
             string(name: "node_to_test", value: node_to_test),
             string(name: "test_repo", value: params.test_repo),
-            string(name: "test_type", value: test_type),
-            string(name: "pxc57_repo", value: pxc57_repo)            
+            string(name: "test_type", value: "install_and_upgrade"),
+            string(name: "pxc57_repo", value: params.pxc57_repo)            
         ],
         propagate: true,
         wait: true
@@ -71,15 +71,6 @@ pipeline {
         )
 
         choice(
-            name: 'test_type',
-            choices: [
-                'install',
-                'upgrade'
-            ],
-            description: 'Set test type for testing'
-        )
-
-        choice(
             name: "pxc57_repo",
             choices: ["original","pxc57" ],
             description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."
@@ -91,7 +82,7 @@ pipeline {
         stage("Prepare") {
             steps {
                 script {
-                    currentBuild.displayName = "#${BUILD_NUMBER}-${product_to_test}-${params.install_repo}-${params.node_to_test}"
+                    currentBuild.displayName = "#${BUILD_NUMBER}-${product_to_test}-${params.test_repo}-install-upgrade-all"
                     currentBuild.description = "action: ${params.action_to_test} node: ${params.node_to_test}"
                 }
             }
@@ -99,10 +90,13 @@ pipeline {
 
         stage("Run parallel") {
             parallel {
-                stage("Debian-10") {
+                stage("Debian-10 INSTALL & UPGRADE") {
                     when {
                         expression {
-                            nodes_to_test.contains("debian-10")
+                            allOf{
+                                nodes_to_test.contains("debian-10")
+
+                            }
                         }
                     }
 
@@ -111,10 +105,13 @@ pipeline {
                     }
                 }
 
-                stage("Debian-11") {
+                stage("Debian-11 INSTALL & UPGRADE") {
                     when {
                         expression {
-                            nodes_to_test.contains("debian-11")
+                            allOf{
+                                nodes_to_test.contains("debian-11")
+
+                            }
                         }
                     }
 
@@ -123,10 +120,13 @@ pipeline {
                     }
                 }
 
-                stage("Centos 7") {
+                stage("Centos 7 INSTALL & UPGRADE") {
                     when {
                         expression {
-                            nodes_to_test.contains("centos-7")
+                            allOf{                            
+                                nodes_to_test.contains("centos-7")
+
+                            }
                         }
                     }
 
@@ -135,22 +135,27 @@ pipeline {
                     }
                 }
 
-                stage("ol-8") {
+                stage("ol-8 INSTALL & UPGRADE") {
                     when {
                         expression {
-                            nodes_to_test.contains("ol-8")
+                            allOf{
+                                nodes_to_test.contains("ol-8")
+
+                            }
                         }
                     }
-
                     steps {
                         runNodeBuild("ol-8")
                     }
                 }
 
-                stage("ol-9") {
+                stage("ol-9 INSTALL & UPGRADE") {
                     when {
                         expression {
-                            nodes_to_test.contains("ol-9")
+                            allOf{
+                                nodes_to_test.contains("ol-9")
+                            
+                            }
                         }
                     }
 
@@ -160,10 +165,13 @@ pipeline {
                 }
 
 
-                stage("ubuntu-jammy") {
+                stage("ubuntu-jammy INSTALL & UPGRADE") {
                     when {
                         expression {
-                            nodes_to_test.contains("ubuntu-jammy")
+                            allOf{                            
+                                nodes_to_test.contains("ubuntu-jammy")
+
+                            }
                         }
                     }
 
@@ -172,10 +180,13 @@ pipeline {
                     }
                 }
 
-                stage("ubuntu-bionic") {
+                stage("ubuntu-bionic INSTALL & UPGRADE") {
                     when {
                         expression {
-                            nodes_to_test.contains("ubuntu-bionic")
+                            allOf{
+                                nodes_to_test.contains("ubuntu-bionic")
+                            
+                            }
                         }
                     }
 
@@ -184,10 +195,13 @@ pipeline {
                     }
                 }
 
-                stage("ubuntu-focal") {
+                stage("ubuntu-focal INSTALL & UPGRADE") {
                     when {
                         expression {
-                            nodes_to_test.contains("ubuntu-focal")
+                            allOf{
+                                nodes_to_test.contains("ubuntu-focal")
+
+                            }
                         }
                     }
 
@@ -196,18 +210,21 @@ pipeline {
                     }
                 }
 
-                stage("min-amazon-2") {
-                    when {
-                        expression {
-                            nodes_to_test.contains("min-amazon-2")
-                        }
-                    }
+	            stage("min-amazon-2 INSTALL & UPGRADE") {	
+                    when {	
+                        expression {	
+                            allOf{
+                                nodes_to_test.contains("min-amazon-2")	
 
-                    steps {
-                        runNodeBuild("min-amazon-2")
-                    }
+                            }
+                        }	
+                    }	
+                    steps {	
+                        runNodeBuild("min-amazon-2")	
+                    }	
                 }
             }
         }
     }
 }
+

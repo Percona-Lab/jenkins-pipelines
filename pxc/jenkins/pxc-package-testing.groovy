@@ -21,7 +21,8 @@ void installDependencies() {
 
 }
 
-void runMoleculeAction(String action, String product_to_test, String scenario) {
+
+def runMoleculeAction(String action, String product_to_test, String scenario, String param_test_type, String test_repo, String version_check) {
     def awsCredentials = [
         sshUserPrivateKey(
             credentialsId: 'MOLECULE_AWS_PRIVATE_KEY',
@@ -36,105 +37,200 @@ void runMoleculeAction(String action, String product_to_test, String scenario) {
         )
     ]
 
-    withCredentials(awsCredentials) {
-        sh """
-            source venv/bin/activate
-            export MOLECULE_DEBUG=0
-            export test_repo=${params.test_repo}
-            export test_type=${params.test_type}
-            
-            if [[ ${product_to_test} = "pxc57" ]];
-            then
-                export pxc57repo=${params.pxc57_repo}
-            else
+
+            if("${product_to_test}" == "pxc57"){
+                def pxc57repo="${params.pxc57_repo}"
+            }else{
                 echo "Product is not pxc57 so skipping value assignment to it"
-            fi
+            }
             
-	        if [[ ${test_type} = "install" ]];
-            then
-                export install_repo=${params.test_repo}
-            elif [[ ${test_type} == "upgrade" ]]
-            then
-                export install_repo="main"
-                export check_version="no"
-                export upgrade_repo=${test_repo}
-            else 
-                echo "Unknown condition"
-            fi
+            echo "check var param_test_type ${param_test_type}"
 
-            cd package-testing/molecule/pxc
-
-            cd ${product_to_test}-bootstrap
-            export INSTANCE_PRIVATE_IP=\${BOOTSTRAP_INSTANCE_PRIVATE_IP}
-            export INSTANCE_PUBLIC_IP=\${BOOTSTRAP_INSTANCE_PUBLIC_IP}            
-            molecule ${action} -s ${scenario}
-            cd -
-
-            cd ${product_to_test}-common
-            export INSTANCE_PRIVATE_IP=\${COMMON_INSTANCE_PRIVATE_IP}
-            export INSTANCE_PUBLIC_IP=\${COMMON_INSTANCE_PUBLIC_IP}        
-            molecule ${action} -s ${scenario}
-            cd -
-        """
-    }
-}
-
-void setInventories(){
-
-        sh """
-
-            echo \"Setting up Key path based on the selection\"
-
-            if [[ (${params.node_to_test} == "ubuntu-focal")  ||  (${params.node_to_test} == "ubuntu-bionic") || (${params.node_to_test} == "ubuntu-jammy") ]];
-            then
-                SSH_USER="ubuntu"            
-                KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/${product_to_test}-bootstrap/${params.node_to_test}/ssh_key-us-west-2"
-                KEYPATH_COMMON="/home/ec2-user/.cache/molecule/${product_to_test}-common/${params.node_to_test}/ssh_key-us-west-2"
-            elif [[ (${params.node_to_test} == "debian-11") ||  (${params.node_to_test} == "debian-10") ]];
-            then
-                SSH_USER="admin"            
-                KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/${product_to_test}-bootstrap/${params.node_to_test}/ssh_key-us-west-2"
-                KEYPATH_COMMON="/home/ec2-user/.cache/molecule/${product_to_test}-common/${params.node_to_test}/ssh_key-us-west-2"
-            elif [[ (${params.node_to_test} == "ol-8") || (${params.node_to_test} == "ol-9") || (${params.node_to_test} == "min-amazon-2") ]];
-            then
-                SSH_USER="ec2-user"
-                KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/${product_to_test}-bootstrap/${params.node_to_test}/ssh_key-us-west-2"
-                KEYPATH_COMMON="/home/ec2-user/.cache/molecule/${product_to_test}-common/${params.node_to_test}/ssh_key-us-west-2"
-            elif [[ (${params.node_to_test} == "centos-7") ]];
-            then
-                SSH_USER="centos"
-                KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/${product_to_test}-bootstrap/${params.node_to_test}/ssh_key-us-west-2"
-                KEYPATH_COMMON="/home/ec2-user/.cache/molecule/${product_to_test}-common/${params.node_to_test}/ssh_key-us-west-2"
-            else
-                echo "OS Not yet in list of Keypath setup"
-            fi
-
-            echo \"printing path of bootstrap \$KEYPATH_BOOTSTRAP\"
-            echo \"printing path of common  \$KEYPATH_COMMON\"
-            echo \"printing user \$SSH_USER\"
-
-            Bootstrap_Instance=\$(cat \${BOOTSTRAP_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.instance] | jq -r .[])
-            Bootstrap_Instance_Public_IP=\$(cat \${BOOTSTRAP_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.public_ip] | jq -r .[])
-            
-            export ip_env=\$Bootstrap_Instance
-            echo "\n \$Bootstrap_Instance ansible_host=\$Bootstrap_Instance_Public_IP  ansible_ssh_user=\$SSH_USER ansible_ssh_private_key_file=\$KEYPATH_BOOTSTRAP ansible_ssh_common_args='-o StrictHostKeyChecking=no' ip_env=\$Bootstrap_Instance" > ${WORKSPACE}/package-testing/molecule/pxc/${product_to_test}-bootstrap/playbooks/inventory
-
-            export ip_env=\$Common_Instance_PXC2
-            Common_Instance_PXC2=\$(cat \${COMMON_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.instance] | jq -r .[])
-            Common_Instance_PXC2_Public_IP=\$(cat \${COMMON_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.public_ip] | jq -r .[])
-
-            echo "\n \$Common_Instance_PXC2 ansible_host=\$Common_Instance_PXC2_Public_IP   ansible_ssh_user=\$SSH_USER ansible_ssh_private_key_file=\$KEYPATH_COMMON ansible_ssh_common_args='-o StrictHostKeyChecking=no'  ip_env=\$Common_Instance_PXC2" > ${WORKSPACE}/package-testing/molecule/pxc/${product_to_test}-common/playbooks/inventory
-
-            export ip_env=\$Common_Instance_PXC3
-            Common_Instance_PXC3=\$(cat \${COMMON_INSTANCE_PUBLIC_IP} | jq -r .[1] | jq [.instance] | jq -r .[])
-            Common_Instance_PXC3_Public_IP=\$(cat \${COMMON_INSTANCE_PUBLIC_IP} | jq -r .[1] | jq [.public_ip] | jq -r .[])
-
-            echo "\n \$Common_Instance_PXC3 ansible_host=\$Common_Instance_PXC3_Public_IP   ansible_ssh_user=\$SSH_USER ansible_ssh_private_key_file=\$KEYPATH_COMMON ansible_ssh_common_args='-o StrictHostKeyChecking=no'  ip_env=\$Common_Instance_PXC3" >> ${WORKSPACE}/package-testing/molecule/pxc/${product_to_test}-common/playbooks/inventory
+            sh """
+            mkdir -p "${WORKSPACE}/${product_to_test}/${params.node_to_test}/${param_test_type}/"
             """
 
+	        if(param_test_type == "install"){   
+                def install_repo="${test_repo}"
+                def check_version="${version_check}"
+            sh """
+                echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+            """
+            }else if(param_test_type == "upgrade"){
+                def install_repo="main"
+                def check_version="${version_check}"
+                def upgrade_repo="${test_repo}"
+            sh """
+                echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/upgrade/envfile"
+                echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/upgrade/envfile"
+                echo 'upgrade_repo: "${upgrade_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/upgrade/envfile"
+            """
+            }else{
+                echo "Unknown condition"
+            }
+
+    withCredentials(awsCredentials) {
+
+            if(action == "create" || action == "destroy"){
+                sh"""
+                    . virtenv/bin/activate
+                    
+                    
+                    mkdir -p ${WORKSPACE}/install
+                    mkdir -p ${WORKSPACE}/upgrade
+                    
+                    cd package-testing/molecule/pxc
+                    export MOLECULE_DEBUG=1
+                    
+                    echo "param_test_type is ${param_test_type}"
+
+                    cd ${product_to_test}-bootstrap-${param_test_type}
+                    molecule ${action} -s ${scenario}
+                    cd -
+
+                    cd ${product_to_test}-common-${param_test_type}
+                    molecule ${action} -s ${scenario}
+                    cd -
+                """
+            }else{
+                sh"""
+                    . virtenv/bin/activate
+                    cd package-testing/molecule/pxc
+                    export MOLECULE_DEBUG=1
+
+                    echo "param_test_type is ${param_test_type}"
+
+                    cd ${product_to_test}-bootstrap-${param_test_type}
+                    molecule -e ${WORKSPACE}/${product_to_test}/${params.node_to_test}/${param_test_type}/envfile ${action} -s ${scenario}
+                    cd -
+
+                    cd ${product_to_test}-common-${param_test_type}
+                    molecule -e ${WORKSPACE}/${product_to_test}/${params.node_to_test}/${param_test_type}/envfile  ${action} -s ${scenario}
+                    cd -
+                """
+            }
+    }
 }
 
-void runlogsbackup(String product_to_test) {
+void setInventories(String param_test_type){
+
+                    def KEYPATH_BOOTSTRAP
+                    def KEYPATH_COMMON
+                    def SSH_USER
+
+                    KEYPATH_BOOTSTRAP="/home/centos/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${params.node_to_test}/ssh_key-us-west-2"
+                    KEYPATH_COMMON="/home/centos/.cache/molecule/${product_to_test}-common-${param_test_type}/${params.node_to_test}/ssh_key-us-west-2"
+
+
+                    if(("${params.node_to_test}" == "ubuntu-focal")  ||  ("${params.node_to_test}" == "ubuntu-bionic") || ("${params.node_to_test}" == "ubuntu-jammy")){
+                        SSH_USER="ubuntu"            
+                    }else if(("${params.node_to_test}" == "debian-11") ||  ("${params.node_to_test}" == "debian-10")){
+                        SSH_USER="admin"
+                    }else if(("${params.node_to_test}" == "ol-8") || ("${params.node_to_test}" == "ol-9") || ("${params.node_to_test}" == "min-amazon-2")){
+                        SSH_USER="ec2-user"
+                    }else if(("${params.node_to_test}" == "centos-7")){
+                        SSH_USER="centos"
+                    }else{
+                        echo "OS Not yet in list of Keypath setup"
+                    }
+
+                    echo "${SSH_USER}"
+                    echo "${KEYPATH_BOOTSTRAP}"
+                    echo "${KEYPATH_COMMON}"
+
+
+                if(param_test_type == "install"){
+
+                    def INSTALL_Bootstrap_Instance = sh(
+                        script: """cat ${INSTALL_BOOTSTRAP_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.instance] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    def INSTALL_Bootstrap_Instance_Public_IP = sh(
+                        script: """cat ${INSTALL_BOOTSTRAP_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.public_ip] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    def INSTALL_Common_Instance_PXC2 = sh(
+                        script: """cat ${INSTALL_COMMON_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.instance] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    def INSTALL_Common_Instance_PXC2_Public_IP = sh(
+                        script: """cat ${INSTALL_COMMON_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.public_ip] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    def INSTALL_Common_Instance_PXC3 = sh(
+                        script: """cat ${INSTALL_COMMON_INSTANCE_PUBLIC_IP} | jq -r .[1] | jq [.instance] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    def INSTALL_Common_Instance_PXC3_Public_IP = sh(
+                        script: """cat ${INSTALL_COMMON_INSTANCE_PUBLIC_IP} | jq -r .[1] | jq [.public_ip] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    sh """
+                        mkdir -p "${WORKSPACE}/${product_to_test}-bootstrap/${params.node_to_test}/install/"
+                        mkdir -p "${WORKSPACE}/${product_to_test}-common/${params.node_to_test}/install/"
+                        echo \"printing path of bootstrap ${KEYPATH_BOOTSTRAP}"
+                        echo \"printing path of common  ${KEYPATH_COMMON}"
+                        echo \"printing user ${SSH_USER}"
+                        echo "\n ${INSTALL_Bootstrap_Instance} ansible_host=${INSTALL_Bootstrap_Instance_Public_IP}  ansible_ssh_user=${SSH_USER} ansible_ssh_private_key_file=${KEYPATH_BOOTSTRAP} ansible_ssh_common_args='-o StrictHostKeyChecking=no' ip_env=${INSTALL_Bootstrap_Instance}" > ${WORKSPACE}/${product_to_test}-bootstrap/${params.node_to_test}/install/inventory            
+                        echo "\n ${INSTALL_Common_Instance_PXC2} ansible_host=${INSTALL_Common_Instance_PXC2_Public_IP}   ansible_ssh_user=${SSH_USER} ansible_ssh_private_key_file=${KEYPATH_COMMON} ansible_ssh_common_args='-o StrictHostKeyChecking=no'  ip_env=${INSTALL_Common_Instance_PXC2}" > ${WORKSPACE}/${product_to_test}-common/${params.node_to_test}/install/inventory
+                        echo "\n ${INSTALL_Common_Instance_PXC3} ansible_host=${INSTALL_Common_Instance_PXC3_Public_IP}   ansible_ssh_user=${SSH_USER} ansible_ssh_private_key_file=${KEYPATH_COMMON} ansible_ssh_common_args='-o StrictHostKeyChecking=no'  ip_env=${INSTALL_Common_Instance_PXC3}" >> ${WORKSPACE}/${product_to_test}-common/${params.node_to_test}/install/inventory
+                    """
+
+                }else if(param_test_type == "upgrade"){
+
+                    def UPGRADE_Bootstrap_Instance = sh(
+                        script: """cat ${UPGRADE_BOOTSTRAP_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.instance] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    def UPGRADE_Bootstrap_Instance_Public_IP = sh(
+                        script: """cat ${UPGRADE_BOOTSTRAP_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.public_ip] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    def UPGRADE_Common_Instance_PXC2 = sh(
+                        script: """cat ${UPGRADE_COMMON_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.instance] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    def UPGRADE_Common_Instance_PXC2_Public_IP = sh(
+                        script: """cat ${UPGRADE_COMMON_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.public_ip] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    def UPGRADE_Common_Instance_PXC3 = sh(
+                        script: """cat ${UPGRADE_COMMON_INSTANCE_PUBLIC_IP} | jq -r .[1] | jq [.instance] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    def UPGRADE_Common_Instance_PXC3_Public_IP = sh(
+                        script: """cat ${UPGRADE_COMMON_INSTANCE_PUBLIC_IP} | jq -r .[1] | jq [.public_ip] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+                    sh """
+                        echo \"printing path of bootstrap ${KEYPATH_BOOTSTRAP}"
+                        echo \"printing path of common  ${KEYPATH_COMMON}"
+                        echo \"printing user ${SSH_USER}"
+                        mkdir -p "${WORKSPACE}/${product_to_test}-bootstrap/${params.node_to_test}/upgrade/"
+                        mkdir -p "${WORKSPACE}/${product_to_test}-common/${params.node_to_test}/upgrade/"
+                        echo "\n ${UPGRADE_Bootstrap_Instance} ansible_host=${UPGRADE_Bootstrap_Instance_Public_IP}  ansible_ssh_user=${SSH_USER} ansible_ssh_private_key_file=${KEYPATH_BOOTSTRAP} ansible_ssh_common_args='-o StrictHostKeyChecking=no' ip_env=${UPGRADE_Bootstrap_Instance}" > ${WORKSPACE}/${product_to_test}-bootstrap/${params.node_to_test}/upgrade/inventory            
+                        echo "\n ${UPGRADE_Common_Instance_PXC2} ansible_host=${UPGRADE_Common_Instance_PXC2_Public_IP}   ansible_ssh_user=${SSH_USER} ansible_ssh_private_key_file=${KEYPATH_COMMON} ansible_ssh_common_args='-o StrictHostKeyChecking=no'  ip_env=${UPGRADE_Common_Instance_PXC2}" > ${WORKSPACE}/${product_to_test}-common/${params.node_to_test}/upgrade/inventory
+                        echo "\n ${UPGRADE_Common_Instance_PXC3} ansible_host=${UPGRADE_Common_Instance_PXC3_Public_IP}   ansible_ssh_user=${SSH_USER} ansible_ssh_private_key_file=${KEYPATH_COMMON} ansible_ssh_common_args='-o StrictHostKeyChecking=no'  ip_env=${UPGRADE_Common_Instance_PXC3}" >> ${WORKSPACE}/${product_to_test}-common/${params.node_to_test}/upgrade/inventory
+                    """
+                    
+                }
+
+
+}
+
+void runlogsbackup(String product_to_test, String param_test_type) {
     def awsCredentials = [
         sshUserPrivateKey(
             credentialsId: 'MOLECULE_AWS_PRIVATE_KEY',
@@ -151,13 +247,13 @@ void runlogsbackup(String product_to_test) {
 
     withCredentials(awsCredentials) {
         sh """
-            source venv/bin/activate
+            . virtenv/bin/activate
 
             echo "Running the logs backup task for pxc bootstrap node"
-            ansible-playbook ${WORKSPACE}/package-testing/molecule/pxc/playbooks/logsbackup.yml -i ${WORKSPACE}/package-testing/molecule/pxc/${product_to_test}-bootstrap/playbooks/inventory
+            ansible-playbook ${WORKSPACE}/package-testing/molecule/pxc/playbooks/logsbackup.yml -i  ${WORKSPACE}/${product_to_test}-bootstrap/${params.node_to_test}/${param_test_type}/inventory -e @${WORKSPACE}/${product_to_test}/${params.node_to_test}/${param_test_type}/envfile
 
             echo "Running the logs backup task for pxc common node"
-            ansible-playbook ${WORKSPACE}/package-testing/molecule/pxc/playbooks/logsbackup.yml -i ${WORKSPACE}/package-testing/molecule/pxc/${product_to_test}-common/playbooks/inventory
+            ansible-playbook ${WORKSPACE}/package-testing/molecule/pxc/playbooks/logsbackup.yml -i  ${WORKSPACE}/${product_to_test}-common/${params.node_to_test}/${param_test_type}/inventory -e @${WORKSPACE}/${product_to_test}/${params.node_to_test}/${param_test_type}/envfile
         """
     }
     
@@ -165,25 +261,10 @@ void runlogsbackup(String product_to_test) {
     
 }
 
-
-void setInstancePrivateIPEnvironment() {
-    env.PXC1_IP = sh(
-        script: 'jq -r \'.[] | select(.instance | startswith("pxc1")).private_ip\' ${BOOTSTRAP_INSTANCE_PRIVATE_IP}',
-        returnStdout: true
-    ).trim()
-    env.PXC2_IP = sh(
-        script: 'jq -r \'.[] | select(.instance | startswith("pxc2")).private_ip\' ${COMMON_INSTANCE_PRIVATE_IP}',
-        returnStdout: true
-    ).trim()
-    env.PXC3_IP = sh(
-        script: 'jq -r \'.[] | select(.instance | startswith("pxc3")).private_ip\' ${COMMON_INSTANCE_PRIVATE_IP}',
-        returnStdout: true
-    ).trim()
-}
 
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'min-centos-7-x64'
     }
 
     options {
@@ -192,11 +273,19 @@ pipeline {
 
     environment {
 
-        BOOTSTRAP_INSTANCE_PRIVATE_IP = "${WORKSPACE}/bootstrap_instance_private_ip.json"
-        COMMON_INSTANCE_PRIVATE_IP = "${WORKSPACE}/common_instance_private_ip.json"
+        INSTALL_BOOTSTRAP_INSTANCE_PRIVATE_IP = "${WORKSPACE}/install/bootstrap_instance_private_ip.json"
+        INSTALL_COMMON_INSTANCE_PRIVATE_IP = "${WORKSPACE}/install/common_instance_private_ip.json"
 
-        BOOTSTRAP_INSTANCE_PUBLIC_IP = "${WORKSPACE}/bootstrap_instance_public_ip.json"
-        COMMON_INSTANCE_PUBLIC_IP  = "${WORKSPACE}/common_instance_public_ip.json"
+        INSTALL_BOOTSTRAP_INSTANCE_PUBLIC_IP = "${WORKSPACE}/install/bootstrap_instance_public_ip.json"
+        INSTALL_COMMON_INSTANCE_PUBLIC_IP  = "${WORKSPACE}/install/common_instance_public_ip.json"
+
+
+
+        UPGRADE_BOOTSTRAP_INSTANCE_PRIVATE_IP = "${WORKSPACE}/upgrade/bootstrap_instance_private_ip.json"
+        UPGRADE_COMMON_INSTANCE_PRIVATE_IP = "${WORKSPACE}/upgrade/common_instance_private_ip.json"
+        
+        UPGRADE_BOOTSTRAP_INSTANCE_PUBLIC_IP = "${WORKSPACE}/upgrade/bootstrap_instance_public_ip.json"
+        UPGRADE_COMMON_INSTANCE_PUBLIC_IP  = "${WORKSPACE}/upgrade/common_instance_public_ip.json"
 
         JENWORKSPACE = "${env.WORKSPACE}"
 
@@ -239,7 +328,8 @@ pipeline {
             name: 'test_type',
             choices: [
                 'install',
-                'upgrade'
+                'upgrade',
+                'install_and_upgrade'
             ],
             description: 'Set test type for testing'
         )      
@@ -263,47 +353,94 @@ pipeline {
                     currentBuild.displayName = "${env.BUILD_NUMBER}-${params.product_to_test}-${params.node_to_test}-${params.test_repo}-${params.test_type}"                    
                     if (( params.test_type == "upgrade" ) && ( params.test_repo == "main" )) {
                          echo "Skipping as the upgrade and main are not supported together."
-                         error "Exiting the Stage as the inputs are invalid."
+                         echo "Exiting the Stage as the inputs are invalid."
+                         currentBuild.result = 'UNSTABLE'
                     } else {
                          echo "Continue with the package tests"
                     }                
                 }   
                 echo "${JENWORKSPACE}"
-                installDependencies()
+                //installDependencies()
+                installMolecule()
+                    sh '''
+                        sudo yum install -y epel-release 
+                        sudo yum install -y git jq
+                        rm -rf package-testing                    
+                        git clone https://github.com/panchal-yash/package-testing --branch wip-pxc-package-testing-upgrade-test
+                    '''
             }
         }
-
-        stage("Create") {
-            steps {
-                runMoleculeAction("create", params.product_to_test, params.node_to_test)
-                setInstancePrivateIPEnvironment()
-            }
-        }
-
-        stage("Converge") {
-            steps {
-                script{
-                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                        runMoleculeAction("converge", params.product_to_test, params.node_to_test)
-                    }
+        
+        stage("Run parallel Install and UPGRADE"){
+            parallel{
+                stage("INSTALL") {
+                            when {
+                                expression{params.test_type == "install" || params.test_type == "install_and_upgrade"}
+                            }
+                             
+                            steps {
+                                script{
+                                    def param_test_type = "install"   
+                                    echo "1. Creating Molecule Instances for running INSTALL PXC tests.. Molecule create step"
+                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes")
+                                    echo "2. Run Install scripts and tests for PXC INSTALL PXC tests.. Molecule converge step"
+                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                        runMoleculeAction("converge", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes")
+                                    }
+                                }
+                            }
+                            post{
+                                always{
+                                    script{
+                                        def param_test_type = "install" 
+                                        echo "Always INSTALL"
+                                        echo "3. Take Backups of the Logs.. PXC INSTALL tests.."
+                                        setInventories("install")
+                                        runlogsbackup(params.product_to_test, "install")
+                                        echo "4. Destroy the Molecule instances for the PXC INSTALL tests.."
+                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes")
+                                    }
+                                }
+                            }
                 }
-            }
-        }
 
-        stage("Upgrade") {
-            steps {
-                script{
-                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                        runMoleculeAction("side-effect", params.product_to_test, params.node_to_test)
-                    }
+                stage("UPGRADE") {
+                            when {
+                                allOf{
+                                    expression{params.test_type == "upgrade" || params.test_type == "install_and_upgrade"}
+                                    expression{params.test_repo != "main"}                
+                                }
+                            }
+                            steps {
+                                script{
+                                    echo "UPGRADE STAGE INSIDE"
+                                    def param_test_type = "upgrade"   
+                                    echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
+                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "upgrade", "main", "no")
+                                    setInventories("upgrade")
+                                    echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
+                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "upgrade", "main", "no")
+                                        }
+                                    echo "3. Run UPGRADE scripts and playbooks for running PXC UPGRADE tests.. Molecule side-effect step"
+                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "upgrade", params.test_repo, "yes")
+                                        }
+                                }
+                            }
+                            post{
+                                always{
+                                    script{
+                                        def param_test_type = "upgrade"
+                                        echo "4. Take Backups of the Logs.. for PXC UPGRADE tests"
+                                        setInventories("upgrade")
+                                        runlogsbackup(params.product_to_test, "upgrade")
+                                        echo "5. Destroy the Molecule instances for PXC UPGRADE tests.."
+                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "upgrade", params.test_repo, "yes")
+                                    }
+                                }
+                            }
                 }
-            }
-        }
-
-        stage("Logs Backup ansible playbook") {
-            steps {
-                setInventories()
-                runlogsbackup(params.product_to_test)
             }
         }
 
@@ -312,18 +449,17 @@ pipeline {
     post {
 
         always {
-            script {
-                runMoleculeAction("destroy", params.product_to_test, params.node_to_test)
-            }
-            archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
+             catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
+             }
         }
 
         unstable {
-                slackSend channel: '#dev-server-qa', color: '#DEFF13', message: "[${env.JOB_NAME}]: Failed during the Package testing (Unstable Build) [${env.BUILD_URL}] Parameters: product_to_test: ${params.product_to_test} , node_to_test: ${params.node_to_test} , test_repo: ${params.test_repo}"
+                slackSend channel: '#dev-server-qa', color: '#DEFF13', message: "[${env.JOB_NAME}]: Failed during the Package testing (Unstable Build) [${env.BUILD_URL}] Parameters: product_to_test: ${params.product_to_test} , node_to_test: ${params.node_to_test} , test_repo: ${params.test_repo}, test_type: ${params.test_type}"
         }
 
         failure {
-                slackSend channel: '#dev-server-qa', color: '#FF0000', message: "[${env.JOB_NAME}]: Failed during the Package testing (Build Failed) [${env.BUILD_URL}] Parameters: product_to_test: ${params.product_to_test} , node_to_test: ${params.node_to_test} , test_repo: ${params.test_repo}"
+                slackSend channel: '#dev-server-qa', color: '#FF0000', message: "[${env.JOB_NAME}]: Failed during the Package testing (Build Failed) [${env.BUILD_URL}] Parameters: product_to_test: ${params.product_to_test} , node_to_test: ${params.node_to_test} , test_repo: ${params.test_repo}, test_type: ${params.test_type}"
         }
 
 

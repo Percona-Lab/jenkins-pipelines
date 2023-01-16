@@ -47,12 +47,6 @@
                 - "experimental"
             description: "Repo to install packages from"
         - choice:
-            name: test_type
-            choices:
-                - "install"
-                - "upgrade"
-            description: "Set test type for testing"     
-        - choice:
             name: pxc57_repo
             choices:
                 - "original"
