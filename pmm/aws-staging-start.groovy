@@ -113,6 +113,7 @@ pipeline {
             name: 'VERSION_SERVICE_IMAGE')
         text(
             defaultValue: '-e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX',
+            defaultValue: '-e PMM_DEBUG=1 -e PERCONA_TEST_TELEMETRY_INTERVAL=10s  -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ -e PERCONA_PORTAL_URL=https://portal-dev.percona.com  -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443',
             description: '''
             Passing Env Variables to PMM Server Docker Container, supported only for pmm2.x
             An Example: -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PMM_DEBUG=1
