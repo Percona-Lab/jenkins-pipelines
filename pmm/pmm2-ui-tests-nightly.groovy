@@ -116,6 +116,8 @@ pipeline {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
         REMOTE_AWS_MYSQL_PASSWORD=credentials('pmm-dev-remote-password')
         REMOTE_AWS_MYSQL57_HOST=credentials('pmm-dev-mysql57-remote-host')
+        OKTA_TOKEN=credentials('OKTA_TOKEN')
+        PORTAL_BASE_URL=credentials('PORTAL_BASE_URL')
         REMOTE_MYSQL_HOST=credentials('mysql-remote-host')
         REMOTE_MYSQL_USER=credentials('mysql-remote-user')
         REMOTE_MYSQL_PASSWORD=credentials('mysql-remote-password')
