@@ -1,15 +1,14 @@
 void CreateCluster( String CLUSTER_SUFFIX ){
 
     sh """
-        echo ${CLUSTER_PREFIX}
-cat <<-EOF > cluster-${CLUSTER_PREFIX}.yaml
+cat <<-EOF > cluster-${CLUSTER_SUFFIX}.yaml
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
 ---
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-    name: $CLUSTER_NAME-${CLUSTER_PREFIX}
+    name: $CLUSTER_NAME-${CLUSTER_SUFFIX}
     region: eu-west-3
     version: "$PLATFORM_VER"
 
@@ -45,22 +44,22 @@ EOF
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             export PATH=/home/ec2-user/.local/bin:$PATH
             source $HOME/google-cloud-sdk/path.bash.inc
-            eksctl create cluster -f cluster-${CLUSTER_PREFIX}.yaml
+            eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
         """
     }
-    stash includes: "cluster-$CLUSTER_SUFFIX.yaml", name: "cluster_conf_${CLUSTER_PREFIX}"
+    stash includes: "cluster-$CLUSTER_SUFFIX.yaml", name: "cluster_conf_${CLUSTER_SUFFIX}"
 }
 
 void ShutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         unstash "cluster_conf_$CLUSTER_SUFFIX"
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
-            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-${CLUSTER_PREFIX} --region eu-west-3
-            eksctl delete cluster -f cluster-${CLUSTER_PREFIX}.yaml --wait --force --disable-nodegroup-eviction
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
+            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-${CLUSTER_SUFFIX} --region eu-west-3
+            eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction
         """
     }
 }
@@ -105,7 +104,7 @@ void makeReport() {
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
+void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     def retryCount = 0
     waitUntil {
         try {
@@ -152,7 +151,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
 
                         export PATH=/home/ec2-user/.local/bin:$PATH
                         source $HOME/google-cloud-sdk/path.bash.inc
-                        export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
 
                         ./e2e-tests/$TEST_NAME/run
                     fi

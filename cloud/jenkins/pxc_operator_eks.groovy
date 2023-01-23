@@ -44,7 +44,7 @@ EOF
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             export PATH=/home/ec2-user/.local/bin:$PATH
             source $HOME/google-cloud-sdk/path.bash.inc
 
@@ -58,7 +58,7 @@ void ShutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         unstash "cluster_conf_$CLUSTER_SUFFIX"
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-${CLUSTER_SUFFIX} --region eu-west-3
             eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction
         """
@@ -104,7 +104,7 @@ void makeReport() {
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
+void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     def retryCount = 0
     waitUntil {
         try {
@@ -164,7 +164,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
 
                             export PATH=/home/ec2-user/.local/bin:$PATH
                             source $HOME/google-cloud-sdk/path.bash.inc
-                            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
 
                             ./e2e-tests/$TEST_NAME/run
                         fi
@@ -188,14 +188,14 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     echo "The $TEST_NAME test was finished!"
 }
 
-void conditionalRunTest(String TEST_NAME, String CLUSTER_PREFIX) {
+void conditionalRunTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     if ( TEST_NAME == 'default-cr' ) {
         if ( params.GIT_BRANCH.contains('release-') ) {
-            runTest(TEST_NAME, CLUSTER_PREFIX)
+            runTest(TEST_NAME, CLUSTER_SUFFIX)
         }
         return 0
     }
-    runTest(TEST_NAME, CLUSTER_PREFIX)
+    runTest(TEST_NAME, CLUSTER_SUFFIX)
 }
 
 void installRpms() {
