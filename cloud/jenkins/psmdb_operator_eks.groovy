@@ -305,58 +305,62 @@ pipeline {
                 IsRunTestsInClusterWide()
            }
         }
-        stage('E2E Scaling') {
-            steps {
-                CreateCluster('scaling')
-                runTest('init-deploy', "scaling")
-                runTest('limits', "scaling")
-                runTest('scaling', "scaling")
-                runTest('security-context', "scaling")
-                runTest('smart-update', "scaling")
-                runTest('version-service', "scaling")
-                runTest('rs-shard-migration', "scaling")
-                ShutdownCluster('scaling')
-            }
-        }
-        stage('E2E Basic Tests') {
-            steps {
-                CreateCluster('basic')
-                conditionalRunTest('default-cr')
-                runTest('one-pod', 'basic')
-                runTest('monitoring-2-0', 'basic')
-                runTest('arbiter', 'basic')
-                runTest('service-per-pod', 'basic')
-                runTest('liveness', 'basic')
-                runTest('users', 'basic')
-                runTest('data-sharded', 'basic')
-                runTest('non-voting', 'basic')
-                runTest('cross-site-sharded', 'basic')
-                runTest('data-at-rest-encryption', 'basic')
-                ShutdownCluster('basic')
-           }
-        }
-        stage('E2E SelfHealing') {
-            steps {
-                CreateCluster('selfhealing')
-                runTest('storage', 'selfhealing')
-                runTest('self-healing-chaos', 'selfhealing')
-                runTest('operator-self-healing-chaos', 'selfhealing')
-                ShutdownCluster('selfhealing')
-            }
-        }
-        stage('E2E Backups') {
-            steps {
-                CreateCluster('backups')
-                runTest('upgrade', 'backups')
-                runTest('upgrade-consistency', 'backups')
-                runTest('demand-backup', 'backups')
-                runTest('demand-backup-sharded', 'backups')
-                runTest('scheduled-backup', 'backups')
-                runTest('upgrade-sharded', 'backups')
-                runTest('pitr', 'backups')
-                runTest('pitr-sharded', 'backups')
-                runTest('demand-backup-eks-credentials', 'backups')
-                ShutdownCluster('backups')
+        stage('Run tests') {
+            parallel {
+                stage('E2E Scaling') {
+                    steps {
+                        CreateCluster('scaling')
+                        runTest('init-deploy', "scaling")
+                        runTest('limits', "scaling")
+                        runTest('scaling', "scaling")
+                        runTest('security-context', "scaling")
+                        runTest('smart-update', "scaling")
+                        runTest('version-service', "scaling")
+                        runTest('rs-shard-migration', "scaling")
+                        ShutdownCluster('scaling')
+                    }
+                }
+                stage('E2E Basic Tests') {
+                    steps {
+                        CreateCluster('basic')
+                        conditionalRunTest('default-cr')
+                        runTest('one-pod', 'basic')
+                        runTest('monitoring-2-0', 'basic')
+                        runTest('arbiter', 'basic')
+                        runTest('service-per-pod', 'basic')
+                        runTest('liveness', 'basic')
+                        runTest('users', 'basic')
+                        runTest('data-sharded', 'basic')
+                        runTest('non-voting', 'basic')
+                        runTest('cross-site-sharded', 'basic')
+                        runTest('data-at-rest-encryption', 'basic')
+                        ShutdownCluster('basic')
+                    }
+                }
+                stage('E2E SelfHealing') {
+                    steps {
+                        CreateCluster('selfhealing')
+                        runTest('storage', 'selfhealing')
+                        runTest('self-healing-chaos', 'selfhealing')
+                        runTest('operator-self-healing-chaos', 'selfhealing')
+                        ShutdownCluster('selfhealing')
+                    }
+                }
+                stage('E2E Backups') {
+                    steps {
+                        CreateCluster('backups')
+                        runTest('upgrade', 'backups')
+                        runTest('upgrade-consistency', 'backups')
+                        runTest('demand-backup', 'backups')
+                        runTest('demand-backup-sharded', 'backups')
+                        runTest('scheduled-backup', 'backups')
+                        runTest('upgrade-sharded', 'backups')
+                        runTest('pitr', 'backups')
+                        runTest('pitr-sharded', 'backups')
+                        runTest('demand-backup-eks-credentials', 'backups')
+                        ShutdownCluster('backups')
+                    }
+                }
             }
         }
         stage('Make report') {
