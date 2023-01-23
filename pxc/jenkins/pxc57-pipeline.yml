@@ -32,7 +32,7 @@
         description: URL to PXB24 repository
     - string:
         name: PXB24_BRANCH
-        default: percona-xtrabackup-2.4.20
+        default: percona-xtrabackup-2.4.27
         description: Tag/Branch for PXC repository
     - choice:
         name: JOB_CMAKE
@@ -96,9 +96,11 @@
          type: user-defined
          name: DOCKER_OS
          values:
-          - centos:6
           - centos:7
           - centos:8
+          - oraclelinux:9
           - ubuntu:bionic
           - ubuntu:focal
+          - ubuntu:jammy
           - debian:buster
+          - debian:bullseye

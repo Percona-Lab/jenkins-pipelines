@@ -8,9 +8,9 @@
     properties:
         - build-discarder:
             artifact-days-to-keep: -1
-            artifact-num-to-keep: 10
+            artifact-num-to-keep: 20
             days-to-keep: -1
-            num-to-keep: 10
+            num-to-keep: 20
     pipeline-scm:
         scm:
             - git:
@@ -22,25 +22,34 @@
         script-path: pxc/jenkins/pxc-package-testing.groovy
     parameters:
         - choice:
-            name: VERSION
+            name: product_to_test
             choices:
                 - 'pxc80'
                 - 'pxc57'
             description: "PXC version to test"
         - choice:
-            name: TEST_DIST
+            name: node_to_test
             choices:
+                - 'ubuntu-jammy'
                 - 'ubuntu-focal'
                 - 'ubuntu-bionic'
                 - 'debian-11'
                 - 'debian-10'
                 - 'centos-7'
-                - 'ol-8'                
+                - 'ol-8'
+                - 'ol-9'
+                - 'min-amazon-2'
             description: "Distribution to run test"
         - choice:
-            name: INSTALL_REPO
+            name: install_repo
             choices:
                 - "testing"
                 - "main"
                 - "experimental"
             description: "Repo to install packages from"
+        - choice:
+            name: pxc57_repo
+            choices:
+                - "original"
+                - "pxc57"
+            description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."

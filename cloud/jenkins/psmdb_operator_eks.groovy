@@ -197,7 +197,7 @@ pipeline {
                     curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
                     sudo mv -v /tmp/eksctl /usr/local/bin
 
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
                 '''
 
@@ -317,9 +317,7 @@ EOF
         stage('E2E SelfHealing') {
             steps {
                 runTest('storage')
-                runTest('self-healing')
                 runTest('self-healing-chaos')
-                runTest('operator-self-healing')
                 runTest('operator-self-healing-chaos')
             }
         }

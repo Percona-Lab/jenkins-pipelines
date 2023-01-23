@@ -1,4 +1,5 @@
-pipeline_timeout = 10
+def JENKINS_SCRIPTS_BRANCH = 'master'
+def JENKINS_SCRIPTS_REPO = 'https://github.com/Percona-Lab/jenkins-pipelines'
 
 pipeline {
     parameters {
@@ -22,12 +23,12 @@ pipeline {
             name: 'PXB24_REPO',
             trim: true)
         string(
-            defaultValue: 'percona-xtrabackup-2.4.20',
+            defaultValue: 'percona-xtrabackup-2.4.27',
             description: 'Tag/Branch for PXC repository',
             name: 'PXB24_BRANCH',
             trim: true)
         choice(
-            choices: 'centos:6\ncentos:7\ncentos:8\nubuntu:bionic\nubuntu:focal\ndebian:buster',
+            choices: 'centos:7\ncentos:8\noraclelinux:9\nubuntu:bionic\nubuntu:focal\nubuntu:jammy\ndebian:buster\ndebian:bullseye',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -135,7 +136,7 @@ pipeline {
                 stage('Build PXB24') {
                     agent { label 'docker' }
                     steps {
-                        git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
                         echo 'Checkout PXB24 sources'
                         sh '''
                             # sudo is needed for better node recovery after compilation failure
@@ -145,7 +146,7 @@ pipeline {
                             sudo rm -rf sources
                             ./pxc/local/checkout57 PXB24
                         '''
-                        echo 'Build PXB23'
+                        echo 'Build PXB24'
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''
                                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
@@ -173,7 +174,7 @@ pipeline {
         stage('Build PXC57') {
                 agent { label 'docker-32gb' }
                 steps {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
                     echo 'Checkout PXC57 sources'
                     sh '''
                         # sudo is needed for better node recovery after compilation failure
@@ -210,7 +211,7 @@ pipeline {
         stage('Test PXC57') {
                 agent { label 'docker-32gb' }
                 steps {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
                     echo 'Test PXC57'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''

@@ -21,7 +21,7 @@ void installDependencies() {
 
 }
 
-void runMoleculeAction(String action, String version, String scenario) {
+void runMoleculeAction(String action, String product_to_test, String scenario) {
     def awsCredentials = [
         sshUserPrivateKey(
             credentialsId: 'MOLECULE_AWS_PRIVATE_KEY',
@@ -40,16 +40,24 @@ void runMoleculeAction(String action, String version, String scenario) {
         sh """
             source venv/bin/activate
             export MOLECULE_DEBUG=0
-            export install_repo=${params.INSTALL_REPO}
+            export install_repo=${params.install_repo}
+            
+            if [[ ${product_to_test} = "pxc57" ]];
+            then
+                export pxc57repo=${params.pxc57_repo}
+            else
+                echo "Product is not pxc57 so skipping value assignment to it"
+            fi
+            
             cd package-testing/molecule/pxc
 
-            cd ${version}-bootstrap
+            cd ${product_to_test}-bootstrap
             export INSTANCE_PRIVATE_IP=\${BOOTSTRAP_INSTANCE_PRIVATE_IP}
             export INSTANCE_PUBLIC_IP=\${BOOTSTRAP_INSTANCE_PUBLIC_IP}            
             molecule ${action} -s ${scenario}
             cd -
 
-            cd ${version}-common
+            cd ${product_to_test}-common
             export INSTANCE_PRIVATE_IP=\${COMMON_INSTANCE_PRIVATE_IP}
             export INSTANCE_PUBLIC_IP=\${COMMON_INSTANCE_PUBLIC_IP}        
             molecule ${action} -s ${scenario}
@@ -64,26 +72,26 @@ void setInventories(){
 
             echo \"Setting up Key path based on the selection\"
 
-            if [[ (${params.TEST_DIST} == "ubuntu-focal")  ||  (${params.TEST_DIST} == "ubuntu-bionic") ]];
+            if [[ (${params.node_to_test} == "ubuntu-focal")  ||  (${params.node_to_test} == "ubuntu-bionic") || (${params.node_to_test} == "ubuntu-jammy") ]];
             then
                 SSH_USER="ubuntu"            
-                KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/pxc80-bootstrap/${params.TEST_DIST}/ssh_key-us-west-2"
-                KEYPATH_COMMON="/home/ec2-user/.cache/molecule/pxc80-common/${params.TEST_DIST}/ssh_key-us-west-2"
-            elif [[ (${params.TEST_DIST} == "debian-11") ||  (${params.TEST_DIST} == "debian-10") ]];
+                KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/${product_to_test}-bootstrap/${params.node_to_test}/ssh_key-us-west-2"
+                KEYPATH_COMMON="/home/ec2-user/.cache/molecule/${product_to_test}-common/${params.node_to_test}/ssh_key-us-west-2"
+            elif [[ (${params.node_to_test} == "debian-11") ||  (${params.node_to_test} == "debian-10") ]];
             then
                 SSH_USER="admin"            
-                KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/pxc80-bootstrap/${params.TEST_DIST}/ssh_key-us-west-2"
-                KEYPATH_COMMON="/home/ec2-user/.cache/molecule/pxc80-common/${params.TEST_DIST}/ssh_key-us-west-2"
-            elif [[ (${params.TEST_DIST} == "ol-8") ]];
+                KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/${product_to_test}-bootstrap/${params.node_to_test}/ssh_key-us-west-2"
+                KEYPATH_COMMON="/home/ec2-user/.cache/molecule/${product_to_test}-common/${params.node_to_test}/ssh_key-us-west-2"
+            elif [[ (${params.node_to_test} == "ol-8") || (${params.node_to_test} == "ol-9") || (${params.node_to_test} == "min-amazon-2") ]];
             then
                 SSH_USER="ec2-user"
-                KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/pxc80-bootstrap/${params.TEST_DIST}/ssh_key-us-west-2"
-                KEYPATH_COMMON="/home/ec2-user/.cache/molecule/pxc80-common/${params.TEST_DIST}/ssh_key-us-west-2"
-            elif [[ (${params.TEST_DIST} == "centos-7") ]];
+                KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/${product_to_test}-bootstrap/${params.node_to_test}/ssh_key-us-west-2"
+                KEYPATH_COMMON="/home/ec2-user/.cache/molecule/${product_to_test}-common/${params.node_to_test}/ssh_key-us-west-2"
+            elif [[ (${params.node_to_test} == "centos-7") ]];
             then
                 SSH_USER="centos"
-                KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/pxc80-bootstrap/${params.TEST_DIST}/ssh_key-us-west-2"
-                KEYPATH_COMMON="/home/ec2-user/.cache/molecule/pxc80-common/${params.TEST_DIST}/ssh_key-us-west-2"
+                KEYPATH_BOOTSTRAP="/home/ec2-user/.cache/molecule/${product_to_test}-bootstrap/${params.node_to_test}/ssh_key-us-west-2"
+                KEYPATH_COMMON="/home/ec2-user/.cache/molecule/${product_to_test}-common/${params.node_to_test}/ssh_key-us-west-2"
             else
                 echo "OS Not yet in list of Keypath setup"
             fi
@@ -96,24 +104,24 @@ void setInventories(){
             Bootstrap_Instance_Public_IP=\$(cat \${BOOTSTRAP_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.public_ip] | jq -r .[])
             
             export ip_env=\$Bootstrap_Instance
-            echo "\n \$Bootstrap_Instance ansible_host=\$Bootstrap_Instance_Public_IP  ansible_ssh_user=\$SSH_USER ansible_ssh_private_key_file=\$KEYPATH_BOOTSTRAP ansible_ssh_common_args='-o StrictHostKeyChecking=no' ip_env=\$Bootstrap_Instance" > ${WORKSPACE}/package-testing/molecule/pxc/${version}-bootstrap/playbooks/inventory
+            echo "\n \$Bootstrap_Instance ansible_host=\$Bootstrap_Instance_Public_IP  ansible_ssh_user=\$SSH_USER ansible_ssh_private_key_file=\$KEYPATH_BOOTSTRAP ansible_ssh_common_args='-o StrictHostKeyChecking=no' ip_env=\$Bootstrap_Instance" > ${WORKSPACE}/package-testing/molecule/pxc/${product_to_test}-bootstrap/playbooks/inventory
 
             export ip_env=\$Common_Instance_PXC2
             Common_Instance_PXC2=\$(cat \${COMMON_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.instance] | jq -r .[])
             Common_Instance_PXC2_Public_IP=\$(cat \${COMMON_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.public_ip] | jq -r .[])
 
-            echo "\n \$Common_Instance_PXC2 ansible_host=\$Common_Instance_PXC2_Public_IP   ansible_ssh_user=\$SSH_USER ansible_ssh_private_key_file=\$KEYPATH_COMMON ansible_ssh_common_args='-o StrictHostKeyChecking=no'  ip_env=\$Common_Instance_PXC2" > ${WORKSPACE}/package-testing/molecule/pxc/${version}-common/playbooks/inventory
+            echo "\n \$Common_Instance_PXC2 ansible_host=\$Common_Instance_PXC2_Public_IP   ansible_ssh_user=\$SSH_USER ansible_ssh_private_key_file=\$KEYPATH_COMMON ansible_ssh_common_args='-o StrictHostKeyChecking=no'  ip_env=\$Common_Instance_PXC2" > ${WORKSPACE}/package-testing/molecule/pxc/${product_to_test}-common/playbooks/inventory
 
             export ip_env=\$Common_Instance_PXC3
             Common_Instance_PXC3=\$(cat \${COMMON_INSTANCE_PUBLIC_IP} | jq -r .[1] | jq [.instance] | jq -r .[])
             Common_Instance_PXC3_Public_IP=\$(cat \${COMMON_INSTANCE_PUBLIC_IP} | jq -r .[1] | jq [.public_ip] | jq -r .[])
 
-            echo "\n \$Common_Instance_PXC3 ansible_host=\$Common_Instance_PXC3_Public_IP   ansible_ssh_user=\$SSH_USER ansible_ssh_private_key_file=\$KEYPATH_COMMON ansible_ssh_common_args='-o StrictHostKeyChecking=no'  ip_env=\$Common_Instance_PXC3" >> ${WORKSPACE}/package-testing/molecule/pxc/${version}-common/playbooks/inventory
+            echo "\n \$Common_Instance_PXC3 ansible_host=\$Common_Instance_PXC3_Public_IP   ansible_ssh_user=\$SSH_USER ansible_ssh_private_key_file=\$KEYPATH_COMMON ansible_ssh_common_args='-o StrictHostKeyChecking=no'  ip_env=\$Common_Instance_PXC3" >> ${WORKSPACE}/package-testing/molecule/pxc/${product_to_test}-common/playbooks/inventory
             """
 
 }
 
-void runlogsbackup(String version) {
+void runlogsbackup(String product_to_test) {
     def awsCredentials = [
         sshUserPrivateKey(
             credentialsId: 'MOLECULE_AWS_PRIVATE_KEY',
@@ -133,10 +141,10 @@ void runlogsbackup(String version) {
             source venv/bin/activate
 
             echo "Running the logs backup task for pxc bootstrap node"
-            ansible-playbook ${WORKSPACE}/package-testing/molecule/pxc/playbooks/logsbackup.yml -i ${WORKSPACE}/package-testing/molecule/pxc/${version}-bootstrap/playbooks/inventory
+            ansible-playbook ${WORKSPACE}/package-testing/molecule/pxc/playbooks/logsbackup.yml -i ${WORKSPACE}/package-testing/molecule/pxc/${product_to_test}-bootstrap/playbooks/inventory
 
             echo "Running the logs backup task for pxc common node"
-            ansible-playbook ${WORKSPACE}/package-testing/molecule/pxc/playbooks/logsbackup.yml -i ${WORKSPACE}/package-testing/molecule/pxc/${version}-common/playbooks/inventory
+            ansible-playbook ${WORKSPACE}/package-testing/molecule/pxc/playbooks/logsbackup.yml -i ${WORKSPACE}/package-testing/molecule/pxc/${product_to_test}-common/playbooks/inventory
         """
     }
     
@@ -183,33 +191,41 @@ pipeline {
 
     parameters {
         choice(
-            name: 'VERSION',
+            name: 'product_to_test',
             choices: [
                 'pxc80',
                 'pxc57'
             ],
-            description: 'PXC version to test'
+            description: 'PXC product_to_test to test'
         )
         choice(
-            name: 'TEST_DIST',
+            name: 'node_to_test',
             choices: [
+                'ubuntu-jammy',
                 'ubuntu-focal',
                 'ubuntu-bionic',
                 'debian-11',
                 'debian-10',
                 'centos-7',
-                'ol-8'               
+                'ol-8',
+                'ol-9',
+                'min-amazon-2'
             ],
             description: 'Distribution to run test'
         )
         choice(
-            name: 'INSTALL_REPO',
+            name: 'install_repo',
             choices: [
                 'testing',
                 'main',
                 'experimental'
             ],
             description: 'Repo to install packages from'
+        )
+        choice(
+            name: "pxc57_repo",
+            choices: ["original","pxc57" ],
+            description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."
         )
     }
 
@@ -223,7 +239,7 @@ pipeline {
         stage("Set up") {
             steps {             
                 script{
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${params.VERSION}-${params.VERSION}-${params.TEST_DIST}-${params.INSTALL_REPO}"                    
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${params.product_to_test}-${params.node_to_test}-${params.install_repo}"                    
                 }   
                 echo "${JENWORKSPACE}"
                 installDependencies()
@@ -232,7 +248,7 @@ pipeline {
 
         stage("Create") {
             steps {
-                runMoleculeAction("create", params.VERSION, params.TEST_DIST)
+                runMoleculeAction("create", params.product_to_test, params.node_to_test)
                 setInstancePrivateIPEnvironment()
             }
         }
@@ -241,7 +257,7 @@ pipeline {
             steps {
                 script{
                     catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                        runMoleculeAction("converge", params.VERSION, params.TEST_DIST)
+                        runMoleculeAction("converge", params.product_to_test, params.node_to_test)
                     }
                 }
             }
@@ -250,7 +266,7 @@ pipeline {
         stage("Logs Backup ansible playbook") {
             steps {
                 setInventories()
-                runlogsbackup(params.VERSION)
+                runlogsbackup(params.product_to_test)
             }
         }
 
@@ -259,16 +275,16 @@ pipeline {
     post {
         always {
             script {
-                runMoleculeAction("destroy", params.VERSION, params.TEST_DIST)
+                runMoleculeAction("destroy", params.product_to_test, params.node_to_test)
             }
             archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
         }
         unstable {
-            slackSend channel: '#dev-server-qa', color: '#DEFF13', message: "[${env.JOB_NAME}]: Failed during the Package testing (Unstable Build) [${env.BUILD_URL}] Parameters: VERSION: ${params.VERSION} , TEST_DIST: ${params.TEST_DIST} , INSTALL_REPO: ${params.INSTALL_REPO}"
+            slackSend channel: '#dev-server-qa', color: '#DEFF13', message: "[${env.JOB_NAME}]: Failed during the Package testing (Unstable Build) [${env.BUILD_URL}] Parameters: product_to_test: ${params.product_to_test} , node_to_test: ${params.node_to_test} , install_repo: ${params.install_repo}"
         }
 
         failure {
-            slackSend channel: '#dev-server-qa', color: '#FF0000', message: "[${env.JOB_NAME}]: Failed during the Package testing (Build Failed) [${env.BUILD_URL}] Parameters: VERSION: ${params.VERSION} , TEST_DIST: ${params.TEST_DIST} , INSTALL_REPO: ${params.INSTALL_REPO}"
+            slackSend channel: '#dev-server-qa', color: '#FF0000', message: "[${env.JOB_NAME}]: Failed during the Package testing (Build Failed) [${env.BUILD_URL}] Parameters: product_to_test: ${params.product_to_test} , node_to_test: ${params.node_to_test} , install_repo: ${params.install_repo}"
         }
 
 

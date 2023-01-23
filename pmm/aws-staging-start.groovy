@@ -112,7 +112,7 @@ pipeline {
             ''',
             name: 'VERSION_SERVICE_IMAGE')
         text(
-            defaultValue: '',
+            defaultValue: '-e PMM_DEBUG=1 -e PERCONA_TEST_TELEMETRY_INTERVAL=10s  -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ -e PERCONA_PORTAL_URL=https://portal-dev.percona.com  -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443',
             description: '''
             Passing Env Variables to PMM Server Docker Container, supported only for pmm2.x
             An Example: -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PMM_DEBUG=1
@@ -347,7 +347,7 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
-        
+
                                 # exclude unavailable mirrors
                                 docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
                                 docker exec ${VM_NAME}-server yum update -y percona-release
@@ -439,7 +439,7 @@ pipeline {
         }
         success {
             script {
-                if (params.NOTIFY == "true") {  
+                if (params.NOTIFY == "true") {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER}, URL: https://${env.IP}"
                     if (env.OWNER_SLACK) {
                         slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${env.IP}"
