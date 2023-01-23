@@ -436,7 +436,12 @@ pipeline {
     post {
         always {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    unstash 'cluster_conf_scaling' 'cluster_conf_basic' 'cluster_conf_selfhealing' 'cluster_conf_backup' 'cluster_conf_upgrade' 'cluster_conf_bigcross'
+                    unstash 'cluster_conf_scaling'
+                    unstash 'cluster_conf_basic'
+                    unstash  'cluster_conf_selfhealing'
+                    unstash 'cluster_conf_backup'
+                    unstash 'cluster_conf_upgrade'
+                    unstash 'cluster_conf_bigcross'
                     sh '''
                         export CLUSTER_NAME=$(echo jenkins-par-psmdb-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     

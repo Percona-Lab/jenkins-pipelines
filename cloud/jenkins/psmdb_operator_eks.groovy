@@ -55,7 +55,7 @@ EOF
 
 void ShutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        unstash "cluster_conf_${CLUSTER_SUFFIX}"
+        unstash "cluster_conf_$CLUSTER_SUFFIX"
         sh """
                         eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-$CLUSTER_SUFFIX" --region eu-west-3
                         eksctl delete cluster -f cluster-$CLUSTER_SUFFIX.yaml --wait --force --disable-nodegroup-eviction
@@ -373,7 +373,11 @@ pipeline {
     post {
         always {
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                unstash 'cluster_conf_scaling' 'cluster_conf_basic' 'cluster_conf_selfhealing' 'cluster_conf_backups'
+                unstash 'cluster_conf_scaling'
+                unstash 'cluster_conf_basic'
+                unstash 'cluster_conf_selfhealing'
+                unstash  'cluster_conf_backups'
+
                 sh '''
                     export CLUSTER_NAME=$(echo jenkins-par-psmdb-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     
