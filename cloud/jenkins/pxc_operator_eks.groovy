@@ -1,14 +1,14 @@
 void CreateCluster( String CLUSTER_SUFFIX ){
 
     sh """
-cat <<-EOF > cluster-$CLUSTER_SUFFIX.yaml
+cat <<-EOF > cluster-${CLUSTER_SUFFIX}.yaml
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
 ---
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-    name: "$CLUSTER_NAME-$CLUSTER_SUFFIX"
+    name: $CLUSTER_NAME-${CLUSTER_SUFFIX}
     region: eu-west-3
     version: "$PLATFORM_VER"
 
@@ -44,10 +44,11 @@ EOF
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-                         export PATH=/home/ec2-user/.local/bin:$PATH
-                         source $HOME/google-cloud-sdk/path.bash.inc
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export PATH=/home/ec2-user/.local/bin:$PATH
+            source $HOME/google-cloud-sdk/path.bash.inc
 
-                         eksctl create cluster -f cluster-$CLUSTER_SUFFIX.yaml
+            eksctl create cluster -f cluster-$CLUSTER_SUFFIX.yaml
         """
     }
     stash includes: "cluster-$CLUSTER_SUFFIX.yaml", name: "cluster_conf_$CLUSTER_SUFFIX"
@@ -57,8 +58,9 @@ void ShutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         unstash "cluster_conf_$CLUSTER_SUFFIX"
         sh """
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-$CLUSTER_SUFFIX" --region eu-west-3
-                        eksctl delete cluster -f cluster-$CLUSTER_SUFFIX.yaml --wait --force --disable-nodegroup-eviction
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-${CLUSTER_SUFFIX} --region eu-west-3
+            eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction
         """
     }
 }
@@ -102,7 +104,7 @@ void makeReport() {
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME) {
+void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     def retryCount = 0
     waitUntil {
         try {
@@ -162,7 +164,7 @@ void runTest(String TEST_NAME) {
 
                             export PATH=/home/ec2-user/.local/bin:$PATH
                             source $HOME/google-cloud-sdk/path.bash.inc
-                            export KUBECONFIG=~/.kube/config
+                            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
 
                             ./e2e-tests/$TEST_NAME/run
                         fi
@@ -186,14 +188,14 @@ void runTest(String TEST_NAME) {
     echo "The $TEST_NAME test was finished!"
 }
 
-void conditionalRunTest(String TEST_NAME) {
+void conditionalRunTest(String TEST_NAME, String CLUSTER_PREFIX) {
     if ( TEST_NAME == 'default-cr' ) {
         if ( params.GIT_BRANCH.contains('release-') ) {
-            runTest(TEST_NAME)
+            runTest(TEST_NAME, CLUSTER_PREFIX)
         }
         return 0
     }
-    runTest(TEST_NAME)
+    runTest(TEST_NAME, CLUSTER_PREFIX)
 }
 
 void installRpms() {
@@ -337,11 +339,11 @@ pipeline {
             }
             steps {
                 CreateCluster('upgrade')
-                runTest('upgrade-haproxy')
-                runTest('upgrade-proxysql')
-                runTest('smart-update1')
-                runTest('smart-update2')
-                runTest('upgrade-consistency')
+                runTest('upgrade-haproxy', 'upgrade')
+                runTest('upgrade-proxysql', 'upgrade')
+                runTest('smart-update1', 'upgrade')
+                runTest('smart-update2', 'upgrade')
+                runTest('upgrade-consistency', 'upgrade')
                 ShutdownCluster('upgrade')
             }
         }
@@ -351,21 +353,21 @@ pipeline {
             }
             steps {
                 CreateCluster('basic')
-                conditionalRunTest('default-cr')
-                runTest('init-deploy')
-                runTest('limits')
-                runTest('monitoring-2-0')
-                runTest('affinity')
-                runTest('one-pod')
-                runTest('auto-tuning')
-                runTest('proxysql-sidecar-res-limits')
-                runTest('users')
-                runTest('haproxy')
-                runTest('tls-issue-self')
-                runTest('tls-issue-cert-manager')
-                runTest('tls-issue-cert-manager-ref')
-                runTest('validation-hook')
-                runTest('proxy-protocol')
+                conditionalRunTest('default-cr', 'basic')
+                runTest('init-deploy', 'basic')
+                runTest('limits', 'basic')
+                runTest('monitoring-2-0', 'basic')
+                runTest('affinity', 'basic')
+                runTest('one-pod', 'basic')
+                runTest('auto-tuning', 'basic')
+                runTest('proxysql-sidecar-res-limits', 'basic')
+                runTest('users', 'basic')
+                runTest('haproxy', 'basic')
+                runTest('tls-issue-self', 'basic')
+                runTest('tls-issue-cert-manager', 'basic')
+                runTest('tls-issue-cert-manager-ref', 'basic')
+                runTest('validation-hook', 'basic')
+                runTest('proxy-protocol', 'basic')
                 ShutdownCluster('basic')
             }
         }
@@ -375,9 +377,9 @@ pipeline {
             }
             steps {
                 CreateCluster('scaling')
-                runTest('scaling')
-                runTest('scaling-proxysql')
-                runTest('security-context')
+                runTest('scaling', 'scaling')
+                runTest('scaling-proxysql', 'scaling')
+                runTest('security-context', 'scaling')
                 ShutdownCluster('scaling')
             }
         }
@@ -387,10 +389,10 @@ pipeline {
             }
             steps {
                 CreateCluster('selfhealing')
-                runTest('storage')
-                runTest('self-healing-chaos')
-                runTest('self-healing-advanced-chaos')
-                runTest('operator-self-healing-chaos')
+                runTest('storage', 'selfhealing')
+                runTest('self-healing-chaos', 'selfhealing')
+                runTest('self-healing-advanced-chaos', 'selfhealing')
+                runTest('operator-self-healing-chaos', 'selfhealing')
                 ShutdownCluster('selfhealing')
             }
         }
@@ -400,13 +402,13 @@ pipeline {
             }
             steps {
                 CreateCluster('backup')
-                runTest('recreate')
-                runTest('restore-to-encrypted-cluster')
-                runTest('demand-backup')
-                runTest('demand-backup-cloud')
-                runTest('demand-backup-encrypted-with-tls')
-                runTest('pitr')
-                runTest('scheduled-backup')
+                runTest('recreate', 'backup')
+                runTest('restore-to-encrypted-cluster', 'backup')
+                runTest('demand-backup', 'backup')
+                runTest('demand-backup-cloud', 'backup')
+                runTest('demand-backup-encrypted-with-tls', 'backup')
+                runTest('pitr', 'backup')
+                runTest('scheduled-backup', 'backup')
                 ShutdownCluster('backup')
             }
         }
@@ -416,8 +418,8 @@ pipeline {
             }
             steps {
                 CreateCluster('bigcross')
-                runTest('big-data')
-                runTest('cross-site')
+                runTest('big-data', 'bigcross')
+                runTest('cross-site', 'bigcross')
                 ShutdownCluster('bigcross')
             }
         }
@@ -445,19 +447,19 @@ pipeline {
                     sh '''
                         export CLUSTER_NAME=$(echo jenkins-par-psmdb-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-scaling" --region eu-west-3
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-basic" --region eu-west-3
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-selfhealing" --region eu-west-3
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-backup" --region eu-west-3
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-upgrade" --region eu-west-3
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-bigcross" --region eu-west-3
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-scaling" --region eu-west-3 > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-basic" --region eu-west-3 > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-selfhealing" --region eu-west-3 > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-backup" --region eu-west-3 > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-upgrade" --region eu-west-3 > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-bigcross" --region eu-west-3 > /dev/null 2>&1
                         
-                        eksctl delete cluster -f cluster-scaling.yaml --wait --force --disable-nodegroup-eviction
-                        eksctl delete cluster -f cluster-basic.yaml --wait --force --disable-nodegroup-eviction
-                        eksctl delete cluster -f cluster-selfhealing.yaml --wait --force --disable-nodegroup-eviction
-                        eksctl delete cluster -f cluster-backup.yaml --wait --force --disable-nodegroup-eviction
-                        eksctl delete cluster -f cluster-upgrade.yaml --wait --force --disable-nodegroup-eviction
-                        eksctl delete cluster -f cluster-bigcross.yaml --wait --force --disable-nodegroup-eviction
+                        eksctl delete cluster -f cluster-scaling.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                        eksctl delete cluster -f cluster-basic.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                        eksctl delete cluster -f cluster-selfhealing.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                        eksctl delete cluster -f cluster-backup.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                        eksctl delete cluster -f cluster-upgrade.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                        eksctl delete cluster -f cluster-bigcross.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
                        
                     '''
                 }
