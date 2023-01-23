@@ -1,6 +1,6 @@
 void CreateCluster( String CLUSTER_SUFFIX ){
 
-    sh '''
+    sh """
 cat <<-EOF > cluster-${CLUSTER_SUFFIX}.yaml
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
 ---
@@ -40,7 +40,7 @@ nodeGroups:
       tags:
         'iit-billing-tag': 'jenkins-eks'
 EOF
-    '''
+    """
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
@@ -48,14 +48,14 @@ EOF
                          source $HOME/google-cloud-sdk/path.bash.inc
 
                          eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
-                     """
+        """
     }
-    stash includes: 'cluster-${CLUSTER_SUFFIX}.yaml', name: 'cluster_conf_${CLUSTER_SUFFIX}'
+    stash includes: "cluster-${CLUSTER_SUFFIX}.yaml", name: "cluster_conf_${CLUSTER_SUFFIX}"
 }
 
 void ShutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        unstash 'cluster_conf'
+        unstash "cluster_conf_${CLUSTER_SUFFIX}"
         sh """
                         eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-${CLUSTER_SUFFIX}" --region eu-west-3
                         eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction
@@ -373,8 +373,8 @@ pipeline {
     post {
         always {
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                unstash 'cluster_conf'
-                sh '''
+                unstash 'cluster_conf_scaling' 'cluster_conf_basic' 'cluster_conf_selfhealing' 'cluster_conf_backups'
+                sh """
                     export CLUSTER_NAME=$(echo jenkins-par-psmdb-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     
                     eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-scaling" --region eu-west-3
@@ -386,7 +386,7 @@ pipeline {
                     eksctl delete cluster -f cluster-basic.yaml --wait --force --disable-nodegroup-eviction
                     eksctl delete cluster -f cluster-selfhealing.yaml --wait --force --disable-nodegroup-eviction
                    eksctl delete cluster -f cluster-backups.yaml --wait --force --disable-nodegroup-eviction
-                '''
+                """
             }
 
             sh '''

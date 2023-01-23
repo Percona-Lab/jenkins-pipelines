@@ -1,3 +1,68 @@
+void CreateCluster( String CLUSTER_SUFFIX ){
+
+    sh """
+cat <<-EOF > cluster-${CLUSTER_SUFFIX}.yaml
+# An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+    name: "$CLUSTER_NAME-${CLUSTER_SUFFIX}"
+    region: eu-west-3
+    version: "$PLATFORM_VER"
+
+iam:
+  withOIDC: true
+
+addons:
+- name: aws-ebs-csi-driver
+  wellKnownPolicies:
+    ebsCSIController: true
+
+nodeGroups:
+    - name: ng-1
+      minSize: 3
+      maxSize: 5
+      iam:
+        attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      instancesDistribution:
+        maxPrice: 0.15
+        instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
+        onDemandBaseCapacity: 0
+        onDemandPercentageAboveBaseCapacity: 50
+        spotInstancePools: 2
+      tags:
+        'iit-billing-tag': 'jenkins-eks'
+EOF
+    """
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+                         export PATH=/home/ec2-user/.local/bin:$PATH
+                         source $HOME/google-cloud-sdk/path.bash.inc
+
+                         eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+        """
+    }
+    stash includes: "cluster-${CLUSTER_SUFFIX}.yaml", name: "cluster_conf_${CLUSTER_SUFFIX}"
+}
+
+void ShutdownCluster(String CLUSTER_SUFFIX) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        unstash "cluster_conf_${CLUSTER_SUFFIX}"
+        sh """
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-${CLUSTER_SUFFIX}" --region eu-west-3
+                        eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction
+        """
+    }
+}
+
 void IsRunTestsInClusterWide() {
     if ( "${params.CLUSTER_WIDE}" == "YES" ) {
         env.OPERATOR_NS = 'pxc-operator'
@@ -195,6 +260,7 @@ pipeline {
     }
     environment {
         CLEAN_NAMESPACE = 1
+        CLUSTER_NAME = sh(script: "echo jenkins-par-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
     }
     agent {
          label 'docker'
@@ -263,49 +329,6 @@ pipeline {
         stage('Create EKS Infrastructure') {
             steps {
                 IsRunTestsInClusterWide()
-                sh '''
-cat <<-EOF > cluster.yaml
-# An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
----
-apiVersion: eksctl.io/v1alpha5
-kind: ClusterConfig
-
-metadata:
-    name: eks-pxc-cluster
-    region: eu-west-3
-    version: "$PLATFORM_VER"
-iam:
-  withOIDC: true
-
-addons:
-- name: aws-ebs-csi-driver
-  wellKnownPolicies:
-    ebsCSIController: true
-
-nodeGroups:
-    - name: ng-1
-      minSize: 3
-      maxSize: 5
-      instancesDistribution:
-        maxPrice: 0.15
-        instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
-        onDemandBaseCapacity: 0
-        onDemandPercentageAboveBaseCapacity: 50
-        spotInstancePools: 2
-      tags:
-        'iit-billing-tag': 'jenkins-eks'
-EOF
-                '''
-
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                     sh """
-                         export PATH=/home/ec2-user/.local/bin:$PATH
-                         source $HOME/google-cloud-sdk/path.bash.inc
-                         eksctl create cluster -f cluster.yaml
-                     """
-               }
-               stash includes: 'cluster.yaml', name: 'cluster_conf'
-
             }
         }
         stage('E2E Upgrade') {
@@ -313,11 +336,13 @@ EOF
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
+                CreateCluster('upgrade')
                 runTest('upgrade-haproxy')
                 runTest('upgrade-proxysql')
                 runTest('smart-update1')
                 runTest('smart-update2')
                 runTest('upgrade-consistency')
+                ShutdownCluster('upgrade')
             }
         }
         stage('E2E Basic Tests') {
@@ -325,6 +350,7 @@ EOF
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
+                CreateCluster('basic')
                 conditionalRunTest('default-cr')
                 runTest('init-deploy')
                 runTest('limits')
@@ -340,6 +366,7 @@ EOF
                 runTest('tls-issue-cert-manager-ref')
                 runTest('validation-hook')
                 runTest('proxy-protocol')
+                ShutdownCluster('basic')
             }
         }
         stage('E2E Scaling') {
@@ -347,9 +374,11 @@ EOF
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
+                CreateCluster('scaling')
                 runTest('scaling')
                 runTest('scaling-proxysql')
                 runTest('security-context')
+                ShutdownCluster('scaling')
             }
         }
         stage('E2E SelfHealing') {
@@ -357,10 +386,12 @@ EOF
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
+                CreateCluster('selfhealing')
                 runTest('storage')
                 runTest('self-healing-chaos')
                 runTest('self-healing-advanced-chaos')
                 runTest('operator-self-healing-chaos')
+                ShutdownCluster('selfhealing')
             }
         }
         stage('E2E Backups') {
@@ -368,6 +399,7 @@ EOF
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
+                CreateCluster('backup')
                 runTest('recreate')
                 runTest('restore-to-encrypted-cluster')
                 runTest('demand-backup')
@@ -375,22 +407,18 @@ EOF
                 runTest('demand-backup-encrypted-with-tls')
                 runTest('pitr')
                 runTest('scheduled-backup')
+                ShutdownCluster('backup')
             }
         }
-        stage('E2E BigData') {
+        stage('E2E BigData and CrossSite') {
             options {
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
+                CreateCluster('bigcross')
                 runTest('big-data')
-            }
-        }
-        stage('E2E Cross-site') {
-            options {
-                timeout(time: 3, unit: 'HOURS')
-            }
-            steps {
                 runTest('cross-site')
+                ShutdownCluster('bigcross')
             }
         }
         stage('Make report') {
@@ -408,10 +436,24 @@ EOF
     post {
         always {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    unstash 'cluster_conf'
+                    unstash 'cluster_conf_scaling' 'cluster_conf_basic' 'cluster_conf_selfhealing' 'cluster_conf_backup' 'cluster_conf_upgrade' 'cluster_conf_bigcross'
                     sh """
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster eks-pxc-cluster --region eu-west-3
-                        eksctl delete cluster -f cluster.yaml --wait --force
+                        export CLUSTER_NAME=$(echo jenkins-par-psmdb-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+                    
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-scaling" --region eu-west-3
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-basic" --region eu-west-3
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-selfhealing" --region eu-west-3
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-backup" --region eu-west-3
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-upgrade" --region eu-west-3
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-bigcross" --region eu-west-3
+                        
+                        eksctl delete cluster -f cluster-scaling.yaml --wait --force --disable-nodegroup-eviction
+                        eksctl delete cluster -f cluster-basic.yaml --wait --force --disable-nodegroup-eviction
+                        eksctl delete cluster -f cluster-selfhealing.yaml --wait --force --disable-nodegroup-eviction
+                        eksctl delete cluster -f cluster-backup.yaml --wait --force --disable-nodegroup-eviction
+                        eksctl delete cluster -f cluster-upgrade.yaml --wait --force --disable-nodegroup-eviction
+                        eksctl delete cluster -f cluster-bigcross.yaml --wait --force --disable-nodegroup-eviction
+                       
                     """
                 }
 
