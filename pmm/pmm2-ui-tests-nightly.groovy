@@ -219,7 +219,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['15.0','14.4','14.3','14.2', '14.1', '14.0', '13.7', '13.6', '13.4', '13.2', '13.1', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
+            choices: ['15.1', '15.0','14.4','14.3','14.2', '14.1', '14.0', '13.7', '13.6', '13.4', '13.2', '13.1', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -369,6 +369,25 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             script {
+                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
+                    junit 'tests/output/*.xml'
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                    archiveArtifacts artifacts: 'logs.zip'
+                } else {
+                    junit 'tests/output/*.xml'
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    archiveArtifacts artifacts: 'logs.zip'
+                    archiveArtifacts artifacts: 'tests/output/*.png'
+                }
+            }
+            allure([
+                includeProperties: false,
+                jdk: '',
+                properties: [],
+                reportBuildPolicy: 'ALWAYS',
+                results: [[path: 'tests/output/allure']]
+            ])
+            script {
                 if(env.VM_NAME)
                 {
                     destroyStaging(VM_NAME)
@@ -390,25 +409,6 @@ pipeline {
                     destroyStaging(VM_CLIENT_NAME_PGSQL)
                 }
             }
-            script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/*.xml'
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'logs.zip'
-                } else {
-                    junit 'tests/output/*.xml'
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'tests/output/*.png'
-                }
-            }
-            allure([
-                includeProperties: false,
-                jdk: '',
-                properties: [],
-                reportBuildPolicy: 'ALWAYS',
-                results: [[path: 'tests/output/allure']]
-            ])
             sh '''
                 sudo rm -r node_modules/
                 sudo rm -r tests/output
