@@ -35,7 +35,7 @@ pipeline {
                     cd percona-docker/percona-server-mongodb-\$MAJ_VER
                     sed -E "s/ENV PSMDB_VERSION (.+)/ENV PSMDB_VERSION ${params.PSMDB_VERSION}/" -i Dockerfile.aarch64
                     sed -E "s/ENV PSMDB_REPO (.+)/ENV PSMDB_REPO ${params.PSMDB_REPO}/" -i Dockerfile.aarch64
-                    docker build . -t percona-server-mongodb
+                    docker build . -t percona-server-mongodb -f Dockerfile.aarch64
                     """
             }
         }
