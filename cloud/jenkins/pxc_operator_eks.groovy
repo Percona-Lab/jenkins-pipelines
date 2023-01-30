@@ -46,11 +46,10 @@ EOF
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
+            export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
             export PATH=/home/ec2-user/.local/bin:$PATH
             source $HOME/google-cloud-sdk/path.bash.inc
-
-            eksctl create cluster -f cluster-$CLUSTER_SUFFIX.yaml
+            eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
         """
     }
 }
