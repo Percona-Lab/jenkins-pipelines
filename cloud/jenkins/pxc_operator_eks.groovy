@@ -8,7 +8,7 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-    name: $CLUSTER_NAME-${CLUSTER_SUFFIX}
+    name: ${CLUSTER_NAME}-${CLUSTER_SUFFIX}
     region: eu-west-3
     version: "$PLATFORM_VER"
 
@@ -51,12 +51,12 @@ EOF
             eksctl create cluster -f cluster-$CLUSTER_SUFFIX.yaml
         """
     }
-    stash includes: "cluster-$CLUSTER_SUFFIX.yaml", name: "cluster_conf_$CLUSTER_SUFFIX"
+//    stash includes: "cluster-$CLUSTER_SUFFIX.yaml", name: "cluster_conf_$CLUSTER_SUFFIX"
 }
 
 void ShutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        unstash "cluster_conf_$CLUSTER_SUFFIX"
+//        unstash "cluster_conf_$CLUSTER_SUFFIX"
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-${CLUSTER_SUFFIX} --region eu-west-3
@@ -426,7 +426,7 @@ pipeline {
                     }
                 }
             }
-        }    
+        }
         stage('Make report') {
             steps {
                 makeReport()
@@ -442,14 +442,14 @@ pipeline {
     post {
         always {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    unstash 'cluster_conf_scaling'
-                    unstash 'cluster_conf_basic'
-                    unstash  'cluster_conf_selfhealing'
-                    unstash 'cluster_conf_backup'
-                    unstash 'cluster_conf_upgrade'
-                    unstash 'cluster_conf_bigcross'
+//                    unstash 'cluster_conf_scaling'
+//                    unstash 'cluster_conf_basic'
+//                    unstash  'cluster_conf_selfhealing'
+//                    unstash 'cluster_conf_backup'
+//                    unstash 'cluster_conf_upgrade'
+//                    unstash 'cluster_conf_bigcross'
                     sh '''
-                        export CLUSTER_NAME=$(echo jenkins-par-psmdb-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+                        export CLUSTER_NAME=$(echo jenkins-par-pxc-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     
                         eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-scaling" --region eu-west-3 > /dev/null 2>&1
                         eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-basic" --region eu-west-3 > /dev/null 2>&1
