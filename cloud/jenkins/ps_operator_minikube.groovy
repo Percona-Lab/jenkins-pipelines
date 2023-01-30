@@ -287,19 +287,23 @@ pipeline {
                     }
 
                     installRpms()
-                    runTest('auto-config')
+                    // runTest('auto-config') - memory config resources
+                    // runTest('async-ignore-annotations') - LoadBalancer
                     runTest('config')
                     runTest('demand-backup')
                     runTest('gr-demand-backup')
+                    // runTest('gr-ignore-annotations') - LoadBalancer
+                    runTest('gr-init-deploy')
+                    runTest('gr-scaling')
+                    runTest('gr-tls-cert-manager')
                     runTest('haproxy')
                     runTest('init-deploy')
-                    runTest('gr-init-deploy')
-                    runTest('limits')
-                    runTest('monitoring')
+                    // runTest('limits') - affinity
+                    // runTest('monitoring') - LoadBalancer, pmm image pull context deadline
                     runTest('one-pod')
-                    runTest('scaling')
+                    // runTest('scaling') - 7-assert - storage: 2Gi vs storage: 2G
                     runTest('semi-sync')
-                    runTest('service-per-pod')
+                    // runTest('service-per-pod') - LoadBalancer
                     runTest('sidecars')
                     runTest('tls-cert-manager')
                     runTest('users')
