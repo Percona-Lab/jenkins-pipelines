@@ -12,7 +12,7 @@ metadata:
     region: eu-west-3
     version: "$PLATFORM_VER"
     tags:
-    'delete-cluster-after-hours': '10'
+        'delete-cluster-after-hours': '10'
 iam:
   withOIDC: true
 
