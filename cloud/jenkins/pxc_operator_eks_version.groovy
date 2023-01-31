@@ -204,6 +204,7 @@ void installRpms() {
         sudo yum install -y percona-xtrabackup-80 jq | true
     """
 }
+
 pipeline {
     parameters {
         string(

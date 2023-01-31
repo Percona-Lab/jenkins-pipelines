@@ -64,7 +64,6 @@ void ShutdownCluster(String CLUSTER_SUFFIX) {
     }
 }
 
-
 void IsRunTestsInClusterWide() {
     if ( "${params.CLUSTER_WIDE}" == "YES" ) {
         env.OPERATOR_NS = 'psmdb-operator'
@@ -189,6 +188,7 @@ void installRpms() {
         sudo yum install -y jq | true
     """
 }
+
 pipeline {
     parameters {
         string(
