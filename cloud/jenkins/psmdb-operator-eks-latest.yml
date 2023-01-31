@@ -1,5 +1,5 @@
 - job:
-    name: psmdb-operator-eks
+    name: psmdb-operator-eks-latest
     project-type: pipeline
     description: |
         Do not edit this job through the web!
