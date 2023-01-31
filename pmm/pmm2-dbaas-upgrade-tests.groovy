@@ -183,8 +183,70 @@ pipeline {
                     """
                 }
             }
-        }        
-        stage('Run UI Tests Docker') {
+        }
+        stage('Run UI Tests Before Upgrade') {
+            options {
+                timeout(time: 30, unit: "MINUTES")
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        export PWD=\$(pwd);
+                        export CHROMIUM_PATH=/usr/bin/chromium
+                        export kubeconfig_minikube="${KUBECONFIG}"
+                        echo "${KUBECONFIG}" > kubeconfig
+                        export KUBECONFIG=./kubeconfig
+                        kubectl get nodes
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-before'
+                    """
+                }
+            }
+        }
+        stage('Run UI Upgrade') {
+            // when {
+            //     expression { env.PMM_UPGRADE_TYPE == "UI"}
+            // }
+            options {
+                timeout(time: 60, unit: "MINUTES")
+            }
+            steps {
+                sh """
+                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                    export PWD=\$(pwd);
+                    export CHROMIUM_PATH=/usr/bin/chromium
+                    ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-ui'
+                """
+            }
+        }
+        stage('Unregister/Register Kubernetes Cluster') {
+            // when {
+            //     expression { env.PMM_UPGRADE_TYPE == "UI"}
+            // }
+            options {
+                timeout(time: 60, unit: "MINUTES")
+            }
+            steps {
+                sh """
+                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                    export PWD=\$(pwd);
+                    export CHROMIUM_PATH=/usr/bin/chromium
+                    ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-force-unregister'
+                """
+            }
+        }                
+        stage('Run DBaaS Migration Script') {
+            steps {
+                sh '''
+                    sudo yum install -y wget
+                    sudo wget https://raw.githubusercontent.com/percona/pmm/main/migrate-dbaas.py
+                    sudo chmod 755 migrate-dbaas.py
+                    python3 migrate-dbaas.py
+                    sleep 120
+                '''
+            }
+        }                        
+        stage('Run UI Tests After Upgrade') {
             options {
                 timeout(time: 150, unit: "MINUTES")
             }
@@ -198,7 +260,7 @@ pipeline {
                         echo "${KUBECONFIG}" > kubeconfig
                         export KUBECONFIG=./kubeconfig
                         kubectl get nodes
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep ${TEST_TAGS}
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-after'
                     """
                 }
             }
