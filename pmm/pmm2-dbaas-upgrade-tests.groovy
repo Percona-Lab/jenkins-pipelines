@@ -230,6 +230,9 @@ pipeline {
                 sh """
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);
+                    export kubeconfig_minikube="${KUBECONFIG}"
+                    echo "${KUBECONFIG}" > kubeconfig
+                    export KUBECONFIG=./kubeconfig
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-force-unregister'
                 """
@@ -256,9 +259,6 @@ pipeline {
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        export kubeconfig_minikube="${KUBECONFIG}"
-                        echo "${KUBECONFIG}" > kubeconfig
-                        export KUBECONFIG=./kubeconfig
                         kubectl get nodes
                         ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-after'
                     """
