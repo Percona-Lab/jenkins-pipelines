@@ -71,7 +71,6 @@ pipeline {
                     env.VM_NAME = "pmm-ovf-staging-${BUILD_ID}"
                 }
                 withCredentials([
-                        sshUserPrivateKey(credentialsId: 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER'),
                         string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')
                     ]) {
                     sh '''
@@ -127,9 +126,9 @@ pipeline {
                             --memory ${VM_MEMORY} \
                             --audio none \
                             --cpus 6 \
-                            --natpf1 "http,tcp,,80,,80" \
                             --uart1 0x3F8 4 --uartmode1 file /tmp/${VM_NAME}-console.log \
                             --groups "/pmm"
+                        VBoxManage modifyvm ${VM_NAME} --natpf1 "http,tcp,,80,,80"
                         VBoxManage modifyvm ${VM_NAME} --natpf1 "https,tcp,,443,,443"
                         VBoxManage modifyvm ${VM_NAME} --natpf1 "ssh,tcp,,3022,,22"
                         for p in \$(seq 0 30); do
