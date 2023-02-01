@@ -163,6 +163,7 @@ void installRpms() {
         sudo yum install -y percona-xtrabackup-80 jq | true
     '''
 }
+
 pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
