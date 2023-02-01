@@ -65,7 +65,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         if [ -f ./test/pg-stat-monitor.properties ]; then
             . ./test/pg-stat-monitor.properties
         fi
-        sed -i "s:VERSION=\"1.0.0\":VERSION=\"$VERSION\":" psm_builder.sh
+        sed -i "s:VERSION=\\"1.0.0:VERSION=\\"$VERSION:" psm_builder.sh
         sed -i "s:PG_RELEASE=11:PG_RELEASE=\"${PG_RELEASE}\":" psm_builder.sh
 
         sudo bash -x ./psm_builder.sh --builddir=\${build_dir}/test --install_deps=1
