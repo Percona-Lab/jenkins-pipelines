@@ -3,10 +3,10 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
+void runStaging(String DOCKER_VERSION, CLIENTS) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
-        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
+        string(name: 'CLIENT_VERSION', value: 'dev-latest'),
         string(name: 'DOCKER_ENV_VARIABLE', value: '-e DISABLE_TELEMETRY=true -e DATA_RETENTION=48h -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX'),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'NOTIFY', value: 'false'),
@@ -78,29 +78,30 @@ pipeline {
         string(
             defaultValue: 'master',
             description: 'Tag/Branch for package-testing repository',
-            name: 'GIT_BRANCH')
+            name: 'GIT_BRANCH',
+            trim: true)
         string(
             defaultValue: '',
             description: 'Commit hash for the branch',
-            name: 'GIT_COMMIT_HASH')
+            name: 'GIT_COMMIT_HASH',
+            trim: true)
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
-            name: 'DOCKER_VERSION')
-        string(
-            defaultValue: 'dev-latest',
-            description: 'PMM Client version(dev-latest|pmm2-rc|image-name:version-tag)',
-            name: 'CLIENT_VERSION')
+            name: 'DOCKER_VERSION',
+            trim: true)
         string(
             defaultValue: latestVersion,
             description: 'PMM Version for testing',
-            name: 'PMM_VERSION')
+            name: 'PMM_VERSION',
+            trim: true)
         string(
             defaultValue: 'pmm2-client',
             description: 'Name of Playbook? ex: pmm2-client_integration, pmm2-client_integration_custom_path',
-            name: 'TESTS')
+            name: 'TESTS',
+            trim: true)
         choice(
-            choices: ['testing', 'experimental', 'main', 'tools-main', 'pmm2-client-main'],
+            choices: ['testing', 'experimental', 'main', 'pmm2-client-main'],
             description: 'Enable Repo for Client Nodes',
             name: 'INSTALL_REPO')
         choice(
@@ -114,7 +115,7 @@ pipeline {
     stages {
         stage('Setup Server Instance') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1')
+                runStaging(DOCKER_VERSION, '--addclient=ps,1')
             }
         }
         stage('Execute Package Tests') {
