@@ -1,5 +1,5 @@
 - job:
-    name: pxc-operator-eks
+    name: psmdb-docker-arm
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,5 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxc_operator_eks.groovy
-
+      script-path: psmdb/psmdb-docker-arm.groovy

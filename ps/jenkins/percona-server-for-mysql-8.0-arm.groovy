@@ -30,17 +30,18 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
-        set -o xtrace
-        cd \${build_dir}
-        if [ -f ./test/percona-server-8.0.properties ]; then
-            . ./test/percona-server-8.0.properties
-        fi
-        sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
-        if [${BUILD_TOKUDB_TOKUBACKUP} = "ON" ]; then
-            bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --build_tokudb_tokubackup=1 --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
-        else
-            bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
-        fi
+        docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+            set -o xtrace
+            cd \${build_dir}
+            if [ -f ./test/percona-server-8.0.properties ]; then
+                . ./test/percona-server-8.0.properties
+            fi
+            sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
+            if [ ${BUILD_TOKUDB_TOKUBACKUP} = \"ON\" ]; then
+                bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --build_tokudb_tokubackup=1 --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+            else
+                bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+           fi"
     """
 }
 
@@ -58,7 +59,7 @@ pipeline {
     }
 parameters {
         string(defaultValue: 'https://github.com/percona/percona-server.git', description: 'github repository for build', name: 'GIT_REPO')
-        string(defaultValue: 'release-8.0.28-19', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
+        string(defaultValue: 'release-8.0.31-22', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
         choice(
@@ -87,10 +88,10 @@ parameters {
     stages {
         stage('Create PS source tarball') {
             agent {
-               label 'min-bionic-x64'
+               label 'docker-32gb-aarch64'
             }
             steps {
-                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
+                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 installCli("deb")
                 buildStage("ubuntu:bionic", "--get_sources=1")
@@ -116,7 +117,7 @@ parameters {
             parallel {
                 stage('Build PS generic source rpm') {
                     agent {
-                        label 'min-centos-7-x64'
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -129,7 +130,7 @@ parameters {
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Build PS generic source deb') {
+/*                stage('Build PS generic source deb') {
                     agent {
                         label 'min-bionic-x64'
                     }
@@ -144,11 +145,12 @@ parameters {
                         uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
                     }
                 }
+*/
             }  //parallel
         } // stage
         stage('Build PS RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Centos 7') {
+/*                stage('Centos 7') {
                     agent {
                         label 'min-centos-7-x64'
                     }
@@ -163,9 +165,10 @@ parameters {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
+*/
                 stage('Centos 8') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -180,20 +183,20 @@ parameters {
                 }
                 stage('Oracle Linux 9') {
                     agent {
-                        label 'min-ol-9-x64'
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:9", "--build_rpm=1 --with_zenfs=1")
+                        buildStage("oraclelinux:9", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu Bionic(18.04)') {
+/*                stage('Ubuntu Bionic(18.04)') {
                     agent {
                         label 'min-bionic-x64'
                     }
@@ -324,7 +327,7 @@ parameters {
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Oracle Linux 9 tarball') {
+                stage('Oracle Linux 9 binary tarball') {
                     agent {
                         label 'min-ol-9-x64'
                     }
@@ -333,21 +336,7 @@ parameters {
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:9", "--build_tarball=1")
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                    }
-                }
-                stage('Oracle Linux 9 ZenFS tarball') {
-                    agent {
-                        label 'min-ol-9-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:9", "--build_tarball=1 --with_zenfs=1")
+                        buildStage("oraclelinux:9", "--build_tarball=1 ")
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
@@ -380,7 +369,7 @@ parameters {
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Ubuntu Focal(20.04) tarball') {
+                stage('Ubuntu Focal(20.04) ZenFS tarball') {
                     agent {
                         label 'min-focal-x64'
                     }
@@ -390,21 +379,6 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--build_tarball=1")
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                    }
-                }
-                stage('Ubuntu Jammy(22.04) tarball') {
-                    agent {
-                        label 'min-jammy-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:jammy", "--build_tarball=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -425,13 +399,15 @@ parameters {
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
+*/
             }
         }
 
         stage('Sign packages') {
             steps {
                 signRPM()
-                signDEB()
+/*                signDEB()
+*/
             }
         }
         stage('Push to public repository') {
@@ -444,11 +420,11 @@ parameters {
     }
     post {
         success {
-            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         failure {
-            slackNotify("#releases", "#FF0000", "[${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {

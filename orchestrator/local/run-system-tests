@@ -1,22 +1,25 @@
 #!/bin/bash
 
-set -o errexit
-set -o xtrace
+set -e
+set -x
 
 status=0
+
+RESULT_FILE=${RESULT_FILE:-system-tests.result}
 
 function process_tests_output {
 # parameters are:
   local infile=${1}
-
-  local fail_cnt
-
-# For now just a simple decision: pass/fail
-  fail_cnt=`grep -c "\+ FAIL" $infile` || true
-  echo "Failures count: $fail_cnt"
-  if [[ "$fail_cnt" != "0" ]] ; then
-    status=1
+  local not_failed=`grep -c "^FAILED:\s*0/" $infile`
+  local not_unstable=`grep -c "^UNSTABLE:\s*0/" $infile`
+  local result='SUCCESS'
+  
+  if [ ${not_failed} -eq 0 ] ; then
+    result='FAILURE'
+  elif [ ${not_unstable} -eq 0 ] ; then
+    result='UNSTABLE'
   fi
+  echo ${result} > ${RESULT_FILE} 
 }
 
 ROOT_DIR=$(cd $(dirname $0)/../sources/orchestrator; pwd -P)
@@ -31,6 +34,3 @@ cd ${ROOT_DIR}
 script/dock system-no-it | tee system-tests.log
 
 process_tests_output "system-tests.log"
-
-echo "Exiting with status: $status"
-exit $status

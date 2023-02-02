@@ -69,8 +69,6 @@ if [[ "${WITH_ASAN}" = "yes" ]]; then
     BUILD_COMMENT+="-asan"
 fi
 
-OS_VERSION=$(lsb_release -d -s)
-
 # ------------------------------------------------------------------------------
 # set version
 # ------------------------------------------------------------------------------
@@ -93,7 +91,13 @@ PRODUCT_FULL="Percona-XtraDB-Cluster_${MYSQL_VERSION}-${PERCONA_SERVER_VERSION}$
 COMMENT="Percona XtraDB Cluster binary  (GPL), Release ${MYSQL_VERSION_EXTRA#-}, Revision ${REVISION:-}${BUILD_COMMENT}"
 PERCONA_SERVER_EXTENSION="$(echo $MYSQL_VERSION_EXTRA | sed 's/^-/./')"
 
-if [[ "${OS_VERSION}" = *"CentOS release 6."* ]] || [[ "${OS_VERSION}" = *"CentOS Linux release 7."* ]]; then
+# CentOS 6 and 7
+RHVER=0
+if [[ -f /etc/redhat-release ]]; then
+    RHVER="$(rpm --eval %rhel)"
+fi
+
+if [[ ${RHVER} -eq 6 ]] || [[ ${RHVER} -eq 7 ]]; then
     JOB_CMAKE='cmake3'
 fi
 

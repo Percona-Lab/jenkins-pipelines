@@ -36,7 +36,6 @@ void runPMM2OVFBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
 def pmm_submodules() {
     return [
         "pmm",
-        "pmm-update",
         "grafana-dashboards",
         "pmm-ui-tests",
         "pmm-qa",
