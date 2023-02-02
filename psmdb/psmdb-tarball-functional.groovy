@@ -52,8 +52,12 @@ pipeline {
         }
         stage('Test') {
             steps {
+                sh """
+                  echo ${params.TARBALL} | awk '{ match(\$0,/([0-9].[0-9])/,m); print m[0]}' > VERSION
+                """
                 script {
-                    moleculeParallelTest(pdmdbOperatingSystems(), moleculeDir)
+                    def PSMDB_VER = sh(returnStdout: true, script: "cat VERSION").trim()
+                    moleculeParallelTest(pdmdbOperatingSystems("${PSMDB_VER}"), moleculeDir)
                 }
             }
         }
@@ -62,7 +66,8 @@ pipeline {
         always {
             junit testResults: "**/*-report.xml", keepLongStdio: true
             script {
-                moleculeParallelPostDestroy(pdmdbOperatingSystems(), moleculeDir)
+                def PSMDB_VER = sh(returnStdout: true, script: "cat VERSION").trim()
+                moleculeParallelPostDestroy(pdmdbOperatingSystems("${PSMDB_VER}"), moleculeDir)
             }
         }
     }
