@@ -26,20 +26,6 @@
                 - 'pxc57'
             description: "PXC version to test"
         - choice:
-            name: node_to_test
-            choices:
-                - 'all'
-                - 'ubuntu-jammy'
-                - 'ubuntu-focal'
-                - 'ubuntu-bionic'
-                - 'debian-11'
-                - 'debian-10'
-                - 'centos-7'
-                - 'ol-8'
-                - 'ol-9'
-                - 'min-amazon-2'
-            description: "Distribution to run test"
-        - choice:
             name: test_repo
             choices:
                 - "testing"

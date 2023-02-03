@@ -3,25 +3,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void installDependencies() {
-    sh '''
-        export PATH=${PATH}:~/.local/bin
-        sudo yum install -y git python3-pip jq
-        sudo amazon-linux-extras install ansible2
-        python3 -m venv venv
-        source venv/bin/activate
-        python3 -m pip install setuptools wheel
-        python3 -m pip install molecule==2.22 boto boto3 paramiko
-    '''
-    
-    sh '''
-        rm -rf package-testing
-        git clone https://github.com/Percona-QA/package-testing --branch master
-    '''
-
-}
-
-
 def runMoleculeAction(String action, String product_to_test, String scenario, String param_test_type, String test_repo, String version_check) {
     def awsCredentials = [
         sshUserPrivateKey(
@@ -327,9 +308,10 @@ pipeline {
         choice(
             name: 'test_type',
             choices: [
+                'install_and_upgrade',
                 'install',
-                'upgrade',
-                'install_and_upgrade'
+                'upgrade'
+
             ],
             description: 'Set test type for testing'
         )      
@@ -360,13 +342,12 @@ pipeline {
                     }                
                 }   
                 echo "${JENWORKSPACE}"
-                //installDependencies()
                 installMolecule()
                     sh '''
                         sudo yum install -y epel-release 
                         sudo yum install -y git jq
                         rm -rf package-testing                    
-                        git clone https://github.com/panchal-yash/package-testing --branch wip-pxc-package-testing-upgrade-test
+                        git clone https://github.com/Percona-QA/package-testing --branch master
                     '''
             }
         }
