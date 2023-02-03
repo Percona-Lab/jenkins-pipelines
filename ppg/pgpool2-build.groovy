@@ -83,7 +83,7 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'docker'
+        label 'micro-amazon'
     }
     parameters {
         string(
