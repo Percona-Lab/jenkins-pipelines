@@ -3,7 +3,7 @@ void build(String IMAGE_PREFIX){
         cd ./source
         SOURCE_ROOT_DIR=\$(pwd)
         mkdir -p src/github.com/percona
-        ln -s \$SOURCE_ROOT_DIR  src/github.com/percona/percona-backup-mongodb
+        ln -sv \$SOURCE_ROOT_DIR  src/github.com/percona/percona-backup-mongodb
         cd src/github.com/percona/percona-backup-mongodb
         docker run --rm -v \$(pwd):/go/src/github.com/percona/percona-backup-mongodb -w /go/src/github.com/percona/percona-backup-mongodb golang:1.18 sh -c 'apt-get update -y && apt-get install -y libkrb5-dev && make build'
         cd \$SOURCE_ROOT_DIR
