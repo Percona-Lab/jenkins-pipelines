@@ -1,4 +1,4 @@
-library changelog: false, identifier: "lib@mDISTMYSQL-233_minor_version", retriever: modernSCM([
+library changelog: false, identifier: "lib@DISTMYSQL-233_minor_version", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/eleo007/jenkins-pipelines.git'
 ])
