@@ -151,39 +151,55 @@ pipeline {
                 }
             }
         }
-        stage('Enable Testing Repo') {
-            when {
-                expression { env.PMM_REPOSITORY == "Testing"}
-            }
+        stage('Disable All Repos') {
+            // when {
+            //     expression { env.PMM_REPOSITORY == "Testing"}
+            // }
             steps{
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
-                            docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-                            docker exec ${VM_NAME}-server percona-release enable percona testing
+                            docker exec ${VM_NAME}-server sed -i'' -e 's^/experimental/^/release/^' /etc/yum.repos.d/pmm2-server.repo
+                            docker exec ${VM_NAME}-server percona-release disable all
                             docker exec ${VM_NAME}-server yum clean all
                         '
                     """
                 }
             }
         }
-        stage('Enable Experimental Repo') {
-            when {
-                expression { env.PMM_REPOSITORY == "Experimental"}
-            }
-            steps{
-                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh """
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
-                            docker exec ${VM_NAME}-server yum update -y percona-release
-                            docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-                            docker exec ${VM_NAME}-server percona-release enable percona experimental
-                            docker exec ${VM_NAME}-server yum clean all
-                        '
-                    """
-                }
-            }
-        }
+        // stage('Enable Testing Repo') {
+        //     when {
+        //         expression { env.PMM_REPOSITORY == "Testing"}
+        //     }
+        //     steps{
+        //         withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        //             sh """
+        //                 ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
+        //                     docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
+        //                     docker exec ${VM_NAME}-server percona-release enable percona testing
+        //                     docker exec ${VM_NAME}-server yum clean all
+        //                 '
+        //             """
+        //         }
+        //     }
+        // }
+        // stage('Enable Experimental Repo') {
+        //     when {
+        //         expression { env.PMM_REPOSITORY == "Experimental"}
+        //     }
+        //     steps{
+        //         withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        //             sh """
+        //                 ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
+        //                     docker exec ${VM_NAME}-server yum update -y percona-release
+        //                     docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
+        //                     docker exec ${VM_NAME}-server percona-release enable percona experimental
+        //                     docker exec ${VM_NAME}-server yum clean all
+        //                 '
+        //             """
+        //         }
+        //     }
+        // }
         stage('Run UI Tests Before Upgrade') {
             options {
                 timeout(time: 30, unit: "MINUTES")
@@ -220,35 +236,41 @@ pipeline {
             }
         }
         stage('Unregister/Register Kubernetes Cluster') {
-            // when {
-            //     expression { env.PMM_UPGRADE_TYPE == "UI"}
-            // }
             options {
-                timeout(time: 60, unit: "MINUTES")
+                timeout(time: 30, unit: "MINUTES")
             }
             steps {
-                sh """
-                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                    export PWD=\$(pwd);
-                    export kubeconfig_minikube="${KUBECONFIG}"
-                    echo "${KUBECONFIG}" > kubeconfig
-                    export KUBECONFIG=./kubeconfig
-                    export CHROMIUM_PATH=/usr/bin/chromium
-                    ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-force-unregister'
-                """
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        export PWD=\$(pwd);
+                        export CHROMIUM_PATH=/usr/bin/chromium
+                        export kubeconfig_minikube="${KUBECONFIG}"
+                        echo "${KUBECONFIG}" > kubeconfig
+                        export KUBECONFIG=./kubeconfig
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-force-unregister'
+                        sleep 120
+                    """
+                }
             }
-        }                
+        }
         stage('Run DBaaS Migration Script') {
+            options {
+                timeout(time: 30, unit: "MINUTES")
+            }
             steps {
-                sh '''
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                    kubectl get nodes
                     sudo yum install -y wget
                     sudo wget https://raw.githubusercontent.com/percona/pmm/main/migrate-dbaas.py
                     sudo chmod 755 migrate-dbaas.py
                     python3 migrate-dbaas.py
                     sleep 120
-                '''
+                """
+                }
             }
-        }                        
+        }
         stage('Run UI Tests After Upgrade') {
             options {
                 timeout(time: 150, unit: "MINUTES")
