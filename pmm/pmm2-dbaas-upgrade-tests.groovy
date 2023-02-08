@@ -261,6 +261,9 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
+                    export kubeconfig_minikube="${KUBECONFIG}"
+                    echo "${KUBECONFIG}" > kubeconfig
+                    export KUBECONFIG=./kubeconfig
                     kubectl get nodes
                     sudo yum install -y wget
                     sudo wget https://raw.githubusercontent.com/percona/pmm/main/migrate-dbaas.py
