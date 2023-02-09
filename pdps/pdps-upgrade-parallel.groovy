@@ -69,6 +69,7 @@ pipeline {
           withCredentials(moleculePdpsJenkinsCreds())
           disableConcurrentBuilds()
   }
+      stages {
         stage('Check version param and checkout') {
             steps {
                 deleteDir()
