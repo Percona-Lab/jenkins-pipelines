@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@DISTMYSQL-233_minor_version", retriever: modernSCM([
+library changelog: false, identifier: "lib@master", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/eleo007/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-QA/jenkins-pipelines.git'
 ])
 
 
@@ -95,8 +95,8 @@ pipeline {
         stage('Check version param and checkout') {
             steps {
                 deleteDir()
-                checkVersionParams()
-                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/eleo007/package-testing.git'
+                checkOrchVersionParam()
+                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
             }
         }
         stage ('Prepare') {

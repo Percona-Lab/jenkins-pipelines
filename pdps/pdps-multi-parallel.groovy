@@ -61,6 +61,11 @@ pipeline {
           disableConcurrentBuilds()
   }
   stages {
+        stage('Check version param') {
+            steps {
+                checkOrchVersionParam()
+            }
+        }
         stage ('Test install: minor repo') {
             when {
                 expression { env.TO_REPO != 'release' }
