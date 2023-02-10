@@ -69,10 +69,11 @@ pipeline {
           withCredentials(moleculePdpsJenkinsCreds())
           disableConcurrentBuilds()
   }
-    stages {
-        stage('Checkout') {
+      stages {
+        stage('Check version param and checkout') {
             steps {
                 deleteDir()
+                checkOrchVersionParam()
                 git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
             }
         }
