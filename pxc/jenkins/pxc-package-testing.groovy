@@ -34,19 +34,72 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
 	        if(param_test_type == "install"){   
                 def install_repo="${test_repo}"
                 def check_version="${version_check}"
-            sh """
-                echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
-                echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
-            """
+                if(action != "create" && action != "destroy"){
+                    def IN_PXC1_IP = sh(
+                        script: """cat ${INSTALL_BOOTSTRAP_INSTANCE_PRIVATE_IP} | jq -r .[0] | jq [.private_ip] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    def IN_PXC2_IP = sh(
+                        script: """cat ${INSTALL_COMMON_INSTANCE_PRIVATE_IP} | jq -r .[0] | jq [.private_ip] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    def IN_PXC3_IP = sh(
+                        script: """cat ${INSTALL_COMMON_INSTANCE_PRIVATE_IP} | jq -r .[1] | jq [.private_ip] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    sh """
+                        echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                        echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                        echo 'PXC1_IP: "${IN_PXC1_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                        echo 'PXC2_IP: "${IN_PXC2_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                        echo 'PXC3_IP: "${IN_PXC3_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                    """
+                }else{
+                    echo "Not setting up VARS as in create or destroy stage"
+                    sh """
+                        echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                        echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                    """
+                }
             }else if(param_test_type == "upgrade"){
                 def install_repo="main"
                 def check_version="${version_check}"
                 def upgrade_repo="${test_repo}"
-            sh """
-                echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/upgrade/envfile"
-                echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/upgrade/envfile"
-                echo 'upgrade_repo: "${upgrade_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/upgrade/envfile"
-            """
+
+                if(action != "create" && action != "destroy"){
+                    def UP_PXC1_IP = sh(
+                        script: """cat ${UPGRADE_BOOTSTRAP_INSTANCE_PRIVATE_IP} | jq -r .[0] | jq [.private_ip] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    def UP_PXC2_IP = sh(
+                        script: """cat ${UPGRADE_COMMON_INSTANCE_PRIVATE_IP} | jq -r .[0] | jq [.private_ip] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+
+                    def UP_PXC3_IP = sh(
+                        script: """cat ${UPGRADE_COMMON_INSTANCE_PRIVATE_IP} | jq -r .[1] | jq [.private_ip] | jq -r .[]""",
+                        returnStdout: true
+                    ).trim()
+                    sh """
+                        echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/upgrade/envfile"
+                        echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/upgrade/envfile"
+                        echo 'upgrade_repo: "${upgrade_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/upgrade/envfile"
+                        echo 'PXC1_IP: "${UP_PXC1_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/upgrade/envfile"
+                        echo 'PXC2_IP: "${UP_PXC2_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/upgrade/envfile"
+                        echo 'PXC3_IP: "${UP_PXC3_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/upgrade/envfile"
+                    """
+                }else{
+                    echo "Not setting up VARS as in create or destroy stage"
+                    sh """
+                    echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/upgrade/envfile"
+                    echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/upgrade/envfile"
+                    echo 'upgrade_repo: "${upgrade_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/upgrade/envfile"
+                    """
+                }
             }else{
                 echo "Unknown condition"
             }
@@ -75,6 +128,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     cd -
                 """
             }else{
+
                 sh"""
                     . virtenv/bin/activate
                     cd package-testing/molecule/pxc
@@ -195,6 +249,7 @@ void setInventories(String param_test_type){
                         script: """cat ${UPGRADE_COMMON_INSTANCE_PUBLIC_IP} | jq -r .[1] | jq [.public_ip] | jq -r .[]""",
                         returnStdout: true
                     ).trim()
+
                     sh """
                         echo \"printing path of bootstrap ${KEYPATH_BOOTSTRAP}"
                         echo \"printing path of common  ${KEYPATH_COMMON}"
@@ -269,7 +324,6 @@ pipeline {
         UPGRADE_COMMON_INSTANCE_PUBLIC_IP  = "${WORKSPACE}/upgrade/common_instance_public_ip.json"
 
         JENWORKSPACE = "${env.WORKSPACE}"
-
     }
 
     parameters {
