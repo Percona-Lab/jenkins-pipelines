@@ -28,23 +28,23 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         set -o xtrace
         mkdir -p test
         wget \$(echo ${GIT_BUILD_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BUILD_BRANCH}/pgpool2/pgpool2_builder.sh -O pg2_builder.sh || curl \$(echo ${GIT_BUILD_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BUILD_BRANCH}/pgpool2/pgpool2_builder.sh -o pg2_builder.sh
+        #git clone ${GIT_BUILD_REPO}
+        #cd postgres-packaging
+        #git checkout ${BUILD_BRANCH}
+        #cd ..
+        #cp postgres-packaging/pgpool2/pgpool2_builder.sh pg2_builder.sh
         if [ -f /etc/redhat-release ]; then
             sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         else
             DEBIAN_VERSION=\$(lsb_release -sc)
-            sed -e '/.*backports.*/d' /etc/apt/sources.list > sources.list.new
-            sudo mv -vf sources.list.new /etc/apt/sources.list
+            # sed -e '/.*backports.*/d' /etc/apt/sources.list > sources.list.new
+            # sudo mv -vf sources.list.new /etc/apt/sources.list
             if [ \${DEBIAN_VERSION} = bionic ]; then
                 wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
                 echo "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-11 main" | sudo tee -a /etc/apt/sources.list
             fi
             if [ \${DEBIAN_VERSION} = buster ]; then
                 sudo apt-get -y update --allow-releaseinfo-change || true
-            fi
-            if [ \${DEBIAN_VERSION} = bullseye ]; then
-                sed -i 's:clang-7::g' psm_builder.sh
-                sed -i '23s:focal:bullseye:' psm_builder.sh
-                sed -i 's:dh-systemd::' psm_builder.sh
             fi
             until sudo apt-get update; do
                 sleep 30
@@ -65,11 +65,11 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         if [ -f ./test/pgpool2.properties ]; then
             . ./test/pgpool2.properties
         fi
-        sed -i "s:VERSION=\\"1.0.0:VERSION=\\"$VERSION:" psm_builder.sh
-        sed -i "s:PG_RELEASE=11:PG_RELEASE=\"${PG_RELEASE}\":" psm_builder.sh
+        sed -i "s:VERSION=\\"1.0.0:VERSION=\\"$VERSION:" pg2_builder.sh
+        sed -i "s:PG_RELEASE=11:PG_RELEASE=\"${PG_RELEASE}\":" pg2_builder.sh
 
         sudo bash -x ./pg2_builder.sh --builddir=\${build_dir}/test --install_deps=1
-        bash -x ./pg2_builder.sh --builddir=\${build_dir}/test --branch=\${BRANCH} --repo=\${GIT_REPO} --rpm_release=\${RPM_RELEASE} --deb_release=\${DEB_RELEASE} --pg_release=\${PG_RELEASE} "$STAGE_PARAM"
+        bash -x ./pg2_builder.sh --builddir=\${build_dir}/test --branch=\${BRANCH} --repo=\${GIT_REPO} --pp_branch=\${BUILD_BRANCH} --pp_repo=\${GIT_BUILD_REPO} --rpm_release=\${RPM_RELEASE} --deb_release=\${DEB_RELEASE} --pg_release=\${PG_RELEASE} "$STAGE_PARAM"
     """ 
 }
 
@@ -124,7 +124,7 @@ pipeline {
         choice(
             name: 'PG_RELEASE',
             description: 'PPG major version to test',
-            choices: ['11', '12', '13', '14', '15']
+            choices: ['15', '14', '13', '12', '11']
         )
         choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
@@ -266,7 +266,23 @@ pipeline {
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
+                        buildStage("ubuntu:focal", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                } //stage
+                stage('Ubuntu 22.04') {
+                    agent {
+                        label 'min-jammy-x64'
+                    }
+                    steps {
+                        echo "====> Build pgpool2 deb on Ubuntu 22.04 PG${PG_RELEASE}"
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
@@ -305,45 +321,6 @@ pipeline {
                     }
                 } //stage
             } //parallel
-        } //stage
-        stage('Build docker container') {
-            agent {
-                label 'min-bionic-x64'
-            }
-            steps {
-                echo "====> Build docker container on Ubuntu 18.04 PG${PG_RELEASE}"
-                cleanUpWS()
-                installCli("deb")
-                unstash 'properties'
-                popArtifactFolder("rpm/", AWS_STASH_PATH)
-                sh ''' 
-                    sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-                    sudo apt-get install -y docker.io
-                    sudo systemctl status docker
-                    git clone https://github.com/percona/percona-docker
-                    cp rpm/percona-pgpool2${PG_RELEASE}-${VERSION}-${RPM_RELEASE}.el8.x86_64.rpm percona-docker/percona-distribution-postgresql-${PG_RELEASE}/
-                    cd percona-docker/percona-distribution-postgresql-${PG_RELEASE}
-                    sed -i 's/mirror/vault/g' Dockerfile
-                    sed -i '/percona-postgresql-common/d' Dockerfile
-                    sed -i "s/ppg-${PG_RELEASE}.* */ppg-${PG_RELEASE} release/g" Dockerfile
-                    sed -i 's/-\${FULL_PERCONA_VERSION}//g' Dockerfile
-                    sed -i "s/percona-pg-stat-monitor${PG_RELEASE}/percona-postgresql-common; rpm -i percona-pgpool2${PG_RELEASE}-${VERSION}-${RPM_RELEASE}.el8.x86_64.rpm/g" Dockerfile
-                    sed -i "11 a COPY percona-pgpool2${PG_RELEASE}-${VERSION}-${RPM_RELEASE}.el8.x86_64.rpm percona-pgpool2${PG_RELEASE}-${VERSION}-${RPM_RELEASE}.el8.x86_64.rpm" Dockerfile
-                    cat -n Dockerfile
-                    sudo docker build -t perconalab/percona-distribution-postgresql:${PG_RELEASE}-dev .
-                    sudo docker images
-                '''
-                withCredentials([
-                    usernamePassword(credentialsId: 'hub.docker.com',
-                    passwordVariable: 'PASS',
-                    usernameVariable: 'USER'
-                    )]) {
-                    sh '''
-                        echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                        sudo docker push perconalab/percona-distribution-postgresql:${PG_RELEASE}-dev
-                    '''
-                }
-            }
         } //stage
         stage('Sign packages') {
             steps {
