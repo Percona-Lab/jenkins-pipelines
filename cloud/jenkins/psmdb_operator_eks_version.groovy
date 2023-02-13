@@ -41,6 +41,7 @@ nodeGroups:
       tags:
         'iit-billing-tag': 'jenkins-eks'
         'delete-cluster-after-hours': '10'
+        'team': 'cloud'
 EOF
     """
 
