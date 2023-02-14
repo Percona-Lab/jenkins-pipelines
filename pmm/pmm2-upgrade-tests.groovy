@@ -264,6 +264,7 @@ pipeline {
                     set -o errexit
                     set -o xtrace
                     export PATH=$PATH:/usr/sbin
+                    export PMM_VERSION=${CLIENT_VERSION}
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --download \
                         ${CLIENTS} \
