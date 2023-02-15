@@ -115,7 +115,6 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     mkdir -p ${WORKSPACE}/upgrade
                     
                     cd package-testing/molecule/pxc
-                    export MOLECULE_DEBUG=1
                     
                     echo "param_test_type is ${param_test_type}"
 
@@ -132,7 +131,6 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                 sh"""
                     . virtenv/bin/activate
                     cd package-testing/molecule/pxc
-                    export MOLECULE_DEBUG=1
 
                     echo "param_test_type is ${param_test_type}"
 
