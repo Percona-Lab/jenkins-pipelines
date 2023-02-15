@@ -294,6 +294,9 @@ pipeline {
                     if [[ \$CLIENT_VERSION != dev-latest ]]; then
                         export PATH="`pwd`/pmm2-client/bin:$PATH"
                     fi
+                    echo
+                    echo ${env.PMM_REPO}
+                    export PMM_REPO=${env.PMM_REPO}
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --download \
                         ${CLIENTS} \
