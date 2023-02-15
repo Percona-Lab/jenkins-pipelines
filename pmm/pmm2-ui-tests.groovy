@@ -209,6 +209,10 @@ pipeline {
                     if(env.TAG != "") {
                         currentBuild.description = env.TAG
                     }
+                    env.PMM_REPO="experimental"
+                    if(env.CLIENT_VERSION == "pmm2-rc") {
+                        env.PMM_REPO="testing"
+                    }
                 }
                 // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
