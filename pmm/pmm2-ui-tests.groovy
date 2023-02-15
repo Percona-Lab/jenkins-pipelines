@@ -402,7 +402,7 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-agent.log > pmm-agent-full.log || true
                 docker stop webhookd || true
                 docker rm webhookd || true
-                docker-compose down
+                docker-compose down || true
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
                 sudo chown -R ec2-user:ec2-user . || true
