@@ -286,6 +286,7 @@ pipeline {
                                         else
                                             export ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
                                         fi
+                                        docker network create pmm-qa || true
 
                                         docker run -d \
                                             -p 80:80 \
@@ -293,6 +294,7 @@ pipeline {
                                             -p 9000:9000 \
                                             --volumes-from ${VM_NAME}-data \
                                             --name ${VM_NAME}-server \
+                                            --network pmm-qa \
                                             --restart always \
                                             $ENV_VARIABLE \
                                             ${DOCKER_VERSION}
