@@ -388,6 +388,12 @@ pipeline {
             steps {
                 node(env.VM_NAME){
                     setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
+                    script {
+                        env.PMM_REPO="experimental"
+                        if(env.CLIENT_VERSION == "pmm2-rc") {
+                            env.PMM_REPO="testing"
+                        }
+                    }
                     sh '''
                         set -o errexit
                         set -o xtrace
