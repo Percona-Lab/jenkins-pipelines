@@ -403,7 +403,6 @@ pipeline {
                         if [[ ${PMM_VERSION} == pmm2 ]]; then
 
                             export PMM_SERVER_IP=${SERVER_IP}
-                            export PMM_REPO=${env.PMM_REPO}
 
                             if [[ ${CLIENT_VERSION} != dev-latest ]]; then
                                 export PATH="`pwd`/pmm2-client/bin:$PATH"
