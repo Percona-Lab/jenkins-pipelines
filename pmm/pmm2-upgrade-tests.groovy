@@ -265,6 +265,7 @@ pipeline {
                     set -o xtrace
                     export PATH=$PATH:/usr/sbin
                     export PMM_VERSION=${CLIENT_VERSION}
+                    export PMM_CLIENT_VERSION=${CLIENT_VERSION}
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --download \
                         ${CLIENTS} \
