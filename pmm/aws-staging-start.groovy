@@ -390,7 +390,6 @@ pipeline {
                     setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
                     script {
                         env.PMM_REPO="experimental"
-                        env.PMM_VERSION="latest"
                         if(env.CLIENT_VERSION == "pmm2-rc") {
                             env.PMM_REPO="testing"
                         }
