@@ -200,14 +200,12 @@ pipeline {
                 // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE} - ${BUILD_URL}"
                 if (params.DESTINATION == "testing") {
                     currentBuild.description = "RHEL9 RC Build, Image:" + env.IMAGE
-                    slackSend botUser: true, channel: '@alexander.tymchuk', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
-                //   slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished"
+                    slackSend botUser: true, channel: '#releases-ci', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished"
                 }
             }
         }
         failure {
-            // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-            slackSend botUser: true, channel: '@alexander.tymchuk', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+             slackSend botUser: true, channel: '#releases-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
         }
     }
 }

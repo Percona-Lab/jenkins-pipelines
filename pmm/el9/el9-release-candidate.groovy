@@ -43,7 +43,7 @@ pipeline {
                 script {
                     currentBuild.description = env.VERSION
                     slackSend botUser: true,
-                        channel: '@alexander.tymchuk',
+                        channel: '#releases-ci',
                         color: '#0000FF',
                         message: "OL9 build for PMM ${VERSION} has started. You can check progress at: ${BUILD_URL}"
                     env.EXIST = sh(
@@ -198,7 +198,7 @@ pipeline {
     post {
         success {
             slackSend botUser: true,
-                      channel: '@alexander.tymchuk',
+                      channel: '#releases-ci',
                       color: '#00FF00',
                       message: """New RHEL9 RC is out :rocket:
 Server: perconalab/pmm-server:${VERSION}-rc-el9

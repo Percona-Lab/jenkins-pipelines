@@ -152,8 +152,7 @@ pipeline {
                 if (params.RELEASE_CANDIDATE == "yes"){
                     // slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} RHEL9 RC build finished - " + env.PMM2_SERVER_OVA_S3
                 } else {
-                    slackSend botUser: true, channel: '@alexander.tymchuk', color: '#00FF00', message: "[${JOB_NAME}]: build finished - " + env.PMM2_SERVER_OVA_S3
-                    // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: RHEL9 feature build finished - " + env.PMM2_SERVER_OVA_S3
+                    slackSend botUser: true, channel: '#releases-ci', color: '#00FF00', message: "[${JOB_NAME}]: RHEL9 feature build finished - " + env.PMM2_SERVER_OVA_S3
                 }
             }
         }
@@ -162,7 +161,7 @@ pipeline {
                 sh '''
                     cat build.log
                 '''
-                // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
+                 slackSend botUser: true, channel: '#releases-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
             }
         }
         cleanup {
