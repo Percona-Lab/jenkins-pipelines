@@ -1,0 +1,173 @@
+- job:
+    name: pxc-8.0-pipeline-parallel-mtr-refactor
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: true
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/kamil-holubicki/jenkins-pipelines.git
+            branches:
+            - 'parallel-mtr-refactor-2'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pxc/jenkins/pxc80-pipeline-parallel-mtr.groovy
+    parameters:
+    - string:
+        name: BUILD_NUMBER_BINARIES
+        default: ""
+        description: Reuse PXC, PXB24, PXB80 binaries built in the specified build. Useful for quick MTR test rerun without rebuild.
+    - string:
+        name: GIT_REPO
+        default: "https://github.com/percona/percona-xtradb-cluster"
+        description: URL to PXC repository
+    - string:
+        name: BRANCH
+        default: "8.0"
+        description: Tag/PR/Branch for PXC repository
+    - string:
+        name: CUSTOM_BUILD_NAME
+        default: ""
+        description: Custom string that will be appended to the build name visible in Jenkins
+    - bool:
+        name: USE_PR
+        default: false
+        description: "Check only if you pass PR number to BRANCH field"
+    - bool:
+        name: PXB80_LATEST
+        default: true
+        description: "If checked, the PXB80_BRANCH will be ignored and latest available version will be used"
+    - string:
+        name: PXB80_REPO
+        default: https://github.com/percona/percona-xtrabackup
+        description: URL to PXB80 repository
+    - string:
+        name: PXB80_BRANCH
+        default: percona-xtrabackup-8.0.27-19
+        description: Tag/Branch for PXB80 repository
+    - bool:
+        name: PXB24_LATEST
+        default: true
+        description: "If checked, the PXB24_BRANCH will be ignored and latest available version will be used"
+    - string:
+        name: PXB24_REPO
+        default: https://github.com/percona/percona-xtrabackup
+        description: URL to PXB24 repository
+    - string:
+        name: PXB24_BRANCH
+        default: percona-xtrabackup-2.4.24
+        description: Tag/Branch for PXC repository
+    - choice:
+        name: JOB_CMAKE
+        choices:
+        - /usr/bin/cmake
+        description: path to cmake binary
+    - string:
+        name: CMAKE_OPTS
+        default:
+        description: cmake options
+    - string:
+        name: MAKE_OPTS
+        default:
+        description: make options, like VERBOSE=1
+    - choice:
+        name: CI_FS_MTR
+        choices:
+        - "yes"
+        - "no"
+        description: Run case-insensetive MTR tests
+    - choice:
+        name: DOCKER_OS
+        choices:
+          - centos:7
+          - centos:8
+          - oraclelinux:9
+          - ubuntu:bionic
+          - ubuntu:focal
+          - ubuntu:jammy
+          - debian:buster
+          - debian:bullseye
+        description: OS version for compilation
+    - choice:
+        name: CMAKE_BUILD_TYPE
+        choices:
+        - Debug
+        - RelWithDebInfo
+        description: Type of build to produce
+    - choice:
+        name: ANALYZER_OPTS
+        choices:
+        -
+        - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON
+        - -DWITH_ASAN=ON
+        - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON
+        - -DWITH_ASAN=ON -DWITH_UBSAN=ON
+        - -DWITH_UBSAN=ON
+        - -DWITH_MSAN=ON
+        - -DWITH_VALGRIND=ON
+        description: Enable code checking
+    - string:
+        name: GALERA_PARALLEL_RUN
+        default: "2"
+        description: "mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the Galera specific test suites."
+    - choice:
+        name: FULL_MTR
+        choices:
+        - "yes"
+        - "no"
+        - "galera_only"
+        - "skip_mtr"
+        description: |
+            yes - full MTR<br>
+            no - run mtr suites based on variables WORKER_N_MTR_SUITES<br>
+            galera_only - only Galera related suites (incl. wsrep and sys_var)<br>
+            skip_mtr - skip testing phase. Only build.
+    - string:
+        name: WORKER_1_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 1 when FULL_MTR is no. Unit tests, if requested, can be ran here only!"
+    - string:
+        name: WORKER_2_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 2 when FULL_MTR is no"
+    - string:
+        name: WORKER_3_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 3 when FULL_MTR is no"
+    - string:
+        name: WORKER_4_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 4 when FULL_MTR is no"
+    - string:
+        name: WORKER_5_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 5 when FULL_MTR is no"
+    - string:
+        name: WORKER_6_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 6 when FULL_MTR is no"
+    - string:
+        name: WORKER_7_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 7 when FULL_MTR is no"
+    - string:
+        name: WORKER_8_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 8 when FULL_MTR is no"
+    - string:
+        name: MTR_ARGS
+        default: --unit-tests-report --big-test --mem
+        description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
+    - string:
+        name: MTR_STANDALONE_TESTS
+        default:
+        description: "Space-separated test names to be executed. Worker 1 handles this request."
+    - string:
+        name: MTR_STANDALONE_TESTS_PARALLEL
+        default: 1
+        description: "MTR workers count for standalone tests"
+    - bool:
+        name: ALLOW_ABORTED_WORKERS_RERUN
+        default: true
+        description: "Rerun aborted workers"
