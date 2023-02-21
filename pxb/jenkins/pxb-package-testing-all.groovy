@@ -88,6 +88,12 @@ pipeline {
                         runNodeBuild('min-ol-8-x64')
                     }
                 }
+
+                stage('Oracle Centos 9') {
+                    steps {
+                        runNodeBuild('min-ol-9-x64')
+                    }
+                }
             }
         }
     }
