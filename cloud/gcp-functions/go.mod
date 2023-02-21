@@ -1,6 +1,6 @@
 module github.com/hors/gcp-functions
 
-go 1.18
+go 1.19
 
 require google.golang.org/api v0.110.0
 
