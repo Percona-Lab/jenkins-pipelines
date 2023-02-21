@@ -398,6 +398,7 @@ pipeline {
                         set -o errexit
                         set -o xtrace
                         export PATH=$PATH:/usr/sbin
+                        export PMM_CLIENT_VERSION=${CLIENT_VERSION}
                         [ -z "${CLIENTS}" ] && exit 0 || :
 
                         if [[ ${PMM_VERSION} == pmm2 ]]; then
