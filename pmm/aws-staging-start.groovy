@@ -286,6 +286,7 @@ pipeline {
                                         else
                                             export ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
                                         fi
+                                        docker network create pmm-qa || true
 
                                         docker run -d \
                                             -p 80:80 \
@@ -293,6 +294,7 @@ pipeline {
                                             -p 9000:9000 \
                                             --volumes-from ${VM_NAME}-data \
                                             --name ${VM_NAME}-server \
+                                            --network pmm-qa \
                                             --restart always \
                                             $ENV_VARIABLE \
                                             ${DOCKER_VERSION}
@@ -386,10 +388,17 @@ pipeline {
             steps {
                 node(env.VM_NAME){
                     setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
+                    script {
+                        env.PMM_REPO="experimental"
+                        if(env.CLIENT_VERSION == "pmm2-rc") {
+                            env.PMM_REPO="testing"
+                        }
+                    }
                     sh '''
                         set -o errexit
                         set -o xtrace
                         export PATH=$PATH:/usr/sbin
+                        export PMM_CLIENT_VERSION=${CLIENT_VERSION}
                         [ -z "${CLIENTS}" ] && exit 0 || :
 
                         if [[ ${PMM_VERSION} == pmm2 ]]; then
