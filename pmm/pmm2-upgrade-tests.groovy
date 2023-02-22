@@ -29,6 +29,13 @@ void checkClientAfterUpgrade(String PMM_VERSION) {
     """
 }
 
+void checkClientBeforeUpgrade(String PMM_VERSION) {
+    sh """
+        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
+        bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION}
+    """
+}
+
 def latestVersion = pmmVersion()
 def versionsList = pmmVersion('list_with_old')
 def getMinorVersion(VERSION) {
@@ -341,6 +348,13 @@ pipeline {
             steps {
                 script {
                     checkUpgrade(PMM_SERVER_LATEST, "post")
+                }
+            }
+        }
+        stage('Check Client before Upgrade') {
+            steps {
+                script {
+                    checkClientBeforeUpgrade(CLIENT_VERSION)
                 }
             }
         }
