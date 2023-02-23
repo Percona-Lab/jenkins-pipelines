@@ -3,10 +3,10 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runStaging(String DOCKER_VERSION, CLIENTS, STAGING_CLIENT_VERSION) {
+void runStaging(String DOCKER_VERSION, CLIENTS) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
-        string(name: 'CLIENT_VERSION', value: STAGING_CLIENT_VERSION),
+        string(name: 'CLIENT_VERSION', value: 'pmm2-latest'),
         string(name: 'DOCKER_ENV_VARIABLE', value: '-e DISABLE_TELEMETRY=true -e DATA_RETENTION=48h -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX'),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'NOTIFY', value: 'false'),
@@ -91,11 +91,6 @@ pipeline {
             name: 'DOCKER_VERSION',
             trim: true)
         string(
-            defaultValue: 'dev-latest',
-            description: 'PMM Client version for Installation on AWS Staging',
-            name: 'STAGING_CLIENT_VERSION',
-            trim: true)
-        string(
             defaultValue: latestVersion,
             description: 'PMM Version for testing',
             name: 'PMM_VERSION',
@@ -120,7 +115,7 @@ pipeline {
     stages {
         stage('Setup Server Instance') {
             steps {
-                runStaging(DOCKER_VERSION, '--addclient=ps,1', STAGING_CLIENT_VERSION)
+                runStaging(DOCKER_VERSION, '--addclient=ps,1')
             }
         }
         stage('Execute Package Tests') {
