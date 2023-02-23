@@ -8,6 +8,8 @@ S3_ROOT_DIR = 's3://pxc-build-cache'
 WORKER_ABORTED = new boolean[9]
 BUILD_NUMBER_BINARIES_FOR_RERUN = 0
 BUILD_TRIGGER_BY = ''
+PXB24_PACKAGE_TO_DOWNLOAD = ''
+PXB80_PACKAGE_TO_DOWNLOAD = ''
 
 def LABEL = 'docker-32gb'
 
@@ -39,9 +41,64 @@ void downloadFileFromS3(String SRC_DIRECTORY, String SRC_FILE_NAME, String DST_P
     }
 }
 
-void downloadFilesForTestsFromS3() {
-    downloadFileFromS3("${BUILD_TAG_BINARIES}", "pxb24.tar.gz", "./pxc/sources/pxc/results/pxb24/pxb24.tar.gz")
-    downloadFileFromS3("${BUILD_TAG_BINARIES}", "pxb80.tar.gz", "./pxc/sources/pxc/results/pxb80/pxb80.tar.gz")
+String getLatestPxbPackageName(String PXB_VER, String GLIBC_VER) {
+    pxbLatestTag = sh (
+    script: """
+        echo \$(git -c 'versionsort.suffix=-' ls-remote --exit-code --refs --sort='v:refname' https://github.com/percona/percona-xtrabackup | grep percona-xtrabackup-${PXB_VER}.* | tail -1 | cut --delimiter='/' --fields=3)
+        """,
+        returnStdout: true
+    ).trim()
+    echo "====> PXB${PXB_VER} latest tag: ${pxbLatestTag}"
+
+    // Try do download
+    pxbDownloadable = sh (
+    script: """
+        echo \$(curl -Is https://downloads.percona.com/downloads/Percona-XtraBackup-${PXB_VER}/Percona-XtraBackup-\$(echo ${pxbLatestTag} | cut -d '-' -f 3,4)/binary/tarball/${pxbLatestTag}-Linux-x86_64.glibc${GLIBC_VER}.tar.gz | head -1 | awk {'print \$2'})
+        """,
+        returnStdout: true
+    ).trim()
+    echo "Status of PXB${PXB_VER} package is ${pxbDownloadable}"
+
+    if (pxbDownloadable == '200') {
+        return pxbLatestTag
+    }
+    return ''
+}
+
+void checkIfPxbPackagesDownloadable() {
+    if (env.PXB24_LATEST == "true") {
+        PXB24_PACKAGE_TO_DOWNLOAD = getLatestPxbPackageName("2.4", "2.12")
+    }
+    if (env.PXB80_LATEST == "true") {
+        PXB80_PACKAGE_TO_DOWNLOAD = getLatestPxbPackageName("8.0", "2.17")
+    }
+}
+
+void downloadLatestPxbPackage(String PXB_VER, String PACKAGE_NAME, String GLIBC_VER, String OUTPUT_FILE_PATH) {
+    echo "====> PXB${PXB_VER} latest tag: ${PACKAGE_NAME}"
+    sh """
+        echo "====> PXB${PXB_VER} package is availble for downloading from the site"
+        wget https://downloads.percona.com/downloads/Percona-XtraBackup-${PXB_VER}/Percona-XtraBackup-\$(echo ${PACKAGE_NAME} | cut -d '-' -f 3,4)/binary/tarball/${PACKAGE_NAME}-Linux-x86_64.glibc${GLIBC_VER}-minimal.tar.gz -O ${OUTPUT_FILE_PATH}
+    """
+}
+
+void downloadFilesForTests() {
+    sh """
+        mkdir -p ./pxc/sources/pxc/results/pxb24
+        mkdir -p ./pxc/sources/pxc/results/pxb80
+    """
+    if (PXB24_PACKAGE_TO_DOWNLOAD != '') {
+        downloadLatestPxbPackage("2.4", PXB24_PACKAGE_TO_DOWNLOAD, "2.12", "./pxc/sources/pxc/results/pxb24/pxb24.tar.gz")
+    } else {
+        downloadFileFromS3("${BUILD_TAG_BINARIES}", "pxb24.tar.gz", "./pxc/sources/pxc/results/pxb24/pxb24.tar.gz")
+    }
+
+    if (PXB80_PACKAGE_TO_DOWNLOAD) {
+        downloadLatestPxbPackage("8.0", PXB80_PACKAGE_TO_DOWNLOAD, "2.17", "./pxc/sources/pxc/results/pxb80/pxb80.tar.gz")
+    } else {
+        downloadFileFromS3("${BUILD_TAG_BINARIES}", "pxb80.tar.gz", "./pxc/sources/pxc/results/pxb80/pxb80.tar.gz")
+    }
+
     downloadFileFromS3("${BUILD_TAG_BINARIES}", "pxc80.tar.gz", "./pxc/sources/pxc/results/pxc80.tar.gz")
 }
 
@@ -107,7 +164,7 @@ void doTestWorkerJob(Integer WORKER_ID, String SUITES, String STANDALONE_TESTS =
         git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
         script {
             prepareWorkspace()
-            downloadFilesForTestsFromS3()
+            downloadFilesForTests()
             doTests(WORKER_ID.toString(), SUITES, STANDALONE_TESTS, UNIT_TESTS, CIFS_TESTS)
         }
         step([$class: 'JUnitResultArchiver', testResults: 'pxc/sources/pxc/results/*.xml', healthScaleFactor: 1.0])
@@ -554,6 +611,7 @@ pipeline {
 
                 validatePxcBranch()
                 setupTestSuitesSplit()
+                checkIfPxbPackagesDownloadable()
 
                 script{
                     env.BUILD_TAG_BINARIES = "jenkins-${env.JOB_NAME}-${env.BUILD_NUMBER_BINARIES}"
@@ -599,7 +657,7 @@ pipeline {
                 stage('Build PXB24') {
                     when {
                         beforeAgent true
-                        expression { (env.FULL_MTR != 'skip_mtr') }
+                        expression { (env.FULL_MTR != 'skip_mtr' && PXB24_PACKAGE_TO_DOWNLOAD == '') }
                     }
                     agent { label 'docker' }
                     steps {
@@ -631,7 +689,7 @@ pipeline {
                 stage('Build PXB80') {
                     when {
                         beforeAgent true
-                        expression { (env.FULL_MTR != 'skip_mtr') }
+                        expression { (env.FULL_MTR != 'skip_mtr' && PXB80_PACKAGE_TO_DOWNLOAD == '') }
                     }
                     agent { label LABEL }
                     steps {
