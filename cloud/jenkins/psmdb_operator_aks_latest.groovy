@@ -298,6 +298,8 @@ pipeline {
                         runTest('service-per-pod', 'basic')
                         runTest('liveness', 'basic')
                         runTest('users', 'basic')
+                        runTest('demand-backup-physical-sharded', 'basic')
+                        runTest('multi-cluster-service', 'basic')
                         ShutdownCluster('basic')
                     }
                 }
@@ -307,6 +309,8 @@ pipeline {
                         runTest('storage', 'selfhealing')
                         runTest('self-healing-chaos', 'selfhealing')
                         runTest('operator-self-healing-chaos', 'selfhealing')
+                        runTest('ignore-labels-annotations', 'selfhealing')
+                        runTest('expose-sharded', 'selfhealing')
                         ShutdownCluster('selfhealing')
                     }
                 }
@@ -319,6 +323,8 @@ pipeline {
                         runTest('demand-backup', 'backups')
                         runTest('demand-backup-sharded', 'backups')
                         runTest('scheduled-backup', 'backups')
+                        runTest('mongod-major-upgrade-sharded', 'backups')
+                        runTest('serviceless-external-nodes', 'backups')
                         ShutdownCluster('backups')
                     }
                 }
@@ -329,6 +335,9 @@ pipeline {
                         runTest('upgrade-sharded', 'cross-site')
                         runTest('pitr', 'cross-site')
                         runTest('pitr-sharded', 'cross-site')
+                        runTest('recover-no-primary', 'cross-site')
+                        runTest('demand-backup-physical', 'cross-site')
+                        runTest('mongod-major-upgrade', 'cross-site')
                         ShutdownCluster('cross-site')
                     }
                 }

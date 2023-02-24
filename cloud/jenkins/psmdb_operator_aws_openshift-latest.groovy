@@ -285,12 +285,16 @@ pipeline {
                 runTest('non-voting')
                 runTest('cross-site-sharded')
                 runTest('data-at-rest-encryption')
+                runTest('demand-backup-physical-sharded')
+                runTest('multi-cluster-service')
            }
         }
         stage('E2E SelfHealing') {
             steps {
                 runTest('self-healing-chaos')
                 runTest('operator-self-healing-chaos')
+                runTest('ignore-labels-annotations')
+                runTest('expose-sharded')
             }
         }
         stage('E2E Backups') {
@@ -303,13 +307,16 @@ pipeline {
                 runTest('upgrade-sharded')
                 runTest('pitr')
                 runTest('pitr-sharded')
+                runTest('mongod-major-upgrade-sharded')
+                runTest('serviceless-external-nodes')
             }
         }
         stage('CrossSite replication') {
             steps {
-                CreateCluster('cross-site')
-                runTest('cross-site-sharded', 'cross-site')
-                ShutdownCluster('cross-site')
+                runTest('cross-site-sharded')
+                runTest('recover-no-primary')
+                runTest('demand-backup-physical')
+                runTest('mongod-major-upgrade')
             }
         }
         stage('Make report') {
