@@ -137,7 +137,7 @@ void doTests(String WORKER_ID, String SUITES, String STANDALONE_TESTS = '', bool
                 CI_FS_MTR=no
             else
                 echo "Enabling CIFS mtr"
-                CI_FS_MTR=true
+                CI_FS_MTR=yes
             fi
 
             MTR_STANDALONE_TESTS="${STANDALONE_TESTS}"
@@ -362,7 +362,7 @@ void triggerAbortedTestWorkersRerun() {
                 rerunNeeded = true
             } else {
                 // Prevent CI_FS re-trigger
-                CI_FS_MTR = false
+                env.CI_FS_MTR = 'no'
             }
             if (WORKER_ABORTED[2]) {
                 echo "rerun worker 2"
