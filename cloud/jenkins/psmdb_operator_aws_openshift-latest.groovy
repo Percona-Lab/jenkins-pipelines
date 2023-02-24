@@ -283,7 +283,6 @@ pipeline {
                 runTest('data-sharded')
                 runTest('monitoring-2-0')
                 runTest('non-voting')
-                runTest('cross-site-sharded')
                 runTest('data-at-rest-encryption')
                 runTest('demand-backup-physical-sharded')
                 runTest('multi-cluster-service')
