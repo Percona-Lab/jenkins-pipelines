@@ -27,7 +27,7 @@ void ShutdownCluster(String CLUSTER_SUFFIX) {
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
             az account set -s "$AZURE_SUBSCRIPTION_ID"
-            az aks delete --name $CLUSTER_NAME-${CLUSTER_SUFFIX} --resource-group percona-operators --subscription eng-cloud-dev --yes --no-wait
+            az aks delete --name $CLUSTER_NAME-${CLUSTER_SUFFIX} --resource-group percona-operators --subscription eng-cloud-dev  --yes --no-wait
         """
     }
 }
@@ -167,46 +167,46 @@ EOF
 pipeline {
     parameters {
         string(
-                defaultValue: 'main',
-                description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
-                name: 'GIT_BRANCH')
+            defaultValue: 'main',
+            description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
+            name: 'GIT_BRANCH')
         string(
-                defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
-                description: 'percona-server-mongodb-operator repository',
-                name: 'GIT_REPO')
+            defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
+            description: 'percona-server-mongodb-operator repository',
+            name: 'GIT_REPO')
         string(
-                defaultValue: '1.23',
-                description: 'AKS kubernetes version',
-                name: 'PLATFORM_VER')
+            defaultValue: '1.23',
+            description: 'AKS kubernetes version',
+            name: 'PLATFORM_VER')
         choice(
             choices: 'NO\nYES',
             description: 'Run tests with cluster wide',
             name: 'CLUSTER_WIDE')
         string(
-                defaultValue: '',
-                description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
-                name: 'PSMDB_OPERATOR_IMAGE')
+            defaultValue: '',
+            description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
+            name: 'PSMDB_OPERATOR_IMAGE')
         string(
-                defaultValue: '',
-                description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod4.0',
-                name: 'IMAGE_MONGOD')
+            defaultValue: '',
+            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod4.0',
+            name: 'IMAGE_MONGOD')
         string(
-                defaultValue: '',
-                description: 'Backup image: perconalab/percona-server-mongodb-operator:main-backup',
-                name: 'IMAGE_BACKUP')
+            defaultValue: '',
+            description: 'Backup image: perconalab/percona-server-mongodb-operator:main-backup',
+            name: 'IMAGE_BACKUP')
         string(
-                defaultValue: '',
-                description: 'PMM image: perconalab/pmm-client:dev-latest',
-                name: 'IMAGE_PMM')
+            defaultValue: '',
+            description: 'PMM image: perconalab/pmm-client:dev-latest',
+            name: 'IMAGE_PMM')
         string(
-                defaultValue: '',
-                description: 'PMM server image repo: perconalab/pmm-server',
-                name: 'IMAGE_PMM_SERVER_REPO')
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
         string(
-                defaultValue: '',
-                description: 'PMM server image tag: dev-latest',
-                name: 'IMAGE_PMM_SERVER_TAG')
-    }
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
+        }
     agent {
         label 'docker'
     }
@@ -337,7 +337,7 @@ pipeline {
     }
     post {
         always {
-            setTestsresults()
+           setTestsresults()
             makeReport()
             sh """
                     echo "${TestsReport}" > TestsReport.xml
@@ -359,11 +359,11 @@ pipeline {
                 '''
             }
 
-            sh '''
+        sh '''
             sudo docker rmi -f \$(sudo docker images -q) || true
             sudo rm -rf ./*
         '''
-            deleteDir()
+        deleteDir()
         }
     }
 }

@@ -13,7 +13,7 @@ void CreateCluster(String CLUSTER_SUFFIX) {
                 az account show --query "{subscriptionId:id, tenantId:tenantId}"
                 az account list --all --output table
                 az aks create -g percona-operators --subscription eng-cloud-dev -n $CLUSTER_NAME-${CLUSTER_SUFFIX} --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version ${params.PLATFORM_VER} -l eastus
-                az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-${CLUSTER_SUFFIX} 
+                az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-${CLUSTER_SUFFIX}
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
             done
@@ -175,7 +175,7 @@ pipeline {
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.24',
+            defaultValue: '1.25',
             description: 'AKS kubernetes version',
             name: 'PLATFORM_VER')
         choice(
@@ -355,7 +355,7 @@ pipeline {
                     export CLUSTER_NAME=$(echo jenkins-lat-psmdb-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
                     az account set -s "$AZURE_SUBSCRIPTION_ID"
-                    az aks list --query "[?starts_with(name, '$CLUSTER_NAME')].name" --output tsv | xargs az aks delete --resource-group percona-operators --yes --no-wait  --name
+                    az aks list --query "[?starts_with(name, '$CLUSTER_NAME')].name" --output tsv | xargs az aks delete --resource-group percona-operators --yes --no-wait --name
                 '''
             }
 
