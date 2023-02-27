@@ -42,6 +42,7 @@ nodeGroups:
         'iit-billing-tag': 'jenkins-eks'
         'delete-cluster-after-hours': '10'
         'team': 'cloud'
+        'product': 'psmdb-operator'
 EOF
     """
 
