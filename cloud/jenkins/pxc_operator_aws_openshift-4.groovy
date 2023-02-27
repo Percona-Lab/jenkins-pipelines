@@ -417,9 +417,9 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
                      sshagent(['aws-openshift-41-key']) {
                          sh """
-                             for cluster_siffix in 'scaling' 'basic' 'cross-site' 'selfhealing' 'backup' 'big-data' 'upgrade'
+                             for cluster_suffix in 'scaling' 'basic' 'cross-site' 'selfhealing' 'backup' 'big-data' 'upgrade'
                              do
-                                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/${cluster_siffix}
+                                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/${cluster_suffix}
                              done
                          """
                      }
