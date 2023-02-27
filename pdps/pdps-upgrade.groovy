@@ -36,12 +36,12 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.28',
+            defaultValue: '8.0.31',
             description: 'Percona Server will be upgraded from this version',
             name: 'FROM_VERSION'
         )
         string(
-            defaultValue: '8.0.29',
+            defaultValue: '8.0.32',
             description: 'Percona Server will be upgraded to this version',
             name: 'VERSION'
         )
@@ -51,22 +51,22 @@ pipeline {
             name: 'TESTING_BRANCH'
         )
         string(
-            defaultValue: '2.3.2',
+            defaultValue: '2.4.7',
             description: 'Updated Proxysql version',
             name: 'PROXYSQL_VERSION'
         )
         string(
-            defaultValue: '8.0.28',
+            defaultValue: '8.0.32',
             description: 'Updated PXB version',
             name: 'PXB_VERSION'
         )
         string(
-            defaultValue: '3.3.1',
+            defaultValue: '3.5.1',
             description: 'Updated Percona Toolkit version',
             name: 'PT_VERSION'
         )
         string(
-            defaultValue: '3.2.6',
+            defaultValue: '3.2.6-7',
             description: 'Updated Percona Orchestrator version',
             name: 'ORCHESTRATOR_VERSION'
         )
