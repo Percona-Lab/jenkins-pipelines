@@ -179,6 +179,21 @@ parameters {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
+                stage('Oracle Linux 9') {
+                    agent {
+                        label 'min-ol-9-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Ubuntu Bionic(18.04)') {
                     agent {
                         label 'min-bionic-x64'
@@ -204,6 +219,21 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Jammy(22.04)') {
+                    agent {
+                        label 'min-jammy-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
@@ -263,6 +293,34 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("centos:7", "--debug=1 --build_tarball=1 ")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Ubuntu Jammy tarball') {
+                    agent {
+                        label 'min-jammy-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_tarball=1 ")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Ubuntu Jammy debug tarball') {
+                    agent {
+                        label 'min-jammy-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--debug=1 --build_tarball=1 ")
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
