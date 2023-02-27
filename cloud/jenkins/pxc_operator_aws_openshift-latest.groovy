@@ -4,6 +4,34 @@ void IsRunTestsInClusterWide() {
     }
 }
 
+void CreateCluster( String CLUSTER_SUFFIX ){
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'psmdb-openshift4-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
+        sh """
+            mkdir -p openshift/${CLUSTER_SUFFIX}
+            cat $OPENSHIFT_CONF_FILE | sed -e "s/name: openshift4-pxc-jenkins/name: openshift4-pxc-jenkins-$CLUSTER_SUFFIX/" > ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
+        """
+        sshagent(['aws-openshift-41-key']) {
+            sh """
+                /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
+                export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
+
+            """
+        }
+    }
+}
+
+void ShutdownCluster(String CLUSTER_SUFFIX) {
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'psmdb-openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+        sshagent(['aws-openshift-41-key']) {
+            sh """
+                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/${CLUSTER_SUFFIX}
+            """
+        }
+    }
+
+}
+
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -37,7 +65,7 @@ void makeReport() {
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME) {
+void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     def retryCount = 0
     waitUntil {
         try {
@@ -95,7 +123,7 @@ void runTest(String TEST_NAME) {
                         fi
 
                         source $HOME/google-cloud-sdk/path.bash.inc
-                        export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
+                        export KUBECONFIG=$WORKSPACE/openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
                         oc whoami
 
                         ./e2e-tests/$TEST_NAME/run
@@ -273,101 +301,107 @@ pipeline {
         stage('Create AWS Infrastructure') {
             steps {
                 IsRunTestsInClusterWide()
-
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
-                     sh """
-                         mkdir openshift
-                         cp $OPENSHIFT_CONF_FILE ./openshift/install-config.yaml
-                     """
-                    sshagent(['aws-openshift-41-key']) {
-                         sh """
-                             /usr/local/bin/openshift-install create cluster --dir=./openshift/
-                         """
+            }
+        }
+        stage('Run tests') {
+            parallel {
+                stage('E2E Upgrade') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
+                    steps {
+                        CreateCluster('upgrade')
+                        runTest('upgrade-haproxy', 'upgrade')
+                        runTest('upgrade-proxysql', 'upgrade')
+                        runTest('smart-update1', 'upgrade')
+                        runTest('smart-update2', 'upgrade')
+                        runTest('upgrade-consistency', 'upgrade')
+                        ShutdownCluster('upgrade')
                     }
                 }
-
-            }
-        }
-        stage('E2E Upgrade') {
-            options {
-                timeout(time: 3, unit: 'HOURS')
-            }
-            steps {
-                runTest('upgrade-haproxy')
-                runTest('upgrade-proxysql')
-                runTest('smart-update')
-                runTest('upgrade-consistency')
-            }
-        }
-        stage('E2E Basic Tests') {
-            options {
-                timeout(time: 3, unit: 'HOURS')
-            }
-            steps {
-                conditionalRunTest('default-cr')
-                runTest('init-deploy')
-                runTest('limits')
-                runTest('affinity')
-                runTest('one-pod')
-                runTest('auto-tuning')
-                runTest('proxysql-sidecar-res-limits')
-                runTest('users')
-                runTest('haproxy')
-                runTest('monitoring-2-0')
-                runTest('validation-hook')
-                runTest('tls-issue-self')
-                runTest('tls-issue-cert-manager')
-                runTest('tls-issue-cert-manager-ref')
-                runTest('proxy-protocol')
-            }
-        }
-        stage('E2E Scaling') {
-            options {
-                timeout(time: 3, unit: 'HOURS')
-            }
-            steps {
-                runTest('scaling')
-                runTest('scaling-proxysql')
-                runTest('security-context')
-            }
-        }
-        stage('E2E SelfHealing') {
-            options {
-                timeout(time: 3, unit: 'HOURS')
-            }
-            steps {
-                runTest('self-healing-chaos')
-                runTest('self-healing-advanced-chaos')
-                runTest('operator-self-healing-chaos')
-            }
-        }
-        stage('E2E Backups') {
-            options {
-                timeout(time: 3, unit: 'HOURS')
-            }
-            steps {
-                runTest('recreate')
-                runTest('restore-to-encrypted-cluster')
-                runTest('demand-backup')
-                runTest('demand-backup-encrypted-with-tls')
-                runTest('pitr')
-                runTest('scheduled-backup')
-            }
-        }
-        stage('E2E BigData') {
-            options {
-                timeout(time: 3, unit: 'HOURS')
-            }
-            steps {
-                runTest('big-data')
-            }
-        }
-        stage('E2E Cross-site') {
-            options {
-                timeout(time: 3, unit: 'HOURS')
-            }
-            steps {
-                runTest('cross-site')
+                stage('E2E Basic Tests') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
+                    steps {
+                        CreateCluster('basic')
+                        conditionalRunTest('default-cr')
+                        runTest('init-deploy', 'basic')
+                        runTest('limits', 'basic')
+                        runTest('affinity', 'basic')
+                        runTest('one-pod', 'basic')
+                        runTest('auto-tuning', 'basic')
+                        runTest('proxysql-sidecar-res-limits', 'basic')
+                        runTest('users', 'basic')
+                        runTest('haproxy', 'basic')
+                        runTest('monitoring-2-0', 'basic')
+                        runTest('validation-hook', 'basic')
+                        runTest('tls-issue-self', 'basic')
+                        runTest('tls-issue-cert-manager', 'basic')
+                        runTest('tls-issue-cert-manager-ref', 'basic')
+                        runTest('proxy-protocol', 'basic')
+                        ShutdownCluster('basic')
+                    }
+                }
+                stage('E2E Scaling') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
+                    steps {
+                        CreateCluster('scaling')
+                        runTest('scaling', 'scaling')
+                        runTest('scaling-proxysql', 'scaling')
+                        runTest('security-context', 'scaling')
+                        ShutdownCluster('scaling')
+                    }
+                }
+                stage('E2E SelfHealing') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
+                    steps {
+                        CreateCluster('selfhealing')
+                        runTest('self-healing-chaos', 'selfhealing')
+                        runTest('self-healing-advanced-chaos', 'selfhealing')
+                        runTest('operator-self-healing-chaos', 'selfhealing')
+                        ShutdownCluster('selfhealing')
+                    }
+                }
+                stage('E2E Backups') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
+                    steps {
+                        CreateCluster('backup')
+                        runTest('recreate', 'backup')
+                        runTest('restore-to-encrypted-cluster', 'backup')
+                        runTest('demand-backup', 'backup')
+                        runTest('demand-backup-encrypted-with-tls', 'backup')
+                        runTest('pitr', 'backup')
+                        runTest('scheduled-backup', 'backup')
+                        ShutdownCluster('backup')
+                    }
+                }
+                stage('E2E BigData') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
+                    steps {
+                        CreateCluster('big-data')
+                        runTest('big-data', 'big-data')
+                        ShutdownCluster('big-data')
+                    }
+                }
+                stage('E2E Cross-site') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
+                    steps {
+                        CreateCluster('cross-site')
+                        runTest('cross-site', 'cross-site')
+                        ShutdownCluster('cross-site')
+                    }
+                }
             }
         }
         stage('Make report') {
@@ -393,7 +427,10 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
                      sshagent(['aws-openshift-41-key']) {
                          sh """
-                             /usr/local/bin/openshift-install destroy cluster --dir=./openshift/
+                             for cluster_siffix in 'scaling' 'basic' 'cross-site' 'selfhealing' 'backup' 'big-data' 'upgrade'
+                             do
+                                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/${cluster_siffix}
+                             done
                          """
                      }
                 }
