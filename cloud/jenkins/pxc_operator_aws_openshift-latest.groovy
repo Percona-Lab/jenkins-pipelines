@@ -5,10 +5,10 @@ void IsRunTestsInClusterWide() {
 }
 
 void CreateCluster( String CLUSTER_SUFFIX ){
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'psmdb-openshift4-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
             mkdir -p openshift/${CLUSTER_SUFFIX}
-            cat $OPENSHIFT_CONF_FILE | sed -e "s/name: openshift4-pxc-jenkins/name: openshift4-pxc-jenkins-$CLUSTER_SUFFIX/" > ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
+            cat $OPENSHIFT_CONF_FILE | sed -e "s/name: openshift4-pxc-jenkins/name: openshift-lat-pxc-jenkins-$CLUSTER_SUFFIX/" > ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
         """
         sshagent(['aws-openshift-41-key']) {
             sh """
@@ -22,7 +22,7 @@ void CreateCluster( String CLUSTER_SUFFIX ){
 
 void ShutdownCluster(String CLUSTER_SUFFIX) {
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'psmdb-openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
         sshagent(['aws-openshift-41-key']) {
             sh """
                 /usr/local/bin/openshift-install destroy cluster --dir=./openshift/${CLUSTER_SUFFIX}
