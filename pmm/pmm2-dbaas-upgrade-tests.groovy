@@ -63,6 +63,10 @@ pipeline {
             defaultValue: latestVersion,
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
+        choice(
+            choices: ['UI', 'Docker'],
+            description: "Select type of upgrade either UI or Docker way upgrade.",
+            name: 'PMM_UPGRADE_TYPE')
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
@@ -211,18 +215,23 @@ pipeline {
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
                         export kubeconfig_minikube="${KUBECONFIG}"
-                        echo "${KUBECONFIG}" > kubeconfig
-                        export KUBECONFIG=./kubeconfig
+                        mkdir ~/.kube
+                        cd ~/.kube
+                        echo "${KUBECONFIG}" > config
+                        export KUBECONFIG=~/.kube/config
+                        cat config
                         kubectl get nodes
+                        cd /home/ec2-user/workspace/pmm2-dbaas-upgrade-tests-beata-temp
                         ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-before'
+                        kubectl get pods
                     """
                 }
             }
         }
         stage('Run UI Upgrade') {
-            // when {
-            //     expression { env.PMM_UPGRADE_TYPE == "UI"}
-            // }
+            when {
+                expression { env.PMM_UPGRADE_TYPE == "UI"}
+            }
             options {
                 timeout(time: 60, unit: "MINUTES")
             }
@@ -235,45 +244,61 @@ pipeline {
                 """
             }
         }
-        stage('Unregister/Register Kubernetes Cluster') {
+        stage('Run Docker way Upgrade') {
+            when {
+                expression { env.PMM_UPGRADE_TYPE == "Docker"}
+            }
             options {
-                timeout(time: 30, unit: "MINUTES")
+                timeout(time: 60, unit: "MINUTES")
             }
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        export PWD=\$(pwd);
-                        export CHROMIUM_PATH=/usr/bin/chromium
-                        export kubeconfig_minikube="${KUBECONFIG}"
-                        echo "${KUBECONFIG}" > kubeconfig
-                        export KUBECONFIG=./kubeconfig
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-force-unregister'
-                        sleep 120
-                    """
-                }
+                performDockerWayUpgrade("$PMM_DOCKER_HUB:" + getPMMServerVersion(PMM_SERVER_VERSION, PMM_SERVER_VERSION_CUSTOM), env.VM_IP)
             }
         }
-        stage('Run DBaaS Migration Script') {
-            options {
-                timeout(time: 30, unit: "MINUTES")
-            }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                    export kubeconfig_minikube="${KUBECONFIG}"
-                    echo "${KUBECONFIG}" > kubeconfig
-                    export KUBECONFIG=./kubeconfig
-                    kubectl get nodes
-                    sudo yum install -y wget
-                    sudo wget https://raw.githubusercontent.com/percona/pmm/main/migrate-dbaas.py
-                    sudo chmod 755 migrate-dbaas.py
-                    python3 migrate-dbaas.py
-                    sleep 120
-                """
-                }
-            }
-        }
+        // stage('Unregister/Register Kubernetes Cluster') {
+        //     options {
+        //         timeout(time: 30, unit: "MINUTES")
+        //     }
+        //     steps {
+        //         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        //             sh """
+        //                 sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+        //                 export PWD=\$(pwd);
+        //                 export CHROMIUM_PATH=/usr/bin/chromium
+        //                 export kubeconfig_minikube="${KUBECONFIG}"
+        //                 cd ~/.kube
+        //                 echo "${KUBECONFIG}" > config
+        //                 export KUBECONFIG=~/.kube/config
+        //                 cd /home/ec2-user/workspace/pmm2-dbaas-upgrade-tests-beata-temp
+        //                 ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-force-unregister'
+        //                 sleep 300
+        //             """
+        //         }
+        //     }
+        // }
+        // stage('Run DBaaS Migration Script') {
+        //     options {
+        //         timeout(time: 30, unit: "MINUTES")
+        //     }
+        //     steps {
+        //         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        //             sh """
+        //             export kubeconfig_minikube="${KUBECONFIG}"
+        //             cd ~/.kube
+        //             echo "${KUBECONFIG}" > config
+        //             export KUBECONFIG=~/.kube/config
+        //             cd /home/ec2-user/workspace/pmm2-dbaas-upgrade-tests-beata-temp
+        //             kubectl get nodes
+        //             kubectl get pods
+        //             sudo yum install -y wget
+        //             sudo wget https://raw.githubusercontent.com/percona/pmm/main/migrate-dbaas.py
+        //             sudo chmod 755 migrate-dbaas.py
+        //             for i in {1..5} ; do python3 migrate-dbaas.py && break & sleep 3; done
+        //             sleep 120
+        //         """
+        //         }
+        //     }
+        // }
         stage('Run UI Tests After Upgrade') {
             options {
                 timeout(time: 150, unit: "MINUTES")
@@ -284,7 +309,11 @@ pipeline {
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        kubectl get nodes
+                        export kubeconfig_minikube="${KUBECONFIG}"
+                        cd ~/.kube
+                        echo "${KUBECONFIG}" > config
+                        export KUBECONFIG=~/.kube/config
+                        cd /home/ec2-user/workspace/pmm2-dbaas-upgrade-tests-beata-temp
                         ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-after'
                     """
                 }
