@@ -236,6 +236,22 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 } //stage
+                stage('OL 9') {
+                    agent {
+                        label 'min-ol-9-x64'
+                    }
+                    steps {
+                        echo "====> Build pgpool2 rpm on OL9 PG${PG_RELEASE}"
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                } //stage
             } //parallel
         } //stage
         stage('Build pgpool2 DEBs') {
