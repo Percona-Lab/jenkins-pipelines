@@ -124,7 +124,7 @@ pipeline {
         choice(
             name: 'PG_RELEASE',
             description: 'PPG major version to test',
-            choices: ['15', '14', '13', '12', '11']
+            choices: ['15.2', '14.7', '13.10', '12.14', '11.19']
         )
         choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
@@ -231,6 +231,22 @@ pipeline {
                         unstash 'properties'
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
                         buildStage("centos:8", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                } //stage
+                stage('OL 9') {
+                    agent {
+                        label 'min-ol-9-x64'
+                    }
+                    steps {
+                        echo "====> Build pgpool2 rpm on OL9 PG${PG_RELEASE}"
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
