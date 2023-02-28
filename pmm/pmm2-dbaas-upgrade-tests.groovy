@@ -8,7 +8,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, VERSION_SERVICE_VER
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'VERSION_SERVICE_VERSION', value: VERSION_SERVICE_VERSION),
-        string(name: 'DOCKER_ENV_VARIABLE', value: ' -e ENABLE_DBAAS=1' ),
+        string(name: 'DOCKER_ENV_VARIABLE', value: ' -e ENABLE_DBAAS=1 -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1 -e PERCONA_TEST_DBAAS_PMM_CLIENT=perconalab/pmm-client:dev-latest'),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
@@ -80,7 +80,7 @@ pipeline {
             description: 'Prod or Dev version service',
             name: 'VERSION_SERVICE_VERSION')            
         string(
-            defaultValue: "'@dbaas-upgrade'",
+            defaultValue: '',
             description: 'Pass test tags ex. @dbaas-upgrade',
             name: 'TEST_TAGS')
         string(
@@ -88,8 +88,8 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ['Experimental', 'Testing'],
-            description: "Select Testing (RC Tesing) or Experimental (dev-latest testing) Repository",
+            choices: ['Experimental', 'Testing', 'Release'],
+            description: "Select Testing (RC Tesing), Experimental (dev-latest testing) or Release (latest released)",
             name: 'PMM_REPOSITORY')            
     }
     options {
@@ -98,6 +98,11 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                script {
+                    if(env.TEST_TAGS != "") {
+                        currentBuild.description = env.TEST_TAGS
+                    }
+                }
                 // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
@@ -156,9 +161,9 @@ pipeline {
             }
         }
         stage('Disable All Repos') {
-            // when {
-            //     expression { env.PMM_REPOSITORY == "Testing"}
-            // }
+            when {
+                expression { env.PMM_REPOSITORY == "Release"}
+            }
             steps{
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
@@ -171,39 +176,39 @@ pipeline {
                 }
             }
         }
-        // stage('Enable Testing Repo') {
-        //     when {
-        //         expression { env.PMM_REPOSITORY == "Testing"}
-        //     }
-        //     steps{
-        //         withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        //             sh """
-        //                 ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
-        //                     docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-        //                     docker exec ${VM_NAME}-server percona-release enable percona testing
-        //                     docker exec ${VM_NAME}-server yum clean all
-        //                 '
-        //             """
-        //         }
-        //     }
-        // }
-        // stage('Enable Experimental Repo') {
-        //     when {
-        //         expression { env.PMM_REPOSITORY == "Experimental"}
-        //     }
-        //     steps{
-        //         withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        //             sh """
-        //                 ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
-        //                     docker exec ${VM_NAME}-server yum update -y percona-release
-        //                     docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-        //                     docker exec ${VM_NAME}-server percona-release enable percona experimental
-        //                     docker exec ${VM_NAME}-server yum clean all
-        //                 '
-        //             """
-        //         }
-        //     }
-        // }
+        stage('Enable Testing Repo') {
+            when {
+                expression { env.PMM_REPOSITORY == "Testing"}
+            }
+            steps{
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
+                            docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
+                            docker exec ${VM_NAME}-server percona-release enable percona testing
+                            docker exec ${VM_NAME}-server yum clean all
+                        '
+                    """
+                }
+            }
+        }
+        stage('Enable Experimental Repo') {
+            when {
+                expression { env.PMM_REPOSITORY == "Experimental"}
+            }
+            steps{
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
+                            docker exec ${VM_NAME}-server yum update -y percona-release
+                            docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
+                            docker exec ${VM_NAME}-server percona-release enable percona experimental
+                            docker exec ${VM_NAME}-server yum clean all
+                        '
+                    """
+                }
+            }
+        }
         stage('Run UI Tests Before Upgrade') {
             options {
                 timeout(time: 30, unit: "MINUTES")
@@ -233,7 +238,7 @@ pipeline {
                 expression { env.PMM_UPGRADE_TYPE == "UI"}
             }
             options {
-                timeout(time: 60, unit: "MINUTES")
+                timeout(time: 30, unit: "MINUTES")
             }
             steps {
                 sh """
@@ -249,10 +254,18 @@ pipeline {
                 expression { env.PMM_UPGRADE_TYPE == "Docker"}
             }
             options {
-                timeout(time: 60, unit: "MINUTES")
+                timeout(time: 30, unit: "MINUTES")
             }
-            steps {
-                performDockerWayUpgrade("$PMM_DOCKER_HUB:" + getPMMServerVersion(PMM_SERVER_VERSION, PMM_SERVER_VERSION_CUSTOM), env.VM_IP)
+            steps{
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
+                            docker stop ${VM_NAME}-server
+                            docker rename ${VM_NAME}-server ${VM_NAME}-server-old
+                            docker run -d -p 80:80 -p 443:443  --volumes-from ${VM_NAME}-data --name pmm-server-upgraded --restart always -e ENABLE_DBAAS=1 -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1 -e PERCONA_TEST_DBAAS_PMM_CLIENT=perconalab/pmm-client:dev-latest ${PMM_SERVER_TAG}
+                        '
+                    """
+                }
             }
         }
         // stage('Unregister/Register Kubernetes Cluster') {
@@ -305,6 +318,7 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sleep 60
                     sh """
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
