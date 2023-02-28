@@ -1,0 +1,385 @@
+#!/bin/bash
+#
+# Execute this tool to test binary releases
+#
+#  possible jenkins vars:
+#      CMAKE_BUILD_TYPE = (RelWithDebInfo Debug)
+#      MTR_ARGS
+#      MTR_REPEAT
+#      GALERA_PARALLEL_RUN
+#      MTR_SUITES
+#      MTR_STANDALONE_TESTS
+#      MTR_STANDALONE_TESTS_PARALLEL
+#      DOCKER_OS
+#      ANALYZER_OPTS = (-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_MSAN=ON -DWITH_UBSAN=ON -DWITH_VALGRIND=ON)
+
+set -o errexit
+set -o xtrace
+
+echo "*******************************************************"
+whoami
+grep -c ^processor /proc/cpuinfo
+free
+prlimit
+ulimit -a
+echo "*******************************************************"
+
+
+# PXC >>>
+WORKDIR_ABS=$(cd ${1:-./build/pxc}; pwd -P)
+rm -fr ${WORKDIR_ABS}/PXC
+mkdir -p ${WORKDIR_ABS}/PXC/sql
+tar -C ${WORKDIR_ABS}/PXC --strip-components=1 -zxpf $(ls $WORKDIR_ABS/*.tar.gz | head -1)
+
+# this is needed for unit tests execution
+mv ${WORKDIR_ABS}/PXC/runtime_output_directory ${WORKDIR_ABS}/runtime_output_directory
+mv ${WORKDIR_ABS}/PXC/plugin_output_directory ${WORKDIR_ABS}/plugin_output_directory
+mv ${WORKDIR_ABS}/PXC/library_output_directory ${WORKDIR_ABS}/library_output_directory
+# PXC <<<
+
+# PXB >>>
+PXB24_WORKDIR=$WORKDIR_ABS/pxb24
+PXB80_WORKDIR=$WORKDIR_ABS/pxb80
+
+PXB24_TAR=$(ls $PXB24_WORKDIR/{percona-xtrabackup-2.*.tar.gz,pxb24.tar.gz}  | awk -F'/' '{print $NF}')
+PXB80_TAR=$(ls $PXB80_WORKDIR/{percona-xtrabackup-8.*.tar.gz,pxb80.tar.gz}  | awk -F'/' '{print $NF}')
+
+mkdir -p ${PXB24_WORKDIR}/target
+mkdir -p ${PXB80_WORKDIR}/target
+tar -xzf $PXB24_WORKDIR/$PXB24_TAR --exclude='man' --exclude='*-test' -C ${PXB24_WORKDIR}/target
+tar -xzf $PXB80_WORKDIR/$PXB80_TAR --exclude='man' --exclude='*-test' -C ${PXB80_WORKDIR}/target
+
+mv ${PXB24_WORKDIR}/target/$(ls ${PXB24_WORKDIR}/target | grep percona-xtrabackup-2) ${PXB24_WORKDIR}/target/pxb-2.4
+mv ${PXB80_WORKDIR}/target/$(ls ${PXB80_WORKDIR}/target | grep percona-xtrabackup-8) ${PXB80_WORKDIR}/target/pxb-8.0
+
+mkdir -p ${WORKDIR_ABS}/PXC/bin/pxc_extra/pxb-2.4
+mkdir -p ${WORKDIR_ABS}/PXC/bin/pxc_extra/pxb-8.0
+cp -v -r ${PXB24_WORKDIR}/target/pxb-2.4/{bin,lib} ${WORKDIR_ABS}/PXC/bin/pxc_extra/pxb-2.4
+cp -v -r ${PXB80_WORKDIR}/target/pxb-8.0/{bin,lib} ${WORKDIR_ABS}/PXC/bin/pxc_extra/pxb-8.0
+# PXB <<<
+
+#
+# Galera
+export WSREP_PROVIDER=${WORKDIR_ABS}/PXC/lib/libgalera_smm.so
+
+
+cd ${WORKDIR_ABS}/PXC/mysql-test
+TESTCASE_TIMEOUT=30
+# CentOS 7
+if [[ -f /opt/rh/devtoolset-8/enable ]]; then
+    source /opt/rh/devtoolset-8/enable
+fi
+
+#
+# Determine what we've got in the environent
+JEMALLOC=$(find /lib* /usr/lib* /usr/local/lib* -type f -name 'libjemalloc.so*' | head -n1)
+EATMYDATA=$(find /lib* /usr/lib* /usr/local/lib* -type f -name '*eatmyda*.so*' | head -n1)
+OPENSSL_HEADER="/usr/include/openssl/opensslv.h"
+OPENSSL_VER=$(grep -o 'define SHLIB_VERSION_NUMBER .*$' ${OPENSSL_HEADER} | awk -F'"' '{print $(NF-1)}' | sed -e 's:[a-z]::g')
+
+if [[ -z "${EATMYDATA}" ]]; then
+  echo "No libeatmydata.so lib found"
+  exit 1
+fi
+
+if [[ -z "${JEMALLOC}" ]]; then
+  echo "No jemalloc lib found"
+  exit 1
+fi
+
+if [[ -n "${MTR_REPEAT}" ]]; then
+  MTR_ARGS+=" --repeat=${MTR_REPEAT}"
+fi
+
+if [[ "${MTR_ARGS}" == *"--suite=max_parts"* ]]; then
+    TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 3))
+fi
+
+#
+# asan/valgrind
+if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
+  MTR_ARGS+=" --valgrind --valgrind-clients --valgrind-option=--leak-check=full --valgrind-option=--show-leak-kinds=all"
+  [[ ${OPENSSL_VER} < '1.0.2' ]] && export OPENSSL_ia32cap=~0x200000000000000
+  TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 2))
+#  if [[ ${PARALLEL} -gt 1 ]]; then
+#    PARALLEL=$((PARALLEL/3))
+#  fi
+fi
+
+if [[ "${ANALYZER_OPTS}" == *WITH_*SAN*=ON* ]]; then
+    MTR_ARGS+=" --sanitize"
+fi
+
+if [[ "${ANALYZER_OPTS}" == *WITH_ASAN=ON* ]]; then
+  # detect_odr_violation:
+  # If >=2, detect violation of One-Definition-Rule (ODR);
+  # If ==1, detect ODR-violation only if the two variables have different sizes
+  export ASAN_OPTIONS=allocator_may_return_null=true:detect_odr_violation=1
+  # trying to find the proper library
+  MYSQLD=$(find ${WORKDIR_ABS}/PXC/bin -name mysqld)
+  LIBASAN=$(ldd ${MYSQLD} | grep libasan | awk '{print $3}')
+  ADD_TO_LD_PRELOAD="${LIBASAN}:"
+fi
+
+
+#
+# execute big tests in separate run
+BIG_TEST=0
+ONLY_BIG_TEST=0
+if [[ $MTR_ARGS == *"--big-test"* ]]; then
+    BIG_TEST=1
+fi
+if [[ $MTR_ARGS == *"--only-big-test"* ]]; then
+    ONLY_BIG_TEST=1
+    BIG_TEST=1
+fi
+MTR_ARGS=${MTR_ARGS//"--big-test"/""}
+MTR_ARGS=${MTR_ARGS//"--only-big-test"/""}
+
+#
+# unit tests
+UNIT_TESTS=0
+if [[ $MTR_ARGS == *"--unit-tests-report"* ]]; then
+    UNIT_TESTS=1
+fi
+MTR_ARGS=${MTR_ARGS//"--unit-tests-report"/""}
+
+
+status=0
+
+#
+# Running MTR test cases
+if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
+    MYSQLD_ENV=--mysqld-env=\"LD_PRELOAD=${ADD_TO_LD_PRELOAD:-}${EATMYDATA}\"
+else
+    MYSQLD_ENV=--mysqld-env=\"LD_PRELOAD=${ADD_TO_LD_PRELOAD:-}${JEMALLOC}:${EATMYDATA}\"
+fi
+
+#
+# This is a hack. SST script fails with LD_LIBRARY=libasan.so. It has to be specified if we are using
+# jemalloc/eatmydata.
+# Wrap SST script with empty LD_PRELOAD env
+if [[ "${ANALYZER_OPTS}" == *WITH_ASAN=ON* ]]; then
+    pushd ${WORKDIR_ABS}/PXC/bin
+    mv wsrep_sst_xtrabackup-v2 wsrep_sst_xtrabackup-v2.bin
+
+    cat << EOF > wsrep_sst_xtrabackup-v2
+#!/bin/bash
+export LD_PRELOAD=
+${WORKDIR_ABS}/PXC/bin/wsrep_sst_xtrabackup-v2.bin "\$@";
+EOF
+
+    chmod a+rx wsrep_sst_xtrabackup-v2
+    popd
+fi
+
+if [[ -f /etc/redhat-release ]]; then
+    sudo yum install -y net-tools
+else
+    sudo apt install -y net-tools
+fi
+ifconfig
+
+mkdir mtr_var
+
+ARRAY_MTR_SUITES=($(echo $MTR_SUITES | sed 's/,/ /g'))
+for suite in "${ARRAY_MTR_SUITES[@]}"; do
+    only_big_tests_this=$ONLY_BIG_TEST
+    big_tests_this=$BIG_TEST
+
+    # suite may be in form:
+    # main
+    # main|big
+    # main|nobig
+    arrSuite=(${suite//|/ })
+    suite=${arrSuite[0]}
+    big=${arrSuite[1]}
+
+    if [[ "${big}" == "big" ]]; then
+        only_big_tests_this=1
+        # if big tests are executed or not depends on --big-tests
+    fi
+    if [[ "${big}" == "nobig" ]]; then
+        # if normal tests are executed or not depends on --big-tests
+        big_tests_this=0
+    fi
+
+    if [[ "$suite" == *"galera"* ]]; then
+        WORKER=$GALERA_PARALLEL_RUN
+    else
+        WORKER=$(grep -c ^processor /proc/cpuinfo)
+    fi
+    suiteNoSlash=${suite//"/"/"_"}
+    echo "Running MTR suite: $suite (noslash: $suiteNoSlash)"
+
+    start=`date +%s`
+
+    if [[ $only_big_tests_this == "0" ]]; then
+        echo "Executing normal tests for suite $suite"
+
+        df -h
+        du /dev/shm
+        mount
+        ls -la /dev/shm
+        cat /proc/meminfo
+
+        MTR_ARGS_NORMAL=${MTR_ARGS}
+
+        if [[ $UNIT_TESTS == "1" ]]; then
+            MTR_ARGS_NORMAL+=" --unit-tests-report"
+            UNIT_TESTS=0
+        fi
+
+        MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
+            --result-file --suite=$suite \
+            --force ${MYSQLD_ENV} \
+            --max-test-fail=0 \
+            --suite-timeout=9999 --parallel $WORKER \
+            --port-group-size=20 \
+            --testcase-timeout=${TESTCASE_TIMEOUT} \
+            ${MTR_ARGS_NORMAL} \
+            --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
+            --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" || true
+
+        ln -s $PWD/var $PWD/var_${suiteNoSlash}
+        rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
+
+        killall -9 mysqld || true
+        rm -rf $PWD/var_${suiteNoSlash}
+
+        df -h
+        du -sh /dev/shm
+    fi
+
+    if [[ $big_tests_this == "1" ]]; then
+        echo "Executing big tests for suite $suite"
+        MTR_ARGS_BIG=${MTR_ARGS}
+        MTR_ARGS_BIG+=" --only-big-test"
+        suiteNoSlash+="_bigtest"
+        TESTCASE_TIMEOUT_BIG=$((TESTCASE_TIMEOUT * 2))
+
+        if [[ $UNIT_TESTS == "1" ]]; then
+            MTR_ARGS_BIG+=" --unit-tests-report"
+            UNIT_TESTS=0
+        fi
+
+        MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
+            --result-file --suite=$suite \
+            --force ${MYSQLD_ENV} \
+            --max-test-fail=0 \
+            --suite-timeout=9999 --parallel $WORKER \
+            --port-group-size=20 \
+            --testcase-timeout=${TESTCASE_TIMEOUT_BIG} \
+            ${MTR_ARGS_BIG} \
+            --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
+            --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" || true
+
+        ln -s $PWD/var $PWD/var_${suiteNoSlash}
+        rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
+
+        killall -9 mysqld || true
+        rm -rf $PWD/var_${suiteNoSlash}
+
+        df -h
+        du -sh /dev/shm
+    fi
+
+    end=`date +%s`
+    runtime=$((end-start))
+    echo KH,SUITE,${suite},time,$runtime
+
+done
+
+#
+# CI FS tests
+if [[ "${CI_FS_MTR}" = 'yes' ]]; then
+    echo "Running CI FS tests"
+    start=`date +%s`
+
+    # no --mem allowed if vardir specified
+    MTR_ARGS=${MTR_ARGS//"--mem"/""}
+
+    if [[ $BIG_TEST == "1" ]]; then
+        MTR_ARGS+=" --big-test"
+    fi
+
+    CI_TESTS=""
+    for CI_TESTS_TMP in $(grep --exclude="*.inc" --exclude="*.log" -rl . -e include/have_case_insensitive_file_system.inc | awk -F '/' '{print $NF}' | sed 's/.test//g'); do
+        CI_TESTS+=" $CI_TESTS_TMP"
+    done
+    # Requested in PS-7602
+    if [[ ${CMAKE_BUILD_TYPE} = 'Debug' ]]; then
+        CI_TESTS+=" information_schema.i_s_schema_definition_debug"
+    fi
+
+    MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
+        --result-file \
+        --force ${MYSQLD_ENV} \
+        --max-test-fail=0 \
+        --suite-timeout=9999 \
+        --parallel=$(nproc) \
+        --testcase-timeout=${TESTCASE_TIMEOUT} \
+        ${MTR_ARGS} \
+        --tmpdir="/tmp/ps_mtr_tempdir" \
+        --vardir="/tmp/ci_disk_dir/var" \
+        ${CI_TESTS} \
+        --junit-output=${WORKDIR_ABS}/junit_ci_fs.xml \
+        --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.ci_fs" || true
+
+    rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/ci_disk_dir $PWD/mtr_var
+
+    end=`date +%s`
+    runtime=$((end-start))
+    echo KH,SUITE_TOTAL,CI_FS_tests,time,$runtime
+fi
+
+#
+# standalone tests
+if [[ -n "${MTR_STANDALONE_TESTS}" ]]; then
+    echo "Running standalone no CI_FS tests"
+    MTR_ARGS+=" --big-test"
+    WORKER=2
+    suiteNoSlash="standalone_tests"
+
+    start=`date +%s`
+
+    df -h
+    du /dev/shm
+    mount
+    ls -la /dev/shm
+    cat /proc/meminfo
+
+    MTR_ARGS_NORMAL=${MTR_ARGS}
+
+    MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
+        --result-file \
+        --force ${MYSQLD_ENV} \
+        --max-test-fail=0 \
+        --suite-timeout=9999 --parallel ${MTR_STANDALONE_TESTS_PARALLEL} \
+        --port-group-size=20 \
+        --testcase-timeout=${TESTCASE_TIMEOUT} \
+        ${MTR_ARGS_NORMAL} \
+        --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
+        --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" ${MTR_STANDALONE_TESTS} || true
+
+    ln -s $PWD/var $PWD/var_${suiteNoSlash}
+    rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
+
+    killall -9 mysqld || true
+    rm -rf $PWD/var_${suiteNoSlash}
+
+    df -h
+    du -sh /dev/shm
+
+    end=`date +%s`
+    runtime=$((end-start))
+    echo KH,SUITE,${suite},time,$runtime
+fi
+
+# Convert Latin1(ISO-8859-1) into browser readable UTF-8
+for file in $(find ${WORKDIR_ABS}/ -maxdepth 1 -name "*.xml"); do
+    iconv -c -t UTF-8 ${file} | tr -cd '[:print:]\n\r' > ${file}-converted
+    mv ${file}-converted ${file}
+done
+
+exit $status

@@ -8,7 +8,7 @@ void CreateCluster(String CLUSTER_PREFIX) {
     if ( "${params.IS_GKE_ALPHA}" == "YES" ) {
         runGKEclusterAlpha(CLUSTER_PREFIX)
     } else {
-       runGKEcluster(CLUSTER_PREFIX)
+        runGKEcluster(CLUSTER_PREFIX)
     }
 }
 void runGKEcluster(String CLUSTER_PREFIX) {
@@ -52,16 +52,23 @@ void runGKEclusterAlpha(String CLUSTER_PREFIX) {
    }
 }
 void ShutdownCluster(String CLUSTER_PREFIX) {
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+    if ( "${params.IS_GKE_ALPHA}" == "YES" ) {
+        ACCOUNT='alpha-svc-acct'
+        CRED_ID='gcloud-alpha-key-file'
+    } else {
+        ACCOUNT='jenkins'
+        CRED_ID='gcloud-key-file'
+    }
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: CRED_ID, variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
-            gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
+            gcloud auth activate-service-account $ACCOUNT@"$GCP_PROJECT".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
             gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX}
         """
-   }
+    }
 }
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
@@ -339,6 +346,8 @@ pipeline {
                         runTest('service-per-pod', 'basic')
                         runTest('liveness', 'basic')
                         runTest('users', 'basic')
+                        runTest('demand-backup-physical-sharded', 'basic')
+                        runTest('multi-cluster-service', 'basic')
                         ShutdownCluster('basic')
                     }
                 }
@@ -348,6 +357,8 @@ pipeline {
                         runTest('storage', 'selfhealing')
                         runTest('self-healing-chaos', 'selfhealing')
                         runTest('operator-self-healing-chaos', 'selfhealing')
+                        runTest('ignore-labels-annotations', 'selfhealing')
+                        runTest('expose-sharded', 'selfhealing')
                         ShutdownCluster('selfhealing')
                     }
                 }
@@ -360,6 +371,8 @@ pipeline {
                         runTest('demand-backup', 'backups')
                         runTest('demand-backup-sharded', 'backups')
                         runTest('scheduled-backup', 'backups')
+                        runTest('mongod-major-upgrade-sharded', 'backups')
+                        runTest('serviceless-external-nodes', 'backups')
                         ShutdownCluster('backups')
                     }
                 }
@@ -370,6 +383,9 @@ pipeline {
                         runTest('upgrade-sharded', 'cross-site')
                         runTest('pitr', 'cross-site')
                         runTest('pitr-sharded', 'cross-site')
+                        runTest('recover-no-primary', 'cross-site')
+                        runTest('demand-backup-physical', 'cross-site')
+                        runTest('mongod-major-upgrade', 'cross-site')
                         ShutdownCluster('cross-site')
                     }
                 }

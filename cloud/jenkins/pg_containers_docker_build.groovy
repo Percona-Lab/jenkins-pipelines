@@ -1,7 +1,7 @@
 void build(String IMAGE_POSTFIX){
     sh """
         cd ./source/
-        for PG_VER in 14 13 12; do
+        for PG_VER in 15 14 13 12; do
             docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} \
                 -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX} \
                 -f ./postgresql-containers/build/${IMAGE_POSTFIX}/Dockerfile ./postgresql-containers
@@ -18,7 +18,7 @@ void checkImageForDocker(String IMAGE_POSTFIX){
                     wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
                 fi
 
-                for PG_VER in 14 13 12; do
+                for PG_VER in 15 14 13 12; do
                     TrivyLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-ppg\${PG_VER}-${IMAGE_POSTFIX}.xml"
                     /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrivyLog --ignore-unfixed --timeout 20m --exit-code 0 \
                         --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
@@ -44,7 +44,7 @@ void pushImageToDocker(String IMAGE_POSTFIX){
                 docker login -u '${USER}' -p '${PASS}'
                 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR
                 export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                for PG_VER in 14 13 12; do
+                for PG_VER in 15 14 13 12; do
                     docker trust sign perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
                     docker push perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
                     docker tag perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX} $ECR/perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}

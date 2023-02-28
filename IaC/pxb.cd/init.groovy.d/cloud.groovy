@@ -36,7 +36,7 @@ imageMap['min-jammy-x64']    = 'ami-0ee8244746ec5d6d4'
 imageMap['min-bullseye-x64'] = 'ami-0d0f7602aa5c2425d'
 
 priceMap = [:]
-priceMap['t3a.medium'] = '0.015'
+priceMap['t3a.medium'] = '0.035'
 priceMap['m1.medium'] = '0.05'
 priceMap['c5ad.2xlarge'] = '0.18'
 priceMap['m3.2xlarge'] = '0.23'

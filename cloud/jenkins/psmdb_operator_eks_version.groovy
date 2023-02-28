@@ -41,6 +41,7 @@ nodeGroups:
       tags:
         'iit-billing-tag': 'jenkins-eks'
         'delete-cluster-after-hours': '10'
+        'team': 'cloud'
 EOF
     """
 
@@ -317,6 +318,9 @@ pipeline {
                         runTest('smart-update', "scaling")
                         runTest('version-service', "scaling")
                         runTest('rs-shard-migration', "scaling")
+                        runTest('recover-no-primary', 'scaling')
+                        runTest('demand-backup-physical', 'scaling')
+                        runTest('mongod-major-upgrade', 'scaling')
                         ShutdownCluster('scaling')
                     }
                 }
@@ -334,6 +338,8 @@ pipeline {
                         runTest('non-voting', 'basic')
                         runTest('cross-site-sharded', 'basic')
                         runTest('data-at-rest-encryption', 'basic')
+                        runTest('demand-backup-physical-sharded', 'basic')
+                        runTest('multi-cluster-service', 'basic')
                         ShutdownCluster('basic')
                     }
                 }
@@ -343,6 +349,8 @@ pipeline {
                         runTest('storage', 'selfhealing')
                         runTest('self-healing-chaos', 'selfhealing')
                         runTest('operator-self-healing-chaos', 'selfhealing')
+                        runTest('ignore-labels-annotations', 'selfhealing')
+                        runTest('expose-sharded', 'selfhealing')
                         ShutdownCluster('selfhealing')
                     }
                 }
@@ -358,6 +366,8 @@ pipeline {
                         runTest('pitr', 'backups')
                         runTest('pitr-sharded', 'backups')
                         runTest('demand-backup-eks-credentials', 'backups')
+                        runTest('mongod-major-upgrade-sharded', 'backups')
+                        runTest('serviceless-external-nodes', 'backups')
                         ShutdownCluster('backups')
                     }
                 }

@@ -64,6 +64,7 @@ node_setups = [
     "min-bullseye-x64": setup_bullseye_package_tests,
     "min-centos-7-x64": setup_centos_package_tests,
     "min-ol-8-x64": setup_oracle8_package_tests,
+    "min-ol-9-x64": setup_oracle8_package_tests,
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
     "min-jammy-x64": setup_ubuntu_package_tests,
@@ -108,6 +109,7 @@ pipeline {
             choices: [
                 'min-centos-7-x64',
                 'min-ol-8-x64',
+                'min-ol-9-x64',
                 'min-bionic-x64',
                 'min-focal-x64',
                 'min-jammy-x64',
