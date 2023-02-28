@@ -175,14 +175,14 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     echo "The $TEST_NAME test was finished!"
 }
 
-void conditionalRunTest(String TEST_NAME) {
+void conditionalRunTest(String TEST_NAME, String CLUSTER_SUFFIX ) {
     if ( TEST_NAME == 'default-cr' ) {
         if ( params.GIT_BRANCH.contains('release-') ) {
-            runTest(TEST_NAME)
+            runTest(TEST_NAME, CLUSTER_SUFFIX )
         }
         return 0
     }
-    runTest(TEST_NAME)
+    runTest(TEST_NAME, CLUSTER_SUFFIX)
 }
 
 void installRpms() {
@@ -328,7 +328,7 @@ pipeline {
                 stage('E2E Basic Tests') {
                     steps {
                         CreateCluster('basic')
-                        conditionalRunTest('default-cr')
+                        conditionalRunTest('default-cr', 'basic')
                         runTest('one-pod', 'basic')
                         runTest('monitoring-2-0', 'basic')
                         runTest('arbiter', 'basic')
