@@ -81,7 +81,7 @@ pipeline {
             name: 'VERSION_SERVICE_VERSION')            
         string(
             defaultValue: '',
-            description: 'Pass test tags ex. @dbaas-upgrade',
+            description: 'Custom build description',
             name: 'TEST_TAGS')
         string(
             defaultValue: 'main',
@@ -220,13 +220,9 @@ pipeline {
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
                         export kubeconfig_minikube="${KUBECONFIG}"
-                        mkdir ~/.kube
-                        cd ~/.kube
-                        echo "${KUBECONFIG}" > config
-                        export KUBECONFIG=~/.kube/config
-                        cat config
+                        echo "${KUBECONFIG}" > kubeconfig
+                        export KUBECONFIG=./kubeconfig
                         kubectl get nodes
-                        cd /home/ec2-user/workspace/pmm2-dbaas-upgrade-tests-beata-temp
                         ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-before'
                         kubectl get pods
                     """
@@ -279,10 +275,8 @@ pipeline {
         //                 export PWD=\$(pwd);
         //                 export CHROMIUM_PATH=/usr/bin/chromium
         //                 export kubeconfig_minikube="${KUBECONFIG}"
-        //                 cd ~/.kube
-        //                 echo "${KUBECONFIG}" > config
-        //                 export KUBECONFIG=~/.kube/config
-        //                 cd /home/ec2-user/workspace/pmm2-dbaas-upgrade-tests-beata-temp
+        //                 echo "${KUBECONFIG}" > kubeconfig
+        //                 export KUBECONFIG=./kubeconfig
         //                 ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-force-unregister'
         //                 sleep 300
         //             """
@@ -297,11 +291,8 @@ pipeline {
         //         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         //             sh """
         //             export kubeconfig_minikube="${KUBECONFIG}"
-        //             cd ~/.kube
-        //             echo "${KUBECONFIG}" > config
-        //             export KUBECONFIG=~/.kube/config
-        //             cd /home/ec2-user/workspace/pmm2-dbaas-upgrade-tests-beata-temp
-        //             kubectl get nodes
+        //             echo "${KUBECONFIG}" > kubeconfig
+        //             export KUBECONFIG=./kubeconfig
         //             kubectl get pods
         //             sudo yum install -y wget
         //             sudo wget https://raw.githubusercontent.com/percona/pmm/main/migrate-dbaas.py
@@ -324,10 +315,8 @@ pipeline {
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
                         export kubeconfig_minikube="${KUBECONFIG}"
-                        cd ~/.kube
-                        echo "${KUBECONFIG}" > config
-                        export KUBECONFIG=~/.kube/config
-                        cd /home/ec2-user/workspace/pmm2-dbaas-upgrade-tests-beata-temp
+                        echo "${KUBECONFIG}" > kubeconfig
+                        export KUBECONFIG=./kubeconfig
                         ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-after'
                     """
                 }
