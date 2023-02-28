@@ -8,8 +8,49 @@ void CreateCluster( String CLUSTER_SUFFIX ){
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
             mkdir -p openshift/${CLUSTER_SUFFIX}
-            cat $OPENSHIFT_CONF_FILE | sed -e "s/name: openshift4-pxc-jenkins/name: openshift-lat-pxc-jenkins-$CLUSTER_SUFFIX/" > ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
+cat <<-EOF > ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
+apiVersion: v1
+baseDomain: cd.percona.com
+compute:
+- architecture: amd64
+  hyperthreading: Enabled
+  name: worker
+  platform:
+    aws:
+      type: m5.2xlarge
+  replicas: 3
+controlPlane:
+  architecture: amd64
+  hyperthreading: Enabled
+  name: master
+  platform: {}
+  replicas: 3
+metadata:
+  creationTimestamp: null
+  name: openshift-lat-pxc-jenkins-${CLUSTER_SUFFIX}
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 10.0.0.0/16
+  networkType: OpenShiftSDN
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  aws:
+    region: eu-west-2
+    userTags:
+      iit-billing-tag: openshift
+      delete-cluster-after-hours: 8
+      team: cloud
+      product: pxc-operator
+      
+publish: External
+EOF
+            cat $OPENSHIFT_CONF_FILE >> ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
         """
+
         sshagent(['aws-openshift-41-key']) {
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
