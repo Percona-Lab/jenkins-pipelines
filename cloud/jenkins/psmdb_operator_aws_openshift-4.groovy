@@ -24,7 +24,7 @@ controlPlane:
   hyperthreading: Enabled
   name: master
   platform: {}
-  replicas: 3
+  replicas: 1
 metadata:
   creationTimestamp: null
   name: openshift4-psmdb-jenkins-${CLUSTER_SUFFIX}
