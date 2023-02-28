@@ -1,5 +1,5 @@
 - job:
-    name: pxc-8.0-param-parallel-mtr-refactor
+    name: pxc-8.0-param-parallel-mtr
     project-type: matrix
     defaults: global
     description: |
@@ -172,7 +172,7 @@
           - debian:bullseye
     builders:
     - trigger-builds:
-      - project: pxc-8.0-pipeline-parallel-mtr-refactor
+      - project: pxc-8.0-pipeline-parallel-mtr
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${DOCKER_OS}
@@ -185,9 +185,9 @@
     - shell: |
         sudo find . -name "*.xml" -o -name "*.log" -delete
     - copyartifact:
-        project: pxc-8.0-pipeline-parallel-mtr-refactor
+        project: pxc-8.0-pipeline-parallel-mtr
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_8_0_pipeline_parallel_mtr_refactor}"
+        build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_8_0_pipeline_parallel_mtr}"
         do-not-fingerprint: true
     - shell: |
         echo "${TRIGGERED_BUILD_NUMBERS_pxc_8_0_pipeline_parallel_mtr}" > PIPELINE_BUILD_NUMBER

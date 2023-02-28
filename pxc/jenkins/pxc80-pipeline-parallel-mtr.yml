@@ -1,5 +1,5 @@
 - job:
-    name: pxc-8.0-pipeline-parallel-mtr-refactor
+    name: pxc-8.0-pipeline-parallel-mtr
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -7,9 +7,9 @@
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/kamil-holubicki/jenkins-pipelines.git
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'parallel-mtr-refactor-2'
+            - 'master'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pxc/jenkins/pxc80-pipeline-parallel-mtr.groovy
@@ -44,7 +44,7 @@
         description: URL to PXB80 repository
     - string:
         name: PXB80_BRANCH
-        default: percona-xtrabackup-8.0.27-19
+        default: percona-xtrabackup-8.0.31-24
         description: Tag/Branch for PXB80 repository
     - bool:
         name: PXB24_LATEST
@@ -56,7 +56,7 @@
         description: URL to PXB24 repository
     - string:
         name: PXB24_BRANCH
-        default: percona-xtrabackup-2.4.24
+        default: percona-xtrabackup-2.4.27
         description: Tag/Branch for PXC repository
     - choice:
         name: JOB_CMAKE

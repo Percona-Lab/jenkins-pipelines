@@ -1,6 +1,6 @@
 PIPELINE_TIMEOUT = 10
-JENKINS_SCRIPTS_BRANCH = 'parallel-mtr-refactor-2'
-JENKINS_SCRIPTS_REPO = 'https://github.com/kamil-holubicki/jenkins-pipelines'
+JENKINS_SCRIPTS_BRANCH = 'master'
+JENKINS_SCRIPTS_REPO = 'https://github.com/Percona-Lab/jenkins-pipelines'
 AWS_CREDENTIALS_ID = 'c42456e5-c28d-4962-b32c-b75d161bff27'
 MAX_S3_RETRIES = 12
 S3_ROOT_DIR = 's3://pxc-build-cache'
@@ -403,7 +403,7 @@ void triggerAbortedTestWorkersRerun() {
             echo "rerun needed: $rerunNeeded"
             if (rerunNeeded) {
                 echo "restarting aborted workers"
-                build job: 'pxc-8.0-pipeline-parallel-mtr-refactor',
+                build job: 'pxc-8.0-pipeline-parallel-mtr',
                 wait: false,
                 parameters: [
                     string(name:'BUILD_NUMBER_BINARIES', value: BUILD_NUMBER_BINARIES_FOR_RERUN),
@@ -483,7 +483,7 @@ pipeline {
             name: 'PXB80_REPO',
             trim: true)
         string(
-            defaultValue: 'percona-xtrabackup-8.0.27-19',
+            defaultValue: 'percona-xtrabackup-8.0.31-24',
             description: 'Tag/Branch for PXB80 repository',
             name: 'PXB80_BRANCH',
             trim: true)
@@ -497,7 +497,7 @@ pipeline {
             name: 'PXB24_REPO',
             trim: true)
         string(
-            defaultValue: 'percona-xtrabackup-2.4.24',
+            defaultValue: 'percona-xtrabackup-2.4.27',
             description: 'Tag/Branch for PXC repository',
             name: 'PXB24_BRANCH',
             trim: true)
@@ -594,7 +594,7 @@ pipeline {
         skipStagesAfterUnstable()
         timeout(time: 6, unit: 'DAYS')
         buildDiscarder(logRotator(numToKeepStr: '200', artifactNumToKeepStr: '200'))
-        copyArtifactPermission('pxc-8.0-param-parallel-mtr-refactor');
+        copyArtifactPermission('pxc-8.0-param-parallel-mtr');
     }
     stages {
         stage('Prepare') {
