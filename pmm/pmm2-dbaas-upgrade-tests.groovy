@@ -52,11 +52,11 @@ pipeline {
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
         choice(
-            choices: versionsList,
+            choices: ['2.34.0', '2.35.0'],
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_VERSION')
         choice(
-            choices: versionsList,
+            choices: ['2.34.0', '2.35.0'],
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
