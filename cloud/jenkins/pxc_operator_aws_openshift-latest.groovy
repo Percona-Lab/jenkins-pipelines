@@ -9,6 +9,7 @@ void CreateCluster( String CLUSTER_SUFFIX ){
         sh """
             mkdir -p openshift/${CLUSTER_SUFFIX}
 cat <<-EOF > ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
+additionalTrustBundlePolicy: Proxyonly
 apiVersion: v1
 baseDomain: cd.percona.com
 compute:
@@ -34,7 +35,7 @@ networking:
     hostPrefix: 23
   machineNetwork:
   - cidr: 10.0.0.0/16
-  networkType: OpenShiftSDN
+  networkType: OVNKubernetes
   serviceNetwork:
   - 172.30.0.0/16
 platform:
