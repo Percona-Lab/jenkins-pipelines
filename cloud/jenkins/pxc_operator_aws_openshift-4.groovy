@@ -5,10 +5,19 @@ void IsRunTestsInClusterWide() {
 }
 
 void CreateCluster( String CLUSTER_SUFFIX ){
+    if ( "${params.PLATFORM_VER}" =~ "4.12" ) {
+        POLICY="additionalTrustBundlePolicy: Proxyonly"
+        NETWORK_TYPE="OVNKubernetes"
+    }
+    else {
+        POLICY=""
+        NETWORK_TYPE="OpenShiftSDN"
+    }
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
             mkdir -p openshift/${CLUSTER_SUFFIX}
 cat <<-EOF > ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
+${POLICY}
 apiVersion: v1
 baseDomain: cd.percona.com
 compute:
@@ -34,7 +43,7 @@ networking:
     hostPrefix: 23
   machineNetwork:
   - cidr: 10.0.0.0/16
-  networkType: OpenShiftSDN
+  networkType: ${NETWORK_TYPE}
   serviceNetwork:
   - 172.30.0.0/16
 platform:
