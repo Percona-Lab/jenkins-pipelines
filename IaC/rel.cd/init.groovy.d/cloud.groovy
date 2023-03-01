@@ -21,21 +21,21 @@ netMap['eu-west-1b'] = 'subnet-02e8446080b5a52ef'
 netMap['eu-west-1c'] = 'subnet-0eb939327a262a348'
 
 imageMap = [:]
-imageMap['eu-west-1a.docker'] = 'ami-09d5dd12541e69077'
-imageMap['eu-west-1a.docker-32gb'] = 'ami-09d5dd12541e69077'
-imageMap['eu-west-1a.docker2'] = 'ami-09d5dd12541e69077'
-imageMap['eu-west-1a.micro-amazon'] = 'ami-09d5dd12541e69077'
+imageMap['eu-west-1a.docker'] = 'ami-0e8b5d4aece7e1ce8'
+imageMap['eu-west-1a.docker-32gb'] = 'ami-0e8b5d4aece7e1ce8'
+imageMap['eu-west-1a.docker2'] = 'ami-0e8b5d4aece7e1ce8'
+imageMap['eu-west-1a.micro-amazon'] = 'ami-0e8b5d4aece7e1ce8'
 
 imageMap['eu-west-1a.min-centos-7-x64']  = 'ami-04f5641b0d178a27a'
 imageMap['eu-west-1a.fips-centos-7-x64'] = 'ami-04f5641b0d178a27a'
 imageMap['eu-west-1a.min-centos-8-x64']  = 'ami-0a75a5a43b05b4d5f'
-imageMap['eu-west-1a.min-ol-8-x64']      = 'ami-0f7601d8419fac927'
+imageMap['eu-west-1a.min-ol-8-x64']      = 'ami-0f31520cb83bd0301'
 imageMap['eu-west-1a.min-ol-9-x64']      = 'ami-04e2c29c7de5e0f5a'
-imageMap['eu-west-1a.min-bullseye-x64']  = 'ami-01ebd2b650c37e4d6'
-imageMap['eu-west-1a.min-buster-x64']    = 'ami-04e1d2f88740af5e1'
-imageMap['eu-west-1a.min-jammy-x64']     = 'ami-00c90dbdc12232b58'
-imageMap['eu-west-1a.min-focal-x64']     = 'ami-03caf24deed650e2c'
-imageMap['eu-west-1a.min-bionic-x64']    = 'ami-0c259a97cbf621daf'
+imageMap['eu-west-1a.min-bullseye-x64']  = 'ami-089f338f3a2e69431'
+imageMap['eu-west-1a.min-buster-x64']    = 'ami-00aa3f69e07141166'
+imageMap['eu-west-1a.min-jammy-x64']     = 'ami-0d2f9b5f04091bdb7'
+imageMap['eu-west-1a.min-focal-x64']     = 'ami-051d5c7c7ec9cf96c'
+imageMap['eu-west-1a.min-bionic-x64']    = 'ami-027ceacf6a9f484c3'
 imageMap['eu-west-1a.min-hirsute-x64-zenfs'] = 'ami-02469e1cc9f95b137'
 imageMap['eu-west-1a.min-focal-x64-zenfs']   = 'ami-05a657c9227900694'
 imageMap['eu-west-1a.min-bionic-x64-zenfs']  = 'ami-02d7fe93ba8353d4e'
@@ -80,22 +80,18 @@ imageMap['eu-west-1c.min-hirsute-x64-zenfs'] = imageMap['eu-west-1a.min-hirsute-
 imageMap['eu-west-1c.min-focal-x64-zenfs'] = imageMap['eu-west-1a.min-focal-x64-zenfs']
 imageMap['eu-west-1c.min-bionic-x64-zenfs']  = imageMap['eu-west-1a.min-bionic-x64-zenfs']
 
-imageMap['eu-west-1a.docker-32gb-aarch64']  = 'ami-06db897520fb93106'
+imageMap['eu-west-1a.docker-32gb-aarch64']  = 'ami-0b3f5005d71118f36'
 imageMap['eu-west-1b.docker-32gb-aarch64']  = imageMap['eu-west-1a.docker-32gb-aarch64']
 imageMap['eu-west-1c.docker-32gb-aarch64']  = imageMap['eu-west-1a.docker-32gb-aarch64']
 
 priceMap = [:]
-priceMap['t2.small'] = '0.01'
-priceMap['m1.medium'] = '0.05'
-priceMap['c5.xlarge'] = '0.15'   // old 0.10
-priceMap['m4.xlarge'] = '0.15'   // old 0.10
-priceMap['r5b.2xlarge'] = '0.45' // old 0.32
-priceMap['r4.4xlarge'] = '0.48'  // old 0.38
-priceMap['m5d.2xlarge'] = '0.35' // old 0.20
-priceMap['c5d.xlarge'] = '0.35'  // old 0.20
-priceMap['i4i.2xlarge'] = '0.50' // old 0.40
+priceMap['t2.small'] = '0.02'    // type=t2.small, vCPU=1, memory=2GiB, saving=68%, interruption='<5%', price=0.008000
+priceMap['c5.xlarge'] = '0.15'   // type=c5.xlarge, vCPU=4, memory=8GiB, saving=58%, interruption='<5%', price=0.086400
+priceMap['m5d.4xlarge'] = '0.43' // type=m5d.4xlarge, vCPU=16, memory=64GiB, saving=65%, interruption='<5%', price=0.364800
+priceMap['r6a.4xlarge'] = '0.42' // type=r6a.4xlarge, vCPU=16, memory=128GiB, saving=66%, interruption='<5%', price=0.361600
+priceMap['i4i.2xlarge'] = '0.32' // type=i4i.2xlarge, vCPU=8, memory=64GiB, saving=68%, interruption='<5%', price=0.248900
 
-priceMap['m6gd.2xlarge'] = '0.23' // aarch64 type=m6gd.2xlarge, vCPU=8, memory=32GiB, saving=62%, interruption='<5%', price=0.151500
+priceMap['m6gd.2xlarge'] = '0.24' // aarch64 type=m6gd.2xlarge, vCPU=8, memory=32GiB, saving=60%, interruption='<5%', price=0.161800
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -287,10 +283,8 @@ initMap['docker-32gb-aarch64'] = initMap['docker']
 
 capMap = [:]
 capMap['c5.xlarge']    = '60'
-capMap['m4.xlarge']    = '5'
-capMap['r5b.2xlarge'] = '40'
-capMap['r4.4xlarge']   = '40'
-capMap['c5d.xlarge']   = '10'
+capMap['m5d.4xlarge'] = '40'
+capMap['r6a.4xlarge']   = '40'
 capMap['i4i.2xlarge']  = '40'
 
 capMap['m6gd.2xlarge'] = '20'
@@ -298,8 +292,8 @@ capMap['m6gd.2xlarge'] = '20'
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.small'
 typeMap['docker']            = 'c5.xlarge'
-typeMap['docker-32gb']       = 'r5b.2xlarge'
-typeMap['docker2']           = 'r4.4xlarge'
+typeMap['docker-32gb']       = 'm5d.4xlarge'
+typeMap['docker2']           = 'r6a.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
 typeMap['min-centos-8-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-ol-8-x64']      = typeMap['min-centos-7-x64']
@@ -338,23 +332,23 @@ execMap['min-bionic-x64-zenfs'] = '1'
 execMap['docker-32gb-aarch64'] = execMap['docker']
 
 devMap = [:]
-devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:180:true:gp2'
-devMap['docker2']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:180:true:gp2'
+devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:220:true:gp2'
+devMap['docker2']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:220:true:gp2'
 devMap['docker-32gb']       = devMap['docker']
 devMap['micro-amazon']      = devMap['docker']
-devMap['min-bionic-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:180:true:gp2'
+devMap['min-bionic-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:220:true:gp2'
 devMap['min-focal-x64']     = devMap['min-bionic-x64']
 devMap['min-jammy-x64']     = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
-devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
-devMap['min-ol-8-x64']      = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
-devMap['min-ol-9-x64']      = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
+devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:220:true:gp2'
+devMap['min-ol-8-x64']      = '/dev/sda1=:10:true:gp2,/dev/sdd=:220:true:gp2'
+devMap['min-ol-9-x64']      = '/dev/sda1=:20:true:gp2,/dev/sdd=:220:true:gp2'
 devMap['min-buster-x64']    = devMap['docker']
 devMap['min-bullseye-x64']  = devMap['docker']
-devMap['min-hirsute-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
-devMap['min-focal-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
-devMap['min-bionic-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:180:true:gp2'
+devMap['min-hirsute-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:220:true:gp2'
+devMap['min-focal-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:220:true:gp2'
+devMap['min-bionic-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:220:true:gp2'
 
 devMap['docker-32gb-aarch64'] = devMap['docker']
 
