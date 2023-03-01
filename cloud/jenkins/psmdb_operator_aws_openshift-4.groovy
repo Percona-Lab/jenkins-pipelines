@@ -403,7 +403,7 @@ pipeline {
                          sh """
                              for cluster_suffix in 'scaling' 'basic' 'cross-site' 'selfhealing' 'backup'
                              do
-                                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/${cluster_suffix}
+                                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/$\cluster_suffix
                              done
                          """
                      }
