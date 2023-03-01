@@ -459,7 +459,7 @@ pipeline {
                          sh """
                              for cluster_suffix in 'scaling' 'basic' 'cross-site' 'selfhealing' 'backup' 'big-data' 'upgrade'
                              do
-                                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/\$cluster_suffix
+                                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/\$cluster_suffix > /dev/null 2>&1
                              done
                          """
                      }
