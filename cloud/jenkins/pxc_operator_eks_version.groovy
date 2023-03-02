@@ -42,6 +42,7 @@ nodeGroups:
         'iit-billing-tag': 'jenkins-eks'
         'delete-cluster-after-hours': '10'
         'team': 'cloud'
+        'product': 'pxc-operator'
 EOF
     """
 
@@ -261,10 +262,6 @@ pipeline {
             description: 'PMM server image tag: dev-latest',
             name: 'IMAGE_PMM_SERVER_TAG')
     }
-    environment {
-        CLEAN_NAMESPACE = 1
-        CLUSTER_NAME = sh(script: "echo jenkins-par-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-    }
     agent {
          label 'docker'
     }
@@ -335,6 +332,10 @@ pipeline {
             }
         }
         stage('Run tests') {
+            environment {
+                CLEAN_NAMESPACE = 1
+                CLUSTER_NAME = sh(script: "echo jenkins-par-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+            }
             parallel {
                 stage('E2E Upgrade') {
                     options {

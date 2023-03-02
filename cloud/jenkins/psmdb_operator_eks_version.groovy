@@ -42,6 +42,7 @@ nodeGroups:
         'iit-billing-tag': 'jenkins-eks'
         'delete-cluster-after-hours': '10'
         'team': 'cloud'
+        'product': 'psmdb-operator'
 EOF
     """
 
@@ -106,6 +107,13 @@ void makeReport() {
 
 void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     def retryCount = 0
+    sh """
+        if [ $retryCount -eq 0 ]; then
+            export DEBUG_TESTS=0
+        else
+            export DEBUG_TESTS=1
+        fi
+    """
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
@@ -174,14 +182,14 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     echo "The $TEST_NAME test was finished!"
 }
 
-void conditionalRunTest(String TEST_NAME) {
+void conditionalRunTest(String TEST_NAME, String CLUSTER_SUFFIX ) {
     if ( TEST_NAME == 'default-cr' ) {
         if ( params.GIT_BRANCH.contains('release-') ) {
-            runTest(TEST_NAME)
+            runTest(TEST_NAME, CLUSTER_SUFFIX )
         }
         return 0
     }
-    runTest(TEST_NAME)
+    runTest(TEST_NAME, CLUSTER_SUFFIX)
 }
 
 void installRpms() {
@@ -232,10 +240,6 @@ pipeline {
             defaultValue: '',
             description: 'PMM server image tag: dev-latest',
             name: 'IMAGE_PMM_SERVER_TAG')
-    }
-    environment {
-        CLEAN_NAMESPACE = 1
-        CLUSTER_NAME = sh(script: "echo jenkins-par-psmdb-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
     }
     agent {
          label 'docker'
@@ -307,6 +311,10 @@ pipeline {
            }
         }
         stage('Run tests') {
+            environment {
+                CLEAN_NAMESPACE = 1
+                CLUSTER_NAME = sh(script: "echo jenkins-par-psmdb-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+            }
             parallel {
                 stage('E2E Scaling') {
                     steps {
@@ -327,7 +335,7 @@ pipeline {
                 stage('E2E Basic Tests') {
                     steps {
                         CreateCluster('basic')
-                        conditionalRunTest('default-cr')
+                        conditionalRunTest('default-cr', 'basic')
                         runTest('one-pod', 'basic')
                         runTest('monitoring-2-0', 'basic')
                         runTest('arbiter', 'basic')
