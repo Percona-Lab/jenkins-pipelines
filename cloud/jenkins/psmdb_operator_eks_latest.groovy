@@ -241,10 +241,6 @@ pipeline {
             description: 'PMM server image tag: dev-latest',
             name: 'IMAGE_PMM_SERVER_TAG')
     }
-    environment {
-        CLEAN_NAMESPACE = 1
-        CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-    }
     agent {
          label 'docker'
     }
@@ -315,6 +311,10 @@ pipeline {
            }
         }
         stage('Run tests') {
+            environment {
+                CLEAN_NAMESPACE = 1
+                CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+            }
             parallel {
                 stage('E2E Scaling') {
                     steps {
