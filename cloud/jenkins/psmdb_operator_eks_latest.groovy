@@ -118,8 +118,7 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
         try {
             echo "The $TEST_NAME test was started!"
 
-            GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
-            VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
+            VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
             testsReportMap[TEST_NAME] = 'failure'
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
 
@@ -313,6 +312,7 @@ pipeline {
         stage('Run tests') {
             environment {
                 CLEAN_NAMESPACE = 1
+                GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                 CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
             }
             parallel {
