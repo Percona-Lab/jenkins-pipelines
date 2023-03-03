@@ -137,34 +137,34 @@ pipeline {
                 }
             }
         }
-        // stage('Build Server & Client') {
-        //     when {
-        //         expression { env.REMOVE_RELEASE_BRANCH == "no" }
-        //     }
-        //     parallel {
-        //         stage('Start OL9 Server Build') {
-        //             steps {
-        //                 script {
-        //                     build job: 'el9-build-server', parameters: [
-        //                         string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-        //                         string(name: 'DESTINATION', value: 'testing') // TODO: revert to the original value
-        //                     ]
-        //                 }
-        //             }
-        //         }
-        //         stage('Start OL9 Client Build') {
-        //             steps {
-        //                 script {
-        //                     pmm2Client = build job: 'el9-build-client', parameters: [
-        //                         string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-        //                         string(name: 'DESTINATION', value: 'testing')
-        //                     ]
-        //                     env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL                        
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
+        stage('Build Server & Client') {
+            when {
+                expression { env.REMOVE_RELEASE_BRANCH == "no" }
+            }
+            parallel {
+                stage('Start OL9 Server Build') {
+                    steps {
+                        script {
+                            build job: 'el9-build-server', parameters: [
+                                string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                                string(name: 'DESTINATION', value: 'testing') // TODO: revert to the original value
+                            ]
+                        }
+                    }
+                }
+                stage('Start OL9 Client Build') {
+                    steps {
+                        script {
+                            pmm2Client = build job: 'el9-build-client', parameters: [
+                                string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                                string(name: 'DESTINATION', value: 'testing')
+                            ]
+                            env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL                        
+                        }
+                    }
+                }
+            }
+        }
         stage('Build OVF') {
             when {
                 expression { env.REMOVE_RELEASE_BRANCH == "no" }
@@ -179,21 +179,21 @@ pipeline {
                 }
             }
         }
-        // stage('Build AMI') {
-        //     when {
-        //         expression { env.REMOVE_RELEASE_BRANCH == "no" }
-        //     }
-        //     steps {
-        //         script {
-        //             pmm2AMI = build job: 'el9-build-ami', parameters: [
-        //                 // TODO: get the branch from pmm-submodules' cy.yml
-        //                 string(name: 'PMM_BRANCH', value: params.RELEASE_BRANCH),
-        //                 string(name: 'RELEASE_CANDIDATE', value: 'yes')
-        //             ]
-        //             env.AMI_ID = pmm2AMI.buildVariables.AMI_ID
-        //         }
-        //     }
-        // }
+        stage('Build AMI') {
+            when {
+                expression { env.REMOVE_RELEASE_BRANCH == "no" }
+            }
+            steps {
+                script {
+                    pmm2AMI = build job: 'el9-build-ami', parameters: [
+                        // TODO: get the branch from pmm-submodules' cy.yml
+                        string(name: 'PMM_BRANCH', value: params.RELEASE_BRANCH),
+                        string(name: 'RELEASE_CANDIDATE', value: 'yes')
+                    ]
+                    env.AMI_ID = pmm2AMI.buildVariables.AMI_ID
+                }
+            }
+        }
     }
     post {
         success {

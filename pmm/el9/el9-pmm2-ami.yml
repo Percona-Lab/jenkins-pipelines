@@ -1,0 +1,14 @@
+- job:
+    name: el9-pmm2-ami
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'PMM-6352-custom-build-el9'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pmm/el9/el9-pmm2-ami.groovy
