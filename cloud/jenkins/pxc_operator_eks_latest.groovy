@@ -42,6 +42,7 @@ nodeGroups:
         'iit-billing-tag': 'jenkins-eks'
         'delete-cluster-after-hours': '10'
         'team': 'cloud'
+        'product': 'pxc-operator'
 EOF
     """
 
@@ -110,9 +111,8 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
         try {
             echo "The $TEST_NAME test was started!"
 
-            GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
             PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
-            VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
+            VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
             testsReportMap[TEST_NAME] = 'failure'
 
             popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
@@ -260,10 +260,6 @@ pipeline {
             description: 'PMM server image tag: dev-latest',
             name: 'IMAGE_PMM_SERVER_TAG')
     }
-    environment {
-        CLEAN_NAMESPACE = 1
-        CLUSTER_NAME = sh(script: "echo jenkins-lat-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-    }
     agent {
          label 'docker'
     }
@@ -334,6 +330,11 @@ pipeline {
             }
         }
         stage('Run tests') {
+            environment {
+                CLEAN_NAMESPACE = 1
+                GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                CLUSTER_NAME = sh(script: "echo jenkins-lat-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+            }
             parallel {
                 stage('E2E Upgrade') {
                     options {
