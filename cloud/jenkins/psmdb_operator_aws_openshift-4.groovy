@@ -117,7 +117,6 @@ void makeReport() {
 
 void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     def retryCount = 0
-    
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"

@@ -37,13 +37,7 @@ void makeReport() {
 
 void runTest(String TEST_NAME) {
     def retryCount = 0
-    sh """
-        if [ $retryCount -eq 0 ]; then
-            export DEBUG_TESTS=0
-        else
-            export DEBUG_TESTS=1
-        fi
-    """
+
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
@@ -56,6 +50,11 @@ void runTest(String TEST_NAME) {
 
             popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
             sh """
+                if [ $retryCount -eq 0 ]; then
+                    export DEBUG_TESTS=0
+                else
+                    export DEBUG_TESTS=1
+                fi
                 if [ -f "$FILE_NAME" ]; then
                     echo Skip $TEST_NAME test
                 else
