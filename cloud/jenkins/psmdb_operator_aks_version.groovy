@@ -73,13 +73,7 @@ void setTestsresults() {
 
 void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     def retryCount = 0
-    sh """
-        if [ $retryCount -eq 0 ]; then
-            export DEBUG_TESTS=0
-        else
-            export DEBUG_TESTS=1
-        fi
-    """
+
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
@@ -92,6 +86,11 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
 
             withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
                 sh """
+                    if [ $retryCount -eq 0 ]; then
+                        export DEBUG_TESTS=0
+                    else
+                        export DEBUG_TESTS=1
+                    fi
                     if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                         echo Skip $TEST_NAME test
                     else
