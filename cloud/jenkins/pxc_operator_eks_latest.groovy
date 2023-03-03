@@ -9,7 +9,7 @@ kind: ClusterConfig
 
 metadata:
     name: ${CLUSTER_NAME}-${CLUSTER_SUFFIX}
-    region: eu-west-3
+    region: eu-west-2
     version: "$PLATFORM_VER"
     tags:
         'delete-cluster-after-hours': '10'
