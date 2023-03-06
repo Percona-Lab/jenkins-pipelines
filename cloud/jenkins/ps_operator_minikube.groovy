@@ -38,7 +38,7 @@ void runTest(String TEST_NAME) {
             GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
             PS_TAG = sh(script: "if [ -n \"\${IMAGE_MYSQL}\" ] ; then echo ${IMAGE_MYSQL} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-            def FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}-$PS_TAG"
+            FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}-$PS_TAG"
             testsReportMap[TEST_NAME] = 'failure'
 
             popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
@@ -287,18 +287,23 @@ pipeline {
                     }
 
                     installRpms()
-                    runTest('auto-config')
+                    // runTest('auto-config') - memory config resources
+                    // runTest('async-ignore-annotations') - LoadBalancer
                     runTest('config')
                     runTest('demand-backup')
                     runTest('gr-demand-backup')
-                    runTest('init-deploy')
+                    // runTest('gr-ignore-annotations') - LoadBalancer
                     runTest('gr-init-deploy')
-                    runTest('limits')
-                    runTest('monitoring')
+                    runTest('gr-scaling')
+                    runTest('gr-tls-cert-manager')
+                    runTest('haproxy')
+                    runTest('init-deploy')
+                    // runTest('limits') - affinity
+                    // runTest('monitoring') - LoadBalancer, pmm image pull context deadline
                     runTest('one-pod')
-                    runTest('scaling')
+                    // runTest('scaling') - 7-assert - storage: 2Gi vs storage: 2G
                     runTest('semi-sync')
-                    runTest('service-per-pod')
+                    // runTest('service-per-pod') - LoadBalancer
                     runTest('sidecars')
                     runTest('tls-cert-manager')
                     runTest('users')

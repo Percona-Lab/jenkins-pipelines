@@ -47,6 +47,10 @@ pipeline {
             description: 'Must be in form $DESTINATION/*****/$releaseXXX/$revision',
             name: 'PERCONA_ORCHESTRATOR_PATH'
         )
+        string(
+            description: 'Must be in form $DESTINATION/*****/$releaseXXX/$revision',
+            name: 'PERCONA_REPLICATION_MANAGER_PATH'
+        )
         choice(
             choices: 'PDPS\nPDPXC',
             description: 'Repository push to',

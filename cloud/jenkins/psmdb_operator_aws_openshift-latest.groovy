@@ -4,6 +4,75 @@ void IsRunTestsInClusterWide() {
     }
 }
 
+void CreateCluster( String CLUSTER_SUFFIX ){
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
+        sh """
+            mkdir -p openshift/${CLUSTER_SUFFIX}
+cat <<-EOF > ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
+additionalTrustBundlePolicy: Proxyonly
+apiVersion: v1
+baseDomain: cd.percona.com
+compute:
+- architecture: amd64
+  hyperthreading: Enabled
+  name: worker
+  platform:
+    aws:
+      type: m5.2xlarge
+  replicas: 3
+controlPlane:
+  architecture: amd64
+  hyperthreading: Enabled
+  name: master
+  platform: {}
+  replicas: 1
+metadata:
+  creationTimestamp: null
+  name: openshift-lat-psmdb-jenkins-${CLUSTER_SUFFIX}
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 10.0.0.0/16
+  networkType: OVNKubernetes
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  aws:
+    region: eu-west-3
+    userTags:
+      iit-billing-tag: openshift
+      delete-cluster-after-hours: 8
+      team: cloud
+      product: psmdb-operator
+      
+publish: External
+EOF
+            cat $OPENSHIFT_CONF_FILE >> ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
+        """
+        sshagent(['aws-openshift-41-key']) {
+            sh """
+                /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
+                export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
+
+            """
+        }
+    }
+}
+
+void ShutdownCluster(String CLUSTER_SUFFIX) {
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'psmdb-openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+        sshagent(['aws-openshift-41-key']) {
+            sh """
+                             /usr/local/bin/openshift-install destroy cluster --dir=./openshift/${CLUSTER_SUFFIX}
+            """
+        }
+    }
+
+}
+
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -37,8 +106,9 @@ void makeReport() {
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME) {
+void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     def retryCount = 0
+
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
@@ -51,6 +121,12 @@ void runTest(String TEST_NAME) {
             popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
 
             sh """
+                if [ $retryCount -eq 0 ]; then
+                    export DEBUG_TESTS=0
+                else
+                    export DEBUG_TESTS=1
+                fi
+                
                 if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                     echo Skip $TEST_NAME test
                 else
@@ -82,7 +158,7 @@ void runTest(String TEST_NAME) {
                     fi
 
                     source $HOME/google-cloud-sdk/path.bash.inc
-                    export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
+                    export KUBECONFIG=$WORKSPACE/openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
                     oc whoami
 
                     ./e2e-tests/$TEST_NAME/run
@@ -105,14 +181,14 @@ void runTest(String TEST_NAME) {
     echo "The $TEST_NAME test was finished!"
 }
 
-void conditionalRunTest(String TEST_NAME) {
+void conditionalRunTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     if ( TEST_NAME == 'default-cr' ) {
         if ( params.GIT_BRANCH.contains('release-') ) {
-            runTest(TEST_NAME)
+            runTest(TEST_NAME, CLUSTER_SUFFIX)
         }
         return 0
     }
-    runTest(TEST_NAME)
+    runTest(TEST_NAME, CLUSTER_SUFFIX)
 }
 
 void installRpms() {
@@ -208,7 +284,7 @@ pipeline {
                     curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz \
                         | sudo tar -C /usr/local/bin  --wildcards -zxvpf -
 
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
                 '''
 
@@ -246,70 +322,77 @@ pipeline {
         stage('Create AWS Infrastructure') {
             steps {
                 IsRunTestsInClusterWide()
-
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'psmdb-openshift4-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
-                     sh """
-                         mkdir openshift
-                         cp $OPENSHIFT_CONF_FILE ./openshift/install-config.yaml
-                     """
-                     sshagent(['aws-openshift-41-key']) {
-                         sh """
-                             /usr/local/bin/openshift-install create cluster --dir=./openshift/
-                         """
+            }
+        }
+        stage('Run tests') {
+            parallel {
+                stage('E2E Scaling') {
+                    steps {
+                        CreateCluster('scaling')
+                        runTest('init-deploy', 'scaling')
+                        runTest('limits', 'scaling')
+                        runTest('scaling', 'scaling')
+                        runTest('security-context', 'scaling')
+                        runTest('smart-update', 'scaling')
+                        runTest('version-service', 'scaling')
+                        runTest('rs-shard-migration', 'scaling')
+                        ShutdownCluster('scaling')
                     }
-               }
-
-            }
-        }
-        stage('E2E Scaling') {
-            steps {
-                runTest('init-deploy')
-                runTest('limits')
-                runTest('scaling')
-                runTest('security-context')
-                runTest('smart-update')
-                runTest('version-service')
-                runTest('rs-shard-migration')
-            }
-        }
-        stage('E2E Basic Tests') {
-            steps {
-                conditionalRunTest('default-cr')
-                runTest('one-pod')
-                runTest('arbiter')
-                runTest('service-per-pod')
-                runTest('liveness')
-                runTest('users')
-                runTest('data-sharded')
-                runTest('monitoring-2-0')
-                runTest('non-voting')
-                runTest('cross-site-sharded')
-                runTest('data-at-rest-encryption')
-           }
-        }
-        stage('E2E SelfHealing') {
-            steps {
-                runTest('self-healing-chaos')
-                runTest('operator-self-healing-chaos')
-            }
-        }
-        stage('E2E Backups') {
-            steps {
-                runTest('upgrade')
-                runTest('upgrade-consistency')
-                runTest('demand-backup')
-                runTest('demand-backup-sharded')
-                runTest('scheduled-backup')
-                runTest('upgrade-sharded')
-                runTest('pitr')
-                runTest('pitr-sharded')
-            }
-        }
-        stage('CrossSite replication') {
-            steps {
-                CreateCluster('cross-site')
-                runTest('cross-site-sharded', 'cross-site')
-                ShutdownCluster('cross-site')
+                }
+                stage('E2E Basic Tests') {
+                    steps {
+                        CreateCluster('basic')
+                        conditionalRunTest('default-cr', , 'basic')
+                        runTest('one-pod', 'basic')
+                        runTest('arbiter', 'basic')
+                        runTest('service-per-pod', 'basic')
+                        runTest('liveness', 'basic')
+                        runTest('users', 'basic')
+                        runTest('data-sharded', 'basic')
+                        runTest('monitoring-2-0', 'basic')
+                        runTest('non-voting', 'basic')
+                        runTest('data-at-rest-encryption', 'basic')
+                        runTest('demand-backup-physical-sharded', 'basic')
+                        runTest('multi-cluster-service', 'basic')
+                        ShutdownCluster('basic')
+                    }
+                }
+                stage('E2E SelfHealing') {
+                    steps {
+                        CreateCluster('selfhealing')
+                        runTest('self-healing-chaos', 'selfhealing')
+                        runTest('operator-self-healing-chaos', 'selfhealing')
+                        runTest('ignore-labels-annotations', 'selfhealing')
+                        runTest('expose-sharded', 'selfhealing')
+                        ShutdownCluster('selfhealing')
+                    }
+                }
+                stage('E2E Backups') {
+                    steps {
+                        CreateCluster('backup')
+                        runTest('upgrade', 'backup')
+                        runTest('upgrade-consistency', 'backup')
+                        runTest('demand-backup', 'backup')
+                        runTest('demand-backup-sharded', 'backup')
+                        runTest('scheduled-backup', 'backup')
+                        runTest('upgrade-sharded', 'backup')
+                        runTest('pitr', 'backup')
+                        runTest('pitr-sharded', 'backup')
+                        runTest('mongod-major-upgrade-sharded', 'backup')
+                        runTest('serviceless-external-nodes', 'backup')
+                        ShutdownCluster('backup')
+                    }
+                }
+                stage('CrossSite replication') {
+                    steps {
+                        CreateCluster('cross-site')
+                        runTest('cross-site-sharded', 'cross-site')
+                        runTest('recover-no-primary', 'cross-site')
+                        runTest('demand-backup-physical', 'cross-site')
+                        runTest('mongod-major-upgrade', 'cross-site')
+                        ShutdownCluster('cross-site')
+                    }
+                }
             }
         }
         stage('Make report') {
@@ -335,7 +418,10 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'psmdb-openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
                      sshagent(['aws-openshift-41-key']) {
                          sh """
-                             /usr/local/bin/openshift-install destroy cluster --dir=./openshift/
+                             for cluster_suffix in 'scaling' 'basic' 'cross-site' 'selfhealing' 'backup'
+                             do
+                                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/\$cluster_suffix > /dev/null 2>&1 || true
+                             done
                          """
                      }
                 }

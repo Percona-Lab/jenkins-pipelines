@@ -35,11 +35,11 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.28',
+            defaultValue: '8.0.31',
             description: 'From this version pdmysql will be updated',
             name: 'FROM_VERSION')
         string(
-            defaultValue: '8.0.29',
+            defaultValue: '8.0.32',
             description: 'To this version pdmysql will be updated',
             name: 'VERSION'
         )
@@ -48,22 +48,22 @@ pipeline {
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
         string(
-            defaultValue: '2.3.2',
+            defaultValue: '2.4.7',
             description: 'Updated Proxysql version',
             name: 'PROXYSQL_VERSION'
         )
         string(
-            defaultValue: '8.0.29',
+            defaultValue: '8.0.32',
             description: 'Updated PXB version',
             name: 'PXB_VERSION'
         )
         string(
-            defaultValue: '3.4.0',
+            defaultValue: '3.5.1',
             description: 'Updated Percona Toolkit version',
             name: 'PT_VERSION'
         )
         string(
-            defaultValue: '3.2.6',
+            defaultValue: '3.2.6-7',
             description: 'Updated Percona Orchestrator version',
             name: 'ORCHESTRATOR_VERSION'
         )
@@ -73,6 +73,11 @@ pipeline {
           disableConcurrentBuilds()
   }
   stages {
+        stage('Check version param') {
+            steps {
+                checkOrchVersionParam()
+            }
+        }
         stage ('Test install: minor repo') {
             when {
                 expression { env.TO_REPO != 'release' }
@@ -168,7 +173,7 @@ pipeline {
                         string(name: 'TO_REPO', value: "${env.TO_REPO}"),
                         string(name: 'VERSION', value: "${env.VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pdps-minor-upgrade"),
+                        string(name: 'SCENARIO', value: "pdps_minor_upgrade"),
                         string(name: 'PROXYSQL_VERSION', value: "${env.PROXYSQL_VERSION}"),
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),

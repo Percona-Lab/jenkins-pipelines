@@ -41,9 +41,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             if [ \${DEBIAN_VERSION} = buster ]; then
                 sudo apt-get -y update --allow-releaseinfo-change || true
             fi
-            if [ \${DEBIAN_VERSION} = stretch ]; then
-                sudo apt-get -y  install apt-transport-https ca-certificates || true
-            fi
             if [ \${DEBIAN_VERSION} = bullseye ]; then
                 sed -i 's:clang-7::g' psm_builder.sh
                 sed -i '23s:focal:bullseye:' psm_builder.sh
@@ -68,7 +65,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         if [ -f ./test/pg-stat-monitor.properties ]; then
             . ./test/pg-stat-monitor.properties
         fi
-        sed -i "s:VERSION=\"1.0.0\":VERSION=\"$VERSION\":" psm_builder.sh
+        sed -i "s:VERSION=\\"1.0.0:VERSION=\\"$VERSION:" psm_builder.sh
         sed -i "s:PG_RELEASE=11:PG_RELEASE=\"${PG_RELEASE}\":" psm_builder.sh
 
         sudo bash -x ./psm_builder.sh --builddir=\${build_dir}/test --install_deps=1
@@ -117,7 +114,7 @@ pipeline {
         choice(
             name: 'PG_RELEASE',
             description: 'PPG major version to test',
-            choices: ['11', '12', '13', '14']
+            choices: ['11', '12', '13', '14', '15']
         )
         choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
@@ -260,22 +257,6 @@ pipeline {
                         unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                } //stage
-                stage('Debian 9') {
-                    agent {
-                        label 'min-stretch-x64'
-                    }
-                    steps {
-                        echo "====> Build pg_stat_monitor deb on Debian 9 PG${PG_RELEASE}"
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:stretch", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)

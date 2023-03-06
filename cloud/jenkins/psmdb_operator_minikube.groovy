@@ -37,18 +37,24 @@ void makeReport() {
 
 void runTest(String TEST_NAME) {
     def retryCount = 0
+
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
 
             GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
             VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-            def FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}"
+            FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}"
             MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             testsReportMap[TEST_NAME] = 'failure'
 
             popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
             sh """
+                if [ $retryCount -eq 0 ]; then
+                    export DEBUG_TESTS=0
+                else
+                    export DEBUG_TESTS=1
+                fi
                 if [ -f "$FILE_NAME" ]; then
                     echo Skip $TEST_NAME test
                 else
@@ -250,7 +256,7 @@ pipeline {
                         export CHANGE_MINIKUBE_NONE_USER=true
                         /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER}
 
-                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                         sudo chmod +x /usr/local/bin/yq
                     '''
 
@@ -265,16 +271,16 @@ pipeline {
                     conditionalRunTest('default-cr')
                     runTest('arbiter')
                     runTest('demand-backup')
+                    runTest('demand-backup-physical')
                     runTest('limits')
                     runTest('liveness')
+                    runTest('mongod-major-upgrade')
                     runTest('one-pod')
-                    runTest('operator-self-healing')
                     runTest('operator-self-healing-chaos')
                     runTest('pitr')
                     runTest('scaling')
                     runTest('scheduled-backup')
                     runTest('security-context')
-                    runTest('self-healing')
                     runTest('self-healing-chaos')
                     runTest('smart-update')
                     runTest('upgrade-consistency')

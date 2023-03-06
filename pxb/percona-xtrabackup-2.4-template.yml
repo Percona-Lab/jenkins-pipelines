@@ -73,6 +73,10 @@
                 PKGLIST+=" devtoolset-2-valgrind devtoolset-2-valgrind-devel"
             fi
 
+            if [[ ${RHEL} -eq 7 ]]; then
+                PKGLIST+=" openssl11-libs cmake3"
+            fi
+
             until sudo -E yum -y install ${PKGLIST}; do
                 echo "waiting"
                 sleep 1
@@ -186,6 +190,14 @@
             THREADS=$(grep -c ^processor /proc/cpuinfo)
         else
             THREADS=1
+        fi
+
+        if [ -f /usr/bin/yum ]; then
+            RHEL=$(rpm --eval %rhel)
+            if [[ ${RHEL} -eq 7 ]]; then
+                sudo rm /bin/cmake
+                sudo ln -sf /bin/cmake3 /bin/cmake
+            fi
         fi
 
         if [ -d ${WORKSPACE}/xtrabackup ]

@@ -56,7 +56,7 @@ pipeline {
                 archiveArtifacts 'uploadPath'
                 stash includes: 'uploadPath', name: 'uploadPath'
                 archiveArtifacts 'shortCommit'
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
         stage('Build client source') {
@@ -100,21 +100,7 @@ pipeline {
                     sh """
                         set -o errexit
 
-                        export PATH=\$PATH:\$(pwd -P)/${PATH_TO_SCRIPTS}
-
-                        # 1st-party
-                        build-server-rpm percona-dashboards grafana-dashboards
-                        build-server-rpm pmm-managed pmm
-                        build-server-rpm percona-qan-api2 pmm
-                        build-server-rpm pmm-update
-                        build-server-rpm dbaas-controller
-                        build-server-rpm dbaas-tools
-                        build-server-rpm pmm-dump
-
-                        # 3rd-party
-                        build-server-rpm victoriametrics
-                        build-server-rpm alertmanager
-                        build-server-rpm grafana
+                        ${PATH_TO_SCRIPTS}/build-server-rpm-all
                     """
                 }
                 stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'

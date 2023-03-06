@@ -16,12 +16,17 @@ pipeline {
     }
     parameters {
         string(name: 'BRANCH',description: 'PBM repo branch',defaultValue: 'main')
-        choice(name: 'PSMDB',description: 'PSMDB for testing',choices: ['psmdb-44','psmdb-42','psmdb-50'])
+        choice(name: 'PSMDB',description: 'PSMDB for testing',choices: ['psmdb-44','psmdb-42','psmdb-50','psmdb-60'])
         choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['i3.large','i3en.large','t2.micro','i3.xlarge','i3en.xlarge'])
         choice(name: 'BACKUP_TYPE',description: 'Backup type',choices: ['physical','logical'])        
         choice(name: 'STORAGE',description: 'Storage for PBM',choices: ['aws','gcp'])
         string(name: 'TIMEOUT',description: 'Timeout for backup/restore',defaultValue: '3600')
         string(name: 'SIZE',description: 'Data size for test collection',defaultValue: '1000')
+        string(name: 'EXISTING_BACKUP',description: 'If defined, the tests will skip backup process, but backup must exist on the remote storage',defaultValue: 'no')
+        choice(name: 'CHECK_PITR',description: 'If defined, the tests will run pitr checks, set to no if you want to test the existing backup',choices: ['yes','no'])
+        string(name: 'RESTORE_NUMDOWNLOADWORKERS',description: 'PBM setting numDownloadWorkers, if 0 - default will be used',defaultValue: '0')
+        string(name: 'RESTORE_NUMDOWNLOADBUFFERMB',description: 'PBM setting maxDownloadBufferMb, if 0 - default will be used',defaultValue: '0')
+        string(name: 'RESTORE_DOWNLOADCHUNKMB',description: 'PBM setting downloadChunkMb, if 0 - default will be used',defaultValue: '0')
         string(name: 'TESTING_BRANCH',description: 'Branch for testing repository',defaultValue: 'main')
         string(name: 'SSH_USER',description: 'User for debugging',defaultValue: 'none')
         string(name: 'SSH_PUBKEY',description: 'User ssh public key for debugging',defaultValue: 'none')

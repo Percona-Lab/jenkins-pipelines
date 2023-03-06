@@ -1,0 +1,56 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+ROOT_DIR=$(cd $(dirname $0)/../sources/pxc; pwd -P)
+SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
+SOURCE_IMAGE=${1:-centos:7}
+WORKER_NO=${2:-0}
+
+if [[ ${CI_FS_MTR} == 'yes' ]]; then
+    CI_FS_DOCKER_FLAG="--mount type=bind,source=/mnt/ci_disk_dir_${CMAKE_BUILD_TYPE},destination=/tmp/ci_disk_dir"
+fi
+
+docker run --rm --shm-size=24G \
+    --tmpfs /dev/shm:rw,exec,size=24G \
+    --security-opt seccomp=unconfined \
+    --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxc \
+    --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
+    ${CI_FS_DOCKER_FLAG} \
+    public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+    sh -c "
+    set -o errexit
+    set -o xtrace
+
+    export CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'
+    export ANALYZER_OPTS='${ANALYZER_OPTS}'
+    export DEFAULT_TESTING='${DEFAULT_TESTING}'
+    export MTR_ARGS='${MTR_ARGS}'
+    export MTR_REPEAT='${MTR_REPEAT}'
+    export MTR_VAULT_TOKEN='${MTR_VAULT_TOKEN}'
+    export FULL_MTR='${FULL_MTR}'
+    export GALERA_PARALLEL_RUN='${GALERA_PARALLEL_RUN}'
+    export MTR_SUITES='${MTR_SUITES}'
+    export MTR_STANDALONE_TESTS='${MTR_STANDALONE_TESTS}'
+    export MTR_STANDALONE_TESTS_PARALLEL='${MTR_STANDALONE_TESTS_PARALLEL}'
+    export CI_FS_MTR='${CI_FS_MTR}'
+    export DOCKER_OS='${DOCKER_OS//:/-}'
+
+    mkdir /tmp/results
+    cp /tmp/pxc/results/*.tar.gz /tmp/results
+    cp -ra /tmp/pxc/results/pxb24 /tmp/results/pxb24
+    cp -ra /tmp/pxc/results/pxb80 /tmp/results/pxb80
+
+    bash -x /tmp/scripts/test-binary-pxc-parallel-mtr /tmp/results
+
+    mkdir /tmp/results/log
+    rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/PXC/mysql-test/mtr_var /tmp/results/log
+    pwd
+    ls -la
+    sudo tar -C /tmp/results/log -czf "pxc80-test-mtr_logs-${WORKER_NO}.tar.gz" mtr_var
+
+    sudo mv ./pxc80-test-mtr_logs-${WORKER_NO}.tar.gz /tmp/pxc/results/
+    sudo mv /tmp/results/*.xml /tmp/pxc/results/
+    sudo chown $(id -u):$(id -g) /tmp/pxc/results/*.xml
+"

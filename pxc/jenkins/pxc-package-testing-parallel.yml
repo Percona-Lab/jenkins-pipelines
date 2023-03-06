@@ -1,0 +1,40 @@
+- job:
+    name: wip-pxc-package-testing-parallel
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    properties:
+        - build-discarder:
+            artifact-days-to-keep: -1
+            artifact-num-to-keep: 10
+            days-to-keep: -1
+            num-to-keep: 10
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                branches:
+                    - 'master'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: pxc/jenkins/pxc-package-testing-parallel.groovy
+    parameters:
+        - choice:
+            name: product_to_test
+            choices:
+                - 'pxc80'
+                - 'pxc57'
+            description: "PXC version to test"
+        - choice:
+            name: test_repo
+            choices:
+                - "testing"
+                - "main"
+                - "experimental"
+            description: "Repo to install packages from"
+        - choice:
+            name: pxc57_repo
+            choices:
+                - "original"
+                - "pxc57"
+            description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."

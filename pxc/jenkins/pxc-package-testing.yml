@@ -1,0 +1,62 @@
+- job:
+    name: wip-pxc-package-testing
+    project-type: pipeline
+    description: |
+        Work in progress, please ignore
+        Do not edit this job through the web!
+    concurrent: true
+    properties:
+        - build-discarder:
+            artifact-days-to-keep: -1
+            artifact-num-to-keep: 20
+            days-to-keep: -1
+            num-to-keep: 20
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                branches:
+                    - 'master'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: pxc/jenkins/pxc-package-testing.groovy
+    parameters:
+        - choice:
+            name: product_to_test
+            choices:
+                - 'pxc80'
+                - 'pxc57'
+            description: "PXC version to test"
+        - choice:
+            name: node_to_test
+            choices:
+                - 'ubuntu-jammy'
+                - 'ubuntu-focal'
+                - 'ubuntu-bionic'
+                - 'debian-11'
+                - 'debian-10'
+                - 'centos-7'
+                - 'ol-8'
+                - 'ol-9'
+                - 'min-amazon-2'
+            description: "Distribution to run test"
+        - choice:
+            name: test_repo
+            choices:
+                - "testing"
+                - "main"
+                - "experimental"
+            description: "Repo to install packages from"
+        - choice:
+            name: test_type
+            choices:
+                - "install_and_upgrade"
+                - "install"
+                - "upgrade"
+            description: "Set test type for testing"     
+        - choice:
+            name: pxc57_repo
+            choices:
+                - "original"
+                - "pxc57"
+            description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."

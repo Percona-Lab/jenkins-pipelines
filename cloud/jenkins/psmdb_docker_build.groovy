@@ -146,6 +146,9 @@ pipeline {
                 retry(3) {
                     build('mongod5.0')
                 }
+                retry(3) {
+                    build('mongod6.0')
+                }
             }
         }
 
@@ -157,6 +160,8 @@ pipeline {
                 pushImageToDocker('mongod4.4-debug')
                 pushImageToDocker('mongod5.0')
                 pushImageToDocker('mongod5.0-debug')
+                pushImageToDocker('mongod6.0')
+                pushImageToDocker('mongod6.0-debug')
             }
         }
        stage('Trivy Checks') {
@@ -201,6 +206,16 @@ pipeline {
                         }
                     }
                 }
+                stage('mongod6.0'){
+                    steps {
+                        checkImageForDocker('main-mongod6.0')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod6.0-psmdb.xml"
+                        }
+                    }
+                }
                 stage('mongod4.2-debug'){
                     steps {
                         checkImageForDocker('main-mongod4.2-debug')
@@ -231,13 +246,22 @@ pipeline {
                         }
                     }
                 }
+                stage('mongod6.0-debug'){
+                    steps {
+                        checkImageForDocker('main-mongod6.0-debug')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-debug-mongod6.0-debug.xml"
+                        }
+                    }
+                }
             }
         }
     }
 
     post {
         always {
-            archiveArtifacts artifacts: '*.pdf', allowEmptyArchive: true
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./source/build
