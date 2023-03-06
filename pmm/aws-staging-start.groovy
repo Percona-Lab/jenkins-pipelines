@@ -393,12 +393,16 @@ pipeline {
                         if(env.CLIENT_VERSION == "pmm2-rc") {
                             env.PMM_REPO="testing"
                         }
+                        
                     }
                     sh '''
                         set -o errexit
                         set -o xtrace
                         export PATH=$PATH:/usr/sbin
                         export PMM_CLIENT_VERSION=${CLIENT_VERSION}
+                        if [[ ${CLIENT_VERSION} == dev-latest ]]; then
+                                export PMM_CLIENT_VERSION="latest"
+                        fi
                         [ -z "${CLIENTS}" ] && exit 0 || :
 
                         if [[ ${PMM_VERSION} == pmm2 ]]; then

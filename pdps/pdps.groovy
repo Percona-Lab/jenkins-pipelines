@@ -28,27 +28,27 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.29',
+            defaultValue: '8.0.32',
             description: 'Percona Server version for test',
             name: 'VERSION'
         )
         string(
-            defaultValue: '2.3.2',
+            defaultValue: '2.4.7',
             description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
         )
         string(
-            defaultValue: '8.0.29',
+            defaultValue: '8.0.32',
             description: 'PXB version for test',
             name: 'PXB_VERSION'
         )
         string(
-            defaultValue: '3.4.0',
+            defaultValue: '3.5.1',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
         )
         string(
-            defaultValue: '3.2.6',
+            defaultValue: '3.2.6-7',
             description: 'Percona Orchestrator version for test',
             name: 'ORCHESTRATOR_VERSION'
         )
