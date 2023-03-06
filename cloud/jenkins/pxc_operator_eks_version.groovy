@@ -1,3 +1,5 @@
+AWSRegion='eu-west-2'
+
 void CreateCluster( String CLUSTER_SUFFIX ){
 
     sh """
@@ -9,7 +11,7 @@ kind: ClusterConfig
 
 metadata:
     name: ${CLUSTER_NAME}-${CLUSTER_SUFFIX}
-    region: eu-west-3
+    region: $AWSRegion
     version: "$PLATFORM_VER"
     tags:
         'delete-cluster-after-hours': '10'
@@ -42,6 +44,7 @@ nodeGroups:
         'iit-billing-tag': 'jenkins-eks'
         'delete-cluster-after-hours': '10'
         'team': 'cloud'
+        'product': 'pxc-operator'
 EOF
     """
 
@@ -59,7 +62,7 @@ void ShutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
-            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-${CLUSTER_SUFFIX} --region eu-west-3
+            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-${CLUSTER_SUFFIX} --region $AWSRegion
             eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction
         """
     }
@@ -110,9 +113,8 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
         try {
             echo "The $TEST_NAME test was started!"
 
-            GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
             PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
-            VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
+            VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
             testsReportMap[TEST_NAME] = 'failure'
 
             popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
@@ -261,10 +263,6 @@ pipeline {
             description: 'PMM server image tag: dev-latest',
             name: 'IMAGE_PMM_SERVER_TAG')
     }
-    environment {
-        CLEAN_NAMESPACE = 1
-        CLUSTER_NAME = sh(script: "echo jenkins-par-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-    }
     agent {
          label 'docker'
     }
@@ -335,6 +333,11 @@ pipeline {
             }
         }
         stage('Run tests') {
+            environment {
+                CLEAN_NAMESPACE = 1
+                GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                CLUSTER_NAME = sh(script: "echo jenkins-par-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+            }
             parallel {
                 stage('E2E Upgrade') {
                     options {
@@ -446,12 +449,12 @@ pipeline {
                     sh '''
                         export CLUSTER_NAME=$(echo jenkins-par-pxc-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-scaling" --region eu-west-3 > /dev/null 2>&1
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-basic" --region eu-west-3 > /dev/null 2>&1
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-selfhealing" --region eu-west-3 > /dev/null 2>&1
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-backup" --region eu-west-3 > /dev/null 2>&1
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-upgrade" --region eu-west-3 > /dev/null 2>&1
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-bigcross" --region eu-west-3 > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-scaling" --region $AWSRegion > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-basic" --region $AWSRegion > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-selfhealing" --region $AWSRegion > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-backup" --region $AWSRegion > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-upgrade" --region $AWSRegion > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-bigcross" --region $AWSRegion > /dev/null 2>&1
                         
                         eksctl delete cluster -f cluster-scaling.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
                         eksctl delete cluster -f cluster-basic.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
