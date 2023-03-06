@@ -402,7 +402,7 @@ pipeline {
                         export PMM_CLIENT_VERSION=${CLIENT_VERSION}
                         if [[ ${CLIENT_VERSION} == dev-latest ]]; then
                                 export PMM_CLIENT_VERSION="latest"
-                            fi
+                        fi
                         [ -z "${CLIENTS}" ] && exit 0 || :
 
                         if [[ ${PMM_VERSION} == pmm2 ]]; then
