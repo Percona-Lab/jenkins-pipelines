@@ -65,5 +65,7 @@ def call(String type='latest') {
       return ovfVersions
     case 'list_with_old':
       return oldVersions + versionsList
+    case 'dbaas':
+      return ['2.23.0', '2.24.0', '2.25.0', '2.26.0', '2.27.0', '2.28.0']
   }
 }
