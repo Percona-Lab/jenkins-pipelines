@@ -37,6 +37,7 @@ void makeReport() {
 
 void runTest(String TEST_NAME) {
     def retryCount = 0
+
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
@@ -49,6 +50,11 @@ void runTest(String TEST_NAME) {
 
             popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
             sh """
+                if [ $retryCount -eq 0 ]; then
+                    export DEBUG_TESTS=0
+                else
+                    export DEBUG_TESTS=1
+                fi
                 if [ -f "$FILE_NAME" ]; then
                     echo Skip $TEST_NAME test
                 else
@@ -265,8 +271,10 @@ pipeline {
                     conditionalRunTest('default-cr')
                     runTest('arbiter')
                     runTest('demand-backup')
+                    runTest('demand-backup-physical')
                     runTest('limits')
                     runTest('liveness')
+                    runTest('mongod-major-upgrade')
                     runTest('one-pod')
                     runTest('operator-self-healing-chaos')
                     runTest('pitr')

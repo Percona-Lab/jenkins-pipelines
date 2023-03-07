@@ -59,7 +59,7 @@ for REPOPATH in $REPOPATH_TMP; do
             sudo rm -vf ${REPOPATH}/db/lockfile
         fi
         #
-        if [[ "${REPOCOMP}" == "release" ]]; then
+        if [[ "${REPOCOMP}" == "release" ]] || [[ "${REPOCOMP}" == "main" ]]; then
             export REPOCOMP=main
         # pushing sources
             if [ -d /srv/UPLOAD/$dir/source/debian ]; then

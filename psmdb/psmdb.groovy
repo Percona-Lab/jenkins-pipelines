@@ -17,7 +17,7 @@ pipeline {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: pdmdbOperatingSystems()
+            choices: pdmdbOperatingSystems('6.0')
         )
         choice(
             name: 'REPO',

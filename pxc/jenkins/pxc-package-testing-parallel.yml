@@ -22,30 +22,16 @@
         - choice:
             name: product_to_test
             choices:
-                - "pxc57"
-                - "pxc80"
-            description: "Product for which the packages will be tested"
+                - 'pxc80'
+                - 'pxc57'
+            description: "PXC version to test"
         - choice:
-            name: install_repo
+            name: test_repo
             choices:
                 - "testing"
                 - "main"
                 - "experimental"
-            description: "Repo to use in install test"
-        - choice:
-            name: node_to_test
-            choices:
-                - "all"
-                - "ubuntu-jammy"
-                - "ubuntu-focal"
-                - "ubuntu-bionic"
-                - "debian-11"
-                - "debian-10"
-                - "centos-7"
-                - "ol-8"
-                - "ol-9"
-                - 'min-amazon-2'
-            description: "Node in which to test the product"
+            description: "Repo to install packages from"
         - choice:
             name: pxc57_repo
             choices:

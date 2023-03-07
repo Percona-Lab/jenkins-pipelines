@@ -1,86 +1,77 @@
-void IsRunTestsInClusterWide() {
-    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
-        env.OPERATOR_NS = 'pxc-operator'
-    }
-}
+AWSRegion='eu-west-2'
 
 void CreateCluster( String CLUSTER_SUFFIX ){
-    
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
-        sh """
-            platform_version=`echo "\${params.PLATFORM_VER}" | awk -F. '{ printf("%d%03d%03d%03d\\n", \$1,\$2,\$3,\$4); }';`
-            version=`echo "4.12.0" | awk -F. '{ printf("%d%03d%03d%03d\\n", \$1,\$2,\$3,\$4); }';`
-            if [ \$platform_version -ge \$version ];then
-                POLICY="additionalTrustBundlePolicy: Proxyonly"
-                NETWORK_TYPE="OVNKubernetes"
-            else
-                POLICY=""
-                NETWORK_TYPE="OpenShiftSDN"
-            fi
-            mkdir -p openshift/${CLUSTER_SUFFIX}
-cat <<-EOF > ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
-\$POLICY
-apiVersion: v1
-baseDomain: cd.percona.com
-compute:
-- architecture: amd64
-  hyperthreading: Enabled
-  name: worker
-  platform:
-    aws:
-      type: m5.2xlarge
-  replicas: 3
-controlPlane:
-  architecture: amd64
-  hyperthreading: Enabled
-  name: master
-  platform: {}
-  replicas: 1
-metadata:
-  creationTimestamp: null
-  name: openshift4-pxc-jenkins-${CLUSTER_SUFFIX}
-networking:
-  clusterNetwork:
-  - cidr: 10.128.0.0/14
-    hostPrefix: 23
-  machineNetwork:
-  - cidr: 10.0.0.0/16
-  networkType: \$NETWORK_TYPE
-  serviceNetwork:
-  - 172.30.0.0/16
-platform:
-  aws:
-    region: eu-west-2
-    userTags:
-      iit-billing-tag: openshift
-      delete-cluster-after-hours: 8
-      team: cloud
-      product: pxc-operator
-      
-publish: External
-EOF
-            cat $OPENSHIFT_CONF_FILE >> ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
-        """
-        sshagent(['aws-openshift-41-key']) {
-            sh """
-                /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
-                export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
 
-            """
-        }
+    sh """
+cat <<-EOF > cluster-${CLUSTER_SUFFIX}.yaml
+# An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+    name: ${CLUSTER_NAME}-${CLUSTER_SUFFIX}
+    region: $AWSRegion
+    version: "$PLATFORM_VER"
+    tags:
+        'delete-cluster-after-hours': '10'
+iam:
+  withOIDC: true
+
+addons:
+- name: aws-ebs-csi-driver
+  wellKnownPolicies:
+    ebsCSIController: true
+
+nodeGroups:
+    - name: ng-1
+      minSize: 3
+      maxSize: 5
+      iam:
+        attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      instancesDistribution:
+        maxPrice: 0.15
+        instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
+        onDemandBaseCapacity: 0
+        onDemandPercentageAboveBaseCapacity: 50
+        spotInstancePools: 2
+      tags:
+        'iit-billing-tag': 'jenkins-eks'
+        'delete-cluster-after-hours': '10'
+        'team': 'cloud'
+        'product': 'pxc-operator'
+EOF
+    """
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
+            export PATH=/home/ec2-user/.local/bin:$PATH
+            source $HOME/google-cloud-sdk/path.bash.inc
+            eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+        """
     }
 }
 
 void ShutdownCluster(String CLUSTER_SUFFIX) {
-
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
-        sshagent(['aws-openshift-41-key']) {
-            sh """
-                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/${CLUSTER_SUFFIX}
-            """
-        }
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
+            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-${CLUSTER_SUFFIX} --region $AWSRegion
+            eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction
+        """
     }
+}
 
+void IsRunTestsInClusterWide() {
+    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+        env.OPERATOR_NS = 'pxc-operator'
+    }
 }
 
 void pushArtifactFile(String FILE_NAME) {
@@ -122,64 +113,65 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
         try {
             echo "The $TEST_NAME test was started!"
 
-            GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
             PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
-            VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
+            VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
             testsReportMap[TEST_NAME] = 'failure'
 
             popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
 
             timeout(time: 90, unit: 'MINUTES') {
-                sh """
-                    if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
-                        echo Skip $TEST_NAME test
-                    else
-                        cd ./source
-                        if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                            export IMAGE=${PXC_OPERATOR_IMAGE}
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
+                    sh """
+                        if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
+                            echo Skip $TEST_NAME test
                         else
-                            export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                            cd ./source
+                            if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                                export IMAGE=${PXC_OPERATOR_IMAGE}
+                            else
+                                export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
+                            fi
+
+                            if [ -n "${IMAGE_PXC}" ]; then
+                                export IMAGE_PXC=${IMAGE_PXC}
+                            fi
+
+                            if [ -n "${IMAGE_PROXY}" ]; then
+                                export IMAGE_PROXY=${IMAGE_PROXY}
+                            fi
+
+                            if [ -n "${IMAGE_HAPROXY}" ]; then
+                                export IMAGE_HAPROXY=${IMAGE_HAPROXY}
+                            fi
+
+                            if [ -n "${IMAGE_BACKUP}" ]; then
+                                export IMAGE_BACKUP=${IMAGE_BACKUP}
+                            fi
+
+                            if [ -n "${IMAGE_PMM}" ]; then
+                                export IMAGE_PMM=${IMAGE_PMM}
+                            fi
+
+                            if [ -n "${IMAGE_LOGCOLLECTOR}" ]; then
+                                export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
+                            fi
+
+                            if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                                export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                            fi
+
+                            if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                                export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                            fi
+
+                            export PATH=/home/ec2-user/.local/bin:$PATH
+                            source $HOME/google-cloud-sdk/path.bash.inc
+                            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
+
+                            ./e2e-tests/$TEST_NAME/run
                         fi
-
-                        if [ -n "${IMAGE_PXC}" ]; then
-                            export IMAGE_PXC=${IMAGE_PXC}
-                        fi
-
-                        if [ -n "${IMAGE_PROXY}" ]; then
-                            export IMAGE_PROXY=${IMAGE_PROXY}
-                        fi
-
-                        if [ -n "${IMAGE_HAPROXY}" ]; then
-                            export IMAGE_HAPROXY=${IMAGE_HAPROXY}
-                        fi
-
-                        if [ -n "${IMAGE_BACKUP}" ]; then
-                            export IMAGE_BACKUP=${IMAGE_BACKUP}
-                        fi
-
-                        if [ -n "${IMAGE_PMM}" ]; then
-                            export IMAGE_PMM=${IMAGE_PMM}
-                        fi
-
-                        if [ -n "${IMAGE_LOGCOLLECTOR}" ]; then
-                            export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
-                        fi
-
-                        if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
-                            export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
-                        fi
-
-                        if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
-                            export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
-                        fi
-
-                        source $HOME/google-cloud-sdk/path.bash.inc
-                        export KUBECONFIG=$WORKSPACE/openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
-                        oc whoami
-
-                        ./e2e-tests/$TEST_NAME/run
-                    fi
-                """
+                    """
+                }
             }
             pushArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
             testsReportMap[TEST_NAME] = 'passed'
@@ -198,14 +190,14 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     echo "The $TEST_NAME test was finished!"
 }
 
-void conditionalRunTest(String TEST_NAME) {
+void conditionalRunTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     if ( TEST_NAME == 'default-cr' ) {
         if ( params.GIT_BRANCH.contains('release-') ) {
-            runTest(TEST_NAME)
+            runTest(TEST_NAME, CLUSTER_SUFFIX)
         }
         return 0
     }
-    runTest(TEST_NAME)
+    runTest(TEST_NAME, CLUSTER_SUFFIX)
 }
 
 void installRpms() {
@@ -218,10 +210,6 @@ void installRpms() {
 pipeline {
     parameters {
         string(
-            defaultValue: '4.10.30',
-            description: 'OpenShift version to use',
-            name: 'PLATFORM_VER')
-        string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
             name: 'GIT_BRANCH')
@@ -229,6 +217,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator',
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
+        string(
+            defaultValue: '1.24',
+            description: 'EKS kubernetes version',
+            name: 'PLATFORM_VER')
         choice(
             choices: 'NO\nYES',
             description: 'Run tests with cluster wide',
@@ -270,10 +262,6 @@ pipeline {
             description: 'PMM server image tag: dev-latest',
             name: 'IMAGE_PMM_SERVER_TAG')
     }
-    environment {
-        TF_IN_AUTOMATION = 'true'
-        CLEAN_NAMESPACE = 1
-    }
     agent {
          label 'docker'
     }
@@ -286,11 +274,6 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                sh """
-                    wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
-                    unzip terraform_0.11.14_linux_amd64.zip
-                    sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
-                """
                 installRpms()
                 sh '''
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
@@ -308,10 +291,8 @@ pipeline {
                     sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
 
-                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux-$PLATFORM_VER.tar.gz \
-                        | sudo tar -C /usr/local/bin --wildcards -zxvpf -
-                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux-$PLATFORM_VER.tar.gz \
-                        | sudo tar -C /usr/local/bin  --wildcards -zxvpf -
+                    curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+                    sudo mv -v /tmp/eksctl /usr/local/bin
                 '''
 
             }
@@ -345,12 +326,17 @@ pipeline {
                 }
             }
         }
-        stage('Create AWS Infrastructure') {
+        stage('Create EKS Infrastructure') {
             steps {
                 IsRunTestsInClusterWide()
             }
         }
         stage('Run tests') {
+            environment {
+                CLEAN_NAMESPACE = 1
+                GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                CLUSTER_NAME = sh(script: "echo jenkins-lat-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+            }
             parallel {
                 stage('E2E Upgrade') {
                     options {
@@ -372,20 +358,20 @@ pipeline {
                     }
                     steps {
                         CreateCluster('basic')
-                        conditionalRunTest('default-cr')
+                        conditionalRunTest('default-cr', 'basic')
                         runTest('init-deploy', 'basic')
                         runTest('limits', 'basic')
+                        runTest('monitoring-2-0', 'basic')
                         runTest('affinity', 'basic')
                         runTest('one-pod', 'basic')
                         runTest('auto-tuning', 'basic')
                         runTest('proxysql-sidecar-res-limits', 'basic')
                         runTest('users', 'basic')
                         runTest('haproxy', 'basic')
-                        runTest('monitoring-2-0', 'basic')
-                        runTest('validation-hook', 'basic')
                         runTest('tls-issue-self', 'basic')
                         runTest('tls-issue-cert-manager', 'basic')
                         runTest('tls-issue-cert-manager-ref', 'basic')
+                        runTest('validation-hook', 'basic')
                         runTest('proxy-protocol', 'basic')
                         ShutdownCluster('basic')
                     }
@@ -408,6 +394,7 @@ pipeline {
                     }
                     steps {
                         CreateCluster('selfhealing')
+                        runTest('storage', 'selfhealing')
                         runTest('self-healing-chaos', 'selfhealing')
                         runTest('self-healing-advanced-chaos', 'selfhealing')
                         runTest('operator-self-healing-chaos', 'selfhealing')
@@ -423,30 +410,22 @@ pipeline {
                         runTest('recreate', 'backup')
                         runTest('restore-to-encrypted-cluster', 'backup')
                         runTest('demand-backup', 'backup')
+                        runTest('demand-backup-cloud', 'backup')
                         runTest('demand-backup-encrypted-with-tls', 'backup')
                         runTest('pitr', 'backup')
                         runTest('scheduled-backup', 'backup')
                         ShutdownCluster('backup')
                     }
                 }
-                stage('E2E BigData') {
+                stage('E2E BigData and CrossSite') {
                     options {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        CreateCluster('big-data')
-                        runTest('big-data', 'big-data')
-                        ShutdownCluster('big-data')
-                    }
-                }
-                stage('E2E Cross-site') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
-                    }
-                    steps {
-                        CreateCluster('cross-site')
-                        runTest('cross-site', 'cross-site')
-                        ShutdownCluster('cross-site')
+                        CreateCluster('bigcross')
+                        runTest('big-data', 'bigcross')
+                        runTest('cross-site', 'bigcross')
+                        ShutdownCluster('bigcross')
                     }
                 }
             }
@@ -465,15 +444,25 @@ pipeline {
 
     post {
         always {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
-                     sshagent(['aws-openshift-41-key']) {
-                         sh """
-                             for cluster_suffix in 'scaling' 'basic' 'cross-site' 'selfhealing' 'backup' 'big-data' 'upgrade'
-                             do
-                                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/\$cluster_suffix > /dev/null 2>&1 || true
-                             done
-                         """
-                     }
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh '''
+                        export CLUSTER_NAME=$(echo jenkins-lat-pxc-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+                    
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-scaling" --region $AWSRegion > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-basic" --region $AWSRegion > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-selfhealing" --region $AWSRegion > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-backup" --region $AWSRegion > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-upgrade" --region $AWSRegion > /dev/null 2>&1
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-bigcross" --region $AWSRegion > /dev/null 2>&1
+                        
+                        eksctl delete cluster -f cluster-scaling.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                        eksctl delete cluster -f cluster-basic.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                        eksctl delete cluster -f cluster-selfhealing.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                        eksctl delete cluster -f cluster-backup.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                        eksctl delete cluster -f cluster-upgrade.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                        eksctl delete cluster -f cluster-bigcross.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                       
+                    '''
                 }
 
             sh '''

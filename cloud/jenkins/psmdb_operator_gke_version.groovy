@@ -8,7 +8,7 @@ void CreateCluster(String CLUSTER_PREFIX) {
     if ( "${params.IS_GKE_ALPHA}" == "YES" ) {
         runGKEclusterAlpha(CLUSTER_PREFIX)
     } else {
-       runGKEcluster(CLUSTER_PREFIX)
+        runGKEcluster(CLUSTER_PREFIX)
     }
 }
 void runGKEcluster(String CLUSTER_PREFIX) {
@@ -22,7 +22,7 @@ void runGKEcluster(String CLUSTER_PREFIX) {
                 ret_val=0
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version $PLATFORM_VER --machine-type n1-standard-4 --preemptible --num-nodes=3 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
+                gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version $PLATFORM_VER --machine-type n1-standard-4 --preemptible --num-nodes=3 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 --enable-ip-alias --workload-pool=cloud-dev-112233.svc.id.goog && \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -42,7 +42,7 @@ void runGKEclusterAlpha(String CLUSTER_PREFIX) {
                 ret_val=0
                 gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_PREFIX} --zone $GKERegion --cluster-version $PLATFORM_VER --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
+                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_PREFIX} --zone $GKERegion --cluster-version $PLATFORM_VER --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 --enable-ip-alias --workload-pool=cloud-dev-112233.svc.id.goog && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -52,16 +52,23 @@ void runGKEclusterAlpha(String CLUSTER_PREFIX) {
    }
 }
 void ShutdownCluster(String CLUSTER_PREFIX) {
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+    if ( "${params.IS_GKE_ALPHA}" == "YES" ) {
+        ACCOUNT='alpha-svc-acct'
+        CRED_ID='gcloud-alpha-key-file'
+    } else {
+        ACCOUNT='jenkins'
+        CRED_ID='gcloud-key-file'
+    }
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: CRED_ID, variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
-            gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
+            gcloud auth activate-service-account $ACCOUNT@"$GCP_PROJECT".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
             gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX}
         """
-   }
+    }
 }
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
@@ -116,6 +123,11 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
 
             sh """
+                if [ $retryCount -eq 0 ]; then
+                    export DEBUG_TESTS=0
+                else
+                    export DEBUG_TESTS=1
+                fi
                 if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}" ]; then
                     echo Skip $TEST_NAME test
                 else
@@ -339,6 +351,8 @@ pipeline {
                         runTest('service-per-pod', 'basic')
                         runTest('liveness', 'basic')
                         runTest('users', 'basic')
+                        runTest('demand-backup-physical-sharded', 'basic')
+                        runTest('multi-cluster-service', 'basic')
                         ShutdownCluster('basic')
                     }
                 }
@@ -348,6 +362,8 @@ pipeline {
                         runTest('storage', 'selfhealing')
                         runTest('self-healing-chaos', 'selfhealing')
                         runTest('operator-self-healing-chaos', 'selfhealing')
+                        runTest('ignore-labels-annotations', 'selfhealing')
+                        runTest('expose-sharded', 'selfhealing')
                         ShutdownCluster('selfhealing')
                     }
                 }
@@ -360,6 +376,8 @@ pipeline {
                         runTest('demand-backup', 'backups')
                         runTest('demand-backup-sharded', 'backups')
                         runTest('scheduled-backup', 'backups')
+                        runTest('mongod-major-upgrade-sharded', 'backups')
+                        runTest('serviceless-external-nodes', 'backups')
                         ShutdownCluster('backups')
                     }
                 }
@@ -370,6 +388,9 @@ pipeline {
                         runTest('upgrade-sharded', 'cross-site')
                         runTest('pitr', 'cross-site')
                         runTest('pitr-sharded', 'cross-site')
+                        runTest('recover-no-primary', 'cross-site')
+                        runTest('demand-backup-physical', 'cross-site')
+                        runTest('mongod-major-upgrade', 'cross-site')
                         ShutdownCluster('cross-site')
                     }
                 }
