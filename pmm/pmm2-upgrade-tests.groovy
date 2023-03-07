@@ -264,6 +264,8 @@ pipeline {
                     set -o errexit
                     set -o xtrace
                     export PATH=$PATH:/usr/sbin
+                    export PMM_VERSION=${CLIENT_VERSION}
+                    export PMM_CLIENT_VERSION=${CLIENT_VERSION}
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --download \
                         ${CLIENTS} \
@@ -374,7 +376,7 @@ pipeline {
                 echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
 
                 # stop the containers
-                docker-compose down
+                docker-compose down || true
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
                 sudo chown -R ec2-user:ec2-user . || true
