@@ -29,10 +29,10 @@ void checkClientAfterUpgrade(String PMM_VERSION) {
     """
 }
 
-void checkClientBeforeUpgrade(String PMM_VERSION) {
+void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String PMM_CLIENT_VERSION) {
     sh """
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
-        bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION}
+        bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_SERVER_VERSION} ${PMM_CLIENT_VERSION}
     """
 }
 
@@ -356,7 +356,7 @@ pipeline {
         stage('Check Client before Upgrade') {
             steps {
                 script {
-                    checkClientBeforeUpgrade(PMM_SERVER_LATEST)
+                    checkClientBeforeUpgrade(PMM_SERVER_LATEST, CLIENT_VERSION)
                 }
             }
         }
