@@ -5,12 +5,10 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 void checkUpgrade(String PMM_VERSION, String PRE_POST) {
     def pmm_version = PMM_VERSION.trim();
-    
     sh """
-        export PMM_VERSION=${pmm_version}
         export PRE_POST=${PRE_POST}
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-        echo $PMM_VERSION
+        echo ${pmm_version}
         echo $PRE_POST
         python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v ${pmm_version} -p ${PRE_POST}
     """
@@ -18,7 +16,6 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
 
 void checkClientAfterUpgrade(String PMM_SERVER_VERSION) {
     sh """
-        export PMM_VERSION=${PMM_VERSION}
         echo "Upgrading pmm2-client";
         sudo yum clean all
         sudo yum makecache
@@ -33,10 +30,6 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String PMM_CLIENT_VERSI
     def pmm_server_version = PMM_SERVER_VERSION.trim();
     def pmm_client_version = PMM_CLIENT_VERSION.trim();
     sh """
-        echo "PMM Server Version is: "
-        echo ${PMM_SERVER_VERSION}
-        echo "PMM Client Version is: "
-        echo ${PMM_CLIENT_VERSION}
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
         bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${pmm_server_version} ${pmm_client_version}
     """
@@ -277,7 +270,6 @@ pipeline {
                     set -o errexit
                     set -o xtrace
                     export PATH=$PATH:/usr/sbin
-                    export PMM_VERSION=${CLIENT_VERSION}
                     export PMM_CLIENT_VERSION=${CLIENT_VERSION}
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --download \
@@ -338,9 +330,8 @@ pipeline {
                 '''
                     sh '''
                     # run the upgrade script
-                    export PMM_VERSION=${PMM_SERVER_TAG}
                     sudo chmod 755 /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh
-                    bash -xe /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh ${PMM_VERSION}
+                    bash -xe /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh ${PMM_SERVER_TAG}
                 '''
                     sh '''
                     # run post-upgrade tests
