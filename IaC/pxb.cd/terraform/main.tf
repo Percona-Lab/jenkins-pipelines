@@ -64,7 +64,7 @@ resource "aws_spot_fleet_request" "jenkins" {
   valid_until                         = "2099-01-01T00:00:00Z"
 
   launch_specification {
-    instance_type = "c5.xlarge"
+    instance_type = "m4.large"
     ami           = "${data.aws_ami.amazon-linux-2.id}"
     subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
 
@@ -88,7 +88,7 @@ resource "aws_spot_fleet_request" "jenkins" {
   }
 
   launch_specification {
-    instance_type = "c5a.xlarge"
+    instance_type = "m5a.large"
     ami           = "${data.aws_ami.amazon-linux-2.id}"
     subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
 
@@ -112,7 +112,7 @@ resource "aws_spot_fleet_request" "jenkins" {
   }
 
   launch_specification {
-    instance_type = "c5ad.xlarge"
+    instance_type = "m5d.large"
     ami           = "${data.aws_ami.amazon-linux-2.id}"
     subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
 
@@ -136,7 +136,7 @@ resource "aws_spot_fleet_request" "jenkins" {
   }
 
   launch_specification {
-    instance_type = "c6i.xlarge"
+    instance_type = "m5n.large"
     ami           = "${data.aws_ami.amazon-linux-2.id}"
     subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
 
