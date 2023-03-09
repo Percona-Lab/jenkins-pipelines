@@ -16,7 +16,7 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
     """
 }
 
-void checkClientAfterUpgrade(String PMM_VERSION) {
+void checkClientAfterUpgrade(String PMM_SERVER_VERSION, String PMM_CLIENT_VERSION) {
     sh """
         export PMM_VERSION=${PMM_VERSION}
         echo "Upgrading pmm2-client";
@@ -25,7 +25,7 @@ void checkClientAfterUpgrade(String PMM_VERSION) {
         sudo yum -y install pmm2-client
         sleep 30
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
-        bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_VERSION}
+        bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_SERVER_VERSION} ${PMM_CLIENT_VERSION}
     """
 }
 
@@ -362,7 +362,7 @@ pipeline {
         }
         stage('Check Client Upgrade') {
             steps {
-                checkClientAfterUpgrade(PMM_SERVER_LATEST);
+                checkClientAfterUpgrade(PMM_SERVER_LATEST, CLIENT_VERSION);
                 sh '''
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
