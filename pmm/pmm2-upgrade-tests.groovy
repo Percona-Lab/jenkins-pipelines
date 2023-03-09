@@ -86,31 +86,38 @@ pipeline {
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for UI Tests repository',
-            name: 'PMM_UI_GIT_BRANCH')
+            name: 'PMM_UI_GIT_BRANCH',
+            trim: true)
         choice(
             choices: versionsList,
             description: 'PMM Server Version to test for Upgrade',
-            name: 'DOCKER_VERSION')
+            name: 'DOCKER_VERSION',
+            trim: true)
         choice(
             choices: versionsList,
             description: 'PMM Client Version to test for Upgrade',
-            name: 'CLIENT_VERSION')
+            name: 'CLIENT_VERSION',
+            trim: true)
         string(
             defaultValue: latestVersion,
             description: 'latest PMM Server Version',
-            name: 'PMM_SERVER_LATEST')
+            name: 'PMM_SERVER_LATEST',
+            trim: true)
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server Tag to be upgraded to via container replacement',
-            name: 'PMM_SERVER_TAG')
+            name: 'PMM_SERVER_TAG',
+            trim: true)
         string(
             defaultValue: 'admin-password',
             description: 'pmm-server admin user default password',
-            name: 'ADMIN_PASSWORD')
+            name: 'ADMIN_PASSWORD',
+            trim: true)
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
-            name: 'PMM_QA_GIT_BRANCH')
+            name: 'PMM_QA_GIT_BRANCH',
+            trim: true)
         choice(
             choices: ['no', 'yes'],
             description: 'Enable Testing Repo, for RC testing',
