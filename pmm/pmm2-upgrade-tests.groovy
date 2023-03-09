@@ -30,13 +30,15 @@ void checkClientAfterUpgrade(String PMM_SERVER_VERSION) {
 }
 
 void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String PMM_CLIENT_VERSION) {
+    def pmm_server_version = PMM_SERVER_VERSION.trim();
+    def pmm_client_version = PMM_CLIENT_VERSION.trim();
     sh """
         echo "PMM Server Version is: "
         echo ${PMM_SERVER_VERSION}
         echo "PMM Client Version is: "
         echo ${PMM_CLIENT_VERSION}
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
-        bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_SERVER_VERSION} ${PMM_CLIENT_VERSION}
+        bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${pmm_server_version} ${pmm_client_version}
     """
 }
 
@@ -86,38 +88,31 @@ pipeline {
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for UI Tests repository',
-            name: 'PMM_UI_GIT_BRANCH',
-            trim: true)
+            name: 'PMM_UI_GIT_BRANCH')
         choice(
             choices: versionsList,
             description: 'PMM Server Version to test for Upgrade',
-            name: 'DOCKER_VERSION',
-            trim: true)
+            name: 'DOCKER_VERSION')
         choice(
             choices: versionsList,
             description: 'PMM Client Version to test for Upgrade',
-            name: 'CLIENT_VERSION',
-            trim: true)
+            name: 'CLIENT_VERSION')
         string(
             defaultValue: latestVersion,
             description: 'latest PMM Server Version',
-            name: 'PMM_SERVER_LATEST',
-            trim: true)
+            name: 'PMM_SERVER_LATEST')
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server Tag to be upgraded to via container replacement',
-            name: 'PMM_SERVER_TAG',
-            trim: true)
+            name: 'PMM_SERVER_TAG')
         string(
             defaultValue: 'admin-password',
             description: 'pmm-server admin user default password',
-            name: 'ADMIN_PASSWORD',
-            trim: true)
+            name: 'ADMIN_PASSWORD')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
-            name: 'PMM_QA_GIT_BRANCH',
-            trim: true)
+            name: 'PMM_QA_GIT_BRANCH')
         choice(
             choices: ['no', 'yes'],
             description: 'Enable Testing Repo, for RC testing',
