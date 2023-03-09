@@ -316,7 +316,7 @@ pipeline {
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
+                    ./node_modules/.bin/codeceptjs run-multiple parallel -c pr.codecept.js --grep '@pmm-upgrade'
                     '''
                 }
             }
@@ -334,7 +334,7 @@ pipeline {
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@pre-upgrade'
+                    ./node_modules/.bin/codeceptjs run-multiple parallel -c pr.codecept.js --grep '@pre-upgrade'
                 '''
                     sh '''
                     # run the upgrade script
@@ -347,7 +347,7 @@ pipeline {
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                     sleep 30
-                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@post-upgrade'
+                    ./node_modules/.bin/codeceptjs run-multiple parallel -c pr.codecept.js --grep '@post-upgrade'
                 '''
                 }
             }
