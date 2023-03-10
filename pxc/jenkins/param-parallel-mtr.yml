@@ -1,0 +1,199 @@
+- job:
+    name: pxc-8.0-param-parallel-mtr
+    project-type: matrix
+    defaults: global
+    description: |
+        <h3 style="color:Red;"><b>Are you sure you need to run this job?</b></h3><br>
+        It will create multiple pipelines which create multiple workers.<br>
+        Maybe just a single pipeline run is enough?<br>
+        <b>Anyway, do not edit this job through the web!</b>
+    triggers:
+    - timed: "0 0 * * 6"
+    disabled: false
+    concurrent: true
+    auth-token: pxc80testmtr
+    node: micro-amazon
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 50
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 50
+    parameters:
+    - matrix-combinations:
+        name: COMBINATIONS
+        description: "Select matrix combinations"
+        filter: CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="ubuntu:jammy" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="ubuntu:jammy" || CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="debian:bullseye" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="debian:bullseye" || CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="oraclelinux:9" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="oraclelinux:9"
+    - string:
+        name: GIT_REPO
+        default: "https://github.com/percona/percona-xtradb-cluster"
+        description: URL to PXC repository
+    - string:
+        name: BRANCH
+        default: "8.0"
+        description: Tag/PR/Branch for PXC repository
+    - string:
+        name: CUSTOM_BUILD_NAME
+        default: ""
+        description: Custom string that will be appended to the build name visible in Jenkins
+    - bool:
+        name: USE_PR
+        default: false
+        description: "Check only if you pass PR number to BRANCH field"
+    - bool:
+        name: PXB80_LATEST
+        default: true
+        description: "If checked, the PXB80_BRANCH will be ignored and latest available version will be used"
+    - string:
+        name: PXB80_REPO
+        default: https://github.com/percona/percona-xtrabackup
+        description: URL to PXB80 repository
+    - string:
+        name: PXB80_BRANCH
+        default: percona-xtrabackup-8.0.27-19
+        description: Tag/Branch for PXB80 repository
+    - bool:
+        name: PXB24_LATEST
+        default: true
+        description: "If checked, the PXB24_BRANCH will be ignored and latest available version will be used"
+    - string:
+        name: PXB24_REPO
+        default: https://github.com/percona/percona-xtrabackup
+        description: URL to PXB24 repository
+    - string:
+        name: PXB24_BRANCH
+        default: percona-xtrabackup-2.4.24
+        description: Tag/Branch for PXC repository
+    - choice:
+        name: JOB_CMAKE
+        choices:
+        - /usr/bin/cmake
+        description: path to cmake binary
+    - string:
+        name: CMAKE_OPTS
+        default:
+        description: cmake options
+    - string:
+        name: MAKE_OPTS
+        default:
+        description: make options, like VERBOSE=1
+    - choice:
+        name: CI_FS_MTR
+        choices:
+        - "yes"
+        - "no"
+        description: Run case-insensetive MTR tests
+    - choice:
+        name: ANALYZER_OPTS
+        choices:
+        -
+        - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON
+        - -DWITH_ASAN=ON
+        - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON
+        - -DWITH_ASAN=ON -DWITH_UBSAN=ON
+        - -DWITH_UBSAN=ON
+        - -DWITH_MSAN=ON
+        - -DWITH_VALGRIND=ON
+        description: Enable code checking
+    - string:
+        name: GALERA_PARALLEL_RUN
+        default: "2"
+        description: "mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the Galera specific test suites."
+    - choice:
+        name: FULL_MTR
+        choices:
+        - "yes"
+        - "no"
+        - "galera_only"
+        - "skip_mtr"
+        description: |
+            yes - full MTR<br>
+            no - run mtr suites based on variables WORKER_N_MTR_SUITES<br>
+            galera_only - only Galera related suites (incl. wsrep and sys_var)<br>
+            skip_mtr - skip testing phase. Only build.
+    - string:
+        name: WORKER_1_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 1 when FULL_MTR is no. Unit tests, if requested, can be ran here only!"
+    - string:
+        name: WORKER_2_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 2 when FULL_MTR is no"
+    - string:
+        name: WORKER_3_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 3 when FULL_MTR is no"
+    - string:
+        name: WORKER_4_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 4 when FULL_MTR is no"
+    - string:
+        name: WORKER_5_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 5 when FULL_MTR is no"
+    - string:
+        name: WORKER_6_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 6 when FULL_MTR is no"
+    - string:
+        name: WORKER_7_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 7 when FULL_MTR is no"
+    - string:
+        name: WORKER_8_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 8 when FULL_MTR is no"
+    - string:
+        name: MTR_ARGS
+        default: --unit-tests-report --big-test --mem
+        description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
+    - bool:
+        name: ALLOW_ABORTED_WORKERS_RERUN
+        default: true
+        description: "Rerun aborted workers"
+    axes:
+      - axis:
+         type: user-defined
+         name: CMAKE_BUILD_TYPE
+         values:
+          - Debug
+          - RelWithDebInfo
+      - axis:
+         type: user-defined
+         name: DOCKER_OS
+         values:
+          - centos:7
+          - centos:8
+          - oraclelinux:9
+          - ubuntu:bionic
+          - ubuntu:focal
+          - ubuntu:jammy
+          - debian:buster
+          - debian:bullseye
+    builders:
+    - trigger-builds:
+      - project: pxc-8.0-pipeline-parallel-mtr
+        current-parameters: true
+        predefined-parameters: |
+          DOCKER_OS=${DOCKER_OS}
+          CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        block: true
+        block-thresholds:
+          build-step-failure-threshold: FAILURE
+          unstable-threshold: never
+          failure-threshold: FAILURE
+    - shell: |
+        sudo find . -name "*.xml" -o -name "*.log" -delete
+    - copyartifact:
+        project: pxc-8.0-pipeline-parallel-mtr
+        which-build: specific-build
+        build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_8_0_pipeline_parallel_mtr}"
+        do-not-fingerprint: true
+    - shell: |
+        echo "${TRIGGERED_BUILD_NUMBERS_pxc_8_0_pipeline_parallel_mtr}" > PIPELINE_BUILD_NUMBER
+    publishers:
+    - junit:
+        results: "**/*.xml"
+        keep-long-stdio: true
+    - archive:
+        artifacts: 'pxc/sources/pxc/results/*.tar.gz'
