@@ -19,9 +19,9 @@ void checkImageForDocker(String IMAGE_POSTFIX){
                 fi
 
                 for PG_VER in 15 14 13 12; do
-                    TrivyLog="$WORKSPACE/trivy-hight-percona-postgresql-operator-ppg\${PG_VER}-${IMAGE_POSTFIX}.xml"
+                    TrivyLog="$WORKSPACE/trivy-hight-\${IMAGE_NAME}-ppg\${PG_VER}-${IMAGE_POSTFIX}.xml"
                     /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrivyLog --ignore-unfixed --timeout 20m --exit-code 0 \
-                        --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-ppg\$PG_VER-${IMAGE_POSTFIX}
+                        --severity HIGH,CRITICAL perconalab/\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
 
                 done
             "
