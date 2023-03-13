@@ -10,44 +10,47 @@ void build(String IMAGE_POSTFIX){
 }
 void checkImageForDocker(String IMAGE_POSTFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            sg docker -c "
-                IMAGE_NAME='percona-postgresql-operator'
-                docker login -u '${USER}' -p '${PASS}'
-                if [ ! -f junit.tpl ]; then
-                    wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
-                fi
+        withEnv(["SOME_IMAGE_POSTFIX=${IMAGE_POSTFIX}"]) {
+            sh '''
+                sg docker -c "
+                    IMAGE_NAME='percona-postgresql-operator'
+                    docker login -u '${USER}' -p '${PASS}'
+                    if [ ! -f junit.tpl ]; then
+                        wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
+                    fi
 
-                for PG_VER in 15 14 13 12; do
-                    TrivyLog="$WORKSPACE/trivy-hight-\${IMAGE_NAME}-ppg\${PG_VER}-${IMAGE_POSTFIX}.xml"
-                    /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrivyLog --ignore-unfixed --timeout 20m --exit-code 0 \
-                        --severity HIGH,CRITICAL perconalab/\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
+                    for PG_VER in 15 14 13 12; do
+                        TrivyLog="$WORKSPACE/trivy-hight-\\${IMAGE_NAME}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}.xml"
+                        /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrivyLog --ignore-unfixed --timeout 20m --exit-code 0 \
+                            --severity HIGH,CRITICAL perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
 
-                done
-            "
-
-        """
+                    done
+                "
+            '''
+        }
     }
 }
 
 void pushImageToDocker(String IMAGE_POSTFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),
                       [$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            sg docker -c "
-                IMAGE_NAME='percona-postgresql-operator'
-                docker login -u '${USER}' -p '${PASS}'
-                aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR
-                export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                for PG_VER in 15 14 13 12; do
-                    docker trust sign perconalab/\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
-                    docker push perconalab/\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
-                    docker tag perconalab/\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX} $ECR/perconalab/\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
-                    docker push $ECR/perconalab/\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
-                done
-                docker logout
-            "
-        """
+        withEnv(["SOME_IMAGE_POSTFIX=${IMAGE_POSTFIX}"]) {
+            sh '''
+                sg docker -c "
+                    IMAGE_NAME='percona-postgresql-operator'
+                    docker login -u '${USER}' -p '${PASS}'
+                    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR
+                    export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
+                    for PG_VER in 15 14 13 12; do
+                        docker trust sign perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
+                        docker push perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
+                        docker tag perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX} $ECR/perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
+                        docker push $ECR/perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
+                    done
+                    docker logout
+                "
+            '''
+        }
     }
 }
 pipeline {
