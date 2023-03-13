@@ -36,7 +36,7 @@ void destroyStaging(IP) {
 }
 
 def latestVersion = pmmVersion()
-def versionsList = pmmVersion('list')
+def versionsList = pmmVersion('dbaas');
 
 pipeline {
     agent {
@@ -52,11 +52,11 @@ pipeline {
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
         choice(
-            choices: ['2.34.0', '2.35.0'],
+            choices: versionsList,
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_VERSION')
         choice(
-            choices: ['2.34.0', '2.35.0'],
+            choices: versionsList,
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
