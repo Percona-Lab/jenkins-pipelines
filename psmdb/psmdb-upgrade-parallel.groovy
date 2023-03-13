@@ -49,7 +49,8 @@ pipeline {
             choices: [
                 'NONE',
                 'VAULT',
-                'KEYFILE'
+                'KEYFILE',
+                'KMIP'
             ]
         )
         choice(
