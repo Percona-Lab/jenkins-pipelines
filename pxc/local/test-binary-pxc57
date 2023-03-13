@@ -40,7 +40,7 @@ if [ -f /usr/bin/yum ]; then
     fi
 elif [ -f /usr/bin/apt-get ]; then
     OS_NAME="$(lsb_release -sc)"
-    if [[ $(OS_NAME) == "jammy" ]] || [[ $(OS_NAME) == "bullseye" ]]; then
+    if [[ ${OS_NAME} == "jammy" ]] || [[ ${OS_NAME} == "bullseye" ]]; then
         sudo ln -sf /usr/bin/python3 /usr/bin/python
     fi
 fi
