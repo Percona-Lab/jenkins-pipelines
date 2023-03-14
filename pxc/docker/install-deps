@@ -193,7 +193,7 @@ if [ -f /usr/bin/yum ]; then
         rm /anaconda-post.log
     fi
 #   Install mysql-connector for QA framework run
-    pip3 install mysql-connector
+    pip3 install mysql-connector mysqlclient
 fi
 
 if [ -f /usr/bin/apt-get ]; then
