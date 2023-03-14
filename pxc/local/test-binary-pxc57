@@ -33,6 +33,18 @@ if [[ -f /opt/rh/devtoolset-7/enable ]]; then
     source /opt/rh/devtoolset-7/enable
 fi
 
+if [ -f /usr/bin/yum ]; then
+    RHEL=$(rpm --eval %rhel)
+    if [[ ${RHEL} -eq 9 ]]; then
+        sudo ln -sf /bin/python3 /bin/python
+    fi
+elif [ -f /usr/bin/apt-get ]; then
+    OS_NAME="$(lsb_release -sc)"
+    if [[ ${OS_NAME} == "jammy" ]] || [[ ${OS_NAME} == "bullseye" ]]; then
+        sudo ln -sf /usr/bin/python3 /usr/bin/python
+    fi
+fi
+
 sudo cp ${WORKDIR_ABS}/PXB/bin/* /usr/bin/
 
 JEMALLOC=$(find /lib* /usr/lib* /usr/local/lib* -type f -name 'libjemalloc.so*' | head -n1)
