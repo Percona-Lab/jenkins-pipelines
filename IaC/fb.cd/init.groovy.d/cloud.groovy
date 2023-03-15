@@ -21,10 +21,10 @@ netMap['eu-west-1b'] = 'subnet-05f58e38549072404'
 netMap['eu-west-1c'] = 'subnet-0b5ee1ef341aca9db'
 
 imageMap = [:]
-imageMap['eu-west-1a.docker'] = 'ami-0af7a5885e3ff0439'
-imageMap['eu-west-1a.docker-32gb'] = 'ami-0af7a5885e3ff0439'
-imageMap['eu-west-1a.docker2'] = 'ami-0af7a5885e3ff0439'
-imageMap['eu-west-1a.micro-amazon'] = 'ami-0af7a5885e3ff0439'
+imageMap['eu-west-1a.docker'] = 'ami-05247819264504af0'
+imageMap['eu-west-1a.docker-32gb'] = 'ami-05247819264504af0'
+imageMap['eu-west-1a.docker2'] = 'ami-05247819264504af0'
+imageMap['eu-west-1a.micro-amazon'] = 'ami-05247819264504af0'
 imageMap['eu-west-1a.min-centos-7-x64'] = 'ami-04f5641b0d178a27a'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
@@ -40,14 +40,10 @@ imageMap['eu-west-1c.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
 imageMap['eu-west-1c.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64']
 
 priceMap = [:]
-priceMap['t2.small'] = '0.01'
-priceMap['m1.medium'] = '0.05'
-priceMap['c4.xlarge'] = '0.10'
-priceMap['m4.xlarge'] = '0.10'
-priceMap['m5dn.2xlarge'] = '0.47'
-priceMap['i4i.4xlarge'] = '0.57'
-priceMap['m5d.2xlarge'] = '0.20'
-priceMap['c5d.xlarge'] = '0.20'
+priceMap['t2.small'] = '0.01'     // type=t2.small, vCPU=1, memory=2GiB, saving=64%, interruption='<5%', price=0.009100
+priceMap['c4.xlarge'] = '0.10'    // type=c4.xlarge, vCPU=4, memory=7.5GiB, saving=61%, interruption='<5%', price=0.094100
+priceMap['g4ad.2xlarge'] = '0.29' // type=g4ad.2xlarge, vCPU=8, memory=32GiB, saving=64%, interruption='<5%', price=0.219800
+priceMap['i4i.4xlarge'] = '0.57'  // type=i4i.4xlarge, vCPU=16, memory=128GiB, saving=67%, interruption='<5%', price=0.534400
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
@@ -145,15 +141,13 @@ initMap['micro-amazon'] = '''
 
 capMap = [:]
 capMap['c4.xlarge'] = '60'
-capMap['m4.xlarge'] = '5'
-capMap['m5dn.2xlarge'] = '40'
+capMap['g4ad.2xlarge'] = '40'
 capMap['i4i.4xlarge'] = '40'
-capMap['c5d.xlarge'] = '10'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
 typeMap['docker'] = 'c4.xlarge'
-typeMap['docker-32gb'] = 'm5dn.2xlarge'
+typeMap['docker-32gb'] = 'g4ad.2xlarge'
 typeMap['docker2'] = 'i4i.4xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
 
