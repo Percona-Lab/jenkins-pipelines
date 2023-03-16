@@ -313,6 +313,7 @@ pipeline {
                 } catch (err) {
                     echo err.getMessage()
                 }
+                fetchAgentLog(CLIENT_VERSION)
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'pmm-agent.log'
             }
@@ -346,7 +347,6 @@ pipeline {
                     destroyStaging(VM_CLIENT_IP)
                 }
                 if (env.VM_CLIENT_IP_DB) {
-                    fetchAgentLog(CLIENT_VERSION)
                     destroyStaging(VM_CLIENT_IP_DB)
                 }
                 def node = Jenkins.instance.getNode(env.OVF_INSTANCE_NAME)
