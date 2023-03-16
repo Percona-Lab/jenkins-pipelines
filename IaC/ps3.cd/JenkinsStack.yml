@@ -43,9 +43,9 @@ Parameters:
 Mappings:
   AmazonLinux2:
     eu-west-1:
-      x64: ami-0af7a5885e3ff0439
+      x64: ami-0482b9ce45184e650
     eu-central-1:
-      x64: ami-08658d5197becde34
+      x64: ami-01aa7cea8549a00f9
 
 Resources:
 
@@ -449,16 +449,16 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !GetAtt JMasterTemplate.LatestVersionNumber
           Overrides:
-          - InstanceType: m4.xlarge
+          - InstanceType: m4.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5a.xlarge
+          - InstanceType: m5.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5ad.xlarge
+          - InstanceType: m5a.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: r5b.xlarge
+          - InstanceType: m5d.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
 
@@ -551,7 +551,7 @@ Resources:
                   amazon-linux-extras install epel -y
                   amazon-linux-extras install java-openjdk11 -y
                   yum -y update --security
-                  yum -y install jenkins-2.361.2 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install jenkins-2.387.1 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -783,7 +783,7 @@ Resources:
               }
 
               setup_ssh_keys() {
-                KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets surabhi.bhat"
+                KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets surabhi.bhat talha.rizwan"
 
                 for KEY in $KEYS_LIST; do
                     RETRY="3"
