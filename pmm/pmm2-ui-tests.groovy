@@ -167,7 +167,7 @@ pipeline {
             description: 'Percona Server Docker Container Image',
             name: 'MYSQL_IMAGE')
         string(
-            defaultValue: 'perconalab/percona-distribution-postgresql:15.0',
+            defaultValue: 'perconalab/percona-distribution-postgresql:15.2',
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
         string(
