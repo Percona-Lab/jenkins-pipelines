@@ -324,7 +324,7 @@ pipeline {
                 }
                 initTests()
 
-                sh '''
+                sh """
                     sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
                     sudo percona-release enable-only tools
                     sudo yum install -y percona-xtrabackup-80 jq | true
@@ -344,11 +344,11 @@ pipeline {
                         | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
                     sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
-                '''
+                """
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-                    sh '''
+                    sh """
                         cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-                    '''
+                    """
                 }
             }
         }
@@ -356,7 +356,7 @@ pipeline {
             steps {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh '''
+                    sh """
                         if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
                             echo "SKIP: Build is not needed, PXC operator image was set!"
                         else
@@ -369,7 +369,7 @@ pipeline {
                             "
                             sudo rm -rf ./build
                         fi
-                    '''
+                    """
                 }
             }
         }
@@ -429,19 +429,19 @@ pipeline {
             archiveArtifacts '*.xml'
 
             withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-                sh '''
-                    export CLUSTER_NAME=$(echo jenkins-par-pxc-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+                sh """
+                    export CLUSTER_NAME=\$(echo jenkins-par-pxc-\$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
                     gcloud config set project $GCP_PROJECT
                     gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
-                '''
+                """
             }
-            sh '''
+            sh """
                 sudo docker system prune -fa
                 sudo rm -rf ./*
                 sudo rm -rf $HOME/google-cloud-sdk
-            '''
+            """
             deleteDir()
         }
     }

@@ -275,7 +275,7 @@ pipeline {
                 }
                 initTests()
 
-                sh '''
+                sh """
                     sudo yum install -y jq | true
                     cat <<EOF > /tmp/kubernetes.repo
 [kubernetes]
@@ -303,11 +303,11 @@ EOF
                         curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
                         printf "/usr/azure-cli\\n/usr/bin" | sudo  python3 install.py
                     fi
-                '''
+                """
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-                    sh '''
+                    sh """
                         cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-                    '''
+                    """
                 }
             }
         }
@@ -315,7 +315,7 @@ EOF
             steps {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh '''
+                    sh """
                         if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
                             echo "SKIP: Build is not needed, PXC operator image was set!"
                         else
@@ -328,7 +328,7 @@ EOF
                             "
                             sudo rm -rf ./build
                         fi
-                    '''
+                    """
                 }
             }
         }
@@ -393,17 +393,17 @@ EOF
                 }
             }
             withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
-                sh '''
-                    export CLUSTER_NAME=$(echo jenkins-lat-pxc-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+                sh """
+                    export CLUSTER_NAME=\$(echo jenkins-lat-pxc-\$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
                     az account set -s "$AZURE_SUBSCRIPTION_ID"
                     az aks list --query "[?starts_with(name, '$CLUSTER_NAME')].name" --output tsv | xargs az aks delete --resource-group percona-operators --yes --name
-                '''
+                """
             }
-            sh '''
+            sh """
                 sudo docker system prune -fa
                 sudo rm -rf ./*
-            '''
+            """
             deleteDir()
         }
     }

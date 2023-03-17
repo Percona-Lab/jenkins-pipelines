@@ -464,22 +464,22 @@ pipeline {
                         slackSend channel: '@${OWNER_SLACK}', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
                     }
                 }
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
-                     sshagent(['aws-openshift-41-key']) {
-                         sh """
-                             for cluster_suffix in 'scaling' 'basic' 'cross-site' 'selfhealing' 'backup' 'big-data' 'upgrade'
-                             do
-                                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/\$cluster_suffix > /dev/null 2>&1 || true
-                             done
-                         """
-                     }
-                }
+            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+                 sshagent(['aws-openshift-41-key']) {
+                     sh """
+                         for suffix in cluster{1..7}
+                         do
+                            /usr/local/bin/openshift-install destroy cluster --dir=./openshift/\$suffix > /dev/null 2>&1 || true
+                         done
+                     """
+                 }
+            }
 
-            sh '''
+            sh """
                 sudo docker system prune -fa
                 sudo rm -rf $HOME/google-cloud-sdk
                 sudo rm -rf ./*
-            '''
+            """
             deleteDir()
         }
     }

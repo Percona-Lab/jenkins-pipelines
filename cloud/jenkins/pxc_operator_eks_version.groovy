@@ -446,22 +446,22 @@ pipeline {
             archiveArtifacts '*.xml'
 
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                sh '''
-                    export CLUSTER_NAME=$(echo jenkins-par-pxc-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
-                    for suffix in $(seq 1 9); do
+                sh """
+                    export CLUSTER_NAME=\$(echo jenkins-par-pxc-\$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+                    for suffix in cluster{1..6}; do
                         eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-$suffix" --region $AWSRegion > /dev/null 2>&1
                     done
-                    for suffix in $(seq 1 9); do
+                    for suffix in cluster{1..6}; do
                         eksctl delete cluster -f cluster-$suffix.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
                     done
-                '''
+                """
             }
 
-            sh '''
+            sh """
                 sudo docker system prune -fa
                 sudo rm -rf $HOME/google-cloud-sdk
                 sudo rm -rf ./*
-            '''
+            """
             deleteDir()
         }
     }

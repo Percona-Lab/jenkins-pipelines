@@ -147,7 +147,7 @@ void runTest(Integer TEST_ID) {
 }
 
 void installRpms() {
-    sh '''
+    sh """
         cat <<EOF > /tmp/kubernetes.repo
 [kubernetes]
 name=Kubernetes
@@ -163,7 +163,7 @@ EOF
         sudo percona-release enable-only tools
         sudo yum clean all || true
         sudo yum install -y percona-xtrabackup-80 jq kubectl socat
-    '''
+    """
 }
 pipeline {
     parameters {
@@ -256,9 +256,9 @@ pipeline {
         stage('Build docker image') {
             agent { label 'docker' }
             steps {
-                sh '''
+                sh """
                     sudo rm -rf source
-                '''
+                """
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
@@ -286,7 +286,7 @@ pipeline {
                 steps {
                     IsRunTestsInClusterWide()
 
-                    sh '''
+                    sh """
                         sudo yum install -y conntrack
                         sudo usermod -aG docker $USER
                         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
@@ -305,13 +305,13 @@ pipeline {
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
                         /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER}
-                    '''
+                    """
 
                     unstash "sourceFILES"
                     withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-                        sh '''
+                        sh """
                            cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-                        '''
+                        """
                     }
 
                     installRpms()
@@ -319,11 +319,11 @@ pipeline {
             }
             post {
                 always {
-                    sh '''
+                    sh """
                         /usr/local/bin/minikube delete || true
                         sudo rm -rf $HOME/google-cloud-sdk
                         sudo rm -rf ./*
-                    '''
+                    """
                     deleteDir()
                 }
             }
@@ -343,10 +343,10 @@ pipeline {
 
     post {
         always {
-            sh '''
+            sh """
                 sudo rm -rf $HOME/google-cloud-sdk
                 sudo rm -rf ./*
-            '''
+            """
             deleteDir()
         }
     }
