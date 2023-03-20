@@ -496,7 +496,7 @@ Resources:
                   amazon-linux-extras install java-openjdk11 -y
                   yum -y update --security
                   amazon-linux-extras install -y nginx1.12
-                  yum -y install jenkins-2.375.3 certbot git yum-cron aws-cli xfsprogs
+                  yum -y install jenkins-2.387.1 certbot git yum-cron aws-cli xfsprogs
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf

@@ -41,7 +41,7 @@ resource "aws_route53_record" "jenkins" {
 resource "aws_ebs_volume" "jenkins" {
   availability_zone = "${var.aws_az_list[var.main_az]}"
   encrypted         = false
-  size              = 200
+  size              = 250
   type              = "gp2"
 
   tags = {

@@ -36,9 +36,9 @@ imageMap['min-jammy-x64']    = 'ami-0ee8244746ec5d6d4'
 imageMap['min-bullseye-x64'] = 'ami-0d0f7602aa5c2425d'
 
 priceMap = [:]
-priceMap['c5a.large'] = '0.07'     // type=c5a.large, vCPU=2, memory=4GiB, saving=55%, interruption='<5%', price=0.043000
-priceMap['g4ad.2xlarge'] = '0.23' // type=g4ad.2xlarge, vCPU=8, memory=32GiB, saving=70%, interruption='<5%', price=0.162400
-priceMap['m5d.4xlarge'] = '0.43'  // type=m5d.4xlarge, vCPU=16, memory=64GiB, saving=70%, interruption='<5%', price=0.365500
+priceMap['c5a.large'] = '0.08'   // type=c5a.large, vCPU=2, memory=4GiB, saving=55%, interruption='<5%', price=0.043400
+priceMap['m5d.2xlarge'] = '0.32' // type=m5d.2xlarge, vCPU=8, memory=32GiB, saving=59%, interruption='<5%', price=0.254600
+priceMap['m5d.4xlarge'] = '0.50' // type=m5d.4xlarge, vCPU=16, memory=64GiB, saving=70%, interruption='<5%', price=0.430800
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
@@ -227,13 +227,13 @@ initMap['min-jammy-x64']  = initMap['debMap']
 
 
 capMap = [:]
-capMap['g4ad.2xlarge'] = '120'
+capMap['m5d.2xlarge'] = '120'
 capMap['m5d.4xlarge'] = '80'
 capMap['c5a.large'] = '15'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 'c5a.large'
-typeMap['docker'] = 'g4ad.2xlarge'
+typeMap['docker'] = 'm5d.2xlarge'
 typeMap['docker-32gb'] = 'm5d.4xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
