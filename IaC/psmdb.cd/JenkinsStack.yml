@@ -34,7 +34,7 @@ Parameters:
 Mappings:
   AmazonLinux2:
     us-west-2:
-      x64: ami-0f9f005c313373218
+      x64: ami-00b44d3dbe1f81742
 
 Resources:
 
@@ -395,16 +395,16 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !GetAtt JMasterTemplate.LatestVersionNumber
           Overrides:
-          - InstanceType: c5.xlarge
+          - InstanceType: m4.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5a.xlarge
+          - InstanceType: m5a.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5ad.xlarge
+          - InstanceType: m5ad.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c6i.xlarge
+          - InstanceType: m5d.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
 
@@ -496,7 +496,7 @@ Resources:
                   amazon-linux-extras install java-openjdk11 -y
                   yum -y update --security
                   amazon-linux-extras install -y nginx1.12
-                  yum -y install jenkins-2.361.2 certbot git yum-cron aws-cli xfsprogs
+                  yum -y install jenkins-2.387.1 certbot git yum-cron aws-cli xfsprogs
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -697,7 +697,7 @@ Resources:
               }
 
               setup_ssh_keys() {
-                KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovetsi surabhi.bhat"
+                KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovetsi surabhi.bhat talha.rizwan"
 
                 for KEY in $KEYS_LIST; do
                     RETRY="3"

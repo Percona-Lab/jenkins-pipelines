@@ -21,30 +21,30 @@ netMap['us-west-2b'] = 'subnet-0c0b7f0b15c1d68be'
 netMap['us-west-2c'] = 'subnet-024be5829372c4f38'
 
 imageMap = [:]
-imageMap['us-west-2a.docker']            = 'ami-0f9f005c313373218'
-imageMap['us-west-2a.docker-32gb']       = 'ami-0f9f005c313373218'
+imageMap['us-west-2a.docker']            = 'ami-0f3b366cff2e46862'
+imageMap['us-west-2a.docker-32gb']       = 'ami-0f3b366cff2e46862'
 imageMap['us-west-2a.docker-32gb-hirsute']  = 'ami-0cbdf6c0f39fd3950'
-imageMap['us-west-2a.docker-32gb-jammy']    = 'ami-0ee8244746ec5d6d4'
-imageMap['us-west-2a.docker-32gb-focal']    = 'ami-0ebe6e463e9912d81'
-imageMap['us-west-2a.docker-32gb-bullseye'] = 'ami-0d0f7602aa5c2425d'
-imageMap['us-west-2a.docker2']           = 'ami-0f9f005c313373218'
-imageMap['us-west-2a.micro-amazon']      = 'ami-0f9f005c313373218'
-imageMap['us-west-2a.min-amazon-2-x64']  = 'ami-0f9f005c313373218'
+imageMap['us-west-2a.docker-32gb-jammy']    = 'ami-04aa685cc800320b3'
+imageMap['us-west-2a.docker-32gb-focal']    = 'ami-0ceeab680f529cc36'
+imageMap['us-west-2a.docker-32gb-bullseye'] = 'ami-0c1b4dff690b5d229'
+imageMap['us-west-2a.docker2']           = 'ami-0f3b366cff2e46862'
+imageMap['us-west-2a.micro-amazon']      = 'ami-0f3b366cff2e46862'
+imageMap['us-west-2a.min-amazon-2-x64']  = 'ami-0f3b366cff2e46862'
 imageMap['us-west-2a.min-centos-8-x64']  = 'ami-0155c31ea13d4abd2'
-imageMap['us-west-2a.min-ol-8-x64']      = 'ami-000b99c02c2b64925'
+imageMap['us-west-2a.min-ol-8-x64']      = 'ami-0c32e4ead7507bc6f'
 imageMap['us-west-2a.min-ol-9-x64']      = 'ami-00a5d5bcea31bb02c'
 imageMap['us-west-2a.min-centos-7-x64']  = 'ami-0686851c4e7b1a8e1'
 imageMap['us-west-2a.fips-centos-7-x64'] = 'ami-036d2cdf95d86d256'
 imageMap['us-west-2a.min-centos-6-x64']  = 'ami-052ff42ae3be02b6a'
-imageMap['us-west-2a.min-buster-x64']    = 'ami-013e2c587714af230'
-imageMap['us-west-2a.min-jammy-x64']     = 'ami-0ee8244746ec5d6d4'
-imageMap['us-west-2a.min-focal-x64']     = 'ami-0892d3c7ee96c0bf7'
-imageMap['us-west-2a.min-bionic-x64']    = 'ami-074251216af698218'
-imageMap['us-west-2a.min-stretch-x64']   = 'ami-01bc069bbdca81d56'
+imageMap['us-west-2a.min-buster-x64']    = 'ami-0164ab05efc075cbc'
+imageMap['us-west-2a.min-jammy-x64']     = 'ami-04aa685cc800320b3'
+imageMap['us-west-2a.min-focal-x64']     = 'ami-0ceeab680f529cc36'
+imageMap['us-west-2a.min-bionic-x64']    = 'ami-0efcd70d6d745b26c'
+imageMap['us-west-2a.min-stretch-x64']   = 'ami-040a022e1b0c8b7f4'
 imageMap['us-west-2a.min-xenial-x64']    = 'ami-079e7a3f57cc8e0d0'
-imageMap['us-west-2a.min-bullseye-x64']  = 'ami-0d0f7602aa5c2425d'
+imageMap['us-west-2a.min-bullseye-x64']  = 'ami-0c1b4dff690b5d229'
 
-imageMap['us-west-2a.docker-32gb-aarch64'] = 'ami-0d3127dab514c6a1a'
+imageMap['us-west-2a.docker-32gb-aarch64'] = 'ami-0f1bcb5bf688257a2'
 
 imageMap['us-west-2b.docker']            = imageMap['us-west-2a.docker']
 imageMap['us-west-2b.docker-32gb']       = imageMap['us-west-2a.docker-32gb']
@@ -122,17 +122,12 @@ imageMap['us-west-2d.min-bullseye-x64']  = imageMap['us-west-2a.min-bullseye-x64
 imageMap['us-west-2d.docker-32gb-aarch64'] = imageMap['us-west-2a.docker-32gb-aarch64']
 
 priceMap = [:]
-priceMap['t2.medium'] = '0.03'
-priceMap['t2.large'] = '0.07'
-priceMap['m3.2xlarge'] = '0.17'
-priceMap['c5n.2xlarge'] = '0.22'
-priceMap['m5a.2xlarge'] = '0.32' // type=m5a.2xlarge, vCPU=8, memory=32GiB, saving=50%, interruption='<5%', price=0.250600
-priceMap['r6i.4xlarge'] = '0.47'
-priceMap['r5b.2xlarge'] = '0.22'
-priceMap['m5d.xlarge'] = '0.20'
-priceMap['m4.2xlarge'] = '0.25'
+priceMap['t2.medium'] = '0.03'   // type=t2.medium, vCPU=2, memory=4GiB, saving=69%, interruption='<5%', price=0.015500
+priceMap['c5.4xlarge'] = '0.35'  // type=c5.4xlarge, vCPU=16, memory=32GiB, saving=62%, interruption='<5%', price=0.272000
+priceMap['r5a.4xlarge'] = '0.47' // type=r5a.4xlarge, vCPU=16, memory=128GiB, saving=67%, interruption='<5%', price=0.360700
+priceMap['m5d.2xlarge'] = '0.27' // type=m5d.2xlarge, vCPU=8, memory=32GiB, saving=64%, interruption='<5%', price=0.201900
 
-priceMap['r6gd.2xlarge'] = '0.20'
+priceMap['r6gd.2xlarge'] = '0.23'
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -511,34 +506,30 @@ initMap['min-bullseye-x64'] = initMap['min-buster-x64']
 initMap['docker-32gb-aarch64'] = initMap['docker']
 
 capMap = [:]
-capMap['m3.2xlarge'] = '60'
-capMap['c5n.2xlarge'] = '60'
-capMap['m3.2xlarge'] = '5'
-capMap['m5a.2xlarge'] = '80'
-capMap['r6i.4xlarge'] = '60'
-capMap['m5d.xlarge'] = '60'
-capMap['m4.2xlarge'] = '60'
+capMap['c5.4xlarge'] = '80'
+capMap['r5a.4xlarge'] = '60'
+capMap['m5d.2xlarge'] = '60'
 capMap['r6gd.2xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.medium'
-typeMap['docker']            = 'm4.2xlarge'
-typeMap['docker-32gb']       = 'm5a.2xlarge'
-typeMap['docker-32gb-hirsute']  = 'r6i.4xlarge'
-typeMap['docker-32gb-jammy']    = 'r6i.4xlarge'
-typeMap['docker-32gb-focal']    = 'r6i.4xlarge'
-typeMap['docker-32gb-bullseye'] = 'r6i.4xlarge'
-typeMap['docker2']           = 'r6i.4xlarge'
+typeMap['docker']            = 'm5d.2xlarge'
+typeMap['docker-32gb']       = 'c5.4xlarge'
+typeMap['docker-32gb-hirsute']  = 'r5a.4xlarge'
+typeMap['docker-32gb-jammy']    = 'r5a.4xlarge'
+typeMap['docker-32gb-focal']    = 'r5a.4xlarge'
+typeMap['docker-32gb-bullseye'] = 'r5a.4xlarge'
+typeMap['docker2']           = 'r5a.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['min-centos-8-x64']  = typeMap['docker']
 typeMap['min-ol-8-x64']      = typeMap['docker']
 typeMap['min-ol-9-x64']      = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['docker-32gb']
-typeMap['min-jammy-x64']     = 'r6i.4xlarge'
+typeMap['min-jammy-x64']     = 'r5a.4xlarge'
 typeMap['min-focal-x64']     = typeMap['docker']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
-typeMap['min-centos-6-x64']  = 'm4.2xlarge'
+typeMap['min-centos-6-x64']  = 'm5d.2xlarge'
 typeMap['min-stretch-x64']   = typeMap['docker']
 typeMap['min-xenial-x64']    = typeMap['docker']
 typeMap['min-amazon-2-x64']  = typeMap['docker']

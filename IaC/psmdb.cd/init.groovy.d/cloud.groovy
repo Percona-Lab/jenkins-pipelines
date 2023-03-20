@@ -22,33 +22,32 @@ netMap['us-west-2b'] = 'subnet-03136d8c244f56036'
 netMap['us-west-2c'] = 'subnet-09103aa8678a054f7'
 
 imageMap = [:]
-imageMap['micro-amazon']     = 'ami-0f9f005c313373218'
+imageMap['micro-amazon']     = 'ami-00b44d3dbe1f81742'
 imageMap['min-centos-7-x64'] = 'ami-0686851c4e7b1a8e1'
 imageMap['min-centos-8-x64'] = 'ami-0155c31ea13d4abd2'
-imageMap['min-ol-8-x64']     = 'ami-000b99c02c2b64925'
+imageMap['min-ol-8-x64']     = 'ami-0c32e4ead7507bc6f'
 imageMap['min-ol-9-x64']     = 'ami-00a5d5bcea31bb02c'
-imageMap['min-bullseye-x64'] = 'ami-0d0f7602aa5c2425d'
-imageMap['min-buster-x64']   = 'ami-013e2c587714af230'
-imageMap['min-stretch-x64']  = 'ami-01bc069bbdca81d56'
+imageMap['min-bullseye-x64'] = 'ami-0c1b4dff690b5d229'
+imageMap['min-buster-x64']   = 'ami-0164ab05efc075cbc'
+imageMap['min-stretch-x64']  = 'ami-040a022e1b0c8b7f4'
 imageMap['min-xenial-x64']   = 'ami-079e7a3f57cc8e0d0'
-imageMap['min-bionic-x64']   = 'ami-074251216af698218'
-imageMap['min-focal-x64']    = 'ami-0892d3c7ee96c0bf7'
-imageMap['min-jammy-x64']    = 'ami-0ee8244746ec5d6d4'
+imageMap['min-bionic-x64']   = 'ami-093407aedabc3d647'
+imageMap['min-focal-x64']    = 'ami-0ee3d9a8776e8b99c'
+imageMap['min-jammy-x64']    = 'ami-0aa5fa88fa2ec19dc'
 imageMap['psmdb']            = imageMap['min-xenial-x64']
 imageMap['psmdb-bionic']     = imageMap['min-bionic-x64']
 imageMap['docker']           = imageMap['micro-amazon']
 imageMap['docker-32gb']      = imageMap['micro-amazon']
 imageMap['docker-64gb']      = imageMap['micro-amazon']
 
-imageMap['docker-64gb-aarch64'] = 'ami-0710985fd660e8917'
+imageMap['docker-64gb-aarch64'] = 'ami-055495e6fc65e4321'
 
 priceMap = [:]
 priceMap['t2.medium']   = '0.03'
 priceMap['c5ad.2xlarge']  = '0.18'
-priceMap['m5zn.2xlarge'] = '0.22'
-priceMap['c5ad.4xlarge'] = '0.40'
+priceMap['c5.4xlarge'] = '0.33' // type=c5.4xlarge, vCPU=16, memory=32GiB, saving=62%, interruption='<5%', price=0.260400
 priceMap['g4ad.4xlarge'] = '0.40' // type=g4ad.4xlarge, vCPU=16, memory=64GiB, saving=70%, interruption='<5%'
-priceMap['m6gd.4xlarge'] = '0.35' // aarch64 type=m6gd.4xlarge, vCPU=16, memory=64GiB, saving=61%, interruption='<5%', price=0.284000
+priceMap['r6gd.4xlarge'] = '0.37' // aarch64 type=r6gd.4xlarge, vCPU=16, memory=128GiB, saving=68%, interruption='<5%', price=0.297500
 
 userMap = [:]
 userMap['docker']           = 'ec2-user'
@@ -270,15 +269,14 @@ initMap['docker-64gb-aarch64'] = initMap['docker-32gb']
 
 capMap = [:]
 capMap['c5ad.2xlarge'] = '60'
-capMap['m5zn.2xlarge'] = '60'
-capMap['c5ad.4xlarge'] = '80'
+capMap['c5.4xlarge'] = '80'
 capMap['g4ad.4xlarge'] = '20'
-capMap['m6gd.4xlarge'] = '20'
+capMap['r6gd.4xlarge'] = '20'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.medium'
 typeMap['docker']            = 'c5ad.2xlarge'
-typeMap['docker-32gb']       = 'c5ad.4xlarge'
+typeMap['docker-32gb']       = 'c5.4xlarge'
 typeMap['docker-64gb']       = 'g4ad.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
 typeMap['min-centos-8-x64']  = typeMap['docker-32gb']
@@ -294,7 +292,7 @@ typeMap['min-jammy-x64']     = typeMap['docker-32gb']
 typeMap['psmdb']             = typeMap['docker-32gb']
 typeMap['psmdb-bionic']      = typeMap['docker-32gb']
 
-typeMap['docker-64gb-aarch64'] = 'm6gd.4xlarge'
+typeMap['docker-64gb-aarch64'] = 'r6gd.4xlarge'
 
 execMap = [:]
 execMap['docker']           = '1'

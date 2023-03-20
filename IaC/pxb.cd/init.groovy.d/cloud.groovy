@@ -22,7 +22,7 @@ netMap['us-west-2b'] = 'subnet-011f09cf273aeef73'
 netMap['us-west-2c'] = 'subnet-00b0d1d8bd8af5c07'
 
 imageMap = [:]
-imageMap['docker'] = 'ami-0f9f005c313373218'
+imageMap['docker'] = 'ami-0f64dfdea96e44686'
 imageMap['docker-32gb'] = imageMap['docker']
 imageMap['micro-amazon'] = imageMap['docker']
 imageMap['min-centos-7-x64'] = 'ami-0686851c4e7b1a8e1'
@@ -36,12 +36,9 @@ imageMap['min-jammy-x64']    = 'ami-0ee8244746ec5d6d4'
 imageMap['min-bullseye-x64'] = 'ami-0d0f7602aa5c2425d'
 
 priceMap = [:]
-priceMap['t3a.medium'] = '0.035'
-priceMap['m1.medium'] = '0.05'
-priceMap['c5ad.2xlarge'] = '0.18'
-priceMap['m3.2xlarge'] = '0.23'
-priceMap['m4.2xlarge'] = '0.28' // type=m4.2xlarge, vCPU=8, memory=32GiB, saving=55%, interruption='<5%', price=0.225100
-priceMap['c5ad.4xlarge'] = '0.40'
+priceMap['c5a.large'] = '0.08'   // type=c5a.large, vCPU=2, memory=4GiB, saving=55%, interruption='<5%', price=0.043400
+priceMap['m5d.2xlarge'] = '0.32' // type=m5d.2xlarge, vCPU=8, memory=32GiB, saving=59%, interruption='<5%', price=0.254600
+priceMap['m5d.4xlarge'] = '0.50' // type=m5d.4xlarge, vCPU=16, memory=64GiB, saving=70%, interruption='<5%', price=0.430800
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
@@ -230,16 +227,14 @@ initMap['min-jammy-x64']  = initMap['debMap']
 
 
 capMap = [:]
-capMap['c5ad.2xlarge'] = '80'
-capMap['m3.2xlarge'] = '60'
-capMap['m4.2xlarge'] = '120'
-capMap['c5ad.4xlarge'] = '80'
-capMap['m1.medium'] = '10'
+capMap['m5d.2xlarge'] = '120'
+capMap['m5d.4xlarge'] = '80'
+capMap['c5a.large'] = '15'
 
 typeMap = [:]
-typeMap['micro-amazon'] = 't3a.medium'
-typeMap['docker'] = 'm4.2xlarge'
-typeMap['docker-32gb'] = 'c5ad.4xlarge'
+typeMap['micro-amazon'] = 'c5a.large'
+typeMap['docker'] = 'm5d.2xlarge'
+typeMap['docker-32gb'] = 'm5d.4xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-8-x64'] = typeMap['min-centos-7-x64']
