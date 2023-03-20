@@ -300,7 +300,7 @@ pipeline {
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run -c pr.codecept.js --grep '@ami-upgrade'
+                        ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@ami-upgrade'
                     """
                 }
             }
@@ -317,7 +317,7 @@ pipeline {
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
                     sleep 30
-                    ./node_modules/.bin/codeceptjs run -c pr.codecept.js --grep '(?=.*@post-client-upgrade)(?=.*@ami-upgrade)'
+                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '(?=.*@post-client-upgrade)(?=.*@ami-upgrade)'
                 """
             }
         }
