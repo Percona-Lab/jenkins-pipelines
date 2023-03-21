@@ -32,6 +32,7 @@ pipeline {
     }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
+        PATH_TO_PMM = 'sources/pmm/src/github.com/percona/pmm'
     }
     stages {
         stage('Prepare') {
@@ -92,7 +93,7 @@ pipeline {
                 stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
                 stash includes: 'pmmUITestsCommitSha', name: 'pmmUITestsCommitSha'
                 stash includes: 'fbCommitSha', name: 'fbCommitSha'
-                slackSend channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                //slackSend channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
         stage('Build client source') {
@@ -214,6 +215,27 @@ pipeline {
                 archiveArtifacts 'results/docker/TAG'
             }
         }
+        stage('Build server upgrade docker') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh """
+                        docker login -u "${USER}" -p "${PASS}"
+                    """
+                }
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        set -o errexit
+
+                        export PUSH_DOCKER=1
+                        export DOCKER_SERVER_UPGRADE_TAG=perconalab/pmm-server-upgrade-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+
+                        cd ${PATH_TO_PMM} && make -C admin build-docker
+                    """
+                }
+                stash includes: 'results/docker/DOCKER_SERVER_UPGRADE_TAG', name: 'DOCKER_SERVER_UPGRADE_IMAGE'
+                archiveArtifacts 'results/docker/DOCKER_SERVER_UPGRADE_TAG'
+            }
+        }
         stage('Trigger workflows in GH')
         {
             steps{
@@ -225,10 +247,11 @@ pipeline {
                         def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                         def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
                         def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
+                        def DOCKER_SERVER_UPGRADE_IMAGE = sh(returnStdout: true, script: "cat results/docker/DOCKER_SERVER_UPGRADE_TAG").trim()
                         sh """
                             curl -v -X POST \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                -d "{\\"body\\":\\"server docker - ${IMAGE}\\nclient docker - ${CLIENT_IMAGE}\\nclient - ${CLIENT_URL}\\nCreate Staging Instance: https://pmm.cd.percona.com/job/aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}\\"}" \
+                                -d "{\\"body\\":\\"server docker - ${IMAGE}\\nserver upgrade docker - ${DOCKER_SERVER_UPGRADE_IMAGE}\\nclient docker - ${CLIENT_IMAGE}\\nclient - ${CLIENT_URL}\\nCreate Staging Instance: https://pmm.cd.percona.com/job/aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}\\"}" \
                                 "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/issues/${CHANGE_ID}/comments"
                         """
                         // trigger workflow in GH to run some test there as well, pass server and client images as parameters
@@ -310,7 +333,7 @@ pipeline {
                     if (env.CHANGE_URL) {
                         unstash 'IMAGE'
                         def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                        slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
+                        //slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
                     }
                 } else {
                     if(env.API_TESTS_RESULT != "SUCCESS" && env.API_TESTS_URL) {
@@ -322,7 +345,7 @@ pipeline {
                     if(env.UI_TESTS_RESULT != "SUCCESS" && env.UI_TESTS_URL) {
                         addComment("UI tests have failed, Please check: UI: ${UI_TESTS_URL}")
                     }
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} build job link: ${BUILD_URL}"
+                    //slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} build job link: ${BUILD_URL}"
                 }
             }
         }
