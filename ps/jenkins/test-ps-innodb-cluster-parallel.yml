@@ -1,0 +1,52 @@
+- job:
+    name: test-ps-innodb-cluster-parallel
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    properties:
+        - build-discarder:
+            artifact-days-to-keep: -1
+            artifact-num-to-keep: 10
+            days-to-keep: -1
+            num-to-keep: 10
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/eleo007/jenkins-pipelines.git
+                branches:
+                    - 'innodb-parralel'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: ps/jenkins/test-ps-innodb-cluster-parallel.groovy
+    parameters:
+        - string:
+            name: UPSTREAM_VERSION
+            default: "8.0.32"
+            description: "Upstream MySQL version"
+        - string:
+            name: PS_VERSION
+            default: "24"
+            description: "Percona part of version"
+        - string:
+            name: PS_REVISION
+            default: "e5c6e9d2"
+            description: "Short git hash for release"
+        - choice:
+            name: TEST_DIST
+            choices:
+                - 'ubuntu-bionic'
+                - 'ubuntu-focal'
+                - 'ubuntu-jammy'
+                - 'debian-10'
+                - 'debian-11'
+                - 'centos-7'
+                - 'oracle-8'
+                - 'oracle-9'
+            description: "Distribution to run test"
+        - choice:
+            name: INSTALL_REPO
+            choices:
+                - "testing"
+                - "main"
+                - "experimental"
+            description: "Repo to install packages from"
