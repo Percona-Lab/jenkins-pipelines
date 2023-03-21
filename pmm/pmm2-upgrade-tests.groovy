@@ -407,6 +407,7 @@ pipeline {
 
                 slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -414,6 +415,7 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
         }
         failure {
             slackSend channel: '#pmm-ci', 

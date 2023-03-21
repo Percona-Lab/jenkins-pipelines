@@ -430,13 +430,12 @@ pipeline {
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'job_logs.txt'
                 try {
-                    withChecks('Tests') {
-                        junit env.PATH_TO_REPORT_RESULTS
-                    }
+                    junit env.PATH_TO_REPORT_RESULTS
                 } catch (err) {
                     error "No test report files found at path: ${PATH_TO_REPORT_RESULTS}"
                 }
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -444,6 +443,7 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
         }
         failure {
             script {
