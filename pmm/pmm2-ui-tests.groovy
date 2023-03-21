@@ -430,7 +430,9 @@ pipeline {
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'job_logs.txt'
                 try {
-                    junit skipPublishingChecks: true, testResults: env.PATH_TO_REPORT_RESULTS
+                    withChecks('Tests') {
+                        junit env.PATH_TO_REPORT_RESULTS
+                    }
                 } catch (err) {
                     error "No test report files found at path: ${PATH_TO_REPORT_RESULTS}"
                 }
