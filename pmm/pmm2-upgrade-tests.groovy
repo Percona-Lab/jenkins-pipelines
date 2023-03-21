@@ -398,7 +398,7 @@ pipeline {
                 archiveArtifacts artifacts: 'pmm-agent.log'
                 archiveArtifacts artifacts: 'logs.zip'
 
-                def PATH_TO_REPORT_RESULTS = 'tests/output/result.xml'
+                def PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
                 try {
                     junit PATH_TO_REPORT_RESULTS
                 } catch (err) {
