@@ -12,9 +12,9 @@
     pipeline-scm:
         scm:
             - git:
-                url: https://github.com/eleo007/jenkins-pipelines.git
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
                 branches:
-                    - 'innodb-parralel'
+                    - 'master'
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: ps/jenkins/test-ps-innodb-cluster-parallel.groovy
