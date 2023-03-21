@@ -87,17 +87,17 @@ pipeline {
     parameters {
         string(
             name: 'UPSTREAM_VERSION',
-            defaultValue: '8.0.23',
+            defaultValue: '8.0.32',
             description: 'Upstream MySQL version'
         )
         string(
             name: 'PS_VERSION',
-            defaultValue: '14',
+            defaultValue: '24',
             description: 'Percona part of version'
         )
         string(
             name: 'PS_REVISION',
-            defaultValue: '3558242',
+            defaultValue: 'e5c6e9d2',
             description: 'Short git hash for release'
         )
         choice(
