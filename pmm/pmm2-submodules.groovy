@@ -40,20 +40,6 @@ pipeline {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                 sh '''
                     set -o errexit
-                    if [ -s ci.yml ]; then
-                        sudo rm -rf results tmp || :
-                        git reset --hard
-                        git clean -fdx
-                        python3 ci.py
-                        . ./.git-sources
-                        echo $pmm_commit > apiCommitSha
-                        echo $pmm_branch > apiBranch
-                        echo $pmm_url > apiURL
-                        echo $pmm_qa_branch > pmmQABranch
-                        echo $pmm_qa_commit > pmmQACommitSha
-                        echo $pmm_ui_tests_branch > pmmUITestBranch
-                        echo $pmm_ui_tests_commit > pmmUITestsCommitSha
-                    else
                         sudo rm -rf results tmp || :
                         git reset --hard
                         git clean -fdx
@@ -77,7 +63,6 @@ pipeline {
                         export pmm_ui_tests_branch=$(git config -f .gitmodules submodule.pmm-ui-tests.branch)
                         echo $pmm_ui_tests_branch > pmmUITestBranch
                         echo $pmm_ui_tests_commit_sha > pmmUITestsCommitSha
-                    fi
                     export fb_commit_sha=$(git rev-parse HEAD)
                     echo $fb_commit_sha > fbCommitSha
                 '''
