@@ -353,6 +353,7 @@ pipeline {
                     archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
                 }
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -360,6 +361,7 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
             sh '''
                 sudo rm -r node_modules/
                 sudo rm -r tests/output

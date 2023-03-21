@@ -317,6 +317,7 @@ pipeline {
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'pmm-agent.log'
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -324,6 +325,7 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
         }
         success {
             script {

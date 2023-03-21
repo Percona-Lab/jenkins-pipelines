@@ -121,6 +121,7 @@ pipeline {
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -128,6 +129,7 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
             sh '''
                 sudo rm -r node_modules/
                 sudo rm -r tests/output
