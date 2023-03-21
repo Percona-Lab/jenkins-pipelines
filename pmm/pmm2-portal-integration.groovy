@@ -92,7 +92,7 @@ pipeline {
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    npx codeceptjs run --steps --reporter mocha-multi -c pr.codecept.js tests/portal/integration_test.js
+                    npx codeceptjs run -c pr.codecept.js tests/portal/integration_test.js
                 """
                 }
         }

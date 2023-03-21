@@ -304,7 +304,7 @@ pipeline {
                         sudo chmod +x /usr/local/bin/yq
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
-                        /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER}
+                        /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER} --cpus=6 --memory=28G
                     """
 
                     unstash "sourceFILES"
