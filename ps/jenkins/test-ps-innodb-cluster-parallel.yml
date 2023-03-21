@@ -1,10 +1,8 @@
 - job:
-    name: test-ps-innodb-cluster
+    name: test-ps-innodb-cluster-parallel
     project-type: pipeline
     description: |
-        Work in progress, please ignore
         Do not edit this job through the web!
-    concurrent: true
     properties:
         - build-discarder:
             artifact-days-to-keep: -1
@@ -19,7 +17,7 @@
                     - 'master'
                 wipe-workspace: true
         lightweight-checkout: true
-        script-path: ps/jenkins/test-ps-innodb-cluster.groovy
+        script-path: ps/jenkins/test-ps-innodb-cluster-parallel.groovy
     parameters:
         - string:
             name: UPSTREAM_VERSION
@@ -36,11 +34,12 @@
         - choice:
             name: TEST_DIST
             choices:
-                - 'ubuntu-focal'
+                - 'all'
                 - 'ubuntu-bionic'
+                - 'ubuntu-focal'
                 - 'ubuntu-jammy'
-                - 'debian-11'
                 - 'debian-10'
+                - 'debian-11'
                 - 'centos-7'
                 - 'oracle-8'
                 - 'oracle-9'
