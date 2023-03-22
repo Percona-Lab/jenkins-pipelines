@@ -429,6 +429,7 @@ pipeline {
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'job_logs.txt'
+                archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
                 try {
                     junit env.PATH_TO_REPORT_RESULTS
                 } catch (err) {
