@@ -145,14 +145,11 @@ imageMap['eu-west-1c.min-jammy-aarch64']      = imageMap['eu-west-1a.min-jammy-a
 
 
 priceMap = [:]
-priceMap['t2.micro'] = '0.1' // Dedicated instance type for RHEL
-priceMap['t2.medium'] = '0.03'
-priceMap['t2.large'] = '0.07'
-priceMap['c5n.2xlarge'] = '0.25'
-priceMap['t3.2xlarge'] = '0.18'
-priceMap['i4i.2xlarge'] = '0.40'
-priceMap['t2.2xlarge'] = '0.18'
-priceMap['r6g.2xlarge'] = '0.23'
+priceMap['c5n.2xlarge'] = '0.30' // type=c5n.2xlarge, vCPU=8, memory=21GiB, saving=60%, interruption='<5%', price=0.257900
+priceMap['t3.2xlarge'] = '0.19'  // type=t3.2xlarge, vCPU=8, memory=32GiB, saving=62%, interruption='<5%', price=0.140000
+priceMap['i4i.2xlarge'] = '0.29' // type=i4i.2xlarge, vCPU=8, memory=64GiB, saving=69%, interruption='<5%', price=0.240400
+priceMap['m5.2xlarge'] = '0.25'  // type=m5.2xlarge, vCPU=8, memory=32GiB, saving=65%, interruption='<5%', price=0.184400
+priceMap['r6g.2xlarge'] = '0.24' // type=r6g.2xlarge, vCPU=8, memory=64GiB, saving=61%, interruption='<5%', price=0.186400
 
 userMap = [:]
 userMap['docker']               = properties.AwsAmi['AmazonLinux2_x86_64']['user']
@@ -504,15 +501,14 @@ capMap = [:]
 capMap['c5n.2xlarge'] = '60'
 capMap['t3.2xlarge']  = '60'
 capMap['i4i.2xlarge'] = '40'
-capMap['t2.2xlarge']  = '10'
-capMap['t2.micro']    = '10'
+capMap['m5.2xlarge']  = '10'
 capMap['r6g.2xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 'c5n.2xlarge'
 typeMap['docker']            = 'c5n.2xlarge'
 typeMap['docker-32gb']       = 'i4i.2xlarge'
-typeMap['docker2']           = 't2.2xlarge'
+typeMap['docker2']           = 'm5.2xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-ol-8-x64']      = typeMap['min-centos-7-x64']

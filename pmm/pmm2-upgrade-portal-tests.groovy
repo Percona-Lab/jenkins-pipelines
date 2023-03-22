@@ -260,7 +260,7 @@ pipeline {
                     export CHROMIUM_PATH=/usr/bin/chromium
                     npm ci
                     touch portalCredentials
-                    ./node_modules/.bin/codeceptjs run --steps --reporter mocha-multi -c pr.codecept.js --grep '@pre-pmm-portal-upgrade'
+                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pre-pmm-portal-upgrade'
                 """
             }
         }
@@ -278,7 +278,7 @@ pipeline {
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-portal-upgrade'  --override '{ "helpers": { "Playwright": { "getPageTimeout": 60000 }}}'
+                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-portal-upgrade'  --override '{ "helpers": { "Playwright": { "getPageTimeout": 60000 }}}'
                 """
             }
         }
@@ -306,7 +306,7 @@ pipeline {
                         export PATH="`pwd`/pmm2-client/bin:$PATH"
                     fi
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    ./node_modules/.bin/codeceptjs run --steps --reporter mocha-multi -c pr.codecept.js --grep '@post-pmm-portal-upgrade'
+                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@post-pmm-portal-upgrade'
                 """
             }
         }
@@ -346,6 +346,7 @@ pipeline {
                     }
                 }
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -353,6 +354,7 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
             sh '''
                 sudo rm -r node_modules/
                 sudo rm -r tests/output
