@@ -429,7 +429,6 @@ pipeline {
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'job_logs.txt'
-                archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
                 try {
                     junit env.PATH_TO_REPORT_RESULTS
                 } catch (err) {
@@ -448,6 +447,7 @@ pipeline {
         }
         failure {
             script {
+                archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
                 slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
             }
         }
