@@ -1,3 +1,72 @@
+AWSRegion='eu-west-3'
+void createCluster( String CLUSTER_SUFFIX ){
+
+    sh """
+cat <<-EOF > cluster-${CLUSTER_SUFFIX}.yaml
+# An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+    name: ${CLUSTER_NAME}-${CLUSTER_SUFFIX}
+    region: $AWSRegion
+    version: "$PLATFORM_VER"
+    tags:
+        'delete-cluster-after-hours': '10'
+iam:
+  withOIDC: true
+
+addons:
+- name: aws-ebs-csi-driver
+  wellKnownPolicies:
+    ebsCSIController: true
+
+nodeGroups:
+    - name: ng-1
+      minSize: 3
+      maxSize: 5
+      iam:
+        attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      instancesDistribution:
+        maxPrice: 0.15
+        instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
+        onDemandBaseCapacity: 0
+        onDemandPercentageAboveBaseCapacity: 50
+        spotInstancePools: 2
+      tags:
+        'iit-billing-tag': 'jenkins-eks'
+        'delete-cluster-after-hours': '10'
+        'team': 'cloud'
+        'product': 'ps-operator'
+EOF
+    """
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
+            export PATH=/home/ec2-user/.local/bin:$PATH
+            source $HOME/google-cloud-sdk/path.bash.inc
+            eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+        """
+    }
+}
+
+void shutdownCluster(String CLUSTER_SUFFIX) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
+            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-${CLUSTER_SUFFIX} --region $AWSRegion
+            eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction
+        """
+    }
+}
+
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -31,7 +100,7 @@ void makeReport() {
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME) {
+void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     def retryCount = 0
     waitUntil {
         try {
@@ -88,7 +157,7 @@ void runTest(String TEST_NAME) {
 
                             export PATH="/home/ec2-user/.local/bin:${HOME}/.krew/bin:$PATH"
                             source $HOME/google-cloud-sdk/path.bash.inc
-                            export KUBECONFIG=~/.kube/config
+                            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
 
                             kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^${TEST_NAME}\$"
                         fi
@@ -112,14 +181,14 @@ void runTest(String TEST_NAME) {
     echo "The $TEST_NAME test was finished!"
 }
 
-void conditionalRunTest(String TEST_NAME) {
+void conditionalRunTest(String TEST_NAME,String CLUSTER_SUFFIX ) {
     if ( TEST_NAME == 'default-cr' ) {
         if ( params.GIT_BRANCH.contains('release-') ) {
-            runTest(TEST_NAME)
+            runTest(TEST_NAME, CLUSTER_SUFFIX)
         }
         return 0
     }
-    runTest(TEST_NAME)
+    runTest(TEST_NAME, CLUSTER_SUFFIX )
 }
 
 void installRpms() {
@@ -263,80 +332,58 @@ pipeline {
                 }
             }
         }
-        stage('Create EKS Infrastructure') {
-            steps {
-                sh '''
-cat <<-EOF > cluster.yaml
-# An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
----
-apiVersion: eksctl.io/v1alpha5
-kind: ClusterConfig
 
-metadata:
-    name: eks-psmo-cluster
-    region: eu-west-3
-    version: "$PLATFORM_VER"
-
-iam:
-  withOIDC: true
-
-addons:
-- name: aws-ebs-csi-driver
-  wellKnownPolicies:
-    ebsCSIController: true
-
-nodeGroups:
-    - name: ng-1
-      minSize: 3
-      maxSize: 5
-      instancesDistribution:
-        maxPrice: 0.15
-        instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
-        onDemandBaseCapacity: 0
-        onDemandPercentageAboveBaseCapacity: 50
-        spotInstancePools: 2
-      tags:
-        'iit-billing-tag': 'jenkins-eks'
-EOF
-                '''
-
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                     sh """
-                         export PATH=/home/ec2-user/.local/bin:$PATH
-                         source $HOME/google-cloud-sdk/path.bash.inc
-                         eksctl create cluster -f cluster.yaml
-                     """
-               }
-               stash includes: 'cluster.yaml', name: 'cluster_conf'
-
-            }
-        }
-        stage('E2E Basic Tests') {
+        stage('Run e2e tests') {
             environment {
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
             }
             options {
                 timeout(time: 3, unit: 'HOURS')
             }
-            steps {
-                runTest('auto-config')
-                runTest('config')
-                runTest('demand-backup')
-                runTest('gr-demand-backup')
-                runTest('gr-init-deploy')
-                runTest('haproxy')
-                runTest('init-deploy')
-                runTest('limits')
-                runTest('monitoring')
-                runTest('one-pod')
-                runTest('scaling')
-                runTest('semi-sync')
-                runTest('service-per-pod')
-                runTest('sidecars')
-                runTest('tls-cert-manager')
-                runTest('users')
-                runTest('version-service')
+            parallel {
+                stage('Cluster1') {
+                    steps {
+                        createCluster('cluster1')
+                        runTest('auto-config','cluster1')
+                        runTest('config','cluster1')
+                        runTest('demand-backup', 'cluster1')
+                        runTest('gr-demand-backup', 'cluster1')
+                        shutdownCluster('cluster1')
+                    }
+                }
+                stage('Cluster2') {
+                    steps {
+                        createCluster('cluster2')
+                        runTest('gr-init-deploy','cluster2')
+                        runTest('haproxy', 'cluster2')
+                        runTest('init-deploy', 'cluster2')
+                        runTest('limits', 'cluster2')
+                        shutdownCluster('cluster2')
+                    }
+                }
+                stage('Cluster3') {
+                    steps {
+                        createCluster('cluster3')
+                        runTest('monitoring', 'cluster3')
+                        runTest('one-pod', 'cluster3')
+                        runTest('scaling', 'cluster3')
+                        runTest('semi-sync', 'cluster3')
+                        shutdownCluster('cluster3')
+                    }
+                }
+                stage('Cluster4') {
+                    steps {
+                        createCluster('cluster4')
+                        runTest('service-per-pod', 'cluster4')
+                        runTest('sidecars', 'cluster4')
+                        runTest('tls-cert-manager', 'cluster4')
+                        runTest('users', 'cluster4')
+                        runTest('version-service', 'cluster4')
+                        shutdownCluster('cluster4')
+                    }
+                }
             }
+
         }
         stage('Make report') {
             steps {
@@ -353,11 +400,20 @@ EOF
     post {
         always {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    unstash 'cluster_conf'
-                    sh """
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster eks-psmo-cluster --region eu-west-3
-                        eksctl delete cluster -f cluster.yaml --wait --force
-                    """
+                    
+                    sh '''
+                    export CLUSTER_NAME=$(echo jenkins-lat-psmdb-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+                    
+                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster1" --region $AWSRegion > /dev/null 2>&1
+                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster2" --region $AWSRegion > /dev/null 2>&1
+                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster3" --region $AWSRegion > /dev/null 2>&1
+                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster4" --region $AWSRegion > /dev/null 2>&1
+                    
+                    eksctl delete cluster -f cluster-cluster1.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                    eksctl delete cluster -f cluster-cluster2.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                    eksctl delete cluster -f cluster-cluster3.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                    eksctl delete cluster -f cluster-cluster4.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                    '''
                 }
 
             sh '''
