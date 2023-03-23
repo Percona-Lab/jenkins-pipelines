@@ -349,6 +349,8 @@ pipeline {
                         runTest('config','cluster1')
                         runTest('demand-backup', 'cluster1')
                         runTest('gr-demand-backup', 'cluster1')
+                        runTest('gr-one-pod', 'cluster1')
+                        runTest('gr-ignore-annotations', 'cluster1')
                         shutdownCluster('cluster1')
                     }
                 }
@@ -359,6 +361,8 @@ pipeline {
                         runTest('haproxy', 'cluster2')
                         runTest('init-deploy', 'cluster2')
                         runTest('limits', 'cluster2')
+                        runTest('async-ignore-annotations', 'cluster2')
+                        runTest('gr-scaling', 'cluster2')
                         shutdownCluster('cluster2')
                     }
                 }
@@ -369,6 +373,8 @@ pipeline {
                         runTest('one-pod', 'cluster3')
                         runTest('scaling', 'cluster3')
                         runTest('semi-sync', 'cluster3')
+                        runTest('config-router', 'cluster3')
+                        runTest('gr-tls-cert-manager', 'cluster3')
                         shutdownCluster('cluster3')
                     }
                 }
