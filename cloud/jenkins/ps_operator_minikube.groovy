@@ -287,7 +287,7 @@ pipeline {
                     }
 
                     installRpms()
-                    runTest('auto-config') - memory config resources
+                    runTest('auto-config')
                     // runTest('async-ignore-annotations') - LoadBalancer
                     runTest('config')
                     runTest('config-router')
