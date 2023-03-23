@@ -140,6 +140,13 @@ pipeline {
                         }
                     }
                 }
+                 stage('Run tests for pmm-server Disconnect @experimental'){
+                    steps {
+                        script {
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@disconnect', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
+                        }
+                    }
+                }
             }
         }
     }
