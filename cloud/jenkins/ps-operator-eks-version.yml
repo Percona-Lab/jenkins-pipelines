@@ -11,7 +11,7 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/ps_operator_eks.groovy
+      script-path: cloud/jenkins/ps_operator_eks_version.groovy
     parameters:
     - string:
         name: GIT_REPO
