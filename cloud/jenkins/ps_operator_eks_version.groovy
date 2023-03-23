@@ -181,7 +181,7 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     echo "The $TEST_NAME test was finished!"
 }
 
-void conditionalRunTest(String TEST_NAME,String CLUSTER_SUFFIX ) {
+void conditionalRunTest(String TEST_NAME, String CLUSTER_SUFFIX ) {
     if ( TEST_NAME == 'default-cr' ) {
         if ( params.GIT_BRANCH.contains('release-') ) {
             runTest(TEST_NAME, CLUSTER_SUFFIX)
@@ -336,7 +336,7 @@ pipeline {
         stage('Run e2e tests') {
             environment {
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                CLUSTER_NAME = sh(script: "echo jenkins-ps-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                CLUSTER_NAME = sh(script: "echo jenkins-par-psmo-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
             }
             options {
                 timeout(time: 3, unit: 'HOURS')
@@ -403,7 +403,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
 
                     sh '''
-                    export CLUSTER_NAME=$(echo jenkins-ps-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+                    export CLUSTER_NAME=$(echo jenkins-par-psmo-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     
                     eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster1" --region $AWSRegion > /dev/null 2>&1
                     eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster2" --region $AWSRegion > /dev/null 2>&1
