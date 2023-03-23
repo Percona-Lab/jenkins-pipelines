@@ -287,13 +287,15 @@ pipeline {
                     }
 
                     installRpms()
-                    // runTest('auto-config') - memory config resources
+                    runTest('auto-config') - memory config resources
                     // runTest('async-ignore-annotations') - LoadBalancer
                     runTest('config')
+                    runTest('config-router')
                     runTest('demand-backup')
                     runTest('gr-demand-backup')
                     // runTest('gr-ignore-annotations') - LoadBalancer
                     runTest('gr-init-deploy')
+                    runTest('gr-one-pod')
                     runTest('gr-scaling')
                     runTest('gr-tls-cert-manager')
                     runTest('haproxy')

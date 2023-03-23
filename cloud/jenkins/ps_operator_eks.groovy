@@ -319,11 +319,17 @@ EOF
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
+                runTest('async-ignore-annotations')
                 runTest('auto-config')
                 runTest('config')
+                runTest('config-router')
                 runTest('demand-backup')
                 runTest('gr-demand-backup')
+                runTest('gr-ignore-annotations')
                 runTest('gr-init-deploy')
+                runTest('gr-one-pod')
+                runTest('gr-scaling')
+                runTest('gr-tls-cert-manager')
                 runTest('haproxy')
                 runTest('init-deploy')
                 runTest('limits')
