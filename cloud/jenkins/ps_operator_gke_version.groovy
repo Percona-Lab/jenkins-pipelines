@@ -117,7 +117,7 @@ void prepareNode() {
         curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
             | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
 
-        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.16.2/yq_linux_amd64 > /usr/local/bin/yq"
+        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.29.1/yq_linux_amd64 > /usr/local/bin/yq"
         sudo chmod +x /usr/local/bin/yq
 
         cd "$(mktemp -d)"
@@ -368,6 +368,8 @@ pipeline {
                         runTest('config', 'cluster1')
                         runTest('one-pod', 'cluster1')
                         runTest('haproxy', 'cluster1')
+                        runTest('gr-one-pod', 'cluster1')
+                        runTest('gr-ignore-annotations', 'cluster1')
                         ShutdownCluster('cluster1')
                     }
                 }
@@ -383,6 +385,8 @@ pipeline {
                         runTest('gr-demand-backup', 'cluster2')
                         runTest('scaling', 'cluster2')
                         runTest('users', 'cluster2')
+                        runTest('async-ignore-annotations', 'cluster2')
+                        runTest('gr-scaling', 'cluster2')
                         ShutdownCluster('cluster2')
                     }
                 }
@@ -403,6 +407,8 @@ pipeline {
                         runTest('sidecars', 'cluster3')
                         runTest('version-service', 'cluster3')
                         runTest('tls-cert-manager', 'cluster3')
+                        runTest('config-router', 'cluster3')
+                        runTest('gr-tls-cert-manager', 'cluster3')
                         ShutdownCluster('cluster3')
                     }
                 }
