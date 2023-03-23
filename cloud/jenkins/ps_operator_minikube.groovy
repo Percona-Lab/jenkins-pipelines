@@ -261,7 +261,7 @@ pipeline {
 
                         curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.16.2/yq_linux_amd64 > /usr/local/bin/yq"
+                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.29.1/yq_linux_amd64 > /usr/local/bin/yq"
                         sudo chmod +x /usr/local/bin/yq
 
 						cd "$(mktemp -d)"
