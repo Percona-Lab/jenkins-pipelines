@@ -31,7 +31,87 @@ void makeReport() {
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME) {
+void CreateCluster(String CLUSTER_SUFFIX){
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
+        sh """
+            platform_version=`echo "\${params.PLATFORM_VER}" | awk -F. '{ printf("%d%03d%03d%03d\\n", \$1,\$2,\$3,\$4); }';`
+            version=`echo "4.12.0" | awk -F. '{ printf("%d%03d%03d%03d\\n", \$1,\$2,\$3,\$4); }';`
+            if [ \$platform_version -ge \$version ];then
+                POLICY="additionalTrustBundlePolicy: Proxyonly"
+                NETWORK_TYPE="OVNKubernetes"
+            else
+                POLICY=""
+                NETWORK_TYPE="OpenShiftSDN"
+            fi
+            mkdir -p openshift/${CLUSTER_SUFFIX}
+cat <<-EOF > ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
+\$POLICY
+apiVersion: v1
+baseDomain: cd.percona.com
+compute:
+- architecture: amd64
+  hyperthreading: Enabled
+  name: worker
+  platform:
+    aws:
+      type: m5.2xlarge
+  replicas: 3
+controlPlane:
+  architecture: amd64
+  hyperthreading: Enabled
+  name: master
+  platform: {}
+  replicas: 1
+metadata:
+  creationTimestamp: null
+  name: openshift4-par-pgo-jenkins-${CLUSTER_SUFFIX}
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 10.0.0.0/16
+  networkType: \$NETWORK_TYPE
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  aws:
+    region: eu-west-3
+    userTags:
+      iit-billing-tag: openshift
+      delete-cluster-after-hours: 8
+      team: cloud
+      product: pgo-v1-operator
+      job: ${env.JOB_NAME}
+      build: ${env.BUILD_NUMBER}
+
+publish: External
+EOF
+            cat $OPENSHIFT_CONF_FILE >> ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
+        """
+
+        sshagent(['aws-openshift-41-key']) {
+            sh """
+                /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
+                export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
+
+            """
+        }
+    }
+}
+
+void ShutdownCluster(String CLUSTER_SUFFIX) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+        sshagent(['aws-openshift-41-key']) {
+            sh """
+                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/${CLUSTER_SUFFIX}
+            """
+        }
+    }
+
+}
+
+void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     def retryCount = 0
     waitUntil {
         try {
@@ -120,7 +200,7 @@ void runTest(String TEST_NAME) {
                     fi
 
                     source $HOME/google-cloud-sdk/path.bash.inc
-                    export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
+                    export KUBECONFIG=$WORKSPACE/openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
                     oc whoami
 
                     ./e2e-tests/$TEST_NAME/run
@@ -152,7 +232,7 @@ void installRpms() {
 pipeline {
     parameters {
         string(
-            defaultValue: '4.6.23',
+            defaultValue: '4.10.54',
             description: 'OpenShift version to use',
             name: 'OS_VERSION')
         string(
@@ -226,6 +306,7 @@ pipeline {
     }
     environment {
         TF_IN_AUTOMATION = 'true'
+        CLEAN_NAMESPACE = 1
     }
     agent {
          label 'docker'
@@ -303,41 +384,56 @@ pipeline {
                 }
             }
         }
-        stage('Create AWS Infrastructure') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'pgo-openshift4-secret-file', variable: 'OPENSHIFT_CONF_FILE')]) {
-                     sh """
-                         mkdir openshift
-                         cp $OPENSHIFT_CONF_FILE ./openshift/install-config.yaml
-                     """
-                     sshagent(['aws-openshift-41-key']) {
-                         sh """
-                             /usr/local/bin/openshift-install create cluster --dir=./openshift/
-                         """
+        stage('Run tests') {
+            parallel {
+                stage('E2E Basic tests') {
+                    steps {
+                        CreateCluster('sandbox')
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            runTest('init-deploy', 'sandbox')
+                        }
+                        runTest('scaling', 'sandbox')
+                        runTest('recreate', 'sandbox')
+                        runTest('affinity', 'sandbox')
+                        runTest('monitoring', 'sandbox')
+                        runTest('self-healing', 'sandbox')
+                        runTest('operator-self-healing', 'sandbox')
+                        runTest('clone-cluster', 'sandbox')
+                        runTest('tls-check', 'sandbox')
+                        runTest('users', 'sandbox')
+                        runTest('ns-mode', 'sandbox')
+                        ShutdownCluster('sandbox')
                     }
-               }
-
-            }
-        }
-        stage('Run Tests') {
-            environment {
-                CLEAN_NAMESPACE = 1
-            }
-            steps {
-                runTest('init-deploy')
-                runTest('scaling')
-                runTest('recreate')
-                runTest('affinity')
-                runTest('monitoring')
-                runTest('self-healing')
-                runTest('operator-self-healing')
-                runTest('demand-backup')
-                runTest('scheduled-backup')
-                runTest('upgrade')
-                runTest('smart-update')
-                runTest('version-service')
-                runTest('users')
-                runTest('ns-mode')
+                }
+                stage('E2E demand-backup') {
+                    steps {
+                        CreateCluster('demand-backup')
+                        runTest('demand-backup', 'demand-backup')
+                        ShutdownCluster('demand-backup')
+                    }
+                }
+                stage('E2E scheduled-backup') {
+                    steps {
+                        CreateCluster('scheduled-backup')
+                        runTest('scheduled-backup', 'scheduled-backup')
+                        ShutdownCluster('scheduled-backup')
+                    }
+                }
+                stage('E2E Upgrade') {
+                    steps {
+                        CreateCluster('upgrade')
+                        runTest('upgrade', 'upgrade')
+                        runTest('smart-update', 'upgrade')
+                        ShutdownCluster('upgrade')
+                    }
+                }
+                stage('E2E Version-service') {
+                    steps {
+                        CreateCluster('version-service')
+                        runTest('version-service', 'version-service')
+                        ShutdownCluster('version-service')
+                    }
+                }
             }
         }
         stage('Make report') {
@@ -354,10 +450,13 @@ pipeline {
 
     post {
         always {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'pgo-openshift4-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'psmdb-openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
                      sshagent(['aws-openshift-41-key']) {
                          sh """
-                             /usr/local/bin/openshift-install destroy cluster --dir=./openshift/
+                             for cluster_suffix in 'sandbox' 'demand-backup' 'scheduled-backup' 'upgrade' 'version-service'
+                             do
+                                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/\$cluster_suffix > /dev/null 2>&1 || true
+                             done
                          """
                      }
                 }
