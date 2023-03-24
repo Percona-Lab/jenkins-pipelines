@@ -411,15 +411,15 @@ pipeline {
                     sh '''
                     export CLUSTER_NAME=$(echo jenkins-par-psmo-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     
-                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster1" --region $AWSRegion > /dev/null 2>&1
-                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster2" --region $AWSRegion > /dev/null 2>&1
-                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster3" --region $AWSRegion > /dev/null 2>&1
-                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster4" --region $AWSRegion > /dev/null 2>&1
+                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster1" --region $AWSRegion > /dev/null 2>&1 || true
+                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster2" --region $AWSRegion > /dev/null 2>&1 || true
+                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster3" --region $AWSRegion > /dev/null 2>&1 || true
+                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster4" --region $AWSRegion > /dev/null 2>&1 || true
                     
-                    eksctl delete cluster -f cluster-cluster1.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
-                    eksctl delete cluster -f cluster-cluster2.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
-                    eksctl delete cluster -f cluster-cluster3.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
-                    eksctl delete cluster -f cluster-cluster4.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
+                    eksctl delete cluster -f cluster-cluster1.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1 || true
+                    eksctl delete cluster -f cluster-cluster2.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1 || true
+                    eksctl delete cluster -f cluster-cluster3.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1 || true
+                    eksctl delete cluster -f cluster-cluster4.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1 || true
                     '''
                 }
 
