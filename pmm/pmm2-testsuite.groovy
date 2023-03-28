@@ -8,7 +8,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH, ADMIN_PASSWORD = "admin") {
+void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH, ADMIN_PASSWORD) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -16,7 +16,7 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, PMM_QA_GIT_BRANC
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'PMM_QA_GIT_COMMIT_HASH', value: PMM_QA_GIT_COMMIT_HASH)
+        string(name: 'PMM_QA_GIT_COMMIT_HASH', value: PMM_QA_GIT_COMMIT_HASH),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
     ]
     env.VM_IP = stagingJob.buildVariables.IP
