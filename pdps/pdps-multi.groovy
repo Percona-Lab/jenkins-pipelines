@@ -35,12 +35,12 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.31',
-            description: 'From this version pdmysql will be updated',
+            defaultValue: '8.0.31-23',
+            description: 'From this version pdmysql will be updated. Possible values are with and without percona release: 8.0.31 OR 8.0.31-23',
             name: 'FROM_VERSION')
         string(
-            defaultValue: '8.0.32',
-            description: 'To this version pdmysql will be updated',
+            defaultValue: '8.0.32-24',
+            description: 'To this version pdmysql will be updated. Possible values are with and without percona release: 8.0.32 OR 8.0.32-24',
             name: 'VERSION'
         )
         string(
@@ -48,13 +48,13 @@ pipeline {
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
         string(
-            defaultValue: '2.4.7',
+            defaultValue: '2.4.8',
             description: 'Updated Proxysql version',
             name: 'PROXYSQL_VERSION'
         )
         string(
-            defaultValue: '8.0.32',
-            description: 'Updated PXB version',
+            defaultValue: '8.0.32-25',
+            description: 'Updated PXB version. Possible values are with and without percona release: 8.0.32 OR 8.0.32-25',
             name: 'PXB_VERSION'
         )
         string(
@@ -63,7 +63,7 @@ pipeline {
             name: 'PT_VERSION'
         )
         string(
-            defaultValue: '3.2.6-7',
+            defaultValue: '3.2.6-8',
             description: 'Updated Percona Orchestrator version',
             name: 'ORCHESTRATOR_VERSION'
         )
