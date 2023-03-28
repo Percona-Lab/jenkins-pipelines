@@ -28,8 +28,8 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.32',
-            description: 'Percona Server version for test',
+            defaultValue: '8.0.32-24',
+            description: 'Percona Server version for test. Possible values are with and without percona release: 8.0.32 OR 8.0.32-24',
             name: 'VERSION'
         )
         string(
@@ -38,8 +38,8 @@ pipeline {
             name: 'PROXYSQL_VERSION'
         )
         string(
-            defaultValue: '8.0.32',
-            description: 'PXB version for test',
+            defaultValue: '8.0.32-25',
+            description: 'PXB version for test. Possible values are with and without percona release: 8.0.32 OR 8.0.32-25',
             name: 'PXB_VERSION'
         )
         string(

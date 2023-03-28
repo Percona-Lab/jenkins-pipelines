@@ -23,8 +23,8 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.32',
-            description: 'PDMYSQL version for test',
+            defaultValue: '8.0.32-24',
+            description: 'PDMYSQL version for test. Possible values are with and without percona release: 8.0.32 OR 8.0.32-24',
             name: 'VERSION'
          )
         string(
@@ -33,8 +33,8 @@ pipeline {
             name: 'PROXYSQL_VERSION'
          )
         string(
-            defaultValue: '8.0.32',
-            description: 'PXB version for test',
+            defaultValue: '8.0.32-25',
+            description: 'PXB version for test. Possible values are with and without percona release: 8.0.32 OR 8.0.32-25',
             name: 'PXB_VERSION'
          )
         string(
@@ -43,7 +43,7 @@ pipeline {
             name: 'PT_VERSION'
          )
         string(
-            defaultValue: '3.2.6-7',
+            defaultValue: '3.2.6-8',
             description: 'Percona orchestrator version for test',
             name: 'ORCHESTRATOR_VERSION'
          )
