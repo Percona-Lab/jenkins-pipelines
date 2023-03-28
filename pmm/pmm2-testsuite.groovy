@@ -8,7 +8,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH, ADMIN_PASSWORD) {
+void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
