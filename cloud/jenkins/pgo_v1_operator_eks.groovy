@@ -158,7 +158,7 @@ pipeline {
             description: 'Kubernetes target version',
             name: 'KUBEVERSION')
         string(
-            defaultValue: 'main',
+            defaultValue: '1.x',
             description: 'Tag/Branch for percona/percona-postgresql-operator repository',
             name: 'GIT_BRANCH')
         string(
