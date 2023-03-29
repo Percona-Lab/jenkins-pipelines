@@ -194,6 +194,9 @@ if [ -f /usr/bin/yum ]; then
     fi
 #   Install mysql-connector for QA framework run
     pip3 install mysql-connector mysqlclient
+
+# Update Sphinx to v1.6.7(as on ubuntu:bionic)
+    pip3 install sphinx==1.6.7
 fi
 
 if [ -f /usr/bin/apt-get ]; then
