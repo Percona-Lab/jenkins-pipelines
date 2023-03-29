@@ -72,6 +72,10 @@ pipeline {
             defaultValue: "'@dbaas'",
             description: 'Pass test tags ex. @dbaas',
             name: 'TEST_TAGS')
+        string(
+            defaultValue: '',
+            description: 'Custom build description',
+            name: 'BUILD_DESC')    
         choice(
             choices: ['no', 'yes'],
             description: "Use this instance only as a client host",
@@ -113,6 +117,11 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                script {
+                    if(env.BUILD_DESC != "") {
+                        currentBuild.description = env.BUILD_DESC
+                    }
+                }
                 // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
                 git poll: false,
