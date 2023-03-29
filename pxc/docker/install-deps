@@ -194,9 +194,6 @@ if [ -f /usr/bin/yum ]; then
     fi
 #   Install mysql-connector for QA framework run
     pip3 install mysql-connector mysqlclient
-
-# Update Sphinx to v1.6.7(as on ubuntu:bionic)
-    pip3 install sphinx==1.6.7
 fi
 
 if [ -f /usr/bin/apt-get ]; then
@@ -363,7 +360,8 @@ if [ -f /usr/bin/yum ]; then
         ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-quickstart /usr/local/bin/sphinx-quickstart
         ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-apidoc /usr/local/bin/sphinx-apidoc
     else
-        pip3 install --upgrade sphinx==1.4
+        # Update Sphinx to v1.6.7
+        pip3 install --upgrade sphinx==1.6.7
         if [[ ${RHVER} -eq 7 ]]; then
             pip3 install --upgrade docutils==0.16
         else
