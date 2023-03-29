@@ -39,7 +39,7 @@ if [ -f /usr/bin/yum ]; then
   fi
 
   yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-  percona-release enable tools testing
+  percona-release enable-only tools testing
 
   until yum -y update; do
     yum clean all
@@ -210,7 +210,7 @@ if [ -f /usr/bin/apt-get ]; then
     done
 
     curl https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb --output /tmp/prel.deb && dpkg -i /tmp/prel.deb && rm /tmp/prel.deb
-    percona-release enable tools testing
+    percona-release enable-only tools testing
 
     DIST=$(lsb_release -sc)
     if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' && ${DIST} != 'jammy' ]]; then
