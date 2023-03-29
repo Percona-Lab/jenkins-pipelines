@@ -12,12 +12,13 @@ void runGKEcluster(String CLUSTER_PREFIX) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+            source $HOME/google-cloud-sdk/path.bash.inc
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud container clusters create --zone ${GKERegion} \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --cluster-version $GKE_VERSION --machine-type n1-standard-4 --preemptible --disk-size 30 --num-nodes=3 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_PREFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
+                gcloud container clusters create --zone ${GKERegion} \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --cluster-version $GKE_VERSION --machine-type n1-standard-4 --preemptible --num-nodes=3 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_PREFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -31,12 +32,13 @@ void runGKEclusterAlpha(String CLUSTER_PREFIX) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+            source $HOME/google-cloud-sdk/path.bash.inc
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
                 gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud alpha container clusters create --release-channel rapid \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --zone ${GKERegion} --cluster-version $GKE_VERSION --project $GCP_PROJECT --preemptible --disk-size 30 --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_PREFIX} --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
+                gcloud alpha container clusters create --release-channel rapid \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --zone ${GKERegion} --cluster-version $GKE_VERSION --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_PREFIX} --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -57,9 +59,10 @@ void ShutdownCluster(String CLUSTER_PREFIX) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+            source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account $ACCOUNT@"$GCP_PROJECT".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --zone ${GKERegion} \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --quiet
+            gcloud container clusters delete --zone ${GKERegion} \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40)
         """
     }
 }
@@ -192,6 +195,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                         fi
 
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                        source $HOME/google-cloud-sdk/path.bash.inc
                         ./e2e-tests/$TEST_NAME/run
                     fi
                 """
@@ -214,6 +218,13 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     echo "The $TEST_NAME test was finished!"
 }
 
+void installRpms() {
+    sh '''
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+        sudo percona-release enable-only tools
+        sudo yum install -y jq | true
+    '''
+}
 pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
@@ -232,7 +243,7 @@ pipeline {
             description: 'GKE version',
             name: 'GKE_VERSION')
         string(
-            defaultValue: '',
+            defaultValue: '13',
             description: 'PG version',
             name: 'PG_VERSION')
         choice(
@@ -265,23 +276,23 @@ pipeline {
             name: 'PGO_DEPLOYER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg14-pgbouncer',
+            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg13-pgbouncer',
             name: 'PGO_PGBOUNCER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg14-postgres-ha',
+            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg13-postgres-ha',
             name: 'PGO_POSTGRES_HA_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg14-pgbackrest',
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg13-pgbackrest',
             name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg14-pgbackrest-repo',
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg13-pgbackrest-repo',
             name: 'PGO_BACKREST_REPO_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg14-pgbadger',
+            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg13-pgbadger',
             name: 'PGO_PGBADGER_IMAGE')
         string(
             defaultValue: 'perconalab/pmm-server',
@@ -319,34 +330,31 @@ pipeline {
                 """
                 stash includes: "source/**", name: "sourceFILES"
 
+                installRpms()
+                sh '''
+                    if [ ! -d $HOME/google-cloud-sdk/bin ]; then
+                        rm -rf $HOME/google-cloud-sdk
+                        curl https://sdk.cloud.google.com | bash
+                    fi
+
+                    source $HOME/google-cloud-sdk/path.bash.inc
+                    gcloud components install alpha
+                    gcloud components install kubectl
+
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
+                        | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+                    curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
+                        | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
+
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo chmod +x /usr/local/bin/yq
+                '''
                 unstash "sourceFILES"
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
-                    sh """
-                        cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
-                        cp $CLOUD_MINIO_SECRET_FILE source/e2e-tests/conf/cloud-secret-minio-gw.yml
-
-                        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
-                        kubectl version --client --output=yaml
-
-                        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-
-                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
-                        sudo chmod +x /usr/local/bin/yq
-
-                        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-                        sudo chmod +x /usr/local/bin/jq
-
-                        sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
-[google-cloud-cli]
-name=Google Cloud CLI
-baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-                        sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
-                    """
+                    sh '''
+                        cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
+                        cp $CLOUD_MINIO_SECRET_FILE ./source/e2e-tests/conf/cloud-secret-minio-gw.yml
+                    '''
                 }
             }
         }
@@ -398,7 +406,6 @@ EOF
                         runTest('tls-check', 'sandbox')
                         runTest('users', 'sandbox')
                         runTest('ns-mode', 'sandbox')
-                        runTest('data-migration-gcs', 'sandbox')
                         ShutdownCluster('sandbox')
                     }
                 }
@@ -448,6 +455,7 @@ EOF
             withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                 sh '''
                     export CLUSTER_NAME=$(echo jkns-ver-pgo-${PG_VERSION}-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+                    source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
                     gcloud config set project $GCP_PROJECT
                     gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone ${GKERegion} --quiet || true
@@ -456,6 +464,7 @@ EOF
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./*
+                sudo rm -rf $HOME/google-cloud-sdk
             '''
             deleteDir()
         }

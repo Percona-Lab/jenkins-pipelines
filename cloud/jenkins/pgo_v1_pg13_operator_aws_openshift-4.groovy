@@ -199,10 +199,11 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
                         export IMAGE_PMM=${PMM_CLIENT_IMAGE}
                     fi
 
+                    source $HOME/google-cloud-sdk/path.bash.inc
                     export KUBECONFIG=$WORKSPACE/openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
                     oc whoami
 
-                    e2e-tests/$TEST_NAME/run
+                    ./e2e-tests/$TEST_NAME/run
                 fi
             """
             pushArtifactFile("${params.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-$PPG_TAG")
@@ -221,13 +222,19 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
 
     echo "The $TEST_NAME test was finished!"
 }
-
+void installRpms() {
+    sh """
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+        sudo percona-release enable-only tools
+        sudo yum install -y percona-xtrabackup-80 jq | true
+    """
+}
 pipeline {
     parameters {
         string(
             defaultValue: '4.10.54',
             description: 'OpenShift version to use',
-            name: 'PLATFORM_VER')
+            name: 'OS_VERSION')
         string(
             defaultValue: '1.x',
             description: 'Tag/Branch for percona/percona-postgresql-operator repository',
@@ -237,7 +244,7 @@ pipeline {
             description: 'percona-postgresql-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '',
+            defaultValue: '13',
             description: 'PG version',
             name: 'PG_VERSION')
         string(
@@ -266,23 +273,23 @@ pipeline {
             name: 'PGO_DEPLOYER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg14-pgbouncer',
+            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg13-pgbouncer',
             name: 'PGO_PGBOUNCER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg14-postgres-ha',
+            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg13-postgres-ha',
             name: 'PGO_POSTGRES_HA_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg14-pgbackrest',
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg13-pgbackrest',
             name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg14-pgbackrest-repo',
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg13-pgbackrest-repo',
             name: 'PGO_BACKREST_REPO_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg14-pgbadger',
+            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg13-pgbadger',
             name: 'PGO_PGBADGER_IMAGE')
         string(
             defaultValue: 'perconalab/pmm-server',
@@ -313,30 +320,36 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT')]) {
-                    sh """
-                        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
-                        kubectl version --client --output=yaml
+                sh """
+                    wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
+                    unzip terraform_0.11.14_linux_amd64.zip
+                    sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
+                """
+                installRpms()
+                withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+                    sh '''
+                        if [ ! -d $HOME/google-cloud-sdk/bin ]; then
+                            rm -rf $HOME/google-cloud-sdk
+                            curl https://sdk.cloud.google.com | bash
+                        fi
 
-                        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+                        source $HOME/google-cloud-sdk/path.bash.inc
+                        gcloud components update kubectl
+                        gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
+                        gcloud config set project $GCP_PROJECT
+                        gcloud version
 
-                        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
-                        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
+                        curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
+                            | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+
+                        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OS_VERSION/openshift-client-linux-$OS_VERSION.tar.gz \
+                            | sudo tar -C /usr/local/bin --wildcards -zxvpf -
+                        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OS_VERSION/openshift-install-linux-$OS_VERSION.tar.gz \
+                            | sudo tar -C /usr/local/bin  --wildcards -zxvpf -
 
                         sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
                         sudo chmod +x /usr/local/bin/yq
-
-                        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-                        sudo chmod +x /usr/local/bin/jq
-
-                        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-                        sudo percona-release enable-only tools
-                        sudo yum install -y percona-xtrabackup-80 | true
-
-                        wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
-                        unzip terraform_0.11.14_linux_amd64.zip
-                        sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
-                    """
+                    '''
                 }
 
             }
@@ -375,51 +388,50 @@ pipeline {
             parallel {
                 stage('E2E Basic tests') {
                     steps {
-                        CreateCluster('sandbox')
+                        CreateCluster('$PG_VERSION-sandbox')
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            runTest('init-deploy', 'sandbox')
+                            runTest('init-deploy', '$PG_VERSION-sandbox')
                         }
-                        runTest('scaling', 'sandbox')
-                        runTest('recreate', 'sandbox')
-                        runTest('affinity', 'sandbox')
-                        runTest('monitoring', 'sandbox')
-                        runTest('self-healing', 'sandbox')
-                        runTest('operator-self-healing', 'sandbox')
-                        runTest('clone-cluster', 'sandbox')
-                        runTest('tls-check', 'sandbox')
-                        runTest('users', 'sandbox')
-                        runTest('ns-mode', 'sandbox')
-                        runTest('data-migration-gcs', 'sandbox')
-                        ShutdownCluster('sandbox')
+                        runTest('scaling', '$PG_VERSION-sandbox')
+                        runTest('recreate', '$PG_VERSION-sandbox')
+                        runTest('affinity', '$PG_VERSION-sandbox')
+                        runTest('monitoring', '$PG_VERSION-sandbox')
+                        runTest('self-healing', '$PG_VERSION-sandbox')
+                        runTest('operator-self-healing', '$PG_VERSION-sandbox')
+                        runTest('clone-cluster', '$PG_VERSION-sandbox')
+                        runTest('tls-check', '$PG_VERSION-sandbox')
+                        runTest('users', '$PG_VERSION-sandbox')
+                        runTest('ns-mode', '$PG_VERSION-sandbox')
+                        ShutdownCluster('$PG_VERSION-sandbox')
                     }
                 }
                 stage('E2E demand-backup') {
                     steps {
-                        CreateCluster('demand-backup')
-                        runTest('demand-backup', 'demand-backup')
-                        ShutdownCluster('demand-backup')
+                        CreateCluster('$PG_VERSION-demand-backup')
+                        runTest('demand-backup', '$PG_VERSION-demand-backup')
+                        ShutdownCluster('$PG_VERSION-demand-backup')
                     }
                 }
                 stage('E2E scheduled-backup') {
                     steps {
-                        CreateCluster('scheduled-backup')
-                        runTest('scheduled-backup', 'scheduled-backup')
-                        ShutdownCluster('scheduled-backup')
+                        CreateCluster('$PG_VERSION-scheduled-backup')
+                        runTest('scheduled-backup', '$PG_VERSION-scheduled-backup')
+                        ShutdownCluster('$PG_VERSION-scheduled-backup')
                     }
                 }
                 stage('E2E Upgrade') {
                     steps {
-                        CreateCluster('upgrade')
-                        runTest('upgrade', 'upgrade')
-                        runTest('smart-update', 'upgrade')
-                        ShutdownCluster('upgrade')
+                        CreateCluster('$PG_VERSION-upgrade')
+                        runTest('upgrade', '$PG_VERSION-upgrade')
+                        runTest('smart-update', '$PG_VERSION-upgrade')
+                        ShutdownCluster('$PG_VERSION-upgrade')
                     }
                 }
                 stage('E2E Version-service') {
                     steps {
-                        CreateCluster('version-service')
-                        runTest('version-service', 'version-service')
-                        ShutdownCluster('version-service')
+                        CreateCluster('$PG_VERSION-version-service')
+                        runTest('version-service', '$PG_VERSION-version-service')
+                        ShutdownCluster('$PG_VERSION-version-service')
                     }
                 }
             }
@@ -441,7 +453,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
                      sshagent(['aws-openshift-41-key']) {
                          sh """
-                             for cluster_suffix in 'sandbox' 'demand-backup' 'scheduled-backup' 'upgrade' 'version-service'
+                             for cluster_suffix in '${params.PG_VERSION}-sandbox' '${params.PG_VERSION}-demand-backup' '${params.PG_VERSION}-scheduled-backup' '${params.PG_VERSION}-upgrade' '${params.PG_VERSION}-version-service'
                              do
                                 /usr/local/bin/openshift-install destroy cluster --dir=./openshift/\$cluster_suffix > /dev/null 2>&1 || true
                              done
@@ -451,7 +463,8 @@ pipeline {
 
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
-                sudo rm -rf *
+                sudo rm -rf $HOME/google-cloud-sdk
+                sudo rm -rf ./*
             '''
             deleteDir()
         }
