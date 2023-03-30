@@ -213,7 +213,7 @@ pipeline {
                     curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.16.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.29.1/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
 
                     curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
@@ -319,11 +319,17 @@ EOF
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
+                runTest('async-ignore-annotations')
                 runTest('auto-config')
                 runTest('config')
+                runTest('config-router')
                 runTest('demand-backup')
                 runTest('gr-demand-backup')
+                runTest('gr-ignore-annotations')
                 runTest('gr-init-deploy')
+                runTest('gr-one-pod')
+                runTest('gr-scaling')
+                runTest('gr-tls-cert-manager')
                 runTest('haproxy')
                 runTest('init-deploy')
                 runTest('limits')
