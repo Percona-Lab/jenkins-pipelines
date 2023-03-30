@@ -42,7 +42,7 @@ pipeline {
             description: 'public ssh key for "ec2-user" user, please set if you need ssh access',
             name: 'SSH_KEY')
         string(
-            defaultValue: 'admin',
+            defaultValue: 'pmm2023fortesting!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         choice(
