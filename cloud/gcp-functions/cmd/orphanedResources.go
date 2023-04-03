@@ -29,11 +29,11 @@ func CleanOrphanedResources(w http.ResponseWriter, r *http.Request) {
 	toDelete := false
 	for _, targetPoolList := range targetPoolAggregatedList.Items {
 		for _, targetPoolItem := range targetPoolList.TargetPools {
-			zone := strings.Split(targetPoolItem.Instances[0], "/")[8]
 			region := strings.Split(targetPoolItem.Region, "/")[8]
 
 			if len(targetPoolItem.Instances) > 0 {
 				instanceName := strings.Split(targetPoolItem.Instances[0], "/")[10]
+				zone := strings.Split(targetPoolItem.Instances[0], "/")[8]
 				_, err := computeService.Instances.Get(project, zone, instanceName).Context(ctx).Do()
 				if err != nil && strings.Contains(err.Error(), "404") {
 					toDelete = true
