@@ -55,10 +55,10 @@ void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_Q
 
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
-        env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+        env.PMM_URL = "http://admin:pmm2023fortesting!@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
     } else {
-        env.PMM_URL = "http://admin:admin@${VM_IP}"
+        env.PMM_URL = "http://admin:pmm2023fortesting!@${VM_IP}"
         env.PMM_UI_URL = "http://${VM_IP}/"
     }
 }
