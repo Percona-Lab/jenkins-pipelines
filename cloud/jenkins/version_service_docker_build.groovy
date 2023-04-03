@@ -44,8 +44,8 @@ pipeline {
                     sudo install -m 0755 -D mkcert-v1.4.3-linux-amd64 /usr/local/bin/mkcert
                     /usr/local/bin/mkcert -install
 
-                    wget 'https://golang.org/dl/go1.17.linux-amd64.tar.gz'
-                    sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.17.linux-amd64.tar.gz
+                    wget 'https://go.dev/dl/go1.20.2.linux-amd64.tar.gz'
+                    sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.20.2.linux-amd64.tar.gz
                     export PATH=$PATH:/usr/local/go/bin:~/go/bin
 
                     # sudo is needed for better node recovery after compilation failure
