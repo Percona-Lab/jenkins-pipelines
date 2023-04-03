@@ -56,10 +56,10 @@ void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_Q
     }
 
     if ( CLIENT_INSTANCE == "yes" ) {
-        env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+        env.PMM_URL = "http://admin:pmm2023fortesting!@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
     } else {
-        env.PMM_URL = "http://admin:admin@${OVF_INSTANCE_IP}"
+        env.PMM_URL = "http://admin:pmm2023fortesting!@${OVF_INSTANCE_IP}"
         env.PMM_UI_URL = "http://${OVF_INSTANCE_IP}/"
     }
 }
