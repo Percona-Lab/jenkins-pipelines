@@ -39,7 +39,7 @@ if [ -f /usr/bin/yum ]; then
   fi
 
   yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-  percona-release enable tools testing
+  percona-release enable-only tools testing
 
   until yum -y update; do
     yum clean all
@@ -210,7 +210,7 @@ if [ -f /usr/bin/apt-get ]; then
     done
 
     curl https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb --output /tmp/prel.deb && dpkg -i /tmp/prel.deb && rm /tmp/prel.deb
-    percona-release enable tools testing
+    percona-release enable-only tools testing
 
     DIST=$(lsb_release -sc)
     if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' && ${DIST} != 'jammy' ]]; then
@@ -360,11 +360,15 @@ if [ -f /usr/bin/yum ]; then
         ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-quickstart /usr/local/bin/sphinx-quickstart
         ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-apidoc /usr/local/bin/sphinx-apidoc
     else
-        pip3 install --upgrade sphinx==1.4
-        if [[ ${RHVER} -eq 7 ]]; then
-            pip3 install --upgrade docutils==0.16
+        if [[ ${RHVER} -eq 9 ]]; then
+            pip3 install --upgrade sphinx==6.1.3
         else
-            pip3 install --upgrade docutils==0.17
+            pip3 install --upgrade sphinx==1.6.7
+            if [[ ${RHVER} -eq 7 ]]; then
+                pip3 install --upgrade docutils==0.16
+            else
+                pip3 install --upgrade docutils==0.17
+            fi
         fi
     fi
 fi

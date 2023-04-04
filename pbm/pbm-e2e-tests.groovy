@@ -14,7 +14,6 @@ pipeline {
         string(name: 'PBM_BRANCH', defaultValue: 'main', description: 'PBM branch')
         string(name: 'PSMDB', defaultValue: 'percona/percona-server-mongodb', description: 'PSMDB docker image')
         string(name: 'GO_VER', defaultValue: 'latest', description: 'GOLANG docker image for building PBM from sources')
-        string(name: 'PBM_VERSION', defaultValue: 'latest', description: 'PBM version for upgrade test, will be installed as old version from packages')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
     }
     stages {
