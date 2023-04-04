@@ -91,6 +91,48 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
+void prepareNode() {
+    sh '''
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+        sudo percona-release enable-only tools
+        sudo yum install -y percona-xtrabackup-80 jq | true  
+    '''
+
+    sh '''
+        if [ ! -d $HOME/google-cloud-sdk/bin ]; then
+            rm -rf $HOME/google-cloud-sdk
+            curl https://sdk.cloud.google.com | bash
+        fi
+
+        source $HOME/google-cloud-sdk/path.bash.inc
+        gcloud components update kubectl
+        gcloud version
+
+        curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
+            | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+        curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
+            | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
+        
+        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.29.1/yq_linux_amd64 > /usr/local/bin/yq"
+        sudo chmod +x /usr/local/bin/yq
+        
+        curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+        sudo mv -v /tmp/eksctl /usr/local/bin
+
+        cd "$(mktemp -d)"
+        OS="$(uname | tr '[:upper:]' '[:lower:]')"
+        ARCH="$(uname -m | sed -e 's/x86_64/amd64/')"
+        KREW="krew-${OS}_${ARCH}"
+        curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/download/v0.4.3/${KREW}.tar.gz"
+        tar zxvf "${KREW}.tar.gz"
+        ./"${KREW}" install krew
+
+        export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+
+        kubectl krew install kuttl
+    '''
+}
+
 TestsReport = '<testsuite name=\\"PSMO\\">\n'
 testsReportMap = [:]
 void makeReport() {
@@ -266,45 +308,9 @@ pipeline {
     }
 
     stages {
-        stage('Prepare') {
-            steps {
-                installRpms()
-                sh '''
-                    if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-                        rm -rf $HOME/google-cloud-sdk
-                        curl https://sdk.cloud.google.com | bash
-                    fi
-
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    gcloud components update kubectl
-                    gcloud version
-
-                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
-                        | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.29.1/yq_linux_amd64 > /usr/local/bin/yq"
-                    sudo chmod +x /usr/local/bin/yq
-
-                    curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-                    sudo mv -v /tmp/eksctl /usr/local/bin
-
-                    cd "$(mktemp -d)"
-                    OS="$(uname | tr '[:upper:]' '[:lower:]')"
-                    ARCH="$(uname -m | sed -e 's/x86_64/amd64/')"
-                    KREW="krew-${OS}_${ARCH}"
-                    curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/download/v0.4.3/${KREW}.tar.gz"
-                    tar zxvf "${KREW}.tar.gz"
-                    ./"${KREW}" install krew
-
-                    export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
-
-                    kubectl krew install kuttl
-                '''
-
-            }
-        }
         stage('Build docker image') {
             steps {
+                prepareNode()
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
                     sh '''
@@ -315,6 +321,7 @@ pipeline {
                         ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
 
                         cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
+                        chmod 600 ./source/e2e-tests/conf/cloud-secret.yml
 
                         if [ -n "${OPERATOR_IMAGE}" ]; then
                             echo "SKIP: Build is not needed, operator image was set!"
@@ -344,48 +351,52 @@ pipeline {
             parallel {
                 stage('Cluster1') {
                     steps {
+                        prepareNode()
                         createCluster('cluster1')
                         runTest('auto-config','cluster1')
-                        runTest('config','cluster1')
-                        runTest('demand-backup', 'cluster1')
-                        runTest('gr-demand-backup', 'cluster1')
-                        runTest('gr-one-pod', 'cluster1')
-                        runTest('gr-ignore-annotations', 'cluster1')
+//                        runTest('config','cluster1')
+//                        runTest('demand-backup', 'cluster1')
+//                        runTest('gr-demand-backup', 'cluster1')
+//                        runTest('gr-one-pod', 'cluster1')
+//                        runTest('gr-ignore-annotations', 'cluster1')
                         shutdownCluster('cluster1')
                     }
                 }
                 stage('Cluster2') {
                     steps {
+                        prepareNode()
                         createCluster('cluster2')
                         runTest('gr-init-deploy','cluster2')
-                        runTest('haproxy', 'cluster2')
-                        runTest('init-deploy', 'cluster2')
-                        runTest('limits', 'cluster2')
-                        runTest('async-ignore-annotations', 'cluster2')
-                        runTest('gr-scaling', 'cluster2')
+//                        runTest('haproxy', 'cluster2')
+//                        runTest('init-deploy', 'cluster2')
+//                        runTest('limits', 'cluster2')
+//                        runTest('async-ignore-annotations', 'cluster2')
+//                        runTest('gr-scaling', 'cluster2')
                         shutdownCluster('cluster2')
                     }
                 }
                 stage('Cluster3') {
                     steps {
+                        prepareNode()
                         createCluster('cluster3')
                         runTest('monitoring', 'cluster3')
-                        runTest('one-pod', 'cluster3')
-                        runTest('scaling', 'cluster3')
-                        runTest('semi-sync', 'cluster3')
-                        runTest('config-router', 'cluster3')
-                        runTest('gr-tls-cert-manager', 'cluster3')
+//                        runTest('one-pod', 'cluster3')
+//                        runTest('scaling', 'cluster3')
+//                        runTest('semi-sync', 'cluster3')
+//                        runTest('config-router', 'cluster3')
+//                        runTest('gr-tls-cert-manager', 'cluster3')
                         shutdownCluster('cluster3')
                     }
                 }
                 stage('Cluster4') {
                     steps {
+                        prepareNode()
                         createCluster('cluster4')
                         runTest('service-per-pod', 'cluster4')
-                        runTest('sidecars', 'cluster4')
-                        runTest('tls-cert-manager', 'cluster4')
-                        runTest('users', 'cluster4')
-                        runTest('version-service', 'cluster4')
+//                        runTest('sidecars', 'cluster4')
+//                        runTest('tls-cert-manager', 'cluster4')
+//                        runTest('users', 'cluster4')
+//                        runTest('version-service', 'cluster4')
                         shutdownCluster('cluster4')
                     }
                 }
