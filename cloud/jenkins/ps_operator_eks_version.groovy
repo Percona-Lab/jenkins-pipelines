@@ -306,21 +306,29 @@ pipeline {
     }
 
     stages {
+        stage('Prepare') {
+            prepareNode()
+            sh '''
+                sudo sudo git config --global --add safe.directory '*'
+                sudo git reset --hard
+                sudo git clean -xdf
+                sudo rm -rf source
+                ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
+            '''
+            withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
+            sh '''
+                cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
+                chmod 600 ./source/e2e-tests/conf/cloud-secret.yml
+            '''
+            }
+            stash includes: "source/**", name: "sourceFILES"
+        }
         stage('Build docker image') {
             steps {
-                prepareNode()
+                unstash "sourceFILES"
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        sudo sudo git config --global --add safe.directory '*'
-                        sudo git reset --hard
-                        sudo git clean -xdf
-                        sudo rm -rf source
-                        ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
-
-                        cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-                        chmod 600 ./source/e2e-tests/conf/cloud-secret.yml
-
                         if [ -n "${OPERATOR_IMAGE}" ]; then
                             echo "SKIP: Build is not needed, operator image was set!"
                         else
@@ -348,8 +356,12 @@ pipeline {
             }
             parallel {
                 stage('Cluster1') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareNode()
+                        unstash "sourceFILES"
                         createCluster('cluster1')
                         runTest('auto-config','cluster1')
 //                        runTest('config','cluster1')
@@ -361,8 +373,12 @@ pipeline {
                     }
                 }
                 stage('Cluster2') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareNode()
+                        unstash "sourceFILES"
                         createCluster('cluster2')
                         runTest('gr-init-deploy','cluster2')
 //                        runTest('haproxy', 'cluster2')
@@ -374,8 +390,12 @@ pipeline {
                     }
                 }
                 stage('Cluster3') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareNode()
+                        unstash "sourceFILES"
                         createCluster('cluster3')
                         runTest('monitoring', 'cluster3')
 //                        runTest('one-pod', 'cluster3')
@@ -387,8 +407,12 @@ pipeline {
                     }
                 }
                 stage('Cluster4') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareNode()
+                        unstash "sourceFILES"
                         createCluster('cluster4')
                         runTest('service-per-pod', 'cluster4')
 //                        runTest('sidecars', 'cluster4')
