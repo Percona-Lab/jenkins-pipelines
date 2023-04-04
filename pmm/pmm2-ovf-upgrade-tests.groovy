@@ -45,7 +45,8 @@ void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_Q
         string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1')
+        string(name: 'DAYS', value: '1'),
+        string(name: 'ADMIN_PASSWORD', value: 'admin')
     ]
     if ( NODE_TYPE == 'remote-node' ) {
         env.VM_CLIENT_IP = stagingJob.buildVariables.IP
