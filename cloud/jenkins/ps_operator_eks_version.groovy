@@ -307,21 +307,23 @@ pipeline {
 
     stages {
         stage('Prepare') {
-            prepareNode()
-            sh '''
+            steps {
+                prepareNode()
+                sh '''
                 sudo sudo git config --global --add safe.directory '*'
                 sudo git reset --hard
                 sudo git clean -xdf
                 sudo rm -rf source
                 ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
             '''
-            withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
-            sh '''
+                withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
+                    sh '''
                 cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
                 chmod 600 ./source/e2e-tests/conf/cloud-secret.yml
             '''
+                }
+                stash includes: "source/**", name: "sourceFILES"
             }
-            stash includes: "source/**", name: "sourceFILES"
         }
         stage('Build docker image') {
             steps {
