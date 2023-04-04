@@ -309,13 +309,14 @@ pipeline {
         stage('Prepare') {
             steps {
                 prepareNode()
-                sh '''
-                sudo sudo git config --global --add safe.directory '*'
-                sudo git reset --hard
-                sudo git clean -xdf
-                sudo rm -rf source
-                ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
-            '''
+                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                sh """
+                    sudo sudo git config --global --add safe.directory '*'
+                    sudo git reset --hard
+                    sudo git clean -xdf
+                    sudo rm -rf source
+                    ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
+                """
                 withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
                     sh '''
                 cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
@@ -328,7 +329,6 @@ pipeline {
         stage('Build docker image') {
             steps {
                 unstash "sourceFILES"
-                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
                         if [ -n "${OPERATOR_IMAGE}" ]; then
