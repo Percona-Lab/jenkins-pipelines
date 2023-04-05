@@ -13,7 +13,6 @@ pipeline {
     parameters {
         string(name: 'PBM_BRANCH', defaultValue: 'main', description: 'PBM branch or commit')
         string(name: 'GO_VER', defaultValue: 'latest', description: 'GOLANG docker image for building PBM from sources')
-        string(name: 'PBM_VERSION', defaultValue: 'latest', description: 'PBM version for upgrade test, will be installed as old version from packages')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
     }
     stages {
@@ -57,7 +56,7 @@ pipeline {
                                 cd pbm-functional/pytest
                                 PSMDB=percona/percona-server-mongodb:${PSMDB} docker-compose build
                                 docker-compose up -d
-                                docker-compose run test pytest -s --junitxml=junit.xml -k ${TEST} || true
+                                docker-compose run test pytest -o junit_logging=system-out --capture=sys --junitxml=junit.xml -k ${TEST} || true
                                 docker-compose down -v --remove-orphans
                             """
                         }
@@ -79,7 +78,7 @@ pipeline {
     }
     post {
         success {
-           slackNotify("#opensource-psmdb", "#00FF00", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - all tests passed")
+           slackNotify("#opensource-psmdb", "#00FF00", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - all tests passed [${BUILD_URL}testReport/]")
         }
         unstable {
             slackNotify("#opensource-psmdb", "#F6F930", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - some tests failed [${BUILD_URL}testReport/]")
