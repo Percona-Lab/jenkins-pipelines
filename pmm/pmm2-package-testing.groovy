@@ -18,7 +18,6 @@ void runStaging(String DOCKER_VERSION, CLIENTS) {
     env.VM_IP = stagingJob.buildVariables.IP
     env.PMM_SERVER_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    env.VM_NAME = stagingJob.buildVariables.VM_NAME
     // ideal solution
     env.ADMIN_PASSWORD = stagingJob.buildVariables.ADMIN_PASSWORD
 //    env.ADMIN_PASSWORD = adminPass
