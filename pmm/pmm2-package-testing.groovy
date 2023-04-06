@@ -75,6 +75,9 @@ pipeline {
     agent {
         label 'agent-amd64'
     }
+    environment {
+        ADMIN_PASSWORD = 'admindmin'
+    }
     parameters {
         string(
             defaultValue: 'master',
