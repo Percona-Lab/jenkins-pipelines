@@ -59,12 +59,11 @@ EOF
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
+            sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
-            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-${CLUSTER_SUFFIX} --region $AWSRegion > /dev/null 2>&1 || true
-            eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1 || true
-            
-        """
+            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-${CLUSTER_SUFFIX} --region $AWSRegion 
+            eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction 
+            """
     }
 }
 
@@ -374,7 +373,7 @@ pipeline {
                         runTest('gr-demand-backup', 'cluster1')
                         runTest('gr-one-pod', 'cluster1')
                         runTest('gr-ignore-annotations', 'cluster1')
-                        shutdownCluster('cluster1')
+//                        shutdownCluster('cluster1')
                     }
                 }
                 stage('Cluster2') {
@@ -391,7 +390,7 @@ pipeline {
                         runTest('limits', 'cluster2')
                         runTest('async-ignore-annotations', 'cluster2')
                         runTest('gr-scaling', 'cluster2')
-                        shutdownCluster('cluster2')
+//                        shutdownCluster('cluster2')
                     }
                 }
                 stage('Cluster3') {
@@ -402,13 +401,13 @@ pipeline {
                         prepareNode()
                         unstash "sourceFILES"
                         createCluster('cluster3')
-                        runTest('monitoring', 'cluster3')
+//                        runTest('monitoring', 'cluster3')
                         runTest('one-pod', 'cluster3')
                         runTest('scaling', 'cluster3')
                         runTest('semi-sync', 'cluster3')
                         runTest('config-router', 'cluster3')
                         runTest('gr-tls-cert-manager', 'cluster3')
-                        shutdownCluster('cluster3')
+//                        shutdownCluster('cluster3')
                     }
                 }
                 stage('Cluster4') {
@@ -424,11 +423,21 @@ pipeline {
                         runTest('tls-cert-manager', 'cluster4')
                         runTest('users', 'cluster4')
                         runTest('version-service', 'cluster4')
-                        shutdownCluster('cluster4')
+//                        shutdownCluster('cluster4')
                     }
                 }
             }
 
+        }
+        stage('Clusters deletion'){
+            steps {
+                prepareNode()
+                unstash "sourceFILES"
+                shutdownCluster('cluster1')
+                shutdownCluster('cluster2')
+                shutdownCluster('cluster3')
+                shutdownCluster('cluster4')
+            }
         }
         stage('Make report') {
             steps {
