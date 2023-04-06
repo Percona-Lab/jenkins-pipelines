@@ -163,6 +163,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 deleteDir()
+                setBuildVariable("ADMIN_PASSWORD", env.ADMIN_PASSWORD)
                 script {
                     // getPMMBuildParams sets envvars: VM_NAME, OWNER, OWNER_SLACK
                     getPMMBuildParams('pmm-')
@@ -192,7 +193,6 @@ pipeline {
                             slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         }
                     }
-                    setBuildVariable("ADMIN_PASSWORD", env.ADMIN_PASSWORD)
                 }
             }
         }
