@@ -166,7 +166,6 @@ pipeline {
                 script {
                     // getPMMBuildParams sets envvars: VM_NAME, OWNER, OWNER_SLACK
                     getPMMBuildParams('pmm-')
-                    setBuildVariable("ADMIN_PASSWORD", env.ADMIN_PASSWORD)
                     echo """
                         DOCKER_VERSION:  ${DOCKER_VERSION}
                         CLIENT_VERSION:  ${CLIENT_VERSION}
