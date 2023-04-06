@@ -1,4 +1,6 @@
-void pushArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
+tests=[]
+
+void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -11,126 +13,136 @@ void pushArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
     }
 }
 
-void popArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
+void initTests() {
+    echo "Populating tests into the tests array!"
+    def records = readCSV file: './source/e2e-tests/run-minikube.csv'
+
+    for (int i=0; i<records.size(); i++) {
+        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
+    }
+
+    markPassedTests()
+}
+
+void markPassedTests() {
+    echo "Marking passed tests in the tests map!"
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${GIT_SHORT_COMMIT}
-            aws s3 cp --quiet \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
+            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
         """
+
+        for (int i=0; i<tests.size(); i++) {
+            def testName = tests[i]["name"]
+            def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$PS_TAG"
+            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+
+            if (retFileExists == 0) {
+                tests[i]["result"] = "passed"
+            }
+        }
     }
 }
 
 TestsReport = '<testsuite name=\\"PS\\">\n'
-testsReportMap = [:]
 void makeReport() {
-    for ( test in testsReportMap ) {
-        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
+    for (int i=0; i<tests.size(); i++) {
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"]
+        def testName = tests[i]["name"]
+
+        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
     }
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME) {
+void clusterRunner(String cluster) {
+    for (int i=0; i<tests.size(); i++) {
+        if (tests[i]["result"] == "skipped") {
+            tests[i]["result"] = "failure"
+            tests[i]["cluster"] = cluster
+            runTest(i)
+        }
+    }
+}
+
+void runTest(Integer TEST_ID) {
     def retryCount = 0
+    def testName = tests[TEST_ID]["name"]
+
     waitUntil {
+        def timeStart = new Date().getTime()
         try {
-            echo "The $TEST_NAME test was started!"
+            echo "The $testName test was started !"
+            tests[TEST_ID]["result"] = "failure"
 
-            GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-            PS_TAG = sh(script: "if [ -n \"\${IMAGE_MYSQL}\" ] ; then echo ${IMAGE_MYSQL} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
-            VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-            FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}-$PS_TAG"
-            testsReportMap[TEST_NAME] = 'failure'
-
-            popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
             sh """
-                if [ -f "$FILE_NAME" ]; then
-                    echo Skip $TEST_NAME test
+                cd ./source
+                if [ -n "${OPERATOR_IMAGE}" ]; then
+                    export IMAGE=${OPERATOR_IMAGE}
                 else
-                    cd ./source
-                    if [ -n "${OPERATOR_IMAGE}" ]; then
-                        export IMAGE=${OPERATOR_IMAGE}
-                    else
-                        export IMAGE=perconalab/percona-server-mysql-operator:${env.GIT_BRANCH}
-                    fi
-
-                    if [ -n "${IMAGE_MYSQL}" ]; then
-                        export IMAGE_MYSQL=${IMAGE_MYSQL}
-                    fi
-
-                    if [ -n "${IMAGE_ORCHESTRATOR}" ]; then
-                        export IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR}
-                    fi
-
-                    if [ -n "${IMAGE_ROUTER}" ]; then
-                        export IMAGE_ROUTER=${IMAGE_ROUTER}
-                    fi
-
-                    if [ -n "${IMAGE_BACKUP}" ]; then
-                        export IMAGE_BACKUP=${IMAGE_BACKUP}
-                    fi
-
-                    if [ -n "${IMAGE_TOOLKIT}" ]; then
-                        export IMAGE_TOOLKIT=${IMAGE_TOOLKIT}
-                    fi
-
-                    if [ -n "${IMAGE_PMM}" ]; then
-                        export IMAGE_PMM=${IMAGE_PMM}
-                    fi
-
-                    if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
-                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
-                    fi
-
-                    if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
-                        export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
-                    fi
-
-                    sudo rm -rf /tmp/hostpath-provisioner/*
-
-                    export KUBECONFIG=~/.kube/config
-                    export PATH="${HOME}/.krew/bin:$PATH"
-                    source $HOME/google-cloud-sdk/path.bash.inc
-
-                    kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^${TEST_NAME}\$"
+                    export IMAGE=perconalab/percona-server-mysql-operator:${env.GIT_BRANCH}
                 fi
+
+                if [ -n "${IMAGE_MYSQL}" ]; then
+                    export IMAGE_MYSQL=${IMAGE_MYSQL}
+                fi
+
+                if [ -n "${IMAGE_ORCHESTRATOR}" ]; then
+                    export IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR}
+                fi
+
+                if [ -n "${IMAGE_ROUTER}" ]; then
+                    export IMAGE_ROUTER=${IMAGE_ROUTER}
+                fi
+
+                if [ -n "${IMAGE_BACKUP}" ]; then
+                    export IMAGE_BACKUP=${IMAGE_BACKUP}
+                fi
+
+                if [ -n "${IMAGE_TOOLKIT}" ]; then
+                    export IMAGE_TOOLKIT=${IMAGE_TOOLKIT}
+                fi
+
+                if [ -n "${IMAGE_PMM}" ]; then
+                    export IMAGE_PMM=${IMAGE_PMM}
+                fi
+
+                if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                    export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                fi
+
+                if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                    export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                fi
+
+                sudo rm -rf /tmp/hostpath-provisioner/*
+
+                export KUBECONFIG=~/.kube/config
+                export PATH="${HOME}/.krew/bin:$PATH"
+                source $HOME/google-cloud-sdk/path.bash.inc
+
+                kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
             """
-            pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
-            testsReportMap[TEST_NAME] = 'passed'
+            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$PS_TAG")
+            tests[TEST_ID]["result"] = "passed"
             return true
         }
         catch (exc) {
-            if (retryCount >= 2) {
+            if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
             retryCount++
             return false
         }
-    }
-
-    sh """
-        rm -rf $FILE_NAME
-    """
-
-    echo "The $TEST_NAME test was finished!"
-}
-
-void conditionalRunTest(String TEST_NAME) {
-    if ( TEST_NAME == 'default-cr' ) {
-        if ( params.GIT_BRANCH.contains('release-') ) {
-            runTest(TEST_NAME)
+        finally {
+            def timeStop = new Date().getTime()
+            def durationSec = (timeStop - timeStart) / 1000
+            tests[TEST_ID]["time"] = durationSec
+            echo "The $testName test was finished!"
         }
-        return 0
     }
-    runTest(TEST_NAME)
-}
-
-void installRpms() {
-    sh '''
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y jq | true
-    '''
 }
 
 pipeline {
@@ -197,6 +209,7 @@ pipeline {
     }
     environment {
         CLEAN_NAMESPACE = 1
+        PS_TAG = sh(script: "if [ -n \"\${IMAGE_MYSQL}\" ]; then echo ${IMAGE_MYSQL} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
     }
     stages {
         stage('Prepare') {
@@ -213,8 +226,13 @@ pipeline {
                     ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
                 """
                 stash includes: "source/**", name: "sourceFILES", useDefaultExcludes: false
+                script {
+                    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                }
+                initTests()
             }
         }
+
         stage('Build docker image') {
             agent { label 'docker' }
             steps {
@@ -250,6 +268,8 @@ pipeline {
                         sudo yum install -y conntrack
                         sudo usermod -aG docker $USER
 
+                        sudo yum install -y jq | true
+
                         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                             rm -rf $HOME/google-cloud-sdk
                             curl https://sdk.cloud.google.com | bash
@@ -281,49 +301,27 @@ pipeline {
 
                     unstash "sourceFILES"
                     withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
-                        sh '''
+                        sh """
                            cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-                        '''
+                        """
                     }
 
-                    installRpms()
-                    runTest('auto-config')
-                    // runTest('async-ignore-annotations') - LoadBalancer
-                    runTest('config')
-                    runTest('config-router')
-                    runTest('demand-backup')
-                    runTest('gr-demand-backup')
-                    // runTest('gr-ignore-annotations') - LoadBalancer
-                    runTest('gr-init-deploy')
-                    runTest('gr-one-pod')
-                    runTest('gr-scaling')
-                    runTest('gr-tls-cert-manager')
-                    runTest('haproxy')
-                    runTest('init-deploy')
-                    // runTest('limits') - affinity
-                    // runTest('monitoring') - LoadBalancer, pmm image pull context deadline
-                    runTest('one-pod')
-                    // runTest('scaling') - 7-assert - storage: 2Gi vs storage: 2G
-                    runTest('semi-sync')
-                    // runTest('service-per-pod') - LoadBalancer
-                    runTest('sidecars')
-                    runTest('tls-cert-manager')
-                    runTest('users')
-                    runTest('version-service')
+                    clusterRunner('cluster1')
             }
             post {
                 always {
-                    sh '''
+                    sh """
                         /usr/local/bin/minikube delete || true
                         sudo rm -rf $HOME/google-cloud-sdk
                         sudo rm -rf ./*
-                    '''
+                    """
                     deleteDir()
                 }
             }
         }
         stage('Make report') {
             steps {
+                echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
                 makeReport()
                 sh """
                     echo "${TestsReport}" > TestsReport.xml
@@ -336,10 +334,10 @@ pipeline {
 
     post {
         always {
-            sh '''
+            sh """
                 sudo rm -rf $HOME/google-cloud-sdk
                 sudo rm -rf ./*
-            '''
+            """
             deleteDir()
         }
     }
