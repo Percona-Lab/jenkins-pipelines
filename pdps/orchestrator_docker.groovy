@@ -45,7 +45,7 @@ pipeline {
       steps {
           script {
             currentBuild.displayName = "#${BUILD_NUMBER}-${DOCKER_ACC}-${OCHESTARTOR_VERSION}"
-            currentBuild.description = "${PS_VERSION}"
+            // currentBuild.description = "${PS_VERSION}"
           }
           sh '''
             # run test
