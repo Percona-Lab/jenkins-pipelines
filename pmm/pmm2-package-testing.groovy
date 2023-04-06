@@ -4,7 +4,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 void runStaging(String DOCKER_VERSION, CLIENTS) {
-    env.ADMIN_PASSWORD = 'admin'
+    env.ADMIN_PASSWORD = 'odmin'
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: 'pmm2-latest'),
