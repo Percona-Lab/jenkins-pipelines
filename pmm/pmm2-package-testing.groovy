@@ -108,7 +108,7 @@ pipeline {
             name: 'TESTS',
             trim: true)
         choice(
-            choices: ['testing', 'experimental', 'main', 'pmm2-client-main'],
+            choices: ['experimental', 'testing', 'main', 'pmm2-client-main'],
             description: 'Enable Repo for Client Nodes',
             name: 'INSTALL_REPO')
         choice(
