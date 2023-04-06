@@ -5,12 +5,12 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 void runStaging(String DOCKER_VERSION, CLIENTS) {
 
-    def String adminPass = 'odmin'
+//    def String adminPass = 'odmin'
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: 'pmm2-latest'),
         string(name: 'DOCKER_ENV_VARIABLE', value: '-e DISABLE_TELEMETRY=true -e DATA_RETENTION=48h -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX'),
-        string(name: 'ADMIN_PASSWORD', value: adminPass),
+//        string(name: 'ADMIN_PASSWORD', value: adminPass),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
@@ -20,9 +20,9 @@ void runStaging(String DOCKER_VERSION, CLIENTS) {
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
     // ideal solution
-//    env.ADMIN_PASSWORD = stagingJob.buildVariables.ADMIN_PASSWORD
-    env.ADMIN_PASSWORD = adminPass
-    env.PMM_URL = "http://admin:${adminPass}@${VM_IP}"
+    env.ADMIN_PASSWORD = stagingJob.buildVariables.ADMIN_PASSWORD
+//    env.ADMIN_PASSWORD = adminPass
+    env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
 
 }
 
