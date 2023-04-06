@@ -23,6 +23,9 @@ void runStaging(String DOCKER_VERSION, CLIENTS) {
 //    env.ADMIN_PASSWORD = adminPass
     env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
 
+    stagingJob.buildVariables.each { item ->
+        echo "stagingJob ${item}"
+    }
 }
 
 void destroyStaging(IP) {
