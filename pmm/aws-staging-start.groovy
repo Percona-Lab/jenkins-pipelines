@@ -192,8 +192,8 @@ pipeline {
                             slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         }
                     }
+                    setBuildVariable("ADMIN_PASSWORD", params.ADMIN_PASSWORD)
                 }
-                setBuildVariable("ADMIN_PASSWORD", params.ADMIN_PASSWORD)
             }
         }
 
