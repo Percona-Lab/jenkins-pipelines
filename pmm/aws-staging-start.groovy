@@ -193,6 +193,7 @@ pipeline {
                         }
                     }
                 }
+                setBuildVariable("ADMIN_PASSWORD", params.ADMIN_PASSWORD)
             }
         }
 
