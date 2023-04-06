@@ -407,10 +407,10 @@ pipeline {
                 sh """
                     export CLUSTER_NAME=\$(echo jenkins-lat-psmdb-\$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
                     for suffix in cluster{1..4}; do
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "\${CLUSTER_NAME}-\${suffix}" --region $AWSRegion > /dev/null 2>&1 || true
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "\${CLUSTER_NAME}-\${suffix}" --region $AWSRegion || true
                     done
                     for suffix in cluster{1..4}; do
-                        eksctl delete cluster -f cluster-\${suffix}.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1 || true
+                        eksctl delete cluster -f cluster-\${suffix}.yaml --wait --force --disable-nodegroup-eviction || true
                     done
                 """
             }
