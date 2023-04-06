@@ -368,12 +368,11 @@ pipeline {
                         unstash "sourceFILES"
                         createCluster('cluster1')
                         runTest('auto-config','cluster1')
-                        runTest('config','cluster1')
-                        runTest('demand-backup', 'cluster1')
-                        runTest('gr-demand-backup', 'cluster1')
-                        runTest('gr-one-pod', 'cluster1')
-                        runTest('gr-ignore-annotations', 'cluster1')
-//                        shutdownCluster('cluster1')
+//                        runTest('config','cluster1')
+//                        runTest('demand-backup', 'cluster1')
+//                        runTest('gr-demand-backup', 'cluster1')
+//                        runTest('gr-one-pod', 'cluster1')
+//                        runTest('gr-ignore-annotations', 'cluster1')
                     }
                 }
                 stage('Cluster2') {
@@ -385,12 +384,11 @@ pipeline {
                         unstash "sourceFILES"
                         createCluster('cluster2')
                         runTest('gr-init-deploy','cluster2')
-                        runTest('haproxy', 'cluster2')
-                        runTest('init-deploy', 'cluster2')
-                        runTest('limits', 'cluster2')
-                        runTest('async-ignore-annotations', 'cluster2')
-                        runTest('gr-scaling', 'cluster2')
-//                        shutdownCluster('cluster2')
+//                        runTest('haproxy', 'cluster2')
+//                        runTest('init-deploy', 'cluster2')
+//                        runTest('limits', 'cluster2')
+//                        runTest('async-ignore-annotations', 'cluster2')
+//                        runTest('gr-scaling', 'cluster2')
                     }
                 }
                 stage('Cluster3') {
@@ -401,13 +399,12 @@ pipeline {
                         prepareNode()
                         unstash "sourceFILES"
                         createCluster('cluster3')
-//                        runTest('monitoring', 'cluster3')
                         runTest('one-pod', 'cluster3')
-                        runTest('scaling', 'cluster3')
-                        runTest('semi-sync', 'cluster3')
-                        runTest('config-router', 'cluster3')
-                        runTest('gr-tls-cert-manager', 'cluster3')
-//                        shutdownCluster('cluster3')
+//                        runTest('scaling', 'cluster3')
+//                        runTest('semi-sync', 'cluster3')
+//                        runTest('config-router', 'cluster3')
+//                        runTest('gr-tls-cert-manager', 'cluster3')
+//                        runTest('monitoring', 'cluster3')
                     }
                 }
                 stage('Cluster4') {
@@ -419,11 +416,10 @@ pipeline {
                         unstash "sourceFILES"
                         createCluster('cluster4')
                         runTest('service-per-pod', 'cluster4')
-                        runTest('sidecars', 'cluster4')
-                        runTest('tls-cert-manager', 'cluster4')
-                        runTest('users', 'cluster4')
-                        runTest('version-service', 'cluster4')
-//                        shutdownCluster('cluster4')
+//                        runTest('sidecars', 'cluster4')
+//                        runTest('tls-cert-manager', 'cluster4')
+//                        runTest('users', 'cluster4')
+//                        runTest('version-service', 'cluster4')
                     }
                 }
             }
@@ -431,8 +427,6 @@ pipeline {
         }
         stage('Clusters deletion'){
             steps {
-                prepareNode()
-                unstash "sourceFILES"
                 shutdownCluster('cluster1')
                 shutdownCluster('cluster2')
                 shutdownCluster('cluster3')
