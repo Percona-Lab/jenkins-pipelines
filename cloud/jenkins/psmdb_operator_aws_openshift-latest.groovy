@@ -427,7 +427,7 @@ pipeline {
                      sh """
                          for suffix in cluster{1..5}
                          do
-                            /usr/local/bin/openshift-install destroy cluster --dir=./openshift/\$suffix > /dev/null 2>&1 || true
+                            /usr/local/bin/openshift-install destroy cluster --dir=./openshift/\$suffix || true
                          done
                      """
                  }
