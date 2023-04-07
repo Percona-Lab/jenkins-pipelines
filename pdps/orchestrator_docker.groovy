@@ -21,7 +21,7 @@ pipeline {
     string(
       defaultValue: '3.2.6-8',
       description: 'Full orchestrator version. Used as version and docker tag',
-      name: 'OCHESTARTOR_VERSION'
+      name: 'ORCHESTRATOR_VERSION'
     )
     // string(
     //   defaultValue: '8.0.32-24',
@@ -44,8 +44,8 @@ pipeline {
     stage('Run test') {
       steps {
           script {
-            currentBuild.displayName = "#${BUILD_NUMBER}-${DOCKER_ACC}-${OCHESTARTOR_VERSION}"
-            currentBuild.description = "${PS_VERSION}"
+            currentBuild.displayName = "#${BUILD_NUMBER}-${DOCKER_ACC}-${ORCHESTRATOR_VERSION}"
+            // currentBuild.description = "${PS_VERSION}"
           }
           sh '''
             # run test
