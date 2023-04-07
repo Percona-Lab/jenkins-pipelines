@@ -430,13 +430,12 @@ pipeline {
                 CLUSTER_NAME = sh(script: "echo jenkins-par-psmo-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
 
             }
-            stage {
-                steps {
-                    shutdownCluster('cluster1')
-                    shutdownCluster('cluster2')
-                    shutdownCluster('cluster3')
-                    shutdownCluster('cluster4')
-                }
+
+            steps {
+                shutdownCluster('cluster1')
+                shutdownCluster('cluster2')
+                shutdownCluster('cluster3')
+                shutdownCluster('cluster4')
             }
         }
         stage('Make report') {
