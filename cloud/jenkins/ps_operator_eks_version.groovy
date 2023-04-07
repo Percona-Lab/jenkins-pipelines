@@ -423,14 +423,20 @@ pipeline {
                     }
                 }
             }
-
         }
         stage('Clusters deletion'){
-            steps {
-                shutdownCluster('cluster1')
-                shutdownCluster('cluster2')
-                shutdownCluster('cluster3')
-                shutdownCluster('cluster4')
+            environment {
+                GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                CLUSTER_NAME = sh(script: "echo jenkins-par-psmo-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+
+            }
+            stage {
+                steps {
+                    shutdownCluster('cluster1')
+                    shutdownCluster('cluster2')
+                    shutdownCluster('cluster3')
+                    shutdownCluster('cluster4')
+                }
             }
         }
         stage('Make report') {
