@@ -60,9 +60,9 @@ EOF
 void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
             sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
-            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-${CLUSTER_SUFFIX} --region $AWSRegion 
-            eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction 
+                export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
+                eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-${CLUSTER_SUFFIX} --region $AWSRegion 
+                eksctl delete cluster --name $CLUSTER_NAME-${CLUSTER_SUFFIX} --region $AWSRegion --wait --force --disable-nodegroup-eviction
             """
     }
 }
@@ -462,10 +462,10 @@ pipeline {
                     eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster3" --region $AWSRegion || true
                     eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster4" --region $AWSRegion || true
                     
-                    eksctl delete cluster -f cluster-cluster1.yaml --wait --force --disable-nodegroup-eviction || true
-                    eksctl delete cluster -f cluster-cluster2.yaml --wait --force --disable-nodegroup-eviction || true
-                    eksctl delete cluster -f cluster-cluster3.yaml --wait --force --disable-nodegroup-eviction || true
-                    eksctl delete cluster -f cluster-cluster4.yaml --wait --force --disable-nodegroup-eviction || true
+                    eksctl delete cluster --name "$CLUSTER_NAME-cluster1" --region $AWSRegion --wait --force --disable-nodegroup-eviction || true
+                    eksctl delete cluster --name "$CLUSTER_NAME-cluster2" --region $AWSRegion --wait --force --disable-nodegroup-eviction || true
+                    eksctl delete cluster --name "$CLUSTER_NAME-cluster3" --region $AWSRegion --wait --force --disable-nodegroup-eviction || true
+                    eksctl delete cluster --name "$CLUSTER_NAME-cluster4" --region $AWSRegion --wait --force --disable-nodegroup-eviction || true
                     '''
                 }
 
