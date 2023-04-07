@@ -48,7 +48,19 @@ void pushArtifactFile(String FILE_NAME) {
 
 void initTests() {
     echo "Populating tests into the tests array!"
-    def records = readCSV file: './source/e2e-tests/run-release.csv'
+    def testList = "${params.TEST_LIST}"
+    def suiteFileName = "./source/e2e-tests/${params.TEST_SUITE}"
+
+    if (testList.length() != 0) {
+        suiteFileName = './source/e2e-tests/run-custom.csv'
+        sh """
+            echo -e "${testList}" > ${suiteFileName}
+            echo "Custom test suite contains following tests:"
+            cat ${suiteFileName}
+        """
+    }
+
+    def records = readCSV file: suiteFileName
 
     for (int i=0; i<records.size(); i++) {
         tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
@@ -187,46 +199,54 @@ pipeline {
         MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
     }
     parameters {
+        choice(
+            choices: ['run-release.csv', 'run-distro.csv'],
+            description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
+            name: 'TEST_SUITE')
+        text(
+            defaultValue: '',
+            description: 'List of tests to run separated by new line',
+            name: 'TEST_LIST')
         string(
-                defaultValue: 'main',
-                description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
-                name: 'GIT_BRANCH')
+            defaultValue: 'main',
+            description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
+            name: 'GIT_BRANCH')
         string(
-                defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
-                description: 'percona-server-mongodb-operator repository',
-                name: 'GIT_REPO')
+            defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
+            description: 'percona-server-mongodb-operator repository',
+            name: 'GIT_REPO')
         string(
-                defaultValue: '1.23',
-                description: 'AKS kubernetes version',
-                name: 'PLATFORM_VER')
+            defaultValue: '1.23',
+            description: 'AKS kubernetes version',
+            name: 'PLATFORM_VER')
         choice(
             choices: 'NO\nYES',
             description: 'Run tests with cluster wide',
             name: 'CLUSTER_WIDE')
         string(
-                defaultValue: '',
-                description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
-                name: 'PSMDB_OPERATOR_IMAGE')
+            defaultValue: '',
+            description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
+            name: 'PSMDB_OPERATOR_IMAGE')
         string(
-                defaultValue: '',
-                description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod4.0',
-                name: 'IMAGE_MONGOD')
+            defaultValue: '',
+            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod4.0',
+            name: 'IMAGE_MONGOD')
         string(
-                defaultValue: '',
-                description: 'Backup image: perconalab/percona-server-mongodb-operator:main-backup',
-                name: 'IMAGE_BACKUP')
+            defaultValue: '',
+            description: 'Backup image: perconalab/percona-server-mongodb-operator:main-backup',
+            name: 'IMAGE_BACKUP')
         string(
-                defaultValue: '',
-                description: 'PMM image: perconalab/pmm-client:dev-latest',
-                name: 'IMAGE_PMM')
+            defaultValue: '',
+            description: 'PMM image: perconalab/pmm-client:dev-latest',
+            name: 'IMAGE_PMM')
         string(
-                defaultValue: '',
-                description: 'PMM server image repo: perconalab/pmm-server',
-                name: 'IMAGE_PMM_SERVER_REPO')
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
         string(
-                defaultValue: '',
-                description: 'PMM server image tag: dev-latest',
-                name: 'IMAGE_PMM_SERVER_TAG')
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     agent {
         label 'docker'

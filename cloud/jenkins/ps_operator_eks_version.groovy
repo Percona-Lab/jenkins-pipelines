@@ -118,7 +118,19 @@ void prepareNode() {
 
 void initTests() {
     echo "Populating tests into the tests array!"
-    def records = readCSV file: './source/e2e-tests/run-release.csv'
+    def testList = "${params.TEST_LIST}"
+    def suiteFileName = "./source/e2e-tests/${params.TEST_SUITE}"
+
+    if (testList.length() != 0) {
+        suiteFileName = './source/e2e-tests/run-custom.csv'
+        sh """
+            echo -e "${testList}" > ${suiteFileName}
+            echo "Custom test suite contains following tests:"
+            cat ${suiteFileName}
+        """
+    }
+
+    def records = readCSV file: suiteFileName
 
     for (int i=0; i<records.size(); i++) {
         tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
@@ -267,6 +279,14 @@ pipeline {
         PS_TAG = sh(script: "if [ -n \"\${IMAGE_MYSQL}\" ]; then echo ${IMAGE_MYSQL} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
     }
     parameters {
+        choice(
+            choices: ['run-release.csv', 'run-distro.csv'],
+            description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
+            name: 'TEST_SUITE')
+        text(
+            defaultValue: '',
+            description: 'List of tests to run separated by new line',
+            name: 'TEST_LIST')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-server-mysql-operator repository',
