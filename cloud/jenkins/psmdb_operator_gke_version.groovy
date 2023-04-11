@@ -255,7 +255,7 @@ pipeline {
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.21',
+            defaultValue: '1.24',
             description: 'GKE version',
             name: 'PLATFORM_VER')
         choice(

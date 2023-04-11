@@ -296,7 +296,7 @@ pipeline {
             description: 'percona-server-mysql-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.22',
+            defaultValue: '1.24',
             description: 'EKS kubernetes version',
             name: 'PLATFORM_VER')
         string(
