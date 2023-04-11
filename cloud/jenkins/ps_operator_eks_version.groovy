@@ -1,6 +1,7 @@
 AWSRegion='eu-west-3'
-void createCluster( String CLUSTER_SUFFIX ){
+tests=[]
 
+void createCluster(String CLUSTER_SUFFIX){
     sh """
 cat <<-EOF > cluster-${CLUSTER_SUFFIX}.yaml
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
@@ -73,7 +74,6 @@ void pushArtifactFile(String FILE_NAME) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             touch ${FILE_NAME}
-            touch ${FILE_NAME}
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${env.GIT_SHORT_COMMIT}
             aws s3 ls \$S3_PATH/${FILE_NAME} || :
             aws s3 cp ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
@@ -81,33 +81,17 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-void popArtifactFile(String FILE_NAME) {
-    echo "Try to get $FILE_NAME file from S3!"
-
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${env.GIT_SHORT_COMMIT}
-            aws s3 cp --quiet \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
-        """
-    }
-}
-
 void prepareNode() {
     sh '''
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 jq | true  
-    '''
+        sudo yum install -y jq | true
 
-    sh '''
         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
             rm -rf $HOME/google-cloud-sdk
             curl https://sdk.cloud.google.com | bash
         fi
 
         source $HOME/google-cloud-sdk/path.bash.inc
-        gcloud components update kubectl
-        gcloud version
+        gcloud components install kubectl
 
         curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
@@ -132,114 +116,156 @@ void prepareNode() {
     '''
 }
 
-TestsReport = '<testsuite name=\\"PSMO\\">\n'
-testsReportMap = [:]
+void initTests() {
+    echo "Populating tests into the tests array!"
+    def records = readCSV file: './source/e2e-tests/run-release.csv'
+
+    for (int i=0; i<records.size(); i++) {
+        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
+    }
+
+    markPassedTests()
+}
+
+void markPassedTests() {
+    echo "Marking passed tests in the tests map!"
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
+        """
+
+        for (int i=0; i<tests.size(); i++) {
+            def testName = tests[i]["name"]
+            def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$PS_TAG"
+            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+
+            if (retFileExists == 0) {
+                tests[i]["result"] = "passed"
+            }
+        }
+    }
+}
+
+TestsReport = '<testsuite name=\\"PS\\">\n'
 void makeReport() {
-    for ( test in testsReportMap ) {
-        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
+    for (int i=0; i<tests.size(); i++) {
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"]
+        def testName = tests[i]["name"]
+
+        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
     }
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
-    def retryCount = 0
-    waitUntil {
-        try {
-            echo "The $TEST_NAME test was started!"
-            testsReportMap[TEST_NAME] = 'failure'
+void clusterRunner(String cluster) {
+    def clusterCreated=0
 
-            def FILE_NAME = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-eks-${env.PLATFORM_VER}"
-            popArtifactFile("$FILE_NAME")
+    for (int i=0; i<tests.size(); i++) {
+        if (tests[i]["result"] == "skipped") {
+            tests[i]["result"] = "failure"
+            tests[i]["cluster"] = cluster
+            if (clusterCreated == 0) {
+                createCluster(cluster)
+                clusterCreated++
+            }
+            runTest(i)
+        }
+    }
+
+    if (clusterCreated >= 1) {
+        shutdownCluster(cluster)
+    }
+}
+
+void runTest(Integer TEST_ID) {
+    def retryCount = 0
+    def testName = tests[TEST_ID]["name"]
+    def clusterSuffix = tests[TEST_ID]["cluster"]
+
+    waitUntil {
+        def timeStart = new Date().getTime()
+        try {
+            echo "The $testName test was started on cluster $CLUSTER_NAME-$clusterSuffix !"
+            tests[TEST_ID]["result"] = "failure"
 
             timeout(time: 90, unit: 'MINUTES') {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
                     sh """
-                        if [ -f "$FILE_NAME" ]; then
-                            echo "Skipping $TEST_NAME test because it passed in previous run."
+                        cd ./source
+                        if [ -n "${OPERATOR_IMAGE}" ]; then
+                            export IMAGE=${OPERATOR_IMAGE}
                         else
-                            cd ./source
-                            if [ -n "${OPERATOR_IMAGE}" ]; then
-                                export IMAGE=${OPERATOR_IMAGE}
-                            else
-                                export IMAGE=perconalab/percona-server-mysql-operator:${env.GIT_BRANCH}
-                            fi
-
-                            if [ -n "${IMAGE_MYSQL}" ]; then
-                                export IMAGE_MYSQL=${IMAGE_MYSQL}
-                            fi
-
-                            if [ -n "${IMAGE_ORCHESTRATOR}" ]; then
-                                export IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR}
-                            fi
-
-                            if [ -n "${IMAGE_ROUTER}" ]; then
-                                export IMAGE_ROUTER=${IMAGE_ROUTER}
-                            fi
-
-                            if [ -n "${IMAGE_BACKUP}" ]; then
-                                export IMAGE_BACKUP=${IMAGE_BACKUP}
-                            fi
-
-                            if [ -n "${IMAGE_TOOLKIT}" ]; then
-                                export IMAGE_TOOLKIT=${IMAGE_TOOLKIT}
-                            fi
-
-                            if [ -n "${IMAGE_PMM}" ]; then
-                                export IMAGE_PMM=${IMAGE_PMM}
-                            fi
-
-                            if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
-                                export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
-                            fi
-
-                            if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
-                                export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
-                            fi
-
-                            export PATH="/home/ec2-user/.local/bin:${HOME}/.krew/bin:$PATH"
-                            source $HOME/google-cloud-sdk/path.bash.inc
-                            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
-
-                            kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^${TEST_NAME}\$"
+                            export IMAGE=perconalab/percona-server-mysql-operator:${env.GIT_BRANCH}
                         fi
+
+                        if [ -n "${IMAGE_MYSQL}" ]; then
+                            export IMAGE_MYSQL=${IMAGE_MYSQL}
+                        fi
+
+                        if [ -n "${IMAGE_ORCHESTRATOR}" ]; then
+                            export IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR}
+                        fi
+
+                        if [ -n "${IMAGE_ROUTER}" ]; then
+                            export IMAGE_ROUTER=${IMAGE_ROUTER}
+                        fi
+
+                        if [ -n "${IMAGE_BACKUP}" ]; then
+                            export IMAGE_BACKUP=${IMAGE_BACKUP}
+                        fi
+
+                        if [ -n "${IMAGE_TOOLKIT}" ]; then
+                            export IMAGE_TOOLKIT=${IMAGE_TOOLKIT}
+                        fi
+
+                        if [ -n "${IMAGE_PMM}" ]; then
+                            export IMAGE_PMM=${IMAGE_PMM}
+                        fi
+
+                        if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                            export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                        fi
+
+                        if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                            export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                        fi
+
+                        export PATH="/home/ec2-user/.local/bin:${HOME}/.krew/bin:$PATH"
+                        source $HOME/google-cloud-sdk/path.bash.inc
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+
+                        kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
                     """
                 }
             }
-            pushArtifactFile("$FILE_NAME")
-            testsReportMap[TEST_NAME] = 'passed'
+            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$PS_TAG")
+            tests[TEST_ID]["result"] = "passed"
             return true
         }
         catch (exc) {
-            if (retryCount >= 2) {
+            if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
             retryCount++
             return false
         }
-    }
-
-    echo "The $TEST_NAME test was finished!"
-}
-
-void conditionalRunTest(String TEST_NAME, String CLUSTER_SUFFIX ) {
-    if ( TEST_NAME == 'default-cr' ) {
-        if ( params.GIT_BRANCH.contains('release-') ) {
-            runTest(TEST_NAME, CLUSTER_SUFFIX)
+        finally {
+            def timeStop = new Date().getTime()
+            def durationSec = (timeStop - timeStart) / 1000
+            tests[TEST_ID]["time"] = durationSec
+            echo "The $testName test was finished!"
         }
-        return 0
     }
-    runTest(TEST_NAME, CLUSTER_SUFFIX )
 }
 
-void installRpms() {
-    sh """
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 jq | true
-    """
-}
 pipeline {
+    environment {
+        CLOUDSDK_CORE_DISABLE_PROMPTS = 1
+        PS_TAG = sh(script: "if [ -n \"\${IMAGE_MYSQL}\" ]; then echo ${IMAGE_MYSQL} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
+    }
     parameters {
         string(
             defaultValue: 'main',
@@ -294,9 +320,6 @@ pipeline {
             description: 'PMM server image tag: dev-latest',
             name: 'IMAGE_PMM_SERVER_TAG')
     }
-    environment {
-        CLEAN_NAMESPACE = 1
-    }
     agent {
          label 'docker'
     }
@@ -312,17 +335,26 @@ pipeline {
                 prepareNode()
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
+                    # sudo is needed for better node recovery after compilation failure
+                    # if building failed on compilation stage directory will have files owned by docker user
                     sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
                     ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
                 """
+
+                script {
+                    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                    CLUSTER_NAME = sh(script: "echo jenkins-par-ps-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                }
+                initTests()
+
                 withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
-                    sh '''
-                cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-                chmod 600 ./source/e2e-tests/conf/cloud-secret.yml
-            '''
+                    sh """
+                        cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
+                        chmod 600 ./source/e2e-tests/conf/cloud-secret.yml
+                    """
                 }
                 stash includes: "source/**", name: "sourceFILES"
             }
@@ -331,7 +363,7 @@ pipeline {
             steps {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh '''
+                    sh """
                         if [ -n "${OPERATOR_IMAGE}" ]; then
                             echo "SKIP: Build is not needed, operator image was set!"
                         else
@@ -344,127 +376,88 @@ pipeline {
                             "
                             sudo rm -rf ./build
                         fi
-                    '''
+                    """
                 }
             }
         }
 
         stage('Run e2e tests') {
-            environment {
-                GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                CLUSTER_NAME = sh(script: "echo jenkins-par-psmo-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-
-            }
             options {
                 timeout(time: 3, unit: 'HOURS')
             }
             parallel {
-                stage('Cluster1') {
+                stage('cluster1') {
                     agent {
                         label 'docker'
                     }
                     steps {
                         prepareNode()
                         unstash "sourceFILES"
-                        createCluster('cluster1')
-                        runTest('auto-config','cluster1')
-                        runTest('config','cluster1')
-                        runTest('demand-backup', 'cluster1')
-                        runTest('gr-demand-backup', 'cluster1')
-                        runTest('gr-one-pod', 'cluster1')
-                        runTest('gr-ignore-annotations', 'cluster1')
-                        shutdownCluster('cluster1')
+                        clusterRunner('cluster1')
                     }
                 }
-                stage('Cluster2') {
+                stage('cluster2') {
                     agent {
                         label 'docker'
                     }
                     steps {
                         prepareNode()
                         unstash "sourceFILES"
-                        createCluster('cluster2')
-                        runTest('gr-init-deploy','cluster2')
-                        runTest('haproxy', 'cluster2')
-                        runTest('init-deploy', 'cluster2')
-                        runTest('limits', 'cluster2')
-                        runTest('async-ignore-annotations', 'cluster2')
-                        runTest('gr-scaling', 'cluster2')
-                        shutdownCluster('cluster2')
+                        clusterRunner('cluster2')
                     }
                 }
-                stage('Cluster3') {
+                stage('cluster3') {
                     agent {
                         label 'docker'
                     }
                     steps {
                         prepareNode()
                         unstash "sourceFILES"
-                        createCluster('cluster3')
-                        runTest('monitoring', 'cluster3')
-                        runTest('one-pod', 'cluster3')
-                        runTest('scaling', 'cluster3')
-                        runTest('semi-sync', 'cluster3')
-                        runTest('config-router', 'cluster3')
-                        runTest('gr-tls-cert-manager', 'cluster3')
-                        shutdownCluster('cluster3')
+                        clusterRunner('cluster3')
                     }
                 }
-                stage('Cluster4') {
+                stage('cluster4') {
                     agent {
                         label 'docker'
                     }
                     steps {
                         prepareNode()
                         unstash "sourceFILES"
-                        createCluster('cluster4')
-                        runTest('service-per-pod', 'cluster4')
-                        runTest('sidecars', 'cluster4')
-                        runTest('tls-cert-manager', 'cluster4')
-                        runTest('users', 'cluster4')
-                        runTest('version-service', 'cluster4')
-                        shutdownCluster('cluster4')
+                        clusterRunner('cluster4')
                     }
                 }
             }
 
-        }
-        stage('Make report') {
-            steps {
-                makeReport()
-                sh """
-                    echo "${TestsReport}" > TestsReport.xml
-                """
-                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-                archiveArtifacts '*.xml'
-            }
         }
     }
 
     post {
         always {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
+            makeReport()
+            sh """
+                echo "${TestsReport}" > TestsReport.xml
+            """
+            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            archiveArtifacts '*.xml'
 
-                    sh '''
-                    export CLUSTER_NAME=$(echo jenkins-par-psmo-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
-                    
-                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster1" --region $AWSRegion || true
-                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster2" --region $AWSRegion || true
-                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster3" --region $AWSRegion || true
-                    eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-cluster4" --region $AWSRegion || true
-                    
-                    eksctl delete cluster -f cluster-cluster1.yaml --wait --force --disable-nodegroup-eviction || true
-                    eksctl delete cluster -f cluster-cluster2.yaml --wait --force --disable-nodegroup-eviction || true
-                    eksctl delete cluster -f cluster-cluster3.yaml --wait --force --disable-nodegroup-eviction || true
-                    eksctl delete cluster -f cluster-cluster4.yaml --wait --force --disable-nodegroup-eviction || true
-                    '''
-                }
+            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                sh """
+                    export CLUSTER_NAME=\$(echo jenkins-par-ps-\$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+                    for suffix in cluster{1..4}; do
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster "\${CLUSTER_NAME}-\${suffix}" --region $AWSRegion || true
+                    done
+                    for suffix in cluster{1..4}; do
+                        eksctl delete cluster -f cluster-\${suffix}.yaml --wait --force --disable-nodegroup-eviction || true
+                    done
+                """
+            }
 
-            sh '''
-                sudo docker rmi -f \$(sudo docker images -q) || true
-                sudo rm -rf $HOME/google-cloud-sdk
+            sh """
+                sudo docker system prune -fa
                 sudo rm -rf ./*
-            '''
+                sudo rm -rf $HOME/google-cloud-sdk
+            """
             deleteDir()
         }
     }
