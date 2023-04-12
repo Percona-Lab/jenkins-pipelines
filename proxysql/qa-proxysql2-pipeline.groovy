@@ -62,6 +62,15 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '200', artifactNumToKeepStr: '200'))
     }
     stages {
+
+        stage('Prepare') {
+                steps {
+                    script {
+                        currentBuild.displayName = "#${BUILD_NUMBER}-${params.BRANCH}-${params.DOCKER_OS}"
+                    }
+                }
+        }
+
         stage('Build ProxySQL') {
                 agent { label 'docker' }
                 steps {
