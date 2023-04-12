@@ -66,7 +66,7 @@ pipeline {
         stage('Prepare') {
                 steps {
                     script {
-                        currentBuild.displayName = "#${BUILD_NUMBER}-${params.BRANCH}-${params.DOCKER_OS}"
+                        currentBuild.displayName = "#${BUILD_NUMBER}-${params.BRANCH}-${params.DOCKER_OS}-${params.CMAKE_BUILD_TYPE}"
                     }
                 }
         }
