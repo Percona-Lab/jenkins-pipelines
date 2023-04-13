@@ -220,12 +220,12 @@ pipeline {
                             ${RPMBUILD_DOCKER_IMAGE} \
                             sh -c "cd /pmm-submodules/${PATH_TO_PMM} && make -C admin release"
 
-                        cd ${PATH_TO_PMM} && docker build \
-                                                -t ${DOCKER_SERVER_UPGRADE_TAG} \
-                                                -f build/docker/pmm-server-upgrade/Dockerfile \
-                                                --build-arg VERSION=$(git describe --always --dirty | cut -b2-) \
-                                                --build-arg BUILD_DATE=$(date '+%s') \
-                                                ${PATH_TO_PMM}/bin
+                        docker build \
+                            -t ${DOCKER_SERVER_UPGRADE_TAG} \
+                            -f build/docker/pmm-server-upgrade/Dockerfile \
+                            --build-arg VERSION=$(cd ${PATH_TO_PMM} && git describe --always --dirty | cut -b2-) \
+                            --build-arg BUILD_DATE=$(date '+%s') \
+                            ${PATH_TO_PMM}/bin
 
                         docker push ${DOCKER_SERVER_UPGRADE_TAG}
                     '''
