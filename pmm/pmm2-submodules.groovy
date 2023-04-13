@@ -208,7 +208,7 @@ pipeline {
                     """
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
 
                         DOCKER_SERVER_UPGRADE_TAG=perconalab/pmm-server-upgrade-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
@@ -225,7 +225,7 @@ pipeline {
                             ${PATH_TO_PMM}/bin
 
                         docker push ${DOCKER_SERVER_UPGRADE_TAG}
-                    """
+                    '''
                 }
                 stash includes: 'results/docker/DOCKER_SERVER_UPGRADE_TAG', name: 'DOCKER_SERVER_UPGRADE_IMAGE'
                 archiveArtifacts 'results/docker/DOCKER_SERVER_UPGRADE_TAG'
