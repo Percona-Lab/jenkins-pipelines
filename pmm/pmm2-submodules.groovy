@@ -211,11 +211,13 @@ pipeline {
                     sh '''
                         set -o errexit
 
+                        cd ${PATH_TO_PMM}
+
                         DOCKER_SERVER_UPGRADE_TAG=perconalab/pmm-server-upgrade-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
                         RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:2
                         PMM_RELEASE_VERSION=$(cd ${PATH_TO_PMM} && git describe --always --dirty | cut -b2-)
 
-                        docker run --rm -v ${PATH_TO_PMM}:/pmm ${RPMBUILD_DOCKER_IMAGE} sh -c "cd /pmm && make -C admin release"
+                        docker run --rm -v ${PWD}:/pmm ${RPMBUILD_DOCKER_IMAGE} sh -c "cd /pmm && make -C admin release"
 
                         docker build \
                             -t ${DOCKER_SERVER_UPGRADE_TAG} \
