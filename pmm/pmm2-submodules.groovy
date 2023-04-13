@@ -211,10 +211,20 @@ pipeline {
                     sh """
                         set -o errexit
 
-                        export PUSH_DOCKER=1
-                        export DOCKER_SERVER_UPGRADE_TAG=perconalab/pmm-server-upgrade-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+                        DOCKER_SERVER_UPGRADE_TAG=perconalab/pmm-server-upgrade-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+                        RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:2
+                        PMM_RELEASE_VERSION=$(cd ${PATH_TO_PMM} && git describe --always --dirty | cut -b2-)
 
-                        cd ${PATH_TO_PMM} && make -C admin build-docker
+                        docker run --rm -it -v ${PATH_TO_PMM}:/pmm ${RPMBUILD_DOCKER_IMAGE} sh -c "cd /pmm && make -C admin release"
+
+                        docker build \
+                            -t ${DOCKER_SERVER_UPGRADE_TAG} \
+                            -f ${PATH_TO_PMM}/build/docker/pmm-server-upgrade/Dockerfile \
+                            --build-arg VERSION=${PMM_RELEASE_VERSION} \
+                            --build-arg BUILD_DATE=$(date '+%s') \
+                            ${PATH_TO_PMM}/bin
+
+                        docker push ${DOCKER_SERVER_UPGRADE_TAG}
                     """
                 }
                 stash includes: 'results/docker/DOCKER_SERVER_UPGRADE_TAG', name: 'DOCKER_SERVER_UPGRADE_IMAGE'
