@@ -94,112 +94,112 @@ pipeline {
                 }
             }
         }
-        stage('Build client binary') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        set -o errexit
+        // stage('Build client binary') {
+        //     steps {
+        //         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        //             sh """
+        //                 set -o errexit
 
-                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+        //                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                        ${PATH_TO_SCRIPTS}/build-client-binary
-                        aws s3 cp \
-                            --acl public-read \
-                            results/tarball/pmm2-client-*.tar.gz \
-                            s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-\${BRANCH_NAME}-\${GIT_COMMIT:0:7}.tar.gz
-                    """
-                }
-                script {
-                    def clientPackageURL = sh script:'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL', returnStdout: true
-                    env.CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
-                }
-                stash includes: 'CLIENT_URL', name: 'CLIENT_URL'
-            }
-        }
-        stage('Build client source rpm') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        set -o errexit
-                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+        //                 ${PATH_TO_SCRIPTS}/build-client-binary
+        //                 aws s3 cp \
+        //                     --acl public-read \
+        //                     results/tarball/pmm2-client-*.tar.gz \
+        //                     s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-\${BRANCH_NAME}-\${GIT_COMMIT:0:7}.tar.gz
+        //             """
+        //         }
+        //         script {
+        //             def clientPackageURL = sh script:'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL', returnStdout: true
+        //             env.CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
+        //         }
+        //         stash includes: 'CLIENT_URL', name: 'CLIENT_URL'
+        //     }
+        // }
+        // stage('Build client source rpm') {
+        //     steps {
+        //         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        //             sh """
+        //                 set -o errexit
+        //                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                        ${PATH_TO_SCRIPTS}/build-client-srpm centos:7
-                    """
-                }
-            }
-        }
-        stage('Build client binary rpm') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        set -o errexit
+        //                 ${PATH_TO_SCRIPTS}/build-client-srpm centos:7
+        //             """
+        //         }
+        //     }
+        // }
+        // stage('Build client binary rpm') {
+        //     steps {
+        //         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        //             sh """
+        //                 set -o errexit
 
-                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+        //                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                        ${PATH_TO_SCRIPTS}/build-client-rpm centos:7
+        //                 ${PATH_TO_SCRIPTS}/build-client-rpm centos:7
 
-                        mkdir -p tmp/pmm-server/RPMS/
-                        cp results/rpm/pmm2-client-*.rpm tmp/pmm-server/RPMS/
-                    """
-                }
-            }
-        }
-        stage('Build client docker') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
-                        docker login -u "${USER}" -p "${PASS}"
-                    """
-                }
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        set -o errexit
-                        export PUSH_DOCKER=1
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
-                        ${PATH_TO_SCRIPTS}/build-client-docker
-                    """
-                }
-                stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
-                archiveArtifacts 'results/docker/CLIENT_TAG'
-            }
-        }
-        stage('Build server packages') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        set -o errexit
+        //                 mkdir -p tmp/pmm-server/RPMS/
+        //                 cp results/rpm/pmm2-client-*.rpm tmp/pmm-server/RPMS/
+        //             """
+        //         }
+        //     }
+        // }
+        // stage('Build client docker') {
+        //     steps {
+        //         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        //             sh """
+        //                 docker login -u "${USER}" -p "${PASS}"
+        //             """
+        //         }
+        //         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        //             sh """
+        //                 set -o errexit
+        //                 export PUSH_DOCKER=1
+        //                 export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+        //                 ${PATH_TO_SCRIPTS}/build-client-docker
+        //             """
+        //         }
+        //         stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
+        //         archiveArtifacts 'results/docker/CLIENT_TAG'
+        //     }
+        // }
+        // stage('Build server packages') {
+        //     steps {
+        //         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        //             sh """
+        //                 set -o errexit
 
-                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+        //                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                        export RPM_EPOCH=1
-                        export PATH=\$PATH:\$(pwd -P)/${PATH_TO_SCRIPTS}
+        //                 export RPM_EPOCH=1
+        //                 export PATH=\$PATH:\$(pwd -P)/${PATH_TO_SCRIPTS}
 
-                        ${PATH_TO_SCRIPTS}/build-server-rpm-all
-                    """
-                }
-            }
-        }
-        stage('Build server docker') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
-                        docker login -u "${USER}" -p "${PASS}"
-                    """
-                }
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        set -o errexit
+        //                 ${PATH_TO_SCRIPTS}/build-server-rpm-all
+        //             """
+        //         }
+        //     }
+        // }
+        // stage('Build server docker') {
+        //     steps {
+        //         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        //             sh """
+        //                 docker login -u "${USER}" -p "${PASS}"
+        //             """
+        //         }
+        //         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        //             sh """
+        //                 set -o errexit
 
-                        export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+        //                 export PUSH_DOCKER=1
+        //                 export DOCKER_TAG=perconalab/pmm-server-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
 
-                        ${PATH_TO_SCRIPTS}/build-server-docker
-                    """
-                }
-                stash includes: 'results/docker/TAG', name: 'IMAGE'
-                archiveArtifacts 'results/docker/TAG'
-            }
-        }
+        //                 ${PATH_TO_SCRIPTS}/build-server-docker
+        //             """
+        //         }
+        //         stash includes: 'results/docker/TAG', name: 'IMAGE'
+        //         archiveArtifacts 'results/docker/TAG'
+        //     }
+        // }
         stage('Build server upgrade docker') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
