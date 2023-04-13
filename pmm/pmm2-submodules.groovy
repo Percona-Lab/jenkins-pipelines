@@ -216,10 +216,10 @@ pipeline {
 
                         echo "PWD -> ${PWD}"
                         echo "PATH_TO_PMM -> ${PATH_TO_PMM}"
-                        ls
-                        ls build
-                        ls build/docker
-                        ls build/docker/pmm-server-upgrade
+                        ls ${PATH_TO_PMM}
+                        ls ${PATH_TO_PMM}/build
+                        ls ${PATH_TO_PMM}/build/docker
+                        ls ${PATH_TO_PMM}/build/docker/pmm-server-upgrade
 
                         echo ${PATH_TO_PMM}/build/docker/pmm-server-upgrade
 
