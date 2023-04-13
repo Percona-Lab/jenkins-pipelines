@@ -166,7 +166,6 @@ pipeline {
                 script {
                     // getPMMBuildParams sets envvars: VM_NAME, OWNER, OWNER_SLACK
                     getPMMBuildParams('pmm-')
-
                     echo """
                         DOCKER_VERSION:  ${DOCKER_VERSION}
                         CLIENT_VERSION:  ${CLIENT_VERSION}
@@ -185,7 +184,7 @@ pipeline {
                         VM_NAME:         ${VM_NAME}
                         VERSION_SERVICE: ${VERSION_SERVICE_IMAGE}
                     """
-
+                    env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     if (params.NOTIFY == "true") {
                         slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         if (env.OWNER_SLACK) {
