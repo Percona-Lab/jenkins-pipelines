@@ -124,7 +124,7 @@ unset PROXY_TAR_FILENAME
 COPY_TIMEOUT=60
 
 for X in $(seq 0 $COPY_TIMEOUT); do
-  PROXY_TAR_FILENAME=$(ls -1 $WORKDIR_ABS/ | grep -E "proxysql.*.glibc.*.tar.gz")
+  PROXY_TAR_FILENAME=$(ls -1 $WORKDIR_ABS/ | grep -E "proxysql.*.glibc.*.tar.gz" || ls -1 $WORKDIR_ABS/ | grep -E "proxysql-${BRANCH}.tar.gz")
   if [ -f $WORKDIR_ABS/$PROXY_TAR_FILENAME ]; then
     sudo tar -xzf $WORKDIR_ABS/$PROXY_TAR_FILENAME -C ${WORKDIR_ABS}/PROXY_ADMIN
     break;
