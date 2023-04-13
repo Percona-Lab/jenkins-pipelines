@@ -67,7 +67,7 @@ priceMap = [:]
 priceMap['t2.large']  = '0.045'
 priceMap['t3.xlarge'] = '0.065'
 priceMap['t3.large']  = '0.035'
-priceMap['m4.large']  = '0.035'
+priceMap['m4.large']  = '0.040'
 
 userMap = [:]
 userMap['min-rhel-7-x64']    = 'centos'
