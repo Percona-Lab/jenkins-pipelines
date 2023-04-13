@@ -336,6 +336,7 @@ pipeline {
         }
         failure {
             script {
+                archiveArtifacts artifacts: 'tests/output/*.png'
                 slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
             }
         }
