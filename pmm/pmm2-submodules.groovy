@@ -214,6 +214,15 @@ pipeline {
                         DOCKER_SERVER_UPGRADE_TAG=perconalab/pmm-server-upgrade-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
                         RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:2
 
+                        echo "PWD -> ${PWD}"
+                        echo "PATH_TO_PMM -> ${PATH_TO_PMM}"
+                        ls
+                        ls build
+                        ls build/docker
+                        ls build/docker/pmm-server-upgrade
+
+                        echo ${PATH_TO_PMM}/build/docker/pmm-server-upgrade
+
                         docker run \
                             --rm \
                             -v ${PWD}:/pmm-submodules \
