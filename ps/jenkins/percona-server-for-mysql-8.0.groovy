@@ -77,6 +77,10 @@ parameters {
             choices: 'laboratory\ntesting\nexperimental\nrelease',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
+        choice(
+            choices: '#releases\n#releases-ci',
+            description: 'Channel for notifications',
+            name: 'SLACKNOTIFY')
     }
     options {
         skipDefaultCheckout()
@@ -440,15 +444,68 @@ parameters {
                 sync2ProdAutoBuild('ps-80', COMPONENT)
             }
         }
+        stage('Push Tarballs to TESTING download area') {
+            steps {
+                script {
+                    try {
+                        uploadTarballToDownloadsTesting("ps", "${BRANCH}")
+                    }
+                    catch (err) {
+                        echo "Caught: ${err}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
+            }
+        }
+        stage('Build docker container') {
+            agent {
+                label 'min-bionic-x64'
+            }
+            steps {
+                echo "====> Build docker container"
+                cleanUpWS()
+                installCli("deb")
+                unstash 'properties'
+                #popArtifactFolder("rpm/", AWS_STASH_PATH)
+                sh '''
+                    PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g');
+                    sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+                    sudo apt-get install -y docker.io
+                    sudo systemctl status docker
+                    git clone https://github.com/percona/percona-docker
+                    cd percona-docker/percona-server-8.0
+                    sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
+                    sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile
+                    cat -n Dockerfile
+                    sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} .
+                    sudo docker images
+                '''
+                withCredentials([
+                    usernamePassword(credentialsId: 'hub.docker.com',
+                    passwordVariable: 'PASS',
+                    usernameVariable: 'USER'
+                    )]) {
+                    sh '''
+                        echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
+                        sudo docker push perconalab/percona-server:${PG_RELEASE}
+                    '''
+                }
+            }
 
     }
     post {
         success {
-            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+            script {
+                currentBuild.description = "Built on ${BRANCH}; path to packages: experimental/${AWS_STASH_PATH}"
+            }
             deleteDir()
         }
         failure {
-            slackNotify("#releases", "#FF0000", "[${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
+            script {
+                currentBuild.description = "Built on ${BRANCH}"
+            }
             deleteDir()
         }
         always {
