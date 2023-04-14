@@ -466,7 +466,6 @@ parameters {
                 cleanUpWS()
                 installCli("deb")
                 unstash 'properties'
-                #popArtifactFolder("rpm/", AWS_STASH_PATH)
                 sh '''
                     PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g');
                     sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
@@ -497,7 +496,7 @@ parameters {
         success {
             slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${BRANCH}; path to packages: experimental/${AWS_STASH_PATH}"
+                currentBuild.description = "Built on ${BRANCH}; path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
             }
             deleteDir()
         }
