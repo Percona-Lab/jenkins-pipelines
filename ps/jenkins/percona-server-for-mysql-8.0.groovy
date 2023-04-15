@@ -94,7 +94,7 @@ parameters {
                label 'min-bionic-x64'
             }
             steps {
-                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 installCli("deb")
                 buildStage("ubuntu:bionic", "--get_sources=1")
@@ -467,7 +467,7 @@ parameters {
                 installCli("deb")
                 unstash 'properties'
                 sh '''
-                    PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g');
+                    PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                     sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                     sudo apt-get install -y docker.io
                     sudo systemctl status docker
@@ -486,6 +486,7 @@ parameters {
                     )]) {
                     sh '''
                         echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
+                        PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                         sudo docker push perconalab/percona-server:${PG_RELEASE}
                     '''
                 }
