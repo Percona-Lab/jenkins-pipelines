@@ -116,7 +116,7 @@ pipeline {
     always {
           script {
              if (env.DESTROY_ENV == "yes") {
-             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "default")
              }
              sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION)
         }

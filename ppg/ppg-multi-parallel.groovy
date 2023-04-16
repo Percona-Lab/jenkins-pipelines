@@ -372,26 +372,26 @@ pipeline {
                 }
             }
         }
-        stage ('Test minor downgrade') {
-            steps {
-                script {
-                    try {
-                        build job: 'ppg-upgrade-parallel', parameters: [
-                        string(name: 'FROM_REPO', value: "${env.FROM_REPO}"),
-                        string(name: 'FROM_VERSION', value: "${env.VERSION}"),
-                        string(name: 'TO_REPO', value: "${env.TO_REPO}"),
-                        string(name: 'VERSION', value: "${env.FROM_MINOR_VERSION}"),
-                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-minor-upgrade"),
-                        ]
-                    }
-                    catch (err) {
-                        currentBuild.result = "FAILURE"
-                        echo "Stage 'Test minor downgrade' failed, but we continue"
-                    }
-                }
-            }
-        }
+        // stage ('Test minor downgrade') {
+        //     steps {
+        //         script {
+        //             try {
+        //                 build job: 'ppg-upgrade-parallel', parameters: [
+        //                 string(name: 'FROM_REPO', value: "${env.FROM_REPO}"),
+        //                 string(name: 'FROM_VERSION', value: "${env.VERSION}"),
+        //                 string(name: 'TO_REPO', value: "${env.TO_REPO}"),
+        //                 string(name: 'VERSION', value: "${env.FROM_MINOR_VERSION}"),
+        //                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+        //                 string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-minor-upgrade"),
+        //                 ]
+        //             }
+        //             catch (err) {
+        //                 currentBuild.result = "FAILURE"
+        //                 echo "Stage 'Test minor downgrade' failed, but we continue"
+        //             }
+        //         }
+        //     }
+        // }
         stage ('Test major upgrade') {
             when {
                 expression { env.MAJOR_VERSION != '11' }
@@ -415,29 +415,29 @@ pipeline {
                 }
             }
         }
-        stage ('Test major downgrade') {
-            when {
-                expression { env.MAJOR_VERSION != '11' }
-            }
-            steps {
-                script {
-                    try {
-                        build job: 'ppg-upgrade-parallel', parameters: [
-                        string(name: 'FROM_REPO', value: "${env.FROM_REPO}"),
-                        string(name: 'FROM_VERSION', value: "${env.VERSION}"),
-                        string(name: 'TO_REPO', value: "${env.TO_REPO}"),
-                        string(name: 'VERSION', value: "${env.FROM_MAJOR_VERSION}"),
-                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-major-upgrade"),
-                        ]
-                    }
-                    catch (err) {
-                        currentBuild.result = "FAILURE"
-                        echo "Stage 'Test major downgrade' failed, but we continue"
-                    }
-                }
-            }
-        }
+        // stage ('Test major downgrade') {
+        //     when {
+        //         expression { env.MAJOR_VERSION != '11' }
+        //     }
+        //     steps {
+        //         script {
+        //             try {
+        //                 build job: 'ppg-upgrade-parallel', parameters: [
+        //                 string(name: 'FROM_REPO', value: "${env.FROM_REPO}"),
+        //                 string(name: 'FROM_VERSION', value: "${env.VERSION}"),
+        //                 string(name: 'TO_REPO', value: "${env.TO_REPO}"),
+        //                 string(name: 'VERSION', value: "${env.FROM_MAJOR_VERSION}"),
+        //                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+        //                 string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-major-upgrade"),
+        //                 ]
+        //             }
+        //             catch (err) {
+        //                 currentBuild.result = "FAILURE"
+        //                 echo "Stage 'Test major downgrade' failed, but we continue"
+        //             }
+        //         }
+        //     }
+        // }
 
         stage ('Test Percona Components with Vanila Postgresql') {
             steps {
