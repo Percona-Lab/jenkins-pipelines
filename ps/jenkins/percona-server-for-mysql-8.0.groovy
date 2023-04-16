@@ -487,7 +487,7 @@ parameters {
                     sh '''
                         echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                         PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                        sudo docker push perconalab/percona-server:${PG_RELEASE}
+                        sudo docker push perconalab/percona-server:${PS_RELEASE}
                     '''
                 }
             }
