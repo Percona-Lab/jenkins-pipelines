@@ -278,7 +278,7 @@ pipeline {
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@ovf-upgrade'
+                        ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@ovf-upgrade'
                     """
                     }
                 }
@@ -295,7 +295,7 @@ pipeline {
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
                     sleep 30
-                    ./node_modules/.bin/codeceptjs run --debug --steps -c pr.codecept.js --grep '(?=.*@post-client-upgrade)(?=.*@ovf-upgrade)'
+                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '(?=.*@post-client-upgrade)(?=.*@ovf-upgrade)'
                 """
             }
         }
@@ -313,9 +313,11 @@ pipeline {
                 } catch (err) {
                     echo err.getMessage()
                 }
+                fetchAgentLog(CLIENT_VERSION)
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'pmm-agent.log'
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -323,6 +325,7 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
         }
         success {
             script {
@@ -346,7 +349,6 @@ pipeline {
                     destroyStaging(VM_CLIENT_IP)
                 }
                 if (env.VM_CLIENT_IP_DB) {
-                    fetchAgentLog(CLIENT_VERSION)
                     destroyStaging(VM_CLIENT_IP_DB)
                 }
                 def node = Jenkins.instance.getNode(env.OVF_INSTANCE_NAME)

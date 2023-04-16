@@ -1,9 +1,7 @@
-pipeline_timeout = 10
-
 pipeline {
     parameters {
         choice(
-            choices: 'centos:7\ncentos:8\nubuntu:bionic\nubuntu:focal\ndebian:buster\nasan',
+            choices: 'centos:7\ncentos:8\noraclelinux:9\nubuntu:bionic\nubuntu:focal\nubuntu:jammy\ndebian:buster\ndebian:bullseye\nasan',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(

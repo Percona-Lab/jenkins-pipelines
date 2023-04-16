@@ -49,12 +49,6 @@ pipeline {
     stages {
         stage('Run parallel') {
             parallel {
-                stage('Debian Stretch') {
-                    steps {
-                        runNodeBuild('min-stretch-x64')
-                    }
-                }
-
                 stage('Debian Buster') {
                     steps {
                         runNodeBuild('min-buster-x64')
@@ -91,6 +85,18 @@ pipeline {
                     }
                 }
 
+                stage('Ubuntu Jammy') {
+                    steps {
+                        script{
+                            if (env.product_to_test == 'proxysql') {
+                                echo 'Proxysql is not available for Ubuntu Jammy'
+                            } else {
+                                runNodeBuild('min-jammy-x64')
+                            }
+                        }
+                    }
+                }
+
                 stage('Centos 7') {
                     steps {
                         runNodeBuild('min-centos-7-x64')
@@ -104,6 +110,18 @@ pipeline {
                                 echo 'Proxysql is not available for Oracle Linux 8'
                             } else {
                                 runNodeBuild('min-ol-8-x64')
+                            }
+                        }
+                    }
+                }
+
+                stage('Oracle Linux 9') {
+                    steps {
+                        script{
+                            if (env.product_to_test == 'proxysql') {
+                                echo 'Proxysql is not available for Oracle Linux 9'
+                            } else {
+                                runNodeBuild('min-ol-9-x64')
                             }
                         }
                     }

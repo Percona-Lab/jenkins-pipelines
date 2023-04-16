@@ -82,7 +82,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['15.0','14.4','14.3','14.2', '14.1', '14.0', '13.7', '13.6', '13.4', '13.2', '13.1', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
+            choices: ['15.2', '15.1', '15.0', '14.6', '14.4', '14.3', '14.2', '14.1', '14.0', '13.9', '13.7', '13.6', '13.4', '13.2', '13.1', '12.13', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -112,7 +112,7 @@ pipeline {
             ''',
             name: 'VERSION_SERVICE_IMAGE')
         text(
-            defaultValue: '',
+            defaultValue: '-e PMM_DEBUG=1 -e PERCONA_TEST_TELEMETRY_INTERVAL=10s  -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ -e PERCONA_PORTAL_URL=https://portal-dev.percona.com  -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443',
             description: '''
             Passing Env Variables to PMM Server Docker Container, supported only for pmm2.x
             An Example: -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PMM_DEBUG=1
@@ -185,7 +185,7 @@ pipeline {
                         VM_NAME:         ${VM_NAME}
                         VERSION_SERVICE: ${VERSION_SERVICE_IMAGE}
                     """
-
+                    env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     if (params.NOTIFY == "true") {
                         slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         if (env.OWNER_SLACK) {
@@ -286,6 +286,7 @@ pipeline {
                                         else
                                             export ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
                                         fi
+                                        docker network create pmm-qa || true
 
                                         docker run -d \
                                             -p 80:80 \
@@ -293,6 +294,7 @@ pipeline {
                                             -p 9000:9000 \
                                             --volumes-from ${VM_NAME}-data \
                                             --name ${VM_NAME}-server \
+                                            --network pmm-qa \
                                             --restart always \
                                             $ENV_VARIABLE \
                                             ${DOCKER_VERSION}
@@ -347,7 +349,7 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
-        
+
                                 # exclude unavailable mirrors
                                 docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
                                 docker exec ${VM_NAME}-server yum update -y percona-release
@@ -386,10 +388,21 @@ pipeline {
             steps {
                 node(env.VM_NAME){
                     setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
+                    script {
+                        env.PMM_REPO="experimental"
+                        if(env.CLIENT_VERSION == "pmm2-rc") {
+                            env.PMM_REPO="testing"
+                        }
+                        
+                    }
                     sh '''
                         set -o errexit
                         set -o xtrace
                         export PATH=$PATH:/usr/sbin
+                        export PMM_CLIENT_VERSION=${CLIENT_VERSION}
+                        if [[ ${CLIENT_VERSION} == dev-latest ]]; then
+                                export PMM_CLIENT_VERSION="latest"
+                        fi
                         [ -z "${CLIENTS}" ] && exit 0 || :
 
                         if [[ ${PMM_VERSION} == pmm2 ]]; then
@@ -439,7 +452,7 @@ pipeline {
         }
         success {
             script {
-                if (params.NOTIFY == "true") {  
+                if (params.NOTIFY == "true") {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER}, URL: https://${env.IP}"
                     if (env.OWNER_SLACK) {
                         slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${env.IP}"

@@ -3,11 +3,11 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
+void runStaging(String DOCKER_VERSION, CLIENTS) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
-        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e DISABLE_TELEMETRY=true -e DATA_RETENTION=48h'),
+        string(name: 'CLIENT_VERSION', value: 'pmm2-latest'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e DISABLE_TELEMETRY=true -e DATA_RETENTION=48h -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX'),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
@@ -15,7 +15,8 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
     env.VM_IP = stagingJob.buildVariables.IP
     env.PMM_SERVER_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "http://admin:admin@${VM_IP}"
+    env.ADMIN_PASSWORD = stagingJob.buildVariables.ADMIN_PASSWORD
+    env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
 }
 
 void destroyStaging(IP) {
@@ -78,29 +79,30 @@ pipeline {
         string(
             defaultValue: 'master',
             description: 'Tag/Branch for package-testing repository',
-            name: 'GIT_BRANCH')
+            name: 'GIT_BRANCH',
+            trim: true)
         string(
             defaultValue: '',
             description: 'Commit hash for the branch',
-            name: 'GIT_COMMIT_HASH')
+            name: 'GIT_COMMIT_HASH',
+            trim: true)
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
-            name: 'DOCKER_VERSION')
-        string(
-            defaultValue: 'dev-latest',
-            description: 'PMM Client version(dev-latest|pmm2-rc|image-name:version-tag)',
-            name: 'CLIENT_VERSION')
+            name: 'DOCKER_VERSION',
+            trim: true)
         string(
             defaultValue: latestVersion,
             description: 'PMM Version for testing',
-            name: 'PMM_VERSION')
+            name: 'PMM_VERSION',
+            trim: true)
         string(
             defaultValue: 'pmm2-client',
             description: 'Name of Playbook? ex: pmm2-client_integration, pmm2-client_integration_custom_path',
-            name: 'TESTS')
+            name: 'TESTS',
+            trim: true)
         choice(
-            choices: ['testing', 'experimental', 'main', 'tools-main', 'pmm2-client-main'],
+            choices: ['experimental', 'testing', 'main', 'pmm2-client-main'],
             description: 'Enable Repo for Client Nodes',
             name: 'INSTALL_REPO')
         choice(
@@ -114,14 +116,14 @@ pipeline {
     stages {
         stage('Setup Server Instance') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1')
+                runStaging(DOCKER_VERSION, '--addclient=ps,1')
             }
         }
         stage('Execute Package Tests') {
             parallel {
-                stage('rhel-7-x64') {
+                stage('centos-7-x64') {
                     agent {
-                        label 'min-rhel-7-x64'
+                        label 'min-centos-7-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -133,9 +135,9 @@ pipeline {
                         }
                     }
                 }
-                stage('rhel-8-x64') {
+                stage('ol-8-x64') {
                     agent {
-                        label 'min-rhel-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -147,20 +149,23 @@ pipeline {
                         }
                     }
                 }
-//                 stage('rhel-9-x64') {
-//                     agent {
-//                         label 'min-rhel-9-x64'
-//                     }
-//                     steps{
-//                         setup_rhel_package_tests()
-//                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
-//                     }
-//                     post {
-//                         always {
-//                             deleteDir()
-//                         }
-//                     }
-//                 }
+                stage('ol-9-x64') {
+                    when {
+                        expression { env.TESTS == "pmm2-client" || env.TESTS == "pmm2-client_upgrade" }
+                    }
+                    agent {
+                        label 'min-ol-9-x64'
+                    }
+                    steps{
+                        setup_rhel_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
                 stage('focal-x64') {
                     agent {
                         label 'min-focal-x64'

@@ -1,10 +1,12 @@
+tests=[]
+
 void IsRunTestsInClusterWide() {
-    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+    if ("${params.CLUSTER_WIDE}" == "YES") {
         env.OPERATOR_NS = 'psmdb-operator'
     }
 }
 
-void pushArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
+void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -17,104 +19,135 @@ void pushArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
     }
 }
 
-void popArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
+void initTests() {
+    echo "Populating tests into the tests array!"
+    def testList = "${params.TEST_LIST}"
+    def suiteFileName = "./source/e2e-tests/${params.TEST_SUITE}"
+
+    if (testList.length() != 0) {
+        suiteFileName = './source/e2e-tests/run-custom.csv'
+        sh """
+            echo -e "${testList}" > ${suiteFileName}
+            echo "Custom test suite contains following tests:"
+            cat ${suiteFileName}
+        """
+    }
+
+    def records = readCSV file: suiteFileName
+
+    for (int i=0; i<records.size(); i++) {
+        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
+    }
+
+    markPassedTests()
+}
+
+void markPassedTests() {
+    echo "Marking passed tests in the tests map!"
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${GIT_SHORT_COMMIT}
-            aws s3 cp --quiet \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
+            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
         """
+
+        for (int i=0; i<tests.size(); i++) {
+            def testName = tests[i]["name"]
+            def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}"
+            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+
+            if (retFileExists == 0) {
+                tests[i]["result"] = "passed"
+            }
+        }
     }
 }
 
 TestsReport = '<testsuite name=\\"PSMDB\\">\n'
-testsReportMap = [:]
 void makeReport() {
-    for ( test in testsReportMap ) {
-        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
+    for (int i=0; i<tests.size(); i++) {
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"]
+        def testName = tests[i]["name"]
+
+        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
     }
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME) {
+void clusterRunner(String cluster) {
+    for (int i=0; i<tests.size(); i++) {
+        if (tests[i]["result"] == "skipped") {
+            tests[i]["result"] = "failure"
+            tests[i]["cluster"] = cluster
+            runTest(i)
+        }
+    }
+}
+
+void runTest(Integer TEST_ID) {
     def retryCount = 0
+    def testName = tests[TEST_ID]["name"]
+
     waitUntil {
+        def timeStart = new Date().getTime()
         try {
-            echo "The $TEST_NAME test was started!"
+            echo "The $testName test was started !"
+            tests[TEST_ID]["result"] = "failure"
 
-            GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-            VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-            FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}"
-            MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
-            testsReportMap[TEST_NAME] = 'failure'
-
-            popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
             sh """
-                if [ -f "$FILE_NAME" ]; then
-                    echo Skip $TEST_NAME test
+                cd ./source
+                if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                    export IMAGE=${PSMDB_OPERATOR_IMAGE}
                 else
-                    cd ./source
-                    if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
-                        export IMAGE=${PSMDB_OPERATOR_IMAGE}
-                    else
-                        export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
-                    fi
-
-                    if [ -n "${IMAGE_MONGOD}" ]; then
-                        export IMAGE_MONGOD=${IMAGE_MONGOD}
-                    fi
-
-                    if [ -n "${IMAGE_BACKUP}" ]; then
-                        export IMAGE_BACKUP=${IMAGE_BACKUP}
-                    fi
-
-                    if [ -n "${IMAGE_PMM}" ]; then
-                        export IMAGE_PMM=${IMAGE_PMM}
-                    fi
-
-                    if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
-                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
-                    fi
-
-                    if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
-                        export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
-                    fi
-
-                    sudo rm -rf /tmp/hostpath-provisioner/*
-                    ./e2e-tests/$TEST_NAME/run
+                    export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
                 fi
+
+                if [ -n "${IMAGE_MONGOD}" ]; then
+                    export IMAGE_MONGOD=${IMAGE_MONGOD}
+                fi
+
+                if [ -n "${IMAGE_BACKUP}" ]; then
+                    export IMAGE_BACKUP=${IMAGE_BACKUP}
+                fi
+
+                if [ -n "${IMAGE_PMM}" ]; then
+                    export IMAGE_PMM=${IMAGE_PMM}
+                fi
+
+                if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                    export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                fi
+
+                if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                    export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                fi
+
+                sudo rm -rf /tmp/hostpath-provisioner/*
+                ./e2e-tests/$testName/run
             """
-            pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
-            testsReportMap[TEST_NAME] = 'passed'
+            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
+            tests[TEST_ID]["result"] = "passed"
             return true
         }
         catch (exc) {
-            if (retryCount >= 2) {
+            if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
             retryCount++
             return false
         }
-    }
-    sh """
-        rm -rf $FILE_NAME
-    """
-
-    echo "The $TEST_NAME test was finished!"
-}
-
-void conditionalRunTest(String TEST_NAME) {
-    if ( TEST_NAME == 'default-cr' ) {
-        if ( params.GIT_BRANCH.contains('release-') ) {
-            runTest(TEST_NAME)
+        finally {
+            def timeStop = new Date().getTime()
+            def durationSec = (timeStop - timeStart) / 1000
+            tests[TEST_ID]["time"] = durationSec
+            echo "The $testName test was finished!"
         }
-        return 0
     }
-    runTest(TEST_NAME)
 }
 
 void installRpms() {
-    sh '''
+    sh """
         cat <<EOF > /tmp/kubernetes.repo
 [kubernetes]
 name=Kubernetes
@@ -125,14 +158,20 @@ repo_gpgcheck=0
 gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
         sudo mv /tmp/kubernetes.repo /etc/yum.repos.d/
-
         sudo yum clean all || true
-        sudo rm -rf /var/cache/yum
-        sudo yum install -y jq kubectl socat
-    '''
+        sudo yum install -y jq kubectl
+    """
 }
 pipeline {
     parameters {
+        choice(
+            choices: ['run-minikube.csv', 'run-release.csv', 'run-distro.csv'],
+            description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
+            name: 'TEST_SUITE')
+        text(
+            defaultValue: '',
+            description: 'List of tests to run separated by new line',
+            name: 'TEST_LIST')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
@@ -181,7 +220,10 @@ pipeline {
     options {
         skipDefaultCheckout()
     }
-
+    environment {
+        CLEAN_NAMESPACE = 1
+        MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
+    }
     stages {
         stage('Prepare') {
             agent { label 'docker' }
@@ -197,15 +239,19 @@ pipeline {
                     ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
                 """
                 stash includes: "source/**", name: "sourceFILES", useDefaultExcludes: false
+                script {
+                    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                }
+                initTests()
             }
         }
 
         stage('Build docker image') {
             agent { label 'docker' }
             steps {
-                sh '''
+                sh """
                     sudo rm -rf source
-                '''
+                """
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
@@ -226,14 +272,16 @@ pipeline {
             }
         }
         stage('Tests') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             agent { label 'docker-32gb' }
                 steps {
                     IsRunTestsInClusterWide()
 
-                    sh '''
+                    sh """
                         sudo yum install -y conntrack
                         sudo usermod -aG docker $USER
-
                         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                             rm -rf $HOME/google-cloud-sdk
                             curl https://sdk.cloud.google.com | bash
@@ -245,53 +293,41 @@ pipeline {
 
                         curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
+                        sudo chmod +x /usr/local/bin/yq
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
                         export CHANGE_MINIKUBE_NONE_USER=true
-                        /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER}
+                        /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER} --cpus=6 --memory=28G
 
                         sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                         sudo chmod +x /usr/local/bin/yq
-                    '''
+                    """
 
                     unstash "sourceFILES"
                     withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-                        sh '''
+                        sh """
                            cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-                        '''
+                        """
                     }
 
                     installRpms()
-                    conditionalRunTest('default-cr')
-                    runTest('arbiter')
-                    runTest('demand-backup')
-                    runTest('limits')
-                    runTest('liveness')
-                    runTest('one-pod')
-                    runTest('operator-self-healing-chaos')
-                    runTest('pitr')
-                    runTest('scaling')
-                    runTest('scheduled-backup')
-                    runTest('security-context')
-                    runTest('self-healing-chaos')
-                    runTest('smart-update')
-                    runTest('upgrade-consistency')
-                    runTest('users')
-                    runTest('version-service')
+                    clusterRunner('cluster1')
             }
             post {
                 always {
-                    sh '''
+                    sh """
                         /usr/local/bin/minikube delete || true
                         sudo rm -rf $HOME/google-cloud-sdk
                         sudo rm -rf ./*
-                    '''
+                    """
                     deleteDir()
                 }
             }
         }
         stage('Make report') {
             steps {
+                echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
                 makeReport()
                 sh """
                     echo "${TestsReport}" > TestsReport.xml
@@ -304,10 +340,10 @@ pipeline {
 
     post {
         always {
-            sh '''
+            sh """
                 sudo rm -rf $HOME/google-cloud-sdk
                 sudo rm -rf ./*
-            '''
+            """
             deleteDir()
         }
     }

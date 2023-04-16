@@ -28,27 +28,27 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.29',
-            description: 'Percona Server version for test',
+            defaultValue: '8.0.32-24',
+            description: 'Percona Server version for test. Possible values are with and without percona release: 8.0.32 OR 8.0.32-24',
             name: 'VERSION'
         )
         string(
-            defaultValue: '2.3.2',
+            defaultValue: '2.4.7',
             description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
         )
         string(
-            defaultValue: '8.0.29',
-            description: 'PXB version for test',
+            defaultValue: '8.0.32-25',
+            description: 'PXB version for test. Possible values are with and without percona release: 8.0.32 OR 8.0.32-25',
             name: 'PXB_VERSION'
         )
         string(
-            defaultValue: '3.4.0',
+            defaultValue: '3.5.1',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
         )
         string(
-            defaultValue: '3.2.6',
+            defaultValue: '3.2.6-7',
             description: 'Percona Orchestrator version for test',
             name: 'ORCHESTRATOR_VERSION'
         )
@@ -92,9 +92,10 @@ pipeline {
                 }
             }
         }
-        stage('Checkout') {
+        stage('Check version param and checkout') {
             steps {
                 deleteDir()
+                checkOrchVersionParam()
                 git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
             }
         }

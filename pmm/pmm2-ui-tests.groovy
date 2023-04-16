@@ -167,7 +167,7 @@ pipeline {
             description: 'Percona Server Docker Container Image',
             name: 'MYSQL_IMAGE')
         string(
-            defaultValue: 'perconalab/percona-distribution-postgresql:15.0',
+            defaultValue: 'perconalab/percona-distribution-postgresql:15.2',
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
         string(
@@ -208,6 +208,10 @@ pipeline {
                     env.CHANGE_USER_PASSWORD_UTILITY = changeUserPasswordUtility(DOCKER_VERSION)
                     if(env.TAG != "") {
                         currentBuild.description = env.TAG
+                    }
+                    env.PMM_REPO="experimental"
+                    if(env.CLIENT_VERSION == "pmm2-rc") {
+                        env.PMM_REPO="testing"
                     }
                 }
                 // clean up workspace and fetch pmm-ui-tests repository
@@ -290,6 +294,7 @@ pipeline {
                     if [[ \$CLIENT_VERSION != dev-latest ]]; then
                         export PATH="`pwd`/pmm2-client/bin:$PATH"
                     fi
+                    export PMM_REPO=${env.PMM_REPO}
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --download \
                         ${CLIENTS} \
@@ -334,7 +339,7 @@ pipeline {
                            export PATH="`pwd`/pmm2-client/bin:$PATH"
                         fi
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@not-ovf)^(?!.*@qan)^(?!.*@dbaas)^(?!.*@dashboards)^(?!.*@menu)^(?!.*@pmm-portal-upgrade)'
+                        ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@not-ovf)^(?!.*@qan)^(?!.*@dbaas)^(?!.*@dashboards)^(?!.*@menu)^(?!.*@pmm-portal-upgrade)^(?!.*@upgrade-dbaas)'
                     """
                 }
             }
@@ -356,7 +361,7 @@ pipeline {
                            export PATH="`pwd`/pmm2-client/bin:$PATH"
                         fi
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@dbaas)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@qan)^(?!.*@nightly)^(?!.*@settings)^(?!.*@menu)^(?!.*@pmm-portal-upgrade)'
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@dbaas)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@qan)^(?!.*@nightly)^(?!.*@settings)^(?!.*@menu)^(?!.*@pmm-portal-upgrade)^(?!.*@upgrade-dbaas)'
                     """
                 }
             }
@@ -381,7 +386,7 @@ pipeline {
                            export PATH="`pwd`/pmm2-client/bin:$PATH"
                         fi
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --steps --reporter mocha-multi -c pr.codecept.js --grep ${CODECEPT_TAG}
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep ${CODECEPT_TAG}
                     """
                 }
             }
@@ -402,7 +407,7 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-agent.log > pmm-agent-full.log || true
                 docker stop webhookd || true
                 docker rm webhookd || true
-                docker-compose down
+                docker-compose down || true
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
                 sudo chown -R ec2-user:ec2-user . || true
@@ -430,6 +435,7 @@ pipeline {
                     error "No test report files found at path: ${PATH_TO_REPORT_RESULTS}"
                 }
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -437,9 +443,11 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
         }
         failure {
             script {
+                archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
                 slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
             }
         }

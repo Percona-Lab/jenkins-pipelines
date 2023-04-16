@@ -65,13 +65,17 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '-e PMM_DEBUG=1 -e ENABLE_DBAAS=1 -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1 -e PERCONA_TEST_DBAAS_PMM_CLIENT=perconalab/pmm-client:dev-latest',
+            defaultValue: '-e PMM_DEBUG=1 -e ENABLE_DBAAS=1 -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1 -e PERCONA_TEST_DBAAS_PMM_CLIENT=perconalab/pmm-client:dev-latest -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX',
             description: 'Envirnomental variables',
-            name: 'DOCKER_ENV_VARIABLE')    
+            name: 'DOCKER_ENV_VARIABLE')
         string(
             defaultValue: "'@dbaas'",
             description: 'Pass test tags ex. @dbaas',
             name: 'TEST_TAGS')
+        string(
+            defaultValue: '',
+            description: 'Custom build description',
+            name: 'BUILD_DESC')    
         choice(
             choices: ['no', 'yes'],
             description: "Use this instance only as a client host",
@@ -113,6 +117,11 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                script {
+                    if(env.BUILD_DESC != "") {
+                        currentBuild.description = env.BUILD_DESC
+                    }
+                }
                 // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
                 git poll: false,
@@ -189,7 +198,7 @@ pipeline {
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep ${TEST_TAGS}
+                        ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep ${TEST_TAGS}
                     """
                 }
             }
@@ -202,7 +211,7 @@ pipeline {
                 expression { env.OVF_TEST == "no" }
             }
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
@@ -211,7 +220,7 @@ pipeline {
                         echo "${KUBECONFIG}" > kubeconfig
                         export KUBECONFIG=./kubeconfig
                         kubectl get nodes
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep ${TEST_TAGS}
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep ${TEST_TAGS}
                     """
                 }
             }
@@ -264,6 +273,7 @@ pipeline {
                     archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -271,6 +281,7 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
         }
     }
 }

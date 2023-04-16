@@ -45,7 +45,7 @@ pipeline {
             description: 'Percona Server Docker Container Image',
             name: 'MYSQL_IMAGE')
         string(
-            defaultValue: 'perconalab/percona-distribution-postgresql:14.2',
+            defaultValue: 'perconalab/percona-distribution-postgresql:15.2',
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
         string(
@@ -84,13 +84,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Run STT Tests using @stt'){
-                    steps {
-                        script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@stt', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
-                        }
-                    }
-                }
                 stage('Run Instances Tests using @instances'){
                     steps {
                         script {
@@ -98,10 +91,10 @@ pipeline {
                         }
                     }
                 }
-                stage('Run Settings Tests using @settings'){
+                stage('Run Tests using @settings @cli @pgss-pmm-integration'){
                     steps {
                         script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@settings', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@settings|@cli|@pgss-pmm-integration', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--setup-pmm-pgss-integration');
                         }
                     }
                 }
@@ -112,17 +105,31 @@ pipeline {
                         }
                     }
                 }
-                stage('Run SSL/TLS tests remote & cli @ssl-remote'){
+                stage('Run SSL/TLS tests remote @ssl-mysql'){
                     steps {
                         script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@ssl-remote', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@ssl-mysql', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
                         }
                     }
                 }
-                stage('Run PMM+PGSM Integration, Mongodb Exporter tests @pgsm-pmm-integration @mongodb-exporter'){
+                stage('Run SSL/TLS tests remote @ssl-mongo'){
                     steps {
                         script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@pgsm-pmm-integration|@mongodb-exporter', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--addclient=modb,1 --setup-pmm-pgsm-integration');
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@ssl-mongo', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
+                        }
+                    }
+                }
+                stage('Run SSL/TLS tests remote @ssl-postgres'){
+                    steps {
+                        script {
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@ssl-postgres', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
+                        }
+                    }
+                }
+                stage('Run PMM+PGSM Integration @exporters & @mongodb-exporter'){
+                    steps {
+                        script {
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@pgsm-pmm-integration|@mongodb-exporter|@exporters', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--addclient=modb,1 --setup-pmm-pgsm-integration');
                         }
                     }
                 }
@@ -133,13 +140,13 @@ pipeline {
                         }
                     }
                 }
-//                 stage('Run CLI tests @cli'){
-//                     steps {
-//                         script {
-//                             runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@cli', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
-//                         }
-//                     }
-//                 }
+                 stage('Run tests for pmm-server Disconnect @disconnect'){
+                    steps {
+                        script {
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@disconnect', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
+                        }
+                    }
+                }
             }
         }
     }

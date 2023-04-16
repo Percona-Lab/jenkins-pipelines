@@ -56,9 +56,12 @@
         values:
         - centos:7
         - centos:8
+        - oraclelinux:9
         - ubuntu:bionic
         - ubuntu:focal
+        - ubuntu:jammy
         - debian:buster
+        - debian:bullseye
         - asan
     - axis:
         name: XTRABACKUP_TARGET

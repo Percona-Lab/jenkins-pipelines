@@ -9,7 +9,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e DATA_RETENTION=48h -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e DATA_RETENTION=48h -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s'),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
@@ -116,6 +116,8 @@ pipeline {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
         REMOTE_AWS_MYSQL_PASSWORD=credentials('pmm-dev-remote-password')
         REMOTE_AWS_MYSQL57_HOST=credentials('pmm-dev-mysql57-remote-host')
+        OKTA_TOKEN=credentials('OKTA_TOKEN')
+        PORTAL_BASE_URL=credentials('PORTAL_BASE_URL')
         REMOTE_MYSQL_HOST=credentials('mysql-remote-host')
         REMOTE_MYSQL_USER=credentials('mysql-remote-user')
         REMOTE_MYSQL_PASSWORD=credentials('mysql-remote-password')
@@ -217,7 +219,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['15.0','14.4','14.3','14.2', '14.1', '14.0', '13.7', '13.6', '13.4', '13.2', '13.1', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
+            choices: ['15.2', '15.1', '15.0', '14.4', '14.3', '14.2', '14.1', '14.0', '13.7', '13.6', '13.4', '13.2', '13.1', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -331,7 +333,7 @@ pipeline {
                             sh """
                                 sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                                 export PWD=\$(pwd);
-                                npx codeceptjs run --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
+                                npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
                             """
                         }
                     }
@@ -367,6 +369,27 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             script {
+                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
+                    junit 'tests/output/*.xml'
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                    archiveArtifacts artifacts: 'logs.zip'
+                } else {
+                    junit 'tests/output/*.xml'
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    archiveArtifacts artifacts: 'logs.zip'
+                    archiveArtifacts artifacts: 'tests/output/*.png'
+                }
+            }
+            /*
+            allure([
+                includeProperties: false,
+                jdk: '',
+                properties: [],
+                reportBuildPolicy: 'ALWAYS',
+                results: [[path: 'tests/output/allure']]
+            ])
+            */
+            script {
                 if(env.VM_NAME)
                 {
                     destroyStaging(VM_NAME)
@@ -388,25 +411,6 @@ pipeline {
                     destroyStaging(VM_CLIENT_NAME_PGSQL)
                 }
             }
-            script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/*.xml'
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'logs.zip'
-                } else {
-                    junit 'tests/output/*.xml'
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'tests/output/*.png'
-                }
-            }
-            allure([
-                includeProperties: false,
-                jdk: '',
-                properties: [],
-                reportBuildPolicy: 'ALWAYS',
-                results: [[path: 'tests/output/allure']]
-            ])
             sh '''
                 sudo rm -r node_modules/
                 sudo rm -r tests/output

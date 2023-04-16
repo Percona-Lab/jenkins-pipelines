@@ -15,32 +15,6 @@ void runAPItests(String DOCKER_IMAGE_VERSION, GIT_URL, GIT_BRANCH, GIT_COMMIT_HA
     env.API_TESTS_RESULT = apiTestJob.result
 }
 
-void runTestSuite(String DOCKER_IMAGE_VERSION, CLIENT_VERSION, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH, PMM_VERSION) {
-    testSuiteJob = build job: 'pmm2-testsuite', propagate: false, parameters: [
-        string(name: 'DOCKER_VERSION', value: DOCKER_IMAGE_VERSION),
-        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
-        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'PMM_QA_GIT_COMMIT_HASH', value: PMM_QA_GIT_COMMIT_HASH),
-        string(name: 'PMM_VERSION', value: PMM_VERSION)
-    ]
-    env.BATS_TESTS_URL = testSuiteJob.absoluteUrl
-    env.BATS_TESTS_RESULT = testSuiteJob.result
-}
-
-void runUItests(String DOCKER_IMAGE_VERSION, CLIENT_VERSION, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH) {
-    e2eTestJob = build job: 'pmm2-ui-tests', propagate: false, parameters: [
-        string(name: 'DOCKER_VERSION', value: DOCKER_IMAGE_VERSION),
-        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
-        string(name: 'GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'GIT_COMMIT_HASH', value: PMM_QA_GIT_COMMIT_HASH),
-        string(name: 'TAG', value: '@fb'),
-        string(name: 'RUN_TAGGED_TEST', value: 'yes'),
-        string(name: 'CLIENTS', value: '--addclient=haproxy,1 --addclient=ps,1 --setup-external-service --mongo-replica-for-backup')
-    ]
-    env.UI_TESTS_URL = e2eTestJob.absoluteUrl
-    env.UI_TESTS_RESULT = e2eTestJob.result
-}
-
 void addComment(String COMMENT) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
         sh """
@@ -86,7 +60,7 @@ pipeline {
                         git submodule foreach --recursive git clean -fdx
                         git submodule status
                         export commit_sha=$(git submodule status | grep 'pmm-managed' | awk -F ' ' '{print $1}')
-                        export api_tests_commit_sha=$(git submodule status | grep 'pmm' | awk -F ' ' '{print $1}')
+                        export api_tests_commit_sha=$(git submodule status | grep 'sources/pmm/src' | awk -F ' ' '{print $1}')
                         export api_tests_branch=$(git config -f .gitmodules submodule.pmm.branch)
                         export api_tests_url=$(git config -f .gitmodules submodule.pmm.url)
                         echo $api_tests_commit_sha > apiCommitSha
@@ -240,12 +214,14 @@ pipeline {
                 archiveArtifacts 'results/docker/TAG'
             }
         }
-        stage('Create FB tags')
+        stage('Trigger workflows in GH')
         {
             steps{
                 script{
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         unstash 'IMAGE'
+                        unstash 'pmmQABranch'
+                        unstash 'pmmUITestBranch'
                         def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                         def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
                         def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
@@ -262,6 +238,40 @@ pipeline {
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/jenkins-dispatch.yml/dispatches" \
+                                -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}"}}'
+                        """
+                        // trigger workflow in GH to run PMM binary cli tests
+                        sh """
+                            curl -v -X POST \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/pmm-cli.yml/dispatches" \
+                                -d '{"ref":"${CHANGE_BRANCH}","inputs":{"client_tar_url":"${CLIENT_URL}","sha":"${FB_COMMIT_HASH}"}}'
+                        """
+                        // trigger workflow in GH to run testsuite tests
+                        def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
+                        sh """
+                            curl -v -X POST \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/pmm2-testsuite.yml/dispatches" \
+                                -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}", "pmm_qa_branch": "${PMM_QA_GIT_BRANCH}", "client_version": "${CLIENT_URL}"}}'
+                        """
+                        // trigger workflow in GH to run ui tests
+                        def PMM_UI_TESTS_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmUITestBranch").trim()
+                        sh """
+                            curl -v -X POST \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/pmm2-ui-tests-fb.yml/dispatches" \
+                                -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}", "pmm_qa_branch": "${PMM_QA_GIT_BRANCH}", "pmm_ui_branch": "${PMM_UI_TESTS_GIT_BRANCH}", "client_version": "${CLIENT_URL}"}}'
+                        """
+                        // trigger workflow in GH to run trivy for vulnerability scan
+                        sh """
+                            curl -v -X POST \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/trivy_scan.yml/dispatches" \
                                 -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}"}}'
                         """
                     }
@@ -285,42 +295,6 @@ pipeline {
                             def GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat apiCommitSha").trim()
                             runAPItests(IMAGE, API_TESTS_URL, API_TESTS_BRANCH, GIT_COMMIT_HASH, CLIENT_URL)
                             if (!env.API_TESTS_RESULT.equals("SUCCESS")) {
-                                sh "exit 1"
-                            }
-                        }
-                    }
-                }
-                stage('Test: PMM-Testsuite') {
-                    steps {
-                        script {
-                            unstash 'IMAGE'
-                            unstash 'pmmQABranch'
-                            unstash 'pmmQACommitSha'
-                            def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                            def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
-                            def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
-                            def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
-                            def PMM_QA_GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat pmmQACommitSha").trim()
-                            runTestSuite(IMAGE, CLIENT_URL, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH, env.PMM_VERSION)
-                            if (!env.BATS_TESTS_RESULT.equals("SUCCESS")) {
-                                sh "exit 1"
-                            }
-                        }
-                    }
-                }
-                stage('Test: UI') {
-                    steps {
-                        script {
-                            unstash 'IMAGE'
-                            unstash 'pmmUITestBranch'
-                            unstash 'pmmUITestsCommitSha'
-                            def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                            def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
-                            def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
-                            def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmUITestBranch").trim()
-                            def PMM_QA_GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat pmmUITestsCommitSha").trim()
-                            runUItests(IMAGE, CLIENT_URL, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH)
-                            if (!env.UI_TESTS_RESULT.equals("SUCCESS")) {
                                 sh "exit 1"
                             }
                         }

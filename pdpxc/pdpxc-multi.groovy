@@ -18,11 +18,11 @@ pipeline {
         )
         choice(
             name: 'FROM_REPO',
-            description: 'From this repo will be upgraded pdpxc',
+            description: 'PDPXC will be upgraded from this repository'
             choices: [
+                'release',
                 'testing',
-                'experimental',
-                'release'
+                'experimental'
             ]
         )
         choice(
@@ -35,37 +35,44 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.28',
-            description: 'From this version pdmysql will be updated',
-            name: 'FROM_VERSION')
+            defaultValue: '8.0.30',
+            description: 'From this version pdmysql will be updated. Possible values are with and without percona release: 8.0.30 OR 8.0.30-22',
+            name: 'FROM_VERSION'
+        )
         string(
-            defaultValue: '8.0.29',
-            description: 'To this version pdmysql will be updated',
+            defaultValue: '8.0.31-23',
+            description: 'To this version pdmysql will be updated. Possible values are with and without percona release: 8.0.31 OR 8.0.31-23',
             name: 'VERSION'
         )
         string(
-            defaultValue: 'master',
-            description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
+            defaultValue: '8.0.31-24',
+            description: 'PXB version for test. Possible values are with and without percona release: 8.0.31 OR 8.0.31-24',
+            name: 'PXB_VERSION'
+        )
         string(
-            defaultValue: '2.0.18',
+            defaultValue: '2.4.8',
             description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
         )
         string(
-            defaultValue: '2.3.10',
+            defaultValue: '2.5.12',
             description: 'HAProxy version for test',
             name: 'HAPROXY_VERSION'
         )
         string(
-            defaultValue: '8.0.23',
-            description: 'PXB version for test',
-            name: 'PXB_VERSION'
-        )
-        string(
-            defaultValue: '3.3.1',
+            defaultValue: '3.5.1',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
+        )
+        string(
+            defaultValue: '1.0',
+            description: 'replication-manager.sh version',
+            name: 'REPL_MANAGER_VERSION'
+        )
+        string(
+            defaultValue: 'master',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH'
         )
   }
   options {
@@ -90,6 +97,7 @@ pipeline {
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
                         string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        string(name: 'REPL_MANAGER_VERSION', value: "${env.REPL_MANAGER_VERSION}"),
                         booleanParam(name: 'MAJOR_REPO', value: false)
                         ]
                     }
@@ -117,6 +125,7 @@ pipeline {
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
                         string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        string(name: 'REPL_MANAGER_VERSION', value: "${env.REPL_MANAGER_VERSION}"),
                         booleanParam(name: 'MAJOR_REPO', value: false)
                         ]
                     }
@@ -144,6 +153,7 @@ pipeline {
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
                         string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        string(name: 'REPL_MANAGER_VERSION', value: "${env.REPL_MANAGER_VERSION}"),
                         booleanParam(name: 'MAJOR_REPO', value: true)
                         ]
                     }
@@ -172,6 +182,7 @@ pipeline {
                         string(name: 'PXB_VERSION', value: "${env.PXB_VERSION}"),
                         string(name: 'PT_VERSION', value: "${env.PT_VERSION}"),
                         string(name: 'HAPROXY_VERSION', value: "${env.HAPROXY_VERSION}"),
+                        string(name: 'REPL_MANAGER_VERSION', value: "${env.REPL_MANAGER_VERSION}"),
                         ]
                     }
                     catch (err) {
@@ -189,8 +200,8 @@ pipeline {
                 script {
                     try {
                         build job: 'haproxy', parameters: [
-                        string(name: 'REPO', value: "${env.FROM_REPO}"),
-                        string(name: 'VERSION', value: "${env.FROM_VERSION}"),
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'VERSION', value: "${env.VERSION}"),
                         string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
                         ]
                     }

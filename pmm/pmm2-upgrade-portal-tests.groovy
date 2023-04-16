@@ -9,7 +9,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENT_INSTANCE, SE
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: ""),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s'),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
@@ -53,11 +53,14 @@ def getPMMClientVersion(String PMM_CLIENT_VERSION, String PMM_CLIENT_VERSION_CUS
 void performDockerWayUpgrade(String PMM_VERSION, String VM_IP) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} ' 
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                 docker stop ${VM_NAME}-server
                 docker rename ${VM_NAME}-server ${VM_NAME}-server-old
                 ## Setup new Container using volume from previous container
-                docker run -d -p 80:80 -p 443:443 -p 9000:9000 --volumes-from ${VM_NAME}-data --name pmm-portal-docker-upgrade-server --restart always ${PMM_SERVER_DOCKER_TAG}
+                docker run -d -p 80:80 -p 443:443 -p 9000:9000  --volumes-from ${VM_NAME}-data \
+                --name pmm-portal-docker-upgrade-server --restart always \
+                 -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
+                  ${PMM_SERVER_DOCKER_TAG}
             '
         """
     }
@@ -211,7 +214,7 @@ pipeline {
             steps{
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} ' 
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                             set -o errexit
                             set -o xtrace
                             docker exec ${VM_NAME}-server  yum update -y percona-release || true
@@ -257,7 +260,7 @@ pipeline {
                     export CHROMIUM_PATH=/usr/bin/chromium
                     npm ci
                     touch portalCredentials
-                    ./node_modules/.bin/codeceptjs run --steps --reporter mocha-multi -c pr.codecept.js --grep '@pre-pmm-portal-upgrade'
+                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pre-pmm-portal-upgrade'
                 """
             }
         }
@@ -275,7 +278,7 @@ pipeline {
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@pmm-portal-upgrade'  --override '{ "helpers": { "Playwright": { "getPageTimeout": 60000 }}}'
+                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-portal-upgrade'  --override '{ "helpers": { "Playwright": { "getPageTimeout": 60000 }}}'
                 """
             }
         }
@@ -303,7 +306,7 @@ pipeline {
                         export PATH="`pwd`/pmm2-client/bin:$PATH"
                     fi
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    ./node_modules/.bin/codeceptjs run --steps --reporter mocha-multi -c pr.codecept.js --grep '@post-pmm-portal-upgrade'
+                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@post-pmm-portal-upgrade'
                 """
             }
         }
@@ -343,6 +346,7 @@ pipeline {
                     }
                 }
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -350,6 +354,7 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
             sh '''
                 sudo rm -r node_modules/
                 sudo rm -r tests/output

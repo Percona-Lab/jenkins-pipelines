@@ -187,7 +187,7 @@ parameters {
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:9", "--build_rpm=1")
+                        buildStage("oraclelinux:9", "--build_rpm=1 --with_zenfs=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
@@ -324,7 +324,7 @@ parameters {
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Oracle Linux 9 binary tarball') {
+                stage('Oracle Linux 9 tarball') {
                     agent {
                         label 'min-ol-9-x64'
                     }
@@ -333,7 +333,21 @@ parameters {
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:9", "--build_tarball=1 ")
+                        buildStage("oraclelinux:9", "--build_tarball=1")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Oracle Linux 9 ZenFS tarball') {
+                    agent {
+                        label 'min-ol-9-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_tarball=1 --with_zenfs=1")
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
@@ -366,7 +380,7 @@ parameters {
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Ubuntu Focal(20.04) ZenFS tarball') {
+                stage('Ubuntu Focal(20.04) tarball') {
                     agent {
                         label 'min-focal-x64'
                     }
@@ -376,6 +390,21 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--build_tarball=1")
+
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Ubuntu Jammy(22.04) tarball') {
+                    agent {
+                        label 'min-jammy-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_tarball=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')

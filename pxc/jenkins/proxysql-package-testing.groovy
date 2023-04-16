@@ -50,13 +50,14 @@ setup_ubuntu_package_tests = { ->
 }
 
 node_setups = [
-    "min-stretch-x64": setup_stretch_package_tests,
     "min-buster-x64": setup_buster_bullseye_package_tests,
     "min-bullseye-x64": setup_buster_bullseye_package_tests,
     "min-centos-7-x64": setup_centos_package_tests,
     "min-ol-8-x64": setup_centos_package_tests,
+    "min-ol-9-x64": setup_centos_package_tests,
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
+    "min-jammy-x64": setup_ubuntu_package_tests,
 ]
 
 void setup_package_tests() {
@@ -100,9 +101,10 @@ pipeline {
             choices: [
                 'min-centos-7-x64',
                 'min-ol-8-x64',
+                'min-ol-9-x64',
                 'min-bionic-x64',
                 'min-focal-x64',
-                'min-stretch-x64',
+                'min-jammy-x64',
                 'min-buster-x64',
                 'min-bullseye-x64'
             ],
