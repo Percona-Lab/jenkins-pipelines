@@ -23,22 +23,22 @@ netMap['us-west-1b'] = 'subnet-01d9a7d6b4722eb43'
 netMap['us-west-1c'] = 'subnet-0550c1d2ffd688021'
 
 imageMap = [:]
-imageMap['micro-amazon']     = 'ami-061352bb71c4724b2'
-imageMap['min-bionic-x64']   = 'ami-00753573f3369dd7c'
-imageMap['min-focal-x64']    = 'ami-066c6938fb715719f'
-imageMap['min-jammy-x64']    = 'ami-0dc5e9ff792ec08e3'
+imageMap['micro-amazon']     = 'ami-098023750985977ad'
+imageMap['min-bionic-x64']   = 'ami-0a0da33f8cf70309a'
+imageMap['min-focal-x64']    = 'ami-081a3b9eded47f0f3'
+imageMap['min-jammy-x64']    = 'ami-014d05e6b24240371'
 imageMap['min-centos-6-x32'] = 'ami-67e3cd22'
 imageMap['min-centos-6-x64'] = 'ami-0d282a216ae4c0c42'
 imageMap['min-centos-7-x64'] = 'ami-08d2d8b00f270d03b'
 imageMap['min-centos-8-x64'] = 'ami-04adf3fcbc8a45c54'
-imageMap['min-ol-8-x64']     = 'ami-01c58ced87b56372e'
-imageMap['min-ol-9-x64']     = 'ami-0d1958c85fb6a7b3e'
-imageMap['min-stretch-x64']  = 'ami-0280d841fec0493e6'
+imageMap['min-ol-8-x64']     = 'ami-0ec007654a879ba5e'
+imageMap['min-ol-9-x64']     = 'ami-0bf91ca60fd852846'
+imageMap['min-stretch-x64']  = 'ami-048ad764ec185067c'
 imageMap['min-xenial-x64']   = 'ami-0454207e5367abf01'
-imageMap['min-buster-x64']   = 'ami-024fe42989cf9e876'
-imageMap['docker']           = 'ami-061352bb71c4724b2'
+imageMap['min-buster-x64']   = 'ami-0809b44a732f37188'
+imageMap['docker']           = 'ami-098023750985977ad'
 imageMap['docker-32gb']      = imageMap['docker']
-imageMap['min-bullseye-x64'] = 'ami-07af5f877b3db9f73'
+imageMap['min-bullseye-x64'] = 'ami-0bf166b48bbe2bf7c'
 
 imageMap['ramdisk-centos-6-x64'] = imageMap['min-centos-6-x64']
 imageMap['ramdisk-centos-7-x64'] = imageMap['min-centos-7-x64']
@@ -56,12 +56,11 @@ imageMap['ramdisk-bullseye-x64'] = imageMap['min-bullseye-x64']
 imageMap['performance-centos-6-x64']   = imageMap['min-centos-7-x64']
 
 priceMap = [:]
-priceMap['m4.xlarge'] = '0.15'
-priceMap['m1.medium'] = '0.07'
-priceMap['c4.2xlarge'] = '0.15'
-priceMap['r3.2xlarge'] = '0.19'
-priceMap['m4.2xlarge'] = '0.20'
-priceMap['r5.2xlarge'] = '0.23'
+priceMap['m4.xlarge'] = '0.15' // type=m4.xlarge, vCPU=4, memory=16GiB, saving=62%, interruption='<5%', price=0.090300
+priceMap['m1.medium'] = '0.13' // centos6
+priceMap['c5.2xlarge'] = '0.28' // type=c5.2xlarge, vCPU=8, memory=16GiB, saving=53%, interruption='<5%', price=0.216700
+priceMap['r3.2xlarge'] = '0.21' // centos6
+priceMap['r5.2xlarge'] = '0.25' // type=r5.2xlarge, vCPU=8, memory=64GiB, saving=65%, interruption='<5%', price=0.200200
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -402,14 +401,13 @@ initMap['performance-centos-6-x64']  = '''
 '''
 
 capMap = [:]
-capMap['c4.2xlarge'] = '40'
-capMap['m4.2xlarge'] = '40'
+capMap['c5.2xlarge'] = '40'
 capMap['r5.2xlarge'] = '40'
 capMap['r3.2xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 'm4.xlarge'
-typeMap['docker']       = 'c4.2xlarge'
+typeMap['docker']       = 'c5.2xlarge'
 typeMap['docker-32gb']  = 'r5.2xlarge'
 
 typeMap['performance-centos-6-x64'] = typeMap['docker-32gb']
@@ -652,26 +650,26 @@ String region = 'us-west-1'
             getTemplate('micro-amazon',     "${region}${it}"),
             getTemplate('docker',           "${region}${it}"),
             getTemplate('docker-32gb',      "${region}${it}"),
-            getTemplate('min-centos-6-x32', "${region}${it}"),
-            getTemplate('min-centos-6-x64', "${region}${it}"),
+            // getTemplate('min-centos-6-x32', "${region}${it}"),
+            // getTemplate('min-centos-6-x64', "${region}${it}"),
             getTemplate('min-centos-7-x64', "${region}${it}"),
             getTemplate('min-centos-8-x64', "${region}${it}"),
             getTemplate('min-ol-8-x64',     "${region}${it}"),
             getTemplate('min-ol-9-x64',     "${region}${it}"),
-            getTemplate('min-stretch-x64',  "${region}${it}"),
+            // getTemplate('min-stretch-x64',  "${region}${it}"),
             getTemplate('min-buster-x64',   "${region}${it}"),
             getTemplate('min-bullseye-x64', "${region}${it}"),
-            getTemplate('min-xenial-x64',   "${region}${it}"),
+            // getTemplate('min-xenial-x64',   "${region}${it}"),
             getTemplate('min-bionic-x64',   "${region}${it}"),
             getTemplate('min-focal-x64',    "${region}${it}"),
             getTemplate('min-jammy-x64',    "${region}${it}"),
-            getTemplate('ramdisk-centos-6-x64', "${region}${it}"),
+            // getTemplate('ramdisk-centos-6-x64', "${region}${it}"),
             getTemplate('ramdisk-centos-7-x64', "${region}${it}"),
             getTemplate('ramdisk-centos-8-x64', "${region}${it}"),
             getTemplate('ramdisk-ol-8-x64',     "${region}${it}"),
             getTemplate('ramdisk-ol-9-x64',     "${region}${it}"),
-            getTemplate('ramdisk-stretch-x64',  "${region}${it}"),
-            getTemplate('ramdisk-xenial-x64',   "${region}${it}"),
+            // getTemplate('ramdisk-stretch-x64',  "${region}${it}"),
+            // getTemplate('ramdisk-xenial-x64',   "${region}${it}"),
             getTemplate('ramdisk-bionic-x64',   "${region}${it}"),
             getTemplate('ramdisk-focal-x64',    "${region}${it}"),
             getTemplate('ramdisk-jammy-x64',    "${region}${it}"),
