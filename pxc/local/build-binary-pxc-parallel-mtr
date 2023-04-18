@@ -84,7 +84,6 @@ TARGET_ARCH="$(uname -m)"
 if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
     BUILD_COMMENT+="-debug"
     CMAKE_OPTS+=" -DDEBUG_EXTNAME=ON -DWITH_DEBUG=ON"
-    SCONS_ARGS+=' debug=0'
 fi
 if [[ "${ANALYZER_OPTS}" = *WITH_VALGRIND=ON* ]]; then
     BUILD_COMMENT+="-valgrind"
@@ -155,23 +154,6 @@ if [[ -f /opt/rh/devtoolset-8/enable ]]; then
     source /opt/rh/devtoolset-8/enable
 fi
 
-
-
-pushd ${SOURCEDIR}/percona-xtradb-cluster-galera
-        scons ${MAKE_JFLAG} psi=1 --config=force revno="${GALERA_REVISION}" ${SCONS_ARGS} \
-            libgalera_smm.so
-        scons ${MAKE_JFLAG} --config=force revno="${GALERA_REVISION}" ${SCONS_ARGS} \
-            garb/garbd
-
-    mkdir -p "${INSTALL_DIR}/usr/local/${PRODUCT_FULL}/bin" \
-             "${INSTALL_DIR}/usr/local/${PRODUCT_FULL}/lib"
-    cp garb/garbd "${INSTALL_DIR}/usr/local/${PRODUCT_FULL}/bin"
-    cp libgalera_smm.so "${INSTALL_DIR}/usr/local/${PRODUCT_FULL}/lib"
-popd
-
-#mkdir "$INSTALL_DIR/bld"
-#cd "$INSTALL_DIR/bld"
-#echo "$(pwd)"
 # ------------------------------------------------------------------------------
 # Finaly, compile!
 # ------------------------------------------------------------------------------
@@ -203,6 +185,7 @@ pushd ${WORKDIR}
         -DCMAKE_INSTALL_PREFIX=/usr/local/${PRODUCT_FULL} \
         -DMYSQL_DATADIR=/usr/local/${PRODUCT_FULL}/data \
         -DCOMPILATION_COMMENT="${COMMENT}" \
+        -DMYSQL_MAINTAINER_MODE=ON \
         ${TARGET_CFLAGS:+-DCMAKE_C_FLAGS="${TARGET_CFLAGS}" -DCMAKE_CXX_FLAGS="${TARGET_CFLAGS}"} \
         ${ANALYZER_OPTS} \
         ${CMAKE_OPTS} \
