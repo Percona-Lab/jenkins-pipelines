@@ -210,37 +210,36 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         set -o errexit
+                        set -o xtrace
 
-                        DOCKER_SERVER_UPGRADE_TAG=perconalab/pmm-server-upgrade-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
-                        RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:2
+                        PUSH_DOCKER=1
+                        DOCKER_SERVER_UPGRADE_TAG=perconalab/pmm-server-upgrade-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
 
-                        echo "PWD -> ${PWD}"
-                        echo "PATH_TO_PMM -> ${PATH_TO_PMM}"
-                        ls ${PATH_TO_PMM}
-                        ls ${PATH_TO_PMM}/build
-                        ls ${PATH_TO_PMM}/build/docker
-                        ls ${PATH_TO_PMM}/build/docker/pmm-server-upgrade
+                        ${PATH_TO_SCRIPTS}/build-server-upgrade-docker
 
-                        echo ${PATH_TO_PMM}/build/docker/pmm-server-upgrade
+                        #RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:2
 
-                        docker run \
-                            --rm \
-                            -v ${PWD}:/pmm-submodules \
-                            ${RPMBUILD_DOCKER_IMAGE} \
-                            sh -c "cd /pmm-submodules/${PATH_TO_PMM} && make -C admin release"
+                        #docker run \
+                        #    --rm \
+                        #    -v ${PWD}:/pmm-submodules \
+                        #    ${RPMBUILD_DOCKER_IMAGE} \
+                        #    sh -c "cd /pmm-submodules/${PATH_TO_PMM} && make -C admin release"
 
-                        docker build \
-                            -t ${DOCKER_SERVER_UPGRADE_TAG} \
-                            -f ${PATH_TO_PMM}/build/docker/pmm-server-upgrade/Dockerfile \
-                            --build-arg VERSION=$(git describe --always --dirty | cut -b2-) \
-                            --build-arg BUILD_DATE=$(date '+%s') \
-                            ${PATH_TO_PMM}/bin
+                        #docker build \
+                        #    -t ${DOCKER_SERVER_UPGRADE_TAG} \
+                        #    -f ${PATH_TO_PMM}/build/docker/pmm-server-upgrade/Dockerfile \
+                        #    --build-arg VERSION=$(git describe --always --dirty | cut -b2-) \
+                        #    --build-arg BUILD_DATE=$(date '+%s') \
+                        #    ${PATH_TO_PMM}/bin
 
-                        docker push ${DOCKER_SERVER_UPGRADE_TAG}
+                        #docker push ${DOCKER_SERVER_UPGRADE_TAG}
                     '''
                 }
-                stash includes: 'results/docker/DOCKER_SERVER_UPGRADE_TAG', name: 'DOCKER_SERVER_UPGRADE_IMAGE'
-                archiveArtifacts 'results/docker/DOCKER_SERVER_UPGRADE_TAG'
+                stash includes: 'results/docker/SERVER_UPGRADE_TAG', name: 'SERVER_UPGRADE_IMAGE'
+                archiveArtifacts 'results/docker/SERVER_UPGRADE_TAG'
+
+                //stash includes: 'results/docker/DOCKER_SERVER_UPGRADE_TAG', name: 'DOCKER_SERVER_UPGRADE_IMAGE'
+                //archiveArtifacts 'results/docker/DOCKER_SERVER_UPGRADE_TAG'
             }
         }
         stage('Trigger workflows in GH')
@@ -254,11 +253,11 @@ pipeline {
                         def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                         def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
                         def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
-                        def DOCKER_SERVER_UPGRADE_IMAGE = sh(returnStdout: true, script: "cat results/docker/DOCKER_SERVER_UPGRADE_TAG").trim()
+                        def SERVER_UPGRADE_IMAGE = sh(returnStdout: true, script: "cat results/docker/SERVER_UPGRADE_TAG").trim()
                         sh """
                             curl -v -X POST \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                -d "{\\"body\\":\\"server docker - ${IMAGE}\\nserver upgrade docker - ${DOCKER_SERVER_UPGRADE_IMAGE}\\nclient docker - ${CLIENT_IMAGE}\\nclient - ${CLIENT_URL}\\nCreate Staging Instance: https://pmm.cd.percona.com/job/aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}\\"}" \
+                                -d "{\\"body\\":\\"server docker - ${IMAGE}\\nserver upgrade docker - ${SERVER_UPGRADE_IMAGE}\\nclient docker - ${CLIENT_IMAGE}\\nclient - ${CLIENT_URL}\\nCreate Staging Instance: https://pmm.cd.percona.com/job/aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}\\"}" \
                                 "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/issues/${CHANGE_ID}/comments"
                         """
                         // trigger workflow in GH to run some test there as well, pass server and client images as parameters
