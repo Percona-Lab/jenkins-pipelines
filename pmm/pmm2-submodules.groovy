@@ -212,8 +212,8 @@ pipeline {
                         set -o errexit
                         set -o xtrace
 
-                        PUSH_DOCKER=1
-                        DOCKER_SERVER_UPGRADE_TAG=perconalab/pmm-server-upgrade-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
+                        export PUSH_DOCKER=1
+                        export DOCKER_SERVER_UPGRADE_TAG=perconalab/pmm-server-upgrade-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
 
                         ${PATH_TO_SCRIPTS}/build-server-upgrade-docker
 
