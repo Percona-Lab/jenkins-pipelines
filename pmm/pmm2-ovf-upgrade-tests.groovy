@@ -342,11 +342,13 @@ pipeline {
         }
         cleanup {
             script {
+                /*
                 if (env.OVF_INSTANCE_IP) {
                     ovfStagingStopJob = build job: 'pmm2-ovf-staging-stop', parameters: [
                         string(name: 'VM', value: env.OVF_INSTANCE_NAME),
                     ]
                 }
+                */
                 if (env.VM_CLIENT_NAME) {
                     destroyStaging(VM_CLIENT_IP)
                 }
