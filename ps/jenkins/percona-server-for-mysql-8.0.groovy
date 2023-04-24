@@ -508,6 +508,9 @@ parameters {
                 echo "====> Build docker container"
                 cleanUpWS()
                 installCli("deb")
+                sh '''
+                   sleep 900
+                '''
                 unstash 'properties'
                 sh '''
                     PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
