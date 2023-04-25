@@ -482,16 +482,6 @@ pipeline {
                 }
             }
         }
-        stage('Make report') {
-            steps {
-                makeReport()
-                sh """
-                    echo "${TestsReport}" > TestsReport.xml
-                """
-                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-                archiveArtifacts '*.xml'
-            }
-        }
     }
 
     post {

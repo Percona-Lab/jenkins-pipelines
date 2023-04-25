@@ -435,21 +435,18 @@ pipeline {
                 }
             }
         }
-        stage('Make report') {
-            steps {
-                echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
-                makeReport()
-                sh """
-                    echo "${TestsReport}" > TestsReport.xml
-                """
-                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-                archiveArtifacts '*.xml'
-            }
-        }
     }
 
     post {
         always {
+            echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
+            makeReport()
+            sh """
+                echo "${TestsReport}" > TestsReport.xml
+            """
+            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            archiveArtifacts '*.xml'
+
             script {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
