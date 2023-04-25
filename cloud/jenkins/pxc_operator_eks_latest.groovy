@@ -1,4 +1,4 @@
-AWSRegion='eu-west-2'
+AWSRegion='eu-west-3'
 tests=[]
 clusters=[]
 
