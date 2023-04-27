@@ -581,7 +581,7 @@ ENDSSH
                         env.SCAN_REPORT_URL = "CVE Scan Report: ${BUILD_URL}artifact/report-${VERSION}.html"
 
                         copyArtifacts filter: 'evaluation_*.json', projectName: 'pmm2-image-scanning'
-                        sh 'mv evaluation_*.json report-${VERSION}-rc.json'
+                        sh 'mv evaluation_*.json report-${VERSION}.json'
                         archiveArtifacts "report-${VERSION}.json"
                     }
                 }
