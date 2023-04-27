@@ -546,6 +546,7 @@ parameters {
                  '''
                  }
                  sh '''
+                    PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                     sudo docker manifest create perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi \
                          perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} \
                          perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64
@@ -554,14 +555,15 @@ parameters {
                     sudo docker manifest inspect perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi
                 '''
                  withCredentials([
-                     usernamePassword(credentialsId: 'hub.docker.com',
-                     passwordVariable: 'PASS',
-                     usernameVariable: 'USER'
-                     )]) {
+                    usernamePassword(credentialsId: 'hub.docker.com',
+                    passwordVariable: 'PASS',
+                    usernameVariable: 'USER'
+                    )]) {
                  sh '''
-                     echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                     PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                     sudo docker manifest push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi
+                    PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                    echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
+                    PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                    sudo docker manifest push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi
                  '''
                  }
            }
