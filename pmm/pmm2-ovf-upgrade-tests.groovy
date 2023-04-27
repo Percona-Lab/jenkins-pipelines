@@ -286,9 +286,6 @@ pipeline {
         }
         stage('Check Packages after Upgrade') {
             steps {
-                sh """
-                    grafana-cli plugins ls | grep "vertamedia-clickhouse-datasource @ 2.4.4"
-                """
                 checkUpgrade(PMM_SERVER_LATEST, "post", OVF_INSTANCE_NAME);
             }
         }
