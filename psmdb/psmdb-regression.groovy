@@ -160,11 +160,21 @@ pipeline {
                                                     suite += " --jobs=${params.paralleljobs}"
                                                 }
                                                 if ( storage == 'wiredTiger' ) {
-                                                    suite += " --storageEngine=wiredTiger --storageEngineCacheSizeGB=1 --excludeWithAnyTags=requires_mmapv1"
+                                                    if ( !suite.contains('--storageEngineCacheSizeGB') ) {
+                                                       suite += " --storageEngine=wiredTiger --storageEngineCacheSizeGB=1 --excludeWithAnyTags=requires_mmapv1"
+                                                    }
+                                                    else {
+                                                       suite += " --storageEngine=wiredTiger --excludeWithAnyTags=requires_mmapv1"
+                                                    }
                                                     suiteName += "-wiredTiger" 
                                                 }
                                                 if ( storage == 'inMemory' ) {
-                                                    suite += " --storageEngine=inMemory --storageEngineCacheSizeGB=4 --excludeWithAnyTags=requires_persistence,requires_journaling,requires_mmapv1,uses_transactions"
+                                                    if ( !suite.contains('--storageEngineCacheSizeGB') ) {
+                                                       suite += " --storageEngine=inMemory --storageEngineCacheSizeGB=4 --excludeWithAnyTags=requires_persistence,requires_journaling,requires_mmapv1,uses_transactions"
+                                                    }
+                                                    else {
+                                                       suite += " --storageEngine=inMemory --excludeWithAnyTags=requires_persistence,requires_journaling,requires_mmapv1,uses_transactions"
+                                                    }
                                                     suiteName +="-inMemory"
                                                 }
                                                 if ( script ) {
