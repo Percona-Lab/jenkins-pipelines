@@ -15,7 +15,8 @@ void runStaging(String DOCKER_VERSION, CLIENTS) {
     env.VM_IP = stagingJob.buildVariables.IP
     env.PMM_SERVER_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "http://admin:admin@${VM_IP}"
+    env.ADMIN_PASSWORD = stagingJob.buildVariables.ADMIN_PASSWORD
+    env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
 }
 
 void destroyStaging(IP) {
@@ -101,7 +102,7 @@ pipeline {
             name: 'TESTS',
             trim: true)
         choice(
-            choices: ['testing', 'experimental', 'main', 'pmm2-client-main'],
+            choices: ['experimental', 'testing', 'main', 'pmm2-client-main'],
             description: 'Enable Repo for Client Nodes',
             name: 'INSTALL_REPO')
         choice(
@@ -120,9 +121,9 @@ pipeline {
         }
         stage('Execute Package Tests') {
             parallel {
-                stage('rhel-7-x64') {
+                stage('centos-7-x64') {
                     agent {
-                        label 'min-rhel-7-x64'
+                        label 'min-centos-7-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -134,9 +135,9 @@ pipeline {
                         }
                     }
                 }
-                stage('rhel-8-x64') {
+                stage('ol-8-x64') {
                     agent {
-                        label 'min-rhel-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -148,12 +149,12 @@ pipeline {
                         }
                     }
                 }
-                stage('rhel-9-x64') {
+                stage('ol-9-x64') {
                     when {
                         expression { env.TESTS == "pmm2-client" || env.TESTS == "pmm2-client_upgrade" }
                     }
                     agent {
-                        label 'min-rhel-9-x64'
+                        label 'min-ol-9-x64'
                     }
                     steps{
                         setup_rhel_package_tests()

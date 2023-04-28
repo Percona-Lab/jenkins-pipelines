@@ -67,7 +67,7 @@ String getLatestPxbPackageName(String PXB_VER, String GLIBC_VER) {
 
 void checkIfPxbPackagesDownloadable() {
     if (env.PXB24_LATEST == "true") {
-        PXB24_PACKAGE_TO_DOWNLOAD = getLatestPxbPackageName("2.4", "2.12")
+        PXB24_PACKAGE_TO_DOWNLOAD = getLatestPxbPackageName("2.4", "2.17")
     }
     if (env.PXB80_LATEST == "true") {
         PXB80_PACKAGE_TO_DOWNLOAD = getLatestPxbPackageName("8.0", "2.17")
@@ -88,7 +88,7 @@ void downloadFilesForTests() {
         mkdir -p ./pxc/sources/pxc/results/pxb80
     """
     if (PXB24_PACKAGE_TO_DOWNLOAD != '') {
-        downloadLatestPxbPackage("2.4", PXB24_PACKAGE_TO_DOWNLOAD, "2.12", "./pxc/sources/pxc/results/pxb24/pxb24.tar.gz")
+        downloadLatestPxbPackage("2.4", PXB24_PACKAGE_TO_DOWNLOAD, "2.17", "./pxc/sources/pxc/results/pxb24/pxb24.tar.gz")
     } else {
         downloadFileFromS3("${BUILD_TAG_BINARIES}", "pxb24.tar.gz", "./pxc/sources/pxc/results/pxb24/pxb24.tar.gz")
     }
