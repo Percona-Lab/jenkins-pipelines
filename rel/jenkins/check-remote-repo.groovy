@@ -77,7 +77,7 @@ ReposPathMap = [
     ]
 
 ReposSlackMap = [
-    'MongoDB':              "#opensource-psmdb",
+    'MongoDB':              "#mongodb_autofeed",
     'MySQL':                "#mysql",
     'MySQLShell':           "#mysql",
     'ProxySQL':             "#mysql",

@@ -1,7 +1,9 @@
 GKERegion='us-central1-a'
 tests=[]
+clusters=[]
 
 void createCluster(String CLUSTER_SUFFIX) {
+    clusters.add("${CLUSTER_SUFFIX}")
     if ("${params.IS_GKE_ALPHA}" == "YES") {
         runGKEclusterAlpha(CLUSTER_SUFFIX)
     } else {
@@ -62,12 +64,21 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     }
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: CRED_ID, variable: 'CLIENT_SECRET_FILE')]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account $ACCOUNT@"$GCP_PROJECT".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX}
+            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+            done
+            kubectl get svc --all-namespaces || true
+            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-$CLUSTER_SUFFIX || true
         """
     }
 }
@@ -78,7 +89,7 @@ void pushArtifactFile(String FILE_NAME) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             touch ${FILE_NAME}
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${env.GIT_SHORT_COMMIT}
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${GIT_SHORT_COMMIT}
             aws s3 ls \$S3_PATH/${FILE_NAME} || :
             aws s3 cp ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
         """
@@ -471,15 +482,10 @@ pipeline {
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml'
 
-            withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-               sh """
-                   export CLUSTER_NAME=\$(echo jenkins-par-psmo-\$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
-                   source $HOME/google-cloud-sdk/path.bash.inc
-                   gcloud auth activate-service-account alpha-svc-acct@\$GCP_PROJECT.iam.gserviceaccount.com --key-file=\$CLIENT_SECRET_FILE
-                   gcloud config set project \$GCP_PROJECT
-                   gcloud alpha container clusters list --format='csv[no-heading](name)' --filter \$CLUSTER_NAME | xargs gcloud alpha container clusters delete --zone $GKERegion --quiet || true
-               """
+            script {
+                clusters.each { shutdownCluster(it) }
             }
+
             sh """
                 sudo docker system prune -fa
                 sudo rm -rf ./*

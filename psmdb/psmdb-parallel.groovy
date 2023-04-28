@@ -68,10 +68,10 @@ pipeline {
   }
     post {
         success {
-            slackNotify("#opensource-psmdb", "#00FF00", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION} repo ${REPO} finished succesfully - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION} repo ${REPO} finished succesfully - [${BUILD_URL}]")
         }
         failure {
-            slackNotify("#opensource-psmdb", "#FF0000", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION} repo ${REPO} failed - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION} repo ${REPO} failed - [${BUILD_URL}]")
         }
         always {
             script {
