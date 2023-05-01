@@ -93,7 +93,7 @@ pipeline {
 
     parameters {
         choice(
-            choices: ['proxysql', 'proxysql2'],
+            choices: ['proxysql2', 'proxysql'],
             description: 'Choose the product version to test: proxysql OR proxysql2',
             name: 'product_to_test'
         )
@@ -154,7 +154,12 @@ pipeline {
                     agent {
                         label params.node_to_test
                     }
-
+                    when {
+                        beforeAgent true
+                        expression {
+                            params.install_repo != 'main'
+                        }
+                    }
                     steps {
                         runPlaybook("upgrade")
                     }

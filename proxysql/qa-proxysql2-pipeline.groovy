@@ -62,18 +62,12 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '200', artifactNumToKeepStr: '200'))
     }
     stages {
-
-        stage('Prepare') {
-                steps {
-                    script {
-                        currentBuild.displayName = "#${BUILD_NUMBER}-${params.BRANCH}-${params.DOCKER_OS}"
-                    }
-                }
-        }
-
         stage('Build ProxySQL') {
                 agent { label 'docker' }
                 steps {
+                    script {
+                        currentBuild.displayName = "#${BUILD_NUMBER}-${params.BRANCH}-${params.DOCKER_OS}-${params.CMAKE_BUILD_TYPE}-${params.PXC_VERSION}"
+                    }
                     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Checkout ProxySQL sources'
                     sh '''
