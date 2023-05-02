@@ -30,7 +30,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: alex.tymchuk
+    Default: jenkins-master
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
@@ -46,11 +46,11 @@ Parameters:
 Mappings:
   AmazonLinux2:
     us-east-1:
-      x64: ami-02538f8925e3aa27a
+      x64: ami-05f408238af346b4f
     us-east-2:
-      x64: ami-0ee5c62243ab25259
+      x64: ami-08c50cb06459e56a4
     us-west-2:
-      x64: ami-07d59d159373b8030
+      x64: ami-0f9fff25f1c7ca4f0
 
 Resources:
 
@@ -513,7 +513,7 @@ Resources:
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true
-        SpotPrice: 0.10
+        SpotPrice: 0.15
         TargetCapacity: 1
         TerminateInstancesWithExpiration: false
         Type: maintain
@@ -617,11 +617,12 @@ Resources:
                   yum-config-manager --add-repo "https://openresty.org/package/rhel/7/x86_64"
                   rpm --import https://openresty.org/package/pubkey.gpg
                   wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-                  rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+                  #rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+                  rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
                   amazon-linux-extras install epel -y
                   amazon-linux-extras install java-openjdk11 -y
                   yum -y update --security
-                  yum -y install jenkins-2.361.2 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install jenkins-2.387.2 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -683,10 +684,27 @@ Resources:
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
                   chown -R jenkins:jenkins /mnt/$JENKINS_HOST
 
-                  printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.9 repo.ci.percona.com\n" \
+                  printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
-                  sed -i 's|-Djava.awt.headless=true|-Djava.awt.headless=true -Xms3072m -Xmx3072m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600|' /usr/lib/systemd/system/jenkins.service
-                  sed -i 's/\/var\/lib\/jenkins/\/mnt\/pmm.cd.percona.com/g' /usr/lib/systemd/system/jenkins.service
+                  # sed -i 's|-Djava.awt.headless=true|-Djava.awt.headless=true -Xms3072m -Xmx3072m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600|' /usr/lib/systemd/system/jenkins.service
+                  # sed -i 's/\/var\/lib\/jenkins/\/mnt\/pmm.cd.percona.com/g' /usr/lib/systemd/system/jenkins.service
+                  mkdir -p /etc/systemd/system/jenkins.service.d
+                  cat <<-EOF | tee /etc/systemd/system/jenkins.service.d/override.conf
+                       [Service]
+                       # Directory where Jenkins stores its configuration and workspaces
+                       Environment="JENKINS_HOME=/mnt/$JENKINS_HOST"
+                       WorkingDirectory=/mnt/$JENKINS_HOST
+
+                       # Location of the exploded WAR
+                       Environment="JENKINS_WEBROOT=/var/cache/jenkins/war"
+
+                       # Location of the Jenkins log.
+                       Environment="JENKINS_LOG=/var/log/jenkins/jenkins.log"
+
+                       # Arguments for the Jenkins JVM
+                       Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+              	EOF
+
                   systemctl daemon-reload
                   systemctl enable --now jenkins
 
