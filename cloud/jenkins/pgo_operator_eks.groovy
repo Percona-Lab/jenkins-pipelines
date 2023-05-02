@@ -1,7 +1,7 @@
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             touch ${FILE_NAME}
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git -C source describe --always --dirty)
@@ -14,7 +14,7 @@ void pushArtifactFile(String FILE_NAME) {
 void popArtifactFile(String FILE_NAME) {
     echo "Try to get $FILE_NAME file from S3!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git -C source describe --always --dirty)
             aws s3 cp --quiet \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
@@ -38,13 +38,13 @@ void runTest(String TEST_NAME) {
             echo "The $TEST_NAME test was started!"
             GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
             testsReportMap[TEST_NAME] = 'failure'
-            PPG_TAG = sh(script: "if [ -n \"\${PGO_POSTGRES_HA_IMAGE}\" ] ; then echo ${PGO_POSTGRES_HA_IMAGE} | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' ; else echo 'main-ppg13'; fi", , returnStdout: true).trim()
+            PPG_TAG = sh(script: "if [ -n \"\${PGO_POSTGRES_IMAGE}\" ] ; then echo ${PGO_POSTGRES_IMAGE} | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' ; else echo 'main-ppg15'; fi", , returnStdout: true).trim()
+            popArtifactFile("${env.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-${params.KUBEVERSION}-$PPG_TAG")
 
-            popArtifactFile("${params.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-$PPG_TAG")
-
-            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
+            timeout(time: 120, unit: 'MINUTES') {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                 sh """
-                    if [ -f "${params.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-$PPG_TAG" ]; then
+                    if [ -f "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-${params.KUBEVERSION}-$PPG_TAG" ]; then
                         echo Skip $TEST_NAME test
                     else
                         cd ./source
@@ -52,56 +52,22 @@ void runTest(String TEST_NAME) {
                             export PG_VER=${PG_VERSION}
                         fi
                         if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
-                            export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
+                            export IMAGE=${PGO_OPERATOR_IMAGE}
                         else
-                            export IMAGE_OPERATOR=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-postgres-operator
-                        fi
-
-                        if [ -n "${PGO_APISERVER_IMAGE}" ]; then
-                            export IMAGE_APISERVER=${PGO_APISERVER_IMAGE}
-                        else
-                            export IMAGE_APISERVER=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-apiserver
-                        fi
-
-                        if [ -n "${PGO_EVENT_IMAGE}" ]; then
-                            export IMAGE_PGOEVENT=${PGO_EVENT_IMAGE}
-                        else
-                            export IMAGE_PGOEVENT=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-event
-                        fi
-
-                        if [ -n "${PGO_RMDATA_IMAGE}" ]; then
-                            export IMAGE_RMDATA=${PGO_RMDATA_IMAGE}
-                        else
-                            export IMAGE_RMDATA=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-rmdata
-                        fi
-
-                        if [ -n "${PGO_SCHEDULER_IMAGE}" ]; then
-                            export IMAGE_SCHEDULER=${PGO_SCHEDULER_IMAGE}
-                        else
-                            export IMAGE_SCHEDULER=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-scheduler
-                        fi
-
-                        if [ -n "${PGO_DEPLOYER_IMAGE}" ]; then
-                            export IMAGE_DEPLOYER=${PGO_DEPLOYER_IMAGE}
-                        else
-                            export IMAGE_DEPLOYER=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-deployer
+                            export IMAGE=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}
                         fi
 
                         if [ -n "${PGO_PGBOUNCER_IMAGE}" ]; then
                             export IMAGE_PGBOUNCER=${PGO_PGBOUNCER_IMAGE}
                         fi
 
-                        if [ -n "${PGO_POSTGRES_HA_IMAGE}" ]; then
-                            export IMAGE_PG_HA=${PGO_POSTGRES_HA_IMAGE}
-                            export PG_VER=\$(echo \${IMAGE_PG_HA} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
+                        if [ -n "${PGO_POSTGRES_IMAGE}" ]; then
+                            export IMAGE_POSTGRESQL=${PGO_POSTGRES_IMAGE}
+                            export PG_VER=\$(echo \${IMAGE_POSTGRESQL} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                         fi
 
                         if [ -n "${PGO_BACKREST_IMAGE}" ]; then
                             export IMAGE_BACKREST=${PGO_BACKREST_IMAGE}
-                        fi
-
-                        if [ -n "${PGO_BACKREST_REPO_IMAGE}" ]; then
-                            export IMAGE_BACKREST_REPO=${PGO_BACKREST_REPO_IMAGE}
                         fi
 
                         if [ -n "${PGO_PGBADGER_IMAGE}" ]; then
@@ -120,15 +86,16 @@ void runTest(String TEST_NAME) {
                             export IMAGE_PMM=${PMM_CLIENT_IMAGE}
                         fi
 
-                        export PATH=/home/ec2-user/.local/bin:$PATH
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME
+                        export PATH="$HOME/.krew/bin:$PATH"
                         source $HOME/google-cloud-sdk/path.bash.inc
-                        export KUBECONFIG=~/.kube/config
-
-                        ./e2e-tests/$TEST_NAME/run
+                        set -o pipefail
+                        time kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^${TEST_NAME}\$"
                     fi
                 """
+                }
             }
-            pushArtifactFile("${params.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-$PPG_TAG")
+            pushArtifactFile("${env.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-${params.KUBEVERSION}-$PPG_TAG")
             testsReportMap[TEST_NAME] = 'passed'
             return true
         }
@@ -144,6 +111,7 @@ void runTest(String TEST_NAME) {
 
     echo "The $TEST_NAME test was finished!"
 }
+
 void installRpms() {
     sh """
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
@@ -154,7 +122,7 @@ void installRpms() {
 pipeline {
     parameters {
         string(
-            defaultValue: '1.21',
+            defaultValue: '1.22',
             description: 'Kubernetes target version',
             name: 'KUBEVERSION')
         string(
@@ -171,47 +139,23 @@ pipeline {
             name: 'PG_VERSION')
         string(
             defaultValue: '',
-            description: 'Operator image: perconalab/percona-postgresql-operator:main-postgres-operator',
+            description: 'Operator image: perconalab/percona-postgresql-operator:main',
             name: 'PGO_OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators API server image: perconalab/percona-postgresql-operator:main-pgo-apiserver',
-            name: 'PGO_APISERVER_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators event server image: perconalab/percona-postgresql-operator:main-pgo-event',
-            name: 'PGO_EVENT_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators rmdata image: perconalab/percona-postgresql-operator:main-pgo-rmdata',
-            name: 'PGO_RMDATA_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators scheduler image: perconalab/percona-postgresql-operator:main-pgo-scheduler',
-            name: 'PGO_SCHEDULER_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators deployer image: perconalab/percona-postgresql-operator:main-pgo-deployer',
-            name: 'PGO_DEPLOYER_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg13-pgbouncer',
+            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg15-pgbouncer',
             name: 'PGO_PGBOUNCER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg13-postgres-ha',
-            name: 'PGO_POSTGRES_HA_IMAGE')
+            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg15-postgres',
+            name: 'PGO_POSTGRES_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg13-pgbackrest',
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg15-pgbackrest',
             name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg13-pgbackrest-repo',
-            name: 'PGO_BACKREST_REPO_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg13-pgbadger',
+            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg15-pgbadger',
             name: 'PGO_PGBADGER_IMAGE')
         string(
             defaultValue: 'perconalab/pmm-server',
@@ -241,26 +185,36 @@ pipeline {
                 installRpms()
                 withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                     sh '''
-                        if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-                            rm -rf $HOME/google-cloud-sdk
-                            curl https://sdk.cloud.google.com | bash
-                        fi
+                    if [ ! -d $HOME/google-cloud-sdk/bin ]; then
+                        rm -rf $HOME/google-cloud-sdk
+                        curl https://sdk.cloud.google.com | bash
+                    fi
 
-                        source $HOME/google-cloud-sdk/path.bash.inc
-                        gcloud components update kubectl
-                        gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
-                        gcloud config set project $GCP_PROJECT
-                        gcloud version
+                    source $HOME/google-cloud-sdk/path.bash.inc
+                    gcloud components install alpha
+                    gcloud components install kubectl
 
-                        curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
-                            | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+                    curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+                    sudo mv -v /tmp/eksctl /usr/local/bin
 
-                        curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-                        sudo mv -v /tmp/eksctl /usr/local/bin
-
-                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
-                        sudo chmod +x /usr/local/bin/yq
-                    '''
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
+                        | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+                    curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
+                        | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
+                    curl -s -L https://github.com/mitchellh/golicense/releases/latest/download/golicense_0.2.0_linux_x86_64.tar.gz \
+                        | sudo tar -C /usr/local/bin --wildcards -zxvpf -
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.30.8/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo chmod +x /usr/local/bin/yq
+                    cd "$(mktemp -d)"
+                    OS="$(uname | tr '[:upper:]' '[:lower:]')"
+                    ARCH="$(uname -m | sed -e 's/x86_64/amd64/')"
+                    KREW="krew-${OS}_${ARCH}"
+                    curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/download/v0.4.3/${KREW}.tar.gz"
+                    tar zxvf "${KREW}.tar.gz"
+                    ./"${KREW}" install krew
+                    rm -f "${KREW}.tar.gz"
+                    export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+                    kubectl krew install kuttl                    '''
                 }
             }
         }
@@ -328,6 +282,9 @@ nodeGroups:
         spotInstancePools: 2
       tags:
         'iit-billing-tag': 'jenkins-eks'
+        'delete-cluster-after-hours': '10'
+        'team': 'cloud'
+        'product': 'pg-operator'
 EOF
                 '''
 
@@ -342,25 +299,14 @@ EOF
                 stash includes: 'cluster.yaml', name: 'cluster_conf'
             }
         }
-        stage('Run Tests') {
-            environment {
-                CLEAN_NAMESPACE = 1
-            }
+        stage('E2E Basic tests') {
             steps {
                 runTest('init-deploy')
-                runTest('scaling')
-                runTest('recreate')
-                runTest('affinity')
-                runTest('monitoring')
-                runTest('self-healing')
-                runTest('operator-self-healing')
                 runTest('demand-backup')
+                runTest('start-from-backup')
                 runTest('scheduled-backup')
-                runTest('upgrade')
-                runTest('smart-update')
-                runTest('version-service')
-                runTest('users')
-                runTest('ns-mode')
+                runTest('monitoring')
+                runTest('telemetry-transfer')
             }
         }
         stage('Make report') {
