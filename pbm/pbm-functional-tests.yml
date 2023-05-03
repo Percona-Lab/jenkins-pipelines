@@ -1,5 +1,5 @@
 - job:
-    name: pbm-e2e-tests
+    name: pbm-functional-tests
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pbm/pbm-e2e-tests.groovy
+      script-path: pbm/pbm-functional-tests.groovy

@@ -1,5 +1,5 @@
 - job:
-    name: pbm-multijob-testing
+    name: pbm-release-test-run
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pbm/pbm-multijob-testing.groovy
+      script-path: pbm/pbm-release-test-run.groovy

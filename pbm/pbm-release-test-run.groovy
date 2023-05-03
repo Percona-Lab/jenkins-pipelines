@@ -20,12 +20,12 @@ pipeline {
     stages {
         stage ('Run e2e tests') {
             steps {
-                build job: 'pbm-e2e-tests-full', propagate: false, wait: true, parameters: [ string(name: 'PBM_BRANCH', value: params.PBM_BRANCH) ]
+                build job: 'pbm-functional-tests-full', propagate: false, wait: true, parameters: [ string(name: 'PBM_BRANCH', value: params.PBM_BRANCH) ]
             }
         }
         stage ('Run package tests') {
             steps {
-                build job: 'pbm-parallel', parameters: [ string(name: 'install_repo', value: "testing"), string(name: 'psmdb_to_test', value: "psmdb-60" ), string(name: 'VERSION', value: params.PBM_VERSION)]
+                build job: 'pbm-pkg-install-parallel', parameters: [ string(name: 'install_repo', value: "testing"), string(name: 'psmdb_to_test', value: "psmdb-60" ), string(name: 'VERSION', value: params.PBM_VERSION)]
             }
         }
         stage ('Build docker images and check for vulnerabilities') { 

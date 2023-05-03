@@ -1,5 +1,5 @@
 - job:
-    name: pbm-rs-functional
+    name: pbm-functional-aws-rs
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pbm/pbm-rs-functional.groovy
+      script-path: pbm/pbm-functional-aws-rs.groovy
