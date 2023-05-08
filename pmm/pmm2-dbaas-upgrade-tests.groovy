@@ -72,7 +72,7 @@ pipeline {
             description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
             name: 'PMM_SERVER_TAG')
         string(
-            defaultValue: 'admin-password',
+            defaultValue: 'pmm2023fortesting!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         choice(

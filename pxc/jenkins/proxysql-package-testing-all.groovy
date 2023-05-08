@@ -20,11 +20,13 @@ void runNodeBuild(String node_to_test) {
 }
 
 pipeline {
-    agent none
+    agent {
+        label 'docker'
+    }
 
     parameters {
         choice(
-            choices: ['proxysql', 'proxysql2'],
+            choices: ['proxysql2', 'proxysql'],
             description: 'Choose the product version to test: proxysql OR proxysql2',
             name: 'product_to_test'
         )
@@ -47,6 +49,13 @@ pipeline {
     }
 
     stages {
+        stage("Prepare") {
+            steps {
+                script {
+                    currentBuild.displayName = "#${BUILD_NUMBER}-${params.product_to_test}-${params.install_repo}-${params.client_to_test}"
+                }
+            }
+        }
         stage('Run parallel') {
             parallel {
                 stage('Debian Buster') {

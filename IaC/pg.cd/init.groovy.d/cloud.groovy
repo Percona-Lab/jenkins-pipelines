@@ -21,7 +21,7 @@ netMap['eu-central-1b'] = 'subnet-085deaca8c1c59a4f'
 netMap['eu-central-1c'] = 'subnet-0643c0784b4e3cedd'
 
 imageMap = [:]
-imageMap['eu-central-1a.micro-amazon'] = 'ami-0b920b0594b5288fb'
+imageMap['eu-central-1a.micro-amazon'] = 'ami-01fd08d7b0955d6d5'
 imageMap['eu-central-1b.micro-amazon'] = imageMap['eu-central-1a.micro-amazon']
 imageMap['eu-central-1c.micro-amazon'] = imageMap['eu-central-1a.micro-amazon']
 
@@ -29,24 +29,17 @@ imageMap['eu-central-1a.min-centos-7-x64'] = 'ami-08b6d44b4f6f7b279'
 imageMap['eu-central-1b.min-centos-7-x64'] = imageMap['eu-central-1a.min-centos-7-x64']
 imageMap['eu-central-1c.min-centos-7-x64'] = imageMap['eu-central-1a.min-centos-7-x64']
 
-imageMap['eu-central-1a.min-ol-8-x64'] = 'ami-059d20a9c4cb68026'
+imageMap['eu-central-1a.min-ol-8-x64'] = 'ami-065e2293a3df4c870'
 imageMap['eu-central-1b.min-ol-8-x64'] = imageMap['eu-central-1a.min-ol-8-x64']
 imageMap['eu-central-1c.min-ol-8-x64'] = imageMap['eu-central-1a.min-ol-8-x64']
 
-imageMap['eu-central-1a.min-ol-9-x64'] = 'ami-0387d68a9c60ce485'
+imageMap['eu-central-1a.min-ol-9-x64'] = 'ami-02952e732e6126584'
 imageMap['eu-central-1b.min-ol-9-x64'] = imageMap['eu-central-1a.min-ol-9-x64']
 imageMap['eu-central-1c.min-ol-9-x64'] = imageMap['eu-central-1a.min-ol-9-x64']
 
 priceMap = [:]
-priceMap['t2.medium']   = '0.05'
-priceMap['m1.medium']   = '0.05'
-priceMap['c4.xlarge']   = '0.10'
-priceMap['m4.xlarge']   = '0.10'
-priceMap['m4.2xlarge']  = '0.20'
-priceMap['r4.4xlarge']  = '0.35'
-priceMap['m5d.2xlarge'] = '0.20'
-priceMap['c5d.xlarge']  = '0.20'
-priceMap['r5a.2xlarge'] = '0.40'
+priceMap['c5.large']     = '0.05' // type=c5.large, vCPU=2, memory=4GiB, saving=49%, interruption='<5%', price=0.053400
+priceMap['i3en.2xlarge'] = '0.40' // type=i3en.2xlarge, vCPU=8, memory=64GiB, saving=70%, interruption='<5%', price=0.324000
 
 userMap = [:]
 userMap['micro-amazon']     = 'ec2-user'
@@ -87,18 +80,14 @@ initMap['min-ol-8-x64']     = initMap['micro-amazon']
 initMap['min-ol-9-x64']     = initMap['micro-amazon']
 
 capMap = [:]
-capMap['c4.xlarge']   = '60'
-capMap['m4.xlarge']   = '5'
-capMap['m4.2xlarge']  = '40'
-capMap['r4.4xlarge']  = '40'
-capMap['c5d.xlarge']  = '10'
-capMap['r5a.2xlarge'] = '40'
+capMap['c5.large']     = '20'
+capMap['i3en.2xlarge'] = '40'
 
 typeMap = [:]
-typeMap['micro-amazon']     = 't2.medium'
-typeMap['min-centos-7-x64'] = 't2.medium'
-typeMap['min-ol-8-x64']     = 't2.medium'
-typeMap['min-ol-9-x64']     = 'r5a.2xlarge'
+typeMap['micro-amazon']     = 'c5.large'
+typeMap['min-centos-7-x64'] = 'c5.large'
+typeMap['min-ol-8-x64']     = 'c5.large'
+typeMap['min-ol-9-x64']     = 'i3en.2xlarge'
 
 execMap = [:]
 execMap['micro-amazon']     = '30'
