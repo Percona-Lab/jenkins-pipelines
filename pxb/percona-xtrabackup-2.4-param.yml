@@ -87,14 +87,14 @@
         name: xtradb56_version
         trim: false
     - string:
-        default: '5.7.41-rel44-65.1'
-        description: Version of PXC57 which will be used for tests
-        name: galera57_version
+        default: 'https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.31-31.45-3/binary/tarball/Percona-XtraDB-Cluster-5.7.31-rel34-45.3.Linux.x86_64.glibc2.12.tar.gz'
+        description: Tarball of PXC57 which will be used for tests
+        name: galera57_tarball
         trim: false
     - string:
         default: '5.6.51-rel91.0-28.46.1'
-        description: Version of PXC56 which will be used for tests
-        name: galera56_version
+        description: Tarball version of PXC56 which will be used for tests
+        name: galera56_tarball
         trim: false
     project-type: matrix
     properties:
