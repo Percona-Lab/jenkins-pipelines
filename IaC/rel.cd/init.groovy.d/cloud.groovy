@@ -87,7 +87,7 @@ imageMap['eu-west-1c.docker-32gb-aarch64']  = imageMap['eu-west-1a.docker-32gb-a
 priceMap = [:]
 priceMap['t2.small'] = '0.02'    // type=t2.small, vCPU=1, memory=2GiB, saving=68%, interruption='<5%', price=0.008000
 priceMap['c5.xlarge'] = '0.15'   // type=c5.xlarge, vCPU=4, memory=8GiB, saving=58%, interruption='<5%', price=0.086400
-priceMap['m5d.4xlarge'] = '0.43' // type=m5d.4xlarge, vCPU=16, memory=64GiB, saving=65%, interruption='<5%', price=0.364800
+priceMap['m5d.4xlarge'] = '0.51' // type=m5d.4xlarge, vCPU=16, memory=64GiB, saving=65%, interruption='<5%', price=0.441500
 priceMap['r6a.4xlarge'] = '0.42' // type=r6a.4xlarge, vCPU=16, memory=128GiB, saving=66%, interruption='<5%', price=0.361600
 priceMap['i4i.2xlarge'] = '0.32' // type=i4i.2xlarge, vCPU=8, memory=64GiB, saving=68%, interruption='<5%', price=0.248900
 
@@ -332,23 +332,23 @@ execMap['min-bionic-x64-zenfs'] = '1'
 execMap['docker-32gb-aarch64'] = execMap['docker']
 
 devMap = [:]
-devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:220:true:gp2'
-devMap['docker2']           = '/dev/xvda=:8:true:gp2,/dev/xvdd=:220:true:gp2'
-devMap['docker-32gb']       = devMap['docker']
-devMap['micro-amazon']      = devMap['docker']
-devMap['min-bionic-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:220:true:gp2'
-devMap['min-focal-x64']     = devMap['min-bionic-x64']
-devMap['min-jammy-x64']     = devMap['min-bionic-x64']
-devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
-devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
-devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:220:true:gp2'
-devMap['min-ol-8-x64']      = '/dev/sda1=:10:true:gp2,/dev/sdd=:220:true:gp2'
-devMap['min-ol-9-x64']      = '/dev/sda1=:20:true:gp2,/dev/sdd=:220:true:gp2'
-devMap['min-buster-x64']    = devMap['docker']
-devMap['min-bullseye-x64']  = devMap['docker']
-devMap['min-hirsute-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:220:true:gp2'
-devMap['min-focal-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:220:true:gp2'
-devMap['min-bionic-x64-zenfs'] = '/dev/sda1=:10:true:gp2,/dev/sdd=:220:true:gp2'
+devMap['docker']                = '/dev/xvda=:8:true:gp2,/dev/xvdd=:220:true:gp2'
+devMap['docker2']               = '/dev/xvda=:8:true:gp2,/dev/xvdd=:220:true:gp2'
+devMap['docker-32gb']           = devMap['docker']
+devMap['micro-amazon']          = devMap['docker']
+devMap['min-bionic-x64']        = '/dev/sda1=:30:true:gp2,/dev/sdd=:220:true:gp2'
+devMap['min-focal-x64']         = devMap['min-bionic-x64']
+devMap['min-jammy-x64']         = devMap['min-bionic-x64']
+devMap['min-centos-7-x64']      = devMap['min-bionic-x64']
+devMap['fips-centos-7-x64']     = devMap['min-bionic-x64']
+devMap['min-centos-8-x64']      = '/dev/sda1=:30:true:gp2,/dev/sdd=:220:true:gp2'
+devMap['min-ol-8-x64']          = '/dev/sda1=:30:true:gp2,/dev/sdd=:220:true:gp2'
+devMap['min-ol-9-x64']          = '/dev/sda1=:30:true:gp2,/dev/sdd=:220:true:gp2'
+devMap['min-buster-x64']        = '/dev/sda1=:30:true:gp2,/dev/sdd=:220:true:gp2'
+devMap['min-bullseye-x64']      = '/dev/sda1=:30:true:gp2,/dev/sdd=:220:true:gp2'
+devMap['min-hirsute-x64-zenfs'] = '/dev/sda1=:30:true:gp2,/dev/sdd=:220:true:gp2'
+devMap['min-focal-x64-zenfs']   = '/dev/sda1=:30:true:gp2,/dev/sdd=:220:true:gp2'
+devMap['min-bionic-x64-zenfs']  = '/dev/sda1=:30:true:gp2,/dev/sdd=:220:true:gp2'
 
 devMap['docker-32gb-aarch64'] = devMap['docker']
 
