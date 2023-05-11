@@ -89,6 +89,16 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          docker tag percona-server-mongodb perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-arm64
                          docker push perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-arm64
+
+                         docker manifest create perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-multi \
+                            perconalab/percona-server-mongodb:${params.PSMDB_VERSION} \
+                            perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-arm64
+                         docker manifest annotate perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-multi \
+                            perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-multi \
+                            perconalab/percona-server-mongodb:${params.PSMDB_VERSION} --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-multi
+                         docker manifest push perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-multi
                      """
                 }
             }
@@ -103,6 +113,16 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          docker tag percona-server-mongodb percona/percona-server-mongodb:${params.PSMDB_VERSION}-arm64
                          docker push percona/percona-server-mongodb:${params.PSMDB_VERSION}-arm64
+
+                         docker manifest create percona/percona-server-mongodb:${params.PSMDB_VERSION}-multi \
+                            percona/percona-server-mongodb:${params.PSMDB_VERSION} \
+                            percona/percona-server-mongodb:${params.PSMDB_VERSION}-arm64
+                         docker manifest annotate percona/percona-server-mongodb:${params.PSMDB_VERSION}-multi \
+                            percona/percona-server-mongodb:${params.PSMDB_VERSION}-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate percona/percona-server-mongodb:${params.PSMDB_VERSION}-multi \
+                            percona/percona-server-mongodb:${params.PSMDB_VERSION} --os linux --arch amd64
+                         docker manifest inspect percona/percona-server-mongodb:${params.PSMDB_VERSION}-multi
+                         docker manifest push percona/percona-server-mongodb:${params.PSMDB_VERSION}-multi
                      """
                 }
             }
