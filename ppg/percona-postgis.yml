@@ -1,5 +1,5 @@
 - job:
-    name: pbm-e2e-tests-full
+    name: percona-postgis-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,5 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pbm/pbm-e2e-tests-full.groovy
+      script-path: ppg/percona-postgis.groovy
+

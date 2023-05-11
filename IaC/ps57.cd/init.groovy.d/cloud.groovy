@@ -21,23 +21,23 @@ netMap['eu-central-1b'] = 'subnet-0f06a2ce06ea122c8'
 netMap['eu-central-1c'] = 'subnet-01d902b8d64d9b0dc'
 
 imageMap = [:]
-imageMap['eu-central-1a.docker']            = 'ami-0b920b0594b5288fb'
-imageMap['eu-central-1a.docker-32gb']       = 'ami-0b920b0594b5288fb'
-imageMap['eu-central-1a.docker2']           = 'ami-0b920b0594b5288fb'
-imageMap['eu-central-1a.micro-amazon']      = 'ami-0b920b0594b5288fb'
-imageMap['eu-central-1a.min-amazon-2-x64']  = 'ami-0b920b0594b5288fb'
-imageMap['eu-central-1a.min-ol-8-x64']      = 'ami-07e51b655b107cd9b'
-imageMap['eu-central-1a.min-ol-9-x64']      = 'ami-0387d68a9c60ce485'
+imageMap['eu-central-1a.docker']            = 'ami-089ef08b563ccf2bf'
+imageMap['eu-central-1a.docker-32gb']       = 'ami-089ef08b563ccf2bf'
+imageMap['eu-central-1a.docker2']           = 'ami-089ef08b563ccf2bf'
+imageMap['eu-central-1a.micro-amazon']      = 'ami-089ef08b563ccf2bf'
+imageMap['eu-central-1a.min-amazon-2-x64']  = 'ami-089ef08b563ccf2bf'
+imageMap['eu-central-1a.min-ol-8-x64']      = 'ami-065e2293a3df4c870'
+imageMap['eu-central-1a.min-ol-9-x64']      = 'ami-02952e732e6126584'
 imageMap['eu-central-1a.min-centos-8-x64']  = 'ami-0a2dc38dc30ba417e'
 imageMap['eu-central-1a.min-centos-7-x64']  = 'ami-04cf43aca3e6f3de3'
 imageMap['eu-central-1a.fips-centos-7-x64'] = 'ami-0837950ffca9ae6e8'
 imageMap['eu-central-1a.min-centos-6-x64']  = 'ami-01fc903dce948db3f'
-imageMap['eu-central-1a.min-buster-x64']    = 'ami-07ff19108bbd78105'
-imageMap['eu-central-1a.min-bullseye-x64']  = 'ami-0658cd4f76929611c'
-imageMap['eu-central-1a.min-jammy-x64']     = 'ami-015c25ad8763b2f11'
-imageMap['eu-central-1a.min-focal-x64']     = 'ami-0bdbe51a2e8070ff2'
-imageMap['eu-central-1a.min-bionic-x64']    = 'ami-073375fc9e17516d6'
-imageMap['eu-central-1a.min-stretch-x64']   = 'ami-0b138c2aca6657b47'
+imageMap['eu-central-1a.min-buster-x64']    = 'ami-0c984d7a384cafb51'
+imageMap['eu-central-1a.min-bullseye-x64']  = 'ami-08f13e5792295e1b2'
+imageMap['eu-central-1a.min-jammy-x64']     = 'ami-0ec7f9846da6b0f61'
+imageMap['eu-central-1a.min-focal-x64']     = 'ami-0d497a49e7d359666'
+imageMap['eu-central-1a.min-bionic-x64']    = 'ami-0cc29ffa555d90047'
+imageMap['eu-central-1a.min-stretch-x64']   = 'ami-0d78ea9dc521d7ed3'
 imageMap['eu-central-1a.min-xenial-x64']    = 'ami-0a86f18b52e547759'
 
 imageMap['eu-central-1b.docker']            = imageMap['eu-central-1a.docker']
@@ -79,14 +79,11 @@ imageMap['eu-central-1c.min-xenial-x64']    = imageMap['eu-central-1a.min-xenial
 imageMap['eu-central-1c.min-bullseye-x64']  = imageMap['eu-central-1a.min-bullseye-x64']
 
 priceMap = [:]
-priceMap['t2.small'] = '0.01'
-priceMap['m4.large'] = '0.07' // type=m4.large, vCPU=2, memory=8GiB, saving=64%, interruption='<5%', price=.044500
-priceMap['m1.medium'] = '0.05'
-priceMap['c4.xlarge'] = '0.10'
-priceMap['m4.xlarge'] = '0.10'
-priceMap['c6i.4xlarge'] = '0.47'
-priceMap['i4i.4xlarge'] = '0.70'
-priceMap['c5d.xlarge'] = '0.20'
+priceMap['m5a.large'] = '0.09' // type=m5a.large, vCPU=2, memory=8GiB, saving=52%, interruption='<5%', price=0.056500
+priceMap['m1.medium'] = '0.05' // centos6 x32 
+priceMap['m6i.xlarge'] = '0.15' // type=m6i.xlarge, vCPU=4, memory=16GiB, saving=65%, interruption='<5%', price=0.104100
+priceMap['r6a.4xlarge'] = '0.58' // type=r6a.4xlarge, vCPU=16, memory=128GiB, saving=60%, interruption='<5%', price=0.503000
+priceMap['c5d.xlarge'] = '0.17' // type=c5d.xlarge, vCPU=4, memory=8GiB, saving=60%, interruption='<5%', price=0.100700
 priceMap['i3en.2xlarge'] = '0.40' // type=i3en.2xlarge, vCPU=8, memory=64GiB, saving=70%, interruption='<5%', price=0.324000
 
 userMap = [:]
@@ -329,18 +326,17 @@ initMap['min-stretch-x64']  = initMap['debMap']
 initMap['min-xenial-x64']   = initMap['debMap']
 
 capMap = [:]
-capMap['c4.xlarge']  = '60'
-capMap['m4.large']  = '5'
+capMap['m5a.large']  = '5'
 capMap['i3en.2xlarge'] = '40'
-capMap['i4i.4xlarge'] = '40'
+capMap['r6a.4xlarge'] = '40'
 capMap['c5d.xlarge'] = '60'
 capMap['i3en.2xlarge'] = '40'
 
 typeMap = [:]
-typeMap['micro-amazon']      = 'm4.large'
+typeMap['micro-amazon']      = 'm5a.large'
 typeMap['docker']            = 'c5d.xlarge'
 typeMap['docker-32gb']       = 'i3en.2xlarge'
-typeMap['docker2']           = 'i4i.4xlarge'
+typeMap['docker2']           = 'r6a.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-8-x64']  = typeMap['min-centos-7-x64']
@@ -351,7 +347,7 @@ typeMap['min-focal-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32']  = 'm1.medium'
-typeMap['min-centos-6-x64']  = 'm4.xlarge'
+typeMap['min-centos-6-x64']  = 'm6i.xlarge'
 typeMap['min-stretch-x64']   = typeMap['docker']
 typeMap['min-xenial-x64']    = typeMap['docker']
 typeMap['min-amazon-2-x64']  = typeMap['micro-amazon']
@@ -497,13 +493,13 @@ String region = 'eu-central-1'
             getTemplate('min-centos-8-x64',   "${region}${it}"),
             getTemplate('min-centos-7-x64',   "${region}${it}"),
             getTemplate('fips-centos-7-x64',  "${region}${it}"),
-            getTemplate('min-centos-6-x64',   "${region}${it}"),
+            // getTemplate('min-centos-6-x64',   "${region}${it}"),
             getTemplate('min-jammy-x64',      "${region}${it}"),
             getTemplate('min-focal-x64',      "${region}${it}"),
             getTemplate('min-bionic-x64',     "${region}${it}"),
             getTemplate('min-buster-x64',     "${region}${it}"),
-            getTemplate('min-stretch-x64',    "${region}${it}"),
-            getTemplate('min-xenial-x64',     "${region}${it}"),
+            // getTemplate('min-stretch-x64',    "${region}${it}"),
+            // getTemplate('min-xenial-x64',     "${region}${it}"),
             getTemplate('min-bullseye-x64',   "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',

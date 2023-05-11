@@ -11,16 +11,16 @@ pipeline {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
-        string(name: 'PBM_BRANCH', defaultValue: 'main', description: 'PBM branch or commit')
+        string(name: 'PBM_BRANCH', defaultValue: 'main', description: 'PBM branch')
+        string(name: 'PSMDB', defaultValue: 'percona/percona-server-mongodb', description: 'PSMDB docker image')
         string(name: 'GO_VER', defaultValue: 'latest', description: 'GOLANG docker image for building PBM from sources')
-        string(name: 'PBM_VERSION', defaultValue: 'latest', description: 'PBM version for upgrade test, will be installed as old version from packages')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
     }
     stages {
         stage('Set build name'){
             steps {
                 script {
-                    currentBuild.displayName = "${params.PBM_BRANCH}"
+                    currentBuild.displayName = "${params.PBM_BRANCH}-${params.PSMDB}"
                 }
             }
         }
@@ -33,10 +33,6 @@ pipeline {
                     axis {
                         name 'TEST'
                         values 'logical', 'physical', 'incremental'
-                    }
-                    axis {
-                        name 'PSMDB'
-                        values '4.2', '4.4', '5.0', '6.0'
                     }
                 }
                 stages {
@@ -55,7 +51,7 @@ pipeline {
                             git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                             sh """
                                 cd pbm-functional/pytest
-                                PSMDB=percona/percona-server-mongodb:${PSMDB} docker-compose build
+                                docker-compose build
                                 docker-compose up -d
                                 docker-compose run test pytest -s --junitxml=junit.xml -k ${TEST} || true
                                 docker-compose down -v --remove-orphans
@@ -79,13 +75,13 @@ pipeline {
     }
     post {
         success {
-           slackNotify("#opensource-psmdb", "#00FF00", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - all tests passed")
+           slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: PBM ${PBM_BRANCH} with ${PSMDB}- all tests passed")
         }
         unstable {
-            slackNotify("#opensource-psmdb", "#F6F930", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - some tests failed [${BUILD_URL}testReport/]")
+            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: PBM ${PBM_BRANCH} with ${PSMDB} - some tests failed [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("#opensource-psmdb", "#FF0000", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - unexpected failure [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: PBM ${PBM_BRANCH} with ${PSMDB} - unexpected failure [${BUILD_URL}]")
         }
     }
 }
