@@ -87,8 +87,34 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                      sh """
                          docker login -u '${USER}' -p '${PASS}'
+                         MAJ_VER=\$(echo ${params.PSMDB_VERSION} | awk -F "." '{print \$1"."\$2}')
+                         MIN_VER=\$(echo ${params.PSMDB_VERSION} | awk -F "-" '{print \$1}')
                          docker tag percona-server-mongodb perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-arm64
                          docker push perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-arm64
+                         docker tag percona-server-mongodb perconalab/percona-server-mongodb:\$MIN_VER-arm64
+                         docker push perconalab/percona-server-mongodb:\$MIN_VER-arm64
+                         docker tag percona-server-mongodb perconalab/percona-server-mongodb:\$MAJ_VER-arm64
+                         docker push perconalab/percona-server-mongodb:\$MAJ_VER-arm64
+
+                         docker manifest create perconalab/percona-server-mongodb:\$MIN_VER-multi \
+                            perconalab/percona-server-mongodb:\$MIN_VER \
+                            perconalab/percona-server-mongodb:\$MIN_VER-arm64
+                         docker manifest annotate perconalab/percona-server-mongodb:\$MIN_VER-multi \
+                            perconalab/percona-server-mongodb:\$MIN_VER-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-server-mongodb:\$MIN_VER-multi \
+                            perconalab/percona-server-mongodb:\$MIN_VER --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-server-mongodb:\$MIN_VER-multi
+                         docker manifest push perconalab/percona-server-mongodb:\$MIN_VER-multi
+
+                         docker manifest create perconalab/percona-server-mongodb:\$MAJ_VER-multi \
+                            perconalab/percona-server-mongodb:\$MAJ_VER \
+                            perconalab/percona-server-mongodb:\$MAJ_VER-arm64
+                         docker manifest annotate perconalab/percona-server-mongodb:\$MAJ_VER-multi \
+                            perconalab/percona-server-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-server-mongodb:\$MAJ_VER-multi \
+                            perconalab/percona-server-mongodb:\$MAJ_VER --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-server-mongodb:\$MAJ_VER-multi
+                         docker manifest push perconalab/percona-server-mongodb:\$MAJ_VER-multi
 
                          docker manifest create perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-multi \
                             perconalab/percona-server-mongodb:${params.PSMDB_VERSION} \
@@ -111,8 +137,34 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                      sh """
                          docker login -u '${USER}' -p '${PASS}'
+                         MAJ_VER=\$(echo ${params.PSMDB_VERSION} | awk -F "." '{print \$1"."\$2}')
+                         MIN_VER=\$(echo ${params.PSMDB_VERSION} | awk -F "-" '{print \$1}')
                          docker tag percona-server-mongodb percona/percona-server-mongodb:${params.PSMDB_VERSION}-arm64
                          docker push percona/percona-server-mongodb:${params.PSMDB_VERSION}-arm64
+                         docker tag percona-server-mongodb percona/percona-server-mongodb:\$MIN_VER-arm64
+                         docker push percona/percona-server-mongodb:\$MIN_VER-arm64
+                         docker tag percona-server-mongodb percona/percona-server-mongodb:\$MAJ_VER-arm64
+                         docker push percona/percona-server-mongodb:\$MAJ_VER-arm64
+
+                         docker manifest create percona/percona-server-mongodb:\$MIN_VER-multi \
+                            percona/percona-server-mongodb:\$MIN_VER \
+                            percona/percona-server-mongodb:\$MIN_VER-arm64
+                         docker manifest annotate percona/percona-server-mongodb:\$MIN_VER-multi \
+                            percona/percona-server-mongodb:\$MIN_VER-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate percona/percona-server-mongodb:\$MIN_VER-multi \
+                            percona/percona-server-mongodb:\$MIN_VER --os linux --arch amd64
+                         docker manifest inspect percona/percona-server-mongodb:\$MIN_VER-multi
+                         docker manifest push percona/percona-server-mongodb:\$MIN_VER-multi
+
+                         docker manifest create percona/percona-server-mongodb:\$MAJ_VER-multi \
+                            percona/percona-server-mongodb:\$MAJ_VER \
+                            percona/percona-server-mongodb:\$MAJ_VER-arm64
+                         docker manifest annotate percona/percona-server-mongodb:\$MAJ_VER-multi \
+                            percona/percona-server-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate percona/percona-server-mongodb:\$MAJ_VER-multi \
+                            percona/percona-server-mongodb:\$MAJ_VER --os linux --arch amd64
+                         docker manifest inspect percona/percona-server-mongodb:\$MAJ_VER-multi
+                         docker manifest push percona/percona-server-mongodb:\$MAJ_VER-multi
 
                          docker manifest create percona/percona-server-mongodb:${params.PSMDB_VERSION}-multi \
                             percona/percona-server-mongodb:${params.PSMDB_VERSION} \
