@@ -119,7 +119,7 @@ pipeline {
                 stage('Build client binary rpm') {
                     steps {
                         sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
-                        sh "${PATH_TO_SCRIPTS}/build-client-rpm rockylinux:8"
+                        sh "${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:8"
                         sh "${PATH_TO_SCRIPTS}/build-client-rpm almalinux:9.0"
                         stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
                         uploadRPM()

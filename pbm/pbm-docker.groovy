@@ -135,13 +135,13 @@ pipeline {
             deleteDir()
         }
         success {
-            slackNotify("#opensource-psmdb", "#00FF00", "[${JOB_NAME}]: Building of PBM ${PBM_VERSION} repo ${PBM_REPO_CH} succeed")
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: Building of PBM ${PBM_VERSION} repo ${PBM_REPO_CH} succeed")
         }
         unstable {
-            slackNotify("#opensource-psmdb", "#F6F930", "[${JOB_NAME}]: Building of PBM ${PBM_VERSION} repo ${PBM_REPO_CH} unstable - [${BUILD_URL}testReport/]")
+            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: Building of PBM ${PBM_VERSION} repo ${PBM_REPO_CH} unstable - [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("#opensource-psmdb", "#FF0000", "[${JOB_NAME}]: Building of PBM ${PBM_VERSION} repo ${PBM_REPO_CH} failed - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: Building of PBM ${PBM_VERSION} repo ${PBM_REPO_CH} failed - [${BUILD_URL}]")
         }
     }
 }

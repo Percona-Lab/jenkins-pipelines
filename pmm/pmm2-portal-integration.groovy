@@ -92,7 +92,7 @@ pipeline {
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    npx codeceptjs run -c pr.codecept.js tests/portal/integration_test.js
+                    npx codeceptjs run --reporter mocha-multi -c pr.codecept.js tests/portal/integration_test.js
                 """
                 }
         }
@@ -121,6 +121,7 @@ pipeline {
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -128,6 +129,7 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
             sh '''
                 sudo rm -r node_modules/
                 sudo rm -r tests/output

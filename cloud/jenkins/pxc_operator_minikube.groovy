@@ -1,10 +1,12 @@
+tests=[]
+
 void IsRunTestsInClusterWide() {
-    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+    if ("${params.CLUSTER_WIDE}" == "YES") {
         env.OPERATOR_NS = 'pxc-operator'
     }
 }
 
-void pushArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
+void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -17,117 +19,147 @@ void pushArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
     }
 }
 
-void popArtifactFile(String FILE_NAME, String GIT_SHORT_COMMIT) {
+void initTests() {
+    echo "Populating tests into the tests array!"
+    def testList = "${params.TEST_LIST}"
+    def suiteFileName = "./source/e2e-tests/${params.TEST_SUITE}"
+
+    if (testList.length() != 0) {
+        suiteFileName = './source/e2e-tests/run-custom.csv'
+        sh """
+            echo -e "${testList}" > ${suiteFileName}
+            echo "Custom test suite contains following tests:"
+            cat ${suiteFileName}
+        """
+    }
+
+    def records = readCSV file: suiteFileName
+
+    for (int i=0; i<records.size(); i++) {
+        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
+    }
+
+    markPassedTests()
+}
+
+void markPassedTests() {
+    echo "Marking passed tests in the tests map!"
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${GIT_SHORT_COMMIT}
-            aws s3 cp --quiet \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
+            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
         """
+
+        for (int i=0; i<tests.size(); i++) {
+            def testName = tests[i]["name"]
+            def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"
+            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+
+            if (retFileExists == 0) {
+                tests[i]["result"] = "passed"
+            }
+        }
     }
 }
 
 TestsReport = '<testsuite name=\\"PXC\\">\n'
-testsReportMap = [:]
 void makeReport() {
-    for ( test in testsReportMap ) {
-        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
+    for (int i=0; i<tests.size(); i++) {
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"]
+        def testName = tests[i]["name"]
+
+        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
     }
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME) {
+void clusterRunner(String cluster) {
+    for (int i=0; i<tests.size(); i++) {
+        if (tests[i]["result"] == "skipped") {
+            tests[i]["result"] = "failure"
+            tests[i]["cluster"] = cluster
+            runTest(i)
+        }
+    }
+}
+
+void runTest(Integer TEST_ID) {
     def retryCount = 0
+    def testName = tests[TEST_ID]["name"]
+
     waitUntil {
+        def timeStart = new Date().getTime()
         try {
-            echo "The $TEST_NAME test was started!"
+            echo "The $testName test was started !"
+            tests[TEST_ID]["result"] = "failure"
 
-            GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-            PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
-            VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-            FILE_NAME = "$VERSION-$TEST_NAME-minikube-${env.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"
-            testsReportMap[TEST_NAME] = 'failure'
-
-            popArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
             sh """
-                if [ -f "$FILE_NAME" ]; then
-                    echo Skip $TEST_NAME test
+                cd ./source
+                if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                    export IMAGE=${PXC_OPERATOR_IMAGE}
                 else
-                    cd ./source
-                    if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                        export IMAGE=${PXC_OPERATOR_IMAGE}
-                    else
-                        export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
-                    fi
-
-                    if [ -n "${IMAGE_PXC}" ]; then
-                        export IMAGE_PXC=${IMAGE_PXC}
-                    fi
-
-                    if [ -n "${IMAGE_PROXY}" ]; then
-                        export IMAGE_PROXY=${IMAGE_PROXY}
-                    fi
-
-                    if [ -n "${IMAGE_HAPROXY}" ]; then
-                        export IMAGE_HAPROXY=${IMAGE_HAPROXY}
-                    fi
-
-                    if [ -n "${IMAGE_BACKUP}" ]; then
-                        export IMAGE_BACKUP=${IMAGE_BACKUP}
-                    fi
-
-                    if [ -n "${IMAGE_PMM}" ]; then
-                        export IMAGE_PMM=${IMAGE_PMM}
-                    fi
-
-                    if [ -n "${IMAGE_LOGCOLLECTOR}" ]; then
-                            export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
-                    fi
-
-                    if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
-                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
-                    fi
-
-                    if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
-                        export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
-                    fi
-
-                    sudo rm -rf /tmp/hostpath-provisioner/*
-                    ./e2e-tests/$TEST_NAME/run
+                    export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
                 fi
+
+                if [ -n "${IMAGE_PXC}" ]; then
+                    export IMAGE_PXC=${IMAGE_PXC}
+                fi
+
+                if [ -n "${IMAGE_PROXY}" ]; then
+                    export IMAGE_PROXY=${IMAGE_PROXY}
+                fi
+
+                if [ -n "${IMAGE_HAPROXY}" ]; then
+                    export IMAGE_HAPROXY=${IMAGE_HAPROXY}
+                fi
+
+                if [ -n "${IMAGE_BACKUP}" ]; then
+                    export IMAGE_BACKUP=${IMAGE_BACKUP}
+                fi
+
+                if [ -n "${IMAGE_PMM}" ]; then
+                    export IMAGE_PMM=${IMAGE_PMM}
+                fi
+
+                if [ -n "${IMAGE_LOGCOLLECTOR}" ]; then
+                    export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
+                fi
+
+                if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                    export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                fi
+
+                if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                    export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                fi
+
+                sudo rm -rf /tmp/hostpath-provisioner/*
+                ./e2e-tests/$testName/run
             """
-            pushArtifactFile("$FILE_NAME", "$GIT_SHORT_COMMIT")
-            testsReportMap[TEST_NAME] = 'passed'
+            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+            tests[TEST_ID]["result"] = "passed"
             return true
         }
         catch (exc) {
-            if (retryCount >= 2) {
+            if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
             retryCount++
             return false
         }
-    }
-
-    sh """
-        rm -rf $FILE_NAME
-    """
-
-    echo "The $TEST_NAME test was finished!"
-}
-
-void conditionalRunTest(String TEST_NAME) {
-    if ( TEST_NAME == 'default-cr' ) {
-        if ( params.GIT_BRANCH.contains('release-') ) {
-            runTest(TEST_NAME)
+        finally {
+            def timeStop = new Date().getTime()
+            def durationSec = (timeStop - timeStart) / 1000
+            tests[TEST_ID]["time"] = durationSec
+            echo "The $testName test was finished!"
         }
-        return 0
     }
-    runTest(TEST_NAME)
 }
 
 void installRpms() {
-    sh '''
+    sh """
         cat <<EOF > /tmp/kubernetes.repo
 [kubernetes]
 name=Kubernetes
@@ -143,10 +175,18 @@ EOF
         sudo percona-release enable-only tools
         sudo yum clean all || true
         sudo yum install -y percona-xtrabackup-80 jq kubectl socat
-    '''
+    """
 }
 pipeline {
     parameters {
+        choice(
+            choices: ['run-minikube.csv', 'run-release.csv', 'run-distro.csv'],
+            description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
+            name: 'TEST_SUITE')
+        text(
+            defaultValue: '',
+            description: 'List of tests to run separated by new line',
+            name: 'TEST_LIST')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
@@ -209,6 +249,7 @@ pipeline {
     }
     environment {
         CLEAN_NAMESPACE = 1
+        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ]; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
     }
     stages {
         stage('Prepare') {
@@ -225,15 +266,19 @@ pipeline {
                     ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
                 """
                 stash includes: "source/**", name: "sourceFILES", useDefaultExcludes: false
+                script {
+                    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                }
+                initTests()
             }
         }
 
         stage('Build docker image') {
             agent { label 'docker' }
             steps {
-                sh '''
+                sh """
                     sudo rm -rf source
-                '''
+                """
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
@@ -261,7 +306,7 @@ pipeline {
                 steps {
                     IsRunTestsInClusterWide()
 
-                    sh '''
+                    sh """
                         sudo yum install -y conntrack
                         sudo usermod -aG docker $USER
                         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
@@ -279,39 +324,33 @@ pipeline {
                         sudo chmod +x /usr/local/bin/yq
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
-                        /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER}
-                    '''
+                        /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER} --cpus=6 --memory=28G
+                    """
 
                     unstash "sourceFILES"
                     withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-                        sh '''
+                        sh """
                            cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-                        '''
+                        """
                     }
 
                     installRpms()
-                    runTest('affinity')
-                    runTest('auto-tuning')
-                    runTest('limits')
-                    runTest('one-pod')
-                    runTest('operator-self-healing-chaos')
-                    runTest('scaling')
-                    runTest('self-healing-advanced-chaos')
-                    runTest('validation-hook')
+                    clusterRunner('cluster1')
             }
             post {
                 always {
-                    sh '''
+                    sh """
                         /usr/local/bin/minikube delete || true
                         sudo rm -rf $HOME/google-cloud-sdk
                         sudo rm -rf ./*
-                    '''
+                    """
                     deleteDir()
                 }
             }
         }
         stage('Make report') {
             steps {
+                echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
                 makeReport()
                 sh """
                     echo "${TestsReport}" > TestsReport.xml
@@ -324,10 +363,10 @@ pipeline {
 
     post {
         always {
-            sh '''
+            sh """
                 sudo rm -rf $HOME/google-cloud-sdk
                 sudo rm -rf ./*
-            '''
+            """
             deleteDir()
         }
     }

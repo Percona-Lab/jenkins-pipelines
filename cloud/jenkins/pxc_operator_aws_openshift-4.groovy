@@ -1,14 +1,18 @@
+tests=[]
+clusters=[]
+
 void IsRunTestsInClusterWide() {
-    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
+    if ("${params.CLUSTER_WIDE}" == "YES") {
         env.OPERATOR_NS = 'pxc-operator'
     }
 }
 
-void CreateCluster( String CLUSTER_SUFFIX ){
-    
+void createCluster(String CLUSTER_SUFFIX){
+    clusters.add("${CLUSTER_SUFFIX}")
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
-            platform_version=`echo "\${params.PLATFORM_VER}" | awk -F. '{ printf("%d%03d%03d%03d\\n", \$1,\$2,\$3,\$4); }';`
+            platform_version=`echo "${params.PLATFORM_VER}" | awk -F. '{ printf("%d%03d%03d%03d\\n", \$1,\$2,\$3,\$4); }';`
             version=`echo "4.12.0" | awk -F. '{ printf("%d%03d%03d%03d\\n", \$1,\$2,\$3,\$4); }';`
             if [ \$platform_version -ge \$version ];then
                 POLICY="additionalTrustBundlePolicy: Proxyonly"
@@ -61,6 +65,7 @@ publish: External
 EOF
             cat $OPENSHIFT_CONF_FILE >> ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
         """
+
         sshagent(['aws-openshift-41-key']) {
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
@@ -71,12 +76,23 @@ EOF
     }
 }
 
-void ShutdownCluster(String CLUSTER_SUFFIX) {
-
+void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
         sshagent(['aws-openshift-41-key']) {
             sh """
-                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/${CLUSTER_SUFFIX}
+                source $HOME/google-cloud-sdk/path.bash.inc
+                export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                    kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete services --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+                done
+                kubectl get svc --all-namespaces || true
+
+                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/$CLUSTER_SUFFIX || true
             """
         }
     }
@@ -96,127 +112,176 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-void popArtifactFile(String FILE_NAME) {
-    echo "Try to get $FILE_NAME file from S3!"
+void initTests() {
+    echo "Populating tests into the tests array!"
+    def testList = "${params.TEST_LIST}"
+    def suiteFileName = "./source/e2e-tests/${params.TEST_SUITE}"
+
+    if (testList.length() != 0) {
+        suiteFileName = './source/e2e-tests/run-custom.csv'
+        sh """
+            echo -e "${testList}" > ${suiteFileName}
+            echo "Custom test suite contains following tests:"
+            cat ${suiteFileName}
+        """
+    }
+
+    def records = readCSV file: suiteFileName
+
+    for (int i=0; i<records.size(); i++) {
+        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
+    }
+
+    markPassedTests()
+}
+
+void markPassedTests() {
+    echo "Marking passed tests in the tests map!"
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git -C source describe --always --dirty)
-            aws s3 cp --quiet \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
+            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
         """
+
+        for (int i=0; i<tests.size(); i++) {
+            def testName = tests[i]["name"]
+            def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"
+            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+
+            if (retFileExists == 0) {
+                tests[i]["result"] = "passed"
+            }
+        }
     }
 }
 
 TestsReport = '<testsuite name=\\"PXC\\">\n'
-testsReportMap = [:]
 void makeReport() {
-    for ( test in testsReportMap ) {
-        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
+    for (int i=0; i<tests.size(); i++) {
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"]
+        def testName = tests[i]["name"]
+
+        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
     }
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
+void clusterRunner(String cluster) {
+    def clusterCreated=0
+
+    for (int i=0; i<tests.size(); i++) {
+        if (tests[i]["result"] == "skipped") {
+            tests[i]["result"] = "failure"
+            tests[i]["cluster"] = cluster
+            if (clusterCreated == 0) {
+                createCluster(cluster)
+                clusterCreated++
+            }
+            runTest(i)
+        }
+    }
+
+    if (clusterCreated >= 1) {
+        shutdownCluster(cluster)
+    }
+}
+
+void runTest(Integer TEST_ID) {
     def retryCount = 0
+    def testName = tests[TEST_ID]["name"]
+    def clusterSuffix = tests[TEST_ID]["cluster"]
+
     waitUntil {
+        def timeStart = new Date().getTime()
         try {
-            echo "The $TEST_NAME test was started!"
-
-            GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
-            PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
-            VERSION = "${env.GIT_BRANCH}-$GIT_SHORT_COMMIT"
-            testsReportMap[TEST_NAME] = 'failure'
-
-            popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+            echo "The $testName test was started on cluster $CLUSTER_NAME-$clusterSuffix !"
+            tests[TEST_ID]["result"] = "failure"
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
-                    if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
-                        echo Skip $TEST_NAME test
+                    cd ./source
+                    if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                        export IMAGE=${PXC_OPERATOR_IMAGE}
                     else
-                        cd ./source
-                        if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                            export IMAGE=${PXC_OPERATOR_IMAGE}
-                        else
-                            export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
-                        fi
-
-                        if [ -n "${IMAGE_PXC}" ]; then
-                            export IMAGE_PXC=${IMAGE_PXC}
-                        fi
-
-                        if [ -n "${IMAGE_PROXY}" ]; then
-                            export IMAGE_PROXY=${IMAGE_PROXY}
-                        fi
-
-                        if [ -n "${IMAGE_HAPROXY}" ]; then
-                            export IMAGE_HAPROXY=${IMAGE_HAPROXY}
-                        fi
-
-                        if [ -n "${IMAGE_BACKUP}" ]; then
-                            export IMAGE_BACKUP=${IMAGE_BACKUP}
-                        fi
-
-                        if [ -n "${IMAGE_PMM}" ]; then
-                            export IMAGE_PMM=${IMAGE_PMM}
-                        fi
-
-                        if [ -n "${IMAGE_LOGCOLLECTOR}" ]; then
-                            export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
-                        fi
-
-                        if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
-                            export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
-                        fi
-
-                        if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
-                            export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
-                        fi
-
-                        source $HOME/google-cloud-sdk/path.bash.inc
-                        export KUBECONFIG=$WORKSPACE/openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
-                        oc whoami
-
-                        ./e2e-tests/$TEST_NAME/run
+                        export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
                     fi
+
+                    if [ -n "${IMAGE_PXC}" ]; then
+                        export IMAGE_PXC=${IMAGE_PXC}
+                    fi
+
+                    if [ -n "${IMAGE_PROXY}" ]; then
+                        export IMAGE_PROXY=${IMAGE_PROXY}
+                    fi
+
+                    if [ -n "${IMAGE_HAPROXY}" ]; then
+                        export IMAGE_HAPROXY=${IMAGE_HAPROXY}
+                    fi
+
+                    if [ -n "${IMAGE_BACKUP}" ]; then
+                        export IMAGE_BACKUP=${IMAGE_BACKUP}
+                    fi
+
+                    if [ -n "${IMAGE_PMM}" ]; then
+                        export IMAGE_PMM=${IMAGE_PMM}
+                    fi
+
+                    if [ -n "${IMAGE_LOGCOLLECTOR}" ]; then
+                        export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
+                    fi
+
+                    if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                    fi
+
+                    if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                        export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                    fi
+
+                    source $HOME/google-cloud-sdk/path.bash.inc
+                    export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
+                    oc whoami
+
+                    ./e2e-tests/$testName/run
                 """
             }
-            pushArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
-            testsReportMap[TEST_NAME] = 'passed'
+            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+            tests[TEST_ID]["result"] = "passed"
             return true
         }
         catch (exc) {
-            if (retryCount >= 2) {
+            if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
             retryCount++
             return false
         }
-    }
-
-    echo "The $TEST_NAME test was finished!"
-}
-
-void conditionalRunTest(String TEST_NAME) {
-    if ( TEST_NAME == 'default-cr' ) {
-        if ( params.GIT_BRANCH.contains('release-') ) {
-            runTest(TEST_NAME)
+        finally {
+            def timeStop = new Date().getTime()
+            def durationSec = (timeStop - timeStart) / 1000
+            tests[TEST_ID]["time"] = durationSec
+            echo "The $testName test was finished!"
         }
-        return 0
     }
-    runTest(TEST_NAME)
 }
 
-void installRpms() {
-    sh """
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 jq | true
-    """
-}
 pipeline {
+    environment {
+        TF_IN_AUTOMATION = 'true'
+        CLEAN_NAMESPACE = 1
+        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ]; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
+    }
     parameters {
+        choice(
+            choices: ['run-release.csv', 'run-distro.csv'],
+            description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
+            name: 'TEST_SUITE')
+        text(
+            defaultValue: '',
+            description: 'List of tests to run separated by new line',
+            name: 'TEST_LIST')
         string(
             defaultValue: '4.10.30',
             description: 'OpenShift version to use',
@@ -270,10 +335,6 @@ pipeline {
             description: 'PMM server image tag: dev-latest',
             name: 'IMAGE_PMM_SERVER_TAG')
     }
-    environment {
-        TF_IN_AUTOMATION = 'true'
-        CLEAN_NAMESPACE = 1
-    }
     agent {
          label 'docker'
     }
@@ -286,12 +347,33 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
+                    # sudo is needed for better node recovery after compilation failure
+                    # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
+                    sudo git reset --hard
+                    sudo git clean -xdf
+                    sudo rm -rf source
+                    ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
+                """
+                stash includes: "source/**", name: "sourceFILES"
+
+                script {
+                    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                    CLUSTER_NAME = sh(script: "echo jenkins-par-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                }
+                initTests()
+
+                sh """
+                    sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+                    sudo percona-release enable-only tools
+                    sudo yum install -y percona-xtrabackup-80 jq | true
+
                     wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
                     unzip terraform_0.11.14_linux_amd64.zip
                     sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
                 """
-                installRpms()
                 sh '''
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                         rm -rf $HOME/google-cloud-sdk
@@ -313,22 +395,13 @@ pipeline {
                     curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux-$PLATFORM_VER.tar.gz \
                         | sudo tar -C /usr/local/bin  --wildcards -zxvpf -
                 '''
-
             }
         }
         stage('Build docker image') {
             steps {
-                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
                     sh '''
-                        sudo sudo git config --global --add safe.directory '*'
-                        sudo git reset --hard
-                        sudo git clean -xdf
-                        sudo rm -rf source
-                        ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
-
-                        cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-
                         if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
                             echo "SKIP: Build is not needed, PXC operator image was set!"
                         else
@@ -352,135 +425,85 @@ pipeline {
         }
         stage('Run tests') {
             parallel {
-                stage('E2E Upgrade') {
+                stage('cluster1') {
                     options {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        CreateCluster('upgrade')
-                        runTest('upgrade-haproxy', 'upgrade')
-                        runTest('upgrade-proxysql', 'upgrade')
-                        runTest('smart-update1', 'upgrade')
-                        runTest('smart-update2', 'upgrade')
-                        runTest('upgrade-consistency', 'upgrade')
-                        ShutdownCluster('upgrade')
+                        clusterRunner('cluster1')
                     }
                 }
-                stage('E2E Basic Tests') {
+                stage('cluster2') {
                     options {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        CreateCluster('basic')
-                        conditionalRunTest('default-cr')
-                        runTest('init-deploy', 'basic')
-                        runTest('limits', 'basic')
-                        runTest('affinity', 'basic')
-                        runTest('one-pod', 'basic')
-                        runTest('auto-tuning', 'basic')
-                        runTest('proxysql-sidecar-res-limits', 'basic')
-                        runTest('users', 'basic')
-                        runTest('haproxy', 'basic')
-                        runTest('monitoring-2-0', 'basic')
-                        runTest('validation-hook', 'basic')
-                        runTest('tls-issue-self', 'basic')
-                        runTest('tls-issue-cert-manager', 'basic')
-                        runTest('tls-issue-cert-manager-ref', 'basic')
-                        runTest('proxy-protocol', 'basic')
-                        ShutdownCluster('basic')
+                        clusterRunner('cluster2')
                     }
                 }
-                stage('E2E Scaling') {
+                stage('cluster3') {
                     options {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        CreateCluster('scaling')
-                        runTest('scaling', 'scaling')
-                        runTest('scaling-proxysql', 'scaling')
-                        runTest('security-context', 'scaling')
-                        ShutdownCluster('scaling')
+                        clusterRunner('cluster3')
                     }
                 }
-                stage('E2E SelfHealing') {
+                stage('cluster4') {
                     options {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        CreateCluster('selfhealing')
-                        runTest('self-healing-chaos', 'selfhealing')
-                        runTest('self-healing-advanced-chaos', 'selfhealing')
-                        runTest('operator-self-healing-chaos', 'selfhealing')
-                        ShutdownCluster('selfhealing')
+                        clusterRunner('cluster4')
                     }
                 }
-                stage('E2E Backups') {
+                stage('cluster5') {
                     options {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        CreateCluster('backup')
-                        runTest('recreate', 'backup')
-                        runTest('restore-to-encrypted-cluster', 'backup')
-                        runTest('demand-backup', 'backup')
-                        runTest('demand-backup-encrypted-with-tls', 'backup')
-                        runTest('pitr', 'backup')
-                        runTest('scheduled-backup', 'backup')
-                        ShutdownCluster('backup')
+                        clusterRunner('cluster5')
                     }
                 }
-                stage('E2E BigData') {
+                stage('cluster6') {
                     options {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        CreateCluster('big-data')
-                        runTest('big-data', 'big-data')
-                        ShutdownCluster('big-data')
+                        clusterRunner('cluster6')
                     }
                 }
-                stage('E2E Cross-site') {
+                stage('cluster7') {
                     options {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        CreateCluster('cross-site')
-                        runTest('cross-site', 'cross-site')
-                        ShutdownCluster('cross-site')
+                        clusterRunner('cluster7')
                     }
                 }
-            }
-        }
-        stage('Make report') {
-            steps {
-                makeReport()
-                sh """
-                    echo "${TestsReport}" > TestsReport.xml
-                """
-                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-                archiveArtifacts '*.xml'
             }
         }
     }
 
     post {
         always {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
-                     sshagent(['aws-openshift-41-key']) {
-                         sh """
-                             for cluster_suffix in 'scaling' 'basic' 'cross-site' 'selfhealing' 'backup' 'big-data' 'upgrade'
-                             do
-                                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/\$cluster_suffix > /dev/null 2>&1 || true
-                             done
-                         """
-                     }
-                }
+            echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
+            makeReport()
+            sh """
+                echo "${TestsReport}" > TestsReport.xml
+            """
+            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            archiveArtifacts '*.xml'
 
-            sh '''
-                sudo docker rmi -f \$(sudo docker images -q) || true
+            script {
+                clusters.each { shutdownCluster(it) }
+            }
+
+            sh """
+                sudo docker system prune -fa
                 sudo rm -rf $HOME/google-cloud-sdk
                 sudo rm -rf ./*
-            '''
+            """
             deleteDir()
         }
     }

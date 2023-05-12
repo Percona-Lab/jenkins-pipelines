@@ -94,6 +94,20 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP) {
     }
 }
 
+void checkAndRestartMySQL(String VM_CLIENT_IP) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no "${USER}@${VM_CLIENT_IP}" '
+                set -o errexit
+                set -o xtrace
+                echo "Checking MySQL Status on Client Nodes"
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_and_restart_mysql.sh
+                bash -xe /srv/pmm-qa/pmm-tests/check_and_restart_mysql.sh
+            '
+        """
+    }
+}
+
 void destroyStaging(IP) {
     build job: 'aws-staging-stop', parameters: [
         string(name: 'VM', value: IP),
@@ -191,7 +205,7 @@ pipeline {
             description: 'Enable Pull Mode, if you are using this instance as Client Node',
             name: 'ENABLE_PULL_MODE')
         string(
-            defaultValue: 'admin-password',
+            defaultValue: 'pmm2023fortesting!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         string (
@@ -271,7 +285,7 @@ pipeline {
                 runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service', CLIENT_INSTANCE, '127.0.0.1', ADMIN_PASSWORD)
             }
         }
-        stage('Setup PMM Client and Kubernetes Cluster') {
+        stage('Setup PMM Clients') {
             parallel {
                 stage('Start Client Instance - ps-replication') {
                     steps {
@@ -314,6 +328,12 @@ pipeline {
                 """
             }
         }
+        stage('MySQL status check') {
+            steps {
+                checkAndRestartMySQL(env.VM_CLIENT_IP_MYSQL)
+                checkAndRestartMySQL(env.VM_CLIENT_IP_PXC)
+            }
+        }
         stage('Sleep') {
             steps {
                 sleep 300
@@ -333,7 +353,7 @@ pipeline {
                             sh """
                                 sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                                 export PWD=\$(pwd);
-                                npx codeceptjs run -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
+                                npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
                             """
                         }
                     }
@@ -380,6 +400,7 @@ pipeline {
                     archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -387,6 +408,7 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
             script {
                 if(env.VM_NAME)
                 {

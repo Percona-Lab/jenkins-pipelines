@@ -308,7 +308,7 @@ pipeline {
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    ./node_modules/.bin/codeceptjs run-multiple parallel -c pr.codecept.js --grep '@pmm-upgrade'
+                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
                     '''
                 }
             }
@@ -326,7 +326,7 @@ pipeline {
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    ./node_modules/.bin/codeceptjs run-multiple parallel -c pr.codecept.js --grep '@pre-upgrade'
+                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@pre-upgrade'
                 '''
                     sh '''
                     # run the upgrade script
@@ -338,7 +338,7 @@ pipeline {
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                     sleep 30
-                    ./node_modules/.bin/codeceptjs run-multiple parallel -c pr.codecept.js --grep '@post-upgrade'
+                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@post-upgrade'
                 '''
                 }
             }
@@ -364,7 +364,7 @@ pipeline {
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                     sleep 60
-                    ./node_modules/.bin/codeceptjs run -c pr.codecept.js --grep '@post-client-upgrade'
+                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@post-client-upgrade'
                 '''
             }
         }
@@ -407,6 +407,7 @@ pipeline {
 
                 slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -414,10 +415,12 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
         }
         failure {
-            slackSend channel: '#pmm-ci', 
-                      color: '#FF0000', 
+            archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
+            slackSend channel: '#pmm-ci',
+                      color: '#FF0000',
                       message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, ver: ${DOCKER_VERSION}"
         }
     }

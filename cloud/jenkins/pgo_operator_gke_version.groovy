@@ -16,14 +16,18 @@ void runGKEcluster(String CLUSTER_PREFIX) {
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
-                gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE && \
-                gcloud config set project $GCP_PROJECT && \
-                gcloud container clusters create --zone ${GKERegion} \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --cluster-version $GKE_VERSION --machine-type n1-standard-4 --preemptible --num-nodes=3 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_PREFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
+                gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
+                gcloud config set project $GCP_PROJECT
+                gcloud container clusters list --filter \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
+                gcloud container clusters create --zone $GKERegion \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --cluster-version=$GKE_VERSION --machine-type=n1-standard-4 --preemptible --disk-size 30 --num-nodes=3 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_PREFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
             done
-            if [ \${ret_num} -eq 15 ]; then exit 1; fi
+            if [ \${ret_num} -eq 15 ]; then
+                gcloud container clusters list --filter \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
+                exit 1
+            fi
         """
    }
 }
@@ -38,7 +42,7 @@ void runGKEclusterAlpha(String CLUSTER_PREFIX) {
                 ret_val=0
                 gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud alpha container clusters create --release-channel rapid \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --zone ${GKERegion} --cluster-version $GKE_VERSION --project $GCP_PROJECT --preemptible --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_PREFIX} --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
+                gcloud alpha container clusters create --release-channel rapid \$(echo $CLUSTER_NAME-${CLUSTER_PREFIX} | cut -c-40) --zone ${GKERegion} --cluster-version $GKE_VERSION --project $GCP_PROJECT --preemptible --disk-size 30 --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_PREFIX} --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -126,39 +130,9 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                             export PG_VER=${PG_VERSION}
                         fi
                         if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
-                            export IMAGE_OPERATOR=${PGO_OPERATOR_IMAGE}
+                            export IMAGE=${PGO_OPERATOR_IMAGE}
                         else
-                            export IMAGE_OPERATOR=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-postgres-operator
-                        fi
-
-                        if [ -n "${PGO_APISERVER_IMAGE}" ]; then
-                            export IMAGE_APISERVER=${PGO_APISERVER_IMAGE}
-                        else
-                            export IMAGE_APISERVER=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-apiserver
-                        fi
-
-                        if [ -n "${PGO_EVENT_IMAGE}" ]; then
-                            export IMAGE_PGOEVENT=${PGO_EVENT_IMAGE}
-                        else
-                            export IMAGE_PGOEVENT=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-event
-                        fi
-
-                        if [ -n "${PGO_RMDATA_IMAGE}" ]; then
-                            export IMAGE_RMDATA=${PGO_RMDATA_IMAGE}
-                        else
-                            export IMAGE_RMDATA=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-rmdata
-                        fi
-
-                        if [ -n "${PGO_SCHEDULER_IMAGE}" ]; then
-                            export IMAGE_SCHEDULER=${PGO_SCHEDULER_IMAGE}
-                        else
-                            export IMAGE_SCHEDULER=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-scheduler
-                        fi
-
-                        if [ -n "${PGO_DEPLOYER_IMAGE}" ]; then
-                            export IMAGE_DEPLOYER=${PGO_DEPLOYER_IMAGE}
-                        else
-                            export IMAGE_DEPLOYER=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}-pgo-deployer
+                            export IMAGE=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}
                         fi
 
                         if [ -n "${PGO_PGBOUNCER_IMAGE}" ]; then
@@ -166,16 +140,12 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                         fi
 
                         if [ -n "${PGO_POSTGRES_HA_IMAGE}" ]; then
-                            export IMAGE_PG_HA=${PGO_POSTGRES_HA_IMAGE}
-                            export PG_VER=\$(echo \${IMAGE_PG_HA} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
+                            export IMAGE_POSTGRESQL=${PGO_POSTGRES_HA_IMAGE}
+                            export PG_VER=\$(echo \${IMAGE_POSTGRESQL} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                         fi
 
                         if [ -n "${PGO_BACKREST_IMAGE}" ]; then
                             export IMAGE_BACKREST=${PGO_BACKREST_IMAGE}
-                        fi
-
-                        if [ -n "${PGO_BACKREST_REPO_IMAGE}" ]; then
-                            export IMAGE_BACKREST_REPO=${PGO_BACKREST_REPO_IMAGE}
                         fi
 
                         if [ -n "${PGO_PGBADGER_IMAGE}" ]; then
@@ -195,8 +165,11 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                         fi
 
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                        export PATH="$HOME/.krew/bin:$PATH"
                         source $HOME/google-cloud-sdk/path.bash.inc
-                        ./e2e-tests/$TEST_NAME/run
+                        set -o pipefail
+                        time kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^${TEST_NAME}\$"
+
                     fi
                 """
             }
@@ -252,28 +225,8 @@ pipeline {
             name: 'IS_GKE_ALPHA')
         string(
             defaultValue: '',
-            description: 'Operator image: perconalab/percona-postgresql-operator:main-postgres-operator',
+            description: 'Operator image: perconalab/percona-postgresql-operator:main',
             name: 'PGO_OPERATOR_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators API server image: perconalab/percona-postgresql-operator:main-pgo-apiserver',
-            name: 'PGO_APISERVER_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators event server image: perconalab/percona-postgresql-operator:main-pgo-event',
-            name: 'PGO_EVENT_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators rmdata image: perconalab/percona-postgresql-operator:main-pgo-rmdata',
-            name: 'PGO_RMDATA_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators scheduler image: perconalab/percona-postgresql-operator:main-pgo-scheduler',
-            name: 'PGO_SCHEDULER_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators deployer image: perconalab/percona-postgresql-operator:main-pgo-deployer',
-            name: 'PGO_DEPLOYER_IMAGE')
         string(
             defaultValue: '',
             description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg13-pgbouncer',
@@ -286,10 +239,6 @@ pipeline {
             defaultValue: '',
             description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg13-pgbackrest',
             name: 'PGO_BACKREST_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg13-pgbackrest-repo',
-            name: 'PGO_BACKREST_REPO_IMAGE')
         string(
             defaultValue: '',
             description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg13-pgbadger',
@@ -345,9 +294,20 @@ pipeline {
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
                     curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
-
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    curl -s -L https://github.com/mitchellh/golicense/releases/latest/download/golicense_0.2.0_linux_x86_64.tar.gz \
+                        | sudo tar -C /usr/local/bin --wildcards -zxvpf -
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.14.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
+                    cd "$(mktemp -d)"
+                    OS="$(uname | tr '[:upper:]' '[:lower:]')"
+                    ARCH="$(uname -m | sed -e 's/x86_64/amd64/')"
+                    KREW="krew-${OS}_${ARCH}"
+                    curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/download/v0.4.3/${KREW}.tar.gz"
+                    tar zxvf "${KREW}.tar.gz"
+                    ./"${KREW}" install krew
+                    rm -f "${KREW}.tar.gz"
+                    export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+                    kubectl krew install kuttl
                 '''
                 unstash "sourceFILES"
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
@@ -396,46 +356,11 @@ pipeline {
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             runTest('init-deploy', 'sandbox')
                         }
-                        runTest('scaling', 'sandbox')
-                        runTest('recreate', 'sandbox')
+                        runTest('demand-backup', 'sandbox')
+                        runTest('start-from-backup', 'sandbox')
                         runTest('affinity', 'sandbox')
                         runTest('monitoring', 'sandbox')
-                        runTest('self-healing', 'sandbox')
-                        runTest('operator-self-healing', 'sandbox')
-                        runTest('clone-cluster', 'sandbox')
-                        runTest('tls-check', 'sandbox')
-                        runTest('users', 'sandbox')
-                        runTest('ns-mode', 'sandbox')
                         ShutdownCluster('sandbox')
-                    }
-                }
-                stage('E2E demand-backup') {
-                    steps {
-                        CreateCluster('demand-backup')
-                        runTest('demand-backup', 'demand-backup')
-                        ShutdownCluster('demand-backup')
-                    }
-                }
-                stage('E2E scheduled-backup') {
-                    steps {
-                        CreateCluster('scheduled-backup')
-                        runTest('scheduled-backup', 'scheduled-backup')
-                        ShutdownCluster('scheduled-backup')
-                    }
-                }
-                stage('E2E Upgrade') {
-                    steps {
-                        CreateCluster('upgrade')
-                        runTest('upgrade', 'upgrade')
-                        runTest('smart-update', 'upgrade')
-                        ShutdownCluster('upgrade')
-                    }
-                }
-                stage('E2E Version-service') {
-                    steps {
-                        CreateCluster('version-service')
-                        runTest('version-service', 'version-service')
-                        ShutdownCluster('version-service')
                     }
                 }
             }

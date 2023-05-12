@@ -45,7 +45,8 @@ void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_Q
         string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1')
+        string(name: 'DAYS', value: '1'),
+        string(name: 'ADMIN_PASSWORD', value: 'admin')
     ]
     if ( NODE_TYPE == 'remote-node' ) {
         env.VM_CLIENT_IP = stagingJob.buildVariables.IP
@@ -278,7 +279,7 @@ pipeline {
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run -c pr.codecept.js --grep '@ovf-upgrade'
+                        ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@ovf-upgrade'
                     """
                     }
                 }
@@ -295,7 +296,7 @@ pipeline {
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
                     sleep 30
-                    ./node_modules/.bin/codeceptjs run -c pr.codecept.js --grep '(?=.*@post-client-upgrade)(?=.*@ovf-upgrade)'
+                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '(?=.*@post-client-upgrade)(?=.*@ovf-upgrade)'
                 """
             }
         }
@@ -317,6 +318,7 @@ pipeline {
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'pmm-agent.log'
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -324,6 +326,7 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
         }
         success {
             script {
@@ -333,6 +336,7 @@ pipeline {
         }
         failure {
             script {
+                archiveArtifacts artifacts: 'tests/output/*.png'
                 slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
             }
         }

@@ -145,11 +145,11 @@ imageMap['eu-west-1c.min-jammy-aarch64']      = imageMap['eu-west-1a.min-jammy-a
 
 
 priceMap = [:]
-priceMap['c5n.2xlarge'] = '0.30' // type=c5n.2xlarge, vCPU=8, memory=21GiB, saving=60%, interruption='<5%', price=0.257900
-priceMap['t3.2xlarge'] = '0.19'  // type=t3.2xlarge, vCPU=8, memory=32GiB, saving=62%, interruption='<5%', price=0.140000
-priceMap['i4i.2xlarge'] = '0.29' // type=i4i.2xlarge, vCPU=8, memory=64GiB, saving=69%, interruption='<5%', price=0.240400
-priceMap['m5.2xlarge'] = '0.25'  // type=m5.2xlarge, vCPU=8, memory=32GiB, saving=65%, interruption='<5%', price=0.184400
-priceMap['r6g.2xlarge'] = '0.24' // type=r6g.2xlarge, vCPU=8, memory=64GiB, saving=61%, interruption='<5%', price=0.186400
+priceMap['c5n.2xlarge'] = '0.36' // type=c5n.2xlarge, vCPU=8, memory=21GiB, saving=60%, interruption='<5%', price=0.283100
+priceMap['t3.2xlarge'] = '0.31'  // type=t3.2xlarge, vCPU=8, memory=32GiB, saving=62%, interruption='<5%', price=0.238600
+priceMap['i4i.2xlarge'] = '0.36' // type=i4i.2xlarge, vCPU=8, memory=64GiB, saving=69%, interruption='<5%', price=0.285600
+priceMap['m5.2xlarge'] = '0.29'  // type=m5.2xlarge, vCPU=8, memory=32GiB, saving=65%, interruption='<5%', price=0.220600
+priceMap['r6g.2xlarge'] = '0.33' // type=r6g.2xlarge, vCPU=8, memory=64GiB, saving=61%, interruption='<5%', price=0.254700
 
 userMap = [:]
 userMap['docker']               = properties.AwsAmi['AmazonLinux2_x86_64']['user']

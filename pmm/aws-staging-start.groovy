@@ -42,7 +42,7 @@ pipeline {
             description: 'public ssh key for "ec2-user" user, please set if you need ssh access',
             name: 'SSH_KEY')
         string(
-            defaultValue: 'admin',
+            defaultValue: 'pmm2023fortesting!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         choice(
@@ -166,7 +166,6 @@ pipeline {
                 script {
                     // getPMMBuildParams sets envvars: VM_NAME, OWNER, OWNER_SLACK
                     getPMMBuildParams('pmm-')
-
                     echo """
                         DOCKER_VERSION:  ${DOCKER_VERSION}
                         CLIENT_VERSION:  ${CLIENT_VERSION}
@@ -185,7 +184,7 @@ pipeline {
                         VM_NAME:         ${VM_NAME}
                         VERSION_SERVICE: ${VERSION_SERVICE_IMAGE}
                     """
-
+                    env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     if (params.NOTIFY == "true") {
                         slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         if (env.OWNER_SLACK) {
@@ -387,7 +386,7 @@ pipeline {
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
-                    setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
+                    setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
                     script {
                         env.PMM_REPO="experimental"
                         if(env.CLIENT_VERSION == "pmm2-rc") {
