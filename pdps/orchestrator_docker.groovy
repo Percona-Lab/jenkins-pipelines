@@ -23,11 +23,11 @@ pipeline {
       description: 'Full orchestrator version. Used as version and docker tag',
       name: 'ORCHESTRATOR_VERSION'
     )
-    // string(
-    //   defaultValue: '8.0.32-24',
-    //   description: 'Full PS version to test with orchestrator',
-    //   name: 'PS_VERSION. WIP - ignored'
-    // )
+    string(
+      defaultValue: '8.0.32-24',
+      description: 'Full PS version to test with orchestrator',
+      name: 'PS_VERSION'
+    )
     string(
     defaultValue: 'https://github.com/Percona-QA/package-testing.git',
     description: 'Repo for package-testing repository',
@@ -45,7 +45,7 @@ pipeline {
       steps {
           script {
             currentBuild.displayName = "#${BUILD_NUMBER}-${DOCKER_ACC}-${ORCHESTRATOR_VERSION}"
-            // currentBuild.description = "${PS_VERSION}"
+            currentBuild.description = "${PS_VERSION}"
           }
           sh '''
             # run test
