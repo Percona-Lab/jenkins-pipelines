@@ -43,11 +43,11 @@ Parameters:
 Mappings:
   AmazonLinux2:
     eu-west-1:
-      x64: ami-0dcc20d3a15abf9bb
+      x64: ami-081fb62c8453b9056
     eu-central-1:
-      x64: ami-0b920b0594b5288fb
+      x64: ami-089ef08b563ccf2bf
     us-west-2:
-      x64: ami-0f9f005c313373218
+      x64: ami-06ca2a69bfc9aa4ec
 
 Resources:
 
@@ -451,19 +451,16 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !GetAtt JMasterTemplate.LatestVersionNumber
           Overrides:
-          - InstanceType: m4.large
-            AvailabilityZone:
-              Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: m5.large
-            AvailabilityZone:
-              Fn::Select: [ 1, !GetAZs '' ]
           - InstanceType: m5a.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
           - InstanceType: m5d.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: m6a.large
+          - InstanceType: m5zn.large
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+          - InstanceType: m5ad.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
 
@@ -556,7 +553,7 @@ Resources:
                   amazon-linux-extras install epel -y
                   amazon-linux-extras install java-openjdk11 -y
                   yum -y update --security
-                  yum -y install jenkins-2.361.2 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install jenkins-2.387.1 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -788,7 +785,7 @@ Resources:
               }
 
               setup_ssh_keys() {
-                KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets surabhi.bhat"
+                KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets surabhi.bhat talha.rizwan"
 
                 for KEY in $KEYS_LIST; do
                     RETRY="3"

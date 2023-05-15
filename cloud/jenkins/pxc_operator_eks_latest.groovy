@@ -1,7 +1,10 @@
-AWSRegion='eu-west-2'
+AWSRegion='eu-west-3'
 tests=[]
+clusters=[]
 
 void createCluster(String CLUSTER_SUFFIX){
+    clusters.add("${CLUSTER_SUFFIX}")
+
     sh """
 cat <<-EOF > cluster-${CLUSTER_SUFFIX}.yaml
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
@@ -61,9 +64,45 @@ EOF
 void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
-            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-${CLUSTER_SUFFIX} --region $AWSRegion
-            eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            source $HOME/google-cloud-sdk/path.bash.inc
+            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-$CLUSTER_SUFFIX --region $AWSRegion || true
+            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+            done
+            kubectl get svc --all-namespaces || true
+
+            VPC_ID=\$(eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $AWSRegion -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
+            if [ -n "\$VPC_ID" ]; then
+                LOADBALS=\$(aws elb describe-load-balancers --region $AWSRegion --output json | jq --raw-output '.LoadBalancerDescriptions[] | select(.VPCId == "'\$VPC_ID'").LoadBalancerName')
+                for loadbal in \$LOADBALS; do
+                    aws elb delete-load-balancer --load-balancer-name \$loadbal --region $AWSRegion
+                done
+                eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction || true
+
+                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $AWSRegion || true)
+                if [ -n "\$VPC_DESC" ]; then
+                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $AWSRegion || true
+                fi
+                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $AWSRegion || true)
+                if [ -n "\$VPC_DESC" ]; then
+                    for secgroup in \$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=\$VPC_ID --query 'SecurityGroups[*].GroupId' --output text --region $AWSRegion); do
+                        aws ec2 delete-security-group --group-id \$secgroup --region $AWSRegion || true
+                    done
+
+                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $AWSRegion || true
+                fi
+            fi
+            aws cloudformation delete-stack --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $AWSRegion || true
+            aws cloudformation wait stack-delete-complete --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $AWSRegion || true
+
+            eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $AWSRegion || true
+            aws cloudformation list-stacks --region $AWSRegion | jq '.StackSummaries[] | select(.StackName | startswith("'eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster'"))' || true
         """
     }
 }
@@ -89,7 +128,19 @@ void pushArtifactFile(String FILE_NAME) {
 
 void initTests() {
     echo "Populating tests into the tests array!"
-    def records = readCSV file: './source/e2e-tests/run-release.csv'
+    def testList = "${params.TEST_LIST}"
+    def suiteFileName = "./source/e2e-tests/${params.TEST_SUITE}"
+
+    if (testList.length() != 0) {
+        suiteFileName = './source/e2e-tests/run-custom.csv'
+        sh """
+            echo -e "${testList}" > ${suiteFileName}
+            echo "Custom test suite contains following tests:"
+            cat ${suiteFileName}
+        """
+    }
+
+    def records = readCSV file: suiteFileName
 
     for (int i=0; i<records.size(); i++) {
         tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
@@ -234,9 +285,17 @@ void runTest(Integer TEST_ID) {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
+        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ]; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
     }
     parameters {
+        choice(
+            choices: ['run-release.csv', 'run-distro.csv'],
+            description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
+            name: 'TEST_SUITE')
+        text(
+            defaultValue: '',
+            description: 'List of tests to run separated by new line',
+            name: 'TEST_LIST')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
@@ -422,16 +481,6 @@ pipeline {
                 }
             }
         }
-        stage('Make report') {
-            steps {
-                makeReport()
-                sh """
-                    echo "${TestsReport}" > TestsReport.xml
-                """
-                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-                archiveArtifacts '*.xml'
-            }
-        }
     }
 
     post {
@@ -444,16 +493,8 @@ pipeline {
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml'
 
-            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                sh """
-                    export CLUSTER_NAME=\$(echo jenkins-par-pxc-\$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
-                    for suffix in cluster{1..6}; do
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "\${CLUSTER_NAME}-\${suffix}" --region $AWSRegion || true
-                    done
-                    for suffix in cluster{1..6}; do
-                        eksctl delete cluster -f cluster-\${suffix}.yaml --wait --force --disable-nodegroup-eviction || true
-                    done
-                """
+            script {
+                clusters.each { shutdownCluster(it) }
             }
 
             sh """

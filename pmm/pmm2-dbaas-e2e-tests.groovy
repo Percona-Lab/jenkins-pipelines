@@ -16,7 +16,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENT_INSTANCE, SE
 
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    env.ADMIN_PASSWORD = "admin"
+    env.ADMIN_PASSWORD = "pmm2023fortesting!"
 
     if ( CLIENT_INSTANCE == "yes" ) {
         env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"

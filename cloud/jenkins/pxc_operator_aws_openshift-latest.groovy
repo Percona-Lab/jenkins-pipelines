@@ -1,4 +1,5 @@
 tests=[]
+clusters=[]
 
 void IsRunTestsInClusterWide() {
     if ("${params.CLUSTER_WIDE}" == "YES") {
@@ -7,6 +8,8 @@ void IsRunTestsInClusterWide() {
 }
 
 void createCluster(String CLUSTER_SUFFIX){
+    clusters.add("${CLUSTER_SUFFIX}")
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
             mkdir -p openshift/${CLUSTER_SUFFIX}
@@ -68,11 +71,22 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
         sshagent(['aws-openshift-41-key']) {
             sh """
-                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/${CLUSTER_SUFFIX}
+                source $HOME/google-cloud-sdk/path.bash.inc
+                export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                    kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete services --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+                done
+                kubectl get svc --all-namespaces || true
+
+                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/$CLUSTER_SUFFIX || true
             """
         }
     }
-
 }
 
 void pushArtifactFile(String FILE_NAME) {
@@ -90,7 +104,19 @@ void pushArtifactFile(String FILE_NAME) {
 
 void initTests() {
     echo "Populating tests into the tests array!"
-    def records = readCSV file: './source/e2e-tests/run-release.csv'
+    def testList = "${params.TEST_LIST}"
+    def suiteFileName = "./source/e2e-tests/${params.TEST_SUITE}"
+
+    if (testList.length() != 0) {
+        suiteFileName = './source/e2e-tests/run-custom.csv'
+        sh """
+            echo -e "${testList}" > ${suiteFileName}
+            echo "Custom test suite contains following tests:"
+            cat ${suiteFileName}
+        """
+    }
+
+    def records = readCSV file: suiteFileName
 
     for (int i=0; i<records.size(); i++) {
         tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
@@ -235,9 +261,17 @@ pipeline {
     environment {
         TF_IN_AUTOMATION = 'true'
         CLEAN_NAMESPACE = 1
-        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
+        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ]; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
     }
     parameters {
+        choice(
+            choices: ['run-release.csv', 'run-distro.csv'],
+            description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
+            name: 'TEST_SUITE')
+        text(
+            defaultValue: '',
+            description: 'List of tests to run separated by new line',
+            name: 'TEST_LIST')
         string(
             defaultValue: 'latest',
             description: 'OpenShift version to use',
@@ -443,36 +477,25 @@ pipeline {
                 }
             }
         }
-        stage('Make report') {
-            steps {
-                echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
-                makeReport()
-                sh """
-                    echo "${TestsReport}" > TestsReport.xml
-                """
-                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-                archiveArtifacts '*.xml'
-            }
-        }
     }
 
     post {
         always {
-                script {
-                    if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                        slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
-                        slackSend channel: '@${OWNER_SLACK}', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
-                    }
+            echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
+            makeReport()
+            sh """
+                echo "${TestsReport}" > TestsReport.xml
+            """
+            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            archiveArtifacts '*.xml'
+
+            script {
+                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
+                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
+                    slackSend channel: '@${OWNER_SLACK}', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
                 }
-            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
-                 sshagent(['aws-openshift-41-key']) {
-                     sh """
-                         for suffix in cluster{1..7}
-                         do
-                            /usr/local/bin/openshift-install destroy cluster --dir=./openshift/\$suffix || true
-                         done
-                     """
-                 }
+
+                clusters.each { shutdownCluster(it) }
             }
 
             sh """

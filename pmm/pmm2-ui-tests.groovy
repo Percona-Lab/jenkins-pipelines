@@ -159,7 +159,7 @@ pipeline {
             description: 'Value for Server Public IP, to use this instance just as client',
             name: 'SERVER_IP')
         string(
-            defaultValue: 'admin-password',
+            defaultValue: 'pmm2023fortesting!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         string(
