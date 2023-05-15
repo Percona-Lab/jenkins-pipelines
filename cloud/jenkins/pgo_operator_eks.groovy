@@ -148,7 +148,7 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
-            GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+            GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
             testsReportMap[TEST_NAME] = 'failure'
             PPG_TAG = sh(script: "if [ -n \"\${PGO_POSTGRES_IMAGE}\" ] ; then echo ${PGO_POSTGRES_IMAGE} | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' ; else echo 'main-ppg15'; fi", , returnStdout: true).trim()
             popArtifactFile("${env.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-${params.KUBEVERSION}-$PPG_TAG")
@@ -282,6 +282,10 @@ pipeline {
             description: 'PMM server image: perconalab/pmm-client:dev-latest',
             name: 'PMM_CLIENT_IMAGE')
     }
+    environment {
+
+        CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+    }
     agent {
          label 'docker'
     }
@@ -330,7 +334,7 @@ pipeline {
                 }
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 script {
-                    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                    GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
                     CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
                 }
             }
@@ -396,7 +400,7 @@ pipeline {
         always {
             git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
             script {
-                GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
                 CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
             }
             shutdownCluster('basic')
