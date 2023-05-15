@@ -1,8 +1,7 @@
 AWSRegion='eu-west-3'
 
 void createCluster(String CLUSTER_SUFFIX){
-    clusters.add("${CLUSTER_SUFFIX}")
-
+    
     sh """
 cat <<-EOF > cluster-${CLUSTER_SUFFIX}.yaml
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
@@ -395,7 +394,7 @@ pipeline {
 
     post {
         always {
-
+            git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
             script {
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                 CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
