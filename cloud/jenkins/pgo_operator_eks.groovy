@@ -376,12 +376,14 @@ pipeline {
         }
         stage('E2E Basic tests') {
             steps {
+                createCluster('basic')
                 runTest('init-deploy', 'basic')
                 runTest('demand-backup', 'basic')
                 runTest('start-from-backup', 'basic')
                 runTest('scheduled-backup', 'basic')
                 runTest('monitoring', 'basic')
                 runTest('telemetry-transfer', 'basic')
+                shutdownCluster('basic')
             }
         }
         stage('Make report') {
