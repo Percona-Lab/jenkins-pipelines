@@ -1,3 +1,116 @@
+AWSRegion='eu-west-3'
+
+void createCluster(String CLUSTER_SUFFIX){
+    clusters.add("${CLUSTER_SUFFIX}")
+
+    sh """
+cat <<-EOF > cluster-${CLUSTER_SUFFIX}.yaml
+# An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+    name: ${CLUSTER_NAME}-${CLUSTER_SUFFIX}
+    region: $AWSRegion
+    version: "$PLATFORM_VER"
+    tags:
+        'delete-cluster-after-hours': '10'
+iam:
+  withOIDC: true
+
+addons:
+- name: aws-ebs-csi-driver
+  wellKnownPolicies:
+    ebsCSIController: true
+
+nodeGroups:
+    - name: ng-1
+      minSize: 3
+      maxSize: 5
+      iam:
+        attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      instancesDistribution:
+        maxPrice: 0.15
+        instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
+        onDemandBaseCapacity: 0
+        onDemandPercentageAboveBaseCapacity: 50
+        spotInstancePools: 2
+      tags:
+        'iit-billing-tag': 'jenkins-eks'
+        'delete-cluster-after-hours': '10'
+        'team': 'cloud'
+        'product': 'pgv2-operator'
+EOF
+    """
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
+            export PATH=/home/ec2-user/.local/bin:$PATH
+            source $HOME/google-cloud-sdk/path.bash.inc
+            eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+        """
+    }
+}
+
+void shutdownCluster(String CLUSTER_SUFFIX) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            source $HOME/google-cloud-sdk/path.bash.inc
+            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-$CLUSTER_SUFFIX --region $AWSRegion || true
+            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+            done
+            kubectl get svc --all-namespaces || true
+
+            VPC_ID=\$(eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $AWSRegion -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
+            if [ -n "\$VPC_ID" ]; then
+                LOADBALS=\$(aws elb describe-load-balancers --region $AWSRegion --output json | jq --raw-output '.LoadBalancerDescriptions[] | select(.VPCId == "'\$VPC_ID'").LoadBalancerName')
+                for loadbal in \$LOADBALS; do
+                    aws elb delete-load-balancer --load-balancer-name \$loadbal --region $AWSRegion
+                done
+                eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction || true
+
+                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $AWSRegion || true)
+                if [ -n "\$VPC_DESC" ]; then
+                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $AWSRegion || true
+                fi
+                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $AWSRegion || true)
+                if [ -n "\$VPC_DESC" ]; then
+                    for secgroup in \$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=\$VPC_ID --query 'SecurityGroups[*].GroupId' --output text --region $AWSRegion); do
+                        aws ec2 delete-security-group --group-id \$secgroup --region $AWSRegion || true
+                    done
+
+                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $AWSRegion || true
+                fi
+            fi
+            aws cloudformation delete-stack --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $AWSRegion || true
+            aws cloudformation wait stack-delete-complete --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $AWSRegion || true
+
+            eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $AWSRegion || true
+            aws cloudformation list-stacks --region $AWSRegion | jq '.StackSummaries[] | select(.StackName | startswith("'eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster'"))' || true
+        """
+    }
+}
+
+void IsRunTestsInClusterWide() {
+    if ("${params.CLUSTER_WIDE}" == "YES") {
+        env.OPERATOR_NS = 'pg-operator'
+    }
+}
+
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -31,7 +144,7 @@ void makeReport() {
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME) {
+void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     def retryCount = 0
     waitUntil {
         try {
@@ -86,7 +199,7 @@ void runTest(String TEST_NAME) {
                             export IMAGE_PMM=${PMM_CLIENT_IMAGE}
                         fi
 
-                        export KUBECONFIG=/tmp/$CLUSTER_NAME
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
                         export PATH="$HOME/.krew/bin:$PATH"
                         source $HOME/google-cloud-sdk/path.bash.inc
                         set -o pipefail
@@ -122,7 +235,7 @@ void installRpms() {
 pipeline {
     parameters {
         string(
-            defaultValue: '1.22',
+            defaultValue: '1.23',
             description: 'Kubernetes target version',
             name: 'KUBEVERSION')
         string(
@@ -182,6 +295,10 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                script {
+                    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                    CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                }
                 installRpms()
                 withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                     sh '''
@@ -250,63 +367,17 @@ pipeline {
         }
         stage('Create EKS Infrastructure') {
             steps {
-                sh '''
-cat <<-EOF > cluster.yaml
-# An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
----
-apiVersion: eksctl.io/v1alpha5
-kind: ClusterConfig
-
-metadata:
-    name: eks-pgo-cluster
-    region: eu-west-3
-    version: '$KUBEVERSION'
-
-iam:
-  withOIDC: true
-
-addons:
-- name: aws-ebs-csi-driver
-  wellKnownPolicies:
-    ebsCSIController: true
-
-nodeGroups:
-    - name: ng-1
-      minSize: 3
-      maxSize: 5
-      instancesDistribution:
-        maxPrice: 0.15
-        instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
-        onDemandBaseCapacity: 0
-        onDemandPercentageAboveBaseCapacity: 50
-        spotInstancePools: 2
-      tags:
-        'iit-billing-tag': 'jenkins-eks'
-        'delete-cluster-after-hours': '10'
-        'team': 'cloud'
-        'product': 'pg-operator'
-EOF
-                '''
-
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                     sh """
-                         export PATH=/home/ec2-user/.local/bin:$PATH
-                         source $HOME/google-cloud-sdk/path.bash.inc
-
-                         eksctl create cluster -f cluster.yaml
-                     """
-                }
-                stash includes: 'cluster.yaml', name: 'cluster_conf'
+                createCluster('basic')
             }
         }
         stage('E2E Basic tests') {
             steps {
-                runTest('init-deploy')
-                runTest('demand-backup')
-                runTest('start-from-backup')
-                runTest('scheduled-backup')
-                runTest('monitoring')
-                runTest('telemetry-transfer')
+                runTest('init-deploy', 'basic')
+                runTest('demand-backup', 'basic')
+                runTest('start-from-backup', 'basic')
+                runTest('scheduled-backup', 'basic')
+                runTest('monitoring', 'basic')
+                runTest('telemetry-transfer', 'basic')
             }
         }
         stage('Make report') {
@@ -323,13 +394,10 @@ EOF
 
     post {
         always {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    unstash 'cluster_conf'
-                    sh """
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster eks-pgo-cluster --region eu-west-3
-                        eksctl delete cluster -f cluster.yaml --wait --force
-                    """
-                }
+
+            script {
+                clusters.each { shutdownCluster(it) }
+            }
 
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
