@@ -396,9 +396,9 @@ pipeline {
         always {
 
             script {
-                clusters.each { shutdownCluster(it) }
+                shutdownCluster('basic')
             }
-
+            
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf $HOME/google-cloud-sdk
