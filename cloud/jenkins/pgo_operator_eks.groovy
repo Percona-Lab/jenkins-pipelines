@@ -148,7 +148,6 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
-            GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
             testsReportMap[TEST_NAME] = 'failure'
             PPG_TAG = sh(script: "if [ -n \"\${PGO_POSTGRES_IMAGE}\" ] ; then echo ${PGO_POSTGRES_IMAGE} | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' ; else echo 'main-ppg15'; fi", , returnStdout: true).trim()
             popArtifactFile("${env.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-${params.KUBEVERSION}-$PPG_TAG")
@@ -282,10 +281,6 @@ pipeline {
             description: 'PMM server image: perconalab/pmm-client:dev-latest',
             name: 'PMM_CLIENT_IMAGE')
     }
-    environment {
-
-        CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-    }
     agent {
          label 'docker'
     }
@@ -299,6 +294,11 @@ pipeline {
         stage('Prepare') {
             steps {
                 installRpms()
+                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                script {
+                    GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
+                    CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                }
                 withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                     sh '''
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
@@ -332,11 +332,6 @@ pipeline {
                     export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
                     kubectl krew install kuttl                    '''
                 }
-                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                script {
-                    GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
-                    CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-                }
             }
         }
         stage('Build docker image') {
@@ -369,11 +364,7 @@ pipeline {
                 }
             }
         }
-        stage('Create EKS Infrastructure') {
-            steps {
-                createCluster('basic')
-            }
-        }
+
         stage('E2E Basic tests') {
             steps {
                 createCluster('basic')
