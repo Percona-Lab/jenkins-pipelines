@@ -394,7 +394,9 @@ pipeline {
 
     post {
         always {
-            export CLUSTER_NAME=$(echo jenkins-ver-pgv2-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+            sh '''
+                export CLUSTER_NAME=$(echo jenkins-ver-pgv2-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+            '''
             shutdownCluster('basic')
 
             sh '''
