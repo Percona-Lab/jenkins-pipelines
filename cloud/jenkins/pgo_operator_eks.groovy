@@ -295,10 +295,6 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                script {
-                    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                    CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-                }
                 installRpms()
                 withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                     sh '''
@@ -332,6 +328,11 @@ pipeline {
                     rm -f "${KREW}.tar.gz"
                     export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
                     kubectl krew install kuttl                    '''
+                }
+                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                script {
+                    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                    CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
                 }
             }
         }
@@ -398,7 +399,7 @@ pipeline {
             script {
                 shutdownCluster('basic')
             }
-            
+
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf $HOME/google-cloud-sdk
