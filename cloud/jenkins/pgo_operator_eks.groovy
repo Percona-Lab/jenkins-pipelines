@@ -12,7 +12,7 @@ kind: ClusterConfig
 metadata:
     name: ${CLUSTER_NAME}-${CLUSTER_SUFFIX}
     region: $AWSRegion
-    version: "$PLATFORM_VER"
+    version: "$KUBEVERSION"
     tags:
         'delete-cluster-after-hours': '10'
 iam:
@@ -295,11 +295,6 @@ pipeline {
         stage('Prepare') {
             steps {
                 installRpms()
-//                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-//                script {
-//                    GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
-//                    CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-//                }
                 withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                     sh '''
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
