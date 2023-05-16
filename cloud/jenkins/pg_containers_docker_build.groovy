@@ -1,7 +1,7 @@
 void build(String IMAGE_POSTFIX){
     sh """
         cd ./source/
-        for PG_VER in 13 12; do
+        for PG_VER in 15 14 13 12; do
             docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} \
                 -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX} \
                 -f ./postgresql-containers/build/${IMAGE_POSTFIX}/Dockerfile ./postgresql-containers
@@ -10,50 +10,47 @@ void build(String IMAGE_POSTFIX){
 }
 void checkImageForDocker(String IMAGE_POSTFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            sg docker -c '
-                IMAGE_NAME='percona-postgresql-operator'
-                docker login -u '${USER}' -p '${PASS}'
-                for PG_VER in 13 12; do
-                    TrityHightLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-ppg\${PG_VER}-${IMAGE_POSTFIX}.log"
-                    TrityCriticaltLog="$WORKSPACE/trivy-critical-\$IMAGE_NAME-ppg\${PG_VER}-${IMAGE_POSTFIX}.log"
-                    /usr/local/bin/trivy -o \$TrityHightLog --ignore-unfixed --exit-code 0 --severity HIGH --quiet \
-                        --auto-refresh perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
-
-                    /usr/local/bin/trivy -o \$TrityCriticaltLog --ignore-unfixed --exit-code 0 --severity CRITICAL --quiet \
-                        --auto-refresh perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
-
-                    if [ ! -s \$TrityHightLog ]; then
-                        rm -rf \$TrityHightLog
+        withEnv(["SOME_IMAGE_POSTFIX=${IMAGE_POSTFIX}"]) {
+            sh '''
+                sg docker -c "
+                    IMAGE_NAME='percona-postgresql-operator'
+                    docker login -u '${USER}' -p '${PASS}'
+                    if [ ! -f junit.tpl ]; then
+                        wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
                     fi
 
-                    if [ ! -s \$TrityCriticaltLog ]; then
-                        rm -rf \$TrityCriticaltLog
-                    fi
-                done
-            '
+                    for PG_VER in 15 14 13 12; do
+                        TrivyLog="$WORKSPACE/trivy-hight-\\${IMAGE_NAME}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}.xml"
+                        /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrivyLog --ignore-unfixed --timeout 20m --exit-code 0 \
+                            --severity HIGH,CRITICAL perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
 
-        """
+                    done
+                "
+            '''
+        }
     }
 }
-void pushImageToDocker(String IMAGE_POSTFIX){
-     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
-        sh """
-            sg docker -c '
-                if [ ! -d ~/.docker/trust/private ]; then
-                    mkdir -p /home/ec2-user/.docker/trust/private
-                    cp "${docker_key}" ~/.docker/trust/private/
-                fi
 
-                docker login -u '${USER}' -p '${PASS}'
-                export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                for PG_VER in 13 12; do
-                    docker trust sign perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
-                    docker push perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX}
-                done
-                docker logout
-            '
-        """
+void pushImageToDocker(String IMAGE_POSTFIX){
+     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),
+                      [$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        withEnv(["SOME_IMAGE_POSTFIX=${IMAGE_POSTFIX}"]) {
+            sh '''
+                sg docker -c "
+                    IMAGE_NAME='percona-postgresql-operator'
+                    docker login -u '${USER}' -p '${PASS}'
+                    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR
+                    export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
+                    for PG_VER in 15 14 13 12; do
+                        docker trust sign perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
+                        docker push perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
+                        docker tag perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX} $ECR/perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
+                        docker push $ECR/perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
+                    done
+                    docker logout
+                "
+            '''
+        }
     }
 }
 pipeline {
@@ -68,9 +65,10 @@ pipeline {
             name: 'GIT_PD_REPO')
     }
     agent {
-         label 'docker' 
+         label 'docker'
     }
     environment {
+        ECR = "119175775298.dkr.ecr.us-east-1.amazonaws.com"
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
     }
     options {
@@ -88,13 +86,14 @@ pipeline {
                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                 """
                 stash includes: "cloud/**", name: "cloud"
             }
         }
-        stage('Build pxc docker images') {
+        stage('Build PG database related docker images') {
             steps {
                 sh '''
                     sudo rm -rf cloud
@@ -119,6 +118,9 @@ pipeline {
                     build('postgres-ha')
                 }
                 retry(3) {
+                    build('postgres')
+                }
+                retry(3) {
                     build('pgbadger')
                 }
             }
@@ -129,32 +131,85 @@ pipeline {
                 pushImageToDocker('pgbackrest')
                 pushImageToDocker('pgbouncer')
                 pushImageToDocker('postgres-ha')
+                pushImageToDocker('postgres')
                 pushImageToDocker('pgbadger')
             }
         }
-        stage('Check Docker images') {
-            steps {
-                checkImageForDocker('pgbackrest-repo')
-                checkImageForDocker('pgbackrest')
-                checkImageForDocker('pgbouncer')
-                checkImageForDocker('postgres-ha')
-                checkImageForDocker('pgbadger')
-                sh '''
-                   CRITICAL=$(ls trivy-critical-*) || true
-                   if [ -n "$CRITICAL" ]; then
-                       exit 1
-                   fi
-                '''
+        stage('Trivy Checks') {
+            parallel {
+                stage('pgbackrest-repo'){
+                    steps {
+                        checkImageForDocker('pgbackrest-repo')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgbackrest-repo.xml"
+                        }
+                    }
+                }
+                stage('pgbackrest'){
+                    steps {
+                        checkImageForDocker('pgbackrest')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgbackrest.xml"
+                        }
+                    }
+                }
+                stage('pgbouncer'){
+                    steps {
+                        checkImageForDocker('pgbouncer')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgbouncer.xml"
+                        }
+                    }
+                }
+                stage('postgres-ha'){
+                    steps {
+                        checkImageForDocker('postgres-ha')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-postgres-ha.xml"
+                        }
+                    }
+                }
+                stage('postgres'){
+                    steps {
+                        checkImageForDocker('postgres')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-postgres.xml"
+                        }
+                    }
+                }
+                stage('pgbadger'){
+                    steps {
+                        checkImageForDocker('pgbadger')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgbadger.xml"
+                        }
+                    }
+                }
             }
         }
     }
     post {
         always {
-            archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: '*.pdf', allowEmptyArchive: true
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
             '''
             deleteDir()
+        }
+        unstable {
+            slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PG docker images unstable. Please check the log ${BUILD_URL}"
         }
         failure {
             slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PG docker images failed. Please check the log ${BUILD_URL}"

@@ -20,18 +20,18 @@
         - choice:
             name: product_to_test
             choices:
-                - "proxysql"
                 - "proxysql2"
+                - "proxysql"
             description: 'Choose the product version to test: Pproxysql OR proxysql2'
         - choice:
             name: node_to_test
             choices:
                 - 'min-centos-7-x64'
-                - 'min-centos-8-x64'
-                - 'min-xenial-x64'
+                - 'min-ol-8-x64'
+                - 'min-ol-9-x64'
                 - 'min-bionic-x64'
                 - 'min-focal-x64'
-                - 'min-stretch-x64'
+                - 'min-jammy-x64'
                 - 'min-buster-x64'
                 - 'min-bullseye-x64'
             description: 'Node to run tests'
@@ -41,7 +41,7 @@
                 - "testing"
                 - "main"
                 - "experimental"
-            description: 'Choose the repo to install packages and run the tests'
+            description: 'Choose the repo to install proxysql packages from'
         - choice:
             name: client_to_test
             choices:
@@ -49,7 +49,14 @@
                 - "pxc80"
                 - "ps57"
                 - "ps80"
-            description: 'Choose client_test playbook which checks that only client packages can be installed'
+            description: 'Choose the client to install with proxysql'
+        - choice:
+            name: repo_for_client_to_test
+            choices:
+                - "testing"
+                - "main"
+                - "experimental"
+            description: 'Choose the repo to install client packages from'
         - string:
             name: git_repo
             default: 'https://github.com/Percona-QA/package-testing.git'

@@ -7,7 +7,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget https://raw.githubusercontent.com/percona/percona-backup-mongodb/${GIT_BRANCH}/packaging/scripts/mongodb-backup_builder.sh -O mongodb-backup_builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/packaging/scripts/mongodb-backup_builder.sh -O mongodb-backup_builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
@@ -29,7 +29,7 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'docker'
+        label 'micro-amazon'
     }
     parameters {
         string(
@@ -57,7 +57,7 @@ pipeline {
             description: 'PBM repo name',
             name: 'PBM_REPO')
         choice(
-            choices: 'laboratory\ntesting\nexperimental\nrelease',
+            choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
     }
@@ -69,8 +69,11 @@ pipeline {
     }
     stages {
         stage('Create PBM source tarball') {
+            agent {
+                label 'docker'
+            }
             steps {
-                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH}")
+                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 buildStage("centos:7", "--get_sources=1")
                 sh '''
@@ -134,30 +137,30 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 8') {
+                stage('Oracle Linux 8') {
                     agent {
                         label 'docker'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:8", "--build_rpm=1")
+                        buildStage("oraclelinux:8", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu Xenial(16.04)') {
+                stage('Oracle Linux 9') {
                     agent {
                         label 'docker'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:xenial", "--build_deb=1")
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_rpm=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Bionic(18.04)') {
@@ -186,14 +189,14 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Stretch(9)') {
+                stage('Ubuntu Jammy(22.04)') {
                     agent {
                         label 'docker'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:stretch", "--build_deb=1")
+                        buildStage("ubuntu:jammy", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
@@ -257,14 +260,14 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH}")
+            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH}"
+                currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
             }
             deleteDir()
         }
         failure {
-            slackNotify("#releases", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH}")
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {

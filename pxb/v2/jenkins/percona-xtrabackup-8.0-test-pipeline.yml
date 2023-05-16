@@ -19,10 +19,12 @@
         choices:
           - centos:7
           - centos:8
+          - oraclelinux:9
           - ubuntu:bionic
           - ubuntu:focal
-          - debian:stretch
+          - ubuntu:jammy
           - debian:buster
+          - debian:bullseye
           - asan
         description: OS version for compilation
     - choice:
@@ -53,6 +55,12 @@
         name: XBTR_ARGS
         default:
         description: "./run.sh options, for options like: -j N Run tests in N parallel processes, -T seconds, -x options Extra options to pass to xtrabackup"
+    - choice:
+        name: WITH_AZURITE 
+        choices:
+        - OFF
+        - ON
+        description: "Starts Microsoft Azurite emulator and tests xbcloud against it"
     - choice:
         name: LABEL
         choices:

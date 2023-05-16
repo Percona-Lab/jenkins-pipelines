@@ -8,7 +8,7 @@ pipeline {
             name: 'GIT_REPO',
             trim: true)
         string(
-            defaultValue: 'v2.2.0',
+            defaultValue: 'v2.5.1',
             description: 'Tag/Branch for ProxySQL repository',
             name: 'BRANCH',
             trim: true)
@@ -18,12 +18,12 @@ pipeline {
             name: 'PROXYSQL_PACKAGE_REPO',
             trim: true)
         string(
-            defaultValue: 'v2',
+            defaultValue: 'v2.1',
             description: 'Tag/Branch for ProxySQL package repository',
             name: 'PROXYSQL_PACKAGE_BRANCH',
             trim: true)
         string(
-            defaultValue: 'v2.2.0-dev',
+            defaultValue: 'v2.5.1-dev',
             description: 'Tag/Branch for ProxySQL-admin-tool repository',
             name: 'PAT_TAG',
             trim: true)
@@ -32,7 +32,7 @@ pipeline {
             description: 'PXC version to test proxysql-admin suite',
             name: 'PXC_VERSION')
        choice(
-            choices: 'centos:7\ncentos:8\nubuntu:xenial\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster',
+            choices: 'centos:7\ncentos:8\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -65,6 +65,9 @@ pipeline {
         stage('Build ProxySQL') {
                 agent { label 'docker' }
                 steps {
+                    script {
+                        currentBuild.displayName = "#${BUILD_NUMBER}-${params.BRANCH}-${params.DOCKER_OS}-${params.CMAKE_BUILD_TYPE}-${params.PXC_VERSION}"
+                    }
                     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Checkout ProxySQL sources'
                     sh '''

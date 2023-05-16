@@ -41,7 +41,7 @@
                 PKGLIST+=" libcurl-devel cmake libaio-devel zlib-devel libev-devel bison make gcc"
                 PKGLIST+=" rpm-build libgcrypt-devel ncurses-devel readline-devel openssl-devel gcc-c++"
                 PKGLIST+=" vim-common rpmlint wget ncurses-compat-libs python2 python2-setuptools python2-wheel"
-                PKGLIST+=" lz4 lz4-devel perl-DBD-MySQL libarchive"
+                PKGLIST+=" lz4 lz4-devel perl-DBD-MySQL libarchive procps-ng-devel"
                 DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-gcc-c++ gcc-toolset-10-binutils"
                 DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-valgrind gcc-toolset-10-valgrind-devel gcc-toolset-10-libatomic-devel"
                 DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-libasan-devel gcc-toolset-10-libubsan-devel"     
@@ -81,7 +81,7 @@
                 PKGLIST="wget libcurl-devel cmake cmake3 make gcc gcc-c++ libev-devel openssl-devel"
                 PKGLIST="${PKGLIST} libaio-devel perl-DBD-MySQL vim-common ncurses-devel readline-devel"
                 PKGLIST="${PKGLIST} zlib-devel python-sphinx python-docutils libgcrypt-devel bison perl-Digest-MD5"
-                PKGLIST="${PKGLIST} socat numactl-libs numactl qpress"
+                PKGLIST="${PKGLIST} socat numactl-libs numactl qpress procps-ng-devel"
                 until sudo -E yum -y install ${PKGLIST}; do
                     echo "waiting"
                     sleep 1
@@ -134,7 +134,7 @@
                 echo "waiting"
             done
             #
-            PKGLIST="bison pkg-config cmake devscripts debconf debhelper automake bison ca-certificates libcurl4-openssl-dev"
+            PKGLIST="bison pkg-config cmake devscripts debconf debhelper automake bison ca-certificates libcurl4-openssl-dev libprocps-dev"
             PKGLIST="${PKGLIST} cmake debhelper libaio-dev libncurses-dev libssl-dev libtool libz-dev"
             PKGLIST="${PKGLIST} libgcrypt-dev libev-dev lsb-release python-docutils"
             PKGLIST="${PKGLIST} build-essential rsync libdbd-mysql-perl libnuma1 socat librtmp-dev libtinfo5 qpress liblz4-tool liblz4-1 liblz4-dev"

@@ -73,6 +73,10 @@
                 PKGLIST+=" devtoolset-2-valgrind devtoolset-2-valgrind-devel"
             fi
 
+            if [[ ${RHEL} -eq 7 ]]; then
+                PKGLIST+=" openssl11-libs cmake3"
+            fi
+
             until sudo -E yum -y install ${PKGLIST}; do
                 echo "waiting"
                 sleep 1
@@ -188,6 +192,14 @@
             THREADS=1
         fi
 
+        if [ -f /usr/bin/yum ]; then
+            RHEL=$(rpm --eval %rhel)
+            if [[ ${RHEL} -eq 7 ]]; then
+                sudo rm /bin/cmake
+                sudo ln -sf /bin/cmake3 /bin/cmake
+            fi
+        fi
+
         if [ -d ${WORKSPACE}/xtrabackup ]
         then
             # Old (patch-based) directory layout
@@ -300,13 +312,13 @@
             mkdir -p ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}
             wget --progress=dot:giga \
                 -O ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}/Percona-XtraDB-Cluster-$(uname -m).tar.gz \
-                https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-56/Percona-XtraDB-Cluster-5.6.51-28.46/binary/tarball/Percona-XtraDB-Cluster-5.6.51-rel91.0-28.46.1.Linux.$(uname -m).ssl${SSL_VER}.tar.gz
+                https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-56/Percona-XtraDB-Cluster-$(echo "${galera56_tarball/-*-/-}" | sed 's/..$//')/binary/tarball/Percona-XtraDB-Cluster-${galera56_tarball}.Linux.$(uname -m).ssl${SSL_VER}.tar.gz
         elif [[ ${xtrabackuptarget} == "galera57" ]] && [[ $(uname -m) == "x86_64" ]]
         then
             mkdir -p ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}
             wget --progress=dot:giga \
                 -O ${WORKSPACE}/storage/innobase/xtrabackup/server-tarball/${xtrabackuptarget}/Percona-XtraDB-Cluster-$(uname -m).tar.gz \
-                https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.31-31.45-3/binary/tarball/Percona-XtraDB-Cluster-5.7.31-rel34-45.3.Linux.x86_64.glibc2.12.tar.gz
+                ${galera57_tarball}
         else
             case "${xtrabackuptarget}" in
                 xtradb56) ./bootstrap.sh --type=${xtrabackuptarget} --version=${xtradb56_version} ;;

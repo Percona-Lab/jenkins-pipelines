@@ -3,32 +3,33 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP) {
+void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e ENABLE_ALERTING=1 -e PERCONA_TEST_SAAS_HOST=check-dev.percona.com:443 -e PERCONA_TEST_CHECKS_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s -e ENABLE_DBAAS=1'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e DATA_RETENTION=48h -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s'),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1')
+        string(name: 'DAYS', value: '1'),
+        string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
-        env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
     }
     else
     {
-        env.PMM_URL = "http://admin:admin@${VM_IP}"
+        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
         env.PMM_UI_URL = "http://${VM_IP}/"
     }
 }
 
-void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE) {
+void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -36,8 +37,19 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
         string(name: 'QUERY_SOURCE', value: 'slowlog'),
         string(name: 'SERVER_IP', value: SERVER_IP),
+        string(name: 'ENABLE_PULL_MODE', value: ENABLE_PULL_MODE),
         string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1')
+        string(name: 'DAYS', value: '1'),
+        string(name: 'PXC_VERSION', value: PXC_VERSION),
+        string(name: 'PS_VERSION', value: PS_VERSION),
+        string(name: 'MS_VERSION', value: MS_VERSION),
+        string(name: 'PGSQL_VERSION', value: PGSQL_VERSION),
+        string(name: 'PDPGSQL_VERSION', value: PDPGSQL_VERSION),
+        string(name: 'MD_VERSION', value: MD_VERSION),
+        string(name: 'MO_VERSION', value: MO_VERSION),
+        string(name: 'MODB_VERSION', value: MODB_VERSION),
+        string(name: 'QUERY_SOURCE', value: QUERY_SOURCE),
+        string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
     ]
     if ( NODE_TYPE == 'mysql-node' ) {
         env.VM_CLIENT_IP_MYSQL = stagingJob.buildVariables.IP
@@ -47,6 +59,10 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         env.VM_CLIENT_IP_PXC = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_PXC = stagingJob.buildVariables.VM_NAME
     }
+    else if ( NODE_TYPE == 'postgres-node' ) {
+        env.VM_CLIENT_IP_PGSQL = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_PGSQL = stagingJob.buildVariables.VM_NAME
+    }
     else
     {
         env.VM_CLIENT_IP_MONGO = stagingJob.buildVariables.IP
@@ -54,16 +70,43 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
-        env.PMM_URL = "http://admin:admin@${SERVER_IP}"
+        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
     }
     else
     {
-        env.PMM_URL = "http://admin:admin@${VM_IP}"
+        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
         env.PMM_UI_URL = "http://${VM_IP}/"
     }
 }
 
+void checkClientNodesAgentStatus(String VM_CLIENT_IP) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP} '
+                set -o errexit
+                set -o xtrace
+                echo "Checking Agent Status on Client Nodes";
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/agent_status.sh
+                bash -xe /srv/pmm-qa/pmm-tests/agent_status.sh
+            '
+        """
+    }
+}
+
+void checkAndRestartMySQL(String VM_CLIENT_IP) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no "${USER}@${VM_CLIENT_IP}" '
+                set -o errexit
+                set -o xtrace
+                echo "Checking MySQL Status on Client Nodes"
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_and_restart_mysql.sh
+                bash -xe /srv/pmm-qa/pmm-tests/check_and_restart_mysql.sh
+            '
+        """
+    }
+}
 
 void destroyStaging(IP) {
     build job: 'aws-staging-stop', parameters: [
@@ -81,12 +124,14 @@ void uploadAllureArtifacts() {
 }
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'min-focal-x64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
         REMOTE_AWS_MYSQL_PASSWORD=credentials('pmm-dev-remote-password')
         REMOTE_AWS_MYSQL57_HOST=credentials('pmm-dev-mysql57-remote-host')
+        OKTA_TOKEN=credentials('OKTA_TOKEN')
+        PORTAL_BASE_URL=credentials('PORTAL_BASE_URL')
         REMOTE_MYSQL_HOST=credentials('mysql-remote-host')
         REMOTE_MYSQL_USER=credentials('mysql-remote-user')
         REMOTE_MYSQL_PASSWORD=credentials('mysql-remote-password')
@@ -107,6 +152,24 @@ pipeline {
         MAILOSAUR_API_KEY=credentials('MAILOSAUR_API_KEY')
         MAILOSAUR_SERVER_ID=credentials('MAILOSAUR_SERVER_ID')
         MAILOSAUR_SMTP_PASSWORD=credentials('MAILOSAUR_SMTP_PASSWORD')
+        GCP_MYSQL57_HOST=credentials('GCP_MYSQL57_HOST');
+        GCP_MYSQL57_USER=credentials('GCP_MYSQL57_USER');
+        GCP_MYSQL57_PASSWORD=credentials('GCP_MYSQL57_PASSWORD');
+        GCP_MYSQL80_HOST=credentials('GCP_MYSQL80_HOST');
+        GCP_MYSQL80_USER=credentials('GCP_MYSQL80_USER');
+        GCP_MYSQL80_PASSWORD=credentials('GCP_MYSQL80_PASSWORD');
+        GCP_PGSQL13_HOST=credentials('GCP_PGSQL13_HOST');
+        GCP_PGSQL13_USER=credentials('GCP_PGSQL13_USER');
+        GCP_PGSQL13_PASSWORD=credentials('GCP_PGSQL13_PASSWORD');
+        GCP_PGSQL12_HOST=credentials('GCP_PGSQL12_HOST');
+        GCP_PGSQL12_USER=credentials('GCP_PGSQL12_USER');
+        GCP_PGSQL12_PASSWORD=credentials('GCP_PGSQL12_PASSWORD');
+        GCP_PGSQL14_HOST=credentials('GCP_PGSQL14_HOST');
+        GCP_PGSQL14_USER=credentials('GCP_PGSQL14_USER');
+        GCP_PGSQL14_PASSWORD=credentials('GCP_PGSQL14_PASSWORD');
+        GCP_PGSQL11_HOST=credentials('GCP_PGSQL11_HOST');
+        GCP_PGSQL11_USER=credentials('GCP_PGSQL11_USER');
+        GCP_PGSQL11_PASSWORD=credentials('GCP_PGSQL11_PASSWORD');
     }
     parameters {
         string(
@@ -118,7 +181,7 @@ pipeline {
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
@@ -137,14 +200,58 @@ pipeline {
             defaultValue: '',
             description: 'AMI Instance ID',
             name: 'AMI_INSTANCE_ID')
+        choice(
+            choices: ['no', 'yes'],
+            description: 'Enable Pull Mode, if you are using this instance as Client Node',
+            name: 'ENABLE_PULL_MODE')
+        string(
+            defaultValue: 'pmm2023fortesting!',
+            description: 'pmm-server admin user default password',
+            name: 'ADMIN_PASSWORD')
         string (
             defaultValue: '',
             description: 'Value for Server Public IP, to use this instance just as client',
             name: 'SERVER_IP')
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
+        choice(
+            choices: ['8.0','5.7'],
+            description: 'Percona XtraDB Cluster version',
+            name: 'PXC_VERSION')
+        choice(
+            choices: ['8.0', '5.7', '5.7.30', '5.6'],
+            description: "Percona Server for MySQL version",
+            name: 'PS_VERSION')
+        choice(
+            choices: ['8.0', '5.7', '5.6'],
+            description: 'MySQL Community Server version',
+            name: 'MS_VERSION')
+        choice(
+            choices: ['13', '12', '11', '10.8'],
+            description: "Which version of PostgreSQL",
+            name: 'PGSQL_VERSION')
+        choice(
+            choices: ['15.2', '15.1', '15.0', '14.4', '14.3', '14.2', '14.1', '14.0', '13.7', '13.6', '13.4', '13.2', '13.1', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
+            description: 'Percona Distribution for PostgreSQL',
+            name: 'PDPGSQL_VERSION')
+        choice(
+            choices: ['10.6', '10.5', '10.4', '10.3', '10.2'],
+            description: "MariaDB Server version",
+            name: 'MD_VERSION')
+        choice(
+            choices: ['6.0', '5.0', '4.4', '4.2', '4.0', '3.6'],
+            description: "Percona Server for MongoDB version",
+            name: 'MO_VERSION')
+        choice(
+            choices: ['4.4', '4.2', '4.0', '5.0.2', '6.0'],
+            description: "Official MongoDB version from MongoDB Inc",
+            name: 'MODB_VERSION')
+        choice(
+            choices: ['slowlog', 'perfschema'],
+            description: "Query Source for Monitoring",
+            name: 'QUERY_SOURCE')
     }
     options {
         skipDefaultCheckout()
@@ -157,27 +264,11 @@ pipeline {
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                installDocker()
+                slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
-                    sudo yum -y update --security
-                    sudo yum -y install jq svn
-                    sudo usermod -aG docker ec2-user
-                    sudo service docker start
-                    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-                    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-                    sudo curl -L https://github.com/docker/compose/releases/download/1.21.0/docker-compose-`uname -s`-`uname -m` | sudo tee /usr/local/bin/docker-compose > /dev/null
-                    sudo chmod +x /usr/local/bin/docker-compose
-                    sudo ln -sfn /usr/local/bin/docker-compose /usr/bin/docker-compose
-                    sudo docker-compose --version
                     sudo mkdir -p /srv/pmm-qa || :
-                    pushd /srv/pmm-qa
-                        sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                        sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
-                        sudo chmod 755 pmm-tests/install-google-chrome.sh
-                        bash ./pmm-tests/install-google-chrome.sh
-                    popd
-                    sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
+                    sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git /srv/pmm-qa
+                    sudo chmod -R 755 /srv/pmm-qa
                 '''
             }
         }
@@ -191,24 +282,29 @@ pipeline {
         }
         stage('Start Server') {
             steps {
-                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service', CLIENT_INSTANCE, '127.0.0.1')
+                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service', CLIENT_INSTANCE, '127.0.0.1', ADMIN_PASSWORD)
             }
         }
-        stage('Setup PMM Client and Kubernetes Cluster') {
+        stage('Setup PMM Clients') {
             parallel {
                 stage('Start Client Instance - ps-replication') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2 --add-annotation --setup-replication-ps-pmm2', 'yes', env.VM_IP, 'mysql-node')
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2 --add-annotation --setup-replication-ps-pmm2 --group', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
                     }
                 }
                 stage('Start Client Instance - ms/md/pxc') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,2 --addclient=md,1 --addclient=pxc,3 --with-proxysql --pmm2', 'yes', env.VM_IP, 'pxc-node')
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=md,1 --addclient=pxc,3 --with-proxysql --pmm2', 'yes', env.VM_IP, 'pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
                     }
                 }
-                stage('Start Client Instance - mongo/postgresql') {
+                stage('Start Client Instance - mongo and pgsql') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pdpgsql,1 --addclient=mo,1 --with-replica --mongomagic --addclient=pgsql,1 --pmm2', 'yes', env.VM_IP, 'mongo-postgres-node')
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pgsql,1 --addclient=mo,1 --with-replica --mongomagic', 'yes', env.VM_IP, 'mongo-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
+                    }
+                }
+                stage('Start Client Instance - postgresql only pdpgsql') {
+                    steps {
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pdpgsql,1 --pmm2', 'yes', env.VM_IP, 'postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
                     }
                 }
             }
@@ -221,16 +317,21 @@ pipeline {
         stage('Setup Node') {
             steps {
                 sh """
-                    curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
-                    sudo yum -y install nodejs
-                    
-                    npm install
-                    node -v
-                    npm -v
-                    sudo yum install -y gettext
+                    curl -sL https://deb.nodesource.com/setup_14.x -o nodesource_setup.sh
+                    sudo bash nodesource_setup.sh
+                    sudo apt install nodejs
+                    sudo apt-get install -y gettext
+                    npm ci
+                    npx playwright install
+                    sudo npx playwright install-deps
                     envsubst < env.list > env.generated.list
-                    
                 """
+            }
+        }
+        stage('MySQL status check') {
+            steps {
+                checkAndRestartMySQL(env.VM_CLIENT_IP_MYSQL)
+                checkAndRestartMySQL(env.VM_CLIENT_IP_PXC)
             }
         }
         stage('Sleep') {
@@ -238,22 +339,46 @@ pipeline {
                 sleep 300
             }
         }
-        stage('Run UI - Tests') {
-            options {
-                timeout(time: 35, unit: "MINUTES")
-            }
-            when {
-                expression { env.AMI_TEST == "no" }
-            }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        export PWD=\$(pwd);
-                        export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly'
-                    """
+        stage('Run Tests') {
+            parallel {
+                stage('Run UI - Tests') {
+                    options {
+                        timeout(time: 150, unit: "MINUTES")
+                    }
+                    when {
+                        expression { env.AMI_TEST == "no" }
+                    }
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh """
+                                sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                                export PWD=\$(pwd);
+                                npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
+                            """
+                        }
+                    }
                 }
+                stage('Check Agent Status on ps & replication node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_MYSQL)
+                    }
+                }
+                stage('Check Agent Status on ms/md/pxc node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PXC)
+                    }
+                }
+                stage('Check Agent Status on mongo node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_MONGO)
+                    }
+                }
+                stage('Check Agent Status on postgresql node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PGSQL)
+                    }
+                }
+
             }
         }
     }
@@ -262,9 +387,28 @@ pipeline {
             // stop staging
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-                ./node_modules/.bin/mochawesome-merge tests/output/parallel_chunk*/*.json > tests/output/combine_results.json || true
-                ./node_modules/.bin/marge tests/output/combine_results.json --reportDir tests/output/ --inline --cdn --charts || true
             '''
+            script {
+                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
+                    junit 'tests/output/*.xml'
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                    archiveArtifacts artifacts: 'logs.zip'
+                } else {
+                    junit 'tests/output/*.xml'
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    archiveArtifacts artifacts: 'logs.zip'
+                    archiveArtifacts artifacts: 'tests/output/*.png'
+                }
+            }
+            /*
+            allure([
+                includeProperties: false,
+                jdk: '',
+                properties: [],
+                reportBuildPolicy: 'ALWAYS',
+                results: [[path: 'tests/output/allure']]
+            ])
+            */
             script {
                 if(env.VM_NAME)
                 {
@@ -282,30 +426,11 @@ pipeline {
                 {
                     destroyStaging(VM_CLIENT_NAME_PXC)
                 }
-            }
-            script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/parallel_chunk*/*.xml'
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
-                    archiveArtifacts artifacts: 'logs.zip'
-                } else {
-                    junit 'tests/output/parallel_chunk*/*.xml'
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'tests/output/', reportFiles: 'combine_results.html', reportName: 'HTML Report', reportTitles: ''])
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'tests/output/combine_results.html'
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
+                if(env.VM_CLIENT_NAME_PGSQL)
+                {
+                    destroyStaging(VM_CLIENT_NAME_PGSQL)
                 }
             }
-            allure([
-                includeProperties: false,
-                jdk: '',
-                properties: [],
-                reportBuildPolicy: 'ALWAYS',
-                results: [[path: 'tests/output/allure']]
-            ])
             sh '''
                 sudo rm -r node_modules/
                 sudo rm -r tests/output

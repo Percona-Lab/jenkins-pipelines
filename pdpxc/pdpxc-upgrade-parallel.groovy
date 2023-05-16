@@ -3,7 +3,6 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def operatingSystems = ['centos-6', 'centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
 
 pipeline {
   agent {
@@ -11,16 +10,16 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "molecule/pdmysql/pdpxc-upgrade";
+      MOLECULE_DIR = "molecule/pdmysql/pdpxc_minor_upgrade";
   }
   parameters {
         choice(
             name: 'FROM_REPO',
-            description: 'From this repo will be upgraded PPG',
+            description: 'PDPXC will be upgraded from this repository',
             choices: [
+                'release',
                 'testing',
-                'experimental',
-                'release'
+                'experimental'
             ]
         )
         choice(
@@ -33,31 +32,51 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.19',
-            description: 'From this version pdmysql will be updated',
-            name: 'FROM_VERSION')
+            defaultValue: '8.0.30',
+            description: 'From this version pdmysql will be updated. Possible values are with and without percona release: 8.0.30 OR 8.0.30-22',
+            name: 'FROM_VERSION'
+        )
         string(
-            defaultValue: '8.0.20',
-            description: 'To this version pdmysql will be updated',
+            defaultValue: '8.0.31-23',
+            description: 'To this version pdmysql will be updated. Possible values are with and without percona release: 8.0.31 OR 8.0.31-23',
             name: 'VERSION'
+        )
+        string(
+            defaultValue: '8.0.31-24',
+            description: 'PXB version for test. Possible values are with and without percona release: 8.0.31 OR 8.0.31-24',
+            name: 'PXB_VERSION'
+        )
+        string(
+            defaultValue: '2.4.8',
+            description: 'Proxysql version for test',
+            name: 'PROXYSQL_VERSION'
+        )
+        string(
+            defaultValue: '2.5.12',
+            description: 'HAProxy version for test',
+            name: 'HAPROXY_VERSION'
+        )
+        string(
+            defaultValue: '3.5.1',
+            description: 'Percona toolkit version for test',
+            name: 'PT_VERSION'
+        )
+        string(
+            defaultValue: '1.0',
+            description: 'replication-manager.sh version',
+            name: 'REPL_MANAGER_VERSION'
         )
         string(
             defaultValue: 'master',
             description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
+            name: 'TESTING_BRANCH'
+        )
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())
           disableConcurrentBuilds()
   }
     stages {
-        stage('Set build name'){
-          steps {
-                    script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
-                    }
-                }
-            }
         stage('Checkout') {
             steps {
                 deleteDir()
@@ -74,7 +93,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(operatingSystems, env.MOLECULE_DIR)
+                    moleculeParallelTest(pdpxcOperatingSystems(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -82,7 +101,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(operatingSystems, env.MOLECULE_DIR)
+              moleculeParallelPostDestroy(pdpxcOperatingSystems(), env.MOLECULE_DIR)
          }
       }
    }

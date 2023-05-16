@@ -3,7 +3,6 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def operatingSystems = ['centos-6', 'centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
 
 pipeline {
   agent {
@@ -25,30 +24,35 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.23',
-            description: 'PXC version for test',
+            defaultValue: '8.0.31-23',
+            description: 'PXC version for test. Possible values are with and without percona release: 8.0.31 OR 8.0.31-23',
             name: 'VERSION'
-         )
+        )
         string(
-            defaultValue: '2.0.18',
+            defaultValue: '8.0.31-24',
+            description: 'PXB version for test. Possible values are with and without percona release: 8.0.31 OR 8.0.31-24',
+            name: 'PXB_VERSION'
+        )
+        string(
+            defaultValue: '2.4.8',
             description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
-         )
+        )
         string(
-            defaultValue: '2.3.10',
+            defaultValue: '2.5.12',
             description: 'HAProxy version for test',
             name: 'HAPROXY_VERSION'
-         )
+        )
         string(
-            defaultValue: '8.0.23',
-            description: 'PXB version for test',
-            name: 'PXB_VERSION'
-         )
-        string(
-            defaultValue: '3.3.1',
+            defaultValue: '3.5.1',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
-         )
+        )
+        string(
+            defaultValue: '1.0',
+            description: 'replication-manager.sh version',
+            name: 'REPL_MANAGER_VERSION'
+        )
         choice(
             name: 'SCENARIO',
             description: 'Scenario for test',
@@ -57,7 +61,12 @@ pipeline {
         string(
             defaultValue: 'master',
             description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
+            name: 'TESTING_BRANCH'
+        )
+        booleanParam(
+            name: 'MAJOR_REPO',
+            description: "Enable to use major (pdpxc-8.0) repo instead of pdpxc-8.0.XX"
+        )
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())
@@ -67,7 +76,7 @@ pipeline {
         stage('Set build name'){
           steps {
                     script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.MAJOR_REPO}"
                     }
                 }
             }
@@ -87,7 +96,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(operatingSystems, env.MOLECULE_DIR)
+                    moleculeParallelTest(pdpxcOperatingSystems(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -95,7 +104,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(operatingSystems, env.MOLECULE_DIR)
+              moleculeParallelPostDestroy(pdpxcOperatingSystems(), env.MOLECULE_DIR)
          }
       }
    }

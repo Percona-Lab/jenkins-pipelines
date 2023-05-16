@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'agent-amd64'
     }
     parameters {
         string(
@@ -14,7 +14,7 @@ pipeline {
             name: 'GIT_BRANCH')
         choice(
             // default is choices.get(0) - experimental
-            choices: ['experimental', 'testing'],
+            choices: ['experimental', 'testing', 'laboratory'],
             description: 'Repo component to push packages to',
             name: 'DESTINATION')
     }
@@ -25,17 +25,17 @@ pipeline {
     triggers {
         upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
     }
+    environment {
+        PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
+    }
     stages {
         stage('Prepare') {
             steps {
-                installDocker()
-
-                git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
+                git poll: true,
+                    branch: GIT_BRANCH,
+                    url: 'http://github.com/Percona-Lab/pmm-submodules'
                 sh '''
                     set -o errexit
-
-                    git reset --hard
-                    git clean -xdf
                     git submodule update --init --jobs 10
                     git submodule status
 
@@ -56,56 +56,40 @@ pipeline {
                 archiveArtifacts 'uploadPath'
                 stash includes: 'uploadPath', name: 'uploadPath'
                 archiveArtifacts 'shortCommit'
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
         stage('Build client source') {
             steps {
-                sh '''
-                    sg docker -c "
-                        set -o errexit
-
-                        env
-                        ./build/bin/build-client-source
-                    "
-                '''
+                sh "${PATH_TO_SCRIPTS}/build-client-source"
                 stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
                 uploadTarball('source')
             }
         }
         stage('Build client binary') {
             steps {
-                sh '''
-                    sg docker -c "
-                        set -o errexit
-
-                        env
-                        ./build/bin/build-client-binary
-                    "
-                '''
+                sh "${PATH_TO_SCRIPTS}/build-client-binary"
                 stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
                 uploadTarball('binary')
             }
         }
         stage('Build client source rpm') {
             steps {
-                sh 'sg docker -c "./build/bin/build-client-srpm centos:7"'
+                sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7"
                 stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
                 uploadRPM()
             }
         }
         stage('Build client binary rpm') {
             steps {
-                sh '''
-                    sg docker -c "
-                        set -o errexit
+                sh """
+                    set -o errexit
 
-                        ./build/bin/build-client-rpm centos:7
+                    ${PATH_TO_SCRIPTS}/build-client-rpm centos:7
 
-                        mkdir -p tmp/pmm-server/RPMS/
-                        cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
-                    "
-                '''
+                    mkdir -p tmp/pmm-server/RPMS/
+                    cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
+                """
                 stash includes: 'tmp/pmm-server/RPMS/*.rpm', name: 'rpms'
                 uploadRPM()
             }
@@ -113,27 +97,11 @@ pipeline {
         stage('Build server packages') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        sg docker -c "
-                            set -o errexit
+                    sh """
+                        set -o errexit
 
-                            export PATH=$PATH:$(pwd -P)/build/bin
-
-                            # 1st-party
-                            build-server-rpm percona-dashboards grafana-dashboards
-                            build-server-rpm pmm-managed
-                            build-server-rpm percona-qan-api2 qan-api2
-                            build-server-rpm pmm-server
-                            build-server-rpm pmm-update
-                            build-server-rpm dbaas-controller
-                            build-server-rpm dbaas-tools
-
-                            # 3rd-party
-                            build-server-rpm victoriametrics
-                            build-server-rpm alertmanager
-                            build-server-rpm grafana
-                        "
-                    '''
+                        ${PATH_TO_SCRIPTS}/build-server-rpm-all
+                    """
                 }
                 stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'
                 uploadRPM()
@@ -141,40 +109,39 @@ pipeline {
         }
         stage('Build server docker') {
             steps {
-                installAWSv2()
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                withCredentials([
+                    usernamePassword(credentialsId: 'hub.docker.com',
+                    passwordVariable: 'PASS',
+                    usernameVariable: 'USER'
+                    )]) {
                     sh """
-                        sg docker -c "
-                            echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                        "
+                        echo "${PASS}" | docker login -u "${USER}" --password-stdin
                     """
                 }
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'ECRRWUser', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
-                        sg docker -c "
-                            set -o errexit
-                            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                withCredentials([aws(
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    credentialsId: 'ECRRWUser',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )]) {
+                    sh """
+                        set -o errexit
 
-                            export PUSH_DOCKER=1
-                            export DOCKER_TAG=public.ecr.aws/e7j3v3n0/pmm-server:$(date -u '+%Y%m%d%H%M')
+                        export PUSH_DOCKER=1
+                        export DOCKER_TAG=perconalab/pmm-server:\$(date -u '+%Y%m%d%H%M')
 
-                            ./build/bin/build-server-docker
+                        ${PATH_TO_SCRIPTS}/build-server-docker
 
-                            if [ ! -z \${DOCKER_RC_TAG+x} ]; then
-                                docker tag  \\${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
-                                docker push perconalab/pmm-server:\${DOCKER_RC_TAG}
-                                docker rmi perconalab/pmm-server:\${DOCKER_RC_TAG}
-                            fi
-                            docker tag \\${DOCKER_TAG} public.ecr.aws/e7j3v3n0/pmm-server:${DOCKER_LATEST_TAG}
-                            docker tag \\${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                            docker push \\${DOCKER_TAG}
-                            docker push public.ecr.aws/e7j3v3n0/pmm-server:${DOCKER_LATEST_TAG}
-                            docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                            docker rmi  \\${DOCKER_TAG}
-                            docker rmi public.ecr.aws/e7j3v3n0/pmm-server:${DOCKER_LATEST_TAG}
-                            docker rmi perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                        "
-                    '''
+                        if [ ! -z \${DOCKER_RC_TAG+x} ]; then
+                            docker tag  \${DOCKER_TAG} perconalab/pmm-server:\${DOCKER_RC_TAG}
+                            docker push perconalab/pmm-server:\${DOCKER_RC_TAG}
+                            docker rmi perconalab/pmm-server:\${DOCKER_RC_TAG}
+                        fi
+                        docker tag \${DOCKER_TAG} perconalab/pmm-server:\${DOCKER_LATEST_TAG}
+                        docker push \${DOCKER_TAG}
+                        docker push perconalab/pmm-server:\${DOCKER_LATEST_TAG}
+                        docker rmi  \${DOCKER_TAG}
+                        docker rmi perconalab/pmm-server:\${DOCKER_LATEST_TAG}
+                    """
                 }
                 stash includes: 'results/docker/TAG', name: 'IMAGE'
                 archiveArtifacts 'results/docker/TAG'
@@ -209,8 +176,6 @@ pipeline {
                     slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
             }
-            sh 'sudo make clean'
-            deleteDir()
         }
     }
 }

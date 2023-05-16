@@ -8,7 +8,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH) {
+void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH, ADMIN_PASSWORD) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -16,11 +16,13 @@ void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, PMM_QA_GIT_BRANC
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'PMM_QA_GIT_COMMIT_HASH', value: PMM_QA_GIT_COMMIT_HASH)
+        string(name: 'PMM_QA_GIT_COMMIT_HASH', value: PMM_QA_GIT_COMMIT_HASH),
+        string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "http://admin:admin@${VM_IP}"
+    env.ADMIN_PASSWORD = ADMIN_PASSWORD
+    env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
 }
 
 void destroyStaging(IP) {
@@ -31,7 +33,6 @@ void destroyStaging(IP) {
 
 void runTAP(String TYPE, String PRODUCT, String COUNT, String VERSION) {
     node(env.VM_NAME){
-        installAWSv2()
         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
             sh """
                 set -o errexit
@@ -110,13 +111,15 @@ void fetchAgentLog(String CLIENT_VERSION) {
     }
 }
 
+def latestVersion = pmmVersion()
+
 pipeline {
     agent {
-        label 'large-amazon'
+        label 'agent-amd64'
     }
     parameters {
         string(
-            defaultValue: 'public.ecr.aws/e7j3v3n0/pmm-server:dev-latest',
+            defaultValue: 'perconalab/pmm-server:dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
@@ -124,15 +127,23 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: 'master',
+            defaultValue: 'perconalab/pmm-client:dev-latest',
+            description: 'PMM Client Docker tag',
+            name: 'CLIENT_DOCKER_VERSION')
+        string(
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
+        string(
+            defaultValue: 'pmm2023fortesting!',
+            description: 'pmm-server admin user default password',
+            name: 'ADMIN_PASSWORD')
         string(
             defaultValue: '',
             description: 'Commit hash for pmm-qa branch',
             name: 'PMM_QA_GIT_COMMIT_HASH')
         string(
-            defaultValue: '2.22.0',
+            defaultValue: latestVersion,
             description: 'pmm2-client latest version',
             name: 'PMM_VERSION')
     }
@@ -145,22 +156,21 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                deleteDir()
-                slackSend channel: '#pmm-ci', color: '#FFFF00', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend channel: '#pmm-ci',
+                          color: '#0000FF',
+                          message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
-                    curl --silent --location https://rpm.nodesource.com/setup_14.x | sudo bash -
-                    sudo yum -y install nodejs
                     npm install tap-junit
                 '''
             }
         }
         stage('Start staging') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2', PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH)
+                runStaging(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm2', PMM_QA_GIT_BRANCH, PMM_QA_GIT_COMMIT_HASH, ADMIN_PASSWORD)
                 script {
 
                     SSHLauncher ssh_connection = new SSHLauncher(env.VM_IP, 22, 'aws-jenkins')
-                    DumbSlave node = new DumbSlave(env.VM_NAME, "spot instance job", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
+                    DumbSlave node = new DumbSlave(env.VM_NAME, "PMM test suite instance: ${VM_NAME}", "/home/ec2-user/", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
 
                     Jenkins.instance.addNode(node)
                 }

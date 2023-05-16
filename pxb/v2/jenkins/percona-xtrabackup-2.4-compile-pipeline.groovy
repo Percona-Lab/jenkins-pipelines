@@ -13,7 +13,7 @@ pipeline {
             name: 'BRANCH',
             trim: true)
         choice(
-            choices: 'centos:7\ncentos:8\nubuntu:xenial\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster\nasan',
+            choices: 'centos:7\ncentos:8\nubuntu:xenial\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster\ndebian:bullseye\nasan',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(

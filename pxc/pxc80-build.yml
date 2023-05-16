@@ -45,6 +45,7 @@
             sudo yum -y install asio-devel libaio-devel ncurses-devel readline-devel pam-devel socat zlib-devel
             sudo yum -y install numactl-devel centos-release-scl redhat-lsb-core
             sudo yum -y install gcc-c++ devtoolset-8-gcc-c++ devtoolset-8-binutils cmake python-pip python2-pip patchelf
+            sudo yum -y install cyrus-sasl-scram
 
             CENTOS_VER=$(lsb_release -sr | awk -F'.' '{print $1}')
             if [[ ${CENTOS_VER} = '6' ]]; then
@@ -66,6 +67,7 @@
             sudo DEBIAN_FRONTEND=noninteractive apt-get update
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc g++ scons bison libasio-dev libssl-dev libtool libc-dev libcurl4-openssl-dev
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libaio-dev libncurses-dev zlib1g-dev libz-dev check
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libkrb5-dev libsasl2-dev libsasl2-modules-gssapi-mit
             sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openssl cmake libboost-all-dev libreadline-dev libpam-dev socat python3-pip patchelf
 
             sudo pip3 install awscli

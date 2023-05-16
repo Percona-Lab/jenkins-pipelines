@@ -95,7 +95,13 @@
               export XBCLOUD_CREDENTIALS="--storage=google --google-access-key=$XBCLOUD_ACCESS_KEY --google-secret-key=$XBCLOUD_SECRET_KEY  $XBCLOUD_EXTRA"
           fi
           rm -rf jenkins-pipelines || true
+          # get git version for debug purpose
+          git --version || true
+
           git clone https://github.com/Percona-Lab/jenkins-pipelines
+          sudo git config --global --unset-all safe.directory || true
+          sudo git config --global --add safe.directory "$(pwd)/jenkins-pipelines"
+
           cd jenkins-pipelines
           if [ -f /usr/bin/yum ]; then
               sudo -E yum -y erase percona-release || true
@@ -117,6 +123,7 @@
               PKGLIST="${PKGLIST} libaio-devel perl-DBD-MySQL vim-common ncurses-devel readline-devel"
               PKGLIST="${PKGLIST} zlib-devel libgcrypt-devel bison perl-Digest-MD5"
               PKGLIST="${PKGLIST} socat numactl-libs numactl"
+              PKGLIST="${PKGLIST} libudev-devel"
 
               if [[ ${RHEL} != 8 ]]; then
                   PKGLIST+=" python-sphinx python-docutils"
@@ -168,6 +175,7 @@
               PKGLIST="${PKGLIST} cmake debhelper libaio-dev libncurses-dev libssl-dev libtool libz-dev"
               PKGLIST="${PKGLIST} libgcrypt-dev libev-dev lsb-release python-docutils"
               PKGLIST="${PKGLIST} build-essential rsync libdbd-mysql-perl libnuma1 socat librtmp-dev liblz4-tool liblz4-1 liblz4-dev libtinfo5"
+              PKGLIST="${PKGLIST} libudev-dev"
               if [[ "$DIST" == 'focal' ]]; then
                   PKGLIST="${PKGLIST} python3-sphinx"
               else
@@ -184,6 +192,23 @@
               #
               sudo -E apt-get -y install libreadline6 || true
               sudo -E apt-get -y install libreadline6-dev || true
+              #
+              if [[ "$DIST" == 'xenial' ]]; then
+                  sudo apt install -yq software-properties-common
+                  sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+                  sudo apt update -qq
+                  sudo apt install -yq g++-7
+                  sudo update-alternatives \
+                      --install /usr/bin/gcc gcc /usr/bin/gcc-7 60 \
+                      --slave /usr/bin/g++ g++ /usr/bin/g++-7 \
+                      --slave /usr/bin/gcov gcov /usr/bin/gcov-7 \
+                      --slave /usr/bin/gcov-tool gcov-tool /usr/bin/gcov-tool-7 \
+                      --slave /usr/bin/gcc-ar gcc-ar /usr/bin/gcc-ar-7 \
+                      --slave /usr/bin/gcc-nm gcc-nm /usr/bin/gcc-nm-7 \
+                      --slave /usr/bin/gcc-ranlib gcc-ranlib /usr/bin/gcc-ranlib-7
+                      gcc --version
+              fi
+
               if [ -e /lib/x86_64-linux-gnu/libreadline.so.7 -a ! -e /lib/x86_64-linux-gnu/libreadline.so.6 ]; then
                   sudo ln -s /lib/x86_64-linux-gnu/libreadline.so.7 /lib/x86_64-linux-gnu/libreadline.so.6
               fi

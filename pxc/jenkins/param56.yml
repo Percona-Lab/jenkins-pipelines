@@ -28,12 +28,12 @@
         default: false
         description: "Check only if you pass PR number to PXC56_BRANCH field"
     - string:
-        name: PXB23_REPO
+        name: PXB24_REPO
         default: https://github.com/percona/percona-xtrabackup
-        description: URL to PXB23 repository
+        description: URL to PXB24 repository
     - string:
-        name: PXB23_BRANCH
-        default: percona-xtrabackup-2.3.10
+        name: PXB24_BRANCH
+        default: percona-xtrabackup-2.4.27
         description: Tag/Branch for PXC repository
     - string:
         name: GALERA3_REPO
@@ -93,7 +93,6 @@
          type: user-defined
          name: DOCKER_OS
          values:
-          - centos:6
           - centos:7
           - ubuntu:xenial
           - ubuntu:bionic

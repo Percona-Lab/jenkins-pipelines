@@ -22,10 +22,10 @@ netMap['eu-west-1b'] = 'subnet-04221bb8f6d0aeeff'
 netMap['eu-west-1c'] = 'subnet-0b9a1fd4ba5296a8b'
 
 imageMap = [:]
-imageMap['eu-west-1a.docker'] = 'ami-02b4e72b17337d6c1'
-imageMap['eu-west-1a.docker-32gb'] = 'ami-02b4e72b17337d6c1'
-imageMap['eu-west-1a.docker2'] = 'ami-02b4e72b17337d6c1'
-imageMap['eu-west-1a.micro-amazon'] = 'ami-02b4e72b17337d6c1'
+imageMap['eu-west-1a.docker'] = 'ami-05247819264504af0'
+imageMap['eu-west-1a.docker-32gb'] = 'ami-05247819264504af0'
+imageMap['eu-west-1a.docker2'] = 'ami-05247819264504af0'
+imageMap['eu-west-1a.micro-amazon'] = 'ami-05247819264504af0'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
@@ -38,14 +38,10 @@ imageMap['eu-west-1c.docker2'] = imageMap['eu-west-1a.docker2']
 imageMap['eu-west-1c.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
 
 priceMap = [:]
-priceMap['t2.small'] = '0.01'
-priceMap['m1.medium'] = '0.05'
-priceMap['c4.xlarge'] = '0.10'
-priceMap['m4.large'] = '0.10'
-priceMap['m4.2xlarge'] = '0.20'
-priceMap['r4.4xlarge'] = '0.38'
-priceMap['m5d.2xlarge'] = '0.20'
-priceMap['c5d.xlarge'] = '0.20'
+priceMap['t2.small'] = '0.02'     // type=t2.small, vCPU=1, memory=2GiB, saving=64%, interruption='<5%', price=0.009200
+priceMap['c5.xlarge'] = '0.15'    // type=c5.xlarge, vCPU=4, memory=8GiB, saving=52%, interruption='<5%', price=0.096000
+priceMap['m6in.2xlarge'] = '0.33' // type=m6in.2xlarge, vCPU=8, memory=32GiB, saving=59%, interruption='<5%', price=0.254900
+priceMap['i4i.4xlarge'] = '0.60'  // type=i4i.4xlarge, vCPU=16, memory=128GiB, saving=67%, interruption='<5%', price=0.532900
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
@@ -76,18 +72,19 @@ initMap['docker'] = '''
     done
 
     sudo amazon-linux-extras install epel -y
-    sudo yum -y install java-1.8.0-openjdk git docker p7zip
-    sudo yum -y remove java-1.7.0-openjdk awscli
+    sudo amazon-linux-extras install java-openjdk11 -y
+    sudo yum -y install git docker p7zip
+    sudo yum -y remove awscli
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
-        
+
         until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
             sleep 1
             echo try again
         done
 
-        7za -aoa -o/tmp x /tmp/awscliv2.zip 
+        7za -aoa -o/tmp x /tmp/awscliv2.zip
         cd /tmp/aws && sudo ./install
     fi
 
@@ -113,8 +110,80 @@ initMap['docker'] = '''
     sudo service docker status || sudo service docker start
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
-initMap['docker-32gb'] = initMap['docker']
 initMap['docker2'] = initMap['docker']
+initMap['docker-32gb'] = '''
+    set -o xtrace
+
+    if ! mountpoint -q /mnt; then
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext4 ${DEVICE}
+            sudo mount -o noatime ${DEVICE} /mnt
+        fi
+    fi
+    sudo ethtool -K eth0 sg off
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+
+    sudo amazon-linux-extras install epel -y
+    sudo amazon-linux-extras install java-openjdk11 -y
+    sudo yum -y install git docker p7zip
+    sudo yum -y remove awscli
+
+    if ! $(aws --version | grep -q 'aws-cli/2'); then
+        find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
+
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
+            sleep 1
+            echo try again
+        done
+
+        7za -aoa -o/tmp x /tmp/awscliv2.zip
+        cd /tmp/aws && sudo ./install
+    fi
+
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+
+    sudo sysctl net.ipv4.tcp_fin_timeout=15
+    sudo sysctl net.ipv4.tcp_tw_reuse=1
+    sudo sysctl net.ipv6.conf.all.disable_ipv6=1
+    sudo sysctl net.ipv6.conf.default.disable_ipv6=1
+    sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
+    sudo sysctl -w fs.aio-max-nr=1048576 || true
+    sudo sysctl -w fs.file-max=6815744 || true
+    echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
+    sudo sed -i.bak -e 's/nofile=1024:4096/nofile=900000:900000/; s/DAEMON_MAXFILES=.*/DAEMON_MAXFILES=990000/' /etc/sysconfig/docker
+    echo 'DOCKER_STORAGE_OPTIONS="--data-root=/mnt/docker"' | sudo tee -a /etc/sysconfig/docker-storage
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
+    sudo systemctl daemon-reload
+    sudo install -o root -g root -d /mnt/docker
+    sudo usermod -aG docker $(id -u -n)
+    sudo mkdir -p /etc/docker
+    sudo systemctl status docker || sudo systemctl start docker
+    sudo service docker status || sudo service docker start
+    echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+    CRI_DOCKERD_LATEST_VERSION=$(curl -s https://api.github.com/repos/Mirantis/cri-dockerd/releases/latest|grep tag_name | cut -d '"' -f 4 | grep -Eo '([0-9].)+[0-9]')
+    sudo curl -Lo /tmp/cri-dockerd-${CRI_DOCKERD_LATEST_VERSION}.amd64.tgz https://github.com/Mirantis/cri-dockerd/releases/download/v${CRI_DOCKERD_LATEST_VERSION}/cri-dockerd-${CRI_DOCKERD_LATEST_VERSION}.amd64.tgz
+    sudo tar xvfz /tmp/cri-dockerd-${CRI_DOCKERD_LATEST_VERSION}.amd64.tgz -C /tmp/
+    sudo mv /tmp/cri-dockerd/cri-dockerd /usr/bin
+    sudo chmod +x /usr/bin/cri-dockerd
+    sudo curl -Lo /etc/systemd/system/cri-docker.service https://raw.githubusercontent.com/Mirantis/cri-dockerd/v${CRI_DOCKERD_LATEST_VERSION}/packaging/systemd/cri-docker.service
+    sudo curl -Lo /etc/systemd/system/cri-docker.socket https://raw.githubusercontent.com/Mirantis/cri-dockerd/v${CRI_DOCKERD_LATEST_VERSION}/packaging/systemd/cri-docker.socket
+    sudo systemctl daemon-reload
+    sudo systemctl enable cri-docker.service
+    sudo systemctl enable --now cri-docker.socket
+    sudo systemctl start cri-docker.service
+    CRICTL_LATEST_VERSION=$(curl -s https://api.github.com/repos/kubernetes-sigs/cri-tools/releases/latest|grep tag_name | cut -d '"' -f 4)
+    sudo curl -Lo /tmp/crictl-${CRICTL_LATEST_VERSION}-linux-amd64.tar.gz https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRICTL_LATEST_VERSION}/crictl-${CRICTL_LATEST_VERSION}-linux-amd64.tar.gz
+    sudo tar xvfz /tmp/crictl-${CRICTL_LATEST_VERSION}-linux-amd64.tar.gz -C /usr/bin/
+'''
 initMap['micro-amazon'] = '''
     set -o xtrace
     if ! mountpoint -q /mnt; then
@@ -133,23 +202,22 @@ initMap['micro-amazon'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-1.8.0-openjdk git aws-cli || :
-    sudo yum -y remove java-1.7.0-openjdk || :
+    sudo amazon-linux-extras install epel -y
+    sudo amazon-linux-extras install java-openjdk11 -y || :
+    sudo yum -y install git aws-cli || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 
 capMap = [:]
-capMap['c4.xlarge'] = '60'
-capMap['m4.large'] = '40'
-capMap['m4.2xlarge'] = '40'
-capMap['r4.4xlarge'] = '40'
-capMap['c5d.xlarge'] = '10'
+capMap['c5.xlarge'] = '40'
+capMap['m6in.2xlarge'] = '40'
+capMap['i4i.4xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
-typeMap['docker'] = 'm4.large'
-typeMap['docker-32gb'] = 'm4.2xlarge'
-typeMap['docker2'] = 'r4.4xlarge'
+typeMap['docker'] = 'c5.xlarge'
+typeMap['docker-32gb'] = 'm6in.2xlarge'
+typeMap['docker2'] = 'i4i.4xlarge'
 
 execMap = [:]
 execMap['docker'] = '1'
@@ -187,7 +255,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
-        new UnixData('', '', '', '22'),             // AMITypeData amiType
+        new UnixData('', '', '', '22', ''),         // AMITypeData amiType
         '-Xmx512m -Xms512m',                        // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId

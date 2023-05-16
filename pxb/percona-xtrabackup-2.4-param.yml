@@ -15,12 +15,11 @@
         values:
         - min-centos-7-x64
         - min-centos-8-x64
-        - min-xenial-x64
-        - min-xenial-x32
+        - min-ol-9-x64
         - min-bionic-x64
         - min-focal-x64
-        - min-stretch-x64
         - min-buster-x64
+        - min-jammy-x64
         - asan
     - axis:
         name: xtrabackuptarget
@@ -86,6 +85,16 @@
         default: '5.6.51-91.0'
         description: Version of Percona XtraDB56 which will be used for bootstrap.sh script
         name: xtradb56_version
+        trim: false
+    - string:
+        default: 'https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.31-31.45-3/binary/tarball/Percona-XtraDB-Cluster-5.7.31-rel34-45.3.Linux.x86_64.glibc2.12.tar.gz'
+        description: Tarball of PXC57 which will be used for tests
+        name: galera57_tarball
+        trim: false
+    - string:
+        default: '5.6.51-rel91.0-28.46.1'
+        description: Tarball version of PXC56 which will be used for tests
+        name: galera56_tarball
         trim: false
     project-type: matrix
     properties:

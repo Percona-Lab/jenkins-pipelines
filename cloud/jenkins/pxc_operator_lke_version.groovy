@@ -72,6 +72,15 @@ void popArtifactFile(String FILE_NAME) {
 }
 
 testsResultsMap = [:]
+testsReportMap = [:]
+TestsReport = '<testsuite name=\\"PXC\\">\n'
+
+void makeReport() {
+    for ( test in testsReportMap ) {
+        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
+    }
+    TestsReport = TestsReport + '</testsuite>\n'
+}
 
 void setTestsresults() {
     testsResultsMap.each { file ->
@@ -84,9 +93,10 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     waitUntil {
         try {
             echo "The $TEST_NAME test was started!"
+            testsReportMap[TEST_NAME] = 'failure'
             PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
             popArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
-            testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"] = 'failure'
+
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
                     if [ -f "${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
@@ -123,12 +133,21 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                             export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
                         fi
 
+                        if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
+                            export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                        fi
+
+                        if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
+                            export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                        fi
+
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
                         ./e2e-tests/$TEST_NAME/run
                     fi
                 """
             }
             pushArtifactFile("${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+            testsReportMap[TEST_NAME] = 'passed'
             testsResultsMap["${params.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}"] = 'passed'
             return true
         }
@@ -210,6 +229,14 @@ pipeline {
             defaultValue: '',
             description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
             name: 'IMAGE_LOGCOLLECTOR')
+        string(
+            defaultValue: '',
+            description: 'PMM server image repo: perconalab/pmm-server',
+            name: 'IMAGE_PMM_SERVER_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM server image tag: dev-latest',
+            name: 'IMAGE_PMM_SERVER_TAG')
     }
     agent {
         label 'docker'
@@ -226,6 +253,7 @@ pipeline {
                 sh """
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
+                    sudo sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
@@ -237,9 +265,9 @@ pipeline {
                 sh '''
                     sudo pip3 install --upgrade linode-cli
 
-                    curl -s https://get.helm.sh/helm-v3.2.3-linux-amd64.tar.gz \
+                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
                 '''
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'LINODE-CONFIG', variable: 'LKE_CLIENT_FILE')]) {
@@ -275,6 +303,7 @@ pipeline {
         stage('Run Tests') {
             environment {
                 CLOUDSDK_CORE_DISABLE_PROMPTS = 1
+                CLEAN_NAMESPACE = 1
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                 VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
                 CLUSTER_NAME = sh(script: "echo jenkins-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
@@ -292,7 +321,8 @@ pipeline {
                         runTest('upgrade-proxysql', 'upgrade')
                         ShutdownCluster('upgrade')
                         CreateCluster('upgrade')
-                        runTest('smart-update', 'upgrade')
+                        runTest('smart-update1', 'upgrade')
+                        runTest('smart-update2', 'upgrade')
                         runTest('upgrade-consistency', 'upgrade')
                         ShutdownCluster('upgrade')
                     }
@@ -329,11 +359,8 @@ pipeline {
                     steps {
                         CreateCluster('selfheal')
                         runTest('storage', 'selfheal')
-                        runTest('self-healing', 'selfheal')
                         runTest('self-healing-chaos', 'selfheal')
-                        runTest('self-healing-advanced', 'selfheal')
                         runTest('self-healing-advanced-chaos', 'selfheal')
-                        runTest('operator-self-healing', 'selfheal')
                         runTest('operator-self-healing-chaos', 'selfheal')
                         ShutdownCluster('selfheal')
                     }
@@ -344,9 +371,10 @@ pipeline {
                         runTest('recreate', 'backups')
                         runTest('restore-to-encrypted-cluster', 'backups')
                         runTest('demand-backup', 'backups')
+                        runTest('demand-backup-cloud', 'backups')
                         runTest('demand-backup-encrypted-with-tls', 'backups')
-                        runTest('scheduled-backup', 'backups')
                         runTest('pitr','backups')
+                        runTest('scheduled-backup', 'backups')
                         ShutdownCluster('backups')
                     }
                 }
@@ -363,6 +391,14 @@ pipeline {
     post {
         always {
             setTestsresults()
+
+            makeReport()
+            sh """
+                echo "${TestsReport}" > TestsReport.xml
+            """
+            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            archiveArtifacts '*.xml'
+
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./*

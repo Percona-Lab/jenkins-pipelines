@@ -3,21 +3,19 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def operatingSystems = ['centos-6', 'centos-7', 'debian-9', 'debian-10', 'ubuntu-xenial', 'ubuntu-bionic', 'ubuntu-focal', 'rhel8']
-
 pipeline {
-  agent {
-  label 'min-centos-7-x64'
-  }
-  environment {
-      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "molecule/pdmysql/${SCENARIO}";
-  }
-  parameters {
+    agent {
+    label 'min-centos-7-x64'
+    }
+    environment {
+        PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
+        MOLECULE_DIR = "molecule/pdmysql/pdps_minor_upgrade";
+    }
+    parameters {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: operatingSystems
+            choices: pdpsOperatingSystems()
         )
         choice(
             name: 'FROM_REPO',
@@ -38,79 +36,112 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.19',
-            description: 'Percona Server will be upgraded from this version',
-            name: 'FROM_VERSION')
+            defaultValue: '8.0.31-23',
+            description: 'Percona Server will be upgraded from this version. Possible values are with and without percona release: 8.0.31 OR 8.0.31-23',
+            name: 'FROM_VERSION'
+        )
         string(
-            defaultValue: '8.0.20',
-            description: 'Percona Server will be upgraded to this version',
+            defaultValue: '8.0.32-24',
+            description: 'Percona Server will be upgraded to this version. Possible values are with and without percona release: 8.0.32 OR 8.0.32-24',
             name: 'VERSION'
         )
         string(
             defaultValue: 'master',
             description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
-  }
-  options {
-          withCredentials(moleculePdpsJenkinsCreds())
-          disableConcurrentBuilds()
-  }
-  stages {
-    stage('Set build name'){
-      steps {
+            name: 'TESTING_BRANCH'
+        )
+        string(
+            defaultValue: '2.4.7',
+            description: 'Updated Proxysql version',
+            name: 'PROXYSQL_VERSION'
+        )
+        string(
+            defaultValue: '8.0.32-25',
+            description: 'Updated PXB version. Possible values are with and without percona release: 8.0.32 OR 8.0.32-25',
+            name: 'PXB_VERSION'
+        )
+        string(
+            defaultValue: '3.5.1',
+            description: 'Updated Percona Toolkit version',
+            name: 'PT_VERSION'
+        )
+        string(
+            defaultValue: '3.2.6-8',
+            description: 'Updated Percona Orchestrator version',
+            name: 'ORCHESTRATOR_VERSION'
+        )
+        choice(
+            name: 'DESTROY_ENV',
+            description: 'Destroy VM after tests',
+            choices: [
+                'yes',
+                'no'
+            ]
+        )
+    }
+    options {
+        withCredentials(moleculePdpsJenkinsCreds())
+        disableConcurrentBuilds()
+    }
+    stages {
+        stage('Set build name'){
+            steps {
                 script {
                     currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-${env.MOLECULE_DIR}"
                 }
             }
         }
-    stage('Checkout') {
-      steps {
-            deleteDir()
-            git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
+        stage('Check version param and checkout') {
+            steps {
+                deleteDir()
+                checkOrchVersionParam()
+                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
+            }
         }
-    }
-    stage ('Prepare') {
-      steps {
-          script {
-              installMolecule()
+        stage ('Prepare') {
+            steps {
+                script {
+                    installMolecule()
+                }
+            }
+        }
+        stage ('Create virtual machines') {
+            steps {
+                script{
+                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "create", env.PLATFORM)
+                }
+            }
+        }
+        stage ('Run playbook for test') {
+            steps {
+                script{
+                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
+                }
+            }
+        }
+        stage ('Start testinfra tests') {
+            steps {
+                script{
+                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
+                }
+            }
+        }
+        stage ('Start Cleanup ') {
+            steps {
+                script {
+                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
+                }
             }
         }
     }
-    stage ('Create virtual machines') {
-      steps {
-          script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "create", env.PLATFORM)
+    post {
+        always {
+            script {
+                if (env.DESTROY_ENV == "yes") {
+                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                    junit "${MOLECULE_DIR}/report.xml"
+                }
             }
         }
     }
-    stage ('Run playbook for test') {env.MOLECULE_DIR
-      steps {
-          script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
-            }
-        }
-    }
-    stage ('Start testinfra tests') {
-      steps {
-            script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
-            }
-            junit "${MOLECULE_DIR}/report.xml"
-        }
-    }
-    stage ('Start Cleanup ') {
-      steps {
-          script {
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
-            }
-        }
-    }
-  }
-  post {
-    always {
-          script {
-             moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.PLATFORM)
-        }
-    }
-  }
 }

@@ -36,16 +36,16 @@
             name: node_to_test
             choices:
                 - "all"
-                - "min-stretch-x64"
-                - "min-buster-x64"
+                - "all_nodes_except_bullseye"
                 - "min-bullseye-x64"
-                - "min-centos-6-x64"
+                - "min-buster-x64"
                 - "min-centos-7-x64"
-                - "min-centos-8-x64"
-                - "min-xenial-x64"
+                - "min-ol-8-x64"
                 - "min-bionic-x64"
                 - "min-focal-x64"
                 - "min-amazon-2-x64"
+                - "min-jammy-x64"
+                - "min-ol-9-x64"
             description: "Node in which to test the product"
         - choice:
             name: action_to_test

@@ -84,7 +84,8 @@ if [ "$SOURCE_NAME" == 'PXB23' -o "$SOURCE_NAME" == 'ALL' ]; then
         git clean -xdf
 
         if [ -n "${PXB23_BRANCH}" ]; then
-            git checkout "${PXB23_BRANCH}" -b "tag-${PXB23_BRANCH}"
+            git checkout "${PXB23_BRANCH}"
+            git checkout -b "tag-${PXB23_BRANCH}"
         fi
         if [ -n "${PXB23_REPO}" -a -n "${PXB23_BRANCH}" ]; then
             git pull origin ${PXB23_BRANCH}
@@ -92,6 +93,33 @@ if [ "$SOURCE_NAME" == 'PXB23' -o "$SOURCE_NAME" == 'ALL' ]; then
     popd
 fi
 
+# ==================== PXB24 ====================
+
+if [ "$SOURCE_NAME" == 'PXB24' -o "$SOURCE_NAME" == 'ALL' ]; then
+    PXB24_ROOT_DIR="${ROOT_DIR}/pxb24"
+
+    sudo rm -rf ${PXB24_ROOT_DIR}
+
+    git clone "${PXB24_REPO:-https://github.com/percona/percona-xtrabackup}" "${PXB24_ROOT_DIR}"
+
+    pushd $PXB24_ROOT_DIR
+        if [ -n "${PXB24_REPO}" ]; then
+            git remote set-url origin "${PXB24_REPO}"
+            git fetch --all
+        fi
+
+        git reset --hard
+        git clean -xdf
+
+        if [ -n "${PXB24_BRANCH}" ]; then
+            git checkout "${PXB24_BRANCH}"
+            git checkout -b "tag-${PXB24_BRANCH}"
+        fi
+        if [ -n "${PXB24_REPO}" -a -n "${PXB24_BRANCH}" ]; then
+            git pull origin ${PXB24_BRANCH}
+        fi
+    popd
+fi
 
 # ==================== GALERA3 ====================
 
@@ -112,7 +140,8 @@ if [ "$SOURCE_NAME" == 'GALERA3' -o "$SOURCE_NAME" == 'ALL' ]; then
         git clean -xdf
 
         if [ -n "${GALERA3_BRANCH}" ]; then
-            git checkout "origin/${GALERA3_BRANCH}" -b "tag-${GALERA3_BRANCH}"
+            git checkout "origin/${GALERA3_BRANCH}"
+            git checkout -b "tag-${GALERA3_BRANCH}"
         fi
         if [ -n "${GALERA3_REPO}" -a -n "${GALERA3_BRANCH}" ]; then
             git pull origin ${GALERA3_BRANCH}

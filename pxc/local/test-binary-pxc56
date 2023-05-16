@@ -18,7 +18,7 @@ mkdir -p ${WORKDIR_ABS}/PXC/sql
 rm -fr ${WORKDIR_ABS}/PXB
 mkdir -p ${WORKDIR_ABS}/PXB
 tar -C ${WORKDIR_ABS}/PXC --strip-components=1 -zxpf $(ls $WORKDIR_ABS/pxc56.tar.gz | head -1)
-tar -C ${WORKDIR_ABS}/PXB --strip-components=1 -zxpf $(ls $WORKDIR_ABS/pxb23.tar.gz | head -1)
+tar -C ${WORKDIR_ABS}/PXB --strip-components=1 -zxpf $(ls $WORKDIR_ABS/pxb24.tar.gz | head -1)
 
 export WSREP_PROVIDER=${WORKDIR_ABS}/PXC/lib/libgalera_smm.so
 cd ${WORKDIR_ABS}/PXC/mysql-test
