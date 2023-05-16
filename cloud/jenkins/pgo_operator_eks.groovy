@@ -282,10 +282,6 @@ pipeline {
             description: 'PMM server image: perconalab/pmm-client:dev-latest',
             name: 'PMM_CLIENT_IMAGE')
     }
-    environment {
-        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-        CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-    }
     agent {
          label 'docker'
     }
@@ -371,6 +367,10 @@ pipeline {
         }
 
         stage('E2E Basic tests') {
+            environment {
+                GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+            }
             steps {
                 createCluster('basic')
                 runTest('init-deploy', 'basic')
