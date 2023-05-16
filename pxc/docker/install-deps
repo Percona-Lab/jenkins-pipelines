@@ -127,7 +127,7 @@ if [ -f /usr/bin/yum ]; then
     fi
 
     if [[ ${RHVER} -eq 9 ]]; then
-        PKGLIST+=" gflags-devel util-linux libtirpc-devel rpcgen boost-devel libxcrypt-compat"
+        PKGLIST+=" gflags-devel util-linux libtirpc-devel rpcgen boost-devel libxcrypt-compat ncurses-compat-libs"
     fi
 
     if [[ ${RHVER} -lt 9 ]]; then
