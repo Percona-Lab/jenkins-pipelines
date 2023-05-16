@@ -11,7 +11,7 @@ def call(String PRODUCT_NAME, String PRODUCT_VERSION) {
                 echo '10.30.6.9 repo.ci.percona.com' >> hosts
                 sudo cp ./hosts /etc || true
                 # Cut prefix if it's provided
-                PRODUCT_VERSION=$(echo ${PRODUCT_VERSION} | sed 's/release-//g');
+                PRODUCT_VERSION=\$(echo ${PRODUCT_VERSION} | sed 's/release-//g');
 
                 ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com ' \
                     ssh -p 2222 jenkins-deploy.jenkins-deploy.web.r.int.percona.com mkdir -p /data/downloads/TESTING/${PRODUCT_NAME}-${PRODUCT_VERSION}
