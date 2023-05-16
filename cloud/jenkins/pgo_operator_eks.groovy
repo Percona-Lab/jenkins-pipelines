@@ -391,15 +391,15 @@ pipeline {
 
     post {
         always {
-            always {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    unstash 'cluster_conf'
-                    sh '''
-                        export CLUSTER_NAME=$(echo jenkins-ver-pgv2-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-basic --region eu-west-3
-                        eksctl delete cluster -f cluster-basic.yaml --wait --force
-                    '''
-                }
+
+            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                unstash 'cluster_conf'
+                sh '''
+                    export CLUSTER_NAME=$(echo jenkins-ver-pgv2-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
+                    eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-basic --region eu-west-3
+                    eksctl delete cluster -f cluster-basic.yaml --wait --force
+                '''
+            }
 //            git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
 //            script {
 //                GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
