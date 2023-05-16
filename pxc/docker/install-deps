@@ -19,10 +19,9 @@ if [ -f /usr/bin/yum ]; then
   RHVER="$(rpm --eval %rhel)"
   rpm --eval %_arch > /etc/yum/vars/basearch
 
-  if [[ ${RHVER} -eq 9 ]]; then
+  #if [[ ${RHVER} -eq 9 ]]; then
   #    yum install -y https://yum.oracle.com/repo/OracleLinux/OL9/distro/builder/x86_64/getPackage/procps-ng-devel-3.3.17-8.el9.x86_64.rpm
-      PKGLIST+=" procps-ng-devel"
-  fi
+  #fi
 
   if [[ ${RHVER} -eq 8 ]]; then
       sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-*
@@ -77,7 +76,7 @@ if [ -f /usr/bin/yum ]; then
       done
 
       dnf config-manager --enable ol9_codeready_builder
-      PKGLIST+=" libedit-devel"
+      PKGLIST+=" libedit-devel procps-ng-devel"
   fi
 
   if [[ ${RHVER} -lt 8 ]]; then
