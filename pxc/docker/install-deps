@@ -20,8 +20,8 @@ if [ -f /usr/bin/yum ]; then
   rpm --eval %_arch > /etc/yum/vars/basearch
 
   if [[ ${RHVER} -eq 9 ]]; then
-      # repo for procps-ng-devel
-      yum install -y https://yum.oracle.com/repo/OracleLinux/OL9/distro/builder/x86_64/getPackage/procps-ng-devel-3.3.17-8.el9.x86_64.rpm
+  #    yum install -y https://yum.oracle.com/repo/OracleLinux/OL9/distro/builder/x86_64/getPackage/procps-ng-devel-3.3.17-8.el9.x86_64.rpm
+      PKGLIST+=" procps-ng-devel"
   fi
 
   if [[ ${RHVER} -eq 8 ]]; then
