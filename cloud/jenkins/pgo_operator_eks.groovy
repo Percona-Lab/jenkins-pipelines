@@ -360,7 +360,11 @@ pipeline {
                 }
             }
         }
-
+        stage('Create EKS Infrastructure') {
+            steps {
+                IsRunTestsInClusterWide()
+            }
+        }
         stage('E2E Basic tests') {
             environment {
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
@@ -391,22 +395,7 @@ pipeline {
 
     post {
         always {
-
-            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-
-                sh '''
-                    export CLUSTER_NAME=$(echo jenkins-ver-pgv2-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
-                    eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-basic --region eu-west-3
-                    eksctl delete cluster -f cluster-basic.yaml --wait --force
-                '''
-            }
-//            git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-//            script {
-//                GIT_SHORT_COMMIT = sh(script: 'git -C source describe --always --dirty', , returnStdout: true).trim()
-//                CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-//            }
-//            shutdownCluster('basic')
-
+            shutdownCluster('basic')
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf $HOME/google-cloud-sdk
