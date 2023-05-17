@@ -329,7 +329,7 @@ pipeline {
                             cd ./source/
                             sg docker -c "
                                 docker login -u '${USER}' -p '${PASS}'
-                                export IMAGE_URI_BASE=perconalab/percona-postgresql-operator:$GIT_BRANCH
+                                export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                                 ./e2e-tests/build
                                 docker logout
                             "
