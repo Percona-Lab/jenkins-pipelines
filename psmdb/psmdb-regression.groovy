@@ -58,7 +58,7 @@ pipeline {
                          fi
                          if [ -f "/usr/bin/yum" ] ; then sudo yum install -y unzip ; else sudo apt-get update && apt-get -y install unzip ; fi
                          unzip -o awscliv2.zip
-                         sudo ./aws/install
+                         sudo ./aws/install || true
                          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
                          curl -o Dockerfile https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/regression-tests/build_image/Dockerfile
                          VER=\$(echo ${params.version} | cut -d"." -f1)
@@ -80,6 +80,11 @@ pipeline {
                          fi    
                      """
                 }    
+            }
+            post {
+                always {
+                    sh 'sudo rm -rf ./*'
+                }
             }
         }
         stage ('Build image from tarball') {
@@ -109,6 +114,11 @@ pipeline {
                      """
                 }
             }
+            post {
+                always {
+                    sh 'sudo rm -rf ./*'
+                }
+            }
         }
         stage ('Run suites') {
             steps {
@@ -119,6 +129,7 @@ pipeline {
                     for (int i=0; i<parallelexec; i++) {
                         runners["${i}"] = {
                             node("${params.instance}") {
+                              try{
                                 stage ("node ${env.NODE_NAME}") {
                                     sh """
                                        echo -e '{\n  "experimental": true,\n  "ipv6": true,\n  "fixed-cidr-v6": "2001:db8:1::/64"\n}' | sudo tee /etc/docker/daemon.json
@@ -207,11 +218,17 @@ pipeline {
                                     }
                                 }
                             }
+                          finally {
+				sh 'sudo rm -rf ./*'
+				deleteDir()
+			    }
+                          }
                         }
                     }
                     if (params.unittests) {
                         runners["unittests"] = {
                             node("${params.instance}") {
+                             try {
                                 stage ("node ${env.NODE_NAME}") {
                                     withEnv(['PATH=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin:/bin']){
                                     sh '''
@@ -293,11 +310,17 @@ pipeline {
                                     }
                                 }
                             }
+                          finally {
+				sh 'sudo rm -rf ./*'
+				deleteDir()
+			    }
+                          }
                         }
                     }
                     if (params.benchmarktests) {
                         runners["benchmarktests"] = {
                             node("${params.instance}") {
+                              try {
                                 stage ("node ${env.NODE_NAME}") {
                                     withEnv(['PATH=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin:/bin']){
                                     sh '''
@@ -379,11 +402,17 @@ pipeline {
                                     }
                                 }
                             }
+                          finally {
+				sh 'sudo rm -rf ./*'
+				deleteDir()
+			    }
+                          }
                         }
                     }
                     if (params.integrationtests) {
                         runners["integration-tests"] = {
                             node("${params.instance}") {
+                              try {
                                 stage ("node ${env.NODE_NAME}") {
                                     withEnv(['PATH=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin:/bin']){
                                     sh '''
@@ -465,6 +494,11 @@ pipeline {
                                     }
                                 }
                             }
+                          finally {
+				sh 'sudo rm -rf ./*'
+				deleteDir()
+			    }
+                          }
                         }
                     }
                     parallel runners  
