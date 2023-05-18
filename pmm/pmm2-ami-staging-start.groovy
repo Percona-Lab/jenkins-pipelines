@@ -193,6 +193,10 @@ pipeline {
                             # Get the Linux distribution information
                             distro=$(grep -oP '(?<=^ID=).+' /etc/os-release | tr -d '"')
 
+                            echo "+++++++++++++++++++++++++"
+                            echo "$distro"
+                            echo "+++++++++++++++++++++++++"
+
                             [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
 
                             # Perform actions based on the Linux distribution
