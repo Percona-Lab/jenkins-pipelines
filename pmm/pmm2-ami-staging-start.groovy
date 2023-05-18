@@ -190,6 +190,10 @@ pipeline {
                             set -o errexit
                             set -o xtrace
 
+                            cat /etc/os-release
+                            echo "+++++++++++++++++++++++++++++++"
+                            cat /etc/redhat-release
+
                             # Get the Linux distribution information
                             distro=$(grep -oP '(?<=^ID=).+' /etc/os-release | tr -d '"')
 
