@@ -331,6 +331,14 @@ pipeline {
 
     }
     parameters {
+        choice(
+                choices: ['run-release.csv', 'run-distro.csv'],
+                description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
+                name: 'TEST_SUITE')
+        text(
+                defaultValue: '',
+                description: 'List of tests to run separated by new line',
+                name: 'TEST_LIST')
         string(
             defaultValue: '1.23',
             description: 'Kubernetes target version',
