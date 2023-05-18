@@ -244,58 +244,59 @@ void runTest(Integer TEST_ID) {
         try {
             echo "The $testName test was started on cluster $CLUSTER_NAME-$clusterSuffix !"
             tests[TEST_ID]["result"] = "failure"
-            timeout(time: 120, unit: 'MINUTES') {
+            timeout(time: 90, unit: 'MINUTES') {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                sh """
-                    cd ./source
-                    if [ -n "${PG_VERSION}" ]; then
-                        export PG_VER=${PG_VERSION}
-                    fi
-                    if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
-                        export IMAGE=${PGO_OPERATOR_IMAGE}
-                    else
-                        export IMAGE=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}
-                    fi
-
-                    if [ -n "${PGO_PGBOUNCER_IMAGE}" ]; then
-                        export IMAGE_PGBOUNCER=${PGO_PGBOUNCER_IMAGE}
-                    fi
-
-                    if [ -n "${PGO_POSTGRES_IMAGE}" ]; then
-                        export IMAGE_POSTGRESQL=${PGO_POSTGRES_IMAGE}
-                        export PG_VER=\$(echo \${IMAGE_POSTGRESQL} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
-                    fi
-
-                    if [ -n "${PGO_BACKREST_IMAGE}" ]; then
-                        export IMAGE_BACKREST=${PGO_BACKREST_IMAGE}
-                    fi
-
-                    if [ -n "${PGO_PGBADGER_IMAGE}" ]; then
-                        export IMAGE_PGBADGER=${PGO_PGBADGER_IMAGE}
-                    fi
-
-                    if [ -n "${PMM_SERVER_IMAGE_BASE}" ]; then
-                        export IMAGE_PMM_SERVER_REPO=${PMM_SERVER_IMAGE_BASE}
-                    fi
-
-                    if [ -n "${PMM_SERVER_IMAGE_TAG}" ]; then
-                        export IMAGE_PMM_SERVER_TAG=${PMM_SERVER_IMAGE_TAG}
-                    fi
-
-                    if [ -n "${PMM_CLIENT_IMAGE}" ]; then
-                        export IMAGE_PMM=${PMM_CLIENT_IMAGE}
-                    fi
-
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
-                    export PATH="$HOME/.krew/bin:$PATH"
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    set -o pipefail
-                    kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
-                    
-                """
+                    sh """
+                        cd ./source
+                        if [ -n "${PG_VERSION}" ]; then
+                            export PG_VER=${PG_VERSION}
+                        fi
+                        if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
+                            export IMAGE=${PGO_OPERATOR_IMAGE}
+                        else
+                            export IMAGE=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}
+                        fi
+    
+                        if [ -n "${PGO_PGBOUNCER_IMAGE}" ]; then
+                            export IMAGE_PGBOUNCER=${PGO_PGBOUNCER_IMAGE}
+                        fi
+    
+                        if [ -n "${PGO_POSTGRES_IMAGE}" ]; then
+                            export IMAGE_POSTGRESQL=${PGO_POSTGRES_IMAGE}
+                            export PG_VER=\$(echo \${IMAGE_POSTGRESQL} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
+                        fi
+    
+                        if [ -n "${PGO_BACKREST_IMAGE}" ]; then
+                            export IMAGE_BACKREST=${PGO_BACKREST_IMAGE}
+                        fi
+    
+                        if [ -n "${PGO_PGBADGER_IMAGE}" ]; then
+                            export IMAGE_PGBADGER=${PGO_PGBADGER_IMAGE}
+                        fi
+    
+                        if [ -n "${PMM_SERVER_IMAGE_BASE}" ]; then
+                            export IMAGE_PMM_SERVER_REPO=${PMM_SERVER_IMAGE_BASE}
+                        fi
+    
+                        if [ -n "${PMM_SERVER_IMAGE_TAG}" ]; then
+                            export IMAGE_PMM_SERVER_TAG=${PMM_SERVER_IMAGE_TAG}
+                        fi
+    
+                        if [ -n "${PMM_CLIENT_IMAGE}" ]; then
+                            export IMAGE_PMM=${PMM_CLIENT_IMAGE}
+                        fi
+    
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+                        export PATH="$HOME/.krew/bin:$PATH"
+                        source $HOME/google-cloud-sdk/path.bash.inc
+                        set -o pipefail
+                        kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
+                        
+                    """
                 }
             }
-            pushArtifactFile("${env.GIT_BRANCH}-$GIT_SHORT_COMMIT-$TEST_NAME-${params.KUBEVERSION}-$PPG_TAG")
+
+            pushArtifactFile("${env.GIT_BRANCH}-$GIT_SHORT_COMMIT-$testName-${params.KUBEVERSION}-$PPG_TAG")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
