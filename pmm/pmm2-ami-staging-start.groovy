@@ -190,10 +190,6 @@ pipeline {
                             set -o errexit
                             set -o xtrace
 
-                            cat /etc/os-release
-                            echo "+++++++++++++++++++++++++++++++"
-                            cat /etc/redhat-release
-
                             # Get the Linux distribution information
                             distro=$(grep -oP '(?<=^ID=).+' /etc/os-release | tr -d '"')
 
@@ -201,12 +197,12 @@ pipeline {
 
                             # Perform actions based on the Linux distribution
                             case "$distro" in
-                                "centos")
+                                centos)
                                     echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
                                     sudo yum makecache
                                     sudo yum -y install git svn docker
                                     ;;
-                                "almalinux")
+                                almalinux)
                                     sudo dnf remove -y podman buildah
                                     sudo dnf -y install 'dnf-command(config-manager)'
                                     sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
