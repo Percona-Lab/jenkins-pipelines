@@ -196,7 +196,7 @@ pipeline {
                             [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
 
                             # Perform actions based on the Linux distribution
-                            case "$distro" in
+                            case "${distro}" in
                                 centos)
                                     echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
                                     sudo yum makecache
