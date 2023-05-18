@@ -189,11 +189,33 @@ pipeline {
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
                             set -o errexit
                             set -o xtrace
+
+                            # Get the Linux distribution information
+                            distro=$(grep -oP '(?<=^ID=).+' /etc/os-release | tr -d '"')
+
                             [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
-                            echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
-                            sudo yum makecache
-                            sudo yum -y install git svn docker
+
+                            # Perform actions based on the Linux distribution
+                            case "$distro" in
+                                "centos")
+                                    echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+                                    sudo yum makecache
+                                    sudo yum -y install git svn docker
+                                    ;;
+                                "almalinux")
+                                    sudo dnf remove -y podman buildah
+                                    sudo dnf -y install 'dnf-command(config-manager)'
+                                    sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+                                    sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+                                    ;;
+                                *)
+                                    echo "Unsupported distribution: $distro"
+                                    exit 1
+                                    ;;
+                            esac
+
                             sudo systemctl start docker
+
                             curl -L -s https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 | sudo tee /usr/bin/docker-compose > /dev/null
                             sudo chmod +x /usr/bin/docker-compose
                             sudo mkdir -p /srv/pmm-qa || :
