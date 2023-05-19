@@ -190,33 +190,18 @@ pipeline {
                             set -o errexit
                             set -o xtrace
 
-                            # Get the Linux distribution information
-                            distro=$(grep -oP '(?<=^ID=).+' /etc/os-release | tr -d '"')
-
-                            echo "+++++++++++++++++++++++++"
-                            echo "$distro"
-                            echo "+++++++++++++++++++++++++"
-
                             [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
 
-                            # Perform actions based on the Linux distribution
-                            case "${distro}" in
-                                centos)
-                                    echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
-                                    sudo yum makecache
-                                    sudo yum -y install git svn docker
-                                    ;;
-                                almalinux)
-                                    sudo dnf remove -y podman buildah
-                                    sudo dnf -y install 'dnf-command(config-manager)'
-                                    sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
-                                    sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-                                    ;;
-                                *)
-                                    echo "Unsupported distribution: $distro"
-                                    exit 1
-                                    ;;
-                            esac
+                            if grep -q "AlmaLinux" /etc/os-release; then
+                                sudo dnf remove -y podman buildah
+                                sudo dnf -y install 'dnf-command(config-manager)'
+                                sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+                                sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+                            else
+                                echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+                                sudo yum makecache
+                                sudo yum -y install git svn docker
+                            fi
 
                             sudo systemctl start docker
 
