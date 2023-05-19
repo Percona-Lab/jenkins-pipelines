@@ -290,7 +290,6 @@ void runTest(Integer TEST_ID) {
                         export PATH="$HOME/.krew/bin:$PATH"
                         source $HOME/google-cloud-sdk/path.bash.inc
                         kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
-                        
                     """
                 }
             }
