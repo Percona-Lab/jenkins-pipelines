@@ -201,11 +201,6 @@ pipeline {
             description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
             name: 'IMAGE_PMM')
         string(
-            defaultValue: 'v1.24.3',
-            description: 'Kubernetes Version',
-            name: 'PLATFORM_VER',
-            trim: true)
-        string(
             defaultValue: '',
             description: 'PMM server image repo: perconalab/pmm-server',
             name: 'IMAGE_PMM_SERVER_REPO')
@@ -213,6 +208,11 @@ pipeline {
             defaultValue: '',
             description: 'PMM server image tag: dev-latest',
             name: 'IMAGE_PMM_SERVER_TAG')
+        string(
+            defaultValue: 'latest',
+            description: 'Kubernetes Version',
+            name: 'PLATFORM_VER',
+            trim: true)
     }
     agent {
          label 'micro-amazon'
@@ -299,9 +299,6 @@ pipeline {
                         sudo chmod +x /usr/local/bin/minikube
                         export CHANGE_MINIKUBE_NONE_USER=true
                         /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER} --cpus=6 --memory=28G
-
-                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
-                        sudo chmod +x /usr/local/bin/yq
                     """
 
                     unstash "sourceFILES"
