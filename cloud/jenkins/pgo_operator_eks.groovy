@@ -289,7 +289,6 @@ void runTest(Integer TEST_ID) {
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                         export PATH="$HOME/.krew/bin:$PATH"
                         source $HOME/google-cloud-sdk/path.bash.inc
-                        set -o pipefail
                         kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
                         
                     """
@@ -337,6 +336,10 @@ pipeline {
                 defaultValue: '',
                 description: 'List of tests to run separated by new line',
                 name: 'TEST_LIST')
+        choice(
+                choices: 'NO\nYES',
+                description: 'Run tests with cluster wide',
+                name: 'CLUSTER_WIDE')
         string(
             defaultValue: '1.23',
             description: 'Kubernetes target version',
