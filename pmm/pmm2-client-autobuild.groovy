@@ -107,46 +107,38 @@ pipeline {
                         archiveArtifacts 'results/docker/CLIENT_TAG'
                     }
                 }
-                stage('Build client source rpm') {
-                    parallel {
-                        stage('Build client source rpm EL7') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7"
-                                stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                                uploadRPM()
-                            }
-                        }
-                        stage('Build client source rpm EL9') {
-                            steps {
-                                sh """
-                                    ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                                """
-                                stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                                uploadRPM()
-                            }
-                        }
+                stage('Build client source rpm EL7') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7"
+                        stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
+                        uploadRPM()
                     }
                 }
-                stage('Build client binary rpm') {
-                    parallel {
-                        stage('Build client binary rpm EL7') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
-                                sh "${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:8"
-                                //sh "${PATH_TO_SCRIPTS}/build-client-rpm almalinux:9.0"
-                                stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
-                                uploadRPM()
-                            }
-                        }
-                        stage('Build client binary rpm EL9') {
-                            steps {
-                                sh """
-                                    ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                                """
-                                stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
-                                uploadRPM()
-                            }
-                        }
+                stage('Build client source rpm EL9') {
+                    steps {
+                        sh """
+                            ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                        """
+                        stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
+                        uploadRPM()
+                    }
+                }
+                stage('Build client binary rpm EL7') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
+                        sh "${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:8"
+                        //sh "${PATH_TO_SCRIPTS}/build-client-rpm almalinux:9.0"
+                        stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
+                        uploadRPM()
+                    }
+                }
+                stage('Build client binary rpm EL9') {
+                    steps {
+                        sh """
+                            ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                        """
+                        stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
+                        uploadRPM()
                     }
                 }
                 stage('Build client source deb') {
@@ -157,42 +149,14 @@ pipeline {
                     }
                 }
                 stage('Build client binary debs') {
-                    parallel {
-                        stage('Build client binary debs Buster') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:buster"
-                                stash includes: 'results/deb/*.deb', name: 'debs'
-                                uploadDEB()
-                            }
-                        }
-                        stage('Build client binary debs Bullseye') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
-                                stash includes: 'results/deb/*.deb', name: 'debs'
-                                uploadDEB()
-                            }
-                        }
-                        stage('Build client binary debs Jammy') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
-                                stash includes: 'results/deb/*.deb', name: 'debs'
-                                uploadDEB()
-                            }
-                        }
-                        stage('Build client binary debs Bionic') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:bionic"
-                                stash includes: 'results/deb/*.deb', name: 'debs'
-                                uploadDEB()
-                            }
-                        }
-                        stage('Build client binary debs Focal') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
-                                stash includes: 'results/deb/*.deb', name: 'debs'
-                                uploadDEB()
-                            }
-                        }
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:buster"
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:bionic"
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
+                        stash includes: 'results/deb/*.deb', name: 'debs'
+                        uploadDEB()
                     }
                 }
                 stage('Sign packages') {
