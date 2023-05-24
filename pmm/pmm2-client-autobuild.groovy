@@ -20,9 +20,9 @@ pipeline {
         disableConcurrentBuilds()
         parallelsAlwaysFailFast()
     }
-    // triggers {
-    //     upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
-    // }
+    triggers {
+        upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
+    }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
     }
@@ -57,7 +57,7 @@ pipeline {
                         archiveArtifacts 'uploadPath'
                         stash includes: 'uploadPath', name: 'uploadPath'
                         archiveArtifacts 'shortCommit'
-                        // slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                     }
                 }
                 stage('Build client source') {
@@ -129,7 +129,7 @@ pipeline {
                         }
                     }
                 }
-                stage('Build client binary rpm') {
+                stage('Build client binary rpms') {
                     parallel {
                         stage('Build client binary rpm EL7') {
                             steps {
@@ -167,27 +167,27 @@ pipeline {
                 }
                 stage('Build client binary debs') {
                     parallel {
-                        stage('Build client binary debs Buster') {
+                        stage('Build client binary deb Buster') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb debian:buster"
                             }
                         }
-                        stage('Build client binary debs Bullseye') {
+                        stage('Build client binary deb Bullseye') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
                             }
                         }
-                        stage('Build client binary debs Jammy') {
+                        stage('Build client binary deb Jammy') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
                             }
                         }
-                        stage('Build client binary debs Bionic') {
+                        stage('Build client binary deb Bionic') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:bionic"
                             }
                         }
-                        stage('Build client binary debs Focal') {
+                        stage('Build client binary deb Focal') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
                             }
@@ -233,22 +233,22 @@ pipeline {
         success {
             script {
                 env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/el9/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz"
-                    // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
-                    // slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
+                    slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo"
                     if (params.DESTINATION == "testing") {
-                      currentBuild.description = "RHEL9 RC Build, tarball: " + env.TARBALL_URL
-                    //   slackSend botUser: true,
-                    //             channel: '#pmm-qa',
-                    //             color: '#00FF00',
-                    //             message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished\nClient Tarball: ${env.TARBALL_URL}"
+                      currentBuild.description = "RC Build, tarball: " + env.TARBALL_URL
+                      slackSend botUser: true,
+                                channel: '#pmm-qa',
+                                color: '#00FF00',
+                                message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished\nClient Tarball: ${env.TARBALL_URL}"
                     }
             }
         }
         failure {
             script {
                 echo "Pipeline failed"
-                // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                // slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
             }
         }
     }
