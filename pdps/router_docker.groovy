@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@PS-8631", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
 
 
@@ -29,12 +29,12 @@ pipeline {
       name: 'PS_VERSION'
     )
     string(
-    defaultValue: 'https://github.com/Percona-QA/package-testing.git',
+    defaultValue: 'https://github.com/kaushikpuneet07/package-testing.git',
     description: 'Repo for package-testing repository',
     name: 'TESTING_REPO'
    )
     string(
-      defaultValue: 'master',
+      defaultValue: 'PS-8631',
       description: 'Branch for package-testing repository',
       name: 'TESTING_BRANCH'
     )
