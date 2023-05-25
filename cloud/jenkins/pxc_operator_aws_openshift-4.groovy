@@ -395,6 +395,11 @@ pipeline {
                     curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux-$PLATFORM_VER.tar.gz \
                         | sudo tar -C /usr/local/bin  --wildcards -zxvpf -
                 '''
+                withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+                    sh """
+                        cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
+                    """
+                }
             }
         }
         stage('Build docker image') {

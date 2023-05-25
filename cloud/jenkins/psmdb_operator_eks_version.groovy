@@ -375,7 +375,11 @@ pipeline {
                     curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
                     sudo mv -v /tmp/eksctl /usr/local/bin
                 '''
-
+                withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+                    sh """
+                        cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
+                    """
+                }
             }
         }
         stage('Build docker image') {
