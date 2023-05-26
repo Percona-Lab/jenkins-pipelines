@@ -2,7 +2,7 @@ GKERegion='us-central1-c'
 tests=[]
 clusters=[]
 
-void CreateCluster(String CLUSTER_SUFFIX) {
+void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("${CLUSTER_SUFFIX}")
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
@@ -23,7 +23,7 @@ void CreateCluster(String CLUSTER_SUFFIX) {
         """
    }
 }
-void ShutdownCluster(String CLUSTER_SUFFIX) {
+void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: CRED_ID, variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
@@ -35,7 +35,7 @@ void ShutdownCluster(String CLUSTER_SUFFIX) {
         """
     }
 }
-void IsRunTestsInClusterWide() {
+void isRunTestsInClusterWide() {
     if ("${params.CLUSTER_WIDE}" == "YES") {
         env.OPERATOR_NS = 'pg-operator'
     }
@@ -328,7 +328,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                IsRunTestsInClusterWide()
+                isRunTestsInClusterWide()
                 installRpms()
                 prepareNode()
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'

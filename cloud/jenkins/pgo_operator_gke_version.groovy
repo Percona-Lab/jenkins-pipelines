@@ -2,7 +2,7 @@ GKERegion='us-central1-c'
 tests=[]
 clusters=[]
 
-void CreateCluster(String CLUSTER_PREFIX) {
+void createCluster(String CLUSTER_PREFIX) {
     clusters.add("${CLUSTER_SUFFIX}")
     if ( "${params.IS_GKE_ALPHA}" == "YES" ) {
         runGKEclusterAlpha(CLUSTER_PREFIX)
@@ -54,7 +54,7 @@ void runGKEclusterAlpha(String CLUSTER_PREFIX) {
         """
    }
 }
-void ShutdownCluster(String CLUSTER_PREFIX) {
+void shutdownCluster(String CLUSTER_PREFIX) {
     if ( "${params.IS_GKE_ALPHA}" == "YES" ) {
         ACCOUNT='alpha-svc-acct'
         CRED_ID='gcloud-alpha-key-file'
@@ -73,7 +73,7 @@ void ShutdownCluster(String CLUSTER_PREFIX) {
         """
     }
 }
-void IsRunTestsInClusterWide() {
+void isRunTestsInClusterWide() {
     if ("${params.CLUSTER_WIDE}" == "YES") {
         env.OPERATOR_NS = 'pg-operator'
     }
@@ -367,7 +367,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                IsRunTestsInClusterWide()
+                isRunTestsInClusterWide()
                 installRpms()
                 prepareNode()
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
