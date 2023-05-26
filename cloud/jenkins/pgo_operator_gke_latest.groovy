@@ -3,6 +3,7 @@ tests=[]
 clusters=[]
 
 void CreateCluster(String CLUSTER_SUFFIX) {
+    clusters.add("${CLUSTER_SUFFIX}")
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
@@ -45,7 +46,7 @@ void pushArtifactFile(String FILE_NAME) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             touch ${FILE_NAME}
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${env.GIT_SHORT_COMMIT}
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${GIT_SHORT_COMMIT}
             aws s3 ls \$S3_PATH/${FILE_NAME} || :
             aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
         """
@@ -93,8 +94,8 @@ void markPassedTests() {
         }
     }
 }
-TestsReport = '<testsuite name=\\"PGO\\">\n'
 
+TestsReport = '<testsuite name=\\"PGO\\">\n'
 void makeReport() {
     for (int i=0; i<tests.size(); i++) {
         def testResult = tests[i]["result"]
@@ -202,8 +203,6 @@ void runTest(Integer TEST_ID) {
             echo "The $testName test was finished!"
         }
     }
-
-    echo "The $TEST_NAME test was finished!"
 }
 
 void installRpms() {
@@ -213,6 +212,7 @@ void installRpms() {
         sudo yum install -y jq | true
     '''
 }
+
 void prepareNode() {
     sh '''
         sudo yum install -y jq | true
@@ -331,7 +331,6 @@ pipeline {
                 IsRunTestsInClusterWide()
                 installRpms()
                 prepareNode()
-
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
                     # sudo is needed for better node recovery after compilation failure
@@ -351,7 +350,9 @@ pipeline {
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
                     sh '''
                         cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
+                        chmod 600 ./source/e2e-tests/conf/cloud-secret.yml
                         cp $CLOUD_MINIO_SECRET_FILE ./source/e2e-tests/conf/cloud-secret-minio-gw.yml
+                        chmod 600 ./source/e2e-tests/conf/cloud-secret-minio-gw.yml
                     '''
                 }
                 stash includes: "source/**", name: "sourceFILES"
