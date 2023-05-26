@@ -1,5 +1,10 @@
 tests=[]
 
+void IsRunTestsInClusterWide() {
+    if ("${params.CLUSTER_WIDE}" == "YES") {
+        env.OPERATOR_NS = 'pg-operator'
+    }
+}
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -184,6 +189,10 @@ pipeline {
             defaultValue: '',
             description: 'List of tests to run separated by new line',
             name: 'TEST_LIST')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with cluster wide',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-postgresql-operator repository',
@@ -297,6 +306,7 @@ pipeline {
             }
             agent { label 'docker-32gb' }
                 steps {
+                    IsRunTestsInClusterWide()
                     sh '''
                         sudo yum install -y conntrack
                         sudo usermod -aG docker $USER
