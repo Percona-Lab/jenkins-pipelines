@@ -22,7 +22,7 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                                     continue
                                 fi
 
-                                export dest_path=/srv/repo-copy/${DESTINATION}/\${rhel}
+                                export dest_path=/srv/repo-copy/percona/${DESTINATION}/\${rhel}
 
                                 # RPMS
                                 mkdir -p \${dest_path}/RPMS
