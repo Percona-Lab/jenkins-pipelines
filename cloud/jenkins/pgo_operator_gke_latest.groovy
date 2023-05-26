@@ -24,14 +24,14 @@ void createCluster(String CLUSTER_SUFFIX) {
    }
 }
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: CRED_ID, variable: 'CLIENT_SECRET_FILE')]) {
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --zone ${GKERegion} \$(echo $CLUSTER_NAME-${CLUSTER_SUFFIX} | cut -c-40)
+            gcloud container clusters delete --zone ${GKERegion} \$(echo $CLUSTER_NAME-${CLUSTER_SUFFIX} | cut -c-40) || true
         """
     }
 }
