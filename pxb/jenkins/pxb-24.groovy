@@ -7,14 +7,14 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/storage/innobase/xtrabackup/utils/percona-xtrabackup-8.0_builder.sh -O percona-xtrabackup-8.0_builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/storage/innobase/xtrabackup/utils/percona-xtrabackup-2.4_builder.sh -O percona-xtrabackup-2.4_builder.sh
         pwd -P
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --pxb_repo=${PXB_REPO} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./percona-xtrabackup-2.4_builder.sh --builddir=\${build_dir}/test --install_deps=1
+            bash -x ./percona-xtrabackup-2.4_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --pxb_repo=${PXB_REPO} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -28,7 +28,7 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'docker-32gb'
+        label 'docker'
     }
     parameters {
         string(
@@ -36,19 +36,19 @@ pipeline {
             description: 'URL for PXB git repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '8.0',
+            defaultValue: '2.4',
             description: 'Tag/Branch for PXB repository',
             name: 'BRANCH')
         string(
-            defaultValue: '1.1',
+            defaultValue: '1',
             description: 'RPM release value',
             name: 'RPM_RELEASE')
         string(
-            defaultValue: '1.1',
+            defaultValue: '1',
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
-            defaultValue: 'pxb-80',
+            defaultValue: 'pxb-24',
             description: 'PXB repo name',
             name: 'PXB_REPO')
         choice(
@@ -68,11 +68,11 @@ pipeline {
                 cleanUpWS()
                 buildStage("ubuntu:bionic", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-xtrabackup-8.0.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-xtrabackup-2.4.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/percona-xtrabackup-8.0.properties
+                   cat test/percona-xtrabackup-2.4.properties
                    cat uploadPath
                 '''
                 script {
@@ -87,7 +87,7 @@ pipeline {
             parallel {
                 stage('Build PXB generic source rpm') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -100,7 +100,7 @@ pipeline {
                 }
                 stage('Build PXB generic source deb') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -117,7 +117,7 @@ pipeline {
             parallel {
                 stage('Centos 7') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -130,7 +130,7 @@ pipeline {
                 }
                 stage('Oracle Linux 8') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -143,7 +143,7 @@ pipeline {
                 }
                 stage('Oracle Linux 9') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -156,7 +156,7 @@ pipeline {
                 } 
                 stage('Ubuntu Bionic(18.04)') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -169,7 +169,7 @@ pipeline {
                 }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -182,7 +182,7 @@ pipeline {
                 }
                 stage('Ubuntu Jammy(22.04)') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -195,7 +195,7 @@ pipeline {
                 }
                 stage('Debian Buster(10)') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -208,7 +208,7 @@ pipeline {
                 }
                 stage('Debian Bullseye(11)') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -221,7 +221,7 @@ pipeline {
                 }
                 stage('Centos 7 tarball') {
                     agent {
-                        label 'docker-32gb'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
