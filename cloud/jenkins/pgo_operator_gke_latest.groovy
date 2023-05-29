@@ -23,6 +23,7 @@ void createCluster(String CLUSTER_SUFFIX) {
         """
    }
 }
+
 void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
@@ -35,11 +36,13 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
         """
     }
 }
+
 void isRunTestsInClusterWide() {
     if ("${params.CLUSTER_WIDE}" == "YES") {
         env.OPERATOR_NS = 'pg-operator'
     }
 }
+
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -52,6 +55,7 @@ void pushArtifactFile(String FILE_NAME) {
         """
     }
 }
+
 void initTests() {
     echo "Populating tests into the tests array!"
     def testList = "${params.TEST_LIST}"
@@ -246,6 +250,7 @@ void prepareNode() {
         kubectl krew install kuttl     
     '''
 }
+
 pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1

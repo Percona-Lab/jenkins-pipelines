@@ -5,6 +5,7 @@ void IsRunTestsInClusterWide() {
         env.OPERATOR_NS = 'pg-operator'
     }
 }
+
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 

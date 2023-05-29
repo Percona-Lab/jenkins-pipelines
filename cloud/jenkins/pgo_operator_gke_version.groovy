@@ -10,6 +10,7 @@ void createCluster(String CLUSTER_SUFFIX) {
         runGKEcluster(CLUSTER_SUFFIX)
     }
 }
+
 void runGKEcluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
@@ -34,6 +35,7 @@ void runGKEcluster(String CLUSTER_SUFFIX) {
         """
    }
 }
+
 void runGKEclusterAlpha(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
@@ -54,6 +56,7 @@ void runGKEclusterAlpha(String CLUSTER_SUFFIX) {
         """
    }
 }
+
 void shutdownCluster(String CLUSTER_SUFFIX) {
     if ( "${params.IS_GKE_ALPHA}" == "YES" ) {
         ACCOUNT='alpha-svc-acct'
@@ -73,11 +76,13 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
         """
     }
 }
+
 void isRunTestsInClusterWide() {
     if ("${params.CLUSTER_WIDE}" == "YES") {
         env.OPERATOR_NS = 'pg-operator'
     }
 }
+
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -90,6 +95,7 @@ void pushArtifactFile(String FILE_NAME) {
         """
     }
 }
+
 void initTests() {
     echo "Populating tests into the tests array!"
     def testList = "${params.TEST_LIST}"
