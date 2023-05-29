@@ -42,7 +42,7 @@ pipeline {
         )
         string(
             defaultValue: '8.0.32-24',
-            description: 'Percona Server will be upgraded to this version. Possible values are with and without percona release: 8.0.32 OR 8.0.32-24',
+            description: 'Percona Server will be upgraded to this version. Possible values are with and without percona release and build: 8.0.32, 8.0.32-24 OR 8.0.32-24.2',
             name: 'VERSION'
         )
         string(
@@ -57,7 +57,7 @@ pipeline {
         )
         string(
             defaultValue: '8.0.32-25',
-            description: 'Updated PXB version. Possible values are with and without percona release: 8.0.32 OR 8.0.32-25',
+            description: 'Updated PXB version. Possible values are with and without percona release and build: 8.0.32, 8.0.32-25 OR 8.0.32-25.1',
             name: 'PXB_VERSION'
         )
         string(
