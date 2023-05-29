@@ -82,7 +82,7 @@ pipeline {
                         echo ${START_NEW_BUILD}: build required
                     """
                 }
-                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
+                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
                 build job: 'ps5.7-autobuild-RELEASE', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'PERCONAFT_BRANCH', value: PERCONAFT_BRANCH), string(name: 'TOKUBACKUP_BRANCH', value: TOKUBACKUP_BRANCH), string(name: 'COMPONENT', value: 'testing')]
 
             }
