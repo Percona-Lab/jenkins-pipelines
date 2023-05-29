@@ -19,12 +19,12 @@ pipeline {
       ]
     )
     string(
-      defaultValue: '3.2.6-8',
+      defaultValue: '3.2.6-9',
       description: 'Full orchestrator version. Used as version and docker tag',
       name: 'ORCHESTRATOR_VERSION'
     )
     string(
-      defaultValue: '8.0.32-24',
+      defaultValue: '8.0.33-25',
       description: 'Full PS version to test with orchestrator',
       name: 'PS_VERSION'
     )
