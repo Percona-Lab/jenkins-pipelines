@@ -141,6 +141,9 @@ pipeline {
                             sh '''
                                 set -o errexit
 
+                                # Set this variable if we need to rebuils all rpms, for example to refresh stale assets stored in S3 build cache
+                                export FORCE_REBUILD=1
+
                                 ${PATH_TO_SCRIPTS}/build-server-rpm-all
                             '''
                         }
