@@ -203,7 +203,7 @@ pipeline {
                                 ## docker push perconalab/pmm-server:${DOCKER_LATEST_TAG_EL7}
                                 echo "${DOCKER_LATEST_TAG_EL7}" > DOCKER_TAG_EL7
                             '''
-                        }
+                        // }
                         script {
                             env.IMAGE_EL7 = sh(returnStdout: true, script: "cat DOCKER_TAG_EL7").trim()
                         }
