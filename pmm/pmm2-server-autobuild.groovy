@@ -194,7 +194,7 @@ pipeline {
 
                                 ${PATH_TO_SCRIPTS}/build-server-docker
 
-                                if [ -n ${DOCKER_RC_TAG_EL7} ]; then
+                                if [ -n "${DOCKER_RC_TAG_EL7}" ]; then
                                     docker tag ${DOCKER_TAG_EL7} perconalab/pmm-server:${DOCKER_RC_TAG_EL7}
                                     ## docker push perconalab/pmm-server:${DOCKER_RC_TAG_EL7}
                                 fi
@@ -221,18 +221,19 @@ pipeline {
                             set -o errexit
 
                             # TODO: DOCKER_TAG for RC should be a real version, not a date
-                            if [ -n ${DOCKER_RC_TAG} ]; then
+                            if [ -n "${DOCKER_RC_TAG}" ]; then
                                 export DOCKER_TAG=perconalab/pmm-server:${DOCKER_RC_TAG}
                             else
                                 export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
                             fi
 
                             export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                            export RPMBUILD_DIST="el9"
                             export DOCKERFILE=Dockerfile.el9
                             # Build a docker image
                             ${PATH_TO_SCRIPTS}/build-server-docker
 
-                            if [ -n ${DOCKER_RC_TAG} ]; then
+                            if [ -n "${DOCKER_RC_TAG}" ]; then
                                 docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
                                 ## docker push perconalab/pmm-server:${DOCKER_RC_TAG}
                             fi
