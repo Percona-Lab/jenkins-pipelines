@@ -23,7 +23,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.27',
+            defaultValue: '8.0.33',
             description: 'PDMYSQL version for test',
             name: 'VERSION'
         )

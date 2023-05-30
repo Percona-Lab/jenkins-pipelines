@@ -41,12 +41,12 @@ pipeline {
         )
         string(
             defaultValue: '8.0.31-23',
-            description: 'To this version pdmysql will be updated. Possible values are with and without percona release: 8.0.31 OR 8.0.31-23',
+            description: 'To this version pdmysql will be updated. Possible values are with and without percona release and build: 8.0.32, 8.0.32-24 OR 8.0.32-24.2',
             name: 'VERSION'
         )
         string(
             defaultValue: '8.0.31-24',
-            description: 'PXB version for test. Possible values are with and without percona release: 8.0.31 OR 8.0.31-24',
+            description: 'PXB version for test. Possible values are with and without percona release and build: 8.0.32, 8.0.32-25 OR 8.0.32-25.1',
             name: 'PXB_VERSION'
         )
         string(
