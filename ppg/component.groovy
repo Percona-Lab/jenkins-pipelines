@@ -69,6 +69,11 @@ pipeline {
             description: 'PPG major version to test',
             choices: ['ppg-11', 'ppg-12', 'ppg-13', 'ppg-14', 'ppg-15']
         )
+        string(
+            defaultValue: 'no',
+            description: 'Destroy VM after tests',
+            name: 'DESTROY_ENV'
+        )
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
@@ -110,7 +115,9 @@ pipeline {
   post {
     always {
           script {
+             if (env.DESTROY_ENV == "yes") {
              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "default")
+             }
              sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION)
         }
     }
