@@ -21,9 +21,9 @@ pipeline {
     //     upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
     // }
     stages {
-        stage('Launch Server Autobuilds') {
+        stage('Start PMM2 Server Autobuilds') {
             parallel {
-                stage('Start PMM2 Server Autobuild EL7') {
+                stage('EL7') {
                     steps {
                         build job: 'pmm2-server-autobuild-el7', parameters: [
                             string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
@@ -31,7 +31,7 @@ pipeline {
                         ]
                     }
                 }
-                stage('Start PMM2 Server Autobuild EL9') {
+                stage('EL9') {
                     steps {
                         build job: 'pmm2-server-autobuild-el9', parameters: [
                             string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
