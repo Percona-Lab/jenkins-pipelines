@@ -172,8 +172,8 @@ pipeline {
                 }
             }
         }
-        stage('Build server docker images') {
-            parallel {
+        // stage('Build server docker images') {
+        //     parallel {
                 stage('Build server docker EL7') {
                     steps {
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -247,8 +247,8 @@ pipeline {
                         }
                     }
                 }
-            }
-        }
+            // }
+        // }
         stage('Sign packages') {
             steps {
                 signRPM()
