@@ -181,11 +181,11 @@ pipeline {
                                 echo "${PASS}" | docker login -u "${USER}" --password-stdin
                             '''
                         }
-                        withCredentials([aws(
-                            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                            credentialsId: 'ECRRWUser',
-                            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                            )]) {
+                        // withCredentials([aws(
+                        //     accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        //     credentialsId: 'ECRRWUser',
+                        //     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        //     )]) {
                             sh '''
                                 set -o errexit
 
