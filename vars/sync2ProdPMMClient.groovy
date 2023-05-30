@@ -13,7 +13,7 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                         pushd ${path_to_build}/binary
 
                             for rhel in \$(ls -1 redhat); do
-                                export dest_path=/srv/repo-copy/percona/${DESTINATION}/\${rhel}
+                                export dest_path=/srv/repo-copy/percona/yum/${DESTINATION}/\${rhel}
 
                                 # RPMS
                                 mkdir -p \${dest_path}/RPMS
@@ -59,7 +59,7 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
 
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/percona/yum/${DESTINATION}/ \
-                            10.10.9.209:/www/repo.percona.com/htdocs/${DESTINATION}/
+                            10.10.9.209:/www/repo.percona.com/htdocs/percona/yum/${DESTINATION}/
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/apt/ \
                             10.10.9.209:/www/repo.percona.com/htdocs/apt/
