@@ -146,24 +146,24 @@ pipeline {
                         }
                     }
                 }
-                stage('Build server packages EL9') {
-                    steps {
-                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            sh '''
-                                set -o errexit
+                // stage('Build server packages EL9') {
+                //     steps {
+                //         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                //             sh '''
+                //                 set -o errexit
 
-                                # These are used by `src/github.com/percona/pmm/build/scripts/vars`
-                                ## export ROOT_DIR=${WORKSPACE}
-                                export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                                export RPMBUILD_DIST="el9"
-                                # Set this variable if we need to rebuils all rpms, for example to refresh stale assets stored in S3 build cache
-                                # export FORCE_REBUILD=1
+                //                 # These are used by `src/github.com/percona/pmm/build/scripts/vars`
+                //                 ## export ROOT_DIR=${WORKSPACE}
+                //                 export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                //                 export RPMBUILD_DIST="el9"
+                //                 # Set this variable if we need to rebuils all rpms, for example to refresh stale assets stored in S3 build cache
+                //                 # export FORCE_REBUILD=1
 
-                                ${PATH_TO_SCRIPTS}/build-server-rpm-all
-                            '''
-                        }
-                    }
-                }
+                //                 ${PATH_TO_SCRIPTS}/build-server-rpm-all
+                //             '''
+                //         }
+                //     }
+                // }
             }
             post {
                 success {
