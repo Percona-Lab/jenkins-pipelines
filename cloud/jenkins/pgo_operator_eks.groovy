@@ -157,7 +157,8 @@ void prepareNode() {
         ./"${KREW}" install krew
         rm -f "${KREW}.tar.gz"
         export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
-        kubectl krew install kuttl     
+        kubectl krew install kuttl
+        kubectl krew install assert  
     '''
 }
 void initTests() {
