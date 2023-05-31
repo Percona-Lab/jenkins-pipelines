@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@PMM-el9-el7-build', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
