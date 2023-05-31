@@ -42,6 +42,17 @@ pipeline {
                 ])
 
                 script {
+                    env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+                }
+
+                sh '''
+                    set -o errexit
+                
+                    git rev-parse --short HEAD > shortCommit
+                    echo "UPLOAD/pmm2-components/yum/${DESTINATION}/${JOB_NAME}/pmm/${VERSION}/${GIT_BRANCH}/$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
+                '''
+
+                script {
                     if (params.DESTINATION == "testing") {
                         env.DOCKER_LATEST_TAG     = "${VERSION}-rc${BUILD_NUMBER}"
                         env.DOCKER_RC_TAG         = "${VERSION}-rc"
