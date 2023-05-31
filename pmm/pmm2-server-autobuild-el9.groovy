@@ -32,20 +32,14 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git poll: true,
-                    branch: GIT_BRANCH,
-                    url: 'http://github.com/Percona-Lab/pmm-submodules'
-                script {
-                    env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
-                }
-                sh '''
-                    set -o errexit
-                    git submodule update --init --jobs 10
-                    git submodule status
-
-                    git rev-parse --short HEAD > shortCommit
-                    echo "UPLOAD/pmm2-components/yum/${DESTINATION}/${JOB_NAME}/pmm/${VERSION}/${GIT_BRANCH}/$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
-                '''
+                checkout([$class: 'GitSCM', 
+                          branches: [[name: "*/${GIT_BRANCH}"]],
+                          extensions: [[$class: 'CloneOption',
+                          noTags: true,
+                          reference: '',
+                          shallow: true]],
+                          userRemoteConfigs: [[url: 'https://github.com/percona/pmm.git']]
+                ])
 
                 script {
                     if (params.DESTINATION == "testing") {
@@ -59,9 +53,40 @@ pipeline {
                 archiveArtifacts 'uploadPath'
                 stash includes: 'uploadPath', name: 'uploadPath'
                 archiveArtifacts 'shortCommit'
-                // slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
+        // stage('Prepare') {
+        //     steps {
+        //         git poll: true,
+        //             branch: GIT_BRANCH,
+        //             url: 'http://github.com/Percona-Lab/pmm-submodules'
+        //         script {
+        //             env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+        //         }
+        //         sh '''
+        //             set -o errexit
+        //             git submodule update --init --jobs 10
+        //             git submodule status
+
+        //             git rev-parse --short HEAD > shortCommit
+        //             echo "UPLOAD/pmm2-components/yum/${DESTINATION}/${JOB_NAME}/pmm/${VERSION}/${GIT_BRANCH}/$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
+        //         '''
+
+        //         script {
+        //             if (params.DESTINATION == "testing") {
+        //                 env.DOCKER_LATEST_TAG     = "${VERSION}-rc${BUILD_NUMBER}"
+        //                 env.DOCKER_RC_TAG         = "${VERSION}-rc"
+        //             } else {
+        //                 env.DOCKER_LATEST_TAG     = "dev-latest"
+        //             }
+        //         }
+
+        //         archiveArtifacts 'uploadPath'
+        //         stash includes: 'uploadPath', name: 'uploadPath'
+        //         archiveArtifacts 'shortCommit'
+        //         // slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+        //     }
+        // }
         stage('Build client source') {
             steps {
                 sh "${PATH_TO_SCRIPTS}/build-client-source"
@@ -143,11 +168,11 @@ pipeline {
 
                     if [ -n "${DOCKER_RC_TAG}" ]; then
                         docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
-                        docker push perconalab/pmm-server:${DOCKER_RC_TAG}
+                        ## docker push perconalab/pmm-server:${DOCKER_RC_TAG}
                     fi
                     docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                    docker push ${DOCKER_TAG}
-                    docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
+                    ## docker push ${DOCKER_TAG}
+                    ## docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
                     echo "${DOCKER_LATEST_TAG}" > DOCKER_TAG
                 '''
                 script {
@@ -160,11 +185,11 @@ pipeline {
                 signRPM()
             }
         }
-        stage('Push to public repository') {
-            steps {
-                sync2ProdPMM("pmm2-components/yum/${DESTINATION}", 'no')
-            }
-        }
+        // stage('Push to public repository') {
+        //     steps {
+        //         sync2ProdPMM("pmm2-components/yum/${DESTINATION}", 'no')
+        //     }
+        // }
     }
     post {        
         success {
