@@ -341,7 +341,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(ol-8|focal|bullseye)/) && !params.skip_upstream57
+                            !(params.node_to_test =~ /(ol-8|ol-9|focal|bullseye)/) && !params.skip_upstream57
                         }
                     }
                     environment {
