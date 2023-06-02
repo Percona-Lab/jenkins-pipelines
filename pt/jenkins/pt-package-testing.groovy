@@ -154,6 +154,10 @@ pipeline {
             description: "Enable to skip psmdb 5.0 packages installation tests"
         )
         booleanParam(
+            name: 'skip_psmdb60',
+            description: "Enable to skip psmdb 6.0 packages installation tests"
+        )
+        booleanParam(
             name: 'skip_upstream57',
             description: "Enable to skip MySQL 5.7 packages installation tests"
         )
@@ -283,7 +287,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !params.skip_psmdb44
+                            !(params.node_to_test =~ /(ol-9)/) && !params.skip_psmdb44
                         }
                     }
                     environment {
@@ -301,11 +305,29 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !params.skip_psmdb50
+                            !(params.node_to_test =~ /(ol-9)/) && !params.skip_psmdb50
                         }
                     }
                     environment {
                         install_with = 'psmdb50'
+                    }
+                    steps {
+                        runPlaybook("pt_with_products")
+                    }
+                }
+
+                stage('psmdb60_and_pt') {
+                    agent {
+                        label params.node_to_test
+                    }
+                    when {
+                        beforeAgent true
+                        expression {
+                            !params.skip_psmdb60
+                        }
+                    }
+                    environment {
+                        install_with = 'psmdb60'
                     }
                     steps {
                         runPlaybook("pt_with_products")

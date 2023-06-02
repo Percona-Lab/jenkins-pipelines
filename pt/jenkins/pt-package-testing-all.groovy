@@ -79,6 +79,10 @@ pipeline {
             description: "Enable to skip psmdb 5.0 packages installation tests"
         )
         booleanParam(
+            name: 'skip_psmdb60',
+            description: "Enable to skip psmdb 6.0 packages installation tests"
+        )
+        booleanParam(
             name: 'skip_upstream57',
             description: "Enable to skip MySQL 5.7 packages installation tests"
         )
