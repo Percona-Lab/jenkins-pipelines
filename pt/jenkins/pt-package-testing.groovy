@@ -35,7 +35,7 @@ sudo cp ${WORKSPACE}/ansible.cfg /etc/ansible/ansible.cfg
 
 setup_ol9_package_tests = { ->
 sh """
-        sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+        sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
         sudo yum -y update
         sudo yum install -y ansible 
         sudo yum install -y python3
