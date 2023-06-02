@@ -33,6 +33,20 @@ sudo cp ${WORKSPACE}/ansible.cfg /etc/ansible/ansible.cfg
 """
 }
 
+setup_ol9_package_tests = { ->
+sh """
+        sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+        sudo yum -y update
+        sudo yum install -y ansible 
+        sudo yum install -y python3
+cat << EOF > ${WORKSPACE}/ansible.cfg
+[defaults]
+interpreter_python=/usr/bin/python3
+EOF
+sudo cp ${WORKSPACE}/ansible.cfg /etc/ansible/ansible.cfg
+"""
+}
+
 setup_buster_bullseye_package_tests = { ->
     sh '''
         sudo apt-get update
@@ -54,6 +68,7 @@ node_setups = [
     "min-bullseye-x64": setup_buster_bullseye_package_tests,
     "min-centos-7-x64": setup_centos_package_tests,
     "min-ol-8-x64": setup_ol8_package_tests,
+    "min-ol-9-x64": setup_ol9_package_tests,
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests
 ]
@@ -102,6 +117,7 @@ pipeline {
             choices: [
                 'min-centos-7-x64',
                 'min-ol-8-x64',
+                'min-ol-9-x64',
                 'min-bionic-x64',
                 'min-focal-x64',
                 'min-buster-x64',
