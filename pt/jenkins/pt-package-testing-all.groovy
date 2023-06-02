@@ -131,6 +131,11 @@ pipeline {
                         runNodeBuild('min-ol-8-x64')
                     }
                 }
+                stage('Oracle Linux 9') {
+                    steps {
+                        runNodeBuild('min-ol-9-x64')
+                    }
+                }
             }
         }
     }
