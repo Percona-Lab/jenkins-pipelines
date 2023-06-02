@@ -39,8 +39,6 @@ sh """
         sudo yum -y update
         sudo yum install -y ansible 
         sudo yum install -y python3
-        python3 --version
-        which python3
 cat << EOF > ${WORKSPACE}/ansible.cfg
 [defaults]
 interpreter_python=/usr/bin/python3
