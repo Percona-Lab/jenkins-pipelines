@@ -12,6 +12,9 @@ pipeline {
             description: "Build a Release Candidate?",
             name: 'RELEASE_CANDIDATE')
     }
+    options {
+        parallelsAlwaysFailFast()
+    }
     // triggers {
     //     upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
     // }
@@ -60,7 +63,7 @@ pipeline {
                 expression { env.RELEASE_CANDIDATE == "no" }
             }
             parallel {
-                stage('Build Images Dev-Latest EL7') {
+                stage('Build Image Dev-Latest EL7') {
                     steps {
                         dir("build") {
                             sh 'make pmm2-ami'
