@@ -56,7 +56,8 @@ node_setups = [
     "min-ol-8-x64": setup_ol8_package_tests,
     "min-ol-9-x64": setup_rhel_package_tests,
     "min-bionic-x64": setup_ubuntu_package_tests,
-    "min-focal-x64": setup_ubuntu_package_tests
+    "min-focal-x64": setup_ubuntu_package_tests,
+    "min-jammy-x64": setup_ubuntu_package_tests
 ]
 
 void setup_package_tests() {
@@ -106,6 +107,7 @@ pipeline {
                 'min-ol-9-x64',
                 'min-bionic-x64',
                 'min-focal-x64',
+                'min-jammy-x64',
                 'min-buster-x64',
                 'min-bullseye-x64'
             ],
@@ -342,7 +344,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(ol-8|ol-9|focal|bullseye)/) && !params.skip_upstream57
+                            !(params.node_to_test =~ /(ol-8|ol-9|focal|jammy|bullseye)/) && !params.skip_upstream57
                         }
                     }
                     environment {

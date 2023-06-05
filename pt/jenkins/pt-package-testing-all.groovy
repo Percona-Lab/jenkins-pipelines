@@ -19,7 +19,8 @@ void runNodeBuild(String node_to_test) {
             booleanParam(name: 'skip_upstream57', value: params.skip_upstream57),
             booleanParam(name: 'skip_upstream80', value: params.skip_upstream80),
             booleanParam(name: 'skip_psmdb44', value: params.skip_psmdb44),
-            booleanParam(name: 'skip_psmdb50', value: params.skip_psmdb50)
+            booleanParam(name: 'skip_psmdb50', value: params.skip_psmdb50),
+            booleanParam(name: 'skip_psmdb60', value: params.skip_psmdb60)
         ],
         propagate: true,
         wait: true
@@ -122,6 +123,13 @@ pipeline {
                 stage('Ubuntu Focal') {
                     steps {
                         runNodeBuild('min-focal-x64')
+                    }
+                }
+
+
+                stage('Ubuntu Jammy') {
+                    steps {
+                        runNodeBuild('min-jammy-x64')
                     }
                 }
 
