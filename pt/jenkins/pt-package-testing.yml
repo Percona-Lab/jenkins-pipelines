@@ -75,8 +75,8 @@
             description: "Enable to skip psmdb 5.0 packages installation tests"
         - bool:
             name: skip_psmdb60
-            default: false
-            description: "Enable to skip psmdb 6.0 packages installation tests"
+            default: true
+            description: "Enable to skip psmdb 6.0 packages installation tests. Leave enabled till PT-2217 is fixed"
         - bool:
             name: skip_upstream57
             default: false
