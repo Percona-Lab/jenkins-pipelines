@@ -124,17 +124,17 @@ pipeline {
                         set -o errexit
 
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server:\$(date -u '+%Y%m%d%H%M')
+                        export DOCKER_TAG=perconalab/pmm-server:el7-\$(date -u '+%Y%m%d%H%M')
 
                         ${PATH_TO_SCRIPTS}/build-server-docker
 
                         if [ ! -z \${DOCKER_RC_TAG+x} ]; then
                             docker tag  \${DOCKER_TAG} perconalab/pmm-server:\${DOCKER_RC_TAG}
-                            docker push perconalab/pmm-server:\${DOCKER_RC_TAG}
+                            ## docker push perconalab/pmm-server:\${DOCKER_RC_TAG}
                         fi
                         docker tag \${DOCKER_TAG} perconalab/pmm-server:\${DOCKER_LATEST_TAG}
-                        docker push \${DOCKER_TAG}
-                        docker push perconalab/pmm-server:\${DOCKER_LATEST_TAG}
+                        ## docker push \${DOCKER_TAG}
+                        ## docker push perconalab/pmm-server:\${DOCKER_LATEST_TAG}
                     """
                 }
                 stash includes: 'results/docker/TAG', name: 'IMAGE'

@@ -132,7 +132,7 @@ pipeline {
                     if [ -n "${DOCKER_RC_TAG}" ]; then
                         export DOCKER_TAG=perconalab/pmm-server:${DOCKER_RC_TAG}
                     else
-                        export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
+                        export DOCKER_TAG=perconalab/pmm-server:el9-$(date -u '+%Y%m%d%H%M')
                     fi
 
                     export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
@@ -143,11 +143,11 @@ pipeline {
 
                     if [ -n "${DOCKER_RC_TAG}" ]; then
                         docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
-                        docker push perconalab/pmm-server:${DOCKER_RC_TAG}
+                        ## docker push perconalab/pmm-server:${DOCKER_RC_TAG}
                     fi
                     docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                    docker push ${DOCKER_TAG}
-                    docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
+                    ## docker push ${DOCKER_TAG}
+                    ## docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
                     echo "${DOCKER_LATEST_TAG}" > DOCKER_TAG
                 '''
                 script {
