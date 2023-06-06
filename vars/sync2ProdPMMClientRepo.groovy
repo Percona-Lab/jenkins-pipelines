@@ -63,7 +63,7 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                             /srv/repo-copy/pmm2-client/yum/${DESTINATION}/ \
                             10.10.9.209:/www/repo.percona.com/htdocs/pmm2-client/yum/${DESTINATION}/
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
-                            /srv/repo-copy/apt/ \
+                            /srv/repo-copy/pmm2-client/apt/ \
                             10.10.9.209:/www/repo.percona.com/htdocs/pmm2-client/apt/
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/version \
