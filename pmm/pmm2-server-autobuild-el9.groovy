@@ -117,44 +117,44 @@ pipeline {
                 uploadRPM()
             }
         }
-        stage('Build server docker') {
-            steps {
-                withCredentials([
-                    usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                        sh '''
-                            echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                        '''
-                }
-                sh '''
-                    set -o errexit
+        // stage('Build server docker') {
+        //     steps {
+        //         withCredentials([
+        //             usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        //                 sh '''
+        //                     echo "${PASS}" | docker login -u "${USER}" --password-stdin
+        //                 '''
+        //         }
+        //         sh '''
+        //             set -o errexit
 
-                    # TODO: DOCKER_TAG for RC should be a real version, not a date
-                    if [ -n "${DOCKER_RC_TAG}" ]; then
-                        export DOCKER_TAG=perconalab/pmm-server:${DOCKER_RC_TAG}
-                    else
-                        export DOCKER_TAG=perconalab/pmm-server:el9-$(date -u '+%Y%m%d%H%M')
-                    fi
+        //             # TODO: DOCKER_TAG for RC should be a real version, not a date
+        //             if [ -n "${DOCKER_RC_TAG}" ]; then
+        //                 export DOCKER_TAG=perconalab/pmm-server:${DOCKER_RC_TAG}
+        //             else
+        //                 export DOCKER_TAG=perconalab/pmm-server:el9-$(date -u '+%Y%m%d%H%M')
+        //             fi
 
-                    export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                    export RPMBUILD_DIST="el9"
-                    export DOCKERFILE=Dockerfile.el9
-                    # Build a docker image
-                    ${PATH_TO_SCRIPTS}/build-server-docker
+        //             export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+        //             export RPMBUILD_DIST="el9"
+        //             export DOCKERFILE=Dockerfile.el9
+        //             # Build a docker image
+        //             ${PATH_TO_SCRIPTS}/build-server-docker
 
-                    if [ -n "${DOCKER_RC_TAG}" ]; then
-                        docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
-                        ## docker push perconalab/pmm-server:${DOCKER_RC_TAG}
-                    fi
-                    docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                    ## docker push ${DOCKER_TAG}
-                    ## docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                    echo "${DOCKER_LATEST_TAG}" > DOCKER_TAG
-                '''
-                script {
-                    env.IMAGE = sh(returnStdout: true, script: "cat DOCKER_TAG").trim()
-                }
-            }
-        }
+        //             if [ -n "${DOCKER_RC_TAG}" ]; then
+        //                 docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
+        //                 ## docker push perconalab/pmm-server:${DOCKER_RC_TAG}
+        //             fi
+        //             docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
+        //             ## docker push ${DOCKER_TAG}
+        //             ## docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
+        //             echo "${DOCKER_LATEST_TAG}" > DOCKER_TAG
+        //         '''
+        //         script {
+        //             env.IMAGE = sh(returnStdout: true, script: "cat DOCKER_TAG").trim()
+        //         }
+        //     }
+        // }
         stage('Sign packages') {
             steps {
                 signRPM()
