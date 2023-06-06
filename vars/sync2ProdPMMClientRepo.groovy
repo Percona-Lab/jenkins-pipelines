@@ -13,7 +13,7 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                         pushd ${path_to_build}/binary
 
                             for rhel in \$(ls -1 redhat); do
-                                export dest_path=/srv/repo-copy/pmm2-client/${DESTINATION}/\${rhel}
+                                export dest_path=/srv/repo-copy/pmm2-client/yum/${DESTINATION}/\${rhel}
 
                                 # RPMS
                                 mkdir -p \${dest_path}/RPMS
