@@ -11,16 +11,9 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                         set -o xtrace
 
                         pushd ${path_to_build}/binary
-                            rsync_exclude=" --exclude pmm2-client-*"
-                            find_exclude="! -name pmm2-client-*"
 
                             for rhel in \$(ls -1 redhat); do
-                                # skip synchronization of el8/el6 repos in case of pmm server rpms sync
-                                if [ "${SYNC_PMM_CLIENT}" == 'no' ] && [ "\${rhel}" -eq '8' -o "\${rhel}" -eq '6' ]; then
-                                    continue
-                                fi
-
-                                export dest_path=/srv/repo-copy/${DESTINATION}/\${rhel}
+                                export dest_path=/srv/repo-copy/pmm2-client/yum/${DESTINATION}/\${rhel}
 
                                 # RPMS
                                 mkdir -p \${dest_path}/RPMS
@@ -48,6 +41,18 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                                 fi
                                 gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} \${dest_path}/SRPMS/repodata/repomd.xml 
                             done
+                            for dist in `ls -1 debian`; do
+                                for deb in `find debian/\${dist} -name '*.deb'`; do
+                                 pkg_fname=\$(basename \${deb} | awk -F'_' '{print \$2}' )
+                                 EC=0
+                                 /usr/local/reprepro5/bin/reprepro -Vb /srv/repo-copy/pmm2-client/apt -C ${DESTINATION} list \${dist} | sed -re "s|[0-9]:||" | grep \${pkg_fname} > /dev/null || EC=\$?
+                                 REPOPUSH_ARGS=""
+                                 if [ \${EC} -eq 0 ]; then
+                                     REPOPUSH_ARGS=" --remove-package "
+                                 fi
+                                 env PATH=/usr/local/reprepro5/bin:${PATH} repopush \${REPOPUSH_ARGS} --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/pmm2-client/apt
+                                done
+                            done
 
                         popd
 
@@ -55,11 +60,11 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                         date +%s > /srv/repo-copy/version
 
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
-                            /srv/repo-copy/${DESTINATION}/ \
-                            10.10.9.209:/www/repo.percona.com/htdocs/${DESTINATION}/
+                            /srv/repo-copy/pmm2-client/yum/${DESTINATION}/ \
+                            10.10.9.209:/www/repo.percona.com/htdocs/pmm2-client/yum/${DESTINATION}/
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/apt/ \
-                            10.10.9.209:/www/repo.percona.com/htdocs/apt/
+                            10.10.9.209:/www/repo.percona.com/htdocs/pmm2-client/apt/
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/version \
                             10.10.9.209:/www/repo.percona.com/htdocs/

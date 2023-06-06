@@ -214,7 +214,8 @@ pipeline {
             }
             steps {
                 // sync packages
-                sync2ProdPMM(DESTINATION, 'yes')
+                sync2ProdPMMClient(DESTINATION, 'yes')
+                sync2ProdPMMClientRepo(DESTINATION, 'yes')
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     script {
                         unstash 'uploadPath'
