@@ -52,6 +52,11 @@ pipeline {
             description: 'Percona Orchestrator version for test',
             name: 'ORCHESTRATOR_VERSION'
         )
+        string(
+            defaultValue: '',
+            description: 'Orchestrator revision for version from https://github.com/percona/orchestrator . Empty by default (not checked).',
+            name: 'ORCHESTRATOR_REVISION'
+        )
         choice(
             name: 'SCENARIO',
             description: 'Scenario for test',

@@ -70,6 +70,11 @@ pipeline {
             description: 'Updated Percona Orchestrator version',
             name: 'ORCHESTRATOR_VERSION'
         )
+        string(
+            defaultValue: '',
+            description: 'Orchestrator revision for version from https://github.com/percona/orchestrator . Empty by default (not checked).',
+            name: 'ORCHESTRATOR_REVISION'
+        )
         choice(
             name: 'DESTROY_ENV',
             description: 'Destroy VM after tests',
