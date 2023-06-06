@@ -43,7 +43,7 @@ pipeline {
             name: 'PXB_VERSION'
         )
         string(
-            defaultValue: '3.5.2',
+            defaultValue: '3.5.3',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
         )
