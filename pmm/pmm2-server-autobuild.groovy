@@ -17,9 +17,9 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         disableConcurrentBuilds()
     }
-    // triggers {
-    //     upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
-    // }
+    triggers {
+        upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
+    }
     stages {
         stage('Start PMM2 Server Autobuilds') {
             parallel {

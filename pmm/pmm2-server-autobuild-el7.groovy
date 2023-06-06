@@ -57,7 +57,7 @@ pipeline {
                 archiveArtifacts 'uploadPath'
                 stash includes: 'uploadPath', name: 'uploadPath'
                 archiveArtifacts 'shortCommit'
-                // slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
         stage('Build client source') {
@@ -130,11 +130,11 @@ pipeline {
 
                         if [ ! -z \${DOCKER_RC_TAG+x} ]; then
                             docker tag  \${DOCKER_TAG} perconalab/pmm-server:\${DOCKER_RC_TAG}
-                            ## docker push perconalab/pmm-server:\${DOCKER_RC_TAG}
+                            docker push perconalab/pmm-server:\${DOCKER_RC_TAG}
                         fi
                         docker tag \${DOCKER_TAG} perconalab/pmm-server:\${DOCKER_LATEST_TAG}
-                        ## docker push \${DOCKER_TAG}
-                        ## docker push perconalab/pmm-server:\${DOCKER_LATEST_TAG}
+                        docker push \${DOCKER_TAG}
+                        docker push perconalab/pmm-server:\${DOCKER_LATEST_TAG}
                     """
                 }
                 stash includes: 'results/docker/TAG', name: 'IMAGE'
@@ -157,18 +157,18 @@ pipeline {
             script {
                 unstash 'IMAGE'
                 def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE} - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE} - ${BUILD_URL}"
                 if (params.DESTINATION == "testing") {
                     currentBuild.description = "RC Build(EL7), Image: ${IMAGE}"
-                    // slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: RC build finished - ${IMAGE} - ${BUILD_URL}"
+                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: RC build finished - ${IMAGE} - ${BUILD_URL}"
                 }
             }
         }
         failure {
             script {
                 echo "Pipeline failed"
-                // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                // slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
             }
         }
     }
