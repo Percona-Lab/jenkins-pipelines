@@ -24,6 +24,11 @@ pipeline {
       name: 'ORCHESTRATOR_VERSION'
     )
     string(
+      defaultValue: '',
+      description: 'Orchestrator revision for version from https://github.com/percona/orchestrator . Empty by default (not checked).',
+      name: 'ORCHESTRATOR_REVISION'
+    )
+    string(
       defaultValue: '8.0.33-25',
       description: 'Full PS version to test with orchestrator',
       name: 'PS_VERSION'
