@@ -1,5 +1,5 @@
 - job:
-    name: wip-pxc-package-testing
+    name: pxc-package-testing
     project-type: pipeline
     description: |
         Work in progress, please ignore
