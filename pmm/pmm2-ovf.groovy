@@ -1,9 +1,3 @@
-def pmmVersion = 'dev-latest'
-if (RELEASE_CANDIDATE == 'yes') {
-    pmmVersion = PMM_BRANCH.split('-')[1] //release branch should be in format: pmm-2.x.y
-}
-
-
 pipeline {
     environment {
         specName = 'OVF'
@@ -25,13 +19,20 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-    triggers {
-        upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
-    }
+    // triggers {
+    //     upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
+    // }
 
     stages {
         stage('Prepare') {
             steps {
+                script {
+                    env.PMM_VERSION = 'dev-latest-el9'
+                    if (params.RELEASE_CANDIDATE == 'yes') {
+                        // release branch should be in the format: pmm-2.x.y
+                        env.PMM_VERSION = PMM_BRANCH.split('-')[1] 
+                    }
+                }
                 withCredentials([string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
                     sh '''
                         set -o xtrace
@@ -42,10 +43,10 @@ pipeline {
                         doctl compute firewall add-droplets $FIREWALL_ID --droplet-ids $DROPLET_ID
                     '''
                 }                
-                slackSend botUser: true,
-                          channel: '#pmm-ci',
-                          color: '#0000FF',
-                          message: "[${specName}]: build started - ${BUILD_URL}"
+                // slackSend botUser: true,
+                //           channel: '#pmm-ci',
+                //           color: '#0000FF',
+                //           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 checkout([$class: 'GitSCM', 
                           branches: [[name: "*/${PMM_BRANCH}"]],
                           extensions: [[$class: 'CloneOption',
@@ -53,105 +54,202 @@ pipeline {
                           reference: '',
                           shallow: true]],
                           userRemoteConfigs: [[url: 'https://github.com/percona/pmm.git']]])
-                dir('build') {
-                    sh '''
-                        make fetch
-                    '''
-                }
+                sh '''
+                    mkdir -p build/update
+                    # copy update playbook to `build` to not have to pull it from pmm-update
+                    cp -rpav update/ansible/playbook/* build/update
+                '''
             }
         }
 
-        stage('Build Image Release Candidate') {
+        stage('Build Release Candidate Images') {
             when {
-                expression { env.RELEASE_CANDIDATE == "yes" }
+                expression { params.RELEASE_CANDIDATE == "yes" }
             }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    dir("build") {
-                        sh """
-                            /usr/bin/packer build \
-                            -var 'pmm_client_repos=original testing' \
-                            -var 'pmm_client_repo_name=percona-testing-x86_64' \
-                            -var 'pmm2_server_repo=testing' \
-                            -only virtualbox-ovf -color=false packer/pmm2.json \
-                                | tee build.log
-                        """
+            parallel {
+                stage('Build Release Candidate Image EL7') {
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            dir("build") {
+                                sh """
+                                    /usr/bin/packer build \
+                                    -var 'pmm_client_repos=original testing' \
+                                    -var 'pmm_client_repo_name=percona-testing-x86_64' \
+                                    -var 'pmm2_server_repo=testing' \
+                                    -only virtualbox-ovf -color=false packer/pmm2.json \
+                                        | tee build.log
+                                """
+                            }
+                        }
+                        sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE_EL7'
+                        stash includes: 'IMAGE_EL7', name: 'IMAGE_EL7'
+                        archiveArtifacts 'IMAGE_EL7'
                     }
                 }
-                sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
-                stash includes: 'IMAGE', name: 'IMAGE'
-                archiveArtifacts 'IMAGE'
-            }
-        }
-        stage('Build Image Dev-Latest') {
-            when {
-                expression { env.RELEASE_CANDIDATE == "no" }
-            }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    dir("build") {
-                        sh """
-                            /usr/bin/packer build \
-                            -var 'pmm_client_repos=original experimental' \
-                            -var 'pmm_client_repo_name=percona-experimental-x86_64' \
-                            -var 'pmm2_server_repo=experimental' \
-                            -only virtualbox-ovf -color=false packer/pmm2.json \
-                                | tee build.log
-                        """
+                stage('Build Release Candidate Image EL9') {
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            dir('build') {
+                                sh '''
+                                    make pmm2-ovf-el9-rc
+                                '''
+                            }
+                        }
+                        sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
                     }
                 }
-                sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
-                stash includes: 'IMAGE', name: 'IMAGE'
-                archiveArtifacts 'IMAGE'
             }
         }
-
-        stage('Upload Release Candidate') {
+        stage('Build Dev-Latest Images') {
             when {
-                expression { env.RELEASE_CANDIDATE == "yes" }
+                expression { params.RELEASE_CANDIDATE == "no" }
             }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        FILE=\$(ls */*/*.ova)
-                        NAME=\$(basename \${FILE})
-                        aws s3 cp \
-                            --only-show-errors \
-                            --acl public-read \
-                            \${FILE} \
-                            s3://percona-vm/\${NAME}
-
-                        aws s3 cp \
-                            --only-show-errors \
-                            --acl public-read \
-                            s3://percona-vm/\${NAME} \
-                            s3://percona-vm/PMM2-Server-${pmmVersion}.ova
-                    """
+            parallel {
+                stage('Build Dev-Latest Image EL7') {
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            dir("build") {
+                                sh """
+                                    /usr/bin/packer build \
+                                    -var 'pmm_client_repos=original experimental' \
+                                    -var 'pmm_client_repo_name=percona-experimental-x86_64' \
+                                    -var 'pmm2_server_repo=experimental' \
+                                    -only virtualbox-ovf -color=false packer/pmm2.json \
+                                        | tee build.log
+                                """
+                            }
+                        }
+                        sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE_EL7'
+                        stash includes: 'IMAGE_EL7', name: 'IMAGE_EL7'
+                        archiveArtifacts 'IMAGE_EL7'
+                    }
+                }
+                stage('Build Dev-Latest Image EL9') {
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            dir('build') {
+                                sh '''
+                                    make pmm2-ovf-el9-dev-latest
+                                '''
+                            }
+                        }
+                        sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
+                    }
                 }
             }
         }
-        stage('Upload Dev-Latest') {
-            when {
-                expression { env.RELEASE_CANDIDATE == "no" }
-            }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        FILE=\$(ls */*/*.ova)
-                        NAME=\$(basename \${FILE})
-                        aws s3 cp \
-                            --only-show-errors \
-                            --acl public-read \
-                            \${FILE} \
-                            s3://percona-vm/\${NAME}
 
-                        echo /\${NAME} > PMM2-Server-dev-latest.ova
-                        aws s3 cp \
-                            --only-show-errors \
-                            --website-redirect /\${NAME} \
-                            PMM2-Server-dev-latest.ova \
-                            s3://percona-vm/PMM2-Server-dev-latest.ova
-                    """
+        stage('Upload Release Candidate Images') {
+            when {
+                expression { params.RELEASE_CANDIDATE == "yes" }
+            }
+            parallel {
+                stage('Upload Release Candidate Image EL7') {
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh """
+                                FILE=\$(ls */*/*.ova)
+                                NAME=\$(basename \${FILE})
+                                ##aws s3 cp \
+                                ##    --only-show-errors \
+                                ##    --acl public-read \
+                                ##    \${FILE} \
+                                ##    s3://percona-vm/\${NAME}
+
+                                ##aws s3 cp \
+                                ##    --only-show-errors \
+                                ##    --acl public-read \
+                                ##    s3://percona-vm/\${NAME} \
+                                ##    s3://percona-vm/PMM2-Server-${PMM_VERSION}.el7.ova
+                            """
+                        }
+                        script {
+                            env.PMM2_SERVER_EL7_OVA_S3 = "https://percona-vm.s3.amazonaws.com/PMM2-Server-${PMM_VERSION}.el7.ova"
+                        }
+                    }
+                }
+                stage('Upload Release Candidate Image EL9') {
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''
+                                FILE=$(ls */*/*.ova)
+                                NAME=$(basename ${FILE})
+                                ##aws s3 cp \
+                                ##    --only-show-errors \
+                                ##    --acl public-read \
+                                ##    ${FILE} \
+                                ##    s3://percona-vm/${NAME}
+
+                                ##aws s3 cp \
+                                ##    --only-show-errors \
+                                ##    --acl public-read \
+                                ##    s3://percona-vm/${NAME} \
+                                ##    s3://percona-vm/PMM2-Server-${PMM_VERSION}.ova
+                            '''
+                        }
+                        script {
+                            env.PMM2_SERVER_OVA_S3 = "https://percona-vm.s3.amazonaws.com/PMM2-Server-${PMM_VERSION}.ova"
+                        }
+                    }
+                }
+            }
+        }
+        stage('Upload Dev-Latest Images') {
+            when {
+                expression { params.RELEASE_CANDIDATE == "no" }
+            }
+            parallel {##
+                stage('Upload Dev-Latest Image EL7') {
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh """
+                                FILE=\$(ls */*/*.ova)
+                                NAME=\$(basename \${FILE})
+                                ##aws s3 cp \
+                                ##    --only-show-errors \
+                                ##    --acl public-read \
+                                ##    \${FILE} \
+                                ##    s3://percona-vm/\${NAME}
+
+                                ## echo /\${NAME} > PMM2-Server-dev-latest.el7.ova
+                                ##aws s3 cp \
+                                ##    --only-show-errors \
+                                ##    --website-redirect /\${NAME} \
+                                ##    PMM2-Server-dev-latest.el7.ova \
+                                ##    s3://percona-vm/PMM2-Server-dev-latest.el7.ova
+                            """
+                        }
+                        script {
+                            env.PMM2_SERVER_EL7_OVA_S3 = "https://percona-vm.s3.amazonaws.com/PMM2-Server-dev-latest.el7.ova"
+                        }
+                    }
+                }
+                stage('Upload Dev-Latest Image EL9') {
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''
+                                FILE=$(ls */*/*.ova)
+                                NAME=$(basename ${FILE})
+                                ##aws s3 cp \
+                                ##    --only-show-errors \
+                                ##    --acl public-read \
+                                ##    ${FILE} \
+                                ##    s3://percona-vm/${NAME}
+
+                                # This will redirect to the image above
+                                ## echo /${NAME} > PMM2-Server-dev-latest.ova
+
+                                ##aws s3 cp \
+                                ##    --only-show-errors \
+                                ##    --website-redirect /${NAME} \
+                                ##    PMM2-Server-dev-latest.ova \
+                                ##    s3://percona-vm/PMM2-Server-dev-latest.ova
+                            '''
+                        }
+                        script {
+                            env.PMM2_SERVER_OVA_S3 = "https://percona-vm.s3.amazonaws.com/PMM2-Server-dev-latest.ova"
+                        }
+                    }
                 }
             }
         }
@@ -164,20 +262,23 @@ pipeline {
         success {
             script {
                 unstash 'IMAGE'
+                unstash 'IMAGE_EL7'
                 def IMAGE = sh(returnStdout: true, script: "cat IMAGE").trim()
-                if ("${RELEASE_CANDIDATE}" == "yes")
+                def IMAGE_EL7 = sh(returnStdout: true, script: "cat IMAGE_EL7").trim()
+                if (params.RELEASE_CANDIDATE == "yes")
                 {
                     currentBuild.description = "Release Candidate Build"
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${specName}]: ${BUILD_URL} Release Candidate build finished - http://percona-vm.s3.amazonaws.com/PMM2-Server-${pmmVersion}.ova"
+                    // slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${specName}]: ${BUILD_URL} Release Candidate build finished - http://percona-vm.s3.amazonaws.com/PMM2-Server-${pmmVersion}.ova"
                 }
                 else
                 {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - http://percona-vm.s3.amazonaws.com/${IMAGE}"
+                    // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - http://percona-vm.s3.amazonaws.com/${IMAGE}"
                 }
             }
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
+            echo "Pipeline failed"
+            // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
         }
     }
 }

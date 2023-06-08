@@ -15,9 +15,9 @@ pipeline {
     options {
         parallelsAlwaysFailFast()
     }
-    // triggers {
-    //     upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
-    // }
+    triggers {
+        upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
+    }
     stages {
         stage('Prepare') {
             steps {
@@ -109,16 +109,16 @@ pipeline {
             script {
                 if (params.RELEASE_CANDIDATE == "yes") {
                     currentBuild.description = "Release Candidate Build - EL7: ${env.AMI_ID_EL7}, EL9: ${env.AMI_ID_EL9}"
-                    // slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished - ${env.AMI_ID}"
+                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished - ${env.AMI_ID}"
                 } else {
                     currentBuild.description = "AMI Instance ID - EL7: ${env.AMI_ID_EL7}, EL9: ${env.AMI_ID_EL9}"
-                    // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build ${BUILD_URL} finished - ${env.AMI_ID}"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build ${BUILD_URL} finished - ${env.AMI_ID}"
                 }
             }
         }
         failure {
             echo "Pipeline failed"
-            // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${BUILD_URL} failed"
+            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${BUILD_URL} failed"
         }
     }
 }
