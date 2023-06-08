@@ -7,7 +7,7 @@ void runTest(String TEST_SCRIPT, String MONGO_VERSION, String BCP_TYPE) {
     """
 }
 
-void prepareCluster() {
+void prepareCluster(String TEST_TYPE) {
     sh """
         docker kill \$(docker ps -a -q) || true
         docker rm \$(docker ps -a -q) || true
@@ -17,11 +17,26 @@ void prepareCluster() {
 
     git poll: false, branch: params.PBM_BRANCH, url: 'https://github.com/percona/percona-backup-mongodb.git'
 
+    withCredentials([file(credentialsId: 'PBM-AWS-S3', variable: 'PBM_AWS_S3_YML'), file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'), file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML')]) {
     sh """
         sudo curl -L "https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
         sudo chmod +x /usr/local/bin/docker-compose
+
+        cp $PBM_AWS_S3_YML ./e2e-tests/docker/conf/aws.yaml
+        cp $PBM_GCS_S3_YML ./e2e-tests/docker/conf/gcs.yaml
+#       cp $PBM_AZURE_YML ./e2e-tests/docker/conf/azure.yaml
+        sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/aws.yaml
+        sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/gcs.yaml
+#       sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/azure.yaml
+
+        chmod 664 ./e2e-tests/docker/conf/aws.yaml
+        chmod 664 ./e2e-tests/docker/conf/gcs.yaml
+#       chmod 664 ./e2e-tests/docker/conf/azure.yaml
+
+
         openssl rand -base64 756 > ./e2e-tests/docker/keyFile
     """
+    }
 }
 
 library changelog: false, identifier: "lib@master", retriever: modernSCM([
@@ -40,6 +55,9 @@ pipeline {
     parameters {
         string(name: 'PBM_BRANCH', defaultValue: 'main', description: 'PBM branch')
     }
+    triggers {
+        cron('0 3 * * 1')
+    }
     stages {
         stage('Set build name'){
             steps {
@@ -55,7 +73,7 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('44-newc-logic')
                         runTest('run-new-cluster', '4.4', 'logical')
                     }
                 }
@@ -64,7 +82,7 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('50-newc-logic')
                         runTest('run-new-cluster', '5.0', 'logical')
                     }
                 }
@@ -73,17 +91,16 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('60-newc-logic')
                         runTest('run-new-cluster', '6.0', 'logical')
                     }
                 }
-
                 stage('Sharded 4.4 logical') {
                     agent {
                         label 'docker-32gb'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('44-shrd-logic')
                         runTest('run-sharded', '4.4', 'logical')
                     }
                 }
@@ -92,7 +109,7 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('50-shrd-logic')
                         runTest('run-sharded', '5.0', 'logical')
                     }
                 }
@@ -101,17 +118,16 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('60-shrd-logic')
                         runTest('run-sharded', '6.0', 'logical')
                     }
                 }
-
                 stage('Non-sharded 4.4 logical') {
                     agent {
                         label 'docker'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('44-rs-logic')
                         runTest('run-rs', '4.4', 'logical')
                     }
                 }
@@ -120,7 +136,7 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('50-rs-logic')
                         runTest('run-rs', '5.0', 'logical')
                     }
                 }
@@ -129,17 +145,16 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('60-rs-logic')
                         runTest('run-rs', '6.0', 'logical')
                     }
                 }
-
                 stage('Single-node 4.4 logical') {
                     agent {
                         label 'docker'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('44-single-logic')
                         runTest('run-single', '4.4', 'logical')
                     }
                 }
@@ -148,7 +163,7 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('50-single-logic')
                         runTest('run-single', '5.0', 'logical')
                     }
                 }
@@ -157,17 +172,16 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('60-single-logic')
                         runTest('run-single', '6.0', 'logical')
                     }
                 }
-
                 stage('Sharded 4.4 physical') {
                     agent {
                         label 'docker-32gb'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('44-shrd-phys')
                         runTest('run-sharded', '4.4', 'physical')
                     }
                 }
@@ -176,7 +190,7 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('50-shrd-phys')
                         runTest('run-sharded', '5.0', 'physical')
                     }
                 }
@@ -185,17 +199,16 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('60-shrd-phys')
                         runTest('run-sharded', '6.0', 'physical')
                     }
                 }
-
                 stage('Non-sharded 4.4 physical') {
                     agent {
                         label 'docker'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('44-rs-phys')
                         runTest('run-rs', '4.4', 'physical')
                     }
                 }
@@ -204,7 +217,7 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('50-rs-phys')
                         runTest('run-rs', '5.0', 'physical')
                     }
                 }
@@ -213,17 +226,16 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('60-rs-phys')
                         runTest('run-rs', '6.0', 'physical')
                     }
                 }
-
                 stage('Single-node 4.4 physical') {
                     agent {
                         label 'docker'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('44-single-phys')
                         runTest('run-single', '4.4', 'physical')
                     }
                 }
@@ -232,7 +244,7 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('50-single-phys')
                         runTest('run-single', '5.0', 'physical')
                     }
                 }
@@ -241,7 +253,7 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-			prepareCluster()
+			prepareCluster('60-single-phys')
                         runTest('run-single', '6.0', 'physical')
                     }
                 }
