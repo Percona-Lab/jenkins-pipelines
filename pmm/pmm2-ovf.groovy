@@ -40,10 +40,10 @@ pipeline {
                         doctl compute firewall add-droplets $FIREWALL_ID --droplet-ids $DROPLET_ID
                     '''
                 }                
-                // slackSend botUser: true,
-                //           channel: '#pmm-ci',
-                //           color: '#0000FF',
-                //           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend botUser: true,
+                          channel: '#pmm-ci',
+                          color: '#0000FF',
+                          message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 checkout([$class: 'GitSCM', 
                           branches: [[name: "*/${PMM_BRANCH}"]],
                           extensions: [[$class: 'CloneOption',
@@ -153,17 +153,17 @@ pipeline {
                             sh """
                                 FILE=\$(ls */*/PMM2-Server-EL7*.ova)
                                 NAME=\$(basename \${FILE})
-                                ##aws s3 cp \
-                                ##    --only-show-errors \
-                                ##    --acl public-read \
-                                ##    \${FILE} \
-                                ##    s3://percona-vm/\${NAME}
+                                aws s3 cp \
+                                    --only-show-errors \
+                                    --acl public-read \
+                                    \${FILE} \
+                                    s3://percona-vm/\${NAME}
 
-                                ##aws s3 cp \
-                                ##    --only-show-errors \
-                                ##    --acl public-read \
-                                ##    s3://percona-vm/\${NAME} \
-                                ##    s3://percona-vm/PMM2-Server-${PMM_VERSION}.el7.ova
+                                aws s3 cp \
+                                    --only-show-errors \
+                                    --acl public-read \
+                                    s3://percona-vm/\${NAME} \
+                                    s3://percona-vm/PMM2-Server-${PMM_VERSION}.el7.ova
                             """
                         }
                         script {
@@ -177,17 +177,17 @@ pipeline {
                             sh '''
                                 FILE=$(ls */*/PMM2-Server-EL9*.ova)
                                 NAME=$(basename ${FILE})
-                                ##aws s3 cp \
-                                ##    --only-show-errors \
-                                ##    --acl public-read \
-                                ##    ${FILE} \
-                                ##    s3://percona-vm/${NAME}
+                                aws s3 cp \
+                                    --only-show-errors \
+                                    --acl public-read \
+                                    ${FILE} \
+                                    s3://percona-vm/${NAME}
 
-                                ##aws s3 cp \
-                                ##    --only-show-errors \
-                                ##    --acl public-read \
-                                ##    s3://percona-vm/${NAME} \
-                                ##    s3://percona-vm/PMM2-Server-${PMM_VERSION}.ova
+                                aws s3 cp \
+                                    --only-show-errors \
+                                    --acl public-read \
+                                    s3://percona-vm/${NAME} \
+                                    s3://percona-vm/PMM2-Server-${PMM_VERSION}.ova
                             '''
                         }
                         script {
@@ -208,18 +208,18 @@ pipeline {
                             sh """
                                 FILE=\$(ls */*/PMM2-Server-EL7*.ova)
                                 NAME=\$(basename \${FILE})
-                                ##aws s3 cp \
-                                ##    --only-show-errors \
-                                ##    --acl public-read \
-                                ##    \${FILE} \
-                                ##    s3://percona-vm/\${NAME}
+                                aws s3 cp \
+                                    --only-show-errors \
+                                    --acl public-read \
+                                    \${FILE} \
+                                    s3://percona-vm/\${NAME}
 
-                                ## echo /\${NAME} > PMM2-Server-dev-latest.el7.ova
-                                ##aws s3 cp \
-                                ##    --only-show-errors \
-                                ##    --website-redirect /\${NAME} \
-                                ##    PMM2-Server-dev-latest.el7.ova \
-                                ##    s3://percona-vm/PMM2-Server-dev-latest.el7.ova
+                                echo /\${NAME} > PMM2-Server-dev-latest.el7.ova
+                                aws s3 cp \
+                                    --only-show-errors \
+                                    --website-redirect /\${NAME} \
+                                    PMM2-Server-dev-latest.el7.ova \
+                                    s3://percona-vm/PMM2-Server-dev-latest.el7.ova
                             """
                         }
                         script {
@@ -233,20 +233,20 @@ pipeline {
                             sh '''
                                 FILE=$(ls */*/PMM2-Server-EL9*.ova)
                                 NAME=$(basename ${FILE})
-                                ##aws s3 cp \
-                                ##    --only-show-errors \
-                                ##    --acl public-read \
-                                ##    ${FILE} \
-                                ##    s3://percona-vm/${NAME}
+                                aws s3 cp \
+                                    --only-show-errors \
+                                    --acl public-read \
+                                    ${FILE} \
+                                    s3://percona-vm/${NAME}
 
                                 # This will redirect to the image above
-                                ## echo /${NAME} > PMM2-Server-dev-latest.ova
+                                echo /${NAME} > PMM2-Server-dev-latest.ova
 
-                                ##aws s3 cp \
-                                ##    --only-show-errors \
-                                ##    --website-redirect /${NAME} \
-                                ##    PMM2-Server-dev-latest.ova \
-                                ##    s3://percona-vm/PMM2-Server-dev-latest.ova
+                                aws s3 cp \
+                                    --only-show-errors \
+                                    --website-redirect /${NAME} \
+                                    PMM2-Server-dev-latest.ova \
+                                    s3://percona-vm/PMM2-Server-dev-latest.ova
                             '''
                         }
                         script {
@@ -259,25 +259,22 @@ pipeline {
     }
 
     post {
-        always {
-            deleteDir()
-        }
         success {
             script {
                 if (params.RELEASE_CANDIDATE == "yes")
                 {
                     currentBuild.description = "RC Build, EL9 Image: " + env.PMM2_SERVER_OVA_S3 + "EL7 Image: " + env.PMM2_SERVER_EL7_OVA_S3
-                    // slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} RC build finished - " + env.PMM2_SERVER_OVA_S3 + env.PMM2_SERVER_EL7_OVA_S3
+                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} RC build finished - " + env.PMM2_SERVER_OVA_S3 + env.PMM2_SERVER_EL7_OVA_S3
                 }
                 else
                 {
-                    // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - " + env.PMM2_SERVER_OVA_S3 + env.PMM2_SERVER_EL7_OVA_S3
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - " + env.PMM2_SERVER_OVA_S3 + env.PMM2_SERVER_EL7_OVA_S3
                 }
             }
         }
         failure {
             echo "Pipeline failed"
-            // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
+            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
         }
         cleanup {
             deleteDir()
