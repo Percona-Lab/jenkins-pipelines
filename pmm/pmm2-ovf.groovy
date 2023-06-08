@@ -124,18 +124,18 @@ pipeline {
                         archiveArtifacts 'IMAGE_EL7'
                     }
                 }
-                stage('Build Dev-Latest Image EL9') {
-                    steps {
-                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            dir('build') {
-                                sh '''
-                                    make pmm2-ovf-el9-dev-latest
-                                '''
-                            }
-                        }
-                        sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
-                    }
-                }
+                // stage('Build Dev-Latest Image EL9') {
+                //     steps {
+                //         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                //             dir('build') {
+                //                 sh '''
+                //                     make pmm2-ovf-el9-dev-latest
+                //                 '''
+                //             }
+                //         }
+                //         sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
+                //     }
+                // }
             }
         }
 
@@ -148,7 +148,7 @@ pipeline {
                     steps {
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh """
-                                FILE=\$(ls */*/*.ova)
+                                FILE=\$(ls */*/PMM2-Server-EL7*.ova)
                                 NAME=\$(basename \${FILE})
                                 ##aws s3 cp \
                                 ##    --only-show-errors \
@@ -172,7 +172,7 @@ pipeline {
                     steps {
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''
-                                FILE=$(ls */*/*.ova)
+                                FILE=$(ls */*/PMM2-Server-EL9*.ova)
                                 NAME=$(basename ${FILE})
                                 ##aws s3 cp \
                                 ##    --only-show-errors \
@@ -203,7 +203,7 @@ pipeline {
                     steps {
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh """
-                                FILE=\$(ls */*/*.ova)
+                                FILE=\$(ls */*/PMM2-Server-EL7*.ova)
                                 NAME=\$(basename \${FILE})
                                 ##aws s3 cp \
                                 ##    --only-show-errors \
@@ -228,7 +228,7 @@ pipeline {
                     steps {
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''
-                                FILE=$(ls */*/*.ova)
+                                FILE=$(ls */*/PMM2-Server-EL9*.ova)
                                 NAME=$(basename ${FILE})
                                 ##aws s3 cp \
                                 ##    --only-show-errors \
@@ -261,24 +261,23 @@ pipeline {
         }
         success {
             script {
-                unstash 'IMAGE'
-                unstash 'IMAGE_EL7'
-                def IMAGE = sh(returnStdout: true, script: "cat IMAGE").trim()
-                def IMAGE_EL7 = sh(returnStdout: true, script: "cat IMAGE_EL7").trim()
                 if (params.RELEASE_CANDIDATE == "yes")
                 {
-                    currentBuild.description = "Release Candidate Build"
-                    // slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${specName}]: ${BUILD_URL} Release Candidate build finished - http://percona-vm.s3.amazonaws.com/PMM2-Server-${pmmVersion}.ova"
+                    currentBuild.description = "RC Build, EL9 Image: " + env.PMM2_SERVER_OVA_S3 + "EL7 Image: " + env.PMM2_SERVER_EL7_OVA_S3
+                    // slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} RC build finished - " + env.PMM2_SERVER_OVA_S3 + env.PMM2_SERVER_EL7_OVA_S3
                 }
                 else
                 {
-                    // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${specName}]: build finished - http://percona-vm.s3.amazonaws.com/${IMAGE}"
+                    // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - " + env.PMM2_SERVER_OVA_S3 + env.PMM2_SERVER_EL7_OVA_S3
                 }
             }
         }
         failure {
             echo "Pipeline failed"
-            // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${specName}]: build failed"
+            // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
+        }
+        cleanup {
+            deleteDir()
         }
     }
 }
