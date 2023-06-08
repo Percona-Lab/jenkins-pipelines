@@ -198,7 +198,7 @@ pipeline {
             when {
                 expression { params.RELEASE_CANDIDATE == "no" }
             }
-            parallel {##
+            parallel {
                 stage('Upload Dev-Latest Image EL7') {
                     steps {
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
