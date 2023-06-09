@@ -33,7 +33,7 @@ pipeline {
                 ])
             }
         }
-        stage('Build Images Release Candidate') {
+        stage('Build Release Candidate Images') {
             when {
                 expression { env.RELEASE_CANDIDATE == "yes" }
             }
