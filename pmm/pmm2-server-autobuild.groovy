@@ -1,11 +1,6 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
-    $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
-]) _
-
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'cli'
     }
     parameters {
         string(
@@ -19,161 +14,31 @@ pipeline {
             name: 'DESTINATION')
     }
     options {
-        skipDefaultCheckout()
+        buildDiscarder(logRotator(numToKeepStr: '30'))
         disableConcurrentBuilds()
+        parallelsAlwaysFailFast()
     }
     triggers {
         upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
     }
-    environment {
-        PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
-    }
     stages {
-        stage('Prepare') {
-            steps {
-                git poll: true,
-                    branch: GIT_BRANCH,
-                    url: 'http://github.com/Percona-Lab/pmm-submodules'
-                sh '''
-                    set -o errexit
-                    git submodule update --init --jobs 10
-                    git submodule status
-
-                    git rev-parse --short HEAD > shortCommit
-                    echo "UPLOAD/pmm2-components/yum/${DESTINATION}/${JOB_NAME}/pmm/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
-                '''
-
-                script {
-                    def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
-                    if ("${DESTINATION}" == "testing") {
-                        env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}"
-                        env.DOCKER_RC_TAG = "${versionTag}-rc"
-                    } else {
-                        env.DOCKER_LATEST_TAG = "dev-latest"
+        stage('Start PMM2 Server Autobuilds') {
+            parallel {
+                stage('EL7') {
+                    steps {
+                        build job: 'pmm2-server-autobuild-el7', parameters: [
+                            string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
+                            string(name: 'DESTINATION', value: params.DESTINATION)
+                        ]
                     }
                 }
-
-                archiveArtifacts 'uploadPath'
-                stash includes: 'uploadPath', name: 'uploadPath'
-                archiveArtifacts 'shortCommit'
-                slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-            }
-        }
-        stage('Build client source') {
-            steps {
-                sh "${PATH_TO_SCRIPTS}/build-client-source"
-                stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
-                uploadTarball('source')
-            }
-        }
-        stage('Build client binary') {
-            steps {
-                sh "${PATH_TO_SCRIPTS}/build-client-binary"
-                stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
-                uploadTarball('binary')
-            }
-        }
-        stage('Build client source rpm') {
-            steps {
-                sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7"
-                stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                uploadRPM()
-            }
-        }
-        stage('Build client binary rpm') {
-            steps {
-                sh """
-                    set -o errexit
-
-                    ${PATH_TO_SCRIPTS}/build-client-rpm centos:7
-
-                    mkdir -p tmp/pmm-server/RPMS/
-                    cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
-                """
-                stash includes: 'tmp/pmm-server/RPMS/*.rpm', name: 'rpms'
-                uploadRPM()
-            }
-        }
-        stage('Build server packages') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        set -o errexit
-
-                        ${PATH_TO_SCRIPTS}/build-server-rpm-all
-                    """
-                }
-                stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'
-                uploadRPM()
-            }
-        }
-        stage('Build server docker') {
-            steps {
-                withCredentials([
-                    usernamePassword(credentialsId: 'hub.docker.com',
-                    passwordVariable: 'PASS',
-                    usernameVariable: 'USER'
-                    )]) {
-                    sh """
-                        echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                    """
-                }
-                withCredentials([aws(
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    credentialsId: 'ECRRWUser',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )]) {
-                    sh """
-                        set -o errexit
-
-                        export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server:\$(date -u '+%Y%m%d%H%M')
-
-                        ${PATH_TO_SCRIPTS}/build-server-docker
-
-                        if [ ! -z \${DOCKER_RC_TAG+x} ]; then
-                            docker tag  \${DOCKER_TAG} perconalab/pmm-server:\${DOCKER_RC_TAG}
-                            docker push perconalab/pmm-server:\${DOCKER_RC_TAG}
-                            docker rmi perconalab/pmm-server:\${DOCKER_RC_TAG}
-                        fi
-                        docker tag \${DOCKER_TAG} perconalab/pmm-server:\${DOCKER_LATEST_TAG}
-                        docker push \${DOCKER_TAG}
-                        docker push perconalab/pmm-server:\${DOCKER_LATEST_TAG}
-                        docker rmi  \${DOCKER_TAG}
-                        docker rmi perconalab/pmm-server:\${DOCKER_LATEST_TAG}
-                    """
-                }
-                stash includes: 'results/docker/TAG', name: 'IMAGE'
-                archiveArtifacts 'results/docker/TAG'
-            }
-        }
-        stage('Sign packages') {
-            steps {
-                signRPM()
-            }
-        }
-        stage('Push to public repository') {
-            steps {
-                sync2ProdPMM("pmm2-components/yum/${DESTINATION}", 'no')
-            }
-        }
-    }
-    post {
-        always {
-            script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    unstash 'IMAGE'
-                    def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE} - ${BUILD_URL}"
-                    slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
-                    if ("${DESTINATION}" == "testing")
-                    {
-                      currentBuild.description = "Release Candidate Build"
-                      slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished"
+                stage('EL9') {
+                    steps {
+                        build job: 'pmm2-server-autobuild-el9', parameters: [
+                            string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
+                            string(name: 'DESTINATION', value: params.DESTINATION)
+                        ]
                     }
-                } else {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
             }
         }
