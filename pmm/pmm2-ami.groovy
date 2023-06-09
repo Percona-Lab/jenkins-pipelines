@@ -13,6 +13,8 @@ pipeline {
             name: 'RELEASE_CANDIDATE')
     }
     options {
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        disableConcurrentBuilds()
         parallelsAlwaysFailFast()
     }
     triggers {

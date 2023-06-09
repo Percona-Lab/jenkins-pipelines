@@ -16,6 +16,7 @@ pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         disableConcurrentBuilds()
+        parallelsAlwaysFailFast()
     }
     triggers {
         upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
