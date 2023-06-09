@@ -225,6 +225,7 @@ pipeline {
                         docker exec pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
                         docker exec pmm-server percona-release enable percona testing
                         docker exec pmm-server yum clean all
+                        docker exec pmm-server yum clean metadata
                     """
                     setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'yes', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
                 }
@@ -243,6 +244,7 @@ pipeline {
                         docker exec pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
                         docker exec pmm-server percona-release enable percona experimental
                         docker exec pmm-server yum clean all
+                        docker exec pmm-server yum clean metadata
                     """
                     setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
                 }
@@ -259,6 +261,7 @@ pipeline {
                         set -o xtrace
                         docker exec pmm-server yum update -y percona-release || true
                         docker exec pmm-server yum clean all
+                        docker exec pmm-server yum clean metadata
                     """
                     setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
                 }
