@@ -1,0 +1,15 @@
+- job:
+    name: percona-xtrabackup-2.4-RELEASE
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/surbhat1595/jenkins-pipelines.git
+            branches:
+            - 'ENG-1126'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pxb/jenkins/pxb-24.groovy
+

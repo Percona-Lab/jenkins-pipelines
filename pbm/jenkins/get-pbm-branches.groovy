@@ -77,7 +77,7 @@ pipeline {
                         echo ${START_NEW_BUILD}: build required
                     """
                 }
-                slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
+                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
                 build job: 'pbm-autobuild-RELEASE', parameters: [string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'VERSION', value: VERSION), string(name: 'COMPONENT', value: 'testing')]
                 build job: 'pbm-release-test-run', propagate: false, wait: false, parameters: [string(name: 'PBM_BRANCH', value: BRANCH_NAME), string(name: 'PBM_VERSION', value: VERSION)]
             }

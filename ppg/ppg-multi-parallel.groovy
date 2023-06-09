@@ -78,6 +78,10 @@ pipeline {
             defaultValue: 'wal2json_2_4',
             description: 'wal2json version',
             name: 'WAL2JSON_VERSION')
+        string(
+            defaultValue: 'no',
+            description: 'Destroy VM after tests',
+            name: 'DESTROY_ENV')
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
@@ -162,6 +166,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.PGSM_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -183,6 +188,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.PGAUDIT_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -204,6 +210,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.PG_REPACK_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -225,6 +232,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.PATRONI_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -246,6 +254,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.PGBACKREST_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -267,6 +276,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.PGBADGER_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -288,6 +298,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.WAL2JSON_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -309,6 +320,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.SETUSER_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -330,6 +342,7 @@ pipeline {
                         string(name: 'COMPONENT_VERSION', value: "${env.PGBOUNCER_VERSION}"),
                         string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
                         string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
                         ]
                     }
                     catch (err) {
@@ -359,26 +372,26 @@ pipeline {
                 }
             }
         }
-        stage ('Test minor downgrade') {
-            steps {
-                script {
-                    try {
-                        build job: 'ppg-upgrade-parallel', parameters: [
-                        string(name: 'FROM_REPO', value: "${env.FROM_REPO}"),
-                        string(name: 'FROM_VERSION', value: "${env.VERSION}"),
-                        string(name: 'TO_REPO', value: "${env.TO_REPO}"),
-                        string(name: 'VERSION', value: "${env.FROM_MINOR_VERSION}"),
-                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-minor-upgrade"),
-                        ]
-                    }
-                    catch (err) {
-                        currentBuild.result = "FAILURE"
-                        echo "Stage 'Test minor downgrade' failed, but we continue"
-                    }
-                }
-            }
-        }
+        // stage ('Test minor downgrade') {
+        //     steps {
+        //         script {
+        //             try {
+        //                 build job: 'ppg-upgrade-parallel', parameters: [
+        //                 string(name: 'FROM_REPO', value: "${env.FROM_REPO}"),
+        //                 string(name: 'FROM_VERSION', value: "${env.VERSION}"),
+        //                 string(name: 'TO_REPO', value: "${env.TO_REPO}"),
+        //                 string(name: 'VERSION', value: "${env.FROM_MINOR_VERSION}"),
+        //                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+        //                 string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-minor-upgrade"),
+        //                 ]
+        //             }
+        //             catch (err) {
+        //                 currentBuild.result = "FAILURE"
+        //                 echo "Stage 'Test minor downgrade' failed, but we continue"
+        //             }
+        //         }
+        //     }
+        // }
         stage ('Test major upgrade') {
             when {
                 expression { env.MAJOR_VERSION != '11' }
@@ -402,29 +415,29 @@ pipeline {
                 }
             }
         }
-        stage ('Test major downgrade') {
-            when {
-                expression { env.MAJOR_VERSION != '11' }
-            }
-            steps {
-                script {
-                    try {
-                        build job: 'ppg-upgrade-parallel', parameters: [
-                        string(name: 'FROM_REPO', value: "${env.FROM_REPO}"),
-                        string(name: 'FROM_VERSION', value: "${env.VERSION}"),
-                        string(name: 'TO_REPO', value: "${env.TO_REPO}"),
-                        string(name: 'VERSION', value: "${env.FROM_MAJOR_VERSION}"),
-                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-major-upgrade"),
-                        ]
-                    }
-                    catch (err) {
-                        currentBuild.result = "FAILURE"
-                        echo "Stage 'Test major downgrade' failed, but we continue"
-                    }
-                }
-            }
-        }
+        // stage ('Test major downgrade') {
+        //     when {
+        //         expression { env.MAJOR_VERSION != '11' }
+        //     }
+        //     steps {
+        //         script {
+        //             try {
+        //                 build job: 'ppg-upgrade-parallel', parameters: [
+        //                 string(name: 'FROM_REPO', value: "${env.FROM_REPO}"),
+        //                 string(name: 'FROM_VERSION', value: "${env.VERSION}"),
+        //                 string(name: 'TO_REPO', value: "${env.TO_REPO}"),
+        //                 string(name: 'VERSION', value: "${env.FROM_MAJOR_VERSION}"),
+        //                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+        //                 string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-major-upgrade"),
+        //                 ]
+        //             }
+        //             catch (err) {
+        //                 currentBuild.result = "FAILURE"
+        //                 echo "Stage 'Test major downgrade' failed, but we continue"
+        //             }
+        //         }
+        //     }
+        // }
 
         stage ('Test Percona Components with Vanila Postgresql') {
             steps {

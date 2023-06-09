@@ -19,7 +19,8 @@ void runNodeBuild(String node_to_test) {
             booleanParam(name: 'skip_upstream57', value: params.skip_upstream57),
             booleanParam(name: 'skip_upstream80', value: params.skip_upstream80),
             booleanParam(name: 'skip_psmdb44', value: params.skip_psmdb44),
-            booleanParam(name: 'skip_psmdb50', value: params.skip_psmdb50)
+            booleanParam(name: 'skip_psmdb50', value: params.skip_psmdb50),
+            booleanParam(name: 'skip_psmdb60', value: params.skip_psmdb60)
         ],
         propagate: true,
         wait: true
@@ -79,6 +80,11 @@ pipeline {
             description: "Enable to skip psmdb 5.0 packages installation tests"
         )
         booleanParam(
+            name: 'skip_psmdb60',
+            defaultValue: true,
+            description: "Enable to skip psmdb 6.0 packages installation tests. Leave enabled till PT-2217 is fixed"
+        )
+        booleanParam(
             name: 'skip_upstream57',
             description: "Enable to skip MySQL 5.7 packages installation tests"
         )
@@ -120,6 +126,13 @@ pipeline {
                     }
                 }
 
+
+                stage('Ubuntu Jammy') {
+                    steps {
+                        runNodeBuild('min-jammy-x64')
+                    }
+                }
+
                 stage('Centos 7') {
                     steps {
                         runNodeBuild('min-centos-7-x64')
@@ -129,6 +142,11 @@ pipeline {
                 stage('Oracle Linux 8') {
                     steps {
                         runNodeBuild('min-ol-8-x64')
+                    }
+                }
+                stage('Oracle Linux 9') {
+                    steps {
+                        runNodeBuild('min-ol-9-x64')
                     }
                 }
             }
