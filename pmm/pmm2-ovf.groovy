@@ -266,11 +266,11 @@ pipeline {
                 if (params.RELEASE_CANDIDATE == "yes")
                 {
                     currentBuild.description = "RC Build, EL9 Image: " + env.PMM2_SERVER_OVA_S3 + "EL7 Image: " + env.PMM2_SERVER_EL7_OVA_S3
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} RC build finished - " + env.PMM2_SERVER_OVA_S3 + env.PMM2_SERVER_EL7_OVA_S3
+                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} RC build finished, EL9 Image: " + env.PMM2_SERVER_OVA_S3 + "EL7 Image: " + env.PMM2_SERVER_EL7_OVA_S3
                 }
                 else
                 {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - " + env.PMM2_SERVER_OVA_S3 + env.PMM2_SERVER_EL7_OVA_S3
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, EL9 Image: " + env.PMM2_SERVER_OVA_S3 + "EL7 Image: " + env.PMM2_SERVER_EL7_OVA_S3
                 }
             }
         }
