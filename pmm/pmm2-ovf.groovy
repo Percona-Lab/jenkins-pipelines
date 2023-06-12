@@ -18,9 +18,9 @@ pipeline {
         disableConcurrentBuilds()
         parallelsAlwaysFailFast()
     }
-    triggers {
-        upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
-    }
+    // triggers {
+    //     upstream upstreamProjects: 'pmm2-server-autobuild', threshold: hudson.model.Result.SUCCESS
+    // }
 
     stages {
         stage('Prepare') {
