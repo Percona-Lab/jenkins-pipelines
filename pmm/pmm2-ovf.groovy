@@ -26,7 +26,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    env.PMM_VERSION = 'dev-latest-el9'
+                    env.PMM_VERSION = 'dev-latest'
                     if (params.RELEASE_CANDIDATE == 'yes') {
                         // release branch should be in the format: pmm-2.x.y
                         env.PMM_VERSION = PMM_BRANCH.split('-')[1] 
@@ -86,7 +86,7 @@ pipeline {
                                 """
                             }
                         }
-                        sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE_EL7'
+                        sh 'ls */*/PMM2-Server-EL7*.ova | cut -d "/" -f 2 > IMAGE_EL7'
                         stash includes: 'IMAGE_EL7', name: 'IMAGE_EL7'
                         archiveArtifacts 'IMAGE_EL7'
                     }
@@ -100,7 +100,7 @@ pipeline {
                                 '''
                             }
                         }
-                        sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
+                        sh 'ls */*/PMM2-Server-EL9*.ova | cut -d "/" -f 2 > IMAGE'
                     }
                 }
             }
@@ -124,7 +124,7 @@ pipeline {
                                 """
                             }
                         }
-                        sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE_EL7'
+                        sh 'ls */*/PMM2-Server-EL7*.ova | cut -d "/" -f 2 > IMAGE_EL7'
                         stash includes: 'IMAGE_EL7', name: 'IMAGE_EL7'
                         archiveArtifacts 'IMAGE_EL7'
                     }
@@ -138,7 +138,7 @@ pipeline {
                                 '''
                             }
                         }
-                        sh 'ls */*/*.ova | cut -d "/" -f 2 > IMAGE'
+                        sh 'ls */*/PMM2-Server-EL9*.ova | cut -d "/" -f 2 > IMAGE'
                     }
                 }
             }
@@ -210,13 +210,14 @@ pipeline {
                             sh """
                                 FILE=\$(ls */*/PMM2-Server-EL7*.ova)
                                 NAME=\$(basename \${FILE})
+                                SIZE=\$(du -sh */*/PMM2-Server-EL7*.ova)
                                 aws s3 cp \
                                     --only-show-errors \
                                     --acl public-read \
                                     \${FILE} \
                                     s3://percona-vm/\${NAME}
 
-                                echo /\${NAME} > PMM2-Server-dev-latest.el7.ova
+                                ## echo /\${NAME} > PMM2-Server-dev-latest.el7.ova
                                 aws s3 cp \
                                     --only-show-errors \
                                     --website-redirect /\${NAME} \
@@ -235,15 +236,15 @@ pipeline {
                             sh '''
                                 FILE=$(ls */*/PMM2-Server-EL9*.ova)
                                 NAME=$(basename ${FILE})
+                                SIZE=\$(du -sh */*/PMM2-Server-EL9*.ova)
                                 aws s3 cp \
                                     --only-show-errors \
                                     --acl public-read \
                                     ${FILE} \
                                     s3://percona-vm/${NAME}
 
-                                # This will redirect to the image above
-                                echo /${NAME} > PMM2-Server-dev-latest.ova
-
+                                ## # This will redirect to the image above
+                                ## echo /${NAME} > PMM2-Server-dev-latest.ova
                                 aws s3 cp \
                                     --only-show-errors \
                                     --website-redirect /${NAME} \
@@ -261,25 +262,25 @@ pipeline {
     }
 
     post {
+        always {
+            deleteDir()
+        }
         success {
             script {
                 if (params.RELEASE_CANDIDATE == "yes")
                 {
-                    currentBuild.description = "RC Build, EL9 Image: " + env.PMM2_SERVER_OVA_S3 + "EL7 Image: " + env.PMM2_SERVER_EL7_OVA_S3
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} RC build finished, EL9 Image: " + env.PMM2_SERVER_OVA_S3 + "EL7 Image: " + env.PMM2_SERVER_EL7_OVA_S3
+                    currentBuild.description = "RC Build, EL9 Image: " + env.PMM2_SERVER_OVA_S3 + " EL7 Image: " + env.PMM2_SERVER_EL7_OVA_S3
+                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} RC build finished, EL9 Image: " + env.PMM2_SERVER_OVA_S3 + " EL7 Image: " + env.PMM2_SERVER_EL7_OVA_S3
                 }
                 else
                 {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, EL9 Image: " + env.PMM2_SERVER_OVA_S3 + "EL7 Image: " + env.PMM2_SERVER_EL7_OVA_S3
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, EL9 Image: " + env.PMM2_SERVER_OVA_S3 + " EL7 Image: " + env.PMM2_SERVER_EL7_OVA_S3
                 }
             }
         }
         failure {
             echo "Pipeline failed"
             slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
-        }
-        cleanup {
-            deleteDir()
         }
     }
 }
