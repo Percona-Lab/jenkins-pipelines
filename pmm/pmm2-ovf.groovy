@@ -217,7 +217,7 @@ pipeline {
                                     \${FILE} \
                                     s3://percona-vm/\${NAME}
 
-                                ## echo /\${NAME} > PMM2-Server-dev-latest.el7.ova
+                                echo /\${NAME} > PMM2-Server-dev-latest.el7.ova
                                 aws s3 cp \
                                     --only-show-errors \
                                     --website-redirect /\${NAME} \
@@ -243,8 +243,8 @@ pipeline {
                                     ${FILE} \
                                     s3://percona-vm/${NAME}
 
-                                ## # This will redirect to the image above
-                                ## echo /${NAME} > PMM2-Server-dev-latest.ova
+                                # This will redirect to the image above
+                                echo /${NAME} > PMM2-Server-dev-latest.ova
                                 aws s3 cp \
                                     --only-show-errors \
                                     --website-redirect /${NAME} \
