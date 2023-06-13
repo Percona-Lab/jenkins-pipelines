@@ -210,7 +210,6 @@ pipeline {
                             sh """
                                 FILE=\$(ls */*/PMM2-Server-EL7*.ova)
                                 NAME=\$(basename \${FILE})
-                                SIZE=\$(du -sh */*/PMM2-Server-EL7*.ova)
                                 aws s3 cp \
                                     --only-show-errors \
                                     --acl public-read \
@@ -236,7 +235,6 @@ pipeline {
                             sh '''
                                 FILE=$(ls */*/PMM2-Server-EL9*.ova)
                                 NAME=$(basename ${FILE})
-                                SIZE=\$(du -sh */*/PMM2-Server-EL9*.ova)
                                 aws s3 cp \
                                     --only-show-errors \
                                     --acl public-read \
