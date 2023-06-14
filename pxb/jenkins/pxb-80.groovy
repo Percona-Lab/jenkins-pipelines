@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@ENG-1126', retriever: modernSCM([
+library changelog: false, identifier: 'lib@debian12', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/surbhat1595/jenkins-pipelines.git'
 ]) _
@@ -214,6 +214,19 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Bookworm(12)') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bookworm", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
