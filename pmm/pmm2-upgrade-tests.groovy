@@ -20,7 +20,7 @@ void checkClientAfterUpgrade(String PMM_SERVER_VERSION) {
         sudo yum clean all
         sudo yum makecache
         sudo yum -y install pmm2-client
-        sleep 30
+        sleep 60
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
         bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_SERVER_VERSION}
     """
