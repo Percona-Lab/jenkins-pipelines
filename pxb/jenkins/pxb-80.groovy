@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@debian12', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/surbhat1595/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
@@ -32,7 +32,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'https://github.com/surbhat1595/percona-xtrabackup.git',
+            defaultValue: 'https://github.com/percona/percona-xtrabackup.git',
             description: 'URL for PXB git repository',
             name: 'GIT_REPO')
         string(
