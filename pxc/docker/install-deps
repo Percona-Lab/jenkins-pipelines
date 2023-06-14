@@ -118,6 +118,7 @@ if [ -f /usr/bin/yum ]; then
         PKGLIST_DEVTOOLSET12+=" gcc-toolset-12-libatomic-devel"
         PKGLIST_DEVTOOLSET12+=" gcc-toolset-12-libasan-devel gcc-toolset-12-libubsan-devel"
         PKGLIST_DEVTOOLSET12+=" valgrind valgrind-devel"
+        PKGLIST_DEVTOOLSET12+=" gcc-toolset-12-annobin-annocheck gcc-toolset-12-annobin-plugin-gcc"        
     fi
 
     # KH: why?
