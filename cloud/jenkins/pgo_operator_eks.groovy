@@ -458,6 +458,9 @@ pipeline {
             }
         }
         stage('E2E Basic tests') {
+            environment {
+                CLEAN_NAMESPACE = 1
+            }
             parallel {
                 stage('cluster1') {
                     agent {
