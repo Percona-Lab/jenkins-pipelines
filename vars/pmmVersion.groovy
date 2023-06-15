@@ -40,18 +40,20 @@ def call(String type='latest') {
     '2.29.0': 'ami-059b09b175765a958',
     '2.29.1': 'ami-07f8ad99be4ed007b',
     '2.30.0': 'ami-0e7021d395f91de57',
-    '2.32.0': 'ami-0bd413810ebb52d5d',
     '2.31.0': 'ami-08094ef29ebc82468',
+    '2.32.0': 'ami-0bd413810ebb52d5d',
     '2.33.0': 'ami-07e19e90c30c6989c',
     '2.34.0': 'ami-06dd2cfc9b70bb79b',
     '2.35.0': 'ami-003bff3e1c59f54b3',
     '2.36.0': 'ami-0ce04c507ec1187b1',
+    '2.37.0': 'ami-04fc023254a0a0824',
+    '2.37.1': 'ami-07858434974406b74',
   ]
 
   List<String> versionsList = new ArrayList<>(versions.keySet());
   // Grab 10 latest versions
-  List<String> ovfVersions = ['2.36.0', '2.35.0', '2.34.0', '2.33.0', '2.32.0', '2.31.0', '2.30.0', '2.29.1', '2.28.0', '2.27.0', '2.26.0', '2.25.0'];
-  List<String> dbaasVersions = ['2.36.0', '2.35.0', '2.34.0'];
+  List<String> ovfVersions = ['2.37.1', '2.37.0', '2.36.0', '2.35.0', '2.34.0', '2.33.0', '2.32.0', '2.31.0', '2.30.0', '2.29.1', '2.28.0', '2.27.0', '2.26.0', '2.25.0'];
+  List<String> dbaasVersions = ['2.37.1', '2.37.0', '2.36.0', '2.35.0', '2.34.0'];
 
   switch(type) {
     case 'latest':

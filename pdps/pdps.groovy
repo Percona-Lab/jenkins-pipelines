@@ -43,7 +43,7 @@ pipeline {
             name: 'PXB_VERSION'
         )
         string(
-            defaultValue: '3.5.2',
+            defaultValue: '3.5.3',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
         )
@@ -51,6 +51,11 @@ pipeline {
             defaultValue: '3.2.6-9',
             description: 'Percona Orchestrator version for test',
             name: 'ORCHESTRATOR_VERSION'
+        )
+        string(
+            defaultValue: '',
+            description: 'Orchestrator revision for version from https://github.com/percona/orchestrator . Empty by default (not checked).',
+            name: 'ORCHESTRATOR_REVISION'
         )
         choice(
             name: 'SCENARIO',

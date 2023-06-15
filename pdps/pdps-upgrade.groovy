@@ -61,7 +61,7 @@ pipeline {
             name: 'PXB_VERSION'
         )
         string(
-            defaultValue: '3.5.2',
+            defaultValue: '3.5.3',
             description: 'Updated Percona Toolkit version',
             name: 'PT_VERSION'
         )
@@ -69,6 +69,11 @@ pipeline {
             defaultValue: '3.2.6-9',
             description: 'Updated Percona Orchestrator version',
             name: 'ORCHESTRATOR_VERSION'
+        )
+        string(
+            defaultValue: '',
+            description: 'Orchestrator revision for version from https://github.com/percona/orchestrator . Empty by default (not checked).',
+            name: 'ORCHESTRATOR_REVISION'
         )
         choice(
             name: 'DESTROY_ENV',

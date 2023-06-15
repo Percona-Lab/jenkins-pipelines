@@ -12,6 +12,7 @@
 #      MTR_STANDALONE_TESTS_PARALLEL
 #      DOCKER_OS
 #      ANALYZER_OPTS = (-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_MSAN=ON -DWITH_UBSAN=ON -DWITH_VALGRIND=ON)
+#      CI_FS_MTR
 
 set -o errexit
 set -o xtrace
@@ -303,14 +304,21 @@ if [[ "${CI_FS_MTR}" = 'yes' ]]; then
         MTR_ARGS+=" --big-test"
     fi
 
-    CI_TESTS=""
-    for CI_TESTS_TMP in $(grep --exclude="*.inc" --exclude="*.log" -rl . -e include/have_case_insensitive_file_system.inc | awk -F '/' '{print $NF}' | sed 's/.test//g'); do
-        CI_TESTS+=" $CI_TESTS_TMP"
-    done
+    # Collect all CI_FS tests
+    CI_TESTS=$(grep --exclude="*.inc" --exclude="*.log" -rl . -e include/have_case_insensitive_file_system.inc | awk -F '/' '{print $(NF-2)"."$NF}' | sed 's/\.test//g' | sed 's/^\./main/g')
     # Requested in PS-7602
-    if [[ ${CMAKE_BUILD_TYPE} = 'Debug' ]]; then
-        CI_TESTS+=" information_schema.i_s_schema_definition_debug"
-    fi
+    CI_TESTS+=" information_schema.i_s_schema_definition_debug"
+
+    # Filter out disabled tests
+    # Skip lines starting with #
+    # Grab until whitespace or :
+    DISABLED_TESTS=$(grep -P -o collections/disabled.def -e'^\s*[^#][^:\s]*')
+
+    set +x
+    for CURRENT_TEST in $DISABLED_TESTS; do
+        CI_TESTS=${CI_TESTS//"$CURRENT_TEST"/""}
+    done
+    set -x
 
     MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
         --result-file \

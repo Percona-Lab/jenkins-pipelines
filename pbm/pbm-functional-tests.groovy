@@ -13,7 +13,9 @@ pipeline {
     parameters {
         string(name: 'PBM_BRANCH', defaultValue: 'main', description: 'PBM branch')
         string(name: 'PSMDB', defaultValue: 'percona/percona-server-mongodb', description: 'PSMDB docker image')
-        string(name: 'GO_VER', defaultValue: 'latest', description: 'GOLANG docker image for building PBM from sources')
+        string(name: 'GO_VER', defaultValue: 'bullseye', description: 'GOLANG docker image for building PBM from sources')
+        choice(name: 'JIRA_REPORT', choices: ['no','yes'], description: 'Send report to jira')
+        string(name: 'TEST_CYCLE_NAME', defaultValue: 'test', description: 'Jira test cycle name')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
     }
     stages {
@@ -32,31 +34,41 @@ pipeline {
                 axes {
                     axis {
                         name 'TEST'
-                        values 'logical', 'physical', 'incremental'
+                        values 'logical', 'physical', 'incremental', 'external'
                     }
                 }
                 stages {
                     stage ('Run tests') {
                         steps {
-                            sh """
-                                docker kill \$(docker ps -a -q) || true
-                                docker rm \$(docker ps -a -q) || true
-                                docker rmi -f \$(docker images -q | uniq) || true
-                                sudo rm -rf ./*
-                                if [ ! -f "/usr/local/bin/docker-compose" ] ; then
-                                    sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
-                                    sudo chmod +x /usr/local/bin/docker-compose
-                                fi
-                            """ 
-                            git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
-                            sh """
-                                cd pbm-functional/pytest
-                                docker-compose build
-                                docker-compose up -d
-                                docker-compose run test pytest -s --junitxml=junit.xml -k ${TEST} || true
-                                docker-compose down -v --remove-orphans
-                            """
-                        }
+                            withCredentials([usernamePassword(credentialsId: 'JIRA_CREDENTIALS', passwordVariable: 'JIRA_PASSWORD', usernameVariable: 'JIRA_USERNAME')]) {
+                                sh """
+                                    docker kill \$(docker ps -a -q) || true
+                                    docker rm \$(docker ps -a -q) || true
+                                    docker rmi -f \$(docker images -q | uniq) || true
+                                    sudo rm -rf ./*
+                                    if [ ! -f "/usr/local/bin/docker-compose" ] ; then
+                                        sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+                                        sudo chmod +x /usr/local/bin/docker-compose
+                                    fi
+                                """ 
+                                git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
+                                sh """
+                                    cd pbm-functional/pytest
+                                    docker-compose build
+                                    docker-compose up -d
+                                    if [ ${params.JIRA_REPORT} = "yes" ]; then
+                                        export JIRA_SERVER=https://jira.percona.com 
+                                        export JIRA_USERNAME=${JIRA_USERNAME} 
+                                        export JIRA_PASSWORD=${JIRA_PASSWORD}
+                                        echo "test_cycle_name=${params.TEST_CYCLE_NAME}" >> pytest.ini
+                                        docker-compose run test pytest --adaptavist -s --junitxml=junit.xml -k ${TEST} || true
+                                    else 
+                                        docker-compose run test pytest -s --junitxml=junit.xml -k ${TEST} || true
+                                    fi
+                                    docker-compose down -v --remove-orphans
+                                """
+                                }
+                             }
                         post {
                             always {
                                 junit testResults: "**/junit.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
@@ -75,7 +87,7 @@ pipeline {
     }
     post {
         success {
-           slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: PBM ${PBM_BRANCH} with ${PSMDB}- all tests passed")
+           slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: PBM ${PBM_BRANCH} with ${PSMDB} - all tests passed")
         }
         unstable {
             slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: PBM ${PBM_BRANCH} with ${PSMDB} - some tests failed [${BUILD_URL}testReport/]")

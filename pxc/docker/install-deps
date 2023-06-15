@@ -18,10 +18,8 @@ wget_loop() {
 if [ -f /usr/bin/yum ]; then
   RHVER="$(rpm --eval %rhel)"
   rpm --eval %_arch > /etc/yum/vars/basearch
-
-  #if [[ ${RHVER} -eq 9 ]]; then
-  #    yum install -y https://yum.oracle.com/repo/OracleLinux/OL9/distro/builder/x86_64/getPackage/procps-ng-devel-3.3.17-8.el9.x86_64.rpm
-  #fi
+  
+  yum list installed
 
   if [[ ${RHVER} -eq 8 ]]; then
       sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-*
@@ -30,11 +28,6 @@ if [ -f /usr/bin/yum ]; then
       # repo for procps-ng-devel
       yum install -y https://pkgs.dyn.su/el8/base/x86_64/raven-release-1.0-2.el8.noarch.rpm
       PKGLIST+=" procps-ng-devel"
-  fi
-
-  if [[ ${RHVER} -eq 6 ]]; then
-    curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
-    PKGLIST+=" procps-devel"
   fi
 
   yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
@@ -52,10 +45,6 @@ if [ -f /usr/bin/yum ]; then
     echo "waiting"
     sleep 1
   done
-  if [[ ${RHVER} -eq 6 ]]; then
-    rm /etc/yum.repos.d/epel-testing.repo
-    curl https://jenkins.percona.com/downloads/cent6/centos6-epel-eol.repo --output /etc/yum.repos.d/epel.repo
-  fi
 
   if [[ ${RHVER} -eq 8 ]]; then
       PKGLIST+=" dnf-utils"
@@ -85,10 +74,6 @@ if [ -f /usr/bin/yum ]; then
         echo "waiting"
         sleep 1
       done
-      if [[ ${RHVER} -eq 6 ]]; then
-        curl https://jenkins.percona.com/downloads/cent6/centos6-scl-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl.repo
-        curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
-      fi
   fi
   until yum -y install ${PKGLIST}; do
     echo "waiting"
@@ -116,15 +101,31 @@ if [ -f /usr/bin/yum ]; then
     perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat qpress stunnel \
     "
 
-    if [[ ${RHVER} -eq 8 ]]; then
+    if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 9 ]]; then
         PKGLIST+=" lz4 perl-Memoize perl-open valgrind-devel libubsan rpcgen libtirpc-devel boost-devel"
-        DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-gcc-c++ gcc-toolset-10-binutils"
-        DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-valgrind gcc-toolset-10-valgrind-devel gcc-toolset-10-libatomic-devel"
-        DEVTOOLSET10_PKGLIST+=" gcc-toolset-10-libasan-devel gcc-toolset-10-libubsan-devel"
-    else
-        PKGLIST+=" asio-devel"
+        
+        PKGLIST_DEVTOOLSET10+=" gcc-toolset-10-gcc-c++ gcc-toolset-10-binutils"
+        PKGLIST_DEVTOOLSET10+=" gcc-toolset-10-valgrind gcc-toolset-10-valgrind-devel gcc-toolset-10-libatomic-devel"
+        PKGLIST_DEVTOOLSET10+=" gcc-toolset-10-libasan-devel gcc-toolset-10-libubsan-devel"
+
+        # Starting from 8.0.29 toolset-11 is the default
+        PKGLIST_DEVTOOLSET11+=" gcc-toolset-11-gcc-c++ gcc-toolset-11-binutils gcc-toolset-11-annobin"
+        PKGLIST_DEVTOOLSET11+=" gcc-toolset-11-valgrind gcc-toolset-11-valgrind-devel gcc-toolset-11-libatomic-devel"
+        PKGLIST_DEVTOOLSET11+=" gcc-toolset-11-libasan-devel gcc-toolset-11-libubsan-devel"
+  
+        # Starting from 8.0.33 toolset-12 is the default
+        PKGLIST_DEVTOOLSET12+=" gcc-toolset-12-gcc-c++ gcc-toolset-12-binutils"
+        PKGLIST_DEVTOOLSET12+=" gcc-toolset-12-libatomic-devel"
+        PKGLIST_DEVTOOLSET12+=" gcc-toolset-12-libasan-devel gcc-toolset-12-libubsan-devel"
+        PKGLIST_DEVTOOLSET12+=" valgrind valgrind-devel"
+        PKGLIST_DEVTOOLSET12+=" gcc-toolset-12-annobin-annocheck gcc-toolset-12-annobin-plugin-gcc"        
     fi
 
+    # KH: why?
+    if [[ ${RHVER} -ne 8 ]]; then
+        PKGLIST+=" asio-devel"
+    fi
+    
     if [[ ${RHVER} -eq 9 ]]; then
         PKGLIST+=" gflags-devel util-linux libtirpc-devel rpcgen boost-devel libxcrypt-compat ncurses-compat-libs"
     fi
@@ -134,25 +135,25 @@ if [ -f /usr/bin/yum ]; then
     fi
 
 # Percona-Server
-    if [[ ${RHVER} -eq 6 ]]; then
-        wget -O /etc/yum.repos.d/slc6-devtoolset.repo http://linuxsoft.cern.ch/cern/devtoolset/slc6-devtoolset.repo
-        wget -O /etc/pki/rpm-gpg/RPM-GPG-KEY-cern https://raw.githubusercontent.com/cms-sw/cms-docker/master/slc6/RPM-GPG-KEY-cern
-        wget -O /etc/yum.repos.d/percona-dev.repo http://jenkins.percona.com/yum-repo/percona-dev.repo
-        PKGLIST+=" devtoolset-2-gcc-c++ devtoolset-2-binutils"
-        PKGLIST+=" devtoolset-2-libasan-devel"
-        PKGLIST+=" devtoolset-2-valgrind devtoolset-2-valgrind-devel"
-        PKGLIST+=" libevent2-devel python34 python34-pip"
-        PKGLIST+=" perautomake g++ gcc percona-devtoolset-gcc percona-devtoolset-binutils percona-devtoolset-gcc-c++"
-        PKGLIST+=" rh-python36-python-pip rh-python36-docutils rh-python36-python-setuptools"
-    fi
-
     if [[ ${RHVER} -gt 6 ]]; then
         PKGLIST+=" libevent-devel"
     fi
 
 #   Percona-Server 8.0
+    if [[ ${RHVER} -eq 7 ]]; then
+        PKGLIST+=" cmake3 perl-Digest-Perl-MD5 libedit-devel"
+        PKGLIST_DEVTOOLSET10+=" devtoolset-10-gcc-c++ devtoolset-10-binutils"
+        PKGLIST_DEVTOOLSET10+=" devtoolset-10-valgrind devtoolset-10-valgrind-devel devtoolset-10-libatomic-devel"
+        PKGLIST_DEVTOOLSET10+=" devtoolset-10-libasan-devel devtoolset-10-libubsan-devel"
+
+        # Next packages are required by 8.0.29
+        PKGLIST_DEVTOOLSET11+=" devtoolset-11-gcc-c++ devtoolset-11-binutils"
+        PKGLIST_DEVTOOLSET11+=" devtoolset-11-valgrind devtoolset-11-valgrind-devel devtoolset-11-libatomic-devel"
+        PKGLIST_DEVTOOLSET11+=" devtoolset-11-libasan-devel devtoolset-11-libubsan-devel"
+    fi
+
     if [[ ${RHVER} -lt 8 ]]; then
-        PKGLIST+=" devtoolset-7-gcc-c++ devtoolset-7-binutils cmake3"
+        PKGLIST+=" devtoolset-7-gcc-c++ devtoolset-7-binutils cmake3 "
         PKGLIST+=" devtoolset-7-libasan-devel devtoolset-7-libubsan-devel"
         PKGLIST+=" devtoolset-7-valgrind devtoolset-7-valgrind-devel"
         PKGLIST+=" devtoolset-8-gcc-c++ devtoolset-8-binutils"
@@ -165,27 +166,29 @@ if [ -f /usr/bin/yum ]; then
         sleep 1
     done
 
-    if [[ ${RHVER} -eq 8 ]]; then
+    if [[ ${RHVER} -eq 9 ]]; then
+        until yum -y install ${PKGLIST_DEVTOOLSET12}; do
+            echo "waiting"
+            sleep 1
+        done           
+    elif [[ ${RHVER} -eq 8 ]]; then
         yum -y install centos-release-stream
-        until yum -y install ${DEVTOOLSET10_PKGLIST}; do
+        until yum -y install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11} ${PKGLIST_DEVTOOLSET12}; do
             echo "waiting"
             sleep 1
         done       
         yum -y remove centos-release-stream
     elif [[ ${RHVER} -eq 7 ]]; then
-        yum -y --enablerepo=centos-sclo-rh-testing install devtoolset-10-gcc-c++ devtoolset-10-binutils devtoolset-10-valgrind devtoolset-10-valgrind-devel devtoolset-10-libatomic-devel
-        yum -y --enablerepo=centos-sclo-rh-testing install devtoolset-10-libasan-devel devtoolset-10-libubsan-devel
+        until yum -y --enablerepo=centos-sclo-rh-testing install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11}; do
+            echo "waiting"
+            sleep 1
+        done
     fi
 
     if [[ ${RHVER} -eq 8 ]]; then
         yum -y install python2 libtool
         update-alternatives --set python /usr/bin/python2
     fi
-
-    if [[ ${RHVER} -eq 6 ]]; then
-        yum -y install http://repo.okay.com.mx/centos/6/x86_64/release/okay-release-1-1.noarch.rpm || true
-        yum -y upgrade automake autoconf
-	fi
 
 #   this is workaround for https://bugs.mysql.com/bug.php?id=95222 as soon as the issue is fixed we need to remove it 
     if [ -f '/anaconda-post.log' ]; then
@@ -333,13 +336,6 @@ fi
 if [ ! -f /usr/local/lib/libeatmydata.so ]; then
     git clone https://github.com/stewartsmith/libeatmydata /tmp/libeatmydata
     pushd /tmp/libeatmydata
-        # PS-7639: Needed for CentOS 6 because of ancient autoconf
-        if [ -f /usr/bin/yum ]; then
-            RHVER="$(rpm --eval %rhel)"
-            if [[ ${RHVER} -eq 6 ]]; then
-                git checkout df7ddeb0345104f25b5b7bb154bc6a008c8c8404
-            fi
-        fi
         autoreconf --force --install
         ./configure
         make
@@ -350,24 +346,14 @@ fi
 
 if [ -f /usr/bin/yum ]; then
     RHVER="$(rpm --eval %rhel)"
-    if [[ ${RHVER} -eq 6 ]]; then
-        source /opt/rh/rh-python36/enable
-        pip install --upgrade sphinx==1.4
-        pip install --upgrade docutils==0.16
-        ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-build /usr/local/bin/sphinx-build
-        ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-autogen /usr/local/bin/sphinx-autogen
-        ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-quickstart /usr/local/bin/sphinx-quickstart
-        ln -s /opt/rh/rh-python36/root/usr/bin/sphinx-apidoc /usr/local/bin/sphinx-apidoc
+    if [[ ${RHVER} -eq 9 ]]; then
+        pip3 install --upgrade sphinx==5.3.0
     else
-        if [[ ${RHVER} -eq 9 ]]; then
-            pip3 install --upgrade sphinx==5.3.0
+        pip3 install --upgrade sphinx==1.6.7
+        if [[ ${RHVER} -eq 7 ]]; then
+            pip3 install --upgrade docutils==0.16
         else
-            pip3 install --upgrade sphinx==1.6.7
-            if [[ ${RHVER} -eq 7 ]]; then
-                pip3 install --upgrade docutils==0.16
-            else
-                pip3 install --upgrade docutils==0.17
-            fi
+            pip3 install --upgrade docutils==0.17
         fi
     fi
 fi

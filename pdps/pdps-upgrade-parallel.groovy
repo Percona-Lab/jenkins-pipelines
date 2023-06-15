@@ -48,22 +48,27 @@ pipeline {
             defaultValue: '2.5.1',
             description: 'Updated Proxysql version',
             name: 'PROXYSQL_VERSION'
-         )
+        )
         string(
             defaultValue: '8.0.33-27',
             description: 'Updated PXB version. Possible values are with and without percona release and build: 8.0.32, 8.0.32-25 OR 8.0.32-25.1',
             name: 'PXB_VERSION'
-         )
+        )
         string(
-            defaultValue: '3.5.2',
+            defaultValue: '3.5.3',
             description: 'Updated Percona Toolkit version',
             name: 'PT_VERSION'
-         )
+        )
         string(
             defaultValue: '3.2.6-9',
             description: 'Updated Percona Orchestrator version',
             name: 'ORCHESTRATOR_VERSION'
-         )
+        )
+        string(
+            defaultValue: '',
+            description: 'Orchestrator revision for version from https://github.com/percona/orchestrator . Empty by default (not checked).',
+            name: 'ORCHESTRATOR_REVISION'
+        )
   }
   options {
           withCredentials(moleculePdpsJenkinsCreds())
