@@ -12,7 +12,7 @@ pipeline {
     }
     parameters {
         string(name: 'PBM_BRANCH', defaultValue: 'main', description: 'PBM branch or commit')
-        string(name: 'GO_VER', defaultValue: 'latest', description: 'GOLANG docker image for building PBM from sources')
+        string(name: 'GO_VER', defaultValue: 'bullseye', description: 'GOLANG docker image for building PBM from sources')
         choice(name: 'JIRA_REPORT', choices: ['no','yes'], description: 'Send report to jira')
         string(name: 'TEST_CYCLE_NAME', defaultValue: 'test', description: 'Jira test cycle name')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
