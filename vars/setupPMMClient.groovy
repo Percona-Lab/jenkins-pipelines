@@ -29,14 +29,14 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
 
             if [[ \$CLIENT_VERSION = dev-latest ]]; then
                 sudo percona-release enable-only original experimental
-                sudo yum -y update
+                sudo yum -y update --skip-broken
                 sudo yum -y install pmm2-client
             elif [[ \$CLIENT_VERSION = pmm2-rc ]]; then
                 sudo percona-release enable-only original testing
-                sudo yum -y update
+                sudo yum -y update --skip-broken
                 sudo yum -y install pmm2-client
             elif [[ \$CLIENT_VERSION = pmm2-latest ]]; then
-                sudo yum -y update
+                sudo yum -y update --skip-broken
                 sudo yum -y install pmm2-client
                 sudo percona-release enable-only original experimental
             elif [[ \$CLIENT_VERSION = 2* ]]; then
@@ -54,7 +54,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then
                 sudo percona-release enable-only original testing
                 sudo yum -y install pmm-client
-                sudo yum -y update
+                sudo yum -y update --skip-broken
             else
                 if [[ \$PMM_VERSION == pmm1 ]]; then
                         if [[ \$CLIENT_VERSION == http* ]]; then
