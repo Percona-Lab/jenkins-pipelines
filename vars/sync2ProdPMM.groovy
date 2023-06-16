@@ -1,4 +1,4 @@
-def call(String DESTINATION, String SYNC_PMM_CLIENT) {
+def call(String DESTINATION, String SYNC_PMM_CLIENT, String OS_VERSION) {
     node('master') {
         unstash 'uploadPath'
         def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
@@ -15,8 +15,8 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                             find_exclude="! -name pmm2-client-*"
 
                             for rhel in \$(ls -1 redhat); do
-                                # skip synchronization of el8/el6 repos in case of pmm server rpms sync
-                                if [ "${SYNC_PMM_CLIENT}" == 'no' ] && [ "\${rhel}" -eq '8' -o "\${rhel}" -eq '6' ]; then
+                                # skip synchronization of el8/el6/{el7|el9} repos based on OS_VERSION in case of pmm server rpms sync
+                                if [ "${SYNC_PMM_CLIENT}" == 'no' ] && [ "${OS_VERSION}" != "\${rhel}" ]; then
                                     continue
                                 fi
 
