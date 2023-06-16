@@ -162,7 +162,7 @@ pipeline {
         }
         stage('Push to public repository') {
             steps {
-                sync2ProdPMM("pmm2-components/yum/${DESTINATION}", 'no')
+                sync2ProdPMM("pmm2-components/yum/${DESTINATION}", 'no', '9')
             }
         }
     }
