@@ -300,7 +300,7 @@ pipeline {
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Buster (10) tarball') {
+                stage('Debian Buster (10) tarball') {
                     agent {
                         label 'docker-32gb'
                     }
@@ -313,7 +313,7 @@ pipeline {
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Debian Bullseye (11)') {
+                stage('Debian Bullseye (11) tarball') {
                     agent {
                         label 'docker-32gb'
                     }
