@@ -11,5 +11,5 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ppg/postgresql-server.groovy
+      script-path: ppg/postgresql_server.groovy
 
