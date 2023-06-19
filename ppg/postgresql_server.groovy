@@ -15,7 +15,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./ppg-server_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./ppg-server_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${PPG_REPO} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./ppg-server_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${PPG_REPO} --branch=${PG_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -38,6 +38,10 @@ pipeline {
             name: 'GIT_REPO')
         string(
             defaultValue: 'REL_15_RELEASE',
+            description: 'Tag/Branch for postgresql',
+            name: 'PG_BRANCH')
+        string(
+            defaultValue: '15.3',
             description: 'Tag/Branch for ppg-server repository',
             name: 'GIT_BRANCH')
         string(
