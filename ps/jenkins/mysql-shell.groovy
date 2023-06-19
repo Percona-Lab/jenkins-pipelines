@@ -121,7 +121,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:bionic", "--build_src_deb=1")
+                        buildStage("ubuntu:bionic", "--build_source_deb=1")
 
                         pushArtifactFolder("source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
