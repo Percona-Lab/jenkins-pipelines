@@ -21,7 +21,7 @@
         description: URL to ProxySQL repository
     - string:
         name: BRANCH
-        default: "v2.5.1"
+        default: "v2.5.2"
         description: Tag/Branch for ProxySQL repository
     - string:
         name: PROXYSQL_PACKAGE_REPO
@@ -49,7 +49,7 @@
         description: Tag/Branch for PXC repository
     - string:
         name: PAT_TAG
-        default: v2.5.1-dev
+        default: v2.5.2-dev
         description: Tag/Branch for ProxySQL-admin-tool repository
     - choice:
         name: PXC_VERSION
