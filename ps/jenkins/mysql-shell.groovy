@@ -63,10 +63,6 @@ pipeline {
             defaultValue: '1',
             description: 'DEB release value',
             name: 'DEB_RELEASE')
-        string(
-            defaultValue: 'mysql-shell',
-            description: 'MYSQL-SHELL repo name',
-            name: 'MYSQL_SHELL_DEST_REPO')
         choice(
             choices: 'testing\nlaboratory\nexperimental',
             description: 'Repo component to push packages to',
@@ -338,7 +334,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(MYSQL_SHELL_DEST_REPO, COMPONENT)
+                sync2ProdAutoBuild('mysql-shell', COMPONENT)
             }
         }
 
