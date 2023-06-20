@@ -68,7 +68,7 @@ pipeline {
             description: 'MYSQL-SHELL repo name',
             name: 'MYSQL-SHELL_DEST_REPO')
         choice(
-            choices: 'laboratory\ntesting\nexperimental',
+            choices: 'testing\nlaboratory\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
     }
@@ -347,7 +347,7 @@ pipeline {
         success {
             // slackNotify("", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH}"
+                currentBuild.description = "Built on ${GIT_BRANCH}, path to packages: experimental/${AWS_STASH_PATH}"
             }
             deleteDir()
         }
