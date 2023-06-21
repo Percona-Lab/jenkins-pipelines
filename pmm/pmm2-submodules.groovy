@@ -34,7 +34,7 @@ pipeline {
         choice(
             choices: ['el9', 'el7'],
             description: 'Select the OS to build for',
-            defaultValue: 'el9'
+            defaultValue: 'el9',
             name: 'BUILD_OS')
     }
     environment {
