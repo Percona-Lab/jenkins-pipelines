@@ -32,9 +32,9 @@ pipeline {
     }
     parameters {
         choice(
+            // default is choices.get(0) - el9
             choices: ['el9', 'el7'],
             description: 'Select the OS to build for',
-            defaultValue: 'el9',
             name: 'BUILD_OS')
     }
     environment {
