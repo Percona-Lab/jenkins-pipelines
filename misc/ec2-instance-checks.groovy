@@ -45,15 +45,8 @@ pipeline {
                         env.ov = sh(script: "cat ${WORKSPACE}/overview.txt",returnStdout: true).trim()
                     
                     }
-
-                        echo "Print the OUTPUT"
-                        echo "${env.OP}"
-
-                        echo "Print the overview"
-                        echo "${env.ov}"
-
-                        
-
+                           echo -e "Print the OUTPUT\n ${env.OP}"
+                           echo -e "Print the overview\n ${env.ov}"       
              }
 
             }
