@@ -369,7 +369,7 @@ pipeline {
         success {
             // slackNotify("", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH}, path to packages: experimental/${AWS_STASH_PATH}"
+                currentBuild.description = "Built on ${SHELL_REPO}, path to packages: experimental/${AWS_STASH_PATH}"
             }
             deleteDir()
         }
