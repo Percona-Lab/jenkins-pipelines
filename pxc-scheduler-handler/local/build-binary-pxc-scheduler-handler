@@ -1,0 +1,39 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+
+# ------------------------------------------------------------------------------
+# Declare all input variables
+# ------------------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------------------
+# set working dir
+# ------------------------------------------------------------------------------
+#mkdir -p ${1:-./build}
+WORKDIR=$(cd ${1:-./build}; pwd -P)
+INSTALL_DIR=${WORKDIR}/DESTDIR
+SOURCEDIR=$(cd ${2:-$(dirname $0)/../sources/pxc_scheduler_handler}; pwd -P)
+
+pushd /tmp
+    #sudo wget -q https://golang.org/dl/go1.15.8.linux-amd64.tar.gz
+    #sudo tar -C /usr/local -xzf go1.15.8.linux-amd64.tar.gz
+    #export PATH=$PATH:/usr/local/go/bin
+    #sudo /usr/local/go/bin/go version
+    #sudo rm go1.15.8.linux-amd64.tar.gz
+    apt update
+    apt install -y golang
+popd
+#export GOPATH=${WORKDIR}
+#echo "GOPATH: $GOPATH"
+pushd ${WORKDIR}
+    go build
+
+    # run unit tests
+    go test -v ./...
+
+    ls -la
+    tar --owner=0 --group=0 -czf pxc_scheduler_handler.tar.gz ./pxc_scheduler_handler ./mtr
+popd
