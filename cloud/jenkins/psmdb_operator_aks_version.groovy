@@ -235,7 +235,8 @@ pipeline {
                     
                     if ! command -v az &>/dev/null; then
                         curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
-                        printf "/usr/azure-cli\\n/usr/bin" | sudo  python3 install.py
+                        printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+                        sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0"
                     fi
                 '''
             }
