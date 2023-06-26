@@ -84,13 +84,10 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
 
 void setInventories(String param_test_type){
 
-                    def KEYPATH_BOOTSTRAP
                     def KEYPATH_COMMON
                     def SSH_USER
 
-                    KEYPATH_COMMON="/home/centos/.cache/molecule/pxc-80-setup-pkgs/${params.node_to_test}/ssh_key-us-west-2"
-                    
-
+                    KEYPATH_COMMON="/home/centos/.cache/molecule/pxc-80-setup-pkgs/${params.node_to_test}/ssh_key-us-west-1"
                     
                     if(("${params.node_to_test}" == "ubuntu-focal")  ||  ("${params.node_to_test}" == "ubuntu-bionic") || ("${params.node_to_test}" == "ubuntu-jammy")){
                         SSH_USER="ubuntu"            
@@ -104,9 +101,7 @@ void setInventories(String param_test_type){
                         echo "OS Not yet in list of Keypath setup"
                     }
 
-
                     echo "${SSH_USER}"
-                    echo "${KEYPATH_BOOTSTRAP}"
                     echo "${KEYPATH_COMMON}"
 
                     def INSTALL_Common_Instance_PXC1 = sh(
