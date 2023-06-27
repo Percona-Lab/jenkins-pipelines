@@ -12,6 +12,7 @@ pipeline {
     }
     parameters {
         choice(name: 'image', choices: ['build','tarball','predefined'], description: 'Build image from sources, build image from tarball, or use predefined docker image for tests')
+        string(name: 'dockerfile', defaultValue: 'https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/regression-tests/build_image/Dockerfile', description: 'Dockerfile for image')
         string(name: 'branch', defaultValue: 'v6.0', description: 'Repo branch for build image from sources')
         string(name: 'version', defaultValue: '6.0.3', description: 'Version for build tag (psm_ver) to build image from sources')
         string(name: 'release', defaultValue: '3', description: 'Release for build tag (psm_release) to build image from sources')
@@ -60,7 +61,7 @@ pipeline {
                          unzip -o awscliv2.zip
                          sudo ./aws/install || true
                          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
-                         curl -o Dockerfile https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/regression-tests/build_image/Dockerfile
+                         curl -o Dockerfile ${params.dockerfile}
                          VER=\$(echo ${params.version} | cut -d"." -f1)
                          if [ \$VER -ge 6 ]; then
                              docker build . -t public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} \
