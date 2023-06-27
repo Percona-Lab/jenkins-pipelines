@@ -192,7 +192,7 @@ pipeline {
 
                             [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
 
-                            if grep -q "AlmaLinux" /etc/os-release; then
+                            if grep -q Oracle /etc/os-release; then
                                 sudo dnf remove -y podman buildah
                                 sudo dnf -y install 'dnf-command(config-manager)'
                                 sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
