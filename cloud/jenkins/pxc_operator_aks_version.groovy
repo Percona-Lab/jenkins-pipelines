@@ -283,6 +283,7 @@ pipeline {
         label 'docker'
     }
     options {
+        buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
@@ -334,7 +335,8 @@ EOF
                     
                     if ! command -v az &>/dev/null; then
                         curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
-                        printf "/usr/azure-cli\\n/usr/bin" | sudo  python3 install.py
+                        printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+                        sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0"
                     fi
                 """
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {

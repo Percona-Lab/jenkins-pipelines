@@ -1,0 +1,24 @@
+- job:
+    name: ec2-instance-checks
+    project-type: pipeline
+    description: |
+        Work in progress, please ignore
+        Do not edit this job through the web!
+    concurrent: true
+    properties:
+        - build-discarder:
+            artifact-days-to-keep: -1
+            artifact-num-to-keep: 40
+            days-to-keep: -1
+            num-to-keep: 40
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                branches:
+                    - 'master'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: misc/ec2-instance-checks.groovy
+    triggers:
+      - timed: "0 0 * * *"

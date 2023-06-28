@@ -8,7 +8,7 @@ pipeline {
             name: 'GIT_REPO',
             trim: true)
         string(
-            defaultValue: 'v2.5.1',
+            defaultValue: 'v2.5.2',
             description: 'Tag/Branch for ProxySQL repository',
             name: 'BRANCH',
             trim: true)
@@ -23,7 +23,7 @@ pipeline {
             name: 'PROXYSQL_PACKAGE_BRANCH',
             trim: true)
         string(
-            defaultValue: 'v2.5.1-dev',
+            defaultValue: 'v2.5.2-dev',
             description: 'Tag/Branch for ProxySQL-admin-tool repository',
             name: 'PAT_TAG',
             trim: true)

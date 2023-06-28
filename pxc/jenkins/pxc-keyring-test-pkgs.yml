@@ -1,9 +1,8 @@
 - job:
-    name: pxc-package-testing
+    name: pxc-keyring-test-pkgs
     project-type: pipeline
     description: |
-        Work in progress, please ignore
-        Do not edit this job through the web!
+        PXC Keyring test via packages (Uses Molecule and Bash)
     concurrent: true
     properties:
         - build-discarder:
@@ -19,20 +18,19 @@
                     - 'master'
                 wipe-workspace: true
         lightweight-checkout: true
-        script-path: pxc/jenkins/pxc-package-testing.groovy
+        script-path: pxc/jenkins/pxc-keyring-test-pkgs.groovy
     parameters:
         - choice:
             name: product_to_test
             choices:
                 - 'pxc80'
-                - 'pxc57'
             description: "PXC version to test"
         - choice:
             name: node_to_test
             choices:
-                - 'ubuntu-jammy'
                 - 'ubuntu-focal'
                 - 'ubuntu-bionic'
+                - 'ubuntu-jammy'
                 - 'debian-11'
                 - 'debian-10'
                 - 'centos-7'
@@ -41,22 +39,13 @@
                 - 'min-amazon-2'
             description: "Distribution to run test"
         - choice:
-            name: test_repo
-            choices:
-                - "testing"
-                - "main"
-                - "experimental"
-            description: "Repo to install packages from"
-        - choice:
             name: test_type
             choices:
-                - "install_and_upgrade"
-                - "install"
-                - "upgrade"
-            description: "Set test type for testing"     
+                - 'install'
+            description: "Test type to run test"
         - choice:
-            name: pxc57_repo
+            name: test_repo
             choices:
-                - "original"
-                - "pxc57"
-            description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."
+                - 'main'
+                - 'testing'
+            description: "Test repo to run test"

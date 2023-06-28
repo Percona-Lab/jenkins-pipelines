@@ -13,7 +13,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
         ),
         aws(
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            credentialsId: '5d78d9c7-2188-4b16-8e31-4d5782c6ceaa',
+            credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27',
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         )
     ]
@@ -152,8 +152,8 @@ void setInventories(String param_test_type){
                     def KEYPATH_COMMON
                     def SSH_USER
 
-                    KEYPATH_BOOTSTRAP="/home/centos/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${params.node_to_test}/ssh_key-us-west-2"
-                    KEYPATH_COMMON="/home/centos/.cache/molecule/${product_to_test}-common-${param_test_type}/${params.node_to_test}/ssh_key-us-west-2"
+                    KEYPATH_BOOTSTRAP="/home/centos/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
+                    KEYPATH_COMMON="/home/centos/.cache/molecule/${product_to_test}-common-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
 
 
                     if(("${params.node_to_test}" == "ubuntu-focal")  ||  ("${params.node_to_test}" == "ubuntu-bionic") || ("${params.node_to_test}" == "ubuntu-jammy")){
@@ -274,7 +274,7 @@ void runlogsbackup(String product_to_test, String param_test_type) {
         ),
         aws(
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            credentialsId: '5d78d9c7-2188-4b16-8e31-4d5782c6ceaa',
+            credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27',
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         )
     ]

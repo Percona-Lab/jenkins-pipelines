@@ -43,39 +43,47 @@ pipeline {
             description: 'PPG Major Version to test',
             name: 'MAJOR_VERSION')
         string(
-            defaultValue: '1.0.1',
+            defaultValue: '2.0.1',
             description: 'PGSM version',
             name: 'PGSM_VERSION')
         string(
-            defaultValue: '1.6.1',
+            defaultValue: '4.4.3',
+            description: 'pgpool version',
+            name: 'PGPOOL_VERSION')
+        string(
+            defaultValue: '3.3.3',
+            description: 'postgis version',
+            name: 'POSTGIS_VERSION')
+        string(
+            defaultValue: '1.7.0',
             description: ' version',
             name: 'PGAUDIT_VERSION')
         string(
-            defaultValue: 'ver_1.4.7',
+            defaultValue: 'ver_1.4.8',
             description: 'PG_REPACK version',
             name: 'PG_REPACK_VERSION')
         string(
-            defaultValue: 'v2.1.2',
+            defaultValue: 'v3.0.2',
             description: 'Patroni version',
             name: 'PATRONI_VERSION')
         string(
-            defaultValue: 'release/2.37',
+            defaultValue: 'release/2.44',
             description: 'pgbackrest version',
             name: 'PGBACKREST_VERSION')
         string(
-            defaultValue: 'REL3_0_0',
+            defaultValue: 'REL4_0_1',
             description: 'pgaudit13_set_user version',
             name: 'SETUSER_VERSION')
         string(
-            defaultValue: 'v11.7',
+            defaultValue: 'v12.1',
             description: 'pgbadger version',
             name: 'PGBADGER_VERSION')
         string(
-            defaultValue: 'pgbouncer_1_16_1',
+            defaultValue: 'pgbouncer_1_19_1',
             description: 'pgbouncer version',
             name: 'PGBOUNCER_VERSION')
         string(
-            defaultValue: 'wal2json_2_4',
+            defaultValue: 'wal2json_2_5',
             description: 'wal2json version',
             name: 'WAL2JSON_VERSION')
         string(
@@ -150,6 +158,50 @@ pipeline {
                     catch (err) {
                         currentBuild.result = "FAILURE"
                         echo "Stage 'Test install' failed, but we continue"
+                    }
+                }
+            }
+        }
+        stage ('Test pgpool') {
+            steps {
+                script {
+                    try {
+                        build job: 'component', parameters: [
+                        string(name: 'VERSION', value: "${env.VERSION}"),
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'PRODUCT', value: "pgpool"),
+                        string(name: 'COMPONENT_REPO', value: "https://github.com/pgpool/pgpool2.git"),
+                        string(name: 'COMPONENT_VERSION', value: "${env.PGPOOL_VERSION}"),
+                        string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
+                        string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'Test pgpool' failed, but we continue"
+                    }
+                }
+            }
+        }
+        stage ('Test postgis') {
+            steps {
+                script {
+                    try {
+                        build job: 'component', parameters: [
+                        string(name: 'VERSION', value: "${env.VERSION}"),
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'PRODUCT', value: "postgis"),
+                        string(name: 'COMPONENT_REPO', value: "https://github.com/postgis/postgis.git"),
+                        string(name: 'COMPONENT_VERSION', value: "${env.POSTGIS_VERSION}"),
+                        string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
+                        string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'Test postgis' failed, but we continue"
                     }
                 }
             }
@@ -439,24 +491,24 @@ pipeline {
         //     }
         // }
 
-        stage ('Test Percona Components with Vanila Postgresql') {
-            steps {
-                script {
-                    try {
-                        build job: 'ppg-parallel', parameters: [
-                        string(name: 'REPO', value: "${env.TO_REPO}"),
-                        string(name: 'VERSION', value: "${env.VERSION}"),
-                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-components-with-vanila"),
-                        ]
-                    }
-                    catch (err) {
-                        currentBuild.result = "FAILURE"
-                        echo "Stage 'Test Percona Components with Vanila Postgresql' failed, but we continue"
-                    }
-                }
-            }
-        }
+        // stage ('Test Percona Components with Vanila Postgresql') {
+        //     steps {
+        //         script {
+        //             try {
+        //                 build job: 'ppg-parallel', parameters: [
+        //                 string(name: 'REPO', value: "${env.TO_REPO}"),
+        //                 string(name: 'VERSION', value: "${env.VERSION}"),
+        //                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+        //                 string(name: 'SCENARIO', value: "pg-${env.MAJOR_VERSION}-components-with-vanila"),
+        //                 ]
+        //             }
+        //             catch (err) {
+        //                 currentBuild.result = "FAILURE"
+        //                 echo "Stage 'Test Percona Components with Vanila Postgresql' failed, but we continue"
+        //             }
+        //         }
+        //     }
+        // }
   }
 post {
         always {

@@ -46,7 +46,7 @@ pipeline {
             name: 'COMPONENT_VERSION'
          )
         string(
-            defaultValue: 'ppg-11.9',
+            defaultValue: 'ppg-15.3',
             description: 'PPG version for test',
             name: 'VERSION'
          )
@@ -59,6 +59,8 @@ pipeline {
                       'patroni',
                       'pgbackrest',
                       'pg_stat_monitor',
+                      'pgpool',
+                      'postgis',
                       'pgaudit13_set_user',
                       'pgbadger',
                       'pgbouncer',
