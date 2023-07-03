@@ -324,6 +324,12 @@ ENDSSH
                         cat copy.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                             "cat - | xargs -I{} cp -v /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64/{} /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/{}"
                     '''
+
+                    // Copy RHEL9 RPMs
+                    sh '''
+                        cat copy.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                            "cat - | xargs -I{} cp -v /srv/repo-copy/pmm2-components/yum/testing/9/RPMS/x86_64/{} /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/{}"
+                    '''
                 }
             }
         }
@@ -337,14 +343,22 @@ ENDSSH
                             if [ -f /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc ]; then
                                 rm -f /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc
                             fi
+
+                            createrepo --update /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/
+                            if [ -f /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/repodata/repomd.xml.asc ]; then
+                                    rm -f /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/repodata/repomd.xml.asc
+                            fi
+
                             export SIGN_PASSWORD=\${SIGN_PASSWORD}
                             gpg --detach-sign --armor --passphrase \${SIGN_PASSWORD} /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml
+                            gpg --detach-sign --armor --passphrase \${SIGN_PASSWORD} /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/repodata/repomd.xml
                         "
                     """
                     }
                 }
             }
         }
+
         // Publish RPMs to repo.percona.com
         stage('Publish RPMs') {
             steps {
