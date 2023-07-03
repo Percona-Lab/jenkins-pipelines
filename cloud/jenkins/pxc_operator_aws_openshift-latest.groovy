@@ -355,7 +355,7 @@ pipeline {
 
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                    CLUSTER_NAME = sh(script: "echo jenkins-par-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                    CLUSTER_NAME = sh(script: "echo jenkins-lat-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
                 }
                 initTests()
 
