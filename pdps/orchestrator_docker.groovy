@@ -46,28 +46,49 @@ pipeline {
   }
 
   stages {
-    stage('Run test') {
-      steps {
-          script {
-            currentBuild.displayName = "#${BUILD_NUMBER}-${DOCKER_ACC}-${ORCHESTRATOR_VERSION}"
-            currentBuild.description = "${PS_VERSION}"
+    stage("Run parallel") {
+      parallel {
+        stage ('Run trivy analyzer') {
+            steps {
+                sh """
+                    TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
+                    wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
+                    sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
+                    wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
+                    /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
+                                        --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_ACC}/percona-orchestrator:${ORCHESTRATOR_VERSION}
+                """
+            }//end steps
+            post {
+                always {
+                    junit testResults: "*-junit.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
+                }
+            }
+        }//end Run trivy analyzer stage
+        stage('Run docker tests') {
+          steps {
+              script {
+                currentBuild.displayName = "#${BUILD_NUMBER}-${DOCKER_ACC}-${ORCHESTRATOR_VERSION}"
+                currentBuild.description = "${PS_VERSION}"
+              }
+              sh '''
+                # run test
+                export PATH=${PATH}:~/.local/bin
+                sudo yum install -y python3 python3-pip
+                rm -rf package-testing
+                git clone ${TESTING_REPO} -b ${TESTING_BRANCH} --depth 1
+                cd package-testing/docker-image-tests/orchestrator
+                pip3 install --user -r requirements.txt
+                ./run.sh
+              '''
+          } //end steps
+          post {
+            always {
+              junit 'package-testing/docker-image-tests/orchestrator/report.xml'
+            }
           }
-          sh '''
-            # run test
-            export PATH=${PATH}:~/.local/bin
-            sudo yum install -y python3 python3-pip
-            rm -rf package-testing
-            git clone ${TESTING_REPO} -b ${TESTING_BRANCH} --depth 1
-            cd package-testing/docker-image-tests/orchestrator
-            pip3 install --user -r requirements.txt
-            ./run.sh
-          '''
-      } //end steps
-    } //end Run test stage
-  } //end stages
-  post {
-    always {
-      junit 'package-testing/docker-image-tests/orchestrator/report.xml'
-    }
-  }
+        } //end Run docker tests stage
+      }//end parallel
+    }//end Run parallel
+  }//end stages
 }
