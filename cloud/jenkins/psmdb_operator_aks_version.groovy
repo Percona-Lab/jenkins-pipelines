@@ -147,11 +147,7 @@ void runTest(Integer TEST_ID) {
 
             withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
                 sh """
-                    if [ $retryCount -eq 0 ]; then
-                        export DEBUG_TESTS=0
-                    else
-                        export DEBUG_TESTS=1
-                    fi
+                    export DEBUG_TESTS=1
 
                     cd ./source
                     if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then

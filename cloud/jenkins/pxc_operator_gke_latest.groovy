@@ -152,6 +152,8 @@ void runTest(Integer TEST_ID) {
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
+                    export DEBUG_TESTS=1
+
                     cd ./source
                     if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
                         export IMAGE=${PXC_OPERATOR_IMAGE}

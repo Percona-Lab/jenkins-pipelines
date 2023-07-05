@@ -95,6 +95,8 @@ void runTest(Integer TEST_ID) {
             tests[TEST_ID]["result"] = "failure"
 
             sh """
+                export DEBUG_TESTS=1
+
                 cd ./source
                 if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
                     export IMAGE=${PSMDB_OPERATOR_IMAGE}
