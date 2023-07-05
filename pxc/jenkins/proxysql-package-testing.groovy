@@ -58,6 +58,7 @@ node_setups = [
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
     "min-jammy-x64": setup_ubuntu_package_tests,
+    "min-bookworm-x64": setup_buster_bullseye_package_tests,
 ]
 
 void setup_package_tests() {
@@ -107,6 +108,7 @@ pipeline {
                 'min-jammy-x64',
                 'min-buster-x64',
                 'min-bullseye-x64'
+                'min-bookworm-x64'
             ],
             description: 'Node to run tests',
             name: 'node_to_test'
