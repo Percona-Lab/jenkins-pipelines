@@ -288,7 +288,6 @@ pipeline {
                 initTests()
 
                 sh """
-                    sudo yum install -y jq | true
                     cat <<EOF > /tmp/kubernetes.repo
 [kubernetes]
 name=Kubernetes
@@ -299,13 +298,15 @@ repo_gpgcheck=0
 gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
                     sudo mv /tmp/kubernetes.repo /etc/yum.repos.d
-                    sudo yum install -y jq python3-pip kubectl || true
+                    sudo yum install -y python3-pip kubectl || true
 
                     curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
                     sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
+                    sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+                    sudo chmod +x /usr/local/bin/jq
 
                     if ! command -v az &>/dev/null; then
                         curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py

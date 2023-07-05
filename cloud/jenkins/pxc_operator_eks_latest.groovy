@@ -383,7 +383,7 @@ pipeline {
                 sh '''
                     sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
                     sudo percona-release enable-only tools
-                    sudo yum install -y percona-xtrabackup-80 jq | true
+                    sudo yum install -y percona-xtrabackup-80 | true
 
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                         rm -rf $HOME/google-cloud-sdk
@@ -399,6 +399,8 @@ pipeline {
 
                     sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
+                    sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+                    sudo chmod +x /usr/local/bin/jq
 
                     curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
                     sudo mv -v /tmp/eksctl /usr/local/bin

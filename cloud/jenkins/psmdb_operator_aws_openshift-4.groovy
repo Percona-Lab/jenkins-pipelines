@@ -344,8 +344,6 @@ pipeline {
                 initTests()
 
                 sh """
-                    sudo yum install -y jq | true
-
                     wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
                     unzip terraform_0.11.14_linux_amd64.zip
                     sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
@@ -365,6 +363,8 @@ pipeline {
 
                     sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
+                    sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+                    sudo chmod +x /usr/local/bin/jq
 
                     curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux-$PLATFORM_VER.tar.gz \
                         | sudo tar -C /usr/local/bin --wildcards -zxvpf -

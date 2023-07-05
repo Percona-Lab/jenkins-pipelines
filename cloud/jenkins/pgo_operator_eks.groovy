@@ -127,8 +127,6 @@ void pushArtifactFile(String FILE_NAME) {
 
 void prepareNode() {
     sh '''
-        sudo yum install -y jq | true
-
         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
             rm -rf $HOME/google-cloud-sdk
             curl https://sdk.cloud.google.com | bash
@@ -144,8 +142,12 @@ void prepareNode() {
             | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
         curl -s -L https://github.com/mitchellh/golicense/releases/latest/download/golicense_0.2.0_linux_x86_64.tar.gz \
             | sudo tar -C /usr/local/bin --wildcards -zxvpf -
-        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.30.8/yq_linux_amd64 > /usr/local/bin/yq"
+
+        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
         sudo chmod +x /usr/local/bin/yq
+        sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+        sudo chmod +x /usr/local/bin/jq
+
         curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
         sudo mv -v /tmp/eksctl /usr/local/bin
         cd "$(mktemp -d)"
