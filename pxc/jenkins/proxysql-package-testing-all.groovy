@@ -76,6 +76,18 @@ pipeline {
                     }
                 }
 
+                stage('Debian Bookworm') {
+                    steps {
+                        script{
+                            if (env.product_to_test == 'proxysql') {
+                                echo 'Proxysql is not available for Debian Bookworm'
+                            } else {
+                                runNodeBuild('min-bookworm-x64')
+                            }
+                        }
+                    }
+                }
+
                 stage('Ubuntu Bionic') {
                     steps {
                         runNodeBuild('min-bionic-x64')
