@@ -189,6 +189,8 @@ void runTest(Integer TEST_ID) {
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
+                    export DEBUG_TESTS=1
+
                     cd ./source
                     if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
                         export IMAGE=${PSMDB_OPERATOR_IMAGE}
