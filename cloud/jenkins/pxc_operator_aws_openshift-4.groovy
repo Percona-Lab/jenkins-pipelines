@@ -33,13 +33,15 @@ compute:
   platform:
     aws:
       type: m5.2xlarge
-  replicas: 3
+  replicas: 4
 controlPlane:
   architecture: amd64
   hyperthreading: Enabled
   name: master
-  platform: {}
-  replicas: 1
+  platform:
+    aws:
+      type: m5.2xlarge
+  replicas: 2
 metadata:
   creationTimestamp: null
   name: openshift4-pxc-jenkins-${CLUSTER_SUFFIX}
