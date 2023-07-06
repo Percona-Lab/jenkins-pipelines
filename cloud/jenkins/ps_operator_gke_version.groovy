@@ -98,8 +98,6 @@ void pushArtifactFile(String FILE_NAME) {
 
 void prepareNode() {
     sh '''
-        sudo yum install -y jq | true
-
         if [ ! -d $HOME/google-cloud-sdk/bin ]; then
             rm -rf $HOME/google-cloud-sdk
             curl https://sdk.cloud.google.com | bash
@@ -112,8 +110,10 @@ void prepareNode() {
         curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
-        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.29.1/yq_linux_amd64 > /usr/local/bin/yq"
+        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
         sudo chmod +x /usr/local/bin/yq
+        sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+        sudo chmod +x /usr/local/bin/jq
 
         cd "$(mktemp -d)"
         OS="$(uname | tr '[:upper:]' '[:lower:]')"
