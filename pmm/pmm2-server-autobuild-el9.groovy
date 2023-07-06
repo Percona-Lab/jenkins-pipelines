@@ -130,7 +130,7 @@ pipeline {
 
                     # TODO: DOCKER_TAG for RC should be a real version, not a date
                     if [ -n "${DOCKER_RC_TAG}" ]; then
-                        export DOCKER_TAG=perconalab/pmm-server:${DOCKER_RC_TAG}
+                        export DOCKER_TAG=perconalab/pmm-server:${VERSION}
                     else
                         export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
                     fi
