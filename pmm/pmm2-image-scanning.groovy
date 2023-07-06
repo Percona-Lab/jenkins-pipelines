@@ -25,7 +25,7 @@ pipeline {
             steps {
                 sh "lw-scanner image evaluate ${IMAGE} ${TAG} --html --html-file report.html --data-directory ."
                 archiveArtifacts 'report.html'
-                archiveArtifacts './evaluations/**/**/evaluation_*.json'
+                archiveArtifacts 'evaluations/**/**/evaluation_*.json'
             }
         }
     }
