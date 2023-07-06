@@ -289,6 +289,7 @@ initMap['min-buster-x64'] = '''
         sudo apt-get -y install ${JAVA_VER} git
         sudo mv /etc/ssl /etc/ssl_old
         sudo apt-get -y install ${JAVA_VER}
+        sudo cp -r /etc/ssl_old /etc/ssl
     else
         sudo apt-get -y install ${JAVA_VER} git
     fi
