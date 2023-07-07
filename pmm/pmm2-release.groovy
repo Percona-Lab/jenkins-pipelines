@@ -9,9 +9,10 @@ pipeline {
     }
 
     environment {
-        CLIENT_IMAGE = "perconalab/pmm-client:${VERSION}-rc"
-        SERVER_IMAGE = "perconalab/pmm-server:${VERSION}-rc"
-        PATH_TO_CLIENT = "testing/pmm2-client-autobuilds/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT}"
+        CLIENT_IMAGE     = "perconalab/pmm-client:${VERSION}-rc"
+        SERVER_IMAGE     = "perconalab/pmm-server:${VERSION}-rc"
+        SERVER_IMAGE_EL7 = "perconalab/pmm-server:${VERSION}-rc-el7"
+        PATH_TO_CLIENT   = "testing/pmm2-client-autobuilds/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT}"
     }
 
     parameters {
@@ -292,17 +293,18 @@ ENDSSH
                 installDocker()
                 slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: release started - ${BUILD_URL}"
                 sh "sg docker -c 'docker run ${SERVER_IMAGE} /usr/bin/rpm -qa' > rpms.list"
-                stash includes: 'rpms.list', name: 'rpms'
+                sh "sg docker -c 'docker run ${SERVER_IMAGE_EL7} /usr/bin/rpm -qa' > rpms-el7.list"
+                stash includes: ['rpms.list', 'rpms-el7.list'], name: 'rpms-stash'
             }
         }
 
         stage('Get repo RPMs') {
             steps {
-                unstash 'rpms'
+                unstash 'rpms-stash'
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            ls /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64 > repo.list
+                            ls /srv/repo-copy/pmm2-components/yum/testing/9/RPMS/x86_64 > repo.list
                         cat rpms.list \
                             | grep -v 'pmm2-client' \
                             | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
@@ -310,25 +312,33 @@ ENDSSH
                             | sort \
                             | tee copy.list
                     '''
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                            ls /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64 > repo-el7.list
+                        cat rpms-el7.list \
+                            | grep -v 'pmm2-client' \
+                            | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
+                            | xargs -n 1 -I {} grep "^{}.rpm" repo-el7.list \
+                            | sort \
+                            | tee copy-el7.list
+                    '''
                 }
-                stash includes: 'copy.list', name: 'copy'
-                archiveArtifacts 'copy.list'
+                stash includes: ['copy.list', 'copy-el7.list'], name: 'copy-stash'
+                archiveArtifacts 'copy-stash/*.list'
             }
         }
         // Publish RPMs to repo.ci.percona.com
         stage('Copy RPMs to PMM repo') {
             steps {
-                unstash 'copy'
+                unstash 'copy-stash'
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         cat copy.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            "cat - | xargs -I{} cp -v /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64/{} /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/{}"
-                    '''
-
-                    // Copy RHEL9 RPMs
-                    sh '''
-                        cat copy.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                             "cat - | xargs -I{} cp -v /srv/repo-copy/pmm2-components/yum/testing/9/RPMS/x86_64/{} /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/{}"
+                    '''
+                    sh '''
+                        cat copy-el7.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                            "cat - | xargs -I{} cp -v /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64/{} /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/{}"
                     '''
                 }
             }
@@ -358,7 +368,6 @@ ENDSSH
                 }
             }
         }
-
         // Publish RPMs to repo.percona.com
         stage('Publish RPMs') {
             steps {
@@ -397,7 +406,7 @@ ENDSSH
                     DOCKER_MID="\$TOP_VER.\$MID_VER"
                     sg docker -c "
                         set -ex
-                        # push pmm-server
+                        # push pmm-server el9
                         docker pull \${SERVER_IMAGE}
                         docker tag \${SERVER_IMAGE} percona/pmm-server:latest
                         docker push percona/pmm-server:latest
@@ -416,7 +425,13 @@ ENDSSH
                         docker push perconalab/pmm-server:\${DOCKER_MID}
                         docker push perconalab/pmm-server:\${VERSION}
 
-                        docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
+                        # push pmm-server el7
+                        docker pull \${SERVER_IMAGE_EL7}
+
+                        docker tag \${SERVER_IMAGE_EL7} perconalab/pmm-server:\${DOCKER_MID}-el7
+                        docker tag \${SERVER_IMAGE_EL7} perconalab/pmm-server:\${VERSION}-el7
+                        docker push perconalab/pmm-server:\${DOCKER_MID}-el7
+                        docker push perconalab/pmm-server:\${VERSION}-el7
 
                         # push pmm-client
                         docker pull \${CLIENT_IMAGE}
@@ -505,7 +520,7 @@ ENDSSH
         stage('Set git release tags') {
             steps {
                 deleteDir()
-                unstash 'copy'
+                unstash 'copy-stash'
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
                         set -x
@@ -536,8 +551,8 @@ ENDSSH
                         for PACKAGE in "${!repos[@]}"; do
                             REPO=${repos["$PACKAGE"]}
                             # Example of an entry in 'copy.list':
-                            # percona-dashboards-2.31.0-19.2209151640.25fba72.el7.x86_64.rpm
-                            SHA=$(grep "$PACKAGE-" copy.list | perl -p -e 's/.*[.]\\d{10}[.]([0-9a-f]{7})[.]el7.*/$1/')
+                            # percona-dashboards-2.31.0-19.2209151640.25fba72.el9.x86_64.rpm
+                            SHA=$(grep "$PACKAGE-" copy.list | perl -p -e 's/.*[.]\\d{10}[.]([0-9a-f]{7})[.]el9.*/$1/')
 
                             if [ -n "$SHA" ] && [ -n "$REPO" ]; then
                                 rm -fr $PACKAGE || true
