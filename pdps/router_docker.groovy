@@ -46,7 +46,22 @@ pipeline {
           script {
             currentBuild.displayName = "#${BUILD_NUMBER}-${DOCKER_ACC}-${ROUTER_VERSION}"
             currentBuild.description = "${PS_VERSION}"
+              }
+            }
           }
+    stage('Prepare') {
+      steps {
+          sh '''
+                  rm -f router-docker_test.sh
+                  wget https://github.com/kaushikpuneet07/package-testing/blob/PS-8631/router-docker_test.sh
+                  chmod +x router-docker_test.sh
+                  sudo bash -x router-docker_test.sh $DOCKER_ACC/percona-server:$PS_VERSION $DOCKER_ACC/percona-mysql-router:$ROUTER_VERSION
+             '''
+            }
+        } 
+   
+    stage('Run tests') {
+      steps {  
           sh '''
             # run test
             export PATH=${PATH}:~/.local/bin
