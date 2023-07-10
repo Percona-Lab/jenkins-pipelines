@@ -29,6 +29,7 @@ pipeline {
         booleanParam(name: 'integrationtests',defaultValue: false, description: 'Check if list of suites contains integration tests')
         booleanParam(name: 'benchmarktests',defaultValue: false, description: 'Check if list of suites contains benchmark tests')
         string(name: 'scons_params', defaultValue: 'CC=/usr/bin/gcc-8 CXX=/usr/bin/g++-8 --disable-warnings-as-errors --release --ssl --opt=size -j6 --use-sasl-client --wiredtiger --audit --inmemory --hotbackup CPPPATH=/usr/local/include LIBPATH=/usr/local/lib', description: 'Parameters for scons')
+        string(name: 'resmoke_params', defaultValue: '--excludeWithAnyTags=featureFlagColumnstoreIndexes,featureFlagUpdateOneWithoutShardKey,featureFlagGlobalIndexesShardingCatalog,featureFlagGlobalIndexes,featureFlagTelemetry,featureFlagAuditConfigClusterParameter,serverless', description: 'Extra params passed to resmoke.py')
     }
     options {
         withCredentials(moleculePbmJenkinsCreds())
@@ -194,7 +195,7 @@ pipeline {
                                                     sh """ 
                                                         echo "start suite ${suiteName}"
                                                         docker run -v `pwd`/test_results:/work -w /work --rm -i ${image} bash -c 'rm -rf *'
-                                                        docker run -v `pwd`/test_results:/work --rm ${image} bash -c "${script} && python buildscripts/resmoke.py run --suite ${suite} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
+                                                        docker run -v `pwd`/test_results:/work --rm ${image} bash -c "${script} && python buildscripts/resmoke.py run --suite ${suite} ${params.resmoke_params} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
                                                         docker run -v `pwd`/test_results:/work -w /work --rm  ${image} bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py && chmod -R 777 /work'
                                                         echo "finish suite ${suiteName}"
                                                     """
@@ -203,7 +204,7 @@ pipeline {
                                                     sh """
                                                         echo "start suite ${suiteName}" 
                                                         docker run -v `pwd`/test_results:/work -w /work --rm -i ${image} bash -c 'rm -rf *'
-                                                        docker run -v `pwd`/test_results:/work --rm ${image} bash -c "python buildscripts/resmoke.py run --suite $suite --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
+                                                        docker run -v `pwd`/test_results:/work --rm ${image} bash -c "python buildscripts/resmoke.py run --suite $suite ${params.resmoke_params} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
                                                         docker run -v `pwd`/test_results:/work -w /work --rm  ${image} bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py && chmod -R 777 /work'
                                                         echo "finish suite ${suiteName}"
                                                     """
