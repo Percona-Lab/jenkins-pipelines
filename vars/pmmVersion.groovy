@@ -48,12 +48,13 @@ def call(String type='latest') {
     '2.36.0': 'ami-0ce04c507ec1187b1',
     '2.37.0': 'ami-04fc023254a0a0824',
     '2.37.1': 'ami-07858434974406b74',
+    '2.38.0': 'ami-09895e9b605f14cbc',
   ]
 
   List<String> versionsList = new ArrayList<>(versions.keySet());
   // Grab 5 latest versions
-  List<String> ovfVersions = ['2.37.1', '2.37.0', '2.36.0', '2.35.0', '2.34.0'];
-  List<String> dbaasVersions = ['2.37.1', '2.37.0', '2.36.0', '2.35.0', '2.34.0'];
+  List<String> ovfVersions = ['2.38.0', '2.37.1', '2.37.0', '2.36.0', '2.35.0', '2.34.0'];
+  List<String> dbaasVersions = ['2.38.0', '2.37.1', '2.37.0', '2.36.0', '2.35.0', '2.34.0'];
 
   switch(type) {
     case 'latest':
