@@ -315,6 +315,21 @@ parameters {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Debian Bookworm(12)') {
+                    agent {
+                        label 'min-bookworm-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("none", "--build_deb=1 --with_zenfs=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Centos 7 binary tarball') {
                     agent {
                         label 'min-centos-7-x64'
