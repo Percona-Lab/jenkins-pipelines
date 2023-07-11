@@ -593,9 +593,7 @@ parameters {
             script {
                 currentBuild.description = "Built on ${BRANCH}; path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
                 REVISION = sh(returnStdout: true, script: "grep REVISION test/percona-server-8.0.properties | awk -F '=' '{ print\$2 }'").trim()
-                PS_RELEASE=$(echo "${BRANCH}" | sed 's/release-//g')
-                echo "${REVISION} is the commit ID"
-                echo "${PS_RELEASE} is the PS_RELEASE Version"
+                PS_RELEASE = sh(returnStdout: true, script: "$(echo ${BRANCH} | sed 's/release-//g')").trim()
 
                 withCredentials([string(credentialsId: 'PXC_GITHUB_API_TOKEN', variable: 'TOKEN')]) {
                 sh """
