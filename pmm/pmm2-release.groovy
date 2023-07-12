@@ -559,6 +559,7 @@ ENDSSH
                                     # fi
                                     # git checkout $BRANCH
                                     echo "SHA: $(git rev-parse HEAD)"
+                                    echo "Branch: $(git branch --show-current)"
 
                                     git tag --message="Version $TAG." --sign $TAG
 
