@@ -544,41 +544,39 @@ ENDSSH
                         echo "We will be tagging repos with a tag: $TAG"
 
                         for PACKAGE in "${!repos[@]}"; do
-                            REPO=${repos["$PACKAGE"]}
+                            rm -fr $PACKAGE || true
+                            mkdir -p $PACKAGE
 
-                            if [ -n "$REPO" ]; then
-                                rm -fr $PACKAGE || true
-                                mkdir -p $PACKAGE
-                                pushd $PACKAGE >/dev/null
-                                    git clone https://github.com/$REPO ./
-                                    # The default is https, so we want to set it to ssh
-                                    git remote set-url origin git@github.com:$REPO.git
-                                    # BRANCH=main
-                                    # if [ "$REPO" == "Percona-Lab/pmm-submodules" ]; then
-                                    #     BRANCH="PMM-2.0"
-                                    # fi
-                                    # git checkout $BRANCH
-                                    echo "SHA: $(git rev-parse HEAD)"
-                                    echo "Branch: $(git branch --show-current)"
+                            pushd $PACKAGE >/dev/null
+                                REPO=${repos["$PACKAGE"]}
+                                git clone https://github.com/$REPO ./
+                                # The default is https, and we want to set it to ssh
+                                git remote set-url origin git@github.com:$REPO.git
+                                
+                                BRANCH="pmm-${VERSION}"
+                                git checkout "$BRANCH"
+                                if [ $? -ne 0 ]; then
+                                  continue
+                                fi
+                                echo "SHA: $(git rev-parse HEAD)"
+                                echo "Branch: $(git branch --show-current)"
 
-                                    git tag --message="Version $TAG." --sign $TAG
+                                git tag --message="Version $TAG." --sign "$TAG"
 
-                                    # If the tag already exists, we want to delete it and re-tag this SHA
-                                    if [ $? -eq 128 ]; then
-                                        git tag --delete $TAG
-                                        git push --delete origin $TAG
-                                        git tag --message="Version $TAG." --sign $TAG
-                                    fi
+                                # If the tag already exists, we want to delete it and re-tag this SHA
+                                if [ $? -eq 128 ]; then
+                                    git tag --delete "$TAG"
+                                    git push --delete origin "$TAG"
+                                    git tag --message="Version $TAG." --sign "$TAG"
+                                fi
 
-                                    if [ $? -eq 0 ]; then
-                                        git push origin $TAG
-                                    else
-                                        echo "Error: $?"
-                                    fi
-                                popd >/dev/null
-                            else
-                                echo "Warning: the repository $REPO won't get tagged with ${VERSION}"
-                            fi
+                                if [ $? -eq 0 ]; then
+                                    git push origin $TAG
+                                else
+                                    echo "Warning: the repository $REPO won't get tagged with $TAG"
+                                    echo "Error code: $?"
+                                fi
+                            popd >/dev/null
                         done
                     '''
                 }
