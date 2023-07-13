@@ -554,25 +554,21 @@ ENDSSH
                                 git remote set-url origin git@github.com:$REPO.git
                                 
                                 BRANCH="pmm-${VERSION}"
-                                git checkout "$BRANCH"
-                                if [ $? -ne 0 ]; then
+                                if ! git checkout "$BRANCH"; then
+                                  echo "Warning: failed to tag the repository $REPO with $TAG"
                                   continue
                                 fi
                                 echo "SHA: $(git rev-parse HEAD)"
                                 echo "Branch: $(git branch --show-current)"
 
-                                git tag --message="Version $TAG." --sign "$TAG"
-
                                 # If the tag already exists, we want to delete it and re-tag this SHA
-                                if [ $? -eq 128 ]; then
+                                if [ $(git tag -l "$TAG") ]; then
                                     git tag --delete "$TAG"
                                     git push --delete origin "$TAG"
-                                    git tag --message="Version $TAG." --sign "$TAG"
                                 fi
 
-                                if [ $? -eq 0 ]; then
-                                    git push origin $TAG
-                                else
+                                git tag --message="Version $TAG." --sign "$TAG"
+                                if [ ! $(git push origin "$TAG") ]; then
                                     echo "Warning: failed to tag the repository $REPO with $TAG"
                                     echo "Error code: $?"
                                 fi
