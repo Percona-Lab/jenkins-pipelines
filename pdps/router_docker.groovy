@@ -52,9 +52,9 @@ pipeline {
     stage('Prepare') {
       steps {
           sh '''
-                  rm -f router-docker_test.sh
-                  wget https://github.com/kaushikpuneet07/package-testing/blob/PS-8631/router-docker_test.sh
-                  chmod +x router-docker_test.sh
+                  rm -rf package-testing
+                  git clone ${TESTING_REPO} -b ${TESTING_BRANCH} --depth 1
+                  cd package-testing/
                   sudo bash -x router-docker_test.sh $DOCKER_ACC/percona-server:$PS_VERSION $DOCKER_ACC/percona-mysql-router:$ROUTER_VERSION
              '''
             }
