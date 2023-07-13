@@ -392,11 +392,11 @@ ENDSSH
             steps {
                 installDocker()
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh '''
+                    sh """
                         sg docker -c "
                             echo "${PASS}" | docker login -u "${USER}" --password-stdin
                         "
-                    '''
+                    """
                 }
                 sh """
                     echo ${VERSION} > VERSION
