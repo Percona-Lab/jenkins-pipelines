@@ -392,11 +392,9 @@ ENDSSH
             steps {
                 installDocker()
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
-                        sg docker -c "
-                            echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                        "
-                    """
+                    sh '''
+                        echo "${PASS}" | docker login -u "${USER}" --password-stdin
+                    '''
                 }
                 sh """
                     echo ${VERSION} > VERSION
@@ -520,26 +518,23 @@ ENDSSH
         stage('Set git release tags') {
             steps {
                 deleteDir()
-                unstash 'copy-stash'
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
-                        set -x
-                        # Do not allow this step to fail so we can create tags outside of the pipeline
+                        # This step should never cause the pipeline failure so we can create tags outside of the pipeline
                         set +e
-                        cat copy.list
+                        set -x
 
                         # List of repos whose release branches need to be tagged
-                        # TODO: add pmm-submodules to the list, maybe even fallback to using submodules
                         declare -A repos=(
                             ["percona-grafana"]="percona-platform/grafana"
                             ["percona-dashboards"]="percona/grafana-dashboards"
-                            ["pmm-update"]="percona/pmm-update"
                             ["pmm"]="percona/pmm"
+                            ["pmm-submodules"]="Percona-Lab/pmm-submodules"
                         )
 
                         # Configure git settings globally
                         git config --global advice.detachedHead false
-                        git config --global user.email "dev-services@percona.com"
+                        git config --global user.email "noreply@percona.com"
                         git config --global user.name "PMM Jenkins"
 
                         # Configure git to push using ssh
@@ -549,40 +544,37 @@ ENDSSH
                         echo "We will be tagging repos with a tag: $TAG"
 
                         for PACKAGE in "${!repos[@]}"; do
-                            REPO=${repos["$PACKAGE"]}
-                            # Example of an entry in 'copy.list':
-                            # percona-dashboards-2.31.0-19.2209151640.25fba72.el9.x86_64.rpm
-                            SHA=$(grep "$PACKAGE-" copy.list | perl -p -e 's/.*[.]\\d{10}[.]([0-9a-f]{7})[.]el9.*/$1/')
+                            rm -fr $PACKAGE || true
+                            mkdir -p $PACKAGE
 
-                            if [ -n "$SHA" ] && [ -n "$REPO" ]; then
-                                rm -fr $PACKAGE || true
-                                mkdir $PACKAGE
-                                pushd $PACKAGE >/dev/null
-                                    git clone https://github.com/$REPO ./
-                                    # The default is https, so we want to set it to ssh
-                                    git remote set-url origin git@github.com:$REPO.git
-                                    git checkout $SHA
-                                    echo "SHA: $(git rev-parse HEAD)"
+                            pushd $PACKAGE >/dev/null
+                                REPO=${repos["$PACKAGE"]}
+                                git clone https://github.com/$REPO ./
+                                # The default is https, and we want to set it to ssh
+                                git remote set-url origin git@github.com:$REPO.git
+                                
+                                BRANCH="pmm-${VERSION}"
+                                if ! git checkout "$BRANCH"; then
+                                  echo "Warning: failed to tag the repository $REPO with $TAG"
+                                  continue
+                                fi
+                                echo "SHA: $(git rev-parse HEAD)"
+                                echo "Branch: $(git branch --show-current)"
 
-                                    git tag --message="Version $TAG." --sign $TAG
+                                # If the tag already exists, we want to delete it and re-tag this SHA
+                                if [ $(git tag -l "$TAG") ]; then
+                                    git tag --delete "$TAG"
+                                    git push --delete origin "$TAG"
+                                fi
 
-                                    # If the tag already exists, we want to delete it and re-tag this SHA
-                                    if [ $? -eq 128 ]; then
-                                        git tag --delete $TAG
-                                        git push --delete origin $TAG
-                                        git tag --message="Version $TAG." --sign $TAG
-                                    fi
-
-                                    if [ $? -eq 0 ]; then
-                                        git push origin $TAG
-                                    else
-                                        echo "Error: $?"
-                                    fi
-                                popd >/dev/null
-                            else
-                                echo "Warning: the repository $REPO won't get tagged with ${VERSION}"
-                            fi
+                                git tag --message="Version $TAG." "$TAG"
+                                if [ ! $(git push origin "$TAG") ]; then
+                                    echo "Warning: failed to tag the repository $REPO with $TAG"
+                                fi
+                            popd >/dev/null
+                            rm -rf "$PACKAGE"
                         done
+                        set +x
                     '''
                 }
             }
