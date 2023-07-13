@@ -573,7 +573,7 @@ ENDSSH
                                 if [ $? -eq 0 ]; then
                                     git push origin $TAG
                                 else
-                                    echo "Warning: the repository $REPO won't get tagged with $TAG"
+                                    echo "Warning: failed to tag the repository $REPO with $TAG"
                                     echo "Error code: $?"
                                 fi
                             popd >/dev/null
