@@ -633,6 +633,33 @@ labelMap['min-bookworm-aarch64'] = ''
 labelMap['min-bullseye-aarch64'] = ''
 labelMap['min-jammy-aarch64']    = ''
 
+jvmoptsMap = [:]
+jvmoptsMap['docker']            = '-Xmx512m -Xms512m'
+jvmoptsMap['docker-32gb']       = jvmoptsMap['docker']
+jvmoptsMap['docker2']           = jvmoptsMap['docker']
+jvmoptsMap['micro-amazon']      = jvmoptsMap['docker']
+jvmoptsMap['min-bionic-x64']    = jvmoptsMap['docker']
+jvmoptsMap['min-centos-6-x64']  = jvmoptsMap['docker']
+jvmoptsMap['min-centos-7-x64']  = jvmoptsMap['docker']
+jvmoptsMap['fips-centos-7-x64'] = jvmoptsMap['docker']
+jvmoptsMap['min-ol-8-x64']      = jvmoptsMap['docker']
+jvmoptsMap['min-ol-9-x64']      = jvmoptsMap['docker']
+jvmoptsMap['min-stretch-x64']   = jvmoptsMap['docker']
+jvmoptsMap['min-xenial-x64']    = jvmoptsMap['docker']
+jvmoptsMap['min-buster-x64']    = jvmoptsMap['docker']
+jvmoptsMap['docker-32gb-hirsute'] = jvmoptsMap['docker']
+jvmoptsMap['docker-32gb-focal'] = jvmoptsMap['docker']
+jvmoptsMap['docker-32gb-jammy'] = jvmoptsMap['docker']
+jvmoptsMap['min-bookworm-x64']  = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
+jvmoptsMap['min-bullseye-x64']  = jvmoptsMap['docker']
+jvmoptsMap['docker-32gb-bullseye']  = jvmoptsMap['docker']
+
+jvmoptsMap['docker-32gb-aarch64']  = jvmoptsMap['docker']
+jvmoptsMap['min-centos-7-aarch64'] = jvmoptsMap['docker']
+jvmoptsMap['min-bookworm-aarch64'] = jvmoptsMap['docker']
+jvmoptsMap['min-bullseye-aarch64'] = jvmoptsMap['docker']
+jvmoptsMap['min-jammy-aarch64']    = jvmoptsMap['docker']
+
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
     return new SlaveTemplate(
@@ -652,7 +679,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
         new UnixData('', '', '', '22', ''),         // AMITypeData amiType
-        '-Xmx512m -Xms512m',                        // String jvmopts
+        jvmoptsMap[OSType],                         // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
         [
