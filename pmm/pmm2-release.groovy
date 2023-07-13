@@ -577,7 +577,9 @@ ENDSSH
                                     echo "Error code: $?"
                                 fi
                             popd >/dev/null
+                            rm -rf "$PACKAGE"
                         done
+                        set +x
                     '''
                 }
             }
