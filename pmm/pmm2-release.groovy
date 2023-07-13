@@ -425,6 +425,8 @@ ENDSSH
                         docker push perconalab/pmm-server:\${DOCKER_MID}
                         docker push perconalab/pmm-server:\${VERSION}
 
+                        docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
+
                         # push pmm-server el7
                         docker pull \${SERVER_IMAGE_EL7}
 
