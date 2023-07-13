@@ -567,7 +567,7 @@ ENDSSH
                                     git push --delete origin "$TAG"
                                 fi
 
-                                git tag --message="Version $TAG." --sign "$TAG"
+                                git tag --message="Version $TAG." "$TAG"
                                 if [ ! $(git push origin "$TAG") ]; then
                                     echo "Warning: failed to tag the repository $REPO with $TAG"
                                 fi
