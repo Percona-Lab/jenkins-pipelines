@@ -570,7 +570,6 @@ ENDSSH
                                 git tag --message="Version $TAG." --sign "$TAG"
                                 if [ ! $(git push origin "$TAG") ]; then
                                     echo "Warning: failed to tag the repository $REPO with $TAG"
-                                    echo "Error code: $?"
                                 fi
                             popd >/dev/null
                             rm -rf "$PACKAGE"
