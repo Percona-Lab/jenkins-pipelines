@@ -294,7 +294,7 @@ ENDSSH
                 slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: release started - ${BUILD_URL}"
                 sh "sg docker -c 'docker run ${SERVER_IMAGE} /usr/bin/rpm -qa' > rpms.list"
                 sh "sg docker -c 'docker run ${SERVER_IMAGE_EL7} /usr/bin/rpm -qa' > rpms-el7.list"
-                stash includes: ['rpms.list', 'rpms-el7.list'], name: 'rpms-stash'
+                stash includes: 'rpms.list, rpms-el7.list', name: 'rpms-stash'
             }
         }
 
@@ -323,7 +323,7 @@ ENDSSH
                             | tee copy-el7.list
                     '''
                 }
-                stash includes: ['copy.list', 'copy-el7.list'], name: 'copy-stash'
+                stash includes: 'copy.list, copy-el7.list', name: 'copy-stash'
                 archiveArtifacts 'copy-stash/*.list'
             }
         }
