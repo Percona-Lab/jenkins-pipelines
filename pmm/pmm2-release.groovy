@@ -324,7 +324,7 @@ ENDSSH
                     '''
                 }
                 stash includes: 'copy.list, copy-el7.list', name: 'copy-stash'
-                archiveArtifacts 'copy-stash/*.list'
+                archiveArtifacts 'copy*.list'
             }
         }
         // Publish RPMs to repo.ci.percona.com
