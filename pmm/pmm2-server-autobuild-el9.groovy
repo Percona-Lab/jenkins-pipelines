@@ -65,39 +65,41 @@ pipeline {
         stage('Build client and server') {
             parallel {
                 stage('Build client packages') {
-                    stage('Build client source') {
-                        steps {
-                            sh "${PATH_TO_SCRIPTS}/build-client-source"
-                            stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
-                            uploadTarball('source')
+                    stages {
+                        stage('Build client source') {
+                            steps {
+                                sh "${PATH_TO_SCRIPTS}/build-client-source"
+                                stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
+                                uploadTarball('source')
+                            }
                         }
-                    }
-                    stage('Build client binary') {
-                        steps {
-                            sh "${PATH_TO_SCRIPTS}/build-client-binary"
-                            stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
-                            uploadTarball('binary')
+                        stage('Build client binary') {
+                            steps {
+                                sh "${PATH_TO_SCRIPTS}/build-client-binary"
+                                stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
+                                uploadTarball('binary')
+                            }
                         }
-                    }
-                    stage('Build client source rpm') {
-                        steps {
-                            sh "${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9"
-                            stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                            uploadRPM()
+                        stage('Build client source rpm') {
+                            steps {
+                                sh "${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9"
+                                stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
+                                uploadRPM()
+                            }
                         }
-                    }
-                    stage('Build client binary rpm') {
-                        steps {
-                            sh """
-                                set -o errexit
+                        stage('Build client binary rpm') {
+                            steps {
+                                sh """
+                                    set -o errexit
 
-                                ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                                    ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
 
-                                mkdir -p tmp/pmm-server/RPMS/
-                                cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
-                            """
-                            stash includes: 'tmp/pmm-server/RPMS/*.rpm', name: 'rpms'
-                            // uploadRPM()
+                                    mkdir -p tmp/pmm-server/RPMS/
+                                    cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
+                                """
+                                stash includes: 'tmp/pmm-server/RPMS/*.rpm', name: 'rpms'
+                                // uploadRPM()
+                            }
                         }
                     }
                 }
