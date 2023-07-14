@@ -49,57 +49,39 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     sudo percona-release enable-only original release
                     sleep 15
                 fi
-            elif [[ \$CLIENT_VERSION = pmm1-dev-latest ]]; then
-                sudo percona-release enable-only original testing
-                sudo yum -y install pmm-client
-                sudo yum -y update
             else
-                if [[ \$PMM_VERSION == pmm1 ]]; then
-                        if [[ \$CLIENT_VERSION == http* ]]; then
-                        wget -O pmm-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
-                    else
-                        wget -O pmm-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm-client/pmm-client-\${CLIENT_VERSION}/binary/tarball/pmm-client-\${CLIENT_VERSION}.tar.gz"
-                    fi
-                    tar -zxpf pmm-client.tar.gz
-                    pushd pmm-client-*
-                        sudo ./install
-                    popd
+                if [[ \$CLIENT_VERSION == http* ]]; then
+                    wget -O pmm2-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
                 else
-                    if [[ \$CLIENT_VERSION == http* ]]; then
-                        wget -O pmm2-client.tar.gz --progress=dot:giga "\${CLIENT_VERSION}"
-                    else
-                        wget -O pmm2-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm2/\${CLIENT_VERSION}/binary/tarball/pmm2-client-\${CLIENT_VERSION}.tar.gz"
-                    fi
-                    export BUILD_ID=dont-kill-virtualbox
-                    export JENKINS_NODE_COOKIE=dont-kill-virtualbox
-                    export JENKINS_SERVER_COOKIE=dont-kill-virtualbox
-                    tar -zxpf pmm2-client.tar.gz
-                    rm -r pmm2-client.tar.gz
-                    mv pmm2-client-* pmm2-client
-                    cd pmm2-client
-                    sudo bash -x ./install_tarball
-                    pwd
-                    cd ../
-                    export PMM_CLIENT_BASEDIR=`ls -1td pmm2-client 2>/dev/null | grep -v ".tar" | head -n1`
-                    export PATH="`pwd`/pmm2-client/bin:\$PATH"
-                    echo "export PATH=`pwd`/pmm2-client/bin:\$PATH" >> ~/.bash_profile
-                    source ~/.bash_profile
-                    pmm-admin --version
-                    if [[ \$CLIENT_INSTANCE == yes ]]; then
-                        if [[ \$ENABLE_PULL_MODE == yes ]]; then
-                            pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD --metrics-mode=pull \$IP
-                        else
-                            pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD \$IP
-                        fi
-                    else
-                        pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD \$IP
-                    fi
-                    sleep 10
-                    nohup bash -c 'pmm-agent --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
-                    sleep 10
-                    cat pmm-agent.log
-                    pmm-admin status
+                    wget -O pmm2-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm2/\${CLIENT_VERSION}/binary/tarball/pmm2-client-\${CLIENT_VERSION}.tar.gz"
                 fi
+                export BUILD_ID=dont-kill-virtualbox
+                tar -zxpf pmm2-client.tar.gz
+                rm -f pmm2-client.tar.gz
+                mv pmm2-client-* pmm2-client
+                cd pmm2-client
+                PMM_DIR="\$(pwd)/pmm2-client" bash -E ./install_tarball
+                pwd
+                cd ../
+                export PMM_CLIENT_BASEDIR=`ls -1td pmm2-client 2>/dev/null | grep -v ".tar" | head -n1`
+                export PATH="`pwd`/pmm2-client/bin:\$PATH"
+                echo "export PATH=`pwd`/pmm2-client/bin:\$PATH" >> ~/.bash_profile
+                source ~/.bash_profile
+                pmm-admin --version
+                if [[ \$CLIENT_INSTANCE == yes ]]; then
+                    if [[ \$ENABLE_PULL_MODE == yes ]]; then
+                        pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD --metrics-mode=pull \$IP
+                    else
+                        pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$SERVER_IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD \$IP
+                    fi
+                else
+                    pmm-agent setup --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml --server-address=\$IP:443 --server-insecure-tls --server-username=admin --server-password=\$ADMIN_PASSWORD \$IP
+                fi
+                sleep 10
+                nohup bash -c 'pmm-agent --config-file=`pwd`/pmm2-client/config/pmm-agent.yaml > pmm-agent.log 2>&1 &'
+                sleep 10
+                cat pmm-agent.log
+                pmm-admin status
             fi
             export PATH=\$PATH:/usr/sbin:/sbin
             if [[ \$PMM_VERSION == pmm2 ]]; then
@@ -117,8 +99,6 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     sleep 10
                     pmm-admin list
                 fi
-            else
-                sudo pmm-admin config --client-name pmm-client-hostname --server `ip addr show eth0 | grep 'inet ' | awk '{print\\\$2}' | cut -d '/' -f 1`
             fi
         """
     }
