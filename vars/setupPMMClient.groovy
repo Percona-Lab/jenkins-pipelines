@@ -57,10 +57,10 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 fi
                 export BUILD_ID=dont-kill-virtualbox
                 tar -zxpf pmm2-client.tar.gz
-                rm -r pmm2-client.tar.gz
+                rm -f pmm2-client.tar.gz
                 mv pmm2-client-* pmm2-client
                 cd pmm2-client
-                PMM_DIR="\$(pwd)/pmm2-client" bash -E -x ./install_tarball
+                PMM_DIR="\$(pwd)/pmm2-client" bash -E ./install_tarball
                 pwd
                 cd ../
                 export PMM_CLIENT_BASEDIR=`ls -1td pmm2-client 2>/dev/null | grep -v ".tar" | head -n1`
