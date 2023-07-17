@@ -98,7 +98,7 @@ pipeline {
                                     cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
                                 """
                                 stash includes: 'tmp/pmm-server/RPMS/*.rpm', name: 'rpms'
-                                // uploadRPM()
+                                uploadRPM()
                             }
                         }
                     }
@@ -120,7 +120,7 @@ pipeline {
                             '''
                         }
                         stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'
-                        // uploadRPM()
+                        uploadRPM()
                     }
                 }
             }
