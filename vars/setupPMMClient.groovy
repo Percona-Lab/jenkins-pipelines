@@ -74,12 +74,12 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
 
                 if [[ "$CLIENT_INSTANCE" = yes ]]; then
                     if [[ "$ENABLE_PULL_MODE" = yes ]]; then
-                        pmm-agent setup --config-file="$PMM_DIR/config/pmm-agent.yaml" --server-address="$SERVER_IP:443" --server-insecure-tls --server-username=admin --server-password="$ADMIN_PASSWORD" --metrics-mode=pull "$IP"
+                        pmm-agent setup --config-file="$PMM_DIR/config/pmm-agent.yaml" --server-address="$SERVER_IP:443" --server-insecure-tls --server-username=admin --server-password="$ADMIN_PASSWORD" --paths-base="$PMM_DIR" --metrics-mode=pull "$IP"
                     else
-                        pmm-agent setup --config-file="$PMM_DIR/config/pmm-agent.yaml" --server-address="$SERVER_IP:443" --server-insecure-tls --server-username=admin --server-password="$ADMIN_PASSWORD" "$IP"
+                        pmm-agent setup --config-file="$PMM_DIR/config/pmm-agent.yaml" --server-address="$SERVER_IP:443" --server-insecure-tls --server-username=admin --server-password="$ADMIN_PASSWORD" --paths-base="$PMM_DIR" "$IP"
                     fi
                 else
-                    pmm-agent setup --config-file="$PMM_DIR/config/pmm-agent.yaml" --server-address="$IP:443" --server-insecure-tls --server-username=admin --server-password="$ADMIN_PASSWORD" "$IP"
+                    pmm-agent setup --config-file="$PMM_DIR/config/pmm-agent.yaml" --server-address="$IP:443" --server-insecure-tls --server-username=admin --server-password="$ADMIN_PASSWORD" --paths-base="$PMM_DIR" "$IP"
                 fi
                 sleep 10
                 nohup bash -c 'pmm-agent --config-file="$PMM_DIR/config/pmm-agent.yaml" > pmm-agent.log 2>&1 &'
@@ -92,12 +92,12 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 pmm-admin --version
                 if [[ "$CLIENT_INSTANCE" = yes ]]; then
                     if [[ "$ENABLE_PULL_MODE" = yes ]]; then
-                        pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --base-paths="$PMM_DIR" --metrics-mode=pull "$IP"
+                        pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --paths-base="$PMM_DIR" --metrics-mode=pull "$IP"
                     else
-                        pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --base-paths="$PMM_DIR" "$IP"
+                        pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --paths-base="$PMM_DIR" "$IP"
                     fi
                 else
-                    pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --base-paths="$PMM_DIR" "$IP"
+                    pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --paths-base="$PMM_DIR" "$IP"
                 fi
                 sleep 10
                 pmm-admin list
