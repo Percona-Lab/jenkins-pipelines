@@ -228,7 +228,7 @@ pipeline {
                         sudo amazon-linux-extras install epel -y
                         sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
-                        sudo yum repolist all
+                        sudo yum repolist
 
                         # exclude unavailable mirrors
                         echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
