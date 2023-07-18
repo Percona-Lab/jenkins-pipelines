@@ -88,20 +88,20 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 pmm-admin status
             fi
 
+            pmm-admin --version
             if [[ "$CLIENT_VERSION" =~ dev-latest|pmm2-latest|pmm2-rc|^2.* ]]; then
-                pmm-admin --version
                 if [[ "$CLIENT_INSTANCE" = yes ]]; then
                     if [[ "$ENABLE_PULL_MODE" = yes ]]; then
-                        pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --paths-base="$PMM_DIR" --metrics-mode=pull "$IP"
+                        sudo pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --paths-base="$PMM_DIR" --metrics-mode=pull "$IP"
                     else
-                        pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --paths-base="$PMM_DIR" "$IP"
+                        sudo pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --paths-base="$PMM_DIR" "$IP"
                     fi
                 else
-                    pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --paths-base="$PMM_DIR" "$IP"
+                    sudo pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --paths-base="$PMM_DIR" "$IP"
                 fi
                 sleep 10
-                pmm-admin list
             fi
+            pmm-admin list
         '''
     }
 }
