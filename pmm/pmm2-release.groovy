@@ -524,61 +524,11 @@ ENDSSH
                 deleteDir()
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
-                        # This step should never cause the pipeline failure so we can create tags outside of the pipeline
+                        # This step must never cause the pipeline to fail, so that we can create tags outside of it
                         set +e
-                        set -x
-
-                        # List of repos whose release branches need to be tagged
-                        declare -A repos=(
-                            ["percona-grafana"]="percona-platform/grafana"
-                            ["percona-dashboards"]="percona/grafana-dashboards"
-                            ["pmm"]="percona/pmm"
-                            ["pmm-submodules"]="Percona-Lab/pmm-submodules"
-                        )
-
-                        # Configure git settings globally
-                        git config --global advice.detachedHead false
-                        git config --global user.email "noreply@percona.com"
-                        git config --global user.name "PMM Jenkins"
-
-                        # Configure git to push using ssh
-                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-
-                        TAG="v${VERSION}"
-                        echo "We will be tagging repos with a tag: $TAG"
-
-                        for PACKAGE in "${!repos[@]}"; do
-                            rm -fr $PACKAGE || true
-                            mkdir -p $PACKAGE
-
-                            pushd $PACKAGE >/dev/null
-                                REPO=${repos["$PACKAGE"]}
-                                git clone https://github.com/$REPO ./
-                                # The default is https, and we want to set it to ssh
-                                git remote set-url origin git@github.com:$REPO.git
-                                
-                                BRANCH="pmm-${VERSION}"
-                                if ! git checkout "$BRANCH"; then
-                                  echo "Warning: failed to tag the repository $REPO with $TAG"
-                                  continue
-                                fi
-                                echo "SHA: $(git rev-parse HEAD)"
-                                echo "Branch: $(git branch --show-current)"
-
-                                # If the tag already exists, we want to delete it and re-tag this SHA
-                                if [ $(git tag -l "$TAG") ]; then
-                                    git tag --delete "$TAG"
-                                    git push --delete origin "$TAG"
-                                fi
-
-                                git tag --message="Version $TAG." "$TAG"
-                                if [ ! $(git push origin "$TAG") ]; then
-                                    echo "Warning: failed to tag the repository $REPO with $TAG"
-                                fi
-                            popd >/dev/null
-                            rm -rf "$PACKAGE"
-                        done
-                        set +x
+                        svn export https://github.com/percona/pmm.git/trunk/build/scripts/create-tags
+                        chmod +x create-tags
+                        bash -E "$(pwd)/create-tags"
                     '''
                 }
             }

@@ -45,47 +45,9 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                 sh '''
-                    set -o errexit
-                    if [ -s ci.yml ]; then
-                        sudo rm -rf results tmp || :
-                        git reset --hard
-                        git clean -fdx
-                        python3 ci.py
-                        . ./.git-sources
-                        echo $pmm_commit > apiCommitSha
-                        echo $pmm_branch > apiBranch
-                        echo $pmm_url > apiURL
-                        echo $pmm_qa_branch > pmmQABranch
-                        echo $pmm_qa_commit > pmmQACommitSha
-                        echo $pmm_ui_tests_branch > pmmUITestBranch
-                        echo $pmm_ui_tests_commit > pmmUITestsCommitSha
-                    else
-                        sudo rm -rf results tmp || :
-                        git reset --hard
-                        git clean -fdx
-                        git submodule foreach --recursive git reset --hard
-                        git submodule foreach --recursive git clean -fdx
-                        git submodule status
-                        export commit_sha=$(git submodule status | grep 'pmm-managed' | awk -F ' ' '{print $1}')
-                        export api_tests_commit_sha=$(git submodule status | grep 'sources/pmm/src' | awk -F ' ' '{print $1}')
-                        export api_tests_branch=$(git config -f .gitmodules submodule.pmm.branch)
-                        export api_tests_url=$(git config -f .gitmodules submodule.pmm.url)
-                        echo $api_tests_commit_sha > apiCommitSha
-                        echo $api_tests_branch > apiBranch
-                        echo $api_tests_url > apiURL
-                        cat apiBranch
-                        cat apiURL
-                        export pmm_qa_commit_sha=$(git submodule status | grep 'pmm-qa' | awk -F ' ' '{print $1}')
-                        export pmm_qa_branch=$(git config -f .gitmodules submodule.pmm-qa.branch)
-                        echo $pmm_qa_branch > pmmQABranch
-                        echo $pmm_qa_commit_sha > pmmQACommitSha
-                        export pmm_ui_tests_commit_sha=$(git submodule status | grep 'pmm-ui-tests' | awk -F ' ' '{print $1}')
-                        export pmm_ui_tests_branch=$(git config -f .gitmodules submodule.pmm-ui-tests.branch)
-                        echo $pmm_ui_tests_branch > pmmUITestBranch
-                        echo $pmm_ui_tests_commit_sha > pmmUITestsCommitSha
-                    fi
-                    export fb_commit_sha=$(git rev-parse HEAD)
-                    echo $fb_commit_sha > fbCommitSha
+                    svn export https://github.com/percona/pmm.git/trunk/build/scripts/build-submodules
+                    sudo chmod 755 build-submodules
+                    . ./build-submodules
                 '''
                 }
                 script {
@@ -131,7 +93,7 @@ pipeline {
                     """
                 }
                 script {
-                    def clientPackageURL = sh script:'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL', returnStdout: true
+                    sh script: 'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL'
                     env.CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                 }
                 stash includes: 'CLIENT_URL', name: 'CLIENT_URL'
@@ -208,17 +170,17 @@ pipeline {
         stage('Build client docker') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
+                    sh '''
                         docker login -u "${USER}" -p "${PASS}"
-                    """
+                    '''
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
                         export PUSH_DOCKER=1
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
                         ${PATH_TO_SCRIPTS}/build-client-docker
-                    """
+                    '''
                 }
                 stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
                 archiveArtifacts 'results/docker/CLIENT_TAG'
@@ -230,16 +192,16 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
 
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
                         export RPM_EPOCH=1
-                        export PATH=\$PATH:\$(pwd -P)/${PATH_TO_SCRIPTS}
+                        export PATH=$PATH:$(pwd -P)/${PATH_TO_SCRIPTS}
 
                         ${PATH_TO_SCRIPTS}/build-server-rpm-all
-                    """
+                    '''
                 }
             }
         }
@@ -271,19 +233,19 @@ pipeline {
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
+                    sh '''
                         docker login -u "${USER}" -p "${PASS}"
-                    """
+                    '''
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
 
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+                        export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
 
                         ${PATH_TO_SCRIPTS}/build-server-docker
-                    """
+                    '''
                 }
                 stash includes: 'results/docker/TAG', name: 'IMAGE'
                 archiveArtifacts 'results/docker/TAG'
@@ -328,19 +290,20 @@ pipeline {
                         def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                         def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
                         def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
-                        sh """
+                        def REPO_URL = sh(returnStdout: true, script: "echo ${CHANGE_URL} | cut -d '/' -f 4-5").trim()
+                        sh '''
                             curl -v -X POST \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                -d "{\\"body\\":\\"server docker - ${IMAGE}\\nclient docker - ${CLIENT_IMAGE}\\nclient - ${CLIENT_URL}\\nCreate Staging Instance: https://pmm.cd.percona.com/job/aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}\\"}" \
-                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/issues/${CHANGE_ID}/comments"
-                        """
+                                -d '{"body":"server docker - ${IMAGE}\nclient docker - ${CLIENT_IMAGE}\nclient - ${CLIENT_URL}\nCreate Staging Instance: https://pmm.cd.percona.com/job/aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"}' \
+                                "https://api.github.com/repos/${REPO_URL}/issues/${CHANGE_ID}/comments"
+                        '''
                         // trigger workflow in GH to run some test there as well, pass server and client images as parameters
                         def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                         sh """
                             curl -v -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/jenkins-dispatch.yml/dispatches" \
+                                "https://api.github.com/repos/${REPO_URL}/actions/workflows/jenkins-dispatch.yml/dispatches" \
                                 -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}"}}'
                         """
                         // trigger workflow in GH to run PMM binary cli tests
@@ -348,7 +311,7 @@ pipeline {
                             curl -v -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/pmm-cli.yml/dispatches" \
+                                "https://api.github.com/repos/${REPO_URL}/actions/workflows/pmm-cli.yml/dispatches" \
                                 -d '{"ref":"${CHANGE_BRANCH}","inputs":{"client_tar_url":"${CLIENT_URL}","sha":"${FB_COMMIT_HASH}"}}'
                         """
                         // trigger workflow in GH to run testsuite tests
@@ -357,7 +320,7 @@ pipeline {
                             curl -v -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/pmm2-testsuite.yml/dispatches" \
+                                "https://api.github.com/repos/${REPO_URL}/actions/workflows/pmm2-testsuite.yml/dispatches" \
                                 -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}", "pmm_qa_branch": "${PMM_QA_GIT_BRANCH}", "client_version": "${CLIENT_URL}"}}'
                         """
                         // trigger workflow in GH to run ui tests
@@ -366,7 +329,7 @@ pipeline {
                             curl -v -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/pmm2-ui-tests-fb.yml/dispatches" \
+                                "https://api.github.com/repos/${REPO_URL}/actions/workflows/pmm2-ui-tests-fb.yml/dispatches" \
                                 -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}", "pmm_qa_branch": "${PMM_QA_GIT_BRANCH}", "pmm_ui_branch": "${PMM_UI_TESTS_GIT_BRANCH}", "client_version": "${CLIENT_URL}"}}'
                         """
                         // trigger workflow in GH to run trivy for vulnerability scan
@@ -374,7 +337,7 @@ pipeline {
                             curl -v -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/trivy_scan.yml/dispatches" \
+                                "https://api.github.com/repos/${REPO_URL}/actions/workflows/trivy_scan.yml/dispatches" \
                                 -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}"}}'
                         """
                     }
