@@ -43,14 +43,12 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 sudo yum -y install "pmm2-client-$CLIENT_VERSION-6.el7.x86_64"
                 if [[ "$ENABLE_TESTING_REPO" = yes ]]; then
                     sudo percona-release enable-only original testing
-                    sleep 15
                 elif [[ "$ENABLE_TESTING_REPO" = no ]]; then
                     sudo percona-release enable-only original experimental
-                    sleep 15
                 else
                     sudo percona-release enable-only original release
-                    sleep 15
                 fi
+                sleep 10
             else
                 if [[ "$CLIENT_VERSION" = http* ]]; then
                     wget -O pmm2-client.tar.gz --progress=dot:giga "${CLIENT_VERSION}"
@@ -81,7 +79,8 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 else
                     pmm-agent setup --config-file="$PMM_DIR/config/pmm-agent.yaml" --server-address="$IP:443" --server-insecure-tls --server-username=admin --server-password="$ADMIN_PASSWORD" --paths-base="$PMM_DIR" "$IP"
                 fi
-                sleep 10
+
+                # launch pmm-agent
                 nohup bash -c 'pmm-agent --config-file="$PMM_DIR/config/pmm-agent.yaml" > pmm-agent.log 2>&1 &'
                 sleep 10
                 cat pmm-agent.log
