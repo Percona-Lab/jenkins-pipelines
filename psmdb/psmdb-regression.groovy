@@ -184,10 +184,10 @@ pipeline {
                                                 }
                                                 if ( storage == 'inMemory' ) {
                                                     if ( !suite.contains('--storageEngineCacheSizeGB') ) {
-                                                       suite += " --storageEngine=inMemory --storageEngineCacheSizeGB=4 --excludeWithAnyTags=requires_persistence,requires_journaling,requires_mmapv1,uses_transactions"
+                                                       suite += " --storageEngine=inMemory --storageEngineCacheSizeGB=4 --excludeWithAnyTags=requires_persistence,requires_journaling,requires_mmapv1,uses_transactions,requires_wiredtiger"
                                                     }
                                                     else {
-                                                       suite += " --storageEngine=inMemory --excludeWithAnyTags=requires_persistence,requires_journaling,requires_mmapv1,uses_transactions"
+                                                       suite += " --storageEngine=inMemory --excludeWithAnyTags=requires_persistence,requires_journaling,requires_mmapv1,uses_transactions,requires_wiredtiger"
                                                     }
                                                     suiteName +="-inMemory"
                                                 }
