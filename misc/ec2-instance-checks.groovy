@@ -40,13 +40,22 @@ pipeline {
 
                         sh "./check-ec2-instances.sh"
                         
-                        env.OP = sh(script: "cat ${WORKSPACE}/OUTPUT.txt",returnStdout: true).trim()
-                        
-                        env.ov = sh(script: "cat ${WORKSPACE}/overview.txt",returnStdout: true).trim()
-                    
+                        env.OPALL = sh(script: "cat ${WORKSPACE}/OUTPUT-ALL.txt",returnStdout: true).trim()
+                        env.ovall = sh(script: "cat ${WORKSPACE}/overview-all.txt",returnStdout: true).trim()
+                        env.OPQA = sh(script: "cat ${WORKSPACE}/OUTPUT-QA.txt",returnStdout: true).trim()
+                        env.ovqa = sh(script: "cat ${WORKSPACE}/overview-qa.txt",returnStdout: true).trim()
                     }
-                           echo "Print the OUTPUT\n ${env.OP}"
-                           echo "Print the overview\n ${env.ov}"       
+                           echo "Print the OUTPUT ALL\n ${env.OPALL}"
+                           echo "Print the overview all\n ${env.ovall}"
+                           echo "Print the OUTPUT QA\n ${env.OPQA}"
+                           echo "Print the overview qa\n ${env.ovqa}"
+
+                        sh """
+                        sed -i '/has 0 INSTANCES WITH MOLECULE QA TESTS/d' ${WORKSPACE}/overview-qa.txt
+                        """
+                            env.ovqa = sh(script: "cat ${WORKSPACE}/overview-qa.txt",returnStdout: true).trim()
+                            echo "Print the overview qa after removing the 0 servers list in QA \n ${env.ovqa}"
+                            env.ovqacount=sh(script: "cat ${WORKSPACE}/overview-qa.txt | wc -l",returnStdout: true).trim()
              }
 
             }
@@ -62,22 +71,37 @@ pipeline {
                 script{
                     def buildNumber = currentBuild.number
                     def jobName = env.JOB_NAME
-                    def artifactPath = "OUTPUT.txt"  // Relative path to the archived artifact
-                    def artifactUrl = "${env.JENKINS_URL}/job/${jobName}/${buildNumber}/artifact/${artifactPath}"
-
-                    archiveArtifacts artifacts: 'OUTPUT.txt' , followSymlinks: false
+                    def artifactPathall = "OUTPUT-ALL.txt"  // Relative path to the archived artifact
+                    def artifactPathqa = "OUTPUT-QA.txt"  // Relative path to the archived artifact
+                    def artifactUrlall = "${env.JENKINS_URL}/job/${jobName}/${buildNumber}/artifact/${artifactPathall}"
+                    def artifactUrlqa = "${env.JENKINS_URL}/job/${jobName}/${buildNumber}/artifact/${artifactPathqa}"
+                    archiveArtifacts artifacts: '*.txt' , followSymlinks: false
                     slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
 
 =========================
-${env.ov}
+${env.ovall}
 =========================
-${artifactUrl} is the url for the detailed info
+${artifactUrlall} is the url for the detailed info of all running instances
 =========================
 =========================
-
 
 """
-                
+            echo "${env.ovqacount} is word count of up qa server regions"
+
+	        if("${env.ovqacount}" >= 1){
+                    slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
+
+Following are the Instances with molecule QA Tests up since past 2 days
+---------------------------------------------------
+${env.ovqa}
+---------------------------------------------------
+${artifactUrlqa} is the url for the detailed info of instances with QA Tests
+
+"""
+            }else{
+                    echo "No QA servers are running since past 2 days"
+                 }
+
                 
                 }
 
