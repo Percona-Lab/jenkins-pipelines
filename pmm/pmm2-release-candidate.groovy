@@ -171,6 +171,40 @@ pipeline {
             name: 'REMOVE_RELEASE_BRANCH')
     }
     stages {
+        stage('Update API descriptors') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
+                    sh '''
+                        set -ex
+
+                        # Configure git settings globally
+                        git config --global user.email "noreply@percona.com"
+                        git config --global user.name "PMM Jenkins"
+
+                        # Configure git to push using ssh
+                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+                        rm -rf pmm
+                        git clone https://github.com/percona/pmm
+
+                        docker run --rm -v ${PWD}/pmm:/pmm public.ecr.aws/e7j3v3n0/rpmbuild:ol9 sh -c '
+                            cd /pmm
+                            make init
+                            make descriptors
+                        '
+
+                        pushd pmm
+                        if git diff --text | grep -q 'descriptor\\.bin'; then
+                            git commit -a -m "Update descriptors"
+                            git show
+                            git push origin main
+                        fi
+                        popd
+                        rm -rf pmm
+                    '''
+                }
+            }
+        }
         stage('Get version') {
             steps {
                 script {
@@ -225,10 +259,10 @@ pipeline {
             }
             steps {
                 git branch: SUBMODULES_GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
-                sh """
-                    git config --global user.email "dev-services@percona.com"
+                sh '''
+                    git config --global user.email "noreply@percona.com"
                     git config --global user.name "PMM Jenkins"
-                """
+                '''
                 setupReleaseBranches(VERSION)
             }
         }
