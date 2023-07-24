@@ -57,7 +57,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 fi
 
                 export BUILD_ID=dont-kill-the-process
-                export ENKINS_NODE_COOKIE=dont-kill-the-process
+                export JENKINS_NODE_COOKIE=dont-kill-the-process
                 tar -zxpf pmm2-client.tar.gz
                 rm -f pmm2-client.tar.gz
                 mv pmm2-client-* "$PMM_BINARY"
