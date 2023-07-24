@@ -56,7 +56,8 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     wget -O pmm2-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm2/${CLIENT_VERSION}/binary/tarball/pmm2-client-${CLIENT_VERSION}.tar.gz"
                 fi
 
-                export BUILD_ID=dont-kill-the-instance
+                export BUILD_ID=dont-kill-the-process
+                export ENKINS_NODE_COOKIE=dont-kill-the-process
                 tar -zxpf pmm2-client.tar.gz
                 rm -f pmm2-client.tar.gz
                 mv pmm2-client-* "$PMM_BINARY"
