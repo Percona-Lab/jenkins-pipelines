@@ -31,11 +31,11 @@ pipeline {
     parameters {
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
-            description: 'PMM Server docker container version (image-name:version-tag ex. perconalab/pmm-server:dev-latest or perconalab/pmm-server:pmm1-dev-latest)',
+            description: 'PMM Server docker container version (image-name:version-tag, ex: perconalab/pmm-server:dev-latest)',
             name: 'DOCKER_VERSION')
         string(
             defaultValue: 'dev-latest',
-            description: 'PMM Client version ("dev-latest" for master branch, "pmm1-dev-latest" for 1.x latest, "latest" or "X.X.X" for released version, "http://..." for feature build)',
+            description: 'PMM Client version ("dev-latest" for main branch, "latest" or "X.X.X" for released version, "http://..." for feature build)',
             name: 'CLIENT_VERSION')
         string(
             defaultValue: '',
@@ -228,7 +228,7 @@ pipeline {
                         sudo amazon-linux-extras install epel -y
                         sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
-                        sudo yum repolist all
+                        sudo yum repolist
 
                         # exclude unavailable mirrors
                         echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf

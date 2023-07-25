@@ -42,5 +42,25 @@ pipeline {
                 }
             }
         }
+        stage('Trigger a devcontainer build') {
+            when {
+                // a guard to avoid unnecessary builds
+                expression { params.GIT_BRANCH == "PMM-2.0" && params.DESTINATION == "experimental" }
+            }          
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                        sh '''
+                            # 'ref' is a required parameter, it should always equal 'main'
+                            curl -L -X POST \
+                                -H "Accept: application/vnd.github+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                "https://api.github.com/repos/percona/pmm/actions/workflows/devcontainer.yml/dispatches" \
+                                -d '{"ref":"main"}'
+                        '''
+                    }
+                }
+            }
+        }
     }
 }
