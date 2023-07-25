@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 void runNodeBuild(String node_to_test) {
     build(
-        job: 'pxb-package-testing-test',
+        job: 'pxb-package-testing',
         parameters: [
             string(name: 'product_to_test', value: product_to_test),
             string(name: 'install_repo', value: params.install_repo),
