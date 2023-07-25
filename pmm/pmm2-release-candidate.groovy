@@ -173,36 +173,48 @@ pipeline {
     stages {
         stage('Update API descriptors') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
-                    sh '''
-                        set -ex
+                script {
+                    env.TARGET_BRANCH = params.SUBMODULES_GIT_BRANCH == DEFAULT_BRANCH ? 'main' : params.SUBMODULES_GIT_BRANCH
 
-                        # Configure git settings globally
-                        git config --global user.email "noreply@percona.com"
-                        git config --global user.name "PMM Jenkins"
+                    git branch: env.TARGET_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:percona/pmm'
 
-                        # Configure git to push using ssh
-                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+                    withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
+                        sh '''
+                            set -ex
 
-                        rm -rf pmm
-                        git clone https://github.com/percona/pmm
+                            # Configure git to push using ssh
+                            git config --global user.email "noreply@percona.com"
+                            git config --global user.name "PMM Jenkins"
+                            export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
-                        docker run --rm -v ${PWD}/pmm:/pmm public.ecr.aws/e7j3v3n0/rpmbuild:ol9 sh -c '
-                            cd /pmm
-                            make init
-                            make descriptors
-                        '
+                            docker run --rm -v $PWD/.:/pmm public.ecr.aws/e7j3v3n0/rpmbuild:ol9 sh -c '
+                                cd /pmm
+                                make init
+                                make descriptors
+                            '
 
-                        pushd pmm
-                        if git diff --text | grep -q 'descriptor\\.bin'; then
-                            git commit -a -m "Update descriptors"
-                            git show
-                            git push origin main
-                        fi
-                        popd
-                        rm -rf pmm
-                    '''
+                            API_DESCRIPTOR=$(git diff --text | grep -q 'descriptor\\.bin' && echo "CHANGED" || echo "NOT_CHANGED")
+                            if [[ $API_DESCRIPTOR == "CHANGED" ]]; then
+                                git commit -a -m "Update descriptors"
+                                git show
+                                git push origin ${TARGET_BRANCH}
+                            fi
+                            echo "${API_DESCRIPTOR}" > descriptor_status.txt
+                        '''
+                    }
+
+                    env.API_DESCRIPTOR = sh(script: 'cat descriptor_status.txt', returnStdout: true).trim()
+
+                    deleteDir()
                 }
+            }
+        }
+        stage('Rewind Submodules') {
+            when {
+                expression { env.REMOVE_RELEASE_BRANCH == 'no' && env.TARGET_BRANCH == 'main' && env.API_DESCRIPTOR == 'CHANGED' }
+            }
+            steps {
+                build job: 'pmm2-submodules-rewind', propagate: false, wait: true
             }
         }
         stage('Get version') {
