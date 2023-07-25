@@ -172,6 +172,9 @@ pipeline {
     }
     stages {
         stage('Update API descriptors') {
+            when {
+                expression { env.REMOVE_RELEASE_BRANCH == 'no' }
+            }
             steps {
                 script {
                     env.TARGET_BRANCH = params.SUBMODULES_GIT_BRANCH == DEFAULT_BRANCH ? 'main' : params.SUBMODULES_GIT_BRANCH
