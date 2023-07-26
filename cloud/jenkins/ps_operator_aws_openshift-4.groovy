@@ -125,7 +125,6 @@ void installRpms() {
     sh """
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable-only tools
-        sudo yum install -y jq | true
     """
 }
 pipeline {
@@ -191,7 +190,7 @@ pipeline {
          label 'docker'
     }
     options {
-        buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '10', artifactNumToKeepStr: '10'))
+        buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
@@ -218,8 +217,10 @@ pipeline {
                     curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.29.1/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
+                    sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+                    sudo chmod +x /usr/local/bin/jq
 
                     curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux-$PLATFORM_VER.tar.gz \
                         | sudo tar -C /usr/local/bin --wildcards -zxvpf -

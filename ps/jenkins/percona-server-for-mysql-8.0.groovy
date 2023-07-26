@@ -315,6 +315,21 @@ parameters {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Debian Bookworm(12)') {
+                    agent {
+                        label 'min-bookworm-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("none", "--build_deb=1 --with_zenfs=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Centos 7 binary tarball') {
                     agent {
                         label 'min-centos-7-x64'
@@ -574,11 +589,32 @@ parameters {
             slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
             slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: Triggering Builds for Package Testing for ${BRANCH} - [${BUILD_URL}]")
             unstash 'properties'
+
             script {
                 currentBuild.description = "Built on ${BRANCH}; path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
                 REVISION = sh(returnStdout: true, script: "grep REVISION test/percona-server-8.0.properties | awk -F '=' '{ print\$2 }'").trim()
-                echo "${REVISION} is the commit ID"
-                build job: 'package-testing-ps80', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: 'ps80'),string(name: 'install_repo', value: "testing"),string(name: 'node_to_test', value: "all"),string(name: 'action_to_test', value: "all"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no"),string(name: 'REVISION', value: "${REVISION}")]
+                PS_RELEASE = sh(returnStdout: true, script: "echo ${BRANCH} | sed 's/release-//g'").trim()
+
+                withCredentials([string(credentialsId: 'PXC_GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+                sh """
+                    
+                    set -x
+                    git clone https://jenkins-pxc-cd:$TOKEN@github.com/Percona-QA/package-testing.git
+                    cd package-testing
+                    git config user.name "jenkins-pxc-cd"
+                    git config user.email "it+jenkins-pxc-cd@percona.com"
+                    OLD_REV=\$(cat VERSIONS | grep PS80_REV | cut -d '=' -f2- )
+                    OLD_VER=\$(cat VERSIONS | grep PS80_VER | cut -d '=' -f2- )
+                    sed -i s/PS80_REV=\$OLD_REV/PS80_REV='"'${REVISION}'"'/g VERSIONS
+                    sed -i s/PS80_VER=\$OLD_VER/PS80_VER='"'${PS_RELEASE}'"'/g VERSIONS
+                    git diff
+                    git add -A
+                    git commit -m "Autocommit: add ${REVISION} and ${PS_RELEASE} for ps80 package testing VERSIONS file."
+                    git push 
+
+                """
+                }
+                build job: 'package-testing-ps80', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: 'ps80'),string(name: 'install_repo', value: "testing"),string(name: 'node_to_test', value: "all"),string(name: 'action_to_test', value: "all"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
             }
             deleteDir()
         }

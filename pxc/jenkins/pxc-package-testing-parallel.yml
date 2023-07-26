@@ -1,5 +1,5 @@
 - job:
-    name: wip-pxc-package-testing-parallel
+    name: pxc-package-testing-parallel
     project-type: pipeline
     description: |
         Do not edit this job through the web!

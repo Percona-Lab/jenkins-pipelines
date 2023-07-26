@@ -124,7 +124,7 @@ pipeline {
                         set -o errexit
 
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server:el7-\$(date -u '+%Y%m%d%H%M')
+                        export DOCKER_TAG=perconalab/pmm-server:\$(date -u '+%Y%m%d%H%M')-el7
 
                         ${PATH_TO_SCRIPTS}/build-server-docker
 
@@ -148,7 +148,7 @@ pipeline {
         }
         stage('Push to public repository') {
             steps {
-                sync2ProdPMM("pmm2-components/yum/${DESTINATION}", 'no')
+                sync2ProdPMM("pmm2-components/yum/${DESTINATION}", 'no', '7')
             }
         }
     }

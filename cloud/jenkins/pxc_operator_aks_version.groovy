@@ -147,6 +147,8 @@ void runTest(Integer TEST_ID) {
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
+                    export DEBUG_TESTS=1
+
                     cd ./source
                     if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
                         export IMAGE=${PXC_OPERATOR_IMAGE}
@@ -283,6 +285,7 @@ pipeline {
         label 'docker'
     }
     options {
+        buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
@@ -309,7 +312,6 @@ pipeline {
                 initTests()
 
                 sh """
-                    sudo yum install -y jq | true
                     cat <<EOF > /tmp/kubernetes.repo
 [kubernetes]
 name=Kubernetes
@@ -320,21 +322,24 @@ repo_gpgcheck=0
 gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
                     sudo mv /tmp/kubernetes.repo /etc/yum.repos.d
-                    sudo yum install -y jq python3-pip kubectl || true
+                    sudo yum install -y python3-pip kubectl || true
                     sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
                     sudo percona-release enable-only tools
-                    sudo yum install -y percona-xtrabackup-80 jq | true
+                    sudo yum install -y percona-xtrabackup-80 | true
                     
                     curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
                     curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
+                    sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+                    sudo chmod +x /usr/local/bin/jq
                     
                     if ! command -v az &>/dev/null; then
                         curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
-                        printf "/usr/azure-cli\\n/usr/bin" | sudo  python3 install.py
+                        printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+                        sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0"
                     fi
                 """
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {

@@ -63,6 +63,11 @@ pipeline {
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
+        string(
+            defaultValue: 'Percona-QA',
+            description: 'Git account for package-testing repository',
+            name: 'TESTING_GIT_ACCOUNT'
+        )
         booleanParam(
             name: 'MAJOR_REPO',
             description: "Enable to use major (pdpxc-8.0) repo instead of pdpxc-8.0.XX"
@@ -83,7 +88,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
             }
         }
         stage ('Prepare') {

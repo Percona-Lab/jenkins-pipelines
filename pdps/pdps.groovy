@@ -68,6 +68,11 @@ pipeline {
             name: 'TESTING_BRANCH'
         )
         string(
+            defaultValue: 'Percona-QA',
+            description: 'Git account for package-testing repository',
+            name: 'TESTING_GIT_ACCOUNT'
+        )
+        string(
             defaultValue: 'master',
             description: 'Tests will be run from branch of  https://github.com/percona/orchestrator',
             name: 'ORCHESTRATOR_TESTS_VERSION'
@@ -101,7 +106,7 @@ pipeline {
             steps {
                 deleteDir()
                 checkOrchVersionParam()
-                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
             }
         }
         stage ('Prepare') {

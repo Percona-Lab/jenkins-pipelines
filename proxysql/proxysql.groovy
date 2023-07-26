@@ -14,7 +14,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./proxysql_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./proxysql_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --proxysql_gitrepo=${PROXYSQL_REPO} --pat_repo=${PAT_REPO} -pat_tag=${PAT_TAG} --proxysql_branch=${PROXYSQL_BRANCH} --proxysql_ver=${PROXYSQL_VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./proxysql_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --proxysql_repo=${PROXYSQL_REPO} --pat_repo=${PAT_REPO} --pat_tag=${PAT_TAG} --proxysql_branch=${PROXYSQL_BRANCH} --proxysql_ver=${VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -50,7 +50,7 @@ pipeline {
         string(
             defaultValue: '2.5.1',
             description: 'PROXYSQL release value',
-            name: 'PROXYSQL_VERSION')  
+            name: 'VERSION')  
         string(
             defaultValue: 'https://github.com/percona/proxysql-admin-tool.git',
             description: 'URL for proxysql-admin-tool repository',
@@ -70,7 +70,7 @@ pipeline {
         string(
             defaultValue: 'proxysql',
             description: 'PROXYSQL repo name',
-            name: 'PROXYSQL_REPO')
+            name: 'PROXYSQL_DEST_REPO')
         choice(
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
@@ -239,6 +239,19 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Debian Bookworm(12)') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bookworm", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Centos 7 tarball') {
                     agent {
                         label 'docker-32gb'
@@ -291,7 +304,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(PROXYSQL_REPO, COMPONENT)
+                sync2ProdAutoBuild(PROXYSQL_DEST_REPO, COMPONENT)
             }
         }
 

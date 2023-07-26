@@ -215,6 +215,8 @@ void runTest(Integer TEST_ID) {
             timeout(time: 90, unit: 'MINUTES') {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
                     sh """
+                        export DEBUG_TESTS=1
+
                         cd ./source
                         if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
                             export IMAGE=${PSMDB_OPERATOR_IMAGE}
@@ -329,7 +331,7 @@ pipeline {
          label 'docker'
     }
     options {
-        buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '10', artifactNumToKeepStr: '10'))
+        buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
@@ -355,8 +357,6 @@ pipeline {
                 initTests()
 
                 sh '''
-                    sudo yum install -y jq | true
-
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                         rm -rf $HOME/google-cloud-sdk
                         curl https://sdk.cloud.google.com | bash
@@ -369,8 +369,10 @@ pipeline {
                     curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
+                    sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+                    sudo chmod +x /usr/local/bin/jq
 
                     curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
                     sudo mv -v /tmp/eksctl /usr/local/bin

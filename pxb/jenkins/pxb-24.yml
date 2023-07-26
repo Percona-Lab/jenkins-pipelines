@@ -6,9 +6,9 @@
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/surbhat1595/jenkins-pipelines.git
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'ENG-1126'
+            - 'master'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pxb/jenkins/pxb-24.groovy
