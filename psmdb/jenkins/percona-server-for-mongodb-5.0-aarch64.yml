@@ -1,0 +1,15 @@
+- job:
+    name: psmdb50-aarch64-build
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/surbhat1595/jenkins-pipelines.git
+            branches:
+            - 'PSMDB-1308'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: psmdb/jenkins/percona-server-for-mongodb-5.0-aarch64.groovy
+
