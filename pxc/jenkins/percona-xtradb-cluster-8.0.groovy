@@ -360,11 +360,10 @@ pipeline {
             steps {
                 echo "====> Build docker containers"
                 cleanUpWS()
-                installCli("deb")
                 sh '''
                    sleep 900
                 '''
-                unstash 'properties'
+                unstash 'pxc-80.properties'
                 sh '''
                     PXC_RELEASE=$(echo ${GIT_BRANCH} | sed 's/release-//g')
                     sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
