@@ -6,6 +6,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 List all_nodes = [
     "min-buster-x64",
     "min-bullseye-x64",
+    "min-bookworm-x64",
     "min-centos-7-x64",
     "min-ol-8-x64",
     "min-bionic-x64",
@@ -115,6 +116,18 @@ pipeline {
 
                     steps {
                         runNodeBuild("min-bullseye-x64")
+                    }
+                }
+
+                stage("Debian Bookworm") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("min-bookworm-x64")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("min-bookworm-x64")
                     }
                 }
 
