@@ -22,7 +22,7 @@ pipeline {
                     sh '''
                         # Configure git to push using ssh
                         export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-                        
+
                         git reset --hard
                         git clean -xdff
                         git submodule update --remote --init --recommend-shallow --jobs 10
