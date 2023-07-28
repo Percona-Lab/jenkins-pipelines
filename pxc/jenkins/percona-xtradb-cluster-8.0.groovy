@@ -372,7 +372,7 @@ pipeline {
                     sudo apt-get install -y qemu binfmt-support qemu-user-static
                     sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
                     curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
-                    source MYSQL_VERSION
+                    . ./MYSQL_VERSION
                     git clone https://github.com/percona/percona-docker
 
                     cd percona-docker/percona-xtradb-cluster-8.0
@@ -397,7 +397,7 @@ pipeline {
                      echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                      PXC_RELEASE=$(echo ${GIT_BRANCH} | sed 's/release-//g')
                      curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
-                     source MYSQL_VERSION
+                     . ./MYSQL_VERSION
                      sudo docker push perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
                      sudo docker push perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug
                      sudo docker push perconalab/percona-xtradb-cluster-operator:${PXC_RELEASE}-pxc8.0-backup
