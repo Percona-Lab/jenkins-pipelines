@@ -1,5 +1,5 @@
 - job:
-    name: psmdb50-aarch64-build
+    name: psmdb44-aarch64-build
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,5 +11,5 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: psmdb/jenkins/percona-server-for-mongodb-5.0-aarch64.groovy
+      script-path: psmdb/jenkins/percona-server-for-mongodb-4.4-aarch64.groovy
 
