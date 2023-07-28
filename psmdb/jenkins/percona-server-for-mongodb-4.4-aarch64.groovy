@@ -37,11 +37,11 @@ pipeline {
             description: 'URL for  percona-server-mongodb repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'v5.0',
+            defaultValue: 'v4.4',
             description: 'Tag/Branch for percona-server-mongodb repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '5.0.0',
+            defaultValue: '4.4.0',
             description: 'PSMDB release value',
             name: 'PSMDB_VERSION')
         string(
@@ -53,7 +53,7 @@ pipeline {
             description: 'https://docs.mongodb.com/database-tools/installation/',
             name: 'MONGO_TOOLS_TAG')
         string(
-            defaultValue: 'psmdb-50',
+            defaultValue: 'psmdb-44',
             description: 'PSMDB repo name',
             name: 'PSMDB_REPO')
         choice(
@@ -77,11 +77,11 @@ pipeline {
                 cleanUpWS()
                 buildStage("oraclelinux:8", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-50.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-44.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/percona-server-mongodb-50.properties
+                   cat test/percona-server-mongodb-44.properties
                    cat uploadPath
                    cat awsUploadPath
                 '''
