@@ -47,8 +47,8 @@ priceMap = [:]
 priceMap['c5.large']   = '0.13' // type=c5.large, vCPU=2, memory=4GiB, saving=29%, interruption='<5%', price=0.071400
 priceMap['c5ad.2xlarge']  = '0.33'
 priceMap['c5.4xlarge'] = '0.33' // type=c5.4xlarge, vCPU=16, memory=32GiB, saving=62%, interruption='<5%', price=0.260400
-priceMap['g4ad.4xlarge'] = '0.72' // type=g4ad.4xlarge, vCPU=16, memory=64GiB, saving=70%, interruption='<5%'
-priceMap['r6gd.4xlarge'] = '0.57' // aarch64 type=r6gd.4xlarge, vCPU=16, memory=128GiB, saving=68%, interruption='<5%', price=0.297500
+priceMap['i4i.4xlarge'] = '0.72' // type=i4i.4xlarge, vCPU=16, memory=64GiB, saving=70%, interruption='<5%'
+priceMap['m6g.4xlarge'] = '0.57' // aarch64 type=m6g.4xlarge, vCPU=16, memory=64GiB, saving=38%, interruption='<5%', price=0.488500
 
 userMap = [:]
 userMap['docker']           = 'ec2-user'
@@ -280,14 +280,14 @@ initMap['docker-64gb-aarch64'] = initMap['docker-32gb']
 capMap = [:]
 capMap['c5ad.2xlarge'] = '60'
 capMap['c5.4xlarge'] = '80'
-capMap['g4ad.4xlarge'] = '20'
-capMap['r6gd.4xlarge'] = '20'
+capMap['i4i.4xlarge'] = '20'
+capMap['m6g.4xlarge'] = '20'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 'c5.large'
 typeMap['docker']            = 'c5ad.2xlarge'
 typeMap['docker-32gb']       = 'c5.4xlarge'
-typeMap['docker-64gb']       = 'g4ad.4xlarge'
+typeMap['docker-64gb']       = 'i4i.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
 typeMap['min-centos-8-x64']  = typeMap['docker-32gb']
 typeMap['min-ol-8-x64']      = typeMap['docker-32gb']
@@ -303,7 +303,7 @@ typeMap['min-jammy-x64']     = typeMap['docker-32gb']
 typeMap['psmdb']             = typeMap['docker-32gb']
 typeMap['psmdb-bionic']      = typeMap['docker-32gb']
 
-typeMap['docker-64gb-aarch64'] = 'r6gd.4xlarge'
+typeMap['docker-64gb-aarch64'] = 'm6g.4xlarge'
 
 execMap = [:]
 execMap['docker']           = '1'
