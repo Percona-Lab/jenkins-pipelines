@@ -11,12 +11,17 @@ def call(String PRODUCT_NAME, String PRODUCT_VERSION) {
                 echo '10.30.6.9 repo.ci.percona.com' >> hosts
                 sudo cp ./hosts /etc || true
                 # Cut prefix if it's provided
-                PRODUCT_VERSION=\$(echo ${PRODUCT_VERSION} | sed 's/release-//g');
-
+                if [[ "$PRODUCT_NAME" = pxc ]]; then
+                    curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${PRODUCT_VERSION}/MYSQL_VERSION
+                    . ./MYSQL_VERSION
+                    CUT_PRODUCT_VERSION=${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}
+                else
+                    CUT_PRODUCT_VERSION=\$(echo ${PRODUCT_VERSION} | sed 's/release-//g');
+                fi
                 ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com ' \
-                    ssh -p 2222 jenkins-deploy.jenkins-deploy.web.r.int.percona.com mkdir -p /data/downloads/TESTING/${PRODUCT_NAME}-${PRODUCT_VERSION}
+                    ssh -p 2222 jenkins-deploy.jenkins-deploy.web.r.int.percona.com mkdir -p /data/downloads/TESTING/${PRODUCT_NAME}-${CUT_PRODUCT_VERSION}
 
-                    rsync -avt -e "ssh -p 2222" --bwlimit=50000 --progress ${path_to_build}/binary/tarball/* jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/${PRODUCT_NAME}-${PRODUCT_VERSION}/
+                    rsync -avt -e "ssh -p 2222" --bwlimit=50000 --progress ${path_to_build}/binary/tarball/* jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/${PRODUCT_NAME}-${CUT_PRODUCT_VERSION}/
                 '
                 curl https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory
             """

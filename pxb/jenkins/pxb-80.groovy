@@ -266,8 +266,33 @@ pipeline {
     post {
         success {
             // slackNotify("", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: Triggering Builds for Package Testing for ${BRANCH} - [${BUILD_URL}]")
+
             script {
                 currentBuild.description = "Built on ${BRANCH}"
+                XB_VERSION_MAJOR = sh(returnStdout: true, script: "source ./test/percona-xtrabackup-8.0.properties && echo \$XB_VERSION_MAJOR").trim()
+                XB_VERSION_MINOR = sh(returnStdout: true, script: "source ./test/percona-xtrabackup-8.0.properties && echo \$XB_VERSION_MINOR").trim()
+                XB_VERSION_PATCH = sh(returnStdout: true, script: "source ./test/percona-xtrabackup-8.0.properties && echo \$XB_VERSION_PATCH").trim()
+                XB_VERSION_EXTRA = sh(returnStdout: true, script: "source ./test/percona-xtrabackup-8.0.properties && echo \$XB_VERSION_EXTRA | sed 's/-//g'").trim()
+
+                withCredentials([string(credentialsId: 'PXC_GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+                sh """
+                    set -x
+                    git clone https://jenkins-pxc-cd:$TOKEN@github.com/Percona-QA/package-testing.git
+                    cd package-testing
+                    git config user.name "jenkins-pxc-cd"
+                    git config user.email "it+jenkins-pxc-cd@percona.com"
+                    OLD_PXB80_VER=\$(cat VERSIONS | grep PXB80_VER | cut -d '=' -f2- )
+                    OLD_PXB80PKG_VER=\$(cat VERSIONS | grep PXB80PKG_VER | cut -d '=' -f2- )
+                    sed -i s/PXB80_VER=\$OLD_PXB80_VER/PXB80_VER='"'${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}'"'/g VERSIONS
+                    sed -i s/PXB80PKG_VER=\$OLD_PXB80PKG_VER/PXB80PKG_VER='"'${XB_VERSION_EXTRA}'"'/g VERSIONS
+                    git diff
+                    git add -A
+                    git commit -m "Autocommit: add ${XB_VERSION_MAJOR}-${XB_VERSION_MINOR}-${XB_VERSION_PATCH} and ${XB_VERSION_EXTRA} for PXB80 package testing VERSIONS file."
+                    git push 
+                """
+                }
+                build job: 'pxb-package-testing-all', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: 'pxb80'),string(name: 'install_repo', value: "testing"),string(name: 'git_repo', value: "https://github.com/Percona-QA/package-testing.git")]
             }
             deleteDir()
         }
