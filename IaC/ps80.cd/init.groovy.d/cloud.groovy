@@ -418,7 +418,7 @@ initMap['micro-amazon'] = '''
     sudo yum -y remove java-1.8.0-openjdk-headless || :
     sudo amazon-linux-extras install epel -y || :
     sudo amazon-linux-extras install java-openjdk11 -y || :
-    sudo yum -y install java-11-openjdk || :
+    sudo yum -y install java-11-openjdk tzdata-java || :
     sudo yum -y install aws-cli || :
     sudo yum -y install git || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
