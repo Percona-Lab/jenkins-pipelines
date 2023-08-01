@@ -206,7 +206,7 @@ initMap['rpmMap'] = '''
     done
     sudo amazon-linux-extras install epel -y || :
     sudo amazon-linux-extras install java-openjdk11 -y || :
-    sudo yum -y install java-11-openjdk || :
+    sudo yum -y install java-11-openjdk tzdata-java || :
     sudo yum -y install git || :
     sudo yum -y install aws-cli || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
