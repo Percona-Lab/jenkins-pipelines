@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@sync', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 product_action_playbooks = [
@@ -18,7 +18,7 @@ setup_centos_package_tests = { ->
     sh '''
         sudo yum install -y epel-release
         sudo yum -y update
-        sudo yum install -y ansible
+        sudo yum install -y ansible-2.9.27
     '''
 }
 
@@ -70,7 +70,7 @@ void runPlaybook(String action_to_test) {
     def playbook_path = "package-testing/playbooks/${playbook}"
 
     sh '''
-        git clone --depth 1 "${git_repo}"
+        git clone --depth 1 -b sync https://github.com/kaushikpuneet07/package-testing.git
     '''
 
     setup_package_tests()
