@@ -10,9 +10,9 @@
     pipeline-scm:
         scm:
             - git:
-                url: https://github.com/kaushikpuneet07/jenkins-pipelines.git
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
                 branches:
-                    - 'sync'
+                    - 'master'
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: pxc/jenkins/proxysql-package-testing.groovy
@@ -22,7 +22,7 @@
             choices:
                 - "proxysql2"
                 - "proxysql"
-            description: 'Choose the product version to test: Pproxysql OR proxysql2'
+            description: 'Choose the product version to test: Proxysql OR proxysql2'
         - choice:
             name: node_to_test
             choices:
@@ -60,6 +60,6 @@
             description: 'Choose the repo to install client packages from'
         - string:
             name: git_repo
-            default: 'https://github.com/kaushikpuneet07/package-testing.git'
+            default: 'https://github.com/Percona-QA/package-testing.git'
             description: ""
             trim: false
