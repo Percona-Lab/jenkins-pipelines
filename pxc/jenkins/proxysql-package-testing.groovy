@@ -18,6 +18,14 @@ setup_centos_package_tests = { ->
     sh '''
         sudo yum install -y epel-release
         sudo yum -y update
+        sudo yum install -y ansible
+    '''
+}
+
+setup_oracle8_package_tests = { ->
+    sh '''
+        sudo yum install -y epel-release
+        sudo yum -y update
         sudo yum install -y ansible-2.9.27
     '''
 }
@@ -53,7 +61,7 @@ node_setups = [
     "min-buster-x64": setup_buster_bullseye_package_tests,
     "min-bullseye-x64": setup_buster_bullseye_package_tests,
     "min-centos-7-x64": setup_centos_package_tests,
-    "min-ol-8-x64": setup_centos_package_tests,
+    "min-ol-8-x64": setup_oracle8_package_tests,
     "min-ol-9-x64": setup_centos_package_tests,
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
@@ -70,7 +78,7 @@ void runPlaybook(String action_to_test) {
     def playbook_path = "package-testing/playbooks/${playbook}"
 
     sh '''
-        git clone --depth 1 -b sync https://github.com/kaushikpuneet07/package-testing.git
+        git clone --depth 1 "${git_repo}"
     '''
 
     setup_package_tests()
