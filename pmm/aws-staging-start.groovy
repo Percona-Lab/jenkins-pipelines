@@ -419,8 +419,6 @@ pipeline {
                                 export PMM_SERVER_IP=${IP}
                             fi
 
-                            export PMM_REPO=${env.PMM_REPO}
-
                             bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                                 --ms-version  ${MS_VERSION} \
                                 --mo-version  ${MO_VERSION} \
