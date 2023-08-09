@@ -121,7 +121,7 @@ initMap['rpmMap'] = '''
     elif [[ $SYSREL -eq 7 ]]; then
         PKGLIST="tar coreutils java-11-openjdk"
     elif [[ $SYSREL -ge 8 ]]; then
-        PKGLIST="tar coreutils java-11-openjdk"
+        PKGLIST="tar coreutils java-11-openjdk tzdata-java"
     fi
 
     until sudo yum makecache; do

@@ -209,7 +209,7 @@ initMap['docker'] = '''
 
     sudo amazon-linux-extras install epel -y
     sudo amazon-linux-extras install java-openjdk11 -y
-    sudo yum -y install git docker p7zip
+    sudo yum -y install git docker p7zip tzdata-java
     sudo yum -y remove awscli
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
@@ -429,7 +429,7 @@ initMap['rpmMap'] = '''
         echo try again
     done
     sudo amazon-linux-extras install java-openjdk11 -y
-    sudo yum -y install git || :
+    sudo yum -y install git tzdata-java || :
     sudo yum -y install aws-cli || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 

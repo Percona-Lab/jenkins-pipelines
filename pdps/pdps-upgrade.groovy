@@ -46,6 +46,11 @@ pipeline {
             name: 'VERSION'
         )
         string(
+            defaultValue: '',
+            description: 'Percona Server revision for test after update. Empty by default (not checked).',
+            name: 'PS_REVISION'
+        )
+        string(
             defaultValue: '2.5.1',
             description: 'Updated Proxysql version',
             name: 'PROXYSQL_VERSION'
