@@ -526,9 +526,11 @@ ENDSSH
                     sh '''
                         # This step must never cause the pipeline to fail, so that we can create tags outside of it
                         set +e
-                        curl -o create-tags https://raw.githubusercontent.com/percona/pmm/pmm-${VERSION}/build/scripts/create-tags
-                        chmod +x create-tags
-                        bash -E "$(pwd)/create-tags"
+                        curl -o create-tags https://raw.githubusercontent.com/percona/pmm/pmm-${VERSION}/build/scripts/create-tags || :
+                        if [ -f create-tags ]; then
+                            chmod +x create-tags
+                            bash -E "$(pwd)/create-tags"
+                        fi
                     '''
                 }
             }
