@@ -50,7 +50,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 sleep 30
                 echo "Waiting ..."
             done
-            until sudo apt-get -y install gpgv curl clang-11 gnupg; do
+            until sudo apt-get -y install gpgv curl clang gnupg; do
                 sleep 30
                 echo "Waiting ..."
             done
