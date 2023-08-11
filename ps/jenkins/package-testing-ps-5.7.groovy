@@ -13,6 +13,7 @@ List all_nodes = [
     "min-amazon-2-x64",
     "min-jammy-x64",
     "min-ol-9-x64",
+    "min-bookworm-x64",
 ]
 
 List all_nodes_except_bullseye = [
@@ -22,6 +23,9 @@ List all_nodes_except_bullseye = [
     "min-bionic-x64",
     "min-focal-x64",
     "min-amazon-2-x64",
+    "min-jammy-x64",
+    "min-ol-9-x64",
+    "min-bookworm-x64",
 ]
 
 product_to_test = params.product_to_test
@@ -113,6 +117,18 @@ pipeline {
 
                     steps {
                         runNodeBuild("min-buster-x64")
+                    }
+                }
+
+                stage("Debian Bookworm") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("min-bookworm-x64")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("min-bookworm-x64")
                     }
                 }
 
