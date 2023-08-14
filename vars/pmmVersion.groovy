@@ -27,6 +27,7 @@ def call(String type='latest') {
     // Newer AMIs, us-east-1
     '2.12.0': 'ami-0b5539a85b450ad6a',
     '2.13.0': 'ami-082bcd79afc35d576',
+    // '2.19.0': 'ami-0a8d9caa10fb1aaf3',
     '2.20.0': 'ami-0aa5c278075c61158',
     '2.21.0': 'ami-03a64919e4f2afe32',
     '2.22.0': 'ami-0fd1d4c619b968b18',
