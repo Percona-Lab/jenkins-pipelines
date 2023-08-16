@@ -1,5 +1,5 @@
 - job:
-    name: percona-xtrabackup-8.0-test-pipeline
+    name: percona-xtrabackup-8.1-test-cloud-pipeline
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -12,7 +12,7 @@
             - "master"
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pxb/v2/jenkins/percona-xtrabackup-8.0-test-pipeline.groovy
+      script-path: pxb/v2/jenkins/percona-xtrabackup-8.1-test-cloud-pipeline.groovy
     parameters:
     - choice:
         name: DOCKER_OS
@@ -20,10 +20,7 @@
           - centos:7
           - centos:8
           - oraclelinux:9
-          - ubuntu:bionic
-          - ubuntu:focal
           - ubuntu:jammy
-          - debian:buster
           - debian:bullseye
           - asan
         description: OS version for compilation
@@ -38,14 +35,18 @@
         choices:
         - innodb80
         - xtradb80
-        description: Type of build to produce  
+        description: Type of build to produce
     - string:
         name: BOOTSTRAP_URL
         default:
-        description: 
+        description:
+    - string:
+        name: USE_BINARIES_FROM_BUILD_ID
+        default: "lastSuccessfulBuild"
+        description: Specific percona-xtrabackup-8.1-compile-param build id to use binaries from.
     - string:
         name: INNODB80_VERSION
-        default: "8.0.21"
+        default: "8.1.0"
         description: Version of MySQL InnoDB80 which will be used for bootstrap.sh script
     - string:
         name: XTRADB80_VERSION
@@ -76,4 +77,4 @@
         choices:
         - docker
         - docker-32gb
-        description: Run build on specified instance type. 
+        description: Run build on specified instance type.

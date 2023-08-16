@@ -22,10 +22,18 @@ test: Compilation & Test run for this flavour(${XTRABACKUP_TARGET}) is masked as
 time: $(date +%Y-%m-%d) $(date +%H:%M:%S)
 success: Compilation & Test run for this flavour(${XTRABACKUP_TARGET}) is masked as its not supported on selected platform
 EOF
-  iconv -t UTF-8 ${WORKDIR_ABS}/test_results.subunit | PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml > ${WORKDIR_ABS}/junit.xml || true
+  iconv -t UTF-8 ${WORKDIR_ABS}/test_results.subunit | eval ${SUBUNIT2JUNITXML_CMD} > ${WORKDIR_ABS}/junit.xml || true
   echo "${SSL_VER} is not supported for ${XTRABACKUP_TARGET} target, this is a stub we decided to implement in PXB-2368"
   exit 0
 }
+
+if [ ! -z "${VAULT_IP}" ]; then
+    echo "${VAULT_IP} local.vault.com" | sudo tee -a /etc/hosts
+fi
+
+if [ ! -z "${KMIP_SERVER_IP}" ]; then
+    echo "${KMIP_SERVER_IP} local.kmip.com" | sudo tee -a /etc/hosts
+fi
 
 tar -C ${WORKDIR_ABS}/PXB --strip-components=1 -zxpf $(ls $WORKDIR_ABS/*.tar.gz | head -1)
 
@@ -34,6 +42,13 @@ if [[ -f /opt/rh/devtoolset-7/enable ]]; then
   source /opt/rh/devtoolset-7/enable
 fi
 
+#Ubuntu
+if [ -f /usr/bin/apt ]; then
+  sudo apt-get update
+  sudo apt-get install -y uuid-runtime
+fi
+
+
 status=0
 #
 # Running XBTR test cases
@@ -41,9 +56,13 @@ SSL_VER=$(ls -la {/,/usr/}{lib64,lib,lib/x86_64-linux-gnu}/libssl.so.1.* | sed '
 echo "Running XBTR suite: $suite"
 TEST_DIR=$(dirname "$(find ${WORKDIR_ABS}/PXB -name bootstrap.sh)")
 cd ${TEST_DIR}
-
+SUBUNIT2JUNITXML_CMD="PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml"
 if [ -f /usr/bin/yum ]; then
   RHEL=$(rpm --eval %rhel)
+  if [[ ${RHEL} == 9 ]]; then
+    sudo yum install -y python3-junitxml python3-subunit
+    SUBUNIT2JUNITXML_CMD="./subunit2junitxml_python3"
+  fi
   if [[ ${RHEL} == 8 ]]; then
     if [[ ${XTRABACKUP_TARGET} == "galera56" ]] || [[ ${XTRABACKUP_TARGET} == "xtradb56" ]]; then
       errmsg
@@ -103,5 +122,5 @@ fi
 cat results/setup
 sudo cp -r ${TEST_DIR}/results/ ${WORKDIR_ABS}/
 cp test_results.subunit ${WORKDIR_ABS}
-iconv -t UTF-8 test_results.subunit | PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml > ${WORKDIR_ABS}/junit.xml || true
+iconv -t UTF-8 test_results.subunit | eval ${SUBUNIT2JUNITXML_CMD} > ${WORKDIR_ABS}/junit.xml || true
 exit $status
