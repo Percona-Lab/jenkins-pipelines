@@ -10,7 +10,7 @@ set -o xtrace
 ROOT_DIR=$(cd $(dirname $0)/..; pwd -P)/sources
 
 if [ ! -d "${ROOT_DIR}" ]; then
-    git clone --detph=1 "${GIT_REPO:-https://github.com/percona/percona-xtrabackup}" "${ROOT_DIR}"
+    git clone --depth=1 "${GIT_REPO:-https://github.com/percona/percona-xtrabackup}" "${ROOT_DIR}"
 fi
 
 pushd $ROOT_DIR
