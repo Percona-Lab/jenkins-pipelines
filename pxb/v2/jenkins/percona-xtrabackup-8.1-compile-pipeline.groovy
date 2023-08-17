@@ -56,7 +56,7 @@ pipeline {
                         RAW_VERSION_LINK=$(echo ${GIT_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
                         curl ${RAW_VERSION_LINK}/${BRANCH}/XB_VERSION --output ${WORKSPACE}/XB_VERSION-${BUILD_NUMBER}
                         source ${WORKSPACE}/XB_VERSION-${BUILD_NUMBER}
-                        if ! [[ ${XB_VERSION_MAJOR} -gt ${MY_BRANCH_BASE_MAJOR} ]] ; then
+                        if ! [[ ${XB_VERSION_MAJOR}${XB_VERSION_MINOR} -gt ${MY_BRANCH_BASE_MAJOR}${MY_BRANCH_BASE_MINOR} ]] ; then
                             echo "Are you trying to build wrong branch?"
                             echo "You are trying to build ${XB_VERSION_MAJOR}.${XB_VERSION_MINOR} instead of higer than ${MY_BRANCH_BASE_MAJOR}.${MY_BRANCH_BASE_MINOR}!"
                             rm -f ${WORKSPACE}/XB_VERSION-${BUILD_NUMBER}
