@@ -22,7 +22,7 @@
     - string:
         name: USE_BINARIES_FROM_BUILD_ID
         default: "lastSuccessfulBuild"
-        description: Specific percona-xtrabackup-8.1-compile-parambuild id to use binaries from.
+        description: Specific percona-xtrabackup-8.1-compile-param build id to use binaries from.
     - string:
         name: INNODB80_VERSION
         default: "8.1.0"

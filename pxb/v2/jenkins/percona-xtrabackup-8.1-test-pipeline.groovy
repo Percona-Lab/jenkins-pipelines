@@ -66,7 +66,7 @@ pipeline {
                         sudo git -C sources reset --hard || :
                         sudo git -C sources clean -xdf   || :
                         '''
-                    copyArtifacts filter: 'COMPILE_BUILD_TAG', projectName: 'percona-xtrabackup-8.1-compile-param', specific: "${USE_BINARIES_FROM_BUILD_ID}"
+                    copyArtifacts filter: 'COMPILE_BUILD_TAG', projectName: 'percona-xtrabackup-8.1-compile-param', selector: "${USE_BINARIES_FROM_BUILD_ID}"
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '24e68886-c552-4033-8503-ed85bbaa31f3', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
                             #!/bin/bash
