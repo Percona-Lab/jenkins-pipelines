@@ -99,7 +99,7 @@ pipeline {
                 stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
                 stash includes: 'pmmUITestsCommitSha', name: 'pmmUITestsCommitSha'
                 stash includes: 'fbCommitSha', name: 'fbCommitSha'
-                slackSend channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                //slackSend channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
         stage('Build client source') {
@@ -308,7 +308,7 @@ pipeline {
 
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                         export RPMBUILD_DIST="el9"
-                        export DOCKERFILE=Dockerfile.el9
+                        export DOCKERFILE=Dockerfile.el9.ubi
 
                         ${PATH_TO_SCRIPTS}/build-server-docker
                     '''
@@ -413,7 +413,7 @@ pipeline {
                     if (env.CHANGE_URL) {
                         unstash 'IMAGE'
                         def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                        slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
+                        //slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
                     }
                 } else {
                     if(env.API_TESTS_RESULT != "SUCCESS" && env.API_TESTS_URL) {
@@ -425,7 +425,7 @@ pipeline {
                     if(env.UI_TESTS_RESULT != "SUCCESS" && env.UI_TESTS_URL) {
                         addComment("UI tests have failed, Please check: UI: ${UI_TESTS_URL}")
                     }
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} build job link: ${BUILD_URL}"
+                    //slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} build job link: ${BUILD_URL}"
                 }
             }
         }
