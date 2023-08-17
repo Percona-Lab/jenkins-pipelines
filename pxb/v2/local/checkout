@@ -14,7 +14,7 @@ if [ ! -d "${ROOT_DIR}" ]; then
     if [ -n "${BRANCH}" ]; then
         BRANCH_CMD="-b ${BRANCH}"
     fi
-    git clone --depth=1 "${BRANCH_CMD}" "${GIT_REPO:-https://github.com/percona/percona-xtrabackup}" "${ROOT_DIR}"
+    git clone --depth=1 ${BRANCH_CMD} "${GIT_REPO:-https://github.com/percona/percona-xtrabackup}" "${ROOT_DIR}"
 fi
 
 pushd $ROOT_DIR
