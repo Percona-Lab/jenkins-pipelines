@@ -20,6 +20,10 @@
         default: ""
         description: 
     - string:
+        name: USE_BINARIES_FROM_BUILD_ID
+        default: "lastSuccessfulBuild"
+        description: Specific percona-xtrabackup-8.1-compile-parambuild id to use binaries from.
+    - string:
         name: INNODB80_VERSION
         default: "8.1.0"
         description: Version of MySQL InnoDB80 which will be used for bootstrap.sh script
@@ -63,7 +67,7 @@
         type: user-defined
         values:
         - innodb80
-        - xtradb80
+#        - xtradb80
     builders:
     - trigger-builds:
       - project: percona-xtrabackup-8.1-test-pipeline
