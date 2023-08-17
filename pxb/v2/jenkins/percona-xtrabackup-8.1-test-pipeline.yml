@@ -17,6 +17,7 @@
     - choice:
         name: DOCKER_OS
         choices:
+          - centos:7
           - centos:8
           - oraclelinux:9
           - ubuntu:jammy
@@ -52,7 +53,7 @@
         default:
         description: "./run.sh options, for options like: -j N Run tests in N parallel processes, -T seconds, -x options Extra options to pass to xtrabackup"
     - bool:
-        name: WITH_AZURITE 
+        name: WITH_AZURITE
         default: false
         description: "Starts Microsoft Azurite emulator and tests xbcloud against it"
     - choice:
