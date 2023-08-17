@@ -24,7 +24,7 @@
             description: ""
         - string:
             name: INNODB80_VERSION
-            default: "8.0.21"
+            default: "8.1.0"
             description: Version of MySQL InnoDB80 which will be used for bootstrap.sh script
         - string:
             name: XTRADB80_VERSION
@@ -35,7 +35,7 @@
             default: ""
             description: "./run.sh options, for options like: -j N Run tests in N parallel processes, -T seconds, -x options Extra options to pass to xtrabackup"
         - choice:
-            name: WITH_AZURITE 
+            name: WITH_AZURITE
             choices:
             - OFF
             - ON
@@ -45,7 +45,7 @@
             choices:
             - docker-32gb
             - docker
-            description: Run build on specified instance type. 
+            description: Run build on specified instance type.
     builders:
     - multijob:
         name: compile-stage

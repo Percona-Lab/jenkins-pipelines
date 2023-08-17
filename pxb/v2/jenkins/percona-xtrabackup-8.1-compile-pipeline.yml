@@ -25,7 +25,6 @@
     - choice:
         name: DOCKER_OS
         choices:
-        - centos:7
         - centos:8
         - oraclelinux:9
         - ubuntu:jammy
@@ -51,4 +50,4 @@
         choices:
         - docker-32gb
         - docker
-        description: Run build on specified instance type. 
+        description: Run build on specified instance type.
