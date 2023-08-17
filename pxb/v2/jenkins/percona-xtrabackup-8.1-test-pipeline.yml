@@ -51,11 +51,9 @@
         name: XBTR_ARGS
         default:
         description: "./run.sh options, for options like: -j N Run tests in N parallel processes, -T seconds, -x options Extra options to pass to xtrabackup"
-    - choice:
-        name: WITH_AZURITE
-        choices:
-        - OFF
-        - ON
+    - bool:
+        name: WITH_AZURITE 
+        default: false
         description: "Starts Microsoft Azurite emulator and tests xbcloud against it"
     - choice:
         name: LABEL

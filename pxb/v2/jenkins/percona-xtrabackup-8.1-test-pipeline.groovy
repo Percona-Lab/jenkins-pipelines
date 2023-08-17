@@ -28,8 +28,8 @@ pipeline {
             defaultValue: '',
             description: 'Pass an URL for downloading bootstrap.sh, If empty will use from repository you specified in PXB24_REPO',
             name: 'BOOTSTRAP_URL')
-        choice(
-            choices: 'OFF\nON',
+        booleanParam(
+            defaultValue: false,
             description: 'Starts Microsoft Azurite emulator and tests xbcloud against it',
             name: 'WITH_AZURITE')
         choice(
