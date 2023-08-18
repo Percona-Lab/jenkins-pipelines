@@ -68,7 +68,8 @@ List ps56_excluded_nodes = [
     "min-focal-x64",
     "min-jammy-x64",
     "min-ol-9-x64",
-    "min-bullseye-x64"
+    "min-bullseye-x64",
+    "min-bookworm-x64"
 ]
 
 List all_actions = [
