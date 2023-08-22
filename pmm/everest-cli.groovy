@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@ENG-1207-Create-build-pipeline-for-percona-everest-cli', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/adivinho/jenkins-pipelines.git'
+    remote: 'https://github.com/percona-lab/jenkins-pipelines.git'
 ]) _
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
