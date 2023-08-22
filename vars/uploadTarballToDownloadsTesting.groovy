@@ -11,9 +11,6 @@ def call(String PRODUCT_NAME, String PRODUCT_VERSION) {
                 echo '10.30.6.9 repo.ci.percona.com' >> hosts
                 sudo cp ./hosts /etc || true
 
-                myShellVariable="Hello, Shell!"
-                echo "Shell variable: \$myShellVariable"
-
                 # Cut prefix if it's provided
                 cutProductVersion=\$(echo ${PRODUCT_VERSION} | sed 's/release-//g');
 
