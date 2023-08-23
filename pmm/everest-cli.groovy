@@ -41,7 +41,7 @@ pipeline {
             description: 'Tag/Branch for percona-everest-cli repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '0.1',
+            defaultValue: '0.1.0',
             description: 'PEC version',
             name: 'PEC_VERSION')
         string(
