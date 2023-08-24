@@ -33,33 +33,33 @@ pipeline {
                 ])
             }
         }
-        stage('Build Release Candidate Images') {
-            when {
-                expression { env.RELEASE_CANDIDATE == "yes" }
-            }
-            parallel {
-                stage('Build Image Release Candidate EL7') {
-                    steps {
-                        dir("build") {
-                            sh 'make pmm2-ami-rc'
-                        }
-                        script {
-                            env.AMI_ID_EL7 = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true)
-                        }
-                    }
-                }
-                stage('Build Image Release Candidate EL9') {
-                    steps {
-                        dir("build") {
-                            sh 'make pmm2-ami-el9-rc'
-                        }
-                        script {
-                            env.AMI_ID = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true)
-                        }
-                    }
-                }
-            }
-        }
+        //stage('Build Release Candidate Images') {
+        //    when {
+        //        expression { env.RELEASE_CANDIDATE == "yes" }
+        //    }
+        //    parallel {
+        //        stage('Build Image Release Candidate EL7') {
+        //            steps {
+        //                dir("build") {
+        //                    sh 'make pmm2-ami-rc'
+        //                }
+        //                script {
+        //                    env.AMI_ID_EL7 = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true)
+        //                }
+        //            }
+        //        }
+        //        stage('Build Image Release Candidate EL9') {
+        //            steps {
+        //                dir("build") {
+        //                    sh 'make pmm2-ami-el9-rc'
+        //                }
+        //                script {
+        //                    env.AMI_ID = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true)
+        //                }
+        //            }
+        //        }
+        //    }
+        //}
         stage('Build Images Dev-Latest') {
             when {
                 expression { env.RELEASE_CANDIDATE == "no" }
