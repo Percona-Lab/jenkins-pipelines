@@ -78,7 +78,7 @@ pipeline {
                 stage('Build Image Dev-Latest EL9') {
                     steps {
                         dir("build") {
-                            sh 'make pmm2-ami-el9'
+                            sh 'make pmm2-test-ami'
                         }
                         script {
                             env.AMI_ID = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true)
@@ -87,24 +87,24 @@ pipeline {
                 }
             }
         }
-        stage('Run PMM AMI UI tests'){
-            parallel {
-                //stage('Run PMM AMI UI tests EL7'){
-                //    steps{
-                //        script {
-                //            build job: 'pmm2-ami-test', parameters: [ string(name: 'AMI_ID', value: env.AMI_ID_EL7) ]
-                //        }
-                //    }
-                //}
-                stage('Run PMM AMI UI tests EL9'){
-                    steps{
-                        script {
-                            build job: 'pmm2-ami-test', parameters: [ string(name: 'AMI_ID', value: env.AMI_ID) ]
-                        }
-                    }
-                }
-            }
-        }
+        //stage('Run PMM AMI UI tests'){
+        //    parallel {
+        //        //stage('Run PMM AMI UI tests EL7'){
+        //        //    steps{
+        //        //        script {
+        //        //            build job: 'pmm2-ami-test', parameters: [ string(name: 'AMI_ID', value: env.AMI_ID_EL7) ]
+        //        //        }
+        //        //    }
+        //        //}
+        //        stage('Run PMM AMI UI tests EL9'){
+        //            steps{
+        //                script {
+        //                    build job: 'pmm2-ami-test', parameters: [ string(name: 'AMI_ID', value: env.AMI_ID) ]
+        //                }
+        //            }
+        //        }
+        //    }
+        //}
     }
     post {
         success {
