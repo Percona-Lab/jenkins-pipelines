@@ -1,4 +1,4 @@
-# Remove eks clusters and orphaned resources. 
+# Remove eks clusters and orphaned resources.
 import logging
 import datetime
 import boto3
@@ -12,33 +12,26 @@ def get_clusters_to_terminate(aws_region):
     clusters_for_deletion = []
     eks_client = boto3.client('eks', region_name=aws_region)
     clusters = eks_client.list_clusters()['clusters']
-    print(f"Clusters: {clusters}")
-    if len(clusters) == 0:
-        print("There are no clusters in cloud")
+    if not clusters:
         logging.info(f"There are no clusters in cloud")
         sys.exit("There are no clusters in cloud")
 
     for cluster in clusters:
-        print(f"Cluster name {cluster}")
         cluster = eks_client.describe_cluster(name=cluster)
 
         if 'delete-cluster-after-hours' not in cluster['cluster']['tags'].keys():
             clusters_for_deletion.append(cluster)
         else:
             cluster_lifetime = float(cluster['cluster']['tags']['delete-cluster-after-hours'])
-            print(f"cluster_lifetime {cluster_lifetime}")
             current_time = datetime.datetime.now().timestamp()
             creation_time = datetime.datetime.strptime(str(cluster['cluster']['createdAt']),
                                                        "%Y-%m-%d %H:%M:%S.%f%z").timestamp()
-            print(f"creation_time: {creation_time}")
             if (current_time - creation_time) / 3600 > cluster_lifetime:
                 clusters_for_deletion.append(cluster)
 
-    if len(clusters_for_deletion) == 0:
+    if not clusters_for_deletion:
         logging.info(f"There are no clusters for deletion")
-        print(f"There are no clusters for deletion")
         sys.exit("There are no clusters for deletion")
-    print(clusters_for_deletion)
     return clusters_for_deletion
 
 
