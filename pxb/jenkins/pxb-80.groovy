@@ -77,6 +77,10 @@ pipeline {
                 '''
                 script {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
+                    XB_VERSION_MAJOR = sh(returnStdout: true, script: "grep 'XB_VERSION_MAJOR' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 ").trim()
+                    XB_VERSION_MINOR = sh(returnStdout: true, script: "grep 'XB_VERSION_MINOR' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 ").trim()
+                    XB_VERSION_PATCH = sh(returnStdout: true, script: "grep 'XB_VERSION_PATCH' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 ").trim()
+                    XB_VERSION_EXTRA = sh(returnStdout: true, script: "grep 'XB_VERSION_EXTRA' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 | sed 's/-//g'").trim()
                 }
                 stash includes: 'uploadPath', name: 'uploadPath'
                 pushArtifactFolder("source_tarball/", AWS_STASH_PATH)
@@ -266,15 +270,10 @@ pipeline {
     post {
         success {
             // slackNotify("", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
-            slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: Triggering Builds for Package Testing for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("#dev-server-qa", "#00FF00", "[${JOB_NAME}]: Triggering Builds for Package Testing for ${BRANCH} - [${BUILD_URL}]")
 
             script {
                 currentBuild.description = "Built on ${BRANCH}"
-                XB_VERSION_MAJOR = sh(returnStdout: true, script: "source ./test/percona-xtrabackup-8.0.properties && echo \$XB_VERSION_MAJOR").trim()
-                XB_VERSION_MINOR = sh(returnStdout: true, script: "source ./test/percona-xtrabackup-8.0.properties && echo \$XB_VERSION_MINOR").trim()
-                XB_VERSION_PATCH = sh(returnStdout: true, script: "source ./test/percona-xtrabackup-8.0.properties && echo \$XB_VERSION_PATCH").trim()
-                XB_VERSION_EXTRA = sh(returnStdout: true, script: "source ./test/percona-xtrabackup-8.0.properties && echo \$XB_VERSION_EXTRA | sed 's/-//g'").trim()
-
                 withCredentials([string(credentialsId: 'PXC_GITHUB_API_TOKEN', variable: 'TOKEN')]) {
                 sh """
                     set -x

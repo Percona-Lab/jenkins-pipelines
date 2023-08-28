@@ -68,6 +68,20 @@ setup_ubuntu_package_tests = { ->
     '''
 }
 
+setup_ubuntu_jammy_package_tests = { ->
+    sh '''
+        sudo apt-get update
+        sudo apt-get install -y software-properties-common
+        sudo apt-get install -y python3 python3-pip
+        echo $PATH
+        python3 -m pip install --user ansible==2.9.27
+        ~/.local/bin/ansible --version
+        sudo ln -s ~/.local/bin/ansible /usr/bin/ansible
+        sudo ln -s ~/.local/bin/ansible-playbook /usr/bin/ansible-playbook
+    '''
+}
+
+
 node_setups = [
     "min-buster-x64": setup_buster_package_tests,
     "min-bullseye-x64": setup_bullseye_package_tests,
@@ -77,7 +91,7 @@ node_setups = [
     "min-ol-9-x64": setup_oracle9_package_tests,
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
-    "min-jammy-x64": setup_ubuntu_package_tests
+    "min-jammy-x64": setup_ubuntu_jammy_package_tests
 ]
 
 void setup_package_tests() {

@@ -54,6 +54,7 @@ node_setups = [
     "min-amazon-2-x64": setup_amazon_package_tests,
     "min-jammy-x64": setup_ubuntu_package_tests,
     "min-ol-9-x64": setup_rhel_package_tests,
+    "min-bookworm-x64": setup_debian_package_tests,
 ]
 
 void setup_package_tests() {
@@ -67,7 +68,8 @@ List ps56_excluded_nodes = [
     "min-focal-x64",
     "min-jammy-x64",
     "min-ol-9-x64",
-    "min-bullseye-x64"
+    "min-bullseye-x64",
+    "min-bookworm-x64"
 ]
 
 List all_actions = [

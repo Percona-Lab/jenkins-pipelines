@@ -107,6 +107,7 @@
           - ubuntu:jammy
           - debian:buster
           - debian:bullseye
+          - debian:bookworm          
     builders:
     - trigger-builds:
       - project: pxc-5.7-pipeline
