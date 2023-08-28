@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@book-pxc', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 def runMoleculeAction(String action, String product_to_test, String scenario, String param_test_type, String test_repo, String version_check) {
@@ -400,7 +400,7 @@ pipeline {
                         sudo yum install -y epel-release 
                         sudo yum install -y git jq
                         rm -rf package-testing                    
-                        git clone https://github.com/kaushikpuneet07/package-testing --branch book-pxc
+                        git clone https://github.com/Percona-QA/package-testing --branch master
                     '''
             }
         }
