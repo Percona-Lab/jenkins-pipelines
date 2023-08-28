@@ -158,7 +158,7 @@ void setInventories(String param_test_type){
 
                     if(("${params.node_to_test}" == "ubuntu-focal")  ||  ("${params.node_to_test}" == "ubuntu-bionic") || ("${params.node_to_test}" == "ubuntu-jammy")){
                         SSH_USER="ubuntu"            
-                    }else if(("${params.node_to_test}" == "debian-11") ||  ("${params.node_to_test}" == "debian-10")){
+                    }else if(("${params.node_to_test}" == "debian-11") ||  ("${params.node_to_test}" == "debian-10") ||("${params.node_to_test}" == "debian-12")){
                         SSH_USER="admin"
                     }else if(("${params.node_to_test}" == "ol-8") || ("${params.node_to_test}" == "ol-9") || ("${params.node_to_test}" == "min-amazon-2")){
                         SSH_USER="ec2-user"
