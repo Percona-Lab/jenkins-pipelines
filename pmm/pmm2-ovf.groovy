@@ -43,9 +43,9 @@ pipeline {
                     '''
                 }                
                 //slackSend botUser: true,
-                          channel: '#pmm-ci',
-                          color: '#0000FF',
-                          message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                //          channel: '#pmm-ci',
+                //          color: '#0000FF',
+                //          message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 checkout([$class: 'GitSCM', 
                           branches: [[name: "*/${PMM_BRANCH}"]],
                           extensions: [[$class: 'CloneOption',
