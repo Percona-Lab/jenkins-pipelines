@@ -1,5 +1,6 @@
 tests=[]
 clusters=[]
+aksLocation='westeurope'
 
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("${CLUSTER_SUFFIX}")
@@ -17,13 +18,16 @@ void createCluster(String CLUSTER_SUFFIX) {
                 az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
                 az account show --query "{subscriptionId:id, tenantId:tenantId}"
                 az account list --all --output table
-                az aks create -g percona-operators --subscription eng-cloud-dev -n $CLUSTER_NAME-${CLUSTER_SUFFIX} --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version ${params.PLATFORM_VER} -l westeurope
+                az aks create -g percona-operators --subscription eng-cloud-dev -n $CLUSTER_NAME-${CLUSTER_SUFFIX} --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version $(az aks get-versions --location $aksLocation --output json | jq -r '.values | max_by(.version) | .version) -l $aksLocation
                 az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-${CLUSTER_SUFFIX} --overwrite-existing 
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
             done
             if [ \${ret_num} -eq 15 ]; then exit 1; fi
         """
+        USED_PLATFORM_VER="${params.PLATFORM_VER}"
+        if ("${params.PLATFORM_VER}" == "latest") {
+            USED_PLATFORM_VER = sh(script: "az aks get-versions --location $aksLocation --output json | jq -r '.values | max_by(.version) | .version", , returnStdout: true).trim()
     }
 }
 void shutdownCluster(String CLUSTER_SUFFIX) {
@@ -225,7 +229,7 @@ pipeline {
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.24',
+            defaultValue: 'latest',
             description: 'AKS kubernetes version',
             name: 'PLATFORM_VER')
         choice(
