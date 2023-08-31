@@ -382,12 +382,22 @@ pipeline {
         stage('Push Tarballs to TESTING download area') {
             steps {
                 script {
-                    try {
-                        uploadTarballToDownloadsTesting("gpsmdb", "${PSMDB_VERSION}")
-                    }
-                    catch (err) {
-                        echo "Caught: ${err}"
-                        currentBuild.result = 'UNSTABLE'
+                    if (env.FIPSMODE == 'yes') {
+                        try {
+                            uploadTarballToDownloadsTesting("gpsmdb", "${PSMDB_VERSION}")
+                        }
+                        catch (err) {
+                            echo "Caught: ${err}"
+                            currentBuild.result = 'UNSTABLE'
+                        }
+                    } else {
+                        try {
+                            uploadTarballToDownloadsTesting("psmdb", "${PSMDB_VERSION}")
+                        }
+                        catch (err) {
+                            echo "Caught: ${err}"
+                            currentBuild.result = 'UNSTABLE'
+                        }
                     }
                 }
             }
