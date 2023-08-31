@@ -256,7 +256,7 @@ pipeline {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("debian:buster", "--build_deb=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("debina:buster", "--build_deb=1")
+                                buildStage("debian:buster", "--build_deb=1")
                             }
                         }
 
@@ -275,7 +275,7 @@ pipeline {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("debian:bullseye", "--build_deb=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("debina:bullseye", "--build_deb=1")
+                                buildStage("debian:bullseye", "--build_deb=1")
                             }
                         }
 
