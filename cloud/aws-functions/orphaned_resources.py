@@ -48,24 +48,23 @@ def delete_vpc_ep(aws_region, vpc_id):
 
 
 def delete_nodegroup(aws_region, cluster_name):
-    eks_client = boto3.client('eks', region_name=aws_region)
     autoscaling_client = boto3.client('autoscaling', region_name=aws_region)
     ec2 = boto3.resource('ec2')
 
-    autoscaling_group_name=""
+    autoscaling_group_name = ""
     for instance in ec2.instances.all():
         tags = instance.tags
-        tags_dict = {item['Key']:item['Value'] for item in tags}
-
-        if tags_dict['alpha.eksctl.io/cluster-name'] and tags_dict['alpha.eksctl.io/cluster-name'] == cluster_name:
+        tags_dict = {item['Key']: item['Value'] for item in tags}
+        state = instance.state['Name']
+        if tags_dict['alpha.eksctl.io/cluster-name'] and tags_dict[
+            'alpha.eksctl.io/cluster-name'] == cluster_name and state == 'running':
             autoscaling_group_name = tags_dict['aws:autoscaling:groupName']
-
             break
         else:
             continue
 
     try:
-        autoscaling_client.delete_auto_scaling_group(AutoScalingGroupName=autoscaling_group_name,ForceDelete=True)
+        autoscaling_client.delete_auto_scaling_group(AutoScalingGroupName=autoscaling_group_name, ForceDelete=True)
     except Boto3Error as e:
         logging.error(f"Deleting autoscaling group {autoscaling_group_name} failed with error: {e}")
 
@@ -125,7 +124,6 @@ def delete_subnets(ec2_resource, vpc_id):
     vpc_resource = ec2_resource.Vpc(vpc_id)
     subnets_all = vpc_resource.subnets.all()
     subnets = [ec2_resource.Subnet(subnet.id) for subnet in subnets_all]
-    print(subnets)
     if subnets:
         for sub in subnets:
             for attempt in range(0, 10):
@@ -133,8 +131,8 @@ def delete_subnets(ec2_resource, vpc_id):
                 try:
                     sub.delete()
                 except ClientError as e:
-                    logging.info(f"Failed to delete subnet, will try again. The error was: {e}. Sleeping 30 seconds")
-                    sleep(30)
+                    logging.info(f"Failed to delete subnet, will try again. The error was: {e}. Sleeping 10 seconds")
+                    sleep(10)
                     continue
                 break
 
@@ -155,30 +153,50 @@ def delete_route_tables(ec2_resource, vpc_id):
             logging.error(f"Delete of route table failed with error: {e}")
 
 
-def delete_security_groups(ec2_resource, vpc_id):
-    vpc_resource = ec2_resource.Vpc(vpc_id)
-    security_groups = vpc_resource.security_groups.all()
-    if security_groups:
-        try:
-            for security_group in security_groups:
-                if security_group.group_name == 'default':
-                    logging.info(f"{security_group.id} is the default security group, skipping...")
-                    continue
-                if security_group.ip_permissions:
-                    logging.info(f"Removing ingress rules for security group with id: {security_group.id}")
-                    security_group.revoke_ingress(IpPermissions=security_group.ip_permissions)
-                if security_group.ip_permissions_egress:
-                    logging.info(f"Removing egress rules for security group with id: {security_group.id}")
-                    security_group.revoke_egress(IpPermissions=security_group.ip_permissions_egress)
+def delete_security_groups(security_groups):
+    try:
+        for security_group in security_groups:
+            if security_group.group_name == 'default':
+                logging.info(f"{security_group.id} is the default security group, skipping...")
+                continue
+            if security_group.ip_permissions:
+                logging.info(f"Removing ingress rules for security group with id: {security_group.id}")
+                security_group.revoke_ingress(IpPermissions=security_group.ip_permissions)
+            if security_group.ip_permissions_egress:
+                logging.info(f"Removing egress rules for security group with id: {security_group.id}")
+                security_group.revoke_egress(IpPermissions=security_group.ip_permissions_egress)
 
-                logging.info(f"Removing security group with id: {security_group.id}")
+            logging.info(f"Removing security group with id: {security_group.id}")
+            try:
                 security_group.delete()
+            except ClientError as e:
+                logging.error(f"Deleting of security group failed with error: {e}")
+                continue
+    except Boto3Error as e:
+        logging.error(f"Deleting of security group failed with error: {e}")
+
+
+def delete_cloudformation_stacks(cluster_name):
+    cf_client = boto3.client('cloudformation')
+    response = cf_client.list_stacks(
+        StackStatusFilter=[
+            'CREATE_COMPLETE',
+        ]
+    )
+    cloudformation_stacks = [stack['StackName'] for stack in response['StackSummaries']]
+    if cloudformation_stacks:
+        try:
+            for stack in cloudformation_stacks:
+                if stack.startswith(f"eksctl-{cluster_name}"):
+                    logging.info(f"Removing cloudformation stack: {stack}")
+                    cf_client.delete_stack(StackName=stack)
         except Boto3Error as e:
-            logging.error(f"Deleting of security group failed with error: {e}")
+            logging.error(f"Delete of stack failed with error: {e}")
+
 
 
 def wait_for_cluster_delete(eks_client, cluster_name):
-    timeout = 600  # 10 min
+    timeout = 300  # 5 min
     attempt = 0
     sleep_time = 10
     attempts = timeout // sleep_time
@@ -198,7 +216,7 @@ def wait_for_cluster_delete(eks_client, cluster_name):
 
 
 def wait_for_nat_gateway_delete(ec2, nat_gateway_id):
-    timeout = 600  # 10 min
+    timeout = 300  # 5 min
     attempt = 0
     sleep_time = 10
     attempts = timeout // sleep_time
@@ -213,7 +231,6 @@ def wait_for_nat_gateway_delete(ec2, nat_gateway_id):
         if status == 'deleted':
             logging.info(f"NAT gateway with id {nat_gateway_id} was successfully deleted.")
             break
-
         logging.info(f"NAT gateway with id {nat_gateway_id} status is {status}. "
                      f"Attempt {attempt}/{attempts}. Sleeping {sleep_time} seconds.")
         sleep(sleep_time)
@@ -237,26 +254,38 @@ def terminate_vpc(vpc_id, aws_region):
     logging.info(f"Deleting NAT gateway for VPC {vpc_id}.")
     delete_nat_gateway(aws_region, vpc_id)
 
-    logging.info("Delete vpc endpoints")
+    logging.info(f"Deleting endpoints for VPC {vpc_id}.")
     delete_vpc_ep(aws_region, vpc_id)
-    sleep(60)
+    sleep(30)
     logging.info(f"Deleting internet gateway for VPC {vpc_id}.")
     delete_igw(ec2_resource, vpc_id)
 
     logging.info(f"Deleting subnets for VPC {vpc_id}.")
     delete_subnets(ec2_resource, vpc_id)
-    sleep (100)
+
     logging.info(f"Deleting route tables for VPC {vpc_id}.")
     delete_route_tables(ec2_resource, vpc_id)
 
     logging.info(f"Deleting security groups for VPC {vpc_id}.")
-    delete_security_groups(ec2_resource, vpc_id)
+
+    vpc_resource = ec2_resource.Vpc(vpc_id)
+    security_groups = vpc_resource.security_groups.all()
+    attempt = 0
+    while security_groups and attempt < 5:
+        delete_security_groups(security_groups)
+        security_groups = vpc_resource.security_groups.all()
+        attempt += 1
 
     logging.info(f"Deleting VPC {vpc_id}.")
-    try:
-        ec2_resource.Vpc(vpc_id).delete()
-    except Boto3Error as e:
-        logging.error(f"Deleting VPC {vpc_id} failed with error: {e}.")
+    for attempt in range(0, 10):
+        logging.info(f"Deleting VPC {vpc_id}.. Attempt {attempt}/10")
+        try:
+            ec2_resource.Vpc(vpc_id).delete()
+        except ClientError as e:
+            logging.info(f"Failed to delete vpc, will try again. The error was: {e}. Sleeping 10 seconds")
+            sleep(10)
+            continue
+        break
 
 
 def lambda_handler(event, context):
@@ -272,3 +301,6 @@ def lambda_handler(event, context):
         logging.info(f"Deleting all resources and VPC.")
         vpc_id = cluster['cluster']['resourcesVpcConfig']['vpcId']
         terminate_vpc(vpc_id, aws_region)
+        logging.info(f"Deleting cloudformation stacks.")
+        delete_cloudformation_stacks(cluster_name)
+
