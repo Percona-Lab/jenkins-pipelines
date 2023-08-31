@@ -28,6 +28,7 @@ void createCluster(String CLUSTER_SUFFIX) {
         USED_PLATFORM_VER="${params.PLATFORM_VER}"
         if ("${params.PLATFORM_VER}" == "latest") {
             USED_PLATFORM_VER = sh(script: "az aks get-versions --location $aksLocation --output json | jq -r '.values | max_by(.version) | .version", , returnStdout: true).trim()
+        }
     }
 }
 void shutdownCluster(String CLUSTER_SUFFIX) {
