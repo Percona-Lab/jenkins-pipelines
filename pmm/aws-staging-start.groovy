@@ -82,7 +82,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['15.2', '15', '14.7', '13.10', '12.14', '11.19'],
+            choices: ['15.4', '14.9', '13.12', '12.16', '11.21'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
