@@ -161,7 +161,7 @@ pipeline {
                     if ( params.PSMDB_REPO == 'experimental' ) {
                         psmdb_image = 'public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-' + params.PSMDB_VERSION
                     }
-                    build job: 'pbm-functional-tests', parameters: [string(name: 'PBM_BRANCH', value: "main"), string(name: 'PSMDB', value: psmdb_image )]
+                    build job: 'pbm-functional-tests', propagate: false, wait: false, parameters: [string(name: 'PBM_BRANCH', value: "main"), string(name: 'PSMDB', value: psmdb_image )]
                 }
             }
         }
