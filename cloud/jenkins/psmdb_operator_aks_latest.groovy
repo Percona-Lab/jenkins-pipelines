@@ -2,8 +2,55 @@ tests=[]
 clusters=[]
 aksLocation='westeurope'
 
-void kubeInit() {
+void initPlatform() {
+    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
 
+    sh """
+        # sudo is needed for better node recovery after compilation failure
+        # if building failed on compilation stage directory will have files owned by docker user
+        sudo sudo git config --global --add safe.directory '*'
+        sudo git reset --hard
+        sudo git clean -xdf
+        sudo rm -rf source
+        ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
+    """
+
+    stash includes: "source/**", name: "sourceFILES"
+
+    script {
+        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+        CLUSTER_NAME = sh(script: "echo jenkins-par-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+    }
+
+    sh """
+        cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+        sudo yum install -y python3-pip kubectl || true
+
+        curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+
+        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
+        sudo chmod +x /usr/local/bin/yq
+
+        sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+        sudo chmod +x /usr/local/bin/jq
+
+        if ! command -v az &>/dev/null; then
+            curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+            printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+            sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0"
+        fi
+    """
+}
+
+void initKube() {
     withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
             az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
@@ -17,6 +64,49 @@ void kubeInit() {
     }
 
     echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
+}
+
+void initTests() {
+    echo "Populating tests into the tests array!"
+    def testList = "${params.TEST_LIST}"
+    def suiteFileName = "./source/e2e-tests/${params.TEST_SUITE}"
+
+    if (testList.length() != 0) {
+        suiteFileName = './source/e2e-tests/run-custom.csv'
+        sh """
+            echo -e "${testList}" > ${suiteFileName}
+            echo "Custom test suite contains following tests:"
+            cat ${suiteFileName}
+        """
+    }
+
+    def records = readCSV file: suiteFileName
+
+    for (int i=0; i<records.size(); i++) {
+        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
+    }
+
+    markPassedTests()
+}
+
+void markPassedTests() {
+    echo "Marking passed tests in the tests map!"
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
+        """
+
+        for (int i=0; i<tests.size(); i++) {
+            def testName = tests[i]["name"]
+            def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${USED_PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}"
+            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+
+            if (retFileExists == 0) {
+                tests[i]["result"] = "passed"
+            }
+        }
+    }
 }
 
 void createCluster(String CLUSTER_SUFFIX) {
@@ -64,49 +154,6 @@ void pushArtifactFile(String FILE_NAME) {
             aws s3 ls \$S3_PATH/${FILE_NAME} || :
             aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
         """
-    }
-}
-
-void initTests() {
-    echo "Populating tests into the tests array!"
-    def testList = "${params.TEST_LIST}"
-    def suiteFileName = "./source/e2e-tests/${params.TEST_SUITE}"
-
-    if (testList.length() != 0) {
-        suiteFileName = './source/e2e-tests/run-custom.csv'
-        sh """
-            echo -e "${testList}" > ${suiteFileName}
-            echo "Custom test suite contains following tests:"
-            cat ${suiteFileName}
-        """
-    }
-
-    def records = readCSV file: suiteFileName
-
-    for (int i=0; i<records.size(); i++) {
-        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
-    }
-
-    markPassedTests()
-}
-
-void markPassedTests() {
-    echo "Marking passed tests in the tests map!"
-
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
-        """
-
-        for (int i=0; i<tests.size(); i++) {
-            def testName = tests[i]["name"]
-            def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${USED_PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}"
-            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
-
-            if (retFileExists == 0) {
-                tests[i]["result"] = "passed"
-            }
-        }
     }
 }
 
@@ -277,52 +324,8 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                sh """
-                    # sudo is needed for better node recovery after compilation failure
-                    # if building failed on compilation stage directory will have files owned by docker user
-                    sudo sudo git config --global --add safe.directory '*'
-                    sudo git reset --hard
-                    sudo git clean -xdf
-                    sudo rm -rf source
-                    ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
-                """
-                stash includes: "source/**", name: "sourceFILES"
-
-                script {
-                    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                    CLUSTER_NAME = sh(script: "echo jenkins-par-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-                }
-
-                sh """
-                    cat <<EOF > /tmp/kubernetes.repo
-[kubernetes]
-name=Kubernetes
-baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-                    sudo mv /tmp/kubernetes.repo /etc/yum.repos.d
-                    sudo yum install -y python3-pip kubectl || true
-
-                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
-                        | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
-                    sudo chmod +x /usr/local/bin/yq
-                    sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-                    sudo chmod +x /usr/local/bin/jq
-
-                    if ! command -v az &>/dev/null; then
-                        curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
-                        printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
-                        sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0"
-                    fi
-                """
-
-                kubeInit()
+                initPlatform()
+                initKube()
                 initTests()
 
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
