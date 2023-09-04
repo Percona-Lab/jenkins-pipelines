@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@innodb-book', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 void installDependencies() {
@@ -16,7 +16,7 @@ void installDependencies() {
 
     sh '''
         rm -rf package-testing
-        git clone https://github.com/Percona-QA/package-testing
+        git clone -b innodb-book https://github.com/kaushikpuneet07/package-testing
     '''
 }
 
@@ -106,6 +106,7 @@ pipeline {
                 'ubuntu-focal',
                 'ubuntu-bionic',
                 'ubuntu-jammy',
+                'debian-12',
                 'debian-11',
                 'debian-10',
                 'centos-7',

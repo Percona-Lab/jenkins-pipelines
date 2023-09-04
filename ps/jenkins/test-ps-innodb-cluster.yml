@@ -14,9 +14,9 @@
     pipeline-scm:
         scm:
             - git:
-                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                url: https://github.com/kaushikpuneet07/jenkins-pipelines.git
                 branches:
-                    - 'master'
+                    - 'innodb-book'
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: ps/jenkins/test-ps-innodb-cluster.groovy
@@ -39,6 +39,7 @@
                 - 'ubuntu-focal'
                 - 'ubuntu-bionic'
                 - 'ubuntu-jammy'
+                - 'debian-12'
                 - 'debian-11'
                 - 'debian-10'
                 - 'centos-7'
