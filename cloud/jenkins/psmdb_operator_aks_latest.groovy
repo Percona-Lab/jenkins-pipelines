@@ -2,6 +2,23 @@ tests=[]
 clusters=[]
 aksLocation='westeurope'
 
+void kubeInit() {
+
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
+        sh """
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
+        """
+    }
+
+    if ("${params.PLATFORM_VER}" == "latest") {
+        USED_PLATFORM_VER = sh(script: "az aks get-versions --location $aksLocation --output json | jq -r '.values | max_by(.version) | .version'", , returnStdout: true).trim()
+    } else {
+        USED_PLATFORM_VER="${params.PLATFORM_VER}"
+    }
+
+    echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
+}
+
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("${CLUSTER_SUFFIX}")
 
@@ -9,28 +26,13 @@ void createCluster(String CLUSTER_SUFFIX) {
         env.OPERATOR_NS = 'psmdb-operator'
     }
 
-    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
-            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
-            az account show --query "{subscriptionId:id, tenantId:tenantId}"
-            az account list --all --output table
-        """
-
-        if ("${params.PLATFORM_VER}" == "latest") {
-            USED_PLATFORM_VER = sh(script: "az aks get-versions --location $aksLocation --output json | jq -r '.values | max_by(.version) | .version'", , returnStdout: true).trim()
-        } else {
-            USED_PLATFORM_VER="${params.PLATFORM_VER}"
-        }
-
-        echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
-
-        sh """
-            az aks create -g percona-operators --subscription eng-cloud-dev -n "$CLUSTER_NAME"-"${CLUSTER_SUFFIX}" --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version $USED_PLATFORM_VER -l $aksLocation
-            az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-${CLUSTER_SUFFIX} --overwrite-existing
-        """
-    }
+    sh """
+        export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+        az aks create -g percona-operators --subscription eng-cloud-dev -n "$CLUSTER_NAME"-"${CLUSTER_SUFFIX}" --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version $USED_PLATFORM_VER -l $aksLocation
+        az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-${CLUSTER_SUFFIX} --overwrite-existing
+    """
 }
+
 void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
@@ -51,6 +53,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
         """
     }
 }
+
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -97,7 +100,7 @@ void markPassedTests() {
 
         for (int i=0; i<tests.size(); i++) {
             def testName = tests[i]["name"]
-            def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}"
+            def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${USED_PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}"
             def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
 
             if (retFileExists == 0) {
@@ -185,7 +188,7 @@ void runTest(Integer TEST_ID) {
                     ./e2e-tests/$testName/run
                 """
             }
-            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
+            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${USED_PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -290,7 +293,6 @@ pipeline {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                     CLUSTER_NAME = sh(script: "echo jenkins-par-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
                 }
-                initTests()
 
                 sh """
                     cat <<EOF > /tmp/kubernetes.repo
@@ -319,6 +321,9 @@ EOF
                         sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0"
                     fi
                 """
+
+                kubeInit()
+                initTests()
 
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
                     sh """
@@ -389,8 +394,7 @@ EOF
             archiveArtifacts '*.xml'
             script {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    // slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
-                    // slackSend channel: '@${OWNER_SLACK}', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
+                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
                 }
 
                 clusters.each { shutdownCluster(it) }
