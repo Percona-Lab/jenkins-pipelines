@@ -194,7 +194,12 @@ pipeline {
                     if ( params.TARGET_REPO == 'AWS_ECR' ) {
                         psmdb_image = 'public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-' + params.PSMDB_VERSION + '-arm64'
                     }
-                    build job: 'pbm-functional-tests', propagate: false, wait: false, parameters: [string(name: 'PBM_BRANCH', value: "main"), string(name: 'PSMDB', value: psmdb_image ), string(name: 'instance', value: 'docker-64gb-aarch64')]
+                    def pbm_branch = sh(returnStdout: true, script: """
+                        git clone https://github.com/percona/percona-backup-mongodb.git >/dev/null 2>/dev/null
+                        PBM_RELEASE=\$(cd percona-backup-mongodb && git branch -r | grep release | sed 's|origin/||' | sort --version-sort | tail -1)
+                        echo \$PBM_RELEASE
+                        """).trim()
+                    build job: 'pbm-functional-tests', propagate: false, wait: false, parameters: [string(name: 'PBM_BRANCH', value: pbm_branch ), string(name: 'PSMDB', value: psmdb_image ), string(name: 'instance', value: 'docker-64gb-aarch64')]
                 }
             }
         }
