@@ -191,7 +191,7 @@ pipeline {
                     if ( params.TARGET_REPO == 'PerconaLab' ) {
                         psmdb_image = 'perconalab/percona-server-mongodb:' + params.PSMDB_VERSION + '-arm64'
                     }
-                    if ( params.PSMDB_REPO == 'AWS_ECR' ) {
+                    if ( params.TARGET_REPO == 'AWS_ECR' ) {
                         psmdb_image = 'public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-' + params.PSMDB_VERSION + '-arm64'
                     }
                     build job: 'pbm-functional-tests', propagate: false, wait: false, parameters: [string(name: 'PBM_BRANCH', value: "main"), string(name: 'PSMDB', value: psmdb_image ), string(name: 'instance', value: 'docker-64gb-aarch64')]
