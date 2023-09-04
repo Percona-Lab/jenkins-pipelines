@@ -14,6 +14,7 @@ pipeline {
         choice(name: 'PSMDB_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PSMDB_VERSION', defaultValue: '6.0.2-1', description: 'PSMDB version')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
+        choice(name: 'TESTS', choices: ['yes','no'], description: 'Run tests after building')
     }
     options {
         disableConcurrentBuilds()
@@ -177,6 +178,23 @@ pipeline {
                          docker manifest inspect percona/percona-server-mongodb:${params.PSMDB_VERSION}-multi
                          docker manifest push percona/percona-server-mongodb:${params.PSMDB_VERSION}-multi
                      """
+                }
+            }
+        }
+        stage ('Run testing job') {
+            when {
+                environment name: 'TESTS', value: 'yes'
+            }
+            steps {
+                script {
+                    def psmdb_image = 'percona/percona-server-mongodb:' + params.PSMDB_VERSION + '-arm64'
+                    if ( params.TARGET_REPO == 'PerconaLab' ) {
+                        psmdb_image = 'perconalab/percona-server-mongodb:' + params.PSMDB_VERSION + '-arm64'
+                    }
+                    if ( params.PSMDB_REPO == 'AWS_ECR' ) {
+                        psmdb_image = 'public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-' + params.PSMDB_VERSION + '-arm64'
+                    }
+                    build job: 'pbm-functional-tests', parameters: [string(name: 'PBM_BRANCH', value: "main"), string(name: 'PSMDB', value: psmdb_image ), string(name: 'instance', value: 'docker-64gb-aarch64')]
                 }
             }
         }

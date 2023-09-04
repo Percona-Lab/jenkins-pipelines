@@ -15,6 +15,7 @@ pipeline {
         string(name: 'PSMDB_VERSION', defaultValue: '6.0.2-1', description: 'PSMDB version')
         choice(name: 'LATEST', choices: ['no','yes'], description: 'Tag image as latest')
         choice(name: 'DEBUG', choices: ['no','yes'], description: 'Additionally build debug image')
+        choice(name: 'TESTS', choices: ['no','yes'], description: 'Run tests after building')
     }
     options {
         disableConcurrentBuilds()
@@ -144,6 +145,23 @@ pipeline {
                              docker push percona/percona-server-mongodb:${params.PSMDB_VERSION}-debug
                          fi
                      """
+                }
+            }
+        }
+        stage ('Run testing job') {
+            when {
+                environment name: 'TESTS', value: 'yes'
+            }
+            steps {
+                script {
+                    def psmdb_image = 'percona/percona-server-mongodb:' + params.PSMDB_VERSION
+                    if ( params.PSMDB_REPO == 'testing' ) {
+                        psmdb_image = 'perconalab/percona-server-mongodb:' + params.PSMDB_VERSION
+                    }
+                    if ( params.PSMDB_REPO == 'experimental' ) {
+                        psmdb_image = 'public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-' + params.PSMDB_VERSION
+                    }
+                    build job: 'pbm-functional-tests', parameters: [string(name: 'PBM_BRANCH', value: "main"), string(name: 'PSMDB', value: psmdb_image )]
                 }
             }
         }
