@@ -2,7 +2,7 @@ tests=[]
 clusters=[]
 aksLocation='westeurope'
 
-void initPlatform() {
+void prepareNode() {
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
 
     sh """
@@ -44,16 +44,15 @@ EOF
 
         if ! command -v az &>/dev/null; then
             curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
-            printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
-            sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0"
+            printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py > /dev/null
+            sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
         fi
     """
-}
 
-void initKube() {
     withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
             az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
+            az account set -s "$AZURE_SUBSCRIPTION_ID"
         """
     }
 
@@ -87,6 +86,32 @@ void initTests() {
     }
 
     markPassedTests()
+
+    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+        sh """
+            cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
+        """
+    }
+}
+
+void buildDockerImage() {
+    unstash "sourceFILES"
+    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        sh """
+            if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                echo "SKIP: Build is not needed, PSMDB operator image was set!"
+            else
+                cd ./source/
+                sg docker -c "
+                    docker login -u '${USER}' -p '${PASS}'
+                    export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                    ./e2e-tests/build
+                    docker logout
+                "
+                sudo rm -rf ./build
+            fi
+        """
+    }
 }
 
 void markPassedTests() {
@@ -127,8 +152,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
-            az account set -s "$AZURE_SUBSCRIPTION_ID"
             for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
                 kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
                 kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
@@ -324,67 +347,44 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                initPlatform()
-                initKube()
+                prepareNode()
                 initTests()
-
-                withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-                    sh """
-                        cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-                    """
-                }
             }
         }
         stage('Build docker image') {
             steps {
-                unstash "sourceFILES"
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
-                        if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
-                            echo "SKIP: Build is not needed, PSMDB operator image was set!"
-                        else
-                            cd ./source/
-                            sg docker -c "
-                                docker login -u '${USER}' -p '${PASS}'
-                                export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                                ./e2e-tests/build
-                                docker logout
-                            "
-                            sudo rm -rf ./build
-                        fi
-                    """
-                }
+                buildDockerImage()
             }
         }
-        stage('Run Tests') {
-            parallel {
-                stage('cluster1') {
-                    steps {
-                        clusterRunner('cluster1')
-                    }
-                }
-                stage('cluster2') {
-                    steps {
-                        clusterRunner('cluster2')
-                    }
-                }
-                stage('cluster3') {
-                    steps {
-                        clusterRunner('cluster3')
-                    }
-                }
-                stage('cluster4') {
-                    steps {
-                        clusterRunner('cluster4')
-                    }
-                }
-                stage('cluster5') {
-                    steps {
-                        clusterRunner('cluster5')
-                    }
-                }
-            }
-        }
+        // stage('Run Tests') {
+        //     parallel {
+        //         stage('cluster1') {
+        //             steps {
+        //                 clusterRunner('cluster1')
+        //             }
+        //         }
+        //         stage('cluster2') {
+        //             steps {
+        //                 clusterRunner('cluster2')
+        //             }
+        //         }
+        //         stage('cluster3') {
+        //             steps {
+        //                 clusterRunner('cluster3')
+        //             }
+        //         }
+        //         stage('cluster4') {
+        //             steps {
+        //                 clusterRunner('cluster4')
+        //             }
+        //         }
+        //         stage('cluster5') {
+        //             steps {
+        //                 clusterRunner('cluster5')
+        //             }
+        //         }
+        //     }
+        // }
     }
     post {
         always {
