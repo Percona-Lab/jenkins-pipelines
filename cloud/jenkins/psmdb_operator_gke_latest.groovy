@@ -53,10 +53,10 @@ EOF
         """
    }
 
-    if ("${prepareNodePLATFORM_VER}" == "latest") {
+    if ("${PLATFORM_VER}" == "latest") {
         USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$GKERegion --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
     } else {
-        USED_PLATFORM_VER="${prepareNodePLATFORM_VER}"
+        USED_PLATFORM_VER="${PLATFORM_VER}"
     }
 
     echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
@@ -64,8 +64,8 @@ EOF
 
 void initTests() {
     echo "Populating tests into the tests array!"
-    def testList = "${prepareNodeTEST_LIST}"
-    def suiteFileName = "./source/e2e-tests/${prepareNodeTEST_SUITE}"
+    def testList = "${TEST_LIST}"
+    def suiteFileName = "./source/e2e-tests/${TEST_SUITE}"
 
     if (testList.length() != 0) {
         suiteFileName = './source/e2e-tests/run-custom.csv'
@@ -90,7 +90,7 @@ void initTests() {
 
         for (int i=0; i<tests.size(); i++) {
             def testName = tests[i]["name"]
-            def file="${prepareNodeGIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${USED_PLATFORM_VER}-$MDB_TAG-CW_${prepareNodeCLUSTER_WIDE}"
+            def file="${GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${USED_PLATFORM_VER}-$MDB_TAG-CW_${CLUSTER_WIDE}"
             def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
 
             if (retFileExists == 0) {
@@ -129,7 +129,7 @@ void buildDockerImage() {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("${CLUSTER_SUFFIX}")
 
-    if ("${prepareNodeCLUSTER_WIDE}" == "YES") {
+    if ("${CLUSTER_WIDE}" == "YES") {
         env.OPERATOR_NS = 'psmdb-operator'
     }
 
@@ -261,7 +261,7 @@ void runTest(Integer TEST_ID) {
                     ./e2e-tests/$testName/run
                 """
             }
-            pushArtifactFile("${prepareNodeGIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${USED_PLATFORM_VER}-$MDB_TAG-CW_${prepareNodeCLUSTER_WIDE}")
+            pushArtifactFile("${GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${USED_PLATFORM_VER}-$MDB_TAG-CW_${CLUSTER_WIDE}")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
