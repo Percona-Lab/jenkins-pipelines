@@ -53,10 +53,10 @@ EOF
         """
    }
 
-    if ("${PLATFORM_VER}" == "latest") {
+    if ("$PLATFORM_VER" == "latest") {
         USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$GKERegion --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
     } else {
-        USED_PLATFORM_VER="${PLATFORM_VER}"
+        USED_PLATFORM_VER="$PLATFORM_VER"
     }
 
     echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
@@ -64,15 +64,15 @@ EOF
 
 void initTests() {
     echo "Populating tests into the tests array!"
-    def testList = "${TEST_LIST}"
-    def suiteFileName = "./source/e2e-tests/${TEST_SUITE}"
+    def testList = "$TEST_LIST"
+    def suiteFileName = "./source/e2e-tests/$TEST_SUITE"
 
     if (testList.length() != 0) {
         suiteFileName = './source/e2e-tests/run-custom.csv'
         sh """
-            echo -e "${testList}" > ${suiteFileName}
+            echo -e "$testList" > $suiteFileName
             echo "Custom test suite contains following tests:"
-            cat ${suiteFileName}
+            cat $suiteFileName
         """
     }
 
@@ -85,13 +85,13 @@ void initTests() {
     echo "Marking passed tests in the tests map!"
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
+            aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
         """
 
         for (int i=0; i<tests.size(); i++) {
             def testName = tests[i]["name"]
-            def file="${GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${USED_PLATFORM_VER}-$MDB_TAG-CW_${CLUSTER_WIDE}"
-            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+            def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE"
+            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
             if (retFileExists == 0) {
                 tests[i]["result"] = "passed"
@@ -110,12 +110,12 @@ void buildDockerImage() {
     unstash "sourceFILES"
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+            if [[ "$PSMDB_OPERATOR_IMAGE" ]]; then
                 echo "SKIP: Build is not needed, PSMDB operator image was set!"
             else
                 cd ./source/
                 sg docker -c "
-                    docker login -u '${USER}' -p '${PASS}'
+                    docker login -u '$USER' -p '$PASS'
                     export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                     ./e2e-tests/build
                     docker logout
@@ -127,9 +127,9 @@ void buildDockerImage() {
 }
 
 void createCluster(String CLUSTER_SUFFIX) {
-    clusters.add("${CLUSTER_SUFFIX}")
+    clusters.add("$CLUSTER_SUFFIX")
 
-    if ("${CLUSTER_WIDE}" == "YES") {
+    if ("$CLUSTER_WIDE" == "YES") {
         env.OPERATOR_NS = 'psmdb-operator'
     }
 
@@ -137,14 +137,14 @@ void createCluster(String CLUSTER_SUFFIX) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             ret_num=0
-            while [ \${ret_num} -lt 15 ]; do
+            while [ \$ret_num -lt 15 ]; do
                 ret_val=0
-                gcloud container clusters create $CLUSTER_NAME-${CLUSTER_SUFFIX} --release-channel rapid --zone $GKERegion --cluster-version $USED_PLATFORM_VER --project $GCP_PROJECT --preemptible --disk-size 30 --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 --enable-ip-alias --workload-pool=cloud-dev-112233.svc.id.goog && \
+                gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX --release-channel rapid --zone $GKERegion --cluster-version $USED_PLATFORM_VER --project $GCP_PROJECT --preemptible --disk-size 30 --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-$CLUSTER_SUFFIX --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 --enable-ip-alias --workload-pool=cloud-dev-112233.svc.id.goog && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
-                if [ \${ret_val} -eq 0 ]; then break; fi
+                if [[ \$ret_val == 0 ]]; then break; fi
                 ret_num=\$((ret_num + 1))
             done
-            if [ \${ret_num} -eq 15 ]; then exit 1; fi
+            if [[ \$ret_num == 15 ]]; then exit 1; fi
         """
    }
 }
@@ -173,10 +173,10 @@ void pushArtifactFile(String FILE_NAME) {
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            touch ${FILE_NAME}
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${GIT_SHORT_COMMIT}
-            aws s3 ls \$S3_PATH/${FILE_NAME} || :
-            aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
+            touch $FILE_NAME
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
+            aws s3 ls \$S3_PATH/$FILE_NAME || :
+            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
         """
     }
 }
@@ -229,37 +229,37 @@ void runTest(Integer TEST_ID) {
                     export DEBUG_TESTS=1
 
                     cd ./source
-                    if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
-                        export IMAGE=${PSMDB_OPERATOR_IMAGE}
+                    if [[ -n "$PSMDB_OPERATOR_IMAGE" ]]; then
+                        export IMAGE=$PSMDB_OPERATOR_IMAGE
                     else
-                        export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
+                        export IMAGE=perconalab/percona-server-mongodb-operator:$env.GIT_BRANCH
                     fi
 
-                    if [ -n "${IMAGE_MONGOD}" ]; then
-                        export IMAGE_MONGOD=${IMAGE_MONGOD}
+                    if [[ -n "$IMAGE_MONGOD" ]]; then
+                        export IMAGE_MONGOD=$IMAGE_MONGOD
                     fi
 
-                    if [ -n "${IMAGE_BACKUP}" ]; then
-                        export IMAGE_BACKUP=${IMAGE_BACKUP}
+                    if [[ -n "$IMAGE_BACKUP" ]]; then
+                        export IMAGE_BACKUP=$IMAGE_BACKUP
                     fi
 
-                    if [ -n "${IMAGE_PMM}" ]; then
-                        export IMAGE_PMM=${IMAGE_PMM}
+                    if [[ -n "$IMAGE_PMM" ]]; then
+                        export IMAGE_PMM=$IMAGE_PMM
                     fi
 
-                    if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
-                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
+                    if [[ -n "$IMAGE_PMM_SERVER_REPO" ]]; then
+                        export IMAGE_PMM_SERVER_REPO=$IMAGE_PMM_SERVER_REPO
                     fi
 
-                    if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
-                        export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
+                    if [[ -n "$IMAGE_PMM_SERVER_TAG" ]]; then
+                        export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
                     fi
 
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                     ./e2e-tests/$testName/run
                 """
             }
-            pushArtifactFile("${GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${USED_PLATFORM_VER}-$MDB_TAG-CW_${CLUSTER_WIDE}")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -284,7 +284,7 @@ pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
-        MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ]; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
+        MDB_TAG = sh(script: "if [[ \"\$IMAGE_MONGOD\" ]]; then echo $IMAGE_MONGOD | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -401,14 +401,14 @@ pipeline {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
             sh """
-                echo "${TestsReport}" > TestsReport.xml
+                echo "$TestsReport" > TestsReport.xml
             """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml'
 
             script {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
+                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
                 }
 
                 clusters.each { shutdownCluster(it) }
