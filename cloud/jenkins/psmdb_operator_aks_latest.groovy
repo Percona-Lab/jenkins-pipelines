@@ -4,7 +4,6 @@ aksLocation='westeurope'
 
 void prepareNode() {
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-
     sh """
         # sudo is needed for better node recovery after compilation failure
         # if building failed on compilation stage directory will have files owned by docker user
@@ -23,18 +22,12 @@ void prepareNode() {
     }
 
     sh """
-        cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
-[kubernetes]
-name=Kubernetes
-baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-        sudo yum install -y python3-pip kubectl || true
+        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+        kubectl version --client --output=yaml
 
-        curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+        sudo yum install -y python3-pip
+
+        curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf -
 
         sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
         sudo chmod +x /usr/local/bin/yq
@@ -43,7 +36,7 @@ EOF
         sudo chmod +x /usr/local/bin/jq
 
         if ! command -v az &>/dev/null; then
-            curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+            curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
             printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py > /dev/null
             sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
         fi
@@ -56,10 +49,10 @@ EOF
         """
     }
 
-    if ("${params.PLATFORM_VER}" == "latest") {
+    if ("${PLATFORM_VER}" == "latest") {
         USED_PLATFORM_VER = sh(script: "az aks get-versions --location $aksLocation --output json | jq -r '.values | max_by(.version) | .version'", , returnStdout: true).trim()
     } else {
-        USED_PLATFORM_VER="${params.PLATFORM_VER}"
+        USED_PLATFORM_VER="${PLATFORM_VER}"
     }
 
     echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
@@ -67,8 +60,8 @@ EOF
 
 void initTests() {
     echo "Populating tests into the tests array!"
-    def testList = "${params.TEST_LIST}"
-    def suiteFileName = "./source/e2e-tests/${params.TEST_SUITE}"
+    def testList = "${TEST_LIST}"
+    def suiteFileName = "./source/e2e-tests/${TEST_SUITE}"
 
     if (testList.length() != 0) {
         suiteFileName = './source/e2e-tests/run-custom.csv'
@@ -93,7 +86,7 @@ void initTests() {
 
         for (int i=0; i<tests.size(); i++) {
             def testName = tests[i]["name"]
-            def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${USED_PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}"
+            def file="${GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${USED_PLATFORM_VER}-$MDB_TAG-CW_${CLUSTER_WIDE}"
             def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
 
             if (retFileExists == 0) {
@@ -132,7 +125,7 @@ void buildDockerImage() {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("${CLUSTER_SUFFIX}")
 
-    if ("${params.CLUSTER_WIDE}" == "YES") {
+    if ("${CLUSTER_WIDE}" == "YES") {
         env.OPERATOR_NS = 'psmdb-operator'
     }
 
@@ -253,7 +246,7 @@ void runTest(Integer TEST_ID) {
                     ./e2e-tests/$testName/run
                 """
             }
-            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${USED_PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
+            pushArtifactFile("${GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${USED_PLATFORM_VER}-$MDB_TAG-CW_${CLUSTER_WIDE}")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -351,35 +344,35 @@ pipeline {
                 buildDockerImage()
             }
         }
-        // stage('Run Tests') {
-        //     parallel {
-        //         stage('cluster1') {
-        //             steps {
-        //                 clusterRunner('cluster1')
-        //             }
-        //         }
-        //         stage('cluster2') {
-        //             steps {
-        //                 clusterRunner('cluster2')
-        //             }
-        //         }
-        //         stage('cluster3') {
-        //             steps {
-        //                 clusterRunner('cluster3')
-        //             }
-        //         }
-        //         stage('cluster4') {
-        //             steps {
-        //                 clusterRunner('cluster4')
-        //             }
-        //         }
-        //         stage('cluster5') {
-        //             steps {
-        //                 clusterRunner('cluster5')
-        //             }
-        //         }
-        //     }
-        // }
+        stage('Run Tests') {
+            parallel {
+                stage('cluster1') {
+                    steps {
+                        clusterRunner('cluster1')
+                    }
+                }
+                stage('cluster2') {
+                    steps {
+                        clusterRunner('cluster2')
+                    }
+                }
+                stage('cluster3') {
+                    steps {
+                        clusterRunner('cluster3')
+                    }
+                }
+                stage('cluster4') {
+                    steps {
+                        clusterRunner('cluster4')
+                    }
+                }
+                stage('cluster5') {
+                    steps {
+                        clusterRunner('cluster5')
+                    }
+                }
+            }
+        }
     }
     post {
         always {
