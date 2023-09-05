@@ -136,7 +136,6 @@ void createCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            # export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
@@ -154,7 +153,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            # export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
                 kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
                 kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
