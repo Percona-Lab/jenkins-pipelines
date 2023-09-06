@@ -331,6 +331,7 @@ pipeline {
 						./"${KREW}" install krew
 						export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
 						kubectl krew install kuttl
+						kubectl krew install assert
 
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
