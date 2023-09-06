@@ -214,36 +214,17 @@ void runTest(Integer TEST_ID) {
 
             withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
                 sh """
-                    export DEBUG_TESTS=1
-
                     cd ./source
-                    if [[ "$PSMDB_OPERATOR_IMAGE" ]]; then
-                        export IMAGE=$PSMDB_OPERATOR_IMAGE
-                    else
-                        export IMAGE=perconalab/percona-server-mongodb-operator:$env.GIT_BRANCH
-                    fi
 
-                    if [[ "$IMAGE_MONGOD" ]]; then
-                        export IMAGE_MONGOD=$IMAGE_MONGOD
-                    fi
-
-                    if [[ "$IMAGE_BACKUP" ]]; then
-                        export IMAGE_BACKUP=$IMAGE_BACKUP
-                    fi
-
-                    if [[ "$IMAGE_PMM" ]]; then
-                        export IMAGE_PMM=$IMAGE_PMM
-                    fi
-
-                    if [[ "$IMAGE_PMM_SERVER_REPO" ]]; then
-                        export IMAGE_PMM_SERVER_REPO=$IMAGE_PMM_SERVER_REPO
-                    fi
-
-                    if [[ "$IMAGE_PMM_SERVER_TAG" ]]; then
-                        export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
-                    fi
-
+                    export DEBUG_TESTS=1
+                    [[ "$PSMDB_OPERATOR_IMAGE" ]] && export IMAGE=$PSMDB_OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$env.GIT_BRANCH
+                    export IMAGE_MONGOD=$IMAGE_MONGOD
+                    export IMAGE_BACKUP=$IMAGE_BACKUP
+                    export IMAGE_PMM=$IMAGE_PMM
+                    export IMAGE_PMM_SERVER_REPO=$IMAGE_PMM_SERVER_REPO
+                    export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+
                     ./e2e-tests/$testName/run
                 """
             }

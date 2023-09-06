@@ -226,36 +226,17 @@ void runTest(Integer TEST_ID) {
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
-                    export DEBUG_TESTS=1
-
                     cd ./source
-                    if [[ -n "$PSMDB_OPERATOR_IMAGE" ]]; then
-                        export IMAGE=$PSMDB_OPERATOR_IMAGE
-                    else
-                        export IMAGE=perconalab/percona-server-mongodb-operator:$env.GIT_BRANCH
-                    fi
 
-                    if [[ -n "$IMAGE_MONGOD" ]]; then
-                        export IMAGE_MONGOD=$IMAGE_MONGOD
-                    fi
-
-                    if [[ -n "$IMAGE_BACKUP" ]]; then
-                        export IMAGE_BACKUP=$IMAGE_BACKUP
-                    fi
-
-                    if [[ -n "$IMAGE_PMM" ]]; then
-                        export IMAGE_PMM=$IMAGE_PMM
-                    fi
-
-                    if [[ -n "$IMAGE_PMM_SERVER_REPO" ]]; then
-                        export IMAGE_PMM_SERVER_REPO=$IMAGE_PMM_SERVER_REPO
-                    fi
-
-                    if [[ -n "$IMAGE_PMM_SERVER_TAG" ]]; then
-                        export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
-                    fi
-
+                    export DEBUG_TESTS=1
+                    [[ "$PSMDB_OPERATOR_IMAGE" ]] && export IMAGE=$PSMDB_OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$env.GIT_BRANCH
+                    export IMAGE_MONGOD=$IMAGE_MONGOD
+                    export IMAGE_BACKUP=$IMAGE_BACKUP
+                    export IMAGE_PMM=$IMAGE_PMM
+                    export IMAGE_PMM_SERVER_REPO=$IMAGE_PMM_SERVER_REPO
+                    export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+
                     ./e2e-tests/$testName/run
                 """
             }
