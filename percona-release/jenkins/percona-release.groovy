@@ -31,7 +31,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
 
                     mkdir -p source_tarball
                     cp percona-release.tar.gz source_tarball
-                    "
+                "
             """
             break
         case "RPM" :
@@ -58,10 +58,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     cp rpmbuild/SRPMS/*.rpm srpm
 
                     mkdir -p rpm
-                    cp rpmbuild/RPMS/\${ARCH}/*.rpm rpm/percona-release.\${VERSION}-\${RELEASE}.el7.\${ARCH}.rpm
-                    cp rpmbuild/RPMS/\${ARCH}/*.rpm rpm/percona-release.\${VERSION}-\${RELEASE}.el8.\${ARCH}.rpm
-                    cp rpmbuild/RPMS/\${ARCH}/*.rpm rpm/percona-release.\${VERSION}-\${RELEASE}.el9.\${ARCH}.rpm
-                    " 
+                    cp rpmbuild/RPMS/noarch/*.rpm rpm/
+                "
              """
              break
         case "DEB" :
@@ -93,7 +91,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.buster_amd64.deb
                     cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.focal_amd64.deb
                     cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.jammy_amd64.deb
-                    "
+                "
              """
              break
     }
@@ -173,7 +171,7 @@ pipeline {
                         buildStage("centos:7", "RPM")
                         sh '''
                             pwd
-                            ls -la test
+                            ls -la test/rpm
                             cp -r test/srpm .
                             cp -r test/rpm .
                         '''
@@ -194,7 +192,7 @@ pipeline {
                         buildStage("ubuntu:bionic", "DEB")
                         sh '''
                             pwd
-                            ls -la test
+                            ls -la test/deb
                             cp -r test/deb .
                         '''
 
@@ -202,6 +200,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+/*
                 stage('RPM ARM') {
                     agent {
                         label 'docker-32gb-aarch64'
@@ -212,7 +211,7 @@ pipeline {
                         buildStage("oraclelinux:8", "RPM")
                         sh '''
                             pwd
-                            ls -la test
+                            ls -la test/rpm
                             cp -r test/rpm .
                         '''
 
@@ -220,6 +219,25 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
+                stage('DEB ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:bionic", "DEB")
+                        sh '''
+                            pwd
+                            ls -la test/deb
+                            cp -r test/deb .
+                        '''
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+*/
             }  //parallel
         } // stage
 
