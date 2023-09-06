@@ -25,6 +25,12 @@ void prepareNode() {
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
         kubectl version --client --output=yaml
 
+        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
+        sudo chmod +x /usr/local/bin/yq
+
+        sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.7rc2/jq-linux-amd64 > /usr/local/bin/jq"
+        sudo chmod +x /usr/local/bin/jq
+
         sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
 [google-cloud-cli]
 name=Google Cloud CLI
@@ -36,14 +42,6 @@ gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
 
         sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
-
-        curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf -
-
-        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
-        sudo chmod +x /usr/local/bin/yq
-
-        sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-        sudo chmod +x /usr/local/bin/jq
     """
 
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
@@ -136,15 +134,34 @@ void createCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            ret_num=0
-            while [ \$ret_num -lt 15 ]; do
-                ret_val=0
-                gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX --release-channel rapid --zone $GKERegion --cluster-version $USED_PLATFORM_VER --project $GCP_PROJECT --preemptible --disk-size 30 --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-vpc --subnetwork=jenkins-$CLUSTER_SUFFIX --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 --enable-ip-alias --workload-pool=cloud-dev-112233.svc.id.goog && \
-                kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
-                if [[ \$ret_val == 0 ]]; then break; fi
-                ret_num=\$((ret_num + 1))
+
+            maxRetries=15
+            exitCode=1
+            while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
+                gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
+                    --release-channel rapid \
+                    --zone $GKERegion \
+                    --cluster-version $USED_PLATFORM_VER \
+                    --project $GCP_PROJECT \
+                    --preemptible \
+                    --disk-size 30 \
+                    --machine-type n1-standard-4 \
+                    --num-nodes=4 \
+                    --min-nodes=4 \
+                    --max-nodes=6 \
+                    --network=jenkins-vpc \
+                    --subnetwork=jenkins-$CLUSTER_SUFFIX \
+                    --cluster-ipv4-cidr=/21 \
+                    --labels delete-cluster-after-hours=6 \
+                    --enable-ip-alias \
+                    --workload-pool=cloud-dev-112233.svc.id.goog &&\
+                kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
+                exitCode=\$?
+                if [[ \$exitCode == 0 ]]; then break; fi
+                (( maxRetries -- ))
+                sleep 1
             done
-            if [[ \$ret_num == 15 ]]; then exit 1; fi
+            if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
         """
    }
 }
