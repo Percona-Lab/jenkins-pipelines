@@ -14,7 +14,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                 ret_val=0
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud alpha container clusters create --release-channel rapid \$(echo $CLUSTER_NAME-${CLUSTER_SUFFIX} | cut -c-40) --zone ${GKERegion} --cluster-version $GKE_VERSION --project $GCP_PROJECT --preemptible --disk-size 30 --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_SUFFIX} --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
+                gcloud alpha container clusters create --release-channel rapid \$(echo $CLUSTER_NAME-${CLUSTER_SUFFIX} | cut -c-40) --zone ${GKERegion} --cluster-version $PLATFORM_VERSION --project $GCP_PROJECT --preemptible --disk-size 30 --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_SUFFIX} --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -82,18 +82,20 @@ void initTests() {
 void markPassedTests() {
     echo "Marking passed tests in the tests map!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
-        """
+    if ("${params.IGNORE_PREVIOUS_RUN}" == "NO") {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            sh """
+                aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
+            """
 
-        for (int i=0; i<tests.size(); i++) {
-            def testName = tests[i]["name"]
-            def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$PPG_TAG"
-            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+            for (int i=0; i<tests.size(); i++) {
+                def testName = tests[i]["name"]
+                def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$PPG_TAG-${PARAMS_HASH}"
+                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
 
-            if (retFileExists == 0) {
-                tests[i]["result"] = "passed"
+                if (retFileExists == 0) {
+                    tests[i]["result"] = "passed"
+                }
             }
         }
     }
@@ -188,7 +190,7 @@ void runTest(Integer TEST_ID) {
                     kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
                 """
             }
-            pushArtifactFile("${env.GIT_BRANCH}-$GIT_SHORT_COMMIT-$testName-${params.GKE_VERSION}-$PPG_TAG")
+            pushArtifactFile("${env.GIT_BRANCH}-$GIT_SHORT_COMMIT-$testName-${params.PLATFORM_VERSION}-$PPG_TAG-${PARAMS_HASH}")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -249,6 +251,7 @@ void prepareNode() {
 pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
+        CLEAN_NAMESPACE = 1
         PPG_TAG = sh(script: "if [ -n \"\${PGO_POSTGRES_IMAGE}\" ] ; then echo ${PGO_POSTGRES_IMAGE} | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' ; else echo 'main-ppg15'; fi", , returnStdout: true).trim()
     }
     parameters {
@@ -260,6 +263,11 @@ pipeline {
             defaultValue: '',
             description: 'List of tests to run separated by new line',
             name: 'TEST_LIST')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Ignore passed tests in previous run (run all)',
+            name: 'IGNORE_PREVIOUS_RUN'
+        )
         choice(
             choices: 'NO\nYES',
             description: 'Run tests with cluster wide',
@@ -275,7 +283,7 @@ pipeline {
         string(
             defaultValue: 'latest',
             description: 'GKE version',
-            name: 'GKE_VERSION')
+            name: 'PLATFORM_VERSION')
         string(
             defaultValue: 'sergey.pronin',
             description: 'Slack user to notify on failures',
@@ -345,6 +353,7 @@ pipeline {
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                     CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                    PARAMS_HASH = sh(script: "echo \"${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${params.PLATFORM_VER}-${params.PG_VERSION}-${params.PGO_OPERATOR_IMAGE}-${params.PGO_PGBOUNCER_IMAGE}-${params.PGO_POSTGRES_HA_IMAGE}-${params.PGO_BACKREST_IMAGE}-${params.PGO_PGBADGER_IMAGE}-${params.PMM_SERVER_IMAGE_BASE}-${params.PMM_SERVER_IMAGE_TAG}-${params.PMM_CLIENT_IMAGE}\" | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
                 }
                 initTests()
 
@@ -381,14 +390,6 @@ pipeline {
             }
         }
         stage('E2E Basic tests') {
-            environment {
-                CLOUDSDK_CORE_DISABLE_PROMPTS = 1
-                CLEAN_NAMESPACE = 1
-                GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
-                CLUSTER_NAME = sh(script: "echo jkns-lat-pgo-${PG_VERSION}-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-                PGO_K8S_NAME = "${env.CLUSTER_NAME}-upstream"
-            }
             parallel {
                 stage('cluster1') {
                     agent {

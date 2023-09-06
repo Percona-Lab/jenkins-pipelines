@@ -45,18 +45,20 @@ void initTests() {
 void markPassedTests() {
     echo "Marking passed tests in the tests map!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
-        """
+    if ("${params.IGNORE_PREVIOUS_RUN}" == "NO") {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            sh """
+                aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
+            """
 
-        for (int i=0; i<tests.size(); i++) {
-            def testName = tests[i]["name"]
-            def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$PPG_TAG"
-            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+            for (int i=0; i<tests.size(); i++) {
+                def testName = tests[i]["name"]
+                def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$PPG_TAG-${PARAMS_HASH}"
+                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
 
-            if (retFileExists == 0) {
-                tests[i]["result"] = "passed"
+                if (retFileExists == 0) {
+                    tests[i]["result"] = "passed"
+                }
             }
         }
     }
@@ -142,7 +144,7 @@ void runTest(Integer TEST_ID) {
 
                 kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
             """
-            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$PPG_TAG")
+            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$PPG_TAG-${PARAMS_HASH}")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -190,6 +192,11 @@ pipeline {
             defaultValue: '',
             description: 'List of tests to run separated by new line',
             name: 'TEST_LIST')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Ignore passed tests in previous run (run all)',
+            name: 'IGNORE_PREVIOUS_RUN'
+        )
         choice(
             choices: 'NO\nYES',
             description: 'Run tests with cluster wide',
@@ -272,6 +279,7 @@ pipeline {
                 stash includes: "source/**", name: "sourceFILES", useDefaultExcludes: false
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                    PARAMS_HASH = sh(script: "echo \"${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${params.PLATFORM_VER}-${params.PG_VERSION}-${params.PGO_OPERATOR_IMAGE}-${params.PGO_PGBOUNCER_IMAGE}-${params.PGO_POSTGRES_HA_IMAGE}-${params.PGO_BACKREST_IMAGE}-${params.PGO_PGBADGER_IMAGE}-${params.PMM_SERVER_IMAGE_BASE}-${params.PMM_SERVER_IMAGE_TAG}-${params.PMM_CLIENT_IMAGE}\" | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
                 }
                 initTests()
             }
