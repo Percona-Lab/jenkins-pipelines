@@ -230,7 +230,7 @@ void pushArtifactFile(String FILE_NAME) {
 
 TestsReport = '<testsuite name=\\"PSMDB\\">\n'
 void makeReport() {
-    echo "===      Generating Test Report       ==="
+    echo "=========================[ Generating Test Report ]========================="
     for (int i=0; i<tests.size(); i++) {
         def testResult = tests[i]["result"]
         def testTime = tests[i]["time"]
