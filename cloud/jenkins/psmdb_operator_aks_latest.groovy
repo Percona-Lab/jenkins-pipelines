@@ -100,6 +100,13 @@ void markPassedTests() {
             }
         }
     }
+    else {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            sh """
+                aws s3 rm "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" --recursive --exclude "*" --include "*-${PARAMS_HASH}" || :
+            """
+        }
+    }
 }
 
 TestsReport = '<testsuite name=\\"PSMDB\\">\n'
@@ -283,7 +290,7 @@ pipeline {
 
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                    CLUSTER_NAME = sh(script: "echo jenkins-par-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                    CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
                 }
                 initTests()
 
