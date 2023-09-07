@@ -44,6 +44,9 @@ cd ${TEST_DIR}
 
 if [ -f /usr/bin/yum ]; then
   RHEL=$(rpm --eval %rhel)
+  if [[ ${RHEL} == 9 ]]; then
+    sudo ln -s /usr/bin/python3 /usr/bin/python2
+  fi
   if [[ ${RHEL} == 8 ]]; then
     if [[ ${XTRABACKUP_TARGET} == "galera56" ]] || [[ ${XTRABACKUP_TARGET} == "xtradb56" ]]; then
       errmsg
