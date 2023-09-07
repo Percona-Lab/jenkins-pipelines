@@ -172,7 +172,7 @@ void runTest(Integer TEST_ID) {
     def testName = tests[TEST_ID]["name"]
     def clusterSuffix = tests[TEST_ID]["cluster"]
 
-    echo "===  Running the tests   ==="
+    echo "=========================[ Running the tests ]========================="
     waitUntil {
         def timeStart = new Date().getTime()
         try {
