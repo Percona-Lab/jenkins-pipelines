@@ -41,6 +41,7 @@ void prepareNode() {
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PSMDB_OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM-$IMAGE_PMM_SERVER_REPO-$IMAGE_PMM_SERVER_TAG | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -88,26 +89,28 @@ void initTests() {
     }
 
     echo "Marking passed tests in the tests map!"
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            aws s3 ls "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" || :
-        """
+    if ("$IGNORE_PREVIOUS_RUN" == "NO") {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            sh """
+                aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
+            """
 
-        for (int i=0; i<tests.size(); i++) {
-            def testName = tests[i]["name"]
-            def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$params.CLUSTER_WIDE"
-            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
+            for (int i=0; i<tests.size(); i++) {
+                def testName = tests[i]["name"]
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE"
+                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
-            if (retFileExists == 0) {
-                tests[i]["result"] = "passed"
+                if (retFileExists == 0) {
+                    tests[i]["result"] = "passed"
+                }
             }
         }
-    }
-
-    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-        sh """
-            cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
-        """
+    } else {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            sh """
+                aws s3 rm "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" --recursive --exclude "*" --include "*-$PARAMS_HASH" || :
+            """
+        }
     }
 }
 
@@ -138,6 +141,7 @@ void createCluster(String CLUSTER_SUFFIX) {
         env.OPERATOR_NS = 'psmdb-operator'
     }
 
+    echo "=========================[ Creating cluster $CLUSTER_NAME-$CLUSTER_SUFFIX ]========================="
     sh """
 tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
@@ -184,7 +188,6 @@ nodeGroups:
 EOF
     """
 
-    echo "=========================[ Creating cluster $CLUSTER_NAME-$CLUSTER_SUFFIX ]========================="
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
@@ -218,10 +221,10 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
 
-                    #e2e-tests/$testName/run
+                    e2e-tests/$testName/run
                 """
             }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -253,7 +256,6 @@ void pushArtifactFile(String FILE_NAME) {
         """
     }
 }
-
 
 TestsReport = '<testsuite name=\\"PSMDB\\">\n'
 void makeReport() {
@@ -328,6 +330,11 @@ pipeline {
             defaultValue: '',
             description: 'List of tests to run separated by new line',
             name: 'TEST_LIST')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Ignore passed tests in previous run (run all)',
+            name: 'IGNORE_PREVIOUS_RUN'
+        )
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
@@ -337,7 +344,7 @@ pipeline {
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.24',
+            defaultValue: 'latest',
             description: 'EKS kubernetes version',
             name: 'PLATFORM_VER')
         choice(
@@ -370,7 +377,7 @@ pipeline {
             name: 'IMAGE_PMM_SERVER_TAG')
     }
     agent {
-         label 'docker'
+        label 'docker'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
@@ -394,7 +401,7 @@ pipeline {
                 initTests()
             }
         }
-        stage('Run tests') {
+        stage('Run Tests') {
             parallel {
                 stage('cluster1') {
                     steps {
@@ -419,7 +426,6 @@ pipeline {
             }
         }
     }
-
     post {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
