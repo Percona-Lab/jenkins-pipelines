@@ -120,12 +120,6 @@ void initTests() {
             }
         }
     }
-
-    // withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-    //     sh """
-    //         cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
-    //     """
-    // }
 }
 
 void clusterRunner(String cluster) {
