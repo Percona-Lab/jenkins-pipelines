@@ -289,6 +289,11 @@ pipeline {
             description: 'Ignore passed tests in previous run (run all)',
             name: 'IGNORE_PREVIOUS_RUN'
         )
+        choice(
+            choices: 'NO\nYES',
+            description: 'Ignore passed tests in previous run (run all)',
+            name: 'IGNORE_PREVIOUS_RUN'
+        )
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
