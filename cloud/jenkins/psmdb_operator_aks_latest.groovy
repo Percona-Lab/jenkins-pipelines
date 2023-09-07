@@ -263,7 +263,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 
 pipeline {
     environment {
-        CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
         MDB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
     }
@@ -298,7 +297,7 @@ pipeline {
             name: 'PSMDB_OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod4.0',
+            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod5.0',
             name: 'IMAGE_MONGOD')
         string(
             defaultValue: '',
