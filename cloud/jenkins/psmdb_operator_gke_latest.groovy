@@ -3,24 +3,7 @@ tests=[]
 clusters=[]
 
 void prepareNode() {
-    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-    sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo sudo git config --global --add safe.directory '*'
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf source
-        ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
-    """
-
-    stash includes: "source/**", name: "sourceFILES"
-
-    script {
-        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-        CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-    }
-
+    echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
         kubectl version --client --output=yaml
@@ -40,10 +23,10 @@ gpgcheck=1
 repo_gpgcheck=0
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
-
         sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
     """
 
+    echo "=========================[ Logging in the Kubernetes provider ]========================="
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
@@ -56,17 +39,58 @@ EOF
     } else {
         USED_PLATFORM_VER="$PLATFORM_VER"
     }
-
     echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
+
+    echo "=========================[ Cloning the sources ]========================="
+    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    sh """
+        # sudo is needed for better node recovery after compilation failure
+        # if building failed on compilation stage directory will have files owned by docker user
+        sudo sudo git config --global --add safe.directory '*'
+        sudo git reset --hard
+        sudo git clean -xdf
+        sudo rm -rf source
+        cloud/local/checkout $GIT_REPO $GIT_BRANCH
+    """
+
+    stash includes: "source/**", name: "sourceFILES"
+
+    script {
+        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+        CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+    }
+}
+
+void dockerBuildPush() {
+     echo "=========================[ Building and Pushing the PSMDB Docker image ]========================="
+    unstash "sourceFILES"
+    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        sh """
+            if [[ "$PSMDB_OPERATOR_IMAGE" ]]; then
+                echo "SKIP: Build is not needed, PSMDB operator image was set!"
+            else
+                cd source
+                sg docker -c "
+                    docker login -u '$USER' -p '$PASS'
+                    export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                    e2e-tests/build
+                    docker logout
+                "
+                sudo rm -rf build
+            fi
+        """
+    }
 }
 
 void initTests() {
+    echo "=========================[ Initializing the tests ]========================="
+
     echo "Populating tests into the tests array!"
     def testList = "$TEST_LIST"
-    def suiteFileName = "./source/e2e-tests/$TEST_SUITE"
+    def suiteFileName = "source/e2e-tests/$TEST_SUITE"
 
     if (testList.length() != 0) {
-        suiteFileName = './source/e2e-tests/run-custom.csv'
+        suiteFileName = 'source/e2e-tests/run-custom.csv'
         sh """
             echo -e "$testList" > $suiteFileName
             echo "Custom test suite contains following tests:"
@@ -97,30 +121,30 @@ void initTests() {
         }
     }
 
-    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-        sh """
-            cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-        """
-    }
+    // withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+    //     sh """
+    //         cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+    //     """
+    // }
 }
 
-void buildDockerImage() {
-    unstash "sourceFILES"
-    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            if [[ "$PSMDB_OPERATOR_IMAGE" ]]; then
-                echo "SKIP: Build is not needed, PSMDB operator image was set!"
-            else
-                cd ./source/
-                sg docker -c "
-                    docker login -u '$USER' -p '$PASS'
-                    export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                    ./e2e-tests/build
-                    docker logout
-                "
-                sudo rm -rf ./build
-            fi
-        """
+void clusterRunner(String cluster) {
+    def clusterCreated=0
+
+    for (int i=0; i<tests.size(); i++) {
+        if (tests[i]["result"] == "skipped") {
+            tests[i]["result"] = "failure"
+            tests[i]["cluster"] = cluster
+            if (clusterCreated == 0) {
+                createCluster(cluster)
+                clusterCreated++
+            }
+            runTest(i)
+        }
+    }
+
+    if (clusterCreated >= 1) {
+        shutdownCluster(cluster)
     }
 }
 
@@ -131,6 +155,7 @@ void createCluster(String CLUSTER_SUFFIX) {
         env.OPERATOR_NS = 'psmdb-operator'
     }
 
+    echo "=========================[ Creating cluster $CLUSTER_NAME-$CLUSTER_SUFFIX ]========================="
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
@@ -166,75 +191,12 @@ void createCluster(String CLUSTER_SUFFIX) {
    }
 }
 
-void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
-            done
-            kubectl get svc --all-namespaces || true
-
-            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-$CLUSTER_SUFFIX || true
-        """
-   }
-}
-
-void pushArtifactFile(String FILE_NAME) {
-    echo "Push $FILE_NAME file to S3!"
-
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            touch $FILE_NAME
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
-            aws s3 ls \$S3_PATH/$FILE_NAME || :
-            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
-        """
-    }
-}
-
-TestsReport = '<testsuite name=\\"PSMDB\\">\n'
-void makeReport() {
-    for (int i=0; i<tests.size(); i++) {
-        def testResult = tests[i]["result"]
-        def testTime = tests[i]["time"]
-        def testName = tests[i]["name"]
-
-        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
-    }
-    TestsReport = TestsReport + '</testsuite>\n'
-}
-
-void clusterRunner(String cluster) {
-    def clusterCreated=0
-
-    for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "skipped") {
-            tests[i]["result"] = "failure"
-            tests[i]["cluster"] = cluster
-            if (clusterCreated == 0) {
-                createCluster(cluster)
-                clusterCreated++
-            }
-            runTest(i)
-        }
-    }
-
-    if (clusterCreated >= 1) {
-        shutdownCluster(cluster)
-    }
-}
-
 void runTest(Integer TEST_ID) {
     def retryCount = 0
     def testName = tests[TEST_ID]["name"]
     def clusterSuffix = tests[TEST_ID]["cluster"]
 
+    echo "=========================[ Running the tests ]========================="
     waitUntil {
         def timeStart = new Date().getTime()
         try {
@@ -243,7 +205,7 @@ void runTest(Integer TEST_ID) {
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
-                    cd ./source
+                    cd source
 
                     export DEBUG_TESTS=1
                     [[ "$PSMDB_OPERATOR_IMAGE" ]] && export IMAGE=$PSMDB_OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$env.GIT_BRANCH
@@ -254,7 +216,7 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
 
-                    ./e2e-tests/$testName/run
+                    e2e-tests/$testName/run
                 """
             }
             pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE")
@@ -278,11 +240,56 @@ void runTest(Integer TEST_ID) {
     }
 }
 
+void pushArtifactFile(String FILE_NAME) {
+    echo "=========================[ Pushing $FILE_NAME file to S3! ]========================="
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            touch $FILE_NAME
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
+            aws s3 ls \$S3_PATH/$FILE_NAME || :
+            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
+        """
+    }
+}
+
+TestsReport = '<testsuite name=\\"PSMDB\\">\n'
+void makeReport() {
+    echo "=========================[ Generating Test Report ]========================="
+    for (int i=0; i<tests.size(); i++) {
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"]
+        def testName = tests[i]["name"]
+
+        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
+    }
+    TestsReport = TestsReport + '</testsuite>\n'
+}
+
+void shutdownCluster(String CLUSTER_SUFFIX) {
+    echo "=========================[ Cleaning up ]========================="
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+            done
+            kubectl get svc --all-namespaces || true
+
+            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-$CLUSTER_SUFFIX || true
+        """
+   }
+}
+
 pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
-        MDB_TAG = sh(script: "if [[ \"\$IMAGE_MONGOD\" ]]; then echo $IMAGE_MONGOD | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
+        MDB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -305,10 +312,6 @@ pipeline {
             defaultValue: 'latest',
             description: 'GKE kubernetes version',
             name: 'PLATFORM_VER')
-        string(
-            defaultValue: 'sergey.pronin',
-            description: 'Slack user to notify on failures',
-            name: 'OWNER_SLACK')
         choice(
             choices: 'NO\nYES',
             description: 'Run tests in cluster wide mode',
@@ -348,15 +351,19 @@ pipeline {
     }
 
     stages {
-        stage('Prepare') {
+        stage('Prepare node') {
             steps {
                 prepareNode()
-                initTests()
             }
         }
-        stage('Build docker image') {
+        stage('Docker Build and Push') {
             steps {
-                buildDockerImage()
+                dockerBuildPush()
+            }
+        }
+        stage('Init tests') {
+            steps {
+                initTests()
             }
         }
         stage('Run Tests') {
@@ -413,9 +420,8 @@ pipeline {
             }
 
             sh """
-                sudo docker system prune -fa
-                sudo rm -rf ./*
-                sudo rm -rf $HOME/google-cloud-sdk
+                sudo docker system prune --volumes -af
+                sudo rm -rf *
             """
             deleteDir()
         }
