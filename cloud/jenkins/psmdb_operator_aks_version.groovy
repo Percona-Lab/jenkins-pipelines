@@ -299,7 +299,6 @@ pipeline {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                     CLUSTER_NAME = sh(script: "echo jenkins-par-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
                     PARAMS_HASH = sh(script: "echo \"${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${params.PLATFORM_VER}-${params.CLUSTER_WIDE}-${params.PSMDB_OPERATOR_IMAGE}-${params.IMAGE_MONGOD}-${params.IMAGE_BACKUP}-${params.IMAGE_PMM}-${params.IMAGE_PMM_SERVER_REPO}-${params.IMAGE_PMM_SERVER_TAG}\" | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
-
                 }
                 initTests()
 
