@@ -372,7 +372,7 @@ pipeline {
                 script {
                     if (env.FIPSMODE == 'yes') {
                         // Replace by a new procedure when it's ready
-                        sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
+                        sync2PrivateProdAutoBuild(PSMDB_REPO+"-fips", COMPONENT)
                     } else {
                         sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
                     }
