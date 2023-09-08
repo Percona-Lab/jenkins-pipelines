@@ -6,7 +6,7 @@ library changelog: false, identifier: "lib@PS-8631", retriever: modernSCM([
 
 pipeline {
   agent {
-      label "docker-32gb"
+      label "docker"
   }
 
   parameters {
@@ -22,6 +22,11 @@ pipeline {
       defaultValue: '8.0.32',
       description: 'Full percona-mysql-router version. Used as version and docker tag',
       name: 'ROUTER_VERSION'
+    )
+    string(
+      defaultValue: '9468fd1d',
+      description: 'Revision of MYsql Router docker image',
+      name: 'Revision'
     )
     string(
       defaultValue: '8.0.32-24',
