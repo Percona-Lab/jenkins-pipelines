@@ -106,8 +106,8 @@ void initTests() {
     }
 
     echo "Marking passed tests in the tests map!"
-    if ("$IGNORE_PREVIOUS_RUN" == "NO") {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        if ("$IGNORE_PREVIOUS_RUN" == "NO") {
             sh """
                 aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
             """
@@ -121,9 +121,7 @@ void initTests() {
                     tests[i]["result"] = "passed"
                 }
             }
-        }
-    } else {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        } else {
             sh """
                 aws s3 rm "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" --recursive --exclude "*" --include "*-$PARAMS_HASH" || :
             """
@@ -155,10 +153,9 @@ void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
     if ("$CLUSTER_WIDE" == "YES") {
-        env.OPERATOR_NS = 'psmdb-operator'
+        OPERATOR_NS = 'psmdb-operator'
     }
 
-    echo "=========================[ Creating cluster $CLUSTER_NAME-$CLUSTER_SUFFIX ]========================="
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
@@ -170,7 +167,6 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --release-channel rapid \
                     --zone $GKERegion \
                     --cluster-version $USED_PLATFORM_VER \
-                    --project $GCP_PROJECT \
                     --preemptible \
                     --disk-size 30 \
                     --machine-type n1-standard-4 \
@@ -199,7 +195,7 @@ void runTest(Integer TEST_ID) {
     def testName = tests[TEST_ID]["name"]
     def clusterSuffix = tests[TEST_ID]["cluster"]
 
-    echo "=========================[ Running the tests ]========================="
+    echo "=========================[ Running test $testName ]========================="
     waitUntil {
         def timeStart = new Date().getTime()
         try {
@@ -211,7 +207,7 @@ void runTest(Integer TEST_ID) {
                     cd source
 
                     export DEBUG_TESTS=1
-                    [[ "$PSMDB_OPERATOR_IMAGE" ]] && export IMAGE=$PSMDB_OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$env.GIT_BRANCH
+                    [[ "$PSMDB_OPERATOR_IMAGE" ]] && export IMAGE=$PSMDB_OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                     export IMAGE_MONGOD=$IMAGE_MONGOD
                     export IMAGE_BACKUP=$IMAGE_BACKUP
                     export IMAGE_PMM=$IMAGE_PMM
@@ -244,7 +240,6 @@ void runTest(Integer TEST_ID) {
 }
 
 void pushArtifactFile(String FILE_NAME) {
-    echo "=========================[ Pushing $FILE_NAME file to S3! ]========================="
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             touch $FILE_NAME
@@ -269,7 +264,6 @@ void makeReport() {
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    echo "=========================[ Cleaning up ]========================="
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
@@ -282,8 +276,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
                 kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
             done
             kubectl get svc --all-namespaces || true
-
-            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-$CLUSTER_SUFFIX || true
+            gcloud container clusters delete --quiet --zone $GKERegion $CLUSTER_NAME-$CLUSTER_SUFFIX || true
         """
     }
 }
