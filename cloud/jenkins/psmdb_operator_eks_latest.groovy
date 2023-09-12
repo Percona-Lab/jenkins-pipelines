@@ -48,10 +48,10 @@ void prepareNode() {
 void dockerBuildPush() {
     echo "=========================[ Building and Pushing the PSMDB Docker image ]========================="
     unstash "sourceFILES"
-    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             if [[ "$PSMDB_OPERATOR_IMAGE" ]]; then
-                echo "SKIP: Build is not needed, PSMDB operator image was set!"
+                echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
                 sg docker -c "
@@ -138,10 +138,9 @@ void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
     if ("$CLUSTER_WIDE" == "YES") {
-        env.OPERATOR_NS = 'psmdb-operator'
+        OPERATOR_NS = 'psmdb-operator'
     }
 
-    echo "=========================[ Creating cluster $CLUSTER_NAME-$CLUSTER_SUFFIX ]========================="
     sh """
 tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
@@ -209,20 +208,22 @@ void runTest(Integer TEST_ID) {
             tests[TEST_ID]["result"] = "failure"
 
             timeout(time: 90, unit: 'MINUTES') {
-                sh """
-                    cd source
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
+                    sh """
+                        cd source
 
-                    export DEBUG_TESTS=1
-                    [[ "$PSMDB_OPERATOR_IMAGE" ]] && export IMAGE=$PSMDB_OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$env.GIT_BRANCH
-                    export IMAGE_MONGOD=$IMAGE_MONGOD
-                    export IMAGE_BACKUP=$IMAGE_BACKUP
-                    export IMAGE_PMM=$IMAGE_PMM
-                    export IMAGE_PMM_SERVER_REPO=$IMAGE_PMM_SERVER_REPO
-                    export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+                        export DEBUG_TESTS=1
+                        [[ "$PSMDB_OPERATOR_IMAGE" ]] && export IMAGE=$PSMDB_OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                        export IMAGE_MONGOD=$IMAGE_MONGOD
+                        export IMAGE_BACKUP=$IMAGE_BACKUP
+                        export IMAGE_PMM=$IMAGE_PMM
+                        export IMAGE_PMM_SERVER_REPO=$IMAGE_PMM_SERVER_REPO
+                        export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
 
-                    e2e-tests/$testName/run
-                """
+                        e2e-tests/$testName/run
+                    """
+                }
             }
             pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
@@ -246,7 +247,6 @@ void runTest(Integer TEST_ID) {
 }
 
 void pushArtifactFile(String FILE_NAME) {
-    echo "=========================[ Pushing $FILE_NAME file to S3! ]========================="
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             touch $FILE_NAME
@@ -271,7 +271,6 @@ void makeReport() {
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    echo "=========================[ Cleaning up ]========================="
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
