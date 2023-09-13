@@ -1,4 +1,4 @@
-GKERegion='us-central1-a'
+region='us-central1-a'
 tests=[]
 clusters=[]
 
@@ -7,6 +7,8 @@ void prepareNode() {
     sh """
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
         kubectl version --client --output=yaml
+
+        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
         sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
         sudo chmod +x /usr/local/bin/yq
@@ -38,9 +40,11 @@ EOF
             gcloud config set project $GCP_PROJECT
         """
     }
+}
 
+void prepareSources() {
     if ("$PLATFORM_VER" == "latest") {
-        USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$GKERegion --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
+        USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
     } else {
         USED_PLATFORM_VER="$PLATFORM_VER"
     }
@@ -58,7 +62,7 @@ EOF
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
 
-    stash includes: "source/**", name: "sourceFILES"
+    // stash includes: "source/**", name: "sourceFILES"
 
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
@@ -68,8 +72,8 @@ EOF
 }
 
 void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the PSMDB Docker image ]========================="
-    unstash "sourceFILES"
+    echo "=========================[ Building and Pushing the operator Docker image ]========================="
+    // unstash "sourceFILES"
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             if [[ "$OPERATOR_IMAGE" ]]; then
@@ -119,7 +123,7 @@ void initTests() {
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$PS_TAG-$PARAMS_HASH"
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PS_TAG-$PARAMS_HASH"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
@@ -132,6 +136,13 @@ void initTests() {
             """
         }
     }
+
+    withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
+        sh """
+            cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+        """
+    }
+    stash includes: "source/**", name: "sourceFILES"
 }
 
 void clusterRunner(String cluster) {
@@ -173,7 +184,7 @@ void runGKEcluster(String CLUSTER_SUFFIX) {
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 ret_val=0
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                    --zone $GKERegion \
+                    --zone $region \
                     --cluster-version $USED_PLATFORM_VER \
                     --machine-type n1-standard-4 \
                     --preemptible \
@@ -205,7 +216,7 @@ void runGKEclusterAlpha(String CLUSTER_SUFFIX) {
                 ret_val=0
                 gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version $PLATFORM_VER --zone $GKERegion --project $GCP_PROJECT --preemptible --disk-size 30 --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-ps-vpc --subnetwork=jenkins-ps-${CLUSTER_SUFFIX} --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
+                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version $PLATFORM_VER --zone $region --project $GCP_PROJECT --preemptible --disk-size 30 --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-ps-vpc --subnetwork=jenkins-ps-${CLUSTER_SUFFIX} --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -267,7 +278,8 @@ void runTest(Integer TEST_ID) {
 }
 
 void pushArtifactFile(String FILE_NAME) {
-    echo "=========================[ Pushing $FILE_NAME file to S3! ]========================="
+    echo "Push $FILE_NAME file to S3!"
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             touch $FILE_NAME
@@ -312,7 +324,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
                 kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
             done
             kubectl get svc --all-namespaces || true
-            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-$CLUSTER_SUFFIX || true
+            gcloud container clusters delete --zone $region $CLUSTER_NAME-$CLUSTER_SUFFIX || true
         """
     }
 }
@@ -345,7 +357,7 @@ pipeline {
             description: 'percona-server-mysql-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.24',
+            defaultValue: 'latest',
             description: 'GKE version',
             name: 'PLATFORM_VER')
         choice(
@@ -406,6 +418,7 @@ pipeline {
         stage('Prepare node') {
             steps {
                 prepareNode()
+                prepareSources()
             }
         }
         stage('Docker Build and Push') {
@@ -424,27 +437,52 @@ pipeline {
             }
             parallel {
                 stage('cluster1') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
                 }
                 stage('cluster2') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
                 }
                 stage('cluster3') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
                 }
                 stage('cluster4') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster4')
                     }
                 }
                 stage('cluster5') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster5')
                     }
                 }

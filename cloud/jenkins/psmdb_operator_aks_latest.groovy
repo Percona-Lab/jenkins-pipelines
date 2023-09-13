@@ -8,6 +8,8 @@ void prepareNode() {
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
         kubectl version --client --output=yaml
 
+        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+
         sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
         sudo chmod +x /usr/local/bin/yq
 
@@ -48,8 +50,6 @@ void prepareNode() {
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
 
-    stash includes: "source/**", name: "sourceFILES"
-
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
@@ -58,12 +58,11 @@ void prepareNode() {
 }
 
 void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the PSMDB Docker image ]========================="
-    unstash "sourceFILES"
+    echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             if [[ "$PSMDB_OPERATOR_IMAGE" ]]; then
-                echo "SKIP: Build is not needed, PSMDB operator image was set!"
+                echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
                 sg docker -c "
@@ -124,6 +123,12 @@ void initTests() {
             """
         }
     }
+
+    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+        sh """
+            cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+        """
+    }
 }
 
 void clusterRunner(String cluster) {
@@ -150,10 +155,9 @@ void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
     if ("$CLUSTER_WIDE" == "YES") {
-        env.OPERATOR_NS = 'psmdb-operator'
+        OPERATOR_NS = 'psmdb-operator'
     }
 
-    echo "=========================[ Creating cluster $CLUSTER_NAME-$CLUSTER_SUFFIX ]========================="
     sh """
         export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
         az aks create -n $CLUSTER_NAME-$CLUSTER_SUFFIX \
@@ -181,7 +185,6 @@ void runTest(Integer TEST_ID) {
     def testName = tests[TEST_ID]["name"]
     def clusterSuffix = tests[TEST_ID]["cluster"]
 
-    echo "=========================[ Running the tests ]========================="
     waitUntil {
         def timeStart = new Date().getTime()
         try {
@@ -193,7 +196,7 @@ void runTest(Integer TEST_ID) {
                     cd source
 
                     export DEBUG_TESTS=1
-                    [[ "$PSMDB_OPERATOR_IMAGE" ]] && export IMAGE=$PSMDB_OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$env.GIT_BRANCH
+                    [[ "$PSMDB_OPERATOR_IMAGE" ]] && export IMAGE=$PSMDB_OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                     export IMAGE_MONGOD=$IMAGE_MONGOD
                     export IMAGE_BACKUP=$IMAGE_BACKUP
                     export IMAGE_PMM=$IMAGE_PMM
@@ -226,7 +229,8 @@ void runTest(Integer TEST_ID) {
 }
 
 void pushArtifactFile(String FILE_NAME) {
-    echo "=========================[ Pushing $FILE_NAME file to S3! ]========================="
+    echo "Push $FILE_NAME file to S3!"
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             touch $FILE_NAME
@@ -251,7 +255,6 @@ void makeReport() {
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    echo "=========================[ Cleaning up ]========================="
     withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
@@ -284,11 +287,6 @@ pipeline {
             defaultValue: '',
             description: 'List of tests to run separated by new line',
             name: 'TEST_LIST')
-        choice(
-            choices: 'NO\nYES',
-            description: 'Ignore passed tests in previous run (run all)',
-            name: 'IGNORE_PREVIOUS_RUN'
-        )
         choice(
             choices: 'NO\nYES',
             description: 'Ignore passed tests in previous run (run all)',

@@ -1,4 +1,4 @@
-AWSRegion='eu-west-3'
+region='eu-west-3'
 tests=[]
 clusters=[]
 
@@ -7,6 +7,8 @@ void prepareNode() {
     sh """
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
         kubectl version --client --output=yaml
+
+        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
         sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
         sudo chmod +x /usr/local/bin/yq
@@ -36,8 +38,6 @@ void prepareNode() {
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
 
-    stash includes: "source/**", name: "sourceFILES"
-
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
@@ -46,8 +46,7 @@ void prepareNode() {
 }
 
 void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the PSMDB Docker image ]========================="
-    unstash "sourceFILES"
+    echo "=========================[ Building and Pushing the Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             if [[ "$PSMDB_OPERATOR_IMAGE" ]]; then
@@ -112,6 +111,12 @@ void initTests() {
             """
         }
     }
+
+    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+        sh """
+            cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+        """
+    }
 }
 
 void clusterRunner(String cluster) {
@@ -150,7 +155,7 @@ kind: ClusterConfig
 
 metadata:
     name: $CLUSTER_NAME-$CLUSTER_SUFFIX
-    region: $AWSRegion
+    region: $region
     version: "$USED_PLATFORM_VER"
     tags:
         'delete-cluster-after-hours': '10'
@@ -247,6 +252,8 @@ void runTest(Integer TEST_ID) {
 }
 
 void pushArtifactFile(String FILE_NAME) {
+    echo "Push $FILE_NAME file to S3!"
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             touch $FILE_NAME
@@ -274,7 +281,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-$CLUSTER_SUFFIX --region $AWSRegion || true
+            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-$CLUSTER_SUFFIX --region $region || true
             for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
                 kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
                 kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
@@ -285,32 +292,32 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
             done
             kubectl get svc --all-namespaces || true
 
-            VPC_ID=\$(eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $AWSRegion -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
+            VPC_ID=\$(eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $region -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
             if [ -n "\$VPC_ID" ]; then
-                LOADBALS=\$(aws elb describe-load-balancers --region $AWSRegion --output json | jq --raw-output '.LoadBalancerDescriptions[] | select(.VPCId == "'\$VPC_ID'").LoadBalancerName')
+                LOADBALS=\$(aws elb describe-load-balancers --region $region --output json | jq --raw-output '.LoadBalancerDescriptions[] | select(.VPCId == "'\$VPC_ID'").LoadBalancerName')
                 for loadbal in \$LOADBALS; do
-                    aws elb delete-load-balancer --load-balancer-name \$loadbal --region $AWSRegion
+                    aws elb delete-load-balancer --load-balancer-name \$loadbal --region $region
                 done
                 eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction || true
 
-                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $AWSRegion || true)
+                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $region || true)
                 if [ -n "\$VPC_DESC" ]; then
-                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $AWSRegion || true
+                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $region || true
                 fi
-                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $AWSRegion || true)
+                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $region || true)
                 if [ -n "\$VPC_DESC" ]; then
-                    for secgroup in \$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=\$VPC_ID --query 'SecurityGroups[*].GroupId' --output text --region $AWSRegion); do
-                        aws ec2 delete-security-group --group-id \$secgroup --region $AWSRegion || true
+                    for secgroup in \$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=\$VPC_ID --query 'SecurityGroups[*].GroupId' --output text --region $region); do
+                        aws ec2 delete-security-group --group-id \$secgroup --region $region || true
                     done
 
-                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $AWSRegion || true
+                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $region || true
                 fi
             fi
-            aws cloudformation delete-stack --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $AWSRegion || true
-            aws cloudformation wait stack-delete-complete --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $AWSRegion || true
+            aws cloudformation delete-stack --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $region || true
+            aws cloudformation wait stack-delete-complete --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $region || true
 
-            eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $AWSRegion || true
-            aws cloudformation list-stacks --region $AWSRegion | jq '.StackSummaries[] | select(.StackName | startswith("'eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster'"))' || true
+            eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $region || true
+            aws cloudformation list-stacks --region $region | jq '.StackSummaries[] | select(.StackName | startswith("'eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster'"))' || true
         """
     }
 }
@@ -329,11 +336,6 @@ pipeline {
             defaultValue: '',
             description: 'List of tests to run separated by new line',
             name: 'TEST_LIST')
-        choice(
-            choices: 'NO\nYES',
-            description: 'Ignore passed tests in previous run (run all)',
-            name: 'IGNORE_PREVIOUS_RUN'
-        )
         choice(
             choices: 'NO\nYES',
             description: 'Ignore passed tests in previous run (run all)',

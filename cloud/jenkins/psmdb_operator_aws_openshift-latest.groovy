@@ -7,6 +7,8 @@ void prepareNode() {
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
         kubectl version --client --output=yaml
 
+        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
 
@@ -35,7 +37,7 @@ void prepareNode() {
         sudo rm -rf source
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
-    stash includes: "source/**", name: "sourceFILES"
+    // stash includes: "source/**", name: "sourceFILES"
 
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
@@ -45,8 +47,8 @@ void prepareNode() {
 }
 
 void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the PSMDB Docker image ]========================="
-    unstash "sourceFILES"
+    echo "=========================[ Building and Pushing the operator Docker image ]========================="
+    // unstash "sourceFILES"
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             if [[ "$PSMDB_OPERATOR_IMAGE" ]]; then
@@ -111,6 +113,12 @@ void initTests() {
             """
         }
     }
+
+    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+        sh """
+            cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+        """
+    }
 }
 
 void clusterRunner(String cluster) {
@@ -137,7 +145,7 @@ void createCluster(String CLUSTER_SUFFIX){
     clusters.add("$CLUSTER_SUFFIX")
 
     if ("$CLUSTER_WIDE" == "YES") {
-        env.OPERATOR_NS = 'psmdb-operator'
+        OPERATOR_NS = 'psmdb-operator'
     }
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
@@ -216,7 +224,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
             """
         }
     }
-
 }
 
 void pushArtifactFile(String FILE_NAME) {
