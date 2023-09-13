@@ -334,7 +334,7 @@ pipeline {
             description: 'OpenShift version to use',
             name: 'PLATFORM_VER')
         choice(
-            choices: 'NO\nYES',
+            choices: 'YES\nNO',
             description: 'Run tests with cluster wide',
             name: 'CLUSTER_WIDE')
         string(

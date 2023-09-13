@@ -316,7 +316,7 @@ pipeline {
             name: 'IGNORE_PREVIOUS_RUN'
         )
         choice(
-            choices: 'NO\nYES',
+            choices: 'YES\nNO',
             description: 'Run tests with cluster wide',
             name: 'CLUSTER_WIDE')
         string(

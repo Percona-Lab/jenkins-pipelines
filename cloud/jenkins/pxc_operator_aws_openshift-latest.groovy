@@ -56,7 +56,7 @@ void prepareNode() {
 
 void dockerBuildPush() {
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
-    unstash "sourceFILES"
+    // unstash "sourceFILES"
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             if [[ "$PXC_OPERATOR_IMAGE" ]]; then
@@ -345,7 +345,7 @@ pipeline {
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
         choice(
-            choices: 'NO\nYES',
+            choices: 'YES\nNO',
             description: 'Run tests with cluster wide',
             name: 'CLUSTER_WIDE')
         string(

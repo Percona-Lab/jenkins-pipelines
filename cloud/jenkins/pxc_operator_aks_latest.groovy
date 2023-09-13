@@ -1,4 +1,4 @@
-aksLocation='westeurope'
+location='westeurope'
 tests=[]
 clusters=[]
 
@@ -36,7 +36,7 @@ void prepareNode() {
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        USED_PLATFORM_VER = sh(script: "az aks get-versions --location $aksLocation --output json | jq -r '.values | max_by(.version) | .version'", , returnStdout: true).trim()
+        USED_PLATFORM_VER = sh(script: "az aks get-versions --location $location --output json | jq -r '.values | max_by(.version) | .version'", , returnStdout: true).trim()
     } else {
         USED_PLATFORM_VER="$PLATFORM_VER"
     }
@@ -179,7 +179,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             --enable-cluster-autoscaler \
             --outbound-type loadbalancer \
             --kubernetes-version $USED_PLATFORM_VER \
-            -l $aksLocation
+            -l $location
         az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-$CLUSTER_SUFFIX --overwrite-existing
     """
 }
@@ -313,7 +313,7 @@ pipeline {
             description: 'AKS kubernetes version',
             name: 'PLATFORM_VER')
         choice(
-            choices: 'NO\nYES',
+            choices: 'YES\nNO',
             description: 'Run tests in cluster wide mode',
             name: 'CLUSTER_WIDE')
         string(
