@@ -124,7 +124,7 @@ pipeline {
         choice(
             name: 'PG_RELEASE',
             description: 'PPG major version to test',
-            choices: ['15.4', '14.9', '13.12', '12.16', '11.21']
+            choices: ['16.0', '15.4', '14.9', '13.12', '12.16', '11.21']
         )
         choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
