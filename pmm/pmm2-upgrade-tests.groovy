@@ -388,7 +388,7 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-managed.log >> pmm-managed-full.log || true
                 docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
                 echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
-                docker cp pmm-server /srv/logs srv-logs
+                docker cp pmm-server:/srv/logs srv-logs
                 tar -zcvf srv-logs.tar.gz srv-logs
 
                 # stop the containers
