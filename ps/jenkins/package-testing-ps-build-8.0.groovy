@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@ol8-pac', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 setup_rhel_package_tests = { ->
