@@ -11,6 +11,14 @@ setup_rhel_package_tests = { ->
     '''
 }
 
+setup_rhel8_package_tests = { ->
+    sh '''
+        sudo yum install -y epel-release
+        sudo yum -y update
+        sudo yum install -y ansible-2.9.27 git wget tar
+    '''
+}
+
 setup_amazon_package_tests = { ->
     sh '''
         sudo amazon-linux-extras install epel
@@ -50,7 +58,7 @@ node_setups = [
     "min-buster-x64": setup_debian_package_tests,
     "min-bullseye-x64": setup_debian_package_tests,
     "min-bookworm-x64": setup_debian_package_tests,
-    "min-ol-8-x64": setup_rhel_package_tests,
+    "min-ol-8-x64": setup_rhel8_package_tests,
     "min-centos-7-x64": setup_rhel_package_tests,
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
