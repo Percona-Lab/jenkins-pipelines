@@ -413,7 +413,9 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-
+    triggers {
+        cron('0 8 * * 7')
+    }
     stages {
         stage('Prepare node') {
             steps {
