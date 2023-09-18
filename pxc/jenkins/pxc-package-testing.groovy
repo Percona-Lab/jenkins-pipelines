@@ -152,8 +152,8 @@ void setInventories(String param_test_type){
                     def KEYPATH_COMMON
                     def SSH_USER
 
-                    KEYPATH_BOOTSTRAP="/home/centos/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
-                    KEYPATH_COMMON="/home/centos/.cache/molecule/${product_to_test}-common-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
+                    KEYPATH_BOOTSTRAP="/home/centos/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${params.node_to_test}/ssh_key-eu-west-1"
+                    KEYPATH_COMMON="/home/centos/.cache/molecule/${product_to_test}-common-${param_test_type}/${params.node_to_test}/ssh_key-eu-west-1"
 
 
                     if(("${params.node_to_test}" == "ubuntu-focal")  ||  ("${params.node_to_test}" == "ubuntu-bionic") || ("${params.node_to_test}" == "ubuntu-jammy")){
