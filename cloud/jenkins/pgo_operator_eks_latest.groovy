@@ -428,7 +428,7 @@ pipeline {
         disableConcurrentBuilds()
     }
     triggers {
-        cron('0 15 * * 7')
+        cron('0 15 * * 0')
     }
     stages {
         stage('Prepare node') {

@@ -42,7 +42,7 @@ pipeline {
         disableConcurrentBuilds()
     }
     triggers {
-        cron('0 1 * * 7')
+        cron('0 1 * * 0')
     }
     stages {
         stage('Run AMI Upgrade Matrix') {
