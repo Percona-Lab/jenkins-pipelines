@@ -42,7 +42,7 @@ void prepareNode() {
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$PSMDB_OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM-$IMAGE_PMM_SERVER_REPO-$IMAGE_PMM_SERVER_TAG | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM-$IMAGE_PMM_SERVER_REPO-$IMAGE_PMM_SERVER_TAG | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -50,7 +50,7 @@ void dockerBuildPush() {
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            if [[ "$PSMDB_OPERATOR_IMAGE" ]]; then
+            if [[ "$OPERATOR_IMAGE" ]]; then
                 echo "SKIP: Build is not needed, PSMDB operator image was set!"
             else
                 cd source
@@ -264,7 +264,7 @@ void runTest(Integer TEST_ID) {
                     cd source
 
                     export DEBUG_TESTS=1
-                    [[ "$PSMDB_OPERATOR_IMAGE" ]] && export IMAGE=$PSMDB_OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$env.GIT_BRANCH
+                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$env.GIT_BRANCH
                     export IMAGE_MONGOD=$IMAGE_MONGOD
                     export IMAGE_BACKUP=$IMAGE_BACKUP
                     export IMAGE_PMM=$IMAGE_PMM
@@ -328,19 +328,19 @@ pipeline {
             name: 'GIT_REPO')
         string(
             defaultValue: 'latest',
-            description: 'OpenShift version to use',
+            description: 'OpenShift version',
             name: 'PLATFORM_VER')
         choice(
             choices: 'YES\nNO',
-            description: 'Run tests with cluster wide',
+            description: 'Run tests in cluster wide mode',
             name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
-            name: 'PSMDB_OPERATOR_IMAGE')
+            name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod4.0',
+            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod5.0',
             name: 'IMAGE_MONGOD')
         string(
             defaultValue: '',

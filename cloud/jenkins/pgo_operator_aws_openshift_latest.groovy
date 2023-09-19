@@ -52,7 +52,7 @@ void prepareSources() {
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-pg-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$PG_VERSION-$PGO_OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_HA_IMAGE-$PGO_BACKREST_IMAGE-$PGO_PGBADGER_IMAGE-$PMM_SERVER_IMAGE_BASE-$PMM_SERVER_IMAGE_TAG-$PMM_CLIENT_IMAGE | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_HA_IMAGE-$PGO_BACKREST_IMAGE-$PGO_PGBADGER_IMAGE-$PMM_SERVER_IMAGE_BASE-$PMM_SERVER_IMAGE_TAG-$PMM_CLIENT_IMAGE | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -60,7 +60,7 @@ void dockerBuildPush() {
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            if [[ "$PGO_OPERATOR_IMAGE" ]]; then
+            if [[ "$OPERATOR_IMAGE" ]]; then
                 echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
@@ -216,52 +216,6 @@ EOF
     }
 }
 
-void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
-        sshagent(['aws-openshift-41-key']) {
-            sh """
-                export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
-                for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                    kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
-                    kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
-                    kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
-                    kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
-                    kubectl delete services --all -n \$namespace --force --grace-period=0 || true
-                    kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
-                done
-                kubectl get svc --all-namespaces || true
-
-                /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
-            """
-        }
-    }
-}
-
-void pushArtifactFile(String FILE_NAME) {
-    echo "Push $FILE_NAME file to S3!"
-
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            touch $FILE_NAME
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
-            aws s3 ls \$S3_PATH/$FILE_NAME || :
-            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
-        """
-    }
-}
-
-TestsReport = '<testsuite name=\\"PGO\\">\n'
-void makeReport() {
-    for (int i=0; i<tests.size(); i++) {
-        def testResult = tests[i]["result"]
-        def testTime = tests[i]["time"]
-        def testName = tests[i]["name"]
-
-        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
-    }
-    TestsReport = TestsReport + '</testsuite>\n'
-}
-
 void runTest(Integer TEST_ID) {
     def retryCount = 0
     def testName = tests[TEST_ID]["name"]
@@ -277,7 +231,7 @@ void runTest(Integer TEST_ID) {
                 sh """
                     cd source
 
-                    [[ "$PGO_OPERATOR_IMAGE" ]] && export IMAGE_OPERATOR=$PGO_OPERATOR_IMAGE || export IMAGE_OPERATOR=perconalab/percona-postgresql-operator:$GIT_BRANCH-postgres-operator
+                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE_OPERATOR=$OPERATOR_IMAGE || export IMAGE_OPERATOR=perconalab/percona-postgresql-operator:$GIT_BRANCH-postgres-operator
 
                     export IMAGE_PGOEVENT=$PGO_EVENT_IMAGE
                     export IMAGE_RMDATA=$PGO_RMDATA_IMAGE
@@ -318,11 +272,58 @@ void runTest(Integer TEST_ID) {
     }
 }
 
+void pushArtifactFile(String FILE_NAME) {
+    echo "Push $FILE_NAME file to S3!"
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            touch $FILE_NAME
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
+            aws s3 ls \$S3_PATH/$FILE_NAME || :
+            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
+        """
+    }
+}
+
+TestsReport = '<testsuite name=\\"PGO\\">\n'
+void makeReport() {
+    echo "=========================[ Generating Test Report ]========================="
+    for (int i=0; i<tests.size(); i++) {
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"]
+        def testName = tests[i]["name"]
+
+        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
+    }
+    TestsReport = TestsReport + '</testsuite>\n'
+}
+
+void shutdownCluster(String CLUSTER_SUFFIX) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+        sshagent(['aws-openshift-41-key']) {
+            sh """
+                export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                    kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete services --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+                done
+                kubectl get svc --all-namespaces || true
+
+                /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
+            """
+        }
+    }
+}
+
 pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
-        PPG_TAG = sh(script: "[[ \"$PGO_OPERATOR_IMAGE\" ]] && echo $PGO_OPERATOR_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg15", , returnStdout: true).trim()
+        PPG_TAG = sh(script: "[[ \"$OPERATOR_IMAGE\" ]] && echo $OPERATOR_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg15", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -361,7 +362,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-postgresql-operator:main',
-            name: 'PGO_OPERATOR_IMAGE')
+            name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
             description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg15-pgbouncer',
@@ -406,6 +407,7 @@ pipeline {
         stage('Prepare node') {
             steps {
                 prepareNode()
+                prepareSources()
             }
         }
         stage('Docker Build and Push') {
@@ -418,46 +420,46 @@ pipeline {
                 initTests()
             }
         }
-        stage('Run tests') {
+        stage('Run Tests') {
             parallel {
                 stage('cluster1') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
+                    agent {
+                        label 'docker'
                     }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
                 }
                 stage('cluster2') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
+                    agent {
+                        label 'docker'
                     }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
                 }
                 stage('cluster3') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
+                    agent {
+                        label 'docker'
                     }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
                 }
                 stage('cluster4') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
+                    agent {
+                        label 'docker'
                     }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster4')
-                    }
-                }
-                stage('cluster5') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
-                    }
-                    steps {
-                        clusterRunner('cluster5')
                     }
                 }
             }

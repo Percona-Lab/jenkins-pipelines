@@ -51,7 +51,7 @@ void prepareSources() {
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$PG_VERSION-$PGO_OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_IMAGE-$PGO_BACKREST_IMAGE-$PGO_PGBADGER_IMAGE-$PMM_SERVER_IMAGE_BASE-$PMM_SERVER_IMAGE_TAG-$PMM_CLIENT_IMAGE | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_IMAGE-$PGO_BACKREST_IMAGE-$PGO_PGBADGER_IMAGE-$PMM_SERVER_IMAGE_BASE-$PMM_SERVER_IMAGE_TAG-$PMM_CLIENT_IMAGE | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -59,7 +59,7 @@ void dockerBuildPush() {
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            if [[ "$PGO_OPERATOR_IMAGE" ]]; then
+            if [[ "$OPERATOR_IMAGE" ]]; then
                 echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
@@ -232,7 +232,7 @@ void runTest(Integer TEST_ID) {
                     sh """
                         cd source
 
-                        [[ "$PGO_OPERATOR_IMAGE" ]] && export IMAGE=$PGO_OPERATOR_IMAGE || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
+                        [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                         export PG_VER=$PG_VERSION
                         export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
 
@@ -350,7 +350,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        PPG_TAG = sh(script: "[[ \"$PGO_OPERATOR_IMAGE\" ]] && echo $PGO_OPERATOR_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg15", , returnStdout: true).trim()
+        PPG_TAG = sh(script: "[[ \"$OPERATOR_IMAGE\" ]] && echo $OPERATOR_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg15", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -389,7 +389,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-postgresql-operator:main',
-            name: 'PGO_OPERATOR_IMAGE')
+            name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
             description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg15-pgbouncer',
