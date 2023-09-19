@@ -50,15 +50,6 @@ pipeline {
         }
         stage('Run tests for PBM') {
             parallel {
-                stage('New cluster 4.2 logical') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-			prepareCluster()
-                        runTest('run-new-cluster', '4.2', 'logical')
-                    }
-                }
                 stage('New cluster 4.4 logical') {
                     agent {
                         label 'docker'
@@ -87,15 +78,6 @@ pipeline {
                     }
                 }
 
-                stage('Sharded 4.2 logical') {
-                    agent {
-                        label 'docker-32gb'
-                    }
-                    steps {
-			prepareCluster()
-                        runTest('run-sharded', '4.2', 'logical')
-                    }
-                }
                 stage('Sharded 4.4 logical') {
                     agent {
                         label 'docker-32gb'
@@ -124,15 +106,6 @@ pipeline {
                     }
                 }
 
-                stage('Non-sharded 4.2 logical') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-			prepareCluster()
-                        runTest('run-rs', '4.2', 'logical')
-                    }
-                }
                 stage('Non-sharded 4.4 logical') {
                     agent {
                         label 'docker'
@@ -161,15 +134,6 @@ pipeline {
                     }
                 }
 
-                stage('Single-node 4.2 logical') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-			prepareCluster()
-                        runTest('run-single', '4.2', 'logical')
-                    }
-                }
                 stage('Single-node 4.4 logical') {
                     agent {
                         label 'docker'
@@ -198,15 +162,6 @@ pipeline {
                     }
                 }
 
-                stage('Sharded 4.2 physical') {
-                    agent {
-                        label 'docker-32gb'
-                    }
-                    steps {
-			prepareCluster()
-                        runTest('run-sharded', '4.2', 'physical')
-                    }
-                }
                 stage('Sharded 4.4 physical') {
                     agent {
                         label 'docker-32gb'
@@ -235,15 +190,6 @@ pipeline {
                     }
                 }
 
-                stage('Non-sharded 4.2 physical') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-			prepareCluster()
-                        runTest('run-rs', '4.2', 'physical')
-                    }
-                }
                 stage('Non-sharded 4.4 physical') {
                     agent {
                         label 'docker'
@@ -272,15 +218,6 @@ pipeline {
                     }
                 }
 
-                stage('Single-node 4.2 physical') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-			prepareCluster()
-                        runTest('run-single', '4.2', 'physical')
-                    }
-                }
                 stage('Single-node 4.4 physical') {
                     agent {
                         label 'docker'
