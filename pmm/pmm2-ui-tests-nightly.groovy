@@ -229,11 +229,11 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['13', '12', '11', '10.8'],
+            choices: ['15', '14', '13', '12', '11'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['15.4','14.9', '13.12', '12.16', '11.21'],
+            choices: ['16.0','15.4','14.9', '13.12', '12.16', '11.21'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
