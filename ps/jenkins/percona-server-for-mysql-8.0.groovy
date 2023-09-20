@@ -177,7 +177,6 @@ parameters {
                         buildStage("none", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Centos 8') {
@@ -192,7 +191,6 @@ parameters {
                         buildStage("none", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Centos 8 ARM') {
@@ -207,7 +205,6 @@ parameters {
                         buildStage("centos:8", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9') {
@@ -222,7 +219,6 @@ parameters {
                         buildStage("none", "--build_rpm=1 --with_zenfs=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9 ARM') {
@@ -237,7 +233,6 @@ parameters {
                         buildStage("oraclelinux:9", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Bionic(18.04)') {
@@ -252,7 +247,6 @@ parameters {
                         buildStage("none", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal(20.04)') {
@@ -267,7 +261,6 @@ parameters {
                         buildStage("none", "--build_deb=1 --with_zenfs=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy(22.04)') {
@@ -282,7 +275,6 @@ parameters {
                         buildStage("none", "--build_deb=1 --with_zenfs=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Buster(10)') {
@@ -297,7 +289,6 @@ parameters {
                         buildStage("none", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bullseye(11)') {
@@ -312,7 +303,6 @@ parameters {
                         buildStage("none", "--build_deb=1 --with_zenfs=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bookworm(12)') {
@@ -327,7 +317,6 @@ parameters {
                         buildStage("none", "--build_deb=1 --with_zenfs=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Centos 7 binary tarball') {
@@ -340,8 +329,8 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("none", "--build_tarball=1 ")
+
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Centos 7 debug tarball') {
@@ -354,8 +343,8 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("none", "--debug=1 --build_tarball=1 ")
+
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Centos 8 binary tarball') {
@@ -368,8 +357,8 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("none", "--build_tarball=1 ")
+
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Centos 8 debug tarball') {
@@ -382,8 +371,8 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("none", "--debug=1 --build_tarball=1 ")
+
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Oracle Linux 9 tarball') {
@@ -396,8 +385,8 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("none", "--build_tarball=1")
+
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Oracle Linux 9 ZenFS tarball') {
@@ -410,8 +399,8 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("none", "--build_tarball=1 --with_zenfs=1")
+
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Oracle Linux 9 debug tarball') {
@@ -424,8 +413,8 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("none", "--debug=1 --build_tarball=1")
+
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Bionic(18.04) binary tarball') {
@@ -438,8 +427,8 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("none", "--build_tarball=1 ")
+
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Bionic(18.04) debug tarball') {
@@ -452,8 +441,8 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("none", "--debug=1 --build_tarball=1 ")
+
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Ubuntu Focal(20.04) tarball') {
@@ -468,7 +457,6 @@ parameters {
                         buildStage("none", "--build_tarball=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Ubuntu Focal(20.04) debug tarball') {
@@ -483,7 +471,6 @@ parameters {
                         buildStage("none", "--debug=1 --build_tarball=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Ubuntu Jammy(22.04) tarball') {
@@ -498,7 +485,6 @@ parameters {
                         buildStage("none", "--build_tarball=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Ubuntu Jammy(22.04) ZenFS tarball') {
@@ -513,7 +499,6 @@ parameters {
                         buildStage("none", "--build_tarball=1 --with_zenfs=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Ubuntu Jammy(22.04) debug tarball') {
@@ -528,9 +513,22 @@ parameters {
                         buildStage("none", "--debug=1 --build_tarball=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
+            }
+        }
+        stage('Upload packages and tarballs from S3') {
+            agent {
+                label 'min-jammy-x64'
+            }
+            steps {
+                cleanUpWS()
+                installCli("deb")
+                unstash 'properties'
+
+                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
             }
         }
 
