@@ -380,15 +380,15 @@ pipeline {
             description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg15-pgbadger',
             name: 'PGO_PGBADGER_IMAGE')
         string(
-            defaultValue: 'perconalab/pmm-server',
+            defaultValue: '',
             description: 'PMM server image base: perconalab/pmm-server',
             name: 'PMM_SERVER_IMAGE_BASE')
         string(
-            defaultValue: 'dev-latest',
+            defaultValue: '',
             description: 'PMM server image tag: dev-latest',
             name: 'PMM_SERVER_IMAGE_TAG')
         string(
-            defaultValue: 'perconalab/pmm-client:dev-latest',
+            defaultValue: '',
             description: 'PMM server image: perconalab/pmm-client:dev-latest',
             name: 'PMM_CLIENT_IMAGE')
     }
