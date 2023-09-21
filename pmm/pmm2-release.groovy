@@ -430,10 +430,17 @@ ENDSSH
                         # push pmm-server el7
                         docker pull \${SERVER_IMAGE_EL7}
 
+                        docker tag \${SERVER_IMAGE_EL7} percona/pmm-server:\${DOCKER_MID}-el7
+                        docker tag \${SERVER_IMAGE_EL7} percona/pmm-server:\${VERSION}-el7
+                        docker push percona/pmm-server:\${DOCKER_MID}-el7
+                        docker push percona/pmm-server:\${VERSION}-el7
+
                         docker tag \${SERVER_IMAGE_EL7} perconalab/pmm-server:\${DOCKER_MID}-el7
                         docker tag \${SERVER_IMAGE_EL7} perconalab/pmm-server:\${VERSION}-el7
                         docker push perconalab/pmm-server:\${DOCKER_MID}-el7
                         docker push perconalab/pmm-server:\${VERSION}-el7
+
+                        docker save percona/pmm-server:\${VERSION}-el7 | xz > pmm-server-\${VERSION}-el7.docker
 
                         # push pmm-client
                         docker pull \${CLIENT_IMAGE}
@@ -461,6 +468,7 @@ ENDSSH
                     sh '''
                         set -ex
                         aws s3 cp --only-show-errors pmm-server-${VERSION}.docker s3://percona-vm/pmm-server-${VERSION}.docker
+                        aws s3 cp --only-show-errors pmm-server-${VERSION}-el7.docker s3://percona-vm/pmm-server-${VERSION}-el7.docker
                         aws s3 cp --only-show-errors pmm-client-${VERSION}.docker s3://percona-vm/pmm-client-${VERSION}.docker
                     '''
                 }
@@ -473,16 +481,19 @@ ENDSSH
                     sh '''
                         set -ex
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}.docker pmm-server-${VERSION}.docker
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}-el7.docker pmm-server-${VERSION}-el7.docker
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}.docker pmm-client-${VERSION}.docker
                     '''
                 }
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         sha256sum pmm-server-${VERSION}.docker | tee pmm-server-${VERSION}.sha256sum
+                        sha256sum pmm-server-${VERSION}-el7.docker | tee pmm-server-${VERSION}-el7.sha256sum
                         sha256sum pmm-client-${VERSION}.docker | tee pmm-client-${VERSION}.sha256sum
                         export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm2/${VERSION}/docker"
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.docker pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}-el7.docker pmm-server-${VERSION}-el7.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}.docker pmm-client-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "ls -l /data/downloads/pmm2/${VERSION}/docker"
                     '''
