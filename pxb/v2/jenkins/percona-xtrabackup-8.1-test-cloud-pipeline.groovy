@@ -1,7 +1,7 @@
 pipeline {
     parameters {
         choice(
-            choices: 'centos:7\ncentos:8\noraclelinux:9\nubuntu:bionic\nubuntu:focal\nubuntu:jammy\ndebian:buster\ndebian:bullseye\nasan',
+            choices: 'centos:7\ncentos:8\noraclelinux:9\nubuntu:jammy\ndebian:bullseye\nasan',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -13,11 +13,11 @@ pipeline {
             description: 'MySQL version for QA run',
             name: 'XTRABACKUP_TARGET')
         string(
-            defaultValue: '8.0.34',
+            defaultValue: '8.1.0',
             description: 'Version of MySQL InnoDB80 which will be used for bootstrap.sh script',
             name: 'INNODB80_VERSION')
         string(
-            defaultValue: '8.0.34-26',
+            defaultValue: '8.1.0.1',
             description: 'Version of Percona XtraDB80 which will be used for bootstrap.sh script',
             name: 'XTRADB80_VERSION')
         string(
@@ -78,7 +78,7 @@ pipeline {
                         sudo git -C sources reset --hard || :
                         sudo git -C sources clean -xdf   || :
                         '''
-                    copyArtifacts filter: 'COMPILE_BUILD_TAG', projectName: 'percona-xtrabackup-8.0-compile-param', selector: lastSuccessful()
+                    copyArtifacts filter: 'COMPILE_BUILD_TAG', projectName: 'percona-xtrabackup-8.1-compile-param', selector: specific("${USE_BINARIES_FROM_BUILD_ID}")
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '24e68886-c552-4033-8503-ed85bbaa31f3', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
                             #!/bin/bash

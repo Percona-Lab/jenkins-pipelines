@@ -1,5 +1,5 @@
 - job:
-    name: percona-xtrabackup-8.0-test-param
+    name: percona-xtrabackup-8.1-test-param
     project-type: matrix
     defaults: global
     description: |
@@ -20,19 +20,23 @@
         default: ""
         description: 
     - string:
+        name: USE_BINARIES_FROM_BUILD_ID
+        default: "lastSuccessfulBuild"
+        description: Specific percona-xtrabackup-8.1-compile-param build id to use binaries from.
+    - string:
         name: INNODB80_VERSION
-        default: "8.0.34"
+        default: "8.1.0"
         description: Version of MySQL InnoDB80 which will be used for bootstrap.sh script
     - string:
         name: XTRADB80_VERSION
-        default: "8.0.34-26"
+        default: "8.1.0.1"
         description: Version of Percona XtraDB80 which will be used for bootstrap.sh script
     - string:
         name: XBTR_ARGS
         default: ""
         description: "./run.sh options, for options like: -j N Run tests in N parallel processes, -T seconds, -x options Extra options to pass to xtrabackup"
     - bool:
-        name: WITH_AZURITE
+        name: WITH_AZURITE 
         default: false
         description: "Starts Microsoft Azurite emulator and tests xbcloud against it"
     - bool:
@@ -67,10 +71,7 @@
         - centos:7
         - centos:8
         - oraclelinux:9
-        - ubuntu:bionic
-        - ubuntu:focal
         - ubuntu:jammy
-        - debian:buster
         - debian:bullseye
         - asan
     - axis:
@@ -78,10 +79,10 @@
         type: user-defined
         values:
         - innodb80
-        - xtradb80
+#        - xtradb80
     builders:
     - trigger-builds:
-      - project: percona-xtrabackup-8.0-test-pipeline
+      - project: percona-xtrabackup-8.1-test-pipeline
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${DOCKER_OS}
@@ -95,12 +96,12 @@
     - shell: |
         sudo find . -name "*.xml" -o -name "*.log" -delete
     - copyartifact:
-        project: percona-xtrabackup-8.0-test-pipeline
+        project: percona-xtrabackup-8.1-test-pipeline
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_test_pipeline}"
+        build-number: "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_1_test_pipeline}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_test_pipeline}" > PIPELINE_BUILD_NUMBER
+        echo "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_1_test_pipeline}" > PIPELINE_BUILD_NUMBER
     publishers:
     - junit:
         results: "**/junit.xml"
