@@ -29,7 +29,7 @@
         description: Version of MySQL InnoDB80 which will be used for bootstrap.sh script
     - string:
         name: XTRADB80_VERSION
-        default: "8.0.20-11"
+        default: "8.1.0.1"
         description: Version of Percona XtraDB80 which will be used for bootstrap.sh script
     - string:
         name: XBTR_ARGS

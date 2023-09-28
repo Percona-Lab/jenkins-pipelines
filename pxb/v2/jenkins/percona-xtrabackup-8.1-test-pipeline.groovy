@@ -17,7 +17,7 @@ pipeline {
             description: 'Version of MySQL InnoDB80 which will be used for bootstrap.sh script',
             name: 'INNODB80_VERSION')
         string(
-            defaultValue: '8.0.20-11',
+            defaultValue: '8.1.0.1',
             description: 'Version of Percona XtraDB80 which will be used for bootstrap.sh script',
             name: 'XTRADB80_VERSION')
         string(
