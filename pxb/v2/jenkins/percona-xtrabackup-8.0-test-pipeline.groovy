@@ -34,15 +34,15 @@ pipeline {
             name: 'WITH_AZURITE')
         booleanParam(
             name: 'WITH_XBCLOUD_TESTS',
-            defaultValue: false,
+            defaultValue: true,
             description: 'Run xbcloud tests')
         booleanParam(
             name: 'WITH_VAULT_TESTS',
-            defaultValue: false,
+            defaultValue: true,
             description: 'Run vault tests')
         booleanParam(
             name: 'WITH_KMIP_TESTS',
-            defaultValue: false,
+            defaultValue: true,
             description: 'Run kmip tests')
         choice(
             choices: 'docker-32gb\ndocker',

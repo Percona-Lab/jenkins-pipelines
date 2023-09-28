@@ -62,15 +62,15 @@
         description: "Starts Microsoft Azurite emulator and tests xbcloud against it"
     - bool:
         name: WITH_XBCLOUD_TESTS
-        default: false
+        default: true
         description: "Run xbcloud tests"
     - bool:
         name: WITH_VAULT_TESTS
-        default: false
+        default: true
         description: "Run vault tests"
     - bool:
         name: WITH_KMIP_TESTS
-        default: false
+        default: true
         description: "Run kmip tests"
     - choice:
         name: LABEL
