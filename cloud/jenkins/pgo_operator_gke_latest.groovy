@@ -290,7 +290,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            gcloud container clusters delete --zone $region \$(echo $CLUSTER_NAME-$CLUSTER_SUFFIX | cut -c-40) || true
+            gcloud container clusters delete --zone $region \$(echo $CLUSTER_NAME-$CLUSTER_SUFFIX | cut -c-40) --quiet || true
         """
     }
 }
