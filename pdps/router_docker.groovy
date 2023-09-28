@@ -46,7 +46,7 @@ pipeline {
   }
 
   stages {
-    stage('Run test') {
+    stage('Build') {
       steps {
           script {
             currentBuild.displayName = "#${BUILD_NUMBER}-${DOCKER_ACC}-${ROUTER_VERSION}"
@@ -54,7 +54,6 @@ pipeline {
               }
             }
           }
-        } 
    
     stage('Run tests') {
       steps {  
