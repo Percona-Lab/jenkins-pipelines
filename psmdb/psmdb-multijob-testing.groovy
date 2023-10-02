@@ -36,7 +36,7 @@ pipeline {
             steps { 
                 script {
                     def version = params.PSMDB_VERSION + '-' + params.PSMDB_RELEASE 
-                    build job: 'psmdb-docker', parameters: [string(name: 'PSMDB_REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'LATEST', value: "no") ]
+                    build job: 'psmdb-docker', parameters: [string(name: 'PSMDB_REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'TARGET_REPO', value: "PerconaLab") ]
                 }
             }
         }
