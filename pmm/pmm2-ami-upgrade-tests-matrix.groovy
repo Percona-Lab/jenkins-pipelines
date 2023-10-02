@@ -14,7 +14,7 @@ void runAMIUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_
 }
 
 def latestVersion = pmmVersion()
-def amiVersions = pmmVersion('list').keySet() as List
+def amiVersions = pmmVersion('ami').keySet() as List
 
 pipeline {
     agent {
