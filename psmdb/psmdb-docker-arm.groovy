@@ -14,6 +14,7 @@ pipeline {
         choice(name: 'PSMDB_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PSMDB_VERSION', defaultValue: '6.0.2-1', description: 'PSMDB version')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
+        choice(name: 'LATEST', choices: ['no','yes'], description: 'Tag image as latest')
         choice(name: 'TESTS', choices: ['yes','no'], description: 'Run tests after building')
     }
     options {
@@ -127,6 +128,18 @@ pipeline {
                             perconalab/percona-server-mongodb:${params.PSMDB_VERSION} --os linux --arch amd64
                          docker manifest inspect perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-multi
                          docker manifest push perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-multi
+
+                         if [ ${params.LATEST} = "yes" ]; then
+                            docker manifest create perconalab/percona-server-mongodb:latest \
+                              perconalab/percona-server-mongodb:\$MAJ_VER \
+                              perconalab/percona-server-mongodb:\$MAJ_VER-arm64
+                            docker manifest annotate perconalab/percona-server-mongodb:latest \
+                              perconalab/percona-server-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
+                            docker manifest annotate perconalab/percona-server-mongodb:latest \
+                              perconalab/percona-server-mongodb:\$MAJ_VER --os linux --arch amd64
+                            docker manifest inspect perconalab/percona-server-mongodb:latest
+                            docker manifest push perconalab/percona-server-mongodb:latest
+                         fi
                      """
                 }
             }
@@ -177,6 +190,18 @@ pipeline {
                             percona/percona-server-mongodb:${params.PSMDB_VERSION} --os linux --arch amd64
                          docker manifest inspect percona/percona-server-mongodb:${params.PSMDB_VERSION}-multi
                          docker manifest push percona/percona-server-mongodb:${params.PSMDB_VERSION}-multi
+
+                         if [ ${params.LATEST} = "yes" ]; then
+                            docker manifest create percona/percona-server-mongodb:latest \
+                              percona/percona-server-mongodb:\$MAJ_VER \
+                              percona/percona-server-mongodb:\$MAJ_VER-arm64
+                            docker manifest annotate percona/percona-server-mongodb:latest \
+                              percona/percona-server-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
+                            docker manifest annotate percona/percona-server-mongodb:latest \
+                              percona/percona-server-mongodb:\$MAJ_VER --os linux --arch amd64
+                            docker manifest inspect percona/percona-server-mongodb:latest
+                            docker manifest push percona/percona-server-mongodb:latest
+                         fi
                      """
                 }
             }
