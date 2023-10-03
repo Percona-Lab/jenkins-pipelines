@@ -67,9 +67,8 @@ pipeline {
                         enableTestingRepo = 'yes'
                         pmmServerLatestVersion = pmmVersion('rc')
                     }
-                    echo "Starting with the following parameters:"
-                    echo "'ENABLE_TESTING_REPO' = '${enableTestingRepo}'"
-                    echo "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
+                    echo "Starting with the following parameters: 'ENABLE_TESTING_REPO' = '${enableTestingRepo}'; " +
+                            "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
                 }
             }
         }
