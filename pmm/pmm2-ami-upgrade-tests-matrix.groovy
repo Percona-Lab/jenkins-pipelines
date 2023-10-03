@@ -59,16 +59,18 @@ pipeline {
     stages{
         stage('Process choices') {
             steps {
-                if (${params.UPGRADE_TO} == 'dev-latest') {
-                    enableTestingRepo = 'no'
-                    pmmServerLatestVersion = pmmVersion()
-                } else {
-                    enableTestingRepo = 'yes'
-                    pmmServerLatestVersion = pmmVersion('rc')
+                script {
+                    if ($ { params.UPGRADE_TO } == 'dev-latest') {
+                        enableTestingRepo = 'no'
+                        pmmServerLatestVersion = pmmVersion()
+                    } else {
+                        enableTestingRepo = 'yes'
+                        pmmServerLatestVersion = pmmVersion('rc')
+                    }
+                    echo "Starting with the following parameters:"
+                    echo "'ENABLE_TESTING_REPO' = '${enableTestingRepo}'"
+                    echo "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
                 }
-                echo "Starting with the following parameters:"
-                echo "'ENABLE_TESTING_REPO' = '${enableTestingRepo}'"
-                echo "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
             }
         }
         stage('AMI Upgrade Matrix'){
