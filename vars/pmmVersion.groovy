@@ -60,25 +60,29 @@ def call(String type='dev-latest') {
 
   switch(type) {
     case 'dev-latest':
-      def version = sh(
-        script: """
-            sudo yum install -y wget jq
-            rc_latest=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)
-            rc_minor=\$(echo $rc_latest | awk -F. '{print \$2}')
-            echo "2.\$((++rc_minor)).0"
-        """,
-        returnStdout: true
+      sh(script: "sudo yum install -y wget jq")
+      String rcLatest = sh(
+          script: "wget -q \"https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc\" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1",
+          returnStdout: true
       ).trim()
-      return version
+      int major = rcLatest.split(".")[0] as Integer
+      int minor = rcLatest.split(".")[1] as Integer
+      return major + "." + ++minor + ".0"
     case 'rc':
-      return sh(
-        script: """
-          sudo yum install -y wget jq
-          rc_latest=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)
-          echo \$(echo $rc_latest | awk -F'-' '{print \$1}')
-        """,
-        returnStdout: true
+      sh(script: "sudo yum install -y wget jq")
+      String rcLatest = sh(
+              script: "wget -q \"https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc\" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1",
+              returnStdout: true
       ).trim()
+      return rcLatest.split("-")[0]
+//      return sh(
+//        script: """
+//          sudo yum install -y wget jq
+//          rc_latest=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)
+//          echo \$(echo $rc_latest | awk -F'-' '{print \$1}')
+//        """,
+//        returnStdout: true
+//      ).trim()
     case 'stable':
       return versionsList[versionsList.size() - 2]
     case 'ami':
