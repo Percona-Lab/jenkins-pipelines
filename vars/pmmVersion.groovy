@@ -67,9 +67,10 @@ def call(String type='dev-latest') {
           returnStdout: true
       ).trim()
       echo rcLatest
-      int major = rcLatest.split(".")[0] as Integer
-      int minor = rcLatest.split(".")[1] as Integer
-      return major + "." + ++minor + ".0"
+//      int major = rcLatest.split(".")[0] as Integer
+//      int minor = rcLatest.split(".")[1] as Integer
+//      return major + "." + ++minor + ".0"
+      return rcLatest
     case 'rc':
       sh(script: "sudo yum install -y wget jq")
       String rcLatest = sh(
