@@ -60,22 +60,37 @@ def call(String type='dev-latest') {
 
   switch(type) {
     case 'dev-latest':
-//      def latestVersion = httpRequest "https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/PMM-2.0/VERSION"
-//      return latestVersion.content
-      return sh
-      """
-          sudo yum install -y wget jq
-          rc_latest=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)
-          rc_minor=\$(echo $rc_latest | awk -F. '{print \$2}')
-          echo "2.\$((++rc_minor)).0"
-      """
+      def version = sh(
+        script: """
+            sudo yum install -y wget jq
+            rc_latest=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)
+            rc_minor=\$(echo $rc_latest | awk -F. '{print \$2}')
+            echo "2.\$((++rc_minor)).0"
+        """,
+        returnStdout: true
+      ).trim()
+      return version
+//      """
+//          sudo yum install -y wget jq
+//          rc_latest=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)
+//          rc_minor=\$(echo $rc_latest | awk -F. '{print \$2}')
+//          echo "2.\$((++rc_minor)).0"
+//      """
     case 'rc':
-      return sh
-      """
+      return sh(
+        script: """
           sudo yum install -y wget jq
-          rc_latest=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)
-          echo \$(echo $rc_latest | awk -F'-' '{print \$1}')
-      """
+          rc_latest=\\\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\\\$ | sort -V | tail -n1)
+          echo \\\$(echo $rc_latest | awk -F'-' '{print \\\$1}')
+        """,
+        returnStdout: true
+      ).trim()
+//       sh
+//      """
+//          sudo yum install -y wget jq
+//          rc_latest=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)
+//          echo \$(echo $rc_latest | awk -F'-' '{print \$1}')
+//      """
     case 'stable':
       return versionsList[versionsList.size() - 2]
     case 'ami':
