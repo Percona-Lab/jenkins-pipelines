@@ -31,7 +31,7 @@ def generateStage(VERSION) {
     }
 }
 
-def d_latest = sh (
+def d_latest = sh(
         script: """
           sudo yum install -y wget jq
           rc_latest=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)
@@ -40,8 +40,9 @@ def d_latest = sh (
       """,
         returnStdout: true
 ).trim()
+
 def getVer() {
-    sh (
+    sh(
             script: """
           sudo yum install -y wget jq
           rc_latest=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)
