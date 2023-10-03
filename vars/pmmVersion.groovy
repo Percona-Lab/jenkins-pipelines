@@ -63,7 +63,7 @@ def call(String type='dev-latest') {
       sh(script: "sudo yum install -y wget jq")
       String rcLatest = sh(
 //          script: """wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name""",
-          script: """\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name | grep '.*.*-rc\$' | sort -V | tail -n1)""",
+          script: """wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name | grep '.*.*-rc\$' | sort -V | tail -n1""",
           returnStdout: true
       ).trim()
       echo rcLatest
