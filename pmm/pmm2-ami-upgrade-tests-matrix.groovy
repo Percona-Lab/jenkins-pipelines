@@ -59,7 +59,7 @@ pipeline {
     stages{
         stage('Process choices') {
             steps {
-                if (UPGRADE_TO == 'dev-latest') {
+                if (${params.UPGRADE_TO} == 'dev-latest') {
                     enableTestingRepo = 'no'
                     pmmServerLatestVersion = pmmVersion()
                 } else {
