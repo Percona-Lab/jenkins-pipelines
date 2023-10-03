@@ -31,17 +31,17 @@ def generateStage(VERSION) {
     }
 }
 
-def getVer() {
-    sh(
-            script: """
-          sudo yum install -y wget jq
-          rc_latest=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)
-          rc_minor=\$(echo $rc_latest | awk -F. '{print \$2}')
-          echo "2.\$((++rc_minor)).0"
-      """,
-            returnStdout: true
-    ).trim()
-}
+//def getVer() {
+//    return sh(
+//            script: """
+//          sudo yum install -y wget jq
+//          rc_latest=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)
+//          rc_minor=\$(echo $rc_latest | awk -F. '{print \$2}')
+//          echo "2.\$((++rc_minor)).0"
+//      """,
+//            returnStdout: true
+//    ).trim()
+//}
 
 pipeline {
     agent {
@@ -74,8 +74,8 @@ pipeline {
                 script {
                     if ("${params.UPGRADE_TO}" == "dev-latest") {
                         enableTestingRepo = 'no'
-                        pmmServerLatestVersion = getVer()
-//                        pmmServerLatestVersion = pmmVersion()
+//                        pmmServerLatestVersion = getVer()
+                        pmmServerLatestVersion = pmmVersion()
                     } else {
                         enableTestingRepo = 'yes'
                         pmmServerLatestVersion = pmmVersion('rc')
@@ -83,7 +83,6 @@ pipeline {
                     echo "Starting with the following parameters:"
                     echo "'ENABLE_TESTING_REPO' = '${enableTestingRepo}'"
                     echo "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
-                    echo d_latest
                 }
             }
         }
