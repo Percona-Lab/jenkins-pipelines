@@ -66,8 +66,8 @@ def call(String type='dev-latest') {
           returnStdout: true
       ).trim()
       echo rcLatest
-      int major = rcLatest.split(".")[0] as Integer
-      int minor = rcLatest.split(".")[1] as Integer
+      int major = rcLatest.split('\\.')[0] as Integer
+      int minor = rcLatest.split('\\.')[1] as Integer
       return major + "." + ++minor + ".0"
     case 'rc':
       sh(script: "sudo yum install -y wget jq")
@@ -75,7 +75,7 @@ def call(String type='dev-latest') {
               script: """wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name | grep '.*.*-rc\$' | sort -V | tail -n1""",
               returnStdout: true
       ).trim()
-      return rcLatest.split("-")[0]
+      return rcLatest.split('-')[0]
 //      return sh(
 //        script: """
 //          sudo yum install -y wget jq
