@@ -32,13 +32,15 @@ def generateStage(VERSION) {
 }
 
 def getVer() {
-    return sh
-    """
+    return sh (
+            script: """
           sudo yum install -y wget jq
           rc_latest=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)
           rc_minor=\$(echo $rc_latest | awk -F. '{print \$2}')
           echo "2.\$((++rc_minor)).0"
-      """
+      """,
+            returnStdout: true
+    ).trim()
 }
 
 pipeline {
