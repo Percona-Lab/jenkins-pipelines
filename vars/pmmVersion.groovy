@@ -64,7 +64,7 @@ def call(String type='dev-latest') {
       String rcLatest = sh(
           script: "\$(wget -q \"https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc\" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)",
           returnStdout: true
-      ).trim()
+      )
       int major = rcLatest.split(".")[0] as Integer
       int minor = rcLatest.split(".")[1] as Integer
       return major + "." + ++minor + ".0"
