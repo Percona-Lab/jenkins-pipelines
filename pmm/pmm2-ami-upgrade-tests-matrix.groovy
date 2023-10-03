@@ -2,19 +2,34 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
-void runAMIUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_GIT_BRANCH) {
+
+String enableTestingRepo
+String pmmServerLatestVersion
+List amiVersions = pmmVersion('ami').keySet() as List
+def versions = amiVersions[-5..-1]
+
+void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH) {
     upgradeJob = build job: 'pmm2-ami-upgrade-tests', parameters: [
-        string(name: 'GIT_BRANCH', value: GIT_BRANCH),
-        string(name: 'CLIENT_VERSION', value: PMM_VERSION),
-        string(name: 'SERVER_VERSION', value: PMM_VERSION),
-        string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
-        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
-        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH)
+            string(name: 'GIT_BRANCH', value: PMM_UI_TESTS_BRANCH),
+            string(name: 'CLIENT_VERSION', value: PMM_VERSION),
+            string(name: 'SERVER_VERSION', value: PMM_VERSION),
+            string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
+            string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
+            string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_BRANCH)
     ]
 }
 
-def latestVersion = pmmVersion()
-def amiVersions = pmmVersion('ami').keySet() as List
+def parallelStagesMatrix = versions.collectEntries {
+    ["${it}" : generateStage(it)]
+}
+
+def generateStage(VERSION) {
+    return {
+        stage("${VERSION}") {
+            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, VERSION, pmmServerLatestVersion, enableTestingRepo, PMM_QA_BRANCH)
+        }
+    }
+}
 
 pipeline {
     agent {
@@ -24,19 +39,15 @@ pipeline {
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-ui-tests repository',
-            name: 'GIT_BRANCH')
+            name: 'PMM_UI_TESTS_BRANCH')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
-            name: 'PMM_QA_GIT_BRANCH')
-        string(
-            defaultValue: latestVersion,
-            description: 'dev-latest PMM Server Version',
-            name: 'PMM_SERVER_LATEST')
+            name: 'PMM_QA_BRANCH')
         choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo for RC',
-            name: 'ENABLE_TESTING_REPO')
+                choices: ['dev-latest', 'release candidate'],
+                description: 'Upgrade to:',
+                name: 'UPGRADE_TO')
     }
     options {
         skipDefaultCheckout()
@@ -45,25 +56,25 @@ pipeline {
     triggers {
         cron('0 1 * * 7')
     }
-    stages {
-        stage('Run AMI Upgrade Matrix') {
-            matrix {
-                agent any
-                axes {
-                    axis {
-                        name 'VERSION'
-                        values '2.39.0', '2.38.1', '2.38.0', '2.37.1', '2.37.0'
-//                        values amiVersions[-5..-1]
-                    }
+    stages{
+        stage('Process choices') {
+            steps {
+                if (UPGRADE_TO == 'dev-latest') {
+                    enableTestingRepo = 'no'
+                    pmmServerLatestVersion = pmmVersion()
+                } else {
+                    enableTestingRepo = 'yes'
+                    pmmServerLatestVersion = pmmVersion('rc')
                 }
-                stages {
-                    stage('Upgrade'){
-                        steps {
-                            script {
-                                runAMIUpgradeJob(GIT_BRANCH, VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_GIT_BRANCH)
-                            }
-                        }
-                    }
+                echo "Starting with the following parameters:"
+                echo "'ENABLE_TESTING_REPO' = '${enableTestingRepo}'"
+                echo "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
+            }
+        }
+        stage('AMI Upgrade Matrix'){
+            steps{
+                script {
+                    parallel parallelStagesMatrix
                 }
             }
         }

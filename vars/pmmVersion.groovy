@@ -1,7 +1,7 @@
-def call(String type='latest') {
+def call(String type='dev-latest') {
   // List<String> oldVersions = ['2.9.1', '2.10.0', '2.10.1', '2.11.0', '2.11.1', '2.12.0', '2.13.0', '2.14.0']
   List<String> oldVersions = ['2.11.0', '2.12.0', '2.13.0']
-  HashMap<String, String> versions = [
+  HashMap<String, String> amiVersions = [
     // Historical AMIs
     // '2.15.0': 'ami-086a3a95eefa9567f',
     // '2.15.1': 'ami-073928dbea8c7ebc3',
@@ -53,19 +53,33 @@ def call(String type='latest') {
     '2.39.0': 'ami-079ca34c1b72b8e41',
   ]
 
-  List<String> versionsList = new ArrayList<>(versions.keySet());
+  List<String> versionsList = amiVersions.keySet() as List<String>;
   // Grab 5 latest versions
-  List<String> ovfVersions = ['2.39.0', '2.38.1', '2.38.0', '2.37.1', '2.37.0', '2.36.0'];
-  List<String> dbaasVersions = ['2.38.1', '2.38.0', '2.37.1', '2.37.0', '2.36.0', '2.35.0'];
+  List<String> ovfVersions = amiVersions[-5..-1]
+  List<String> dbaasVersions = ['2.38.1', '2.38.0', '2.37.1', '2.37.0', '2.36.0', '2.35.0'] as List<String>;
 
   switch(type) {
-    case 'latest':
-      def latestVersion = httpRequest "https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/PMM-2.0/VERSION"
-      return latestVersion.content
+    case 'dev-latest':
+//      def latestVersion = httpRequest "https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/PMM-2.0/VERSION"
+//      return latestVersion.content
+      return sh
+      """
+          sudo yum install -y wget jq
+          rc_latest=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)
+          rc_minor=\$(echo $rc_latest | awk -F. '{print \$2}')
+          echo "2.\$((++rc_minor)).0"
+      """
+    case 'rc':
+      return sh
+      """
+          sudo yum install -y wget jq
+          rc_latest=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1)
+          echo \$(echo $rc_latest | awk -F'-' '{print \$1}')
+      """
     case 'stable':
       return versionsList[versionsList.size() - 2]
     case 'ami':
-      return versions
+      return amiVersions
     case 'list':
       return versionsList
     case 'ovf':
