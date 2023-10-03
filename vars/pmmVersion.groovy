@@ -62,19 +62,17 @@ def call(String type='dev-latest') {
     case 'dev-latest':
       sh(script: "sudo yum install -y wget jq")
       String rcLatest = sh(
-//          script: """wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name""",
           script: """wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name | grep '.*.*-rc\$' | sort -V | tail -n1""",
           returnStdout: true
       ).trim()
       echo rcLatest
-//      int major = rcLatest.split(".")[0] as Integer
-//      int minor = rcLatest.split(".")[1] as Integer
-//      return major + "." + ++minor + ".0"
-      return rcLatest
+      int major = rcLatest.split(".")[0] as Integer
+      int minor = rcLatest.split(".")[1] as Integer
+      return major + "." + ++minor + ".0"
     case 'rc':
       sh(script: "sudo yum install -y wget jq")
       String rcLatest = sh(
-              script: "wget -q \"https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc\" -O - | jq -r .results[].name  | grep 2.*.*-rc\$ | sort -V | tail -n1",
+              script: """wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name | grep '.*.*-rc\$' | sort -V | tail -n1""",
               returnStdout: true
       ).trim()
       return rcLatest.split("-")[0]
