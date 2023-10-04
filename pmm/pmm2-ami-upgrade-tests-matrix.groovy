@@ -3,10 +3,36 @@ library changelog: false, identifier: 'lib@PMM-7-jobs-improve', retriever: moder
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+// you can add more axes and this will still work
+Map matrix_axes = [
+        PLATFORM: ['linux', 'windows', 'mac'],
+        BROWSER: ['firefox', 'chrome', 'safari', 'edge']
+]
+
+@NonCPS
+List getMatrixAxes(Map matrix_axes) {
+    List axes = []
+    matrix_axes.each { axis, values ->
+        List axisList = []
+        values.each { value ->
+            axisList << [(axis): value]
+        }
+        axes << axisList
+    }
+    // calculate cartesian product
+    axes.combinations()*.sum()
+}
+
+// filter the matrix axes since
+// Safari is not available on Linux and
+// Edge is only available on Windows
+List axes = getMatrixAxes(matrix_axes).findAll { axis ->
+    !(axis['BROWSER'] == 'safari' && axis['PLATFORM'] == 'linux') &&
+            !(axis['BROWSER'] == 'edge' && axis['PLATFORM'] != 'windows')
+}
+
 def enableTestingRepo
 def pmmServerLatestVersion
-def ENABLE_TESTING_REPO
-def PMM_SERVER_LATEST
 List amiVersions = pmmVersion('ami').keySet() as List
 def versions = amiVersions[-5..-1]
 
@@ -22,7 +48,7 @@ void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST
 }
 
 def parallelStagesMatrix = versions.collectEntries {
-    ["${it}" : generateStage(it, "${pmmServerLatestVersion}", "${enableTestingRepo}")]
+    ["${it}" : generateStage(it, pmmServerLatestVersion, enableTestingRepo)]
 }
 
 def generateStage(VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO) {
@@ -71,6 +97,7 @@ pipeline {
                     }
                     echo "Starting with the following parameters: 'ENABLE_TESTING_REPO' = '${enableTestingRepo}'; " +
                             "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
+                    echo "Axes: ${axes}"
                 }
             }
         }
