@@ -13,7 +13,7 @@ pipeline {
     parameters {
         choice(name: 'PSMDB_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PSMDB_VERSION', defaultValue: '6.0.2-1', description: 'PSMDB version')
-        choice(name: 'LATEST', choices: ['no','yes'], description: 'Tag image as latest')
+        choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
         choice(name: 'DEBUG', choices: ['no','yes'], description: 'Additionally build debug image')
         choice(name: 'TESTS', choices: ['yes','no'], description: 'Run tests after building')
     }
@@ -72,7 +72,7 @@ pipeline {
         }
         stage ('Push image to aws ecr') {
             when {
-                environment name: 'PSMDB_REPO', value: 'experimental'
+                environment name: 'TARGET_REPO', value: 'AWS_ECR'
             }
             steps {
                 withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
@@ -94,7 +94,7 @@ pipeline {
         }
         stage ('Push images to perconalab') {
             when {
-                environment name: 'PSMDB_REPO', value: 'testing'
+                environment name: 'TARGET_REPO', value: 'PerconaLab'
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -108,10 +108,6 @@ pipeline {
                          docker push perconalab/percona-server-mongodb:\$MIN_VER
                          docker tag percona-server-mongodb perconalab/percona-server-mongodb:\$MAJ_VER
                          docker push perconalab/percona-server-mongodb:\$MAJ_VER 
-                         if [ ${params.LATEST} = "yes" ]; then
-                             docker tag percona-server-mongodb perconalab/percona-server-mongodb:latest
-                             docker push perconalab/percona-server-mongodb:latest
-                         fi
                          if [ ${params.DEBUG} = "yes" ]; then
                              docker tag percona-server-mongodb-debug perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-debug
                              docker push perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-debug
@@ -122,7 +118,7 @@ pipeline {
         }
         stage ('Push images to official percona docker registry') {
             when {
-                environment name: 'PSMDB_REPO', value: 'release'
+                environment name: 'TARGET_REPO', value: 'DockerHub'
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -136,10 +132,6 @@ pipeline {
                          docker push percona/percona-server-mongodb:\$MIN_VER
                          docker tag percona-server-mongodb percona/percona-server-mongodb:\$MAJ_VER
                          docker push percona/percona-server-mongodb:\$MAJ_VER
-                         if [ ${params.LATEST} = "yes" ]; then
-                             docker tag percona-server-mongodb percona/percona-server-mongodb:latest
-                             docker push percona/percona-server-mongodb:latest
-                         fi
                          if [ ${params.DEBUG} = "yes" ]; then
                              docker tag percona-server-mongodb-debug percona/percona-server-mongodb:${params.PSMDB_VERSION}-debug
                              docker push percona/percona-server-mongodb:${params.PSMDB_VERSION}-debug

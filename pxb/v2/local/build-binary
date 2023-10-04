@@ -90,8 +90,10 @@ else
 fi
 
 # Enable devtoolset if XB_MAJOR_VERSION is 8 and for  CentOS 6 and 7 only
-if [[ ${XB_VERSION_MAJOR} -eq 8 ]] && [[ -f /opt/rh/devtoolset-7/enable ]]; then
-    source /opt/rh/devtoolset-7/enable
+if [[ "${DOCKER_OS}" = "centos-6" ]] || [[ "${DOCKER_OS}" = "centos-7" ]] || [[ "${DOCKER_OS}" = "asan" ]]; then
+  if [[ ${XB_VERSION_MAJOR} -eq 8 ]] && [[ -f /opt/rh/devtoolset-8/enable ]]; then
+    source /opt/rh/devtoolset-8/enable
+  fi
 fi
 
 XTRABACKUP_VERSION="${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}"
