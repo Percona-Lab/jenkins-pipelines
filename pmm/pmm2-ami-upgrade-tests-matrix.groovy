@@ -5,6 +5,8 @@ library changelog: false, identifier: 'lib@PMM-7-jobs-improve', retriever: moder
 
 def enableTestingRepo
 def pmmServerLatestVersion
+def ENABLE_TESTING_REPO
+def PMM_SERVER_LATEST
 List amiVersions = pmmVersion('ami').keySet() as List
 def versions = amiVersions[-5..-1]
 
@@ -75,8 +77,8 @@ pipeline {
         stage('AMI Upgrade Matrix'){
             steps{
                 script {
-                    def ENABLE_TESTING_REPO = enableTestingRepo
-                    def PMM_SERVER_LATEST = pmmServerLatestVersion
+                    ENABLE_TESTING_REPO = enableTestingRepo
+                    PMM_SERVER_LATEST = pmmServerLatestVersion
 
                     parallel parallelStagesMatrix
                 }
