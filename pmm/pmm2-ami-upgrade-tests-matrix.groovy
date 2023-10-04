@@ -26,7 +26,7 @@ def parallelStagesMatrix = versions.collectEntries {
 def generateStage(VERSION) {
     return {
         stage("${VERSION}") {
-            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, VERSION, pmmServerLatestVersion, enableTestingRepo, PMM_QA_BRANCH)
+            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH)
         }
     }
 }
@@ -75,7 +75,9 @@ pipeline {
         stage('AMI Upgrade Matrix'){
             steps{
                 script {
-                    echo "'ENABLE_TESTING_REPO' = '${enableTestingRepo}'; 'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
+                    def ENABLE_TESTING_REPO = enableTestingRepo
+                    def PMM_SERVER_LATEST = pmmServerLatestVersion
+
                     parallel parallelStagesMatrix
                 }
             }
