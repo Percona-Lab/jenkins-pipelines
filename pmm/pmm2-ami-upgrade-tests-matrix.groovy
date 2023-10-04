@@ -26,7 +26,6 @@ def parallelStagesMatrix = versions.collectEntries {
 }
 
 def generateStage(VERSION) {
-    echo "'ENABLE_TESTING_REPO' = '${enableTestingRepo}'; 'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
     return {
         stage("${VERSION}", "${pmmServerLatestVersion}", "${enableTestingRepo}") {
             runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, VERSION, "${pmmServerLatestVersion}", "${enableTestingRepo}", PMM_QA_BRANCH)
