@@ -75,6 +75,7 @@ pipeline {
         stage('AMI Upgrade Matrix'){
             steps{
                 script {
+                    echo "'ENABLE_TESTING_REPO' = '${enableTestingRepo}'; 'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
                     parallel parallelStagesMatrix
                 }
             }
