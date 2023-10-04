@@ -9,7 +9,6 @@ Map matrix_axes = [
         BROWSER: ['firefox', 'chrome', 'safari', 'edge']
 ]
 
-@NonCPS
 List getMatrixAxes(Map matrix_axes) {
     List axes = []
     matrix_axes.each { axis, values ->
