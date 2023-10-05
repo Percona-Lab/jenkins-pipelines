@@ -27,11 +27,11 @@ def parallelStagesMatrix = versions.collectEntries { it ->
 //    ["${it}" : generateStage(it)]
 }
 
-def generateStage(VERSION) {
+def generateStage(version, resentVersion, repoFlag) {
     return {
-        stage("${VERSION}") {
+        stage("${version} -> ${resentVersion}") {
 //            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, VERSION, "2.41.0", "no", PMM_QA_BRANCH)
-            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH)
+            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, version, resentVersion, repoFlag, PMM_QA_BRANCH)
         }
     }
 }
