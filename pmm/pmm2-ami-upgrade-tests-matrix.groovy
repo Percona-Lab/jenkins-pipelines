@@ -8,6 +8,7 @@ String enableTestingRepo
 String pmmServerLatestVersion
 List amiVersions = pmmVersion('ami').keySet() as List
 def versions = amiVersions[-5..-1]
+def axis
 
 void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH) {
     upgradeJob = build job: 'pmm2-ami-upgrade-tests', parameters: [
@@ -24,33 +25,11 @@ def getVar() {
     return this.enableTestingRepo
 }
 
-//def parallelStagesMatrix = versions.collectEntries { it ->
-//    String ver = pmmServerLatestVersion
-//    String repo = enableTestingRepo
-//    ["${it}" : generateStage(it, ver, repo)]
-//}
-
 def parallelStagesMatrix = versions.collectEntries { it ->
-    [
-            "${it}" : { ->
-                String ver = pmmServerLatestVersion
-                String repo = enableTestingRepo
-                return generateStage(it, ver, repo)
-            }
-    ]
+    String ver = pmmServerLatestVersion
+    String repo = enableTestingRepo
+    ["${it}" : generateStage(it, ver, repo)]
 }
-
-//def tasks = platforms.collectEntries { platformName ->
-//    [
-//            platformName,
-//            { ->
-//                def componentUploadPath = componentUploadPaths[platformName]
-//                echo "Uploading for platform [${platformName}] to [${componentUploadPath}]."
-//            }
-//    ]
-//}
-
-
 
 def generateStage(version, resentVersion, repoFlag) {
     return {
@@ -96,6 +75,8 @@ pipeline {
                         enableTestingRepo = 'yes'
                         pmmServerLatestVersion = pmmVersion('rc')
                     }
+                    axis = versions.collect { "$it=$pmmServerLatestVersion=$enableTestingRepo" }
+                    echo axis.toString()
                     echo "Starting with the following parameters: 'ENABLE_TESTING_REPO' = '${enableTestingRepo}'; " +
                             "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
                 }
