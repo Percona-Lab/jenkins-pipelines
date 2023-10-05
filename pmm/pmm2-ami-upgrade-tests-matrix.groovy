@@ -5,23 +5,9 @@ library changelog: false, identifier: 'lib@PMM-7-jobs-improve', retriever: moder
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-class UpgradeRun {
-    def from
-    def to
-    def testRepo
-
-    UpgradeRun(def from, def to, def testRepo) {
-        this.from = from
-        this.to = to
-        this.testRepo = testRepo
-    }
-}
-
-String enableTestingRepo
-String pmmServerLatestVersion
+devLatestVersion = pmmVersion()
 List amiVersions = pmmVersion('ami').keySet() as List
 def versions = amiVersions[-5..-1]
-def axis = []
 
 void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH) {
     upgradeJob = build job: 'pmm2-ami-upgrade-tests', parameters: [
@@ -34,20 +20,15 @@ void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST
     ]
 }
 
-//def parallelStagesMatrix = versions.collectEntries { it ->
-//    String ver = pmmServerLatestVersion
-//    String repo = enableTestingRepo
-//    ["${it}" : generateStage(it, ver, repo)]
-//}
-
-def parallelStagesMatrix = axis.collectEntries { it ->
-    ["${it.from}" : generateStage(it.from, it.to, it.testRepo)]
+def parallelStagesMatrix = versions.collectEntries { it ->
+    ["${it}" : generateStage(it)]
 }
 
-def generateStage(version, resentVersion, repoFlag) {
+
+def generateStage(version) {
     return {
-        stage("${version} -> ${resentVersion}") {
-            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, version, resentVersion, repoFlag, PMM_QA_BRANCH)
+        stage("${version} -> ${PMM_SERVER_LATEST}") {
+            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, version, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH)
         }
     }
 }
@@ -65,10 +46,14 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_BRANCH')
+        string(
+                defaultValue: devLatestVersion,
+                description: 'Upgrade to version:',
+                name: 'PMM_SERVER_LATEST')
         choice(
-                choices: ['dev-latest', 'release candidate'],
-                description: 'Upgrade to:',
-                name: 'UPGRADE_TO')
+            choices: ['no', 'yes'],
+            description: 'Enable Testing Repo for RC',
+            name: 'ENABLE_TESTING_REPO')
     }
     options {
         skipDefaultCheckout()
@@ -81,16 +66,16 @@ pipeline {
         stage('Process choices') {
             steps {
                 script {
-                    if ("${params.UPGRADE_TO}" == "dev-latest") {
-                        enableTestingRepo = 'no'
-                        pmmServerLatestVersion = pmmVersion()
-                    } else {
-                        enableTestingRepo = 'yes'
-                        pmmServerLatestVersion = pmmVersion('rc')
-                    }
-                    versions.each { axis.add(new UpgradeRun(it, pmmServerLatestVersion, enableTestingRepo)) }
-                    echo "Starting with the following parameters: 'ENABLE_TESTING_REPO' = '${enableTestingRepo}'; " +
-                            "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
+//                    if ("${params.UPGRADE_TO}" == "dev-latest") {
+//                        enableTestingRepo = 'no'
+//                        pmmServerLatestVersion = pmmVersion()
+//                    } else {
+//                        enableTestingRepo = 'yes'
+//                        pmmServerLatestVersion = pmmVersion('rc')
+//                    }
+//                    versions.each { axis.add(new UpgradeRun(it, pmmServerLatestVersion, enableTestingRepo)) }
+//                    echo "Starting with the following parameters: 'ENABLE_TESTING_REPO' = '${enableTestingRepo}'; " +
+//                            "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
                 }
             }
         }
