@@ -23,7 +23,7 @@ void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST
 def parallelStagesMatrix = versions.collectEntries { it ->
     String ver = pmmServerLatestVersion
     String repo = enableTestingRepo
-    ["${it}" : generateStage(it, ver, repo)]
+    ["${it}" : generateStage(it, "${ver}", "${repo}")]
 }
 
 def generateStage(VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO) {
