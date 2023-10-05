@@ -656,7 +656,18 @@ parameters {
 
                 """
                 }
+                echo "Trigger Package Testing Job for PS"
                 build job: 'package-testing-ps80', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: 'ps80'),string(name: 'install_repo', value: "testing"),string(name: 'node_to_test', value: "all"),string(name: 'action_to_test', value: "all"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
+                echo "Trigger PMM_PS Github Actions Workflow"
+                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                    sh """
+                        curl -i -v -X POST \
+                             -H "Accept: application/vnd.github.v3+json" \
+                             -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                             "https://api.github.com/repos/Percona-Lab/qa-integration/actions/workflows/PMM_PS.yaml/dispatches" \
+                             -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
+                    """
+                }
             }
             deleteDir()
         }
