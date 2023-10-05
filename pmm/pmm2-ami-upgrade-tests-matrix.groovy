@@ -1,8 +1,15 @@
+import org.codehaus.groovy.runtime.StringBufferWriter
+
 library changelog: false, identifier: 'lib@PMM-7-jobs-improve', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+class UpgradeRun {
+    String from
+    String to
+    String testRepo
+}
 
 String enableTestingRepo
 String pmmServerLatestVersion
@@ -32,7 +39,7 @@ def getVar() {
 //}
 
 def parallelStagesMatrix = axis.collectEntries { it ->
-    ["${it}".split('=')[0] : generateStage("${it}".split('=')[0], "${it}".split('=')[1], "${it}".split('=')[2])]
+    ["${it.from}" : generateStage("${it.from}", "${it.to}", "${it.testRepo}")]
 }
 
 
@@ -80,7 +87,7 @@ pipeline {
                         enableTestingRepo = 'yes'
                         pmmServerLatestVersion = pmmVersion('rc')
                     }
-                    axis = versions.collect { "$it=$pmmServerLatestVersion=$enableTestingRepo" }
+                    axis = versions.collect { new UpgradeRun(it, pmmServerLatestVersion, enableTestingRepo) }
                     echo "Starting with the following parameters: 'ENABLE_TESTING_REPO' = '${enableTestingRepo}'; " +
                             "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
                 }
