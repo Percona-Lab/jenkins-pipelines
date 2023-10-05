@@ -62,22 +62,6 @@ pipeline {
         cron('0 1 * * 7')
     }
     stages{
-//        stage('Process choices') {
-//            steps {
-//                script {
-//                    if ("${params.UPGRADE_TO}" == "dev-latest") {
-//                        enableTestingRepo = 'no'
-//                        pmmServerLatestVersion = pmmVersion()
-//                    } else {
-//                        enableTestingRepo = 'yes'
-//                        pmmServerLatestVersion = pmmVersion('rc')
-//                    }
-//                    versions.each { axis.add(new UpgradeRun(it, pmmServerLatestVersion, enableTestingRepo)) }
-//                    echo "Starting with the following parameters: 'ENABLE_TESTING_REPO' = '${enableTestingRepo}'; " +
-//                            "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
-//                }
-//            }
-//        }
         stage('AMI Upgrade Matrix'){
             steps{
                 script {
