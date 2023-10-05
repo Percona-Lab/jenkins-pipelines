@@ -4,8 +4,8 @@ library changelog: false, identifier: 'lib@PMM-7-jobs-improve', retriever: moder
 ]) _
 
 
-def enableTestingRepo
-def pmmServerLatestVersion
+String enableTestingRepo
+String pmmServerLatestVersion
 List amiVersions = pmmVersion('ami').keySet() as List
 def versions = amiVersions[-5..-1]
 
@@ -23,7 +23,7 @@ void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST
 def parallelStagesMatrix = versions.collectEntries { it ->
     String ver = pmmServerLatestVersion
     String repo = enableTestingRepo
-    ["${it}" : generateStage(it, "${ver}", "${repo}")]
+    ["${it}" : generateStage(it, ver, repo)]
 //    ["${it}" : generateStage(it)]
 }
 
