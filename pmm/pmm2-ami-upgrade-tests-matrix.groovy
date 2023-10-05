@@ -90,7 +90,6 @@ pipeline {
                     }
 //                    axis = versions.collect { new UpgradeRun(it, pmmServerLatestVersion, enableTestingRepo) }
                     versions.each { axis.add(new UpgradeRun(it, pmmServerLatestVersion, enableTestingRepo)) }
-                    echo axis.toStirng()
                     echo "Starting with the following parameters: 'ENABLE_TESTING_REPO' = '${enableTestingRepo}'; " +
                             "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
                 }
