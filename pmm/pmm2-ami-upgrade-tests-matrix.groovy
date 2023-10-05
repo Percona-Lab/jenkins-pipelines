@@ -25,11 +25,16 @@ def getVar() {
     return this.enableTestingRepo
 }
 
-def parallelStagesMatrix = versions.collectEntries { it ->
-    String ver = pmmServerLatestVersion
-    String repo = enableTestingRepo
-    ["${it}" : generateStage(it, ver, repo)]
+//def parallelStagesMatrix = versions.collectEntries { it ->
+//    String ver = pmmServerLatestVersion
+//    String repo = enableTestingRepo
+//    ["${it}" : generateStage(it, ver, repo)]
+//}
+
+def parallelStagesMatrix = axis.collectEntries { it ->
+    ["${it}".split('=')[0] : generateStage("${it}".split('=')[0], "${it}".split('=')[1], "${it}".split('=')[2])]
 }
+
 
 def generateStage(version, resentVersion, repoFlag) {
     return {
@@ -76,7 +81,6 @@ pipeline {
                         pmmServerLatestVersion = pmmVersion('rc')
                     }
                     axis = versions.collect { "$it=$pmmServerLatestVersion=$enableTestingRepo" }
-                    echo axis.toString()
                     echo "Starting with the following parameters: 'ENABLE_TESTING_REPO' = '${enableTestingRepo}'; " +
                             "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
                 }
