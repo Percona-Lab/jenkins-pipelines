@@ -24,11 +24,33 @@ def getVar() {
     return this.enableTestingRepo
 }
 
+//def parallelStagesMatrix = versions.collectEntries { it ->
+//    String ver = pmmServerLatestVersion
+//    String repo = enableTestingRepo
+//    ["${it}" : generateStage(it, ver, repo)]
+//}
+
 def parallelStagesMatrix = versions.collectEntries { it ->
-    String ver = this.enableTestingRepo
-    String repo = getVar()
-    ["${it}" : generateStage(it, ver, repo)]
+    [
+            "${it}" : { ->
+                String ver = pmmServerLatestVersion
+                String repo = enableTestingRepo
+                generateStage(it, ver, repo)
+            }
+    ]
 }
+
+//def tasks = platforms.collectEntries { platformName ->
+//    [
+//            platformName,
+//            { ->
+//                def componentUploadPath = componentUploadPaths[platformName]
+//                echo "Uploading for platform [${platformName}] to [${componentUploadPath}]."
+//            }
+//    ]
+//}
+
+
 
 def generateStage(version, resentVersion, repoFlag) {
     return {
