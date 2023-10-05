@@ -23,6 +23,7 @@ void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST
 def parallelStagesMatrix = versions.collectEntries { it ->
     String ver = pmmServerLatestVersion
     String repo = enableTestingRepo
+    echo "${params.UPGRADE_TO}"
 //    if ("${params.UPGRADE_TO}" == 'dev-latest') {
 //        ["${it}" : generateStage(it, pmmVersion(), 'no')]
 //    } else {
