@@ -21,12 +21,14 @@ void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST
 }
 
 def parallelStagesMatrix = versions.collectEntries {
-    ["${it}" : generateStage(it, "${pmmServerLatestVersion}", "${enableTestingRepo}")]
+    def ver = pmmServerLatestVersion
+    def repo = enableTestingRepo
+    ["${it}" : generateStage(it, ver, repo)]
 }
 
 def generateStage(VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO) {
     return {
-        stage("${VERSION}") {
+        stage("${VERSION} -> ${PMM_SERVER_LATEST}") {
             runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH)
         }
     }
@@ -70,7 +72,6 @@ pipeline {
                     }
                     echo "Starting with the following parameters: 'ENABLE_TESTING_REPO' = '${enableTestingRepo}'; " +
                             "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
-                    echo "Axes: ${axes}"
                 }
             }
         }
