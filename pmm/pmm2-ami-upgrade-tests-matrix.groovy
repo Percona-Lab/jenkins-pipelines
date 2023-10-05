@@ -35,7 +35,7 @@ def parallelStagesMatrix = versions.collectEntries { it ->
             "${it}" : { ->
                 String ver = pmmServerLatestVersion
                 String repo = enableTestingRepo
-                generateStage(it, ver, repo)
+                return generateStage(it, ver, repo)
             }
     ]
 }
