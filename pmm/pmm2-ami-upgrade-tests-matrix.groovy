@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@PMM-7-jobs-improve', retriever: moder
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-devLatestVersion = pmmVersion()
+def devLatestVersion = pmmVersion()
 List amiVersions = pmmVersion('ami').keySet() as List
 def versions = amiVersions[-5..-1]
 
