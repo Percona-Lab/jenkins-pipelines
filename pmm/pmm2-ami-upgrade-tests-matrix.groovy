@@ -9,6 +9,12 @@ class UpgradeRun {
     String from
     String to
     String testRepo
+
+    UpgradeRun(String from, String to, String testRepo) {
+        this.from = from
+        this.to = to
+        this.testRepo = testRepo
+    }
 }
 
 String enableTestingRepo
