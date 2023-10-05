@@ -15,7 +15,7 @@ String enableTestingRepo
 String pmmServerLatestVersion
 List amiVersions = pmmVersion('ami').keySet() as List
 def versions = amiVersions[-5..-1]
-def axis
+def axis = []
 
 void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH) {
     upgradeJob = build job: 'pmm2-ami-upgrade-tests', parameters: [
