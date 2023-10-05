@@ -6,11 +6,11 @@ library changelog: false, identifier: 'lib@PMM-7-jobs-improve', retriever: moder
 ]) _
 
 class UpgradeRun {
-    String from
-    String to
-    String testRepo
+    def from
+    def to
+    def testRepo
 
-    UpgradeRun(String from, String to, String testRepo) {
+    UpgradeRun(def from, def to, def testRepo) {
         this.from = from
         this.to = to
         this.testRepo = testRepo
