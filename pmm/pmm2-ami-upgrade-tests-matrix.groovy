@@ -23,20 +23,18 @@ void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST
 def parallelStagesMatrix = versions.collectEntries { it ->
 //    String ver = pmmServerLatestVersion
 //    String repo = enableTestingRepo
-    if ("${params.UPGRADE_TO}".toString() == 'dev-latest') {
+    if ("${params.UPGRADE_TO}" == 'dev-latest') {
         ["${it}" : generateStage(it, pmmVersion(), 'no')]
     } else {
         ["${it}" : generateStage(it, pmmVersion('rc'), 'yes')]
     }
 
 //    ["${it}" : generateStage(it, ver, repo)]
-//    ["${it}" : generateStage(it)]
 }
 
 def generateStage(version, resentVersion, repoFlag) {
     return {
         stage("${version} -> ${resentVersion}") {
-//            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, VERSION, "2.41.0", "no", PMM_QA_BRANCH)
             runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, version, resentVersion, repoFlag, PMM_QA_BRANCH)
         }
     }
@@ -71,7 +69,7 @@ pipeline {
         stage('Process choices') {
             steps {
                 script {
-                    if ("${params.UPGRADE_TO}".toString() == 'dev-latest') {
+                    if ("${params.UPGRADE_TO}" == 'dev-latest') {
                         enableTestingRepo = 'no'
                         pmmServerLatestVersion = pmmVersion()
                     } else {
