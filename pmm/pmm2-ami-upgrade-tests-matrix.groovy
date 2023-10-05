@@ -6,7 +6,7 @@ library changelog: false, identifier: 'lib@PMM-7-jobs-improve', retriever: moder
 ]) _
 
 def devLatestVersion = pmmVersion()
-List amiVersions = pmmVersion('ami').keySet() as List
+def amiVersions = pmmVersion('ami').keySet() as List
 def versions = amiVersions[-5..-1]
 
 void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH) {
