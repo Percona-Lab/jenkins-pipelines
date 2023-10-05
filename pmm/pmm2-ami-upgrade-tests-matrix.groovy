@@ -80,7 +80,6 @@ pipeline {
         stage('AMI Upgrade Matrix'){
             steps{
                 script {
-                    echo parallelStagesMatrix
                     parallel parallelStagesMatrix
                 }
             }
