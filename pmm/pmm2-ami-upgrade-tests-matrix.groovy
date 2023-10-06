@@ -1,5 +1,3 @@
-import org.codehaus.groovy.runtime.StringBufferWriter
-
 library changelog: false, identifier: 'lib@PMM-7-jobs-improve', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
