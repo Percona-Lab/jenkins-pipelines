@@ -1,7 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
-    $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
-]) _
+library 'lib@PMM-7-jobs-improve'
 
 def devLatestVersion = pmmVersion()
 def amiVersions = pmmVersion('ami').keySet() as List
