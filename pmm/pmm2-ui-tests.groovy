@@ -404,6 +404,8 @@ pipeline {
         always {
             // stop staging
             sh '''
+                echo --- Logs from pmm-server docker --- >> pmm-server_logs.txt
+                docker logs pmm-server >> pmm-server_logs.txt || true
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                 echo --- Jobs from pmm-server --- >> job_logs.txt
                 docker exec pmm-server psql -Upmm-managed -c 'select id,error,data,created_at,updated_at from jobs ORDER BY updated_at DESC LIMIT 1000;' >> job_logs.txt || true
@@ -433,6 +435,7 @@ pipeline {
                 if (env.OVF_TEST == "yes") {
                     env.PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
                 }
+                archiveArtifacts artifacts: 'pmm-server_logs.txt'
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'
