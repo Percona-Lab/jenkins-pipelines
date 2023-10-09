@@ -294,8 +294,16 @@ pipeline {
                     if [[ \$CLIENT_VERSION != dev-latest ]]; then
                         export PATH="`pwd`/pmm2-client/bin:$PATH"
                     fi
+                    
+                    export PS_VERSION="8.0.33"
+                    export MO_VERSION="4.4.25"
+                    export PDPGSQL_VERSION="16.0"
+                
                     export PMM_REPO=${env.PMM_REPO}
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
+                        --mo-version  ${MO_VERSION} \
+                        --ps-version  ${PS_VERSION} \
+                        --pgsql-version ${PGSQL_VERSION} \
                         --download \
                         ${CLIENTS} \
                         --pmm2 \
