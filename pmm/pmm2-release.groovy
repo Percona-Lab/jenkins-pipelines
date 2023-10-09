@@ -430,10 +430,17 @@ ENDSSH
                         # push pmm-server el7
                         docker pull \${SERVER_IMAGE_EL7}
 
+                        docker tag \${SERVER_IMAGE_EL7} percona/pmm-server:\${DOCKER_MID}-el7
+                        docker tag \${SERVER_IMAGE_EL7} percona/pmm-server:\${VERSION}-el7
+                        docker push percona/pmm-server:\${DOCKER_MID}-el7
+                        docker push percona/pmm-server:\${VERSION}-el7
+
                         docker tag \${SERVER_IMAGE_EL7} perconalab/pmm-server:\${DOCKER_MID}-el7
                         docker tag \${SERVER_IMAGE_EL7} perconalab/pmm-server:\${VERSION}-el7
                         docker push perconalab/pmm-server:\${DOCKER_MID}-el7
                         docker push perconalab/pmm-server:\${VERSION}-el7
+
+                        docker save percona/pmm-server:\${VERSION}-el7 | xz > pmm-server-\${VERSION}-el7.docker
 
                         # push pmm-client
                         docker pull \${CLIENT_IMAGE}
@@ -461,6 +468,7 @@ ENDSSH
                     sh '''
                         set -ex
                         aws s3 cp --only-show-errors pmm-server-${VERSION}.docker s3://percona-vm/pmm-server-${VERSION}.docker
+                        aws s3 cp --only-show-errors pmm-server-${VERSION}-el7.docker s3://percona-vm/pmm-server-${VERSION}-el7.docker
                         aws s3 cp --only-show-errors pmm-client-${VERSION}.docker s3://percona-vm/pmm-client-${VERSION}.docker
                     '''
                 }
@@ -473,16 +481,19 @@ ENDSSH
                     sh '''
                         set -ex
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}.docker pmm-server-${VERSION}.docker
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}-el7.docker pmm-server-${VERSION}-el7.docker
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}.docker pmm-client-${VERSION}.docker
                     '''
                 }
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         sha256sum pmm-server-${VERSION}.docker | tee pmm-server-${VERSION}.sha256sum
+                        sha256sum pmm-server-${VERSION}-el7.docker | tee pmm-server-${VERSION}-el7.sha256sum
                         sha256sum pmm-client-${VERSION}.docker | tee pmm-client-${VERSION}.sha256sum
                         export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm2/${VERSION}/docker"
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.docker pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}-el7.docker pmm-server-${VERSION}-el7.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}.docker pmm-client-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "ls -l /data/downloads/pmm2/${VERSION}/docker"
                     '''
@@ -524,61 +535,13 @@ ENDSSH
                 deleteDir()
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
-                        # This step should never cause the pipeline failure so we can create tags outside of the pipeline
+                        # This step must never cause the pipeline to fail, so that we can create tags outside of it
                         set +e
-                        set -x
-
-                        # List of repos whose release branches need to be tagged
-                        declare -A repos=(
-                            ["percona-grafana"]="percona-platform/grafana"
-                            ["percona-dashboards"]="percona/grafana-dashboards"
-                            ["pmm"]="percona/pmm"
-                            ["pmm-submodules"]="Percona-Lab/pmm-submodules"
-                        )
-
-                        # Configure git settings globally
-                        git config --global advice.detachedHead false
-                        git config --global user.email "noreply@percona.com"
-                        git config --global user.name "PMM Jenkins"
-
-                        # Configure git to push using ssh
-                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-
-                        TAG="v${VERSION}"
-                        echo "We will be tagging repos with a tag: $TAG"
-
-                        for PACKAGE in "${!repos[@]}"; do
-                            rm -fr $PACKAGE || true
-                            mkdir -p $PACKAGE
-
-                            pushd $PACKAGE >/dev/null
-                                REPO=${repos["$PACKAGE"]}
-                                git clone https://github.com/$REPO ./
-                                # The default is https, and we want to set it to ssh
-                                git remote set-url origin git@github.com:$REPO.git
-                                
-                                BRANCH="pmm-${VERSION}"
-                                if ! git checkout "$BRANCH"; then
-                                  echo "Warning: failed to tag the repository $REPO with $TAG"
-                                  continue
-                                fi
-                                echo "SHA: $(git rev-parse HEAD)"
-                                echo "Branch: $(git branch --show-current)"
-
-                                # If the tag already exists, we want to delete it and re-tag this SHA
-                                if [ $(git tag -l "$TAG") ]; then
-                                    git tag --delete "$TAG"
-                                    git push --delete origin "$TAG"
-                                fi
-
-                                git tag --message="Version $TAG." "$TAG"
-                                if [ ! $(git push origin "$TAG") ]; then
-                                    echo "Warning: failed to tag the repository $REPO with $TAG"
-                                fi
-                            popd >/dev/null
-                            rm -rf "$PACKAGE"
-                        done
-                        set +x
+                        curl -o create-tags https://raw.githubusercontent.com/percona/pmm/pmm-${VERSION}/build/scripts/create-tags || :
+                        if [ -f create-tags ]; then
+                            chmod +x create-tags
+                            bash -E "$(pwd)/create-tags"
+                        fi
                     '''
                 }
             }

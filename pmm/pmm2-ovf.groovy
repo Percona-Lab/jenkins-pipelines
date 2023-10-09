@@ -32,7 +32,7 @@ pipeline {
                         env.PMM_VERSION = PMM_BRANCH.split('-')[1] 
                     }
                 }
-                withCredentials([string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+                withCredentials([string(credentialsId: 'f5415992-e274-45c2-9eb9-59f9e8b90f43', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
                     sh '''
                         set -o xtrace
 

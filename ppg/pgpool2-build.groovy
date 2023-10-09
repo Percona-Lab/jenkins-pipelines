@@ -50,7 +50,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 sleep 30
                 echo "Waiting ..."
             done
-            until sudo apt-get -y install gpgv curl clang-11 gnupg; do
+            until sudo apt-get -y install gpgv curl clang gnupg; do
                 sleep 30
                 echo "Waiting ..."
             done
@@ -124,7 +124,7 @@ pipeline {
         choice(
             name: 'PG_RELEASE',
             description: 'PPG major version to test',
-            choices: ['15.2', '14.7', '13.10', '12.14', '11.19']
+            choices: ['16.0', '15.4', '14.9', '13.12', '12.16', '11.21']
         )
         choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',

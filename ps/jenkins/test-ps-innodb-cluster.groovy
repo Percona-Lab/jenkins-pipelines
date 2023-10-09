@@ -7,7 +7,7 @@ void installDependencies() {
     sh '''
         export PATH=${PATH}:~/.local/bin
         sudo yum install -y git python3-pip jq tar
-        sudo amazon-linux-extras install ansible2
+        sudo amazon-linux-extras install  python3.8 ansible2
         python3 -m venv venv
         source venv/bin/activate
         python3 -m pip install --upgrade pip setuptools wheel
@@ -106,6 +106,7 @@ pipeline {
                 'ubuntu-focal',
                 'ubuntu-bionic',
                 'ubuntu-jammy',
+                'debian-12',
                 'debian-11',
                 'debian-10',
                 'centos-7',

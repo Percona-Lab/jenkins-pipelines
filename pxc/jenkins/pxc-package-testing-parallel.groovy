@@ -7,6 +7,7 @@ List all_nodes = [
                 'ubuntu-jammy',
                 'ubuntu-focal',
                 'ubuntu-bionic',
+                'debian-12',
                 'debian-11',
                 'debian-10',
                 'centos-7',
@@ -121,6 +122,21 @@ pipeline {
 
                     steps {
                         runNodeBuild("debian-11")
+                    }
+                }
+
+                stage("Debian-12") {
+                    when {
+                        expression {
+                            allOf{
+                                nodes_to_test.contains("debian-12")
+
+                            }
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("debian-12")
                     }
                 }
 
