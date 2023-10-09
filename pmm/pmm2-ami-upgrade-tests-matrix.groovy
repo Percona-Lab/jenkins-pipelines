@@ -14,6 +14,7 @@ void runAMIUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_
 }
 
 def latestVersion = pmmVersion()
+def amiVersions = pmmVersion('ami').keySet() as List
 
 pipeline {
     agent {
@@ -51,7 +52,8 @@ pipeline {
                 axes {
                     axis {
                         name 'VERSION'
-                        values '2.22.0', '2.23.0', '2.24.0', '2.25.0', '2.26.0', '2.27.0', '2.28.0', '2.29.0'
+                        values '2.39.0', '2.38.1', '2.38.0', '2.37.1', '2.37.0'
+//                        values amiVersions[-5..-1]
                     }
                 }
                 stages {

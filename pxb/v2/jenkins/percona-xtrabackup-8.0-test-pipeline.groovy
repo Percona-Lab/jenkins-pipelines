@@ -13,11 +13,11 @@ pipeline {
             description: 'MySQL version for QA run',
             name: 'XTRABACKUP_TARGET')
         string(
-            defaultValue: '8.0.21',
+            defaultValue: '8.0.34',
             description: 'Version of MySQL InnoDB80 which will be used for bootstrap.sh script',
             name: 'INNODB80_VERSION')
         string(
-            defaultValue: '8.0.20-11',
+            defaultValue: '8.0.34-26',
             description: 'Version of Percona XtraDB80 which will be used for bootstrap.sh script',
             name: 'XTRADB80_VERSION')
         string(
@@ -28,10 +28,22 @@ pipeline {
             defaultValue: '',
             description: 'Pass an URL for downloading bootstrap.sh, If empty will use from repository you specified in PXB24_REPO',
             name: 'BOOTSTRAP_URL')
-        choice(
-            choices: 'OFF\nON',
+        booleanParam(
+            defaultValue: false,
             description: 'Starts Microsoft Azurite emulator and tests xbcloud against it',
             name: 'WITH_AZURITE')
+        booleanParam(
+            name: 'WITH_XBCLOUD_TESTS',
+            defaultValue: true,
+            description: 'Run xbcloud tests')
+        booleanParam(
+            name: 'WITH_VAULT_TESTS',
+            defaultValue: true,
+            description: 'Run vault tests')
+        booleanParam(
+            name: 'WITH_KMIP_TESTS',
+            defaultValue: true,
+            description: 'Run kmip tests')
         choice(
             choices: 'docker-32gb\ndocker',
             description: 'Run build on specified instance type',

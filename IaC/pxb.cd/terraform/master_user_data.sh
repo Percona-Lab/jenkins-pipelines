@@ -19,7 +19,7 @@ setup_aws() {
 
 install_software() {
     wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-    rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+    rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
 
     until yum makecache; do
         sleep 1
@@ -30,7 +30,7 @@ install_software() {
     amazon-linux-extras install -y nginx1.12
     amazon-linux-extras install -y epel
     amazon-linux-extras install -y java-openjdk11
-    yum -y install jenkins-2.387.1 certbot git yum-cron aws-cli xfsprogs
+    yum -y install jenkins-2.414.2 certbot git yum-cron aws-cli xfsprogs
 
     sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
     sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf

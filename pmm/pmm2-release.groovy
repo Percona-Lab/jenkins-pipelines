@@ -9,9 +9,10 @@ pipeline {
     }
 
     environment {
-        CLIENT_IMAGE = "perconalab/pmm-client:${VERSION}-rc"
-        SERVER_IMAGE = "perconalab/pmm-server:${VERSION}-rc"
-        PATH_TO_CLIENT = "testing/pmm2-client-autobuilds/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT}"
+        CLIENT_IMAGE     = "perconalab/pmm-client:${VERSION}-rc"
+        SERVER_IMAGE     = "perconalab/pmm-server:${VERSION}-rc"
+        SERVER_IMAGE_EL7 = "perconalab/pmm-server:${VERSION}-rc-el7"
+        PATH_TO_CLIENT   = "testing/pmm2-client-autobuilds/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT}"
     }
 
     parameters {
@@ -292,17 +293,18 @@ ENDSSH
                 installDocker()
                 slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: release started - ${BUILD_URL}"
                 sh "sg docker -c 'docker run ${SERVER_IMAGE} /usr/bin/rpm -qa' > rpms.list"
-                stash includes: 'rpms.list', name: 'rpms'
+                sh "sg docker -c 'docker run ${SERVER_IMAGE_EL7} /usr/bin/rpm -qa' > rpms-el7.list"
+                stash includes: 'rpms.list, rpms-el7.list', name: 'rpms-stash'
             }
         }
 
         stage('Get repo RPMs') {
             steps {
-                unstash 'rpms'
+                unstash 'rpms-stash'
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            ls /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64 > repo.list
+                            ls /srv/repo-copy/pmm2-components/yum/testing/9/RPMS/x86_64 > repo.list
                         cat rpms.list \
                             | grep -v 'pmm2-client' \
                             | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
@@ -310,18 +312,32 @@ ENDSSH
                             | sort \
                             | tee copy.list
                     '''
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                            ls /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64 > repo-el7.list
+                        cat rpms-el7.list \
+                            | grep -v 'pmm2-client' \
+                            | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
+                            | xargs -n 1 -I {} grep "^{}.rpm" repo-el7.list \
+                            | sort \
+                            | tee copy-el7.list
+                    '''
                 }
-                stash includes: 'copy.list', name: 'copy'
-                archiveArtifacts 'copy.list'
+                stash includes: 'copy.list, copy-el7.list', name: 'copy-stash'
+                archiveArtifacts 'copy*.list'
             }
         }
         // Publish RPMs to repo.ci.percona.com
         stage('Copy RPMs to PMM repo') {
             steps {
-                unstash 'copy'
+                unstash 'copy-stash'
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         cat copy.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                            "cat - | xargs -I{} cp -v /srv/repo-copy/pmm2-components/yum/testing/9/RPMS/x86_64/{} /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/{}"
+                    '''
+                    sh '''
+                        cat copy-el7.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                             "cat - | xargs -I{} cp -v /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64/{} /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/{}"
                     '''
                 }
@@ -337,8 +353,15 @@ ENDSSH
                             if [ -f /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc ]; then
                                 rm -f /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc
                             fi
+
+                            createrepo --update /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/
+                            if [ -f /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/repodata/repomd.xml.asc ]; then
+                                    rm -f /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/repodata/repomd.xml.asc
+                            fi
+
                             export SIGN_PASSWORD=\${SIGN_PASSWORD}
                             gpg --detach-sign --armor --passphrase \${SIGN_PASSWORD} /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml
+                            gpg --detach-sign --armor --passphrase \${SIGN_PASSWORD} /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/repodata/repomd.xml
                         "
                     """
                     }
@@ -383,7 +406,7 @@ ENDSSH
                     DOCKER_MID="\$TOP_VER.\$MID_VER"
                     sg docker -c "
                         set -ex
-                        # push pmm-server
+                        # push pmm-server el9
                         docker pull \${SERVER_IMAGE}
                         docker tag \${SERVER_IMAGE} percona/pmm-server:latest
                         docker push percona/pmm-server:latest
@@ -403,6 +426,21 @@ ENDSSH
                         docker push perconalab/pmm-server:\${VERSION}
 
                         docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
+
+                        # push pmm-server el7
+                        docker pull \${SERVER_IMAGE_EL7}
+
+                        docker tag \${SERVER_IMAGE_EL7} percona/pmm-server:\${DOCKER_MID}-el7
+                        docker tag \${SERVER_IMAGE_EL7} percona/pmm-server:\${VERSION}-el7
+                        docker push percona/pmm-server:\${DOCKER_MID}-el7
+                        docker push percona/pmm-server:\${VERSION}-el7
+
+                        docker tag \${SERVER_IMAGE_EL7} perconalab/pmm-server:\${DOCKER_MID}-el7
+                        docker tag \${SERVER_IMAGE_EL7} perconalab/pmm-server:\${VERSION}-el7
+                        docker push perconalab/pmm-server:\${DOCKER_MID}-el7
+                        docker push perconalab/pmm-server:\${VERSION}-el7
+
+                        docker save percona/pmm-server:\${VERSION}-el7 | xz > pmm-server-\${VERSION}-el7.docker
 
                         # push pmm-client
                         docker pull \${CLIENT_IMAGE}
@@ -430,6 +468,7 @@ ENDSSH
                     sh '''
                         set -ex
                         aws s3 cp --only-show-errors pmm-server-${VERSION}.docker s3://percona-vm/pmm-server-${VERSION}.docker
+                        aws s3 cp --only-show-errors pmm-server-${VERSION}-el7.docker s3://percona-vm/pmm-server-${VERSION}-el7.docker
                         aws s3 cp --only-show-errors pmm-client-${VERSION}.docker s3://percona-vm/pmm-client-${VERSION}.docker
                     '''
                 }
@@ -442,16 +481,19 @@ ENDSSH
                     sh '''
                         set -ex
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}.docker pmm-server-${VERSION}.docker
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}-el7.docker pmm-server-${VERSION}-el7.docker
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}.docker pmm-client-${VERSION}.docker
                     '''
                 }
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         sha256sum pmm-server-${VERSION}.docker | tee pmm-server-${VERSION}.sha256sum
+                        sha256sum pmm-server-${VERSION}-el7.docker | tee pmm-server-${VERSION}-el7.sha256sum
                         sha256sum pmm-client-${VERSION}.docker | tee pmm-client-${VERSION}.sha256sum
                         export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm2/${VERSION}/docker"
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.docker pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}-el7.docker pmm-server-${VERSION}-el7.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}.docker pmm-client-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "ls -l /data/downloads/pmm2/${VERSION}/docker"
                     '''
@@ -491,69 +533,15 @@ ENDSSH
         stage('Set git release tags') {
             steps {
                 deleteDir()
-                unstash 'copy'
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
-                        set -x
-                        # Do not allow this step to fail so we can create tags outside of the pipeline
+                        # This step must never cause the pipeline to fail, so that we can create tags outside of it
                         set +e
-                        cat copy.list
-
-                        # List of repos whose release branches need to be tagged
-                        # TODO: add pmm-submodules to the list, maybe even fallback to using submodules
-                        declare -A repos=(
-                            ["percona-grafana"]="percona-platform/grafana"
-                            ["percona-dashboards"]="percona/grafana-dashboards"
-                            ["pmm-update"]="percona/pmm-update"
-                            ["pmm"]="percona/pmm"
-                        )
-
-                        # Configure git settings globally
-                        git config --global advice.detachedHead false
-                        git config --global user.email "dev-services@percona.com"
-                        git config --global user.name "PMM Jenkins"
-
-                        # Configure git to push using ssh
-                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-
-                        TAG="v${VERSION}"
-                        echo "We will be tagging repos with a tag: $TAG"
-
-                        for PACKAGE in "${!repos[@]}"; do
-                            REPO=${repos["$PACKAGE"]}
-                            # Example of an entry in 'copy.list':
-                            # percona-dashboards-2.31.0-19.2209151640.25fba72.el7.x86_64.rpm
-                            SHA=$(grep "$PACKAGE-" copy.list | perl -p -e 's/.*[.]\\d{10}[.]([0-9a-f]{7})[.]el7.*/$1/')
-
-                            if [ -n "$SHA" ] && [ -n "$REPO" ]; then
-                                rm -fr $PACKAGE || true
-                                mkdir $PACKAGE
-                                pushd $PACKAGE >/dev/null
-                                    git clone https://github.com/$REPO ./
-                                    # The default is https, so we want to set it to ssh
-                                    git remote set-url origin git@github.com:$REPO.git
-                                    git checkout $SHA
-                                    echo "SHA: $(git rev-parse HEAD)"
-
-                                    git tag --message="Version $TAG." --sign $TAG
-
-                                    # If the tag already exists, we want to delete it and re-tag this SHA
-                                    if [ $? -eq 128 ]; then
-                                        git tag --delete $TAG
-                                        git push --delete origin $TAG
-                                        git tag --message="Version $TAG." --sign $TAG
-                                    fi
-
-                                    if [ $? -eq 0 ]; then
-                                        git push origin $TAG
-                                    else
-                                        echo "Error: $?"
-                                    fi
-                                popd >/dev/null
-                            else
-                                echo "Warning: the repository $REPO won't get tagged with ${VERSION}"
-                            fi
-                        done
+                        curl -o create-tags https://raw.githubusercontent.com/percona/pmm/pmm-${VERSION}/build/scripts/create-tags || :
+                        if [ -f create-tags ]; then
+                            chmod +x create-tags
+                            bash -E "$(pwd)/create-tags"
+                        fi
                     '''
                 }
             }
@@ -580,8 +568,8 @@ ENDSSH
                         archiveArtifacts "report-${VERSION}.html"
                         env.SCAN_REPORT_URL = "CVE Scan Report: ${BUILD_URL}artifact/report-${VERSION}.html"
 
-                        copyArtifacts filter: 'evaluation_*.json', projectName: 'pmm2-image-scanning'
-                        sh 'mv evaluation_*.json report-${VERSION}.json'
+                        copyArtifacts filter: 'evaluations/**/evaluation_*.json', projectName: 'pmm2-image-scanning'
+                        sh 'mv evaluations/*/*/*/evaluation_*.json ./report-${VERSION}.json'
                         archiveArtifacts "report-${VERSION}.json"
                     }
                 }

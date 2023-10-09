@@ -13,7 +13,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
         ),
         aws(
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            credentialsId: '5d78d9c7-2188-4b16-8e31-4d5782c6ceaa',
+            credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27',
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         )
     ]
@@ -152,13 +152,13 @@ void setInventories(String param_test_type){
                     def KEYPATH_COMMON
                     def SSH_USER
 
-                    KEYPATH_BOOTSTRAP="/home/centos/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${params.node_to_test}/ssh_key-us-west-2"
-                    KEYPATH_COMMON="/home/centos/.cache/molecule/${product_to_test}-common-${param_test_type}/${params.node_to_test}/ssh_key-us-west-2"
+                    KEYPATH_BOOTSTRAP="/home/centos/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
+                    KEYPATH_COMMON="/home/centos/.cache/molecule/${product_to_test}-common-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
 
 
                     if(("${params.node_to_test}" == "ubuntu-focal")  ||  ("${params.node_to_test}" == "ubuntu-bionic") || ("${params.node_to_test}" == "ubuntu-jammy")){
                         SSH_USER="ubuntu"            
-                    }else if(("${params.node_to_test}" == "debian-11") ||  ("${params.node_to_test}" == "debian-10")){
+                    }else if(("${params.node_to_test}" == "debian-11") ||  ("${params.node_to_test}" == "debian-10") ||("${params.node_to_test}" == "debian-12")){
                         SSH_USER="admin"
                     }else if(("${params.node_to_test}" == "ol-8") || ("${params.node_to_test}" == "ol-9") || ("${params.node_to_test}" == "min-amazon-2")){
                         SSH_USER="ec2-user"
@@ -274,7 +274,7 @@ void runlogsbackup(String product_to_test, String param_test_type) {
         ),
         aws(
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            credentialsId: '5d78d9c7-2188-4b16-8e31-4d5782c6ceaa',
+            credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27',
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         )
     ]
@@ -339,6 +339,7 @@ pipeline {
                 'ubuntu-jammy',
                 'ubuntu-focal',
                 'ubuntu-bionic',
+                'debian-12',
                 'debian-11',
                 'debian-10',
                 'centos-7',
@@ -485,6 +486,10 @@ pipeline {
              catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
                 archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
              }
+        }
+
+        aborted {
+                slackSend channel: '#dev-server-qa', color: '#B2BEB5', message: "[${env.JOB_NAME}]: Aborted during the Package testing (Build Failed) [${env.BUILD_URL}] Parameters: product_to_test: ${params.product_to_test} , node_to_test: ${params.node_to_test} , test_repo: ${params.test_repo}, test_type: ${params.test_type}"
         }
 
         unstable {

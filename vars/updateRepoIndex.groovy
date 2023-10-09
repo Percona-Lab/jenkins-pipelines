@@ -7,7 +7,7 @@ def call(String[] ITEMS_TO_ADD) {
     sh '''
         set -o errexit
         set -o xtrace
-        wget https://raw.githubusercontent.com/Percona-Lab/release-aux/main/scripts/update-repo-index.sh -O ./update-repo-index.sh
+        curl -o update-repo-index.sh https://raw.githubusercontent.com/Percona-Lab/release-aux/main/scripts/update-repo-index.sh
         bash -x ./update-repo-index.sh ''' + argsStr + '''> ./new-index.html
     '''
 }

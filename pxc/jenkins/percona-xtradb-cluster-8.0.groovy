@@ -251,6 +251,21 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Debian Bookworm(12)') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-80.properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bookworm", "--build_deb=1")
+
+                        stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Centos 7 tarball') {
                     agent {
                         label 'docker-32gb'
@@ -325,7 +340,71 @@ pipeline {
                 sync2ProdAutoBuild(PXC_REPO, COMPONENT)
             }
         }
+        stage('Push Tarballs to TESTING download area') {
+            steps {
+                script {
+                    try {
+                        uploadTarballToDownloadsTesting("pxc", "${GIT_BRANCH}")
+                    }
+                    catch (err) {
+                        echo "Caught: ${err}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
+            }
+        }
+        stage('Build docker containers') {
+            agent {
+                label 'min-bionic-x64'
+            }
+            steps {
+                echo "====> Build docker containers"
+                cleanUpWS()
+                sh '''
+                   sleep 900
+                '''
+                unstash 'pxc-80.properties'
+                sh '''
+                    PXC_RELEASE=$(echo ${GIT_BRANCH} | sed 's/release-//g')
+                    sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+                    sudo apt-get install -y docker.io
+                    sudo systemctl status docker
+                    sudo apt-get install -y qemu binfmt-support qemu-user-static
+                    sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+                    curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
+                    . ./MYSQL_VERSION
+                    git clone https://github.com/percona/percona-docker
 
+                    cd percona-docker/percona-xtradb-cluster-8.0
+                    sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
+                    sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO testing/g" Dockerfile
+                    sudo docker build -t perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} .
+                    sudo docker build --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug .
+
+                    cd ../percona-xtradb-cluster-8.0-backup
+                    sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
+                    sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO testing/g" Dockerfile
+                    sudo docker build -t perconalab/percona-xtradb-cluster-operator:${PXC_RELEASE}-pxc8.0-backup .
+
+                    sudo docker images
+                 '''
+                 withCredentials([
+                     usernamePassword(credentialsId: 'hub.docker.com',
+                     passwordVariable: 'PASS',
+                     usernameVariable: 'USER'
+                     )]) {
+                 sh '''
+                     echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
+                     PXC_RELEASE=$(echo ${GIT_BRANCH} | sed 's/release-//g')
+                     curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
+                     . ./MYSQL_VERSION
+                     sudo docker push perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
+                     sudo docker push perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug
+                     sudo docker push perconalab/percona-xtradb-cluster-operator:${PXC_RELEASE}-pxc8.0-backup
+                 '''
+                 }
+            }
+        }
     }
     post {
         success {

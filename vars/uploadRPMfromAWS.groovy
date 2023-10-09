@@ -19,7 +19,7 @@ def call(String FOLDER_NAME, String AWS_STASH_PATH) {
                         ${USER}@repo.ci.percona.com:\${path_to_build}/source/redhat/
                 fi
 
-                export arch_list=\$( find . -name '*.el[6-9].*.rpm' | awk -F'[.]' '{print \$(NF -1)}' | uniq )
+                export arch_list=\$( find . -name '*.el[6-9].*.rpm' -o -name '*.noarch.rpm' | awk -F'[.]' '{print \$(NF -1)}' | sort -n | uniq )
 
                 for arch in \${arch_list}; do
                     if [ `find . -name "*.el6.\${arch}.rpm" | wc -l` -gt 0 ]; then
@@ -52,6 +52,17 @@ def call(String FOLDER_NAME, String AWS_STASH_PATH) {
                         scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
                             `find . -name "*.el9.\${arch}.rpm"` \
                             ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/9/\${arch}/
+                    fi
+
+                    if [ `find . -name "*.noarch.rpm" | wc -l` -gt 0 ]; then
+                        Vers=("6" "7" "8" "9")
+                        for osVer in "\${Vers[@]}"; do
+                            ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                                mkdir -p \${path_to_build}/binary/redhat/\${osVer}/\${arch}
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                                `find . -name "*.noarch.rpm"` \
+                                ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/\${osVer}/\${arch}/
+                        done
                     fi
                 done
             """

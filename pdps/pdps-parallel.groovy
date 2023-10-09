@@ -28,6 +28,11 @@ pipeline {
             name: 'VERSION'
         )
         string(
+            defaultValue: '',
+            description: 'Percona Server revision for test. Empty by default (not checked).',
+            name: 'PS_REVISION'
+        )
+        string(
             defaultValue: '2.5.1',
             description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
@@ -60,7 +65,13 @@ pipeline {
         string(
             defaultValue: 'master',
             description: 'Branch for package-testing repository',
-            name: 'TESTING_BRANCH')
+            name: 'TESTING_BRANCH'
+        )
+        string(
+            defaultValue: 'Percona-QA',
+            description: 'Git account for package-testing repository',
+            name: 'TESTING_GIT_ACCOUNT'
+        )
         string(
             defaultValue: 'master',
             description: 'Tests will be run from branch of  https://github.com/percona/orchestrator',
@@ -87,7 +98,7 @@ pipeline {
             steps {
                 deleteDir()
                 checkOrchVersionParam()
-                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
             }
         }
         stage ('Prepare') {

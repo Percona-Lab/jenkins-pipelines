@@ -22,7 +22,7 @@
             choices:
                 - "proxysql2"
                 - "proxysql"
-            description: 'Choose the product version to test: Pproxysql OR proxysql2'
+            description: 'Choose the product version to test: Proxysql OR proxysql2'
         - choice:
             name: node_to_test
             choices:
@@ -34,6 +34,7 @@
                 - 'min-jammy-x64'
                 - 'min-buster-x64'
                 - 'min-bullseye-x64'
+                - 'min-bookworm-x64'
             description: 'Node to run tests'
         - choice:
             name: install_repo

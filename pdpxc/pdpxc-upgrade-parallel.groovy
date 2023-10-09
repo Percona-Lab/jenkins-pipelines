@@ -42,6 +42,11 @@ pipeline {
             name: 'VERSION'
         )
         string(
+            defaultValue: '',
+            description: 'PXC revision for test after update. Empty by default (not checked).',
+            name: 'PXC_REVISION'
+        )
+        string(
             defaultValue: '8.0.31-24',
             description: 'PXB version for test. Possible values are with and without percona release and build: 8.0.32, 8.0.32-25 OR 8.0.32-25.1',
             name: 'PXB_VERSION'
@@ -71,6 +76,11 @@ pipeline {
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
+        string(
+            defaultValue: 'Percona-QA',
+            description: 'Git account for package-testing repository',
+            name: 'TESTING_GIT_ACCOUNT'
+        )
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())
@@ -80,7 +90,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
             }
         }
         stage ('Prepare') {

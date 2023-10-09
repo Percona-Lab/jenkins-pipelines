@@ -46,9 +46,9 @@ pipeline {
             name: 'VERSION'
         )
         string(
-            defaultValue: 'master',
-            description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH'
+            defaultValue: '',
+            description: 'Percona Server revision for test after update. Empty by default (not checked).',
+            name: 'PS_REVISION'
         )
         string(
             defaultValue: '2.5.1',
@@ -75,6 +75,16 @@ pipeline {
             description: 'Orchestrator revision for version from https://github.com/percona/orchestrator . Empty by default (not checked).',
             name: 'ORCHESTRATOR_REVISION'
         )
+        string(
+            defaultValue: 'master',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH'
+        )
+        string(
+            defaultValue: 'Percona-QA',
+            description: 'Git account for package-testing repository',
+            name: 'TESTING_GIT_ACCOUNT'
+        )
         choice(
             name: 'DESTROY_ENV',
             description: 'Destroy VM after tests',
@@ -100,7 +110,7 @@ pipeline {
             steps {
                 deleteDir()
                 checkOrchVersionParam()
-                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
             }
         }
         stage ('Prepare') {

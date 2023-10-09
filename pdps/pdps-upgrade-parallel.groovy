@@ -34,16 +34,18 @@ pipeline {
         string(
             defaultValue: '8.0.32-24',
             description: 'From this version pdmysql will be updated. Possible values are with and without percona release: 8.0.31 OR 8.0.31-23',
-            name: 'FROM_VERSION')
+            name: 'FROM_VERSION'
+        )
         string(
             defaultValue: '8.0.33-25',
             description: 'To this version pdmysql will be updated. Possible values are with and without percona release and build: 8.0.32, 8.0.32-24 OR 8.0.32-24.2',
             name: 'VERSION'
         )
         string(
-            defaultValue: 'master',
-            description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
+            defaultValue: '',
+            description: 'Percona Server revision for test after update. Empty by default (not checked).',
+            name: 'PS_REVISION'
+        )
         string(
             defaultValue: '2.5.1',
             description: 'Updated Proxysql version',
@@ -69,6 +71,16 @@ pipeline {
             description: 'Orchestrator revision for version from https://github.com/percona/orchestrator . Empty by default (not checked).',
             name: 'ORCHESTRATOR_REVISION'
         )
+        string(
+            defaultValue: 'master',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH'
+        )
+        string(
+            defaultValue: 'Percona-QA',
+            description: 'Git account for package-testing repository',
+            name: 'TESTING_GIT_ACCOUNT'
+        )
   }
   options {
           withCredentials(moleculePdpsJenkinsCreds())
@@ -79,7 +91,7 @@ pipeline {
             steps {
                 deleteDir()
                 checkOrchVersionParam()
-                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
             }
         }
         stage ('Prepare') {

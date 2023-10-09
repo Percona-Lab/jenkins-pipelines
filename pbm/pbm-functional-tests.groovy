@@ -14,6 +14,7 @@ pipeline {
         string(name: 'PBM_BRANCH', defaultValue: 'main', description: 'PBM branch')
         string(name: 'PSMDB', defaultValue: 'percona/percona-server-mongodb', description: 'PSMDB docker image')
         string(name: 'GO_VER', defaultValue: 'bullseye', description: 'GOLANG docker image for building PBM from sources')
+        choice(name: 'instance', choices: ['docker-64gb','docker-64gb-aarch64'], description: 'Ec2 instance type for running tests')
         choice(name: 'JIRA_REPORT', choices: ['no','yes'], description: 'Send report to jira')
         string(name: 'TEST_CYCLE_NAME', defaultValue: 'test', description: 'Jira test cycle name')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
@@ -29,7 +30,7 @@ pipeline {
         stage ('Run tests') {
             matrix {
                 agent {
-                    label 'docker-32gb'
+                    label "${params.instance}"
                 }
                 axes {
                     axis {
@@ -47,7 +48,11 @@ pipeline {
                                     docker rmi -f \$(docker images -q | uniq) || true
                                     sudo rm -rf ./*
                                     if [ ! -f "/usr/local/bin/docker-compose" ] ; then
-                                        sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+                                        if [ ${params.instance} = "docker-64gb-aarch64" ]; then
+                                            sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-aarch64 -o /usr/local/bin/docker-compose
+                                        else 
+                                            sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+                                        fi
                                         sudo chmod +x /usr/local/bin/docker-compose
                                     fi
                                 """ 
