@@ -848,7 +848,7 @@ Resources:
               }
 
               setup_ssh_keys() {
-                KEYS_LIST="alexander.tymchuk \
+                KEYS_LIST="alexander.demidoff \
                            evgeniy.patlan \
                            alex.miroshnychenko \
                            eduardo.casarero \
