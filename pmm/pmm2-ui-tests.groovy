@@ -303,7 +303,7 @@ pipeline {
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --mo-version  ${MO_VERSION} \
                         --ps-version  ${PS_VERSION} \
-                        --pgsql-version ${PGSQL_VERSION} \
+                        --pdpgsql-version ${PDPGSQL_VERSION} \
                         --download \
                         ${CLIENTS} \
                         --pmm2 \
