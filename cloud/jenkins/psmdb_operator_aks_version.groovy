@@ -42,7 +42,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
             done
             kubectl get svc --all-namespaces || true
 
-            az aks delete --name $CLUSTER_NAME-$CLUSTER_SUFFIX --resource-group percona-operators --subscription eng-cloud-dev --yes --no-wait || true
+            az aks delete --name $CLUSTER_NAME-$CLUSTER_SUFFIX --resource-group percona-operators --subscription eng-cloud-dev --yes || true
         """
     }
 }

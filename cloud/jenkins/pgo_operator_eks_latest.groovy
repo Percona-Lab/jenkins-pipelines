@@ -16,9 +16,19 @@ void prepareNode() {
         sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
         sudo chmod +x /usr/local/bin/jq
 
-        curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
-    """
+        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
+        ./krew-linux_amd64 install krew
+        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+        kubectl krew install kuttl assert
 
+        curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
+
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+        sudo percona-release enable-only tools
+    """
+}
+
+void prepareSources() {
     if ("$PLATFORM_VER" == "latest") {
         USED_PLATFORM_VER = sh(script: "eksctl version -ojson | jq -r '.EKSServerSupportedVersions | max'", , returnStdout: true).trim()
     } else {
@@ -40,13 +50,13 @@ void prepareNode() {
 
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-        CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM-$IMAGE_PMM_SERVER_REPO-$IMAGE_PMM_SERVER_TAG | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        CLUSTER_NAME = sh(script: "echo jenkins-lat-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_IMAGE-$PGO_BACKREST_IMAGE-$PGO_PGBADGER_IMAGE-$PMM_SERVER_IMAGE_BASE-$PMM_SERVER_IMAGE_TAG-$PMM_CLIENT_IMAGE | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
 void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the Docker image ]========================="
+    echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             if [[ "$OPERATOR_IMAGE" ]]; then
@@ -55,7 +65,7 @@ void dockerBuildPush() {
                 cd source
                 sg docker -c "
                     docker login -u '$USER' -p '$PASS'
-                    export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                    export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                     e2e-tests/build
                     docker logout
                 "
@@ -88,35 +98,37 @@ void initTests() {
     }
 
     echo "Marking passed tests in the tests map!"
-    if ("$IGNORE_PREVIOUS_RUN" == "NO") {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        if ("$IGNORE_PREVIOUS_RUN" == "NO") {
             sh """
                 aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
             """
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PPG_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
                     tests[i]["result"] = "passed"
                 }
             }
-        }
-    } else {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        } else {
             sh """
                 aws s3 rm "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" --recursive --exclude "*" --include "*-$PARAMS_HASH" || :
             """
         }
     }
 
-    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret.yml
+            cp $CLOUD_MINIO_SECRET_FILE source/e2e-tests/conf/cloud-secret-minio-gw.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret-minio-gw.yml
         """
     }
+    stash includes: "source/**", name: "sourceFILES"
 }
 
 void clusterRunner(String cluster) {
@@ -143,7 +155,7 @@ void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
     if ("$CLUSTER_WIDE" == "YES") {
-        OPERATOR_NS = 'psmdb-operator'
+        OPERATOR_NS = 'pg-operator'
     }
 
     sh """
@@ -188,13 +200,17 @@ nodeGroups:
         'iit-billing-tag': 'jenkins-eks'
         'delete-cluster-after-hours': '10'
         'team': 'cloud'
-        'product': 'psmdb-operator'
+        'product': 'pgv2-operator'
 EOF
     """
 
+    // this is needed for always post action because pipeline runs earch parallel step on another instance
+    stash includes: "cluster-${CLUSTER_SUFFIX}.yaml", name: "cluster-$CLUSTER_SUFFIX-config"
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
+            export PATH=/home/ec2-user/.local/bin:$PATH
             eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
         """
     }
@@ -212,29 +228,38 @@ void runTest(Integer TEST_ID) {
             tests[TEST_ID]["result"] = "failure"
 
             timeout(time: 90, unit: 'MINUTES') {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         cd source
 
-                        export DEBUG_TESTS=1
-                        [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                        export IMAGE_MONGOD=$IMAGE_MONGOD
-                        export IMAGE_BACKUP=$IMAGE_BACKUP
-                        export IMAGE_PMM=$IMAGE_PMM
-                        export IMAGE_PMM_SERVER_REPO=$IMAGE_PMM_SERVER_REPO
-                        export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
-                        export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+                        [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
+                        export PG_VER=$PG_VERSION
+                        export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
 
-                        e2e-tests/$testName/run
+                        if [[ "$PGO_POSTGRES_IMAGE" ]]; then
+                            export IMAGE_POSTGRESQL=${PGO_POSTGRES_IMAGE}
+                            export PG_VER=\$(echo \${IMAGE_POSTGRESQL} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
+                        fi
+
+                        export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
+                        export IMAGE_PGBADGER=$PGO_PGBADGER_IMAGE
+                        export IMAGE_PMM_SERVER_REPO=$PMM_SERVER_IMAGE_BASE
+                        export IMAGE_PMM_SERVER_TAG=$PMM_SERVER_IMAGE_TAG
+                        export IMAGE_PMM=$PMM_CLIENT_IMAGE
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+                        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+
+                        kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
                     """
                 }
             }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PPG_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
         catch (exc) {
-            if (retryCount >= 1) {
+            if (retryCount >= 2) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
@@ -263,7 +288,7 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PSMDB\\">\n'
+TestsReport = '<testsuite name=\\"PGO\\">\n'
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
     for (int i=0; i<tests.size(); i++) {
@@ -277,6 +302,7 @@ void makeReport() {
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
+    unstash "cluster-$CLUSTER_SUFFIX-config"
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
@@ -324,7 +350,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        MDB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
+        PPG_TAG = sh(script: "[[ \"$OPERATOR_IMAGE\" ]] && echo $OPERATOR_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg15", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -340,46 +366,58 @@ pipeline {
             description: 'Ignore passed tests in previous run (run all)',
             name: 'IGNORE_PREVIOUS_RUN'
         )
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
-            name: 'GIT_BRANCH')
-        string(
-            defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
-            description: 'percona-server-mongodb-operator repository',
-            name: 'GIT_REPO')
-        string(
-            defaultValue: 'latest',
-            description: 'EKS kubernetes version',
-            name: 'PLATFORM_VER')
         choice(
             choices: 'YES\nNO',
-            description: 'Run tests in cluster wide mode',
+            description: 'Run tests with cluster wide',
             name: 'CLUSTER_WIDE')
         string(
+            defaultValue: 'latest',
+            description: 'Kubernetes target version',
+            name: 'PLATFORM_VER')
+        string(
+            defaultValue: 'main',
+            description: 'Tag/Branch for percona/percona-postgresql-operator repository',
+            name: 'GIT_BRANCH')
+        string(
+            defaultValue: 'https://github.com/percona/percona-postgresql-operator',
+            description: 'percona-postgresql-operator repository',
+            name: 'GIT_REPO')
+        string(
             defaultValue: '',
-            description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
+            description: 'PG version',
+            name: 'PG_VERSION')
+        string(
+            defaultValue: '',
+            description: 'Operator image: perconalab/percona-postgresql-operator:main',
             name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod5.0',
-            name: 'IMAGE_MONGOD')
+            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg15-pgbouncer',
+            name: 'PGO_PGBOUNCER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-server-mongodb-operator:main-backup',
-            name: 'IMAGE_BACKUP')
+            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg15-postgres',
+            name: 'PGO_POSTGRES_IMAGE')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/pmm-client:dev-latest',
-            name: 'IMAGE_PMM')
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg15-pgbackrest',
+            name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',
-            description: 'PMM server image repo: perconalab/pmm-server',
-            name: 'IMAGE_PMM_SERVER_REPO')
+            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg15-pgbadger',
+            name: 'PGO_PGBADGER_IMAGE')
+        string(
+            defaultValue: '',
+            description: 'PMM server image base: perconalab/pmm-server',
+            name: 'PMM_SERVER_IMAGE_BASE')
         string(
             defaultValue: '',
             description: 'PMM server image tag: dev-latest',
-            name: 'IMAGE_PMM_SERVER_TAG')
+            name: 'PMM_SERVER_IMAGE_TAG')
+        string(
+            defaultValue: '',
+            description: 'PMM server image: perconalab/pmm-client:dev-latest',
+            name: 'PMM_CLIENT_IMAGE')
     }
     agent {
         label 'docker'
@@ -390,12 +428,13 @@ pipeline {
         disableConcurrentBuilds()
     }
     triggers {
-        cron('0 15 * * 6')
+        cron('0 15 * * 0')
     }
     stages {
         stage('Prepare node') {
             steps {
                 prepareNode()
+                prepareSources()
             }
         }
         stage('Docker Build and Push') {
@@ -411,22 +450,42 @@ pipeline {
         stage('Run Tests') {
             parallel {
                 stage('cluster1') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
                 }
                 stage('cluster2') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
                 }
                 stage('cluster3') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
                 }
                 stage('cluster4') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster4')
                     }
                 }
@@ -444,6 +503,10 @@ pipeline {
             archiveArtifacts '*.xml'
 
             script {
+                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
+                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+                }
+
                 clusters.each { shutdownCluster(it) }
             }
 
