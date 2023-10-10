@@ -25,7 +25,7 @@
         description: Tag/Branch for percona/percona-server-mysql-operator repository
     - string:
         name: PLATFORM_VER
-        default: '1.22'
+        default: 'latest'
         description: EKS version
     - string:
         name: OPERATOR_IMAGE
