@@ -298,7 +298,6 @@ pipeline {
                     export PS_VERSION="8.0.33"
                     export MO_VERSION="4.4.25"
                     export PDPGSQL_VERSION="16.0"
-                
                     export PMM_REPO=${env.PMM_REPO}
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --mo-version  ${MO_VERSION} \
