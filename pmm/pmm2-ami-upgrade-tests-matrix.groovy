@@ -3,21 +3,20 @@ library changelog: false, identifier: 'lib@PMM-7-jobs-improve', retriever: moder
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-def devLatestVersion = pmmVersion()
-def amiVersions = pmmVersion('ami').keySet() as List
-def versions = amiVersions[-5..-1]
-
 void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH) {
     upgradeJob = build job: 'pmm2-ami-upgrade-tests', parameters: [
-            string(name: 'GIT_BRANCH', value: PMM_UI_TESTS_BRANCH),
-            string(name: 'CLIENT_VERSION', value: PMM_VERSION),
-            string(name: 'SERVER_VERSION', value: PMM_VERSION),
-            string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
-            string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
-            string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_BRANCH)
+        string(name: 'GIT_BRANCH', value: PMM_UI_TESTS_BRANCH),
+        string(name: 'CLIENT_VERSION', value: PMM_VERSION),
+        string(name: 'SERVER_VERSION', value: PMM_VERSION),
+        string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
+        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_BRANCH)
     ]
 }
 
+def devLatestVersion = pmmVersion()
+def amiVersions = pmmVersion('ami').keySet() as List
+def versions = amiVersions[-5..-1]
 def parallelStagesMatrix = versions.collectEntries {
     ["${it}" : generateStage(it)]
 }
