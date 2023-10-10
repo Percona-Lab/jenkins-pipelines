@@ -1,4 +1,4 @@
-region='eu-west-3'
+region='us-central1-a'
 tests=[]
 clusters=[]
 
@@ -16,11 +16,35 @@ void prepareNode() {
         sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
         sudo chmod +x /usr/local/bin/jq
 
-        curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
+        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
+        ./krew-linux_amd64 install krew
+        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+        kubectl krew install kuttl assert
+
+        sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
+[google-cloud-cli]
+name=Google Cloud CLI
+baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+        sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
     """
 
+    echo "=========================[ Logging in the Kubernetes provider ]========================="
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+        sh """
+            gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
+            gcloud config set project $GCP_PROJECT
+        """
+    }
+}
+
+void prepareSources() {
     if ("$PLATFORM_VER" == "latest") {
-        USED_PLATFORM_VER = sh(script: "eksctl version -ojson | jq -r '.EKSServerSupportedVersions | max'", , returnStdout: true).trim()
+        USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
     } else {
         USED_PLATFORM_VER="$PLATFORM_VER"
     }
@@ -40,13 +64,13 @@ void prepareNode() {
 
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-        CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM-$IMAGE_PMM_SERVER_REPO-$IMAGE_PMM_SERVER_TAG | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        CLUSTER_NAME = sh(script: "echo jenkins-lat-ps-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$OPERATOR_IMAGE-$IMAGE_MYSQL-$IMAGE_ORCHESTRATOR-$IMAGE_ROUTER-$IMAGE_BACKUP-$IMAGE_TOOLKIT-$IMAGE_HAPROXY-$IMAGE_PMM-$IMAGE_PMM_SERVER_REPO-$IMAGE_PMM_SERVER_TAG | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
 void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the Docker image ]========================="
+    echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             if [[ "$OPERATOR_IMAGE" ]]; then
@@ -55,7 +79,7 @@ void dockerBuildPush() {
                 cd source
                 sg docker -c "
                     docker login -u '$USER' -p '$PASS'
-                    export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                    export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
                     e2e-tests/build
                     docker logout
                 "
@@ -88,35 +112,34 @@ void initTests() {
     }
 
     echo "Marking passed tests in the tests map!"
-    if ("$IGNORE_PREVIOUS_RUN" == "NO") {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        if ("$IGNORE_PREVIOUS_RUN" == "NO") {
             sh """
                 aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
             """
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PS_TAG-$PARAMS_HASH"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
                     tests[i]["result"] = "passed"
                 }
             }
-        }
-    } else {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        } else {
             sh """
                 aws s3 rm "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" --recursive --exclude "*" --include "*-$PARAMS_HASH" || :
             """
         }
     }
 
-    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+    withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
         """
     }
+    stash includes: "source/**", name: "sourceFILES"
 }
 
 void clusterRunner(String cluster) {
@@ -141,63 +164,63 @@ void clusterRunner(String cluster) {
 
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
-
-    if ("$CLUSTER_WIDE" == "YES") {
-        OPERATOR_NS = 'psmdb-operator'
+    if ("$IS_GKE_ALPHA" == "YES") {
+        runGKEclusterAlpha(CLUSTER_SUFFIX)
+    } else {
+        runGKEcluster(CLUSTER_SUFFIX)
     }
+}
 
-    sh """
-tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
-# An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
----
-apiVersion: eksctl.io/v1alpha5
-kind: ClusterConfig
-
-metadata:
-    name: $CLUSTER_NAME-$CLUSTER_SUFFIX
-    region: $region
-    version: "$USED_PLATFORM_VER"
-    tags:
-        'delete-cluster-after-hours': '10'
-iam:
-  withOIDC: true
-
-addons:
-- name: aws-ebs-csi-driver
-  wellKnownPolicies:
-    ebsCSIController: true
-
-nodeGroups:
-    - name: ng-1
-      minSize: 3
-      maxSize: 5
-      iam:
-        attachPolicyARNs:
-        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
-        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
-        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
-        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-        - arn:aws:iam::aws:policy/AmazonS3FullAccess
-      instancesDistribution:
-        maxPrice: 0.15
-        instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
-        onDemandBaseCapacity: 0
-        onDemandPercentageAboveBaseCapacity: 50
-        spotInstancePools: 2
-      tags:
-        'iit-billing-tag': 'jenkins-eks'
-        'delete-cluster-after-hours': '10'
-        'team': 'cloud'
-        'product': 'psmdb-operator'
-EOF
-    """
-
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+void runGKEcluster(String CLUSTER_SUFFIX) {
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+
+            maxRetries=15
+            exitCode=1
+            while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
+                ret_val=0
+                gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
+                    --zone $region \
+                    --cluster-version $USED_PLATFORM_VER \
+                    --machine-type n1-standard-4 \
+                    --preemptible \
+                    --disk-size 30 \
+                    --num-nodes=3 \
+                    --network=jenkins-ps-vpc \
+                    --subnetwork=jenkins-ps-$CLUSTER_SUFFIX \
+                    --no-enable-autoupgrade \
+                    --cluster-ipv4-cidr=/21 \
+                    --labels delete-cluster-after-hours=6 &&\
+                kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com
+                exitCode=\$?
+                if [[ \$exitCode == 0 ]]; then break; fi
+                (( maxRetries -- ))
+                sleep 1
+            done
+            if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
         """
-    }
+   }
+}
+
+void runGKEclusterAlpha(String CLUSTER_SUFFIX) {
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            source $HOME/google-cloud-sdk/path.bash.inc
+            ret_num=0
+            while [ \${ret_num} -lt 15 ]; do
+                ret_val=0
+                gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE && \
+                gcloud config set project $GCP_PROJECT && \
+                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version $PLATFORM_VER --zone $region --project $GCP_PROJECT --preemptible --disk-size 30 --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-ps-vpc --subnetwork=jenkins-ps-${CLUSTER_SUFFIX} --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
+                kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
+                if [ \${ret_val} -eq 0 ]; then break; fi
+                ret_num=\$((ret_num + 1))
+            done
+            if [ \${ret_num} -eq 15 ]; then exit 1; fi
+        """
+   }
 }
 
 void runTest(Integer TEST_ID) {
@@ -212,24 +235,25 @@ void runTest(Integer TEST_ID) {
             tests[TEST_ID]["result"] = "failure"
 
             timeout(time: 90, unit: 'MINUTES') {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
-                    sh """
-                        cd source
+                sh """
+                    cd source
 
-                        export DEBUG_TESTS=1
-                        [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                        export IMAGE_MONGOD=$IMAGE_MONGOD
-                        export IMAGE_BACKUP=$IMAGE_BACKUP
-                        export IMAGE_PMM=$IMAGE_PMM
-                        export IMAGE_PMM_SERVER_REPO=$IMAGE_PMM_SERVER_REPO
-                        export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
-                        export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
+                    export IMAGE_MYSQL=$IMAGE_MYSQL
+                    export IMAGE_ORCHESTRATOR=$IMAGE_ORCHESTRATOR
+                    export IMAGE_ROUTER=$IMAGE_ROUTER
+                    export IMAGE_BACKUP=$IMAGE_BACKUP
+                    export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
+                    export IMAGE_PMM=$IMAGE_PMM
+                    export IMAGE_PMM_SERVER_REPO=$IMAGE_PMM_SERVER_REPO
+                    export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
+                    export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+                    export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
 
-                        e2e-tests/$testName/run
-                    """
-                }
+                    kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
+                """
             }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PS_TAG-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -263,7 +287,7 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PSMDB\\">\n'
+TestsReport = '<testsuite name=\\"PS\\">\n'
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
     for (int i=0; i<tests.size(); i++) {
@@ -277,10 +301,17 @@ void makeReport() {
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    if ("$IS_GKE_ALPHA" == "YES") {
+        ACCOUNT='alpha-svc-acct'
+        CRED_ID='gcloud-alpha-key-file'
+    } else {
+        ACCOUNT='jenkins'
+        CRED_ID='gcloud-key-file'
+    }
+
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: CRED_ID, variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-$CLUSTER_SUFFIX --region $region || true
             for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
                 kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
                 kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
@@ -290,41 +321,15 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
                 kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
             done
             kubectl get svc --all-namespaces || true
-
-            VPC_ID=\$(eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $region -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
-            if [ -n "\$VPC_ID" ]; then
-                LOADBALS=\$(aws elb describe-load-balancers --region $region --output json | jq --raw-output '.LoadBalancerDescriptions[] | select(.VPCId == "'\$VPC_ID'").LoadBalancerName')
-                for loadbal in \$LOADBALS; do
-                    aws elb delete-load-balancer --load-balancer-name \$loadbal --region $region
-                done
-                eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction || true
-
-                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $region || true)
-                if [ -n "\$VPC_DESC" ]; then
-                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $region || true
-                fi
-                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $region || true)
-                if [ -n "\$VPC_DESC" ]; then
-                    for secgroup in \$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=\$VPC_ID --query 'SecurityGroups[*].GroupId' --output text --region $region); do
-                        aws ec2 delete-security-group --group-id \$secgroup --region $region || true
-                    done
-
-                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $region || true
-                fi
-            fi
-            aws cloudformation delete-stack --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $region || true
-            aws cloudformation wait stack-delete-complete --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $region || true
-
-            eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $region || true
-            aws cloudformation list-stacks --region $region | jq '.StackSummaries[] | select(.StackName | startswith("'eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster'"))' || true
+            gcloud container clusters delete --zone $region $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
         """
     }
 }
 
 pipeline {
     environment {
-        CLEAN_NAMESPACE = 1
-        MDB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
+        CLOUDSDK_CORE_DISABLE_PROMPTS = 1
+        PS_TAG = sh(script: "[[ \"$IMAGE_MYSQL\" ]] && echo $IMAGE_MYSQL | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -342,32 +347,48 @@ pipeline {
         )
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
+            description: 'Tag/Branch for percona/percona-server-mysql-operator repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
-            description: 'percona-server-mongodb-operator repository',
+            defaultValue: 'https://github.com/percona/percona-server-mysql-operator',
+            description: 'percona-server-mysql-operator repository',
             name: 'GIT_REPO')
         string(
             defaultValue: 'latest',
-            description: 'EKS kubernetes version',
+            description: 'GKE version',
             name: 'PLATFORM_VER')
         choice(
-            choices: 'YES\nNO',
-            description: 'Run tests in cluster wide mode',
-            name: 'CLUSTER_WIDE')
+            choices: 'NO\nYES',
+            description: 'GKE alpha/stable',
+            name: 'IS_GKE_ALPHA')
         string(
             defaultValue: '',
-            description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
+            description: 'Operator image: perconalab/percona-server-mysql-operator:main',
             name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod5.0',
-            name: 'IMAGE_MONGOD')
+            description: 'PS for MySQL image: perconalab/percona-server-mysql-operator:main-ps8.0',
+            name: 'IMAGE_MYSQL')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-server-mongodb-operator:main-backup',
+            description: 'Orchestrator image: perconalab/percona-server-mysql-operator:main-orchestrator',
+            name: 'IMAGE_ORCHESTRATOR')
+        string(
+            defaultValue: '',
+            description: 'MySQL Router image: perconalab/percona-server-mysql-operator:main-router',
+            name: 'IMAGE_ROUTER')
+        string(
+            defaultValue: '',
+            description: 'XtraBackup image: perconalab/percona-server-mysql-operator:main-backup',
             name: 'IMAGE_BACKUP')
+        string(
+            defaultValue: '',
+            description: 'Toolkit image: perconalab/percona-server-mysql-operator:main-toolkit',
+            name: 'IMAGE_TOOLKIT')
+        string(
+            defaultValue: '',
+            description: 'HAProxy image: perconalab/percona-server-mysql-operator:main-haproxy',
+            name: 'IMAGE_HAPROXY')
         string(
             defaultValue: '',
             description: 'PMM image: perconalab/pmm-client:dev-latest',
@@ -390,12 +411,13 @@ pipeline {
         disableConcurrentBuilds()
     }
     triggers {
-        cron('0 15 * * 6')
+        cron('0 8 * * 0')
     }
     stages {
         stage('Prepare node') {
             steps {
                 prepareNode()
+                prepareSources()
             }
         }
         stage('Docker Build and Push') {
@@ -409,25 +431,58 @@ pipeline {
             }
         }
         stage('Run Tests') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             parallel {
                 stage('cluster1') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
                 }
                 stage('cluster2') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
                 }
                 stage('cluster3') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
                 }
                 stage('cluster4') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster4')
+                    }
+                }
+                stage('cluster5') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        prepareNode()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster5')
                     }
                 }
             }
@@ -444,6 +499,10 @@ pipeline {
             archiveArtifacts '*.xml'
 
             script {
+                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
+                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+                }
+
                 clusters.each { shutdownCluster(it) }
             }
 

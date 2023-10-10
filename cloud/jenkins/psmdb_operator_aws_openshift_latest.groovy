@@ -10,17 +10,18 @@ void prepareNode() {
 
         curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
+
         sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
         sudo chmod +x /usr/local/bin/yq
 
         sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
         sudo chmod +x /usr/local/bin/jq
-
-        curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
     """
 
     if ("$PLATFORM_VER" == "latest") {
-        USED_PLATFORM_VER = sh(script: "eksctl version -ojson | jq -r '.EKSServerSupportedVersions | max'", , returnStdout: true).trim()
+        USED_PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", , returnStdout: true).trim()
     } else {
         USED_PLATFORM_VER="$PLATFORM_VER"
     }
@@ -46,11 +47,11 @@ void prepareNode() {
 }
 
 void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the Docker image ]========================="
+    echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             if [[ "$OPERATOR_IMAGE" ]]; then
-                echo "SKIP: Build is not needed, operator image was set!"
+                echo "SKIP: Build is not needed, PSMDB operator image was set!"
             else
                 cd source
                 sg docker -c "
@@ -88,8 +89,8 @@ void initTests() {
     }
 
     echo "Marking passed tests in the tests map!"
-    if ("$IGNORE_PREVIOUS_RUN" == "NO") {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        if ("$IGNORE_PREVIOUS_RUN" == "NO") {
             sh """
                 aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
             """
@@ -103,9 +104,7 @@ void initTests() {
                     tests[i]["result"] = "passed"
                 }
             }
-        }
-    } else {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        } else {
             sh """
                 aws s3 rm "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" --recursive --exclude "*" --include "*-$PARAMS_HASH" || :
             """
@@ -146,58 +145,107 @@ void createCluster(String CLUSTER_SUFFIX) {
         OPERATOR_NS = 'psmdb-operator'
     }
 
-    sh """
-tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
-# An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
----
-apiVersion: eksctl.io/v1alpha5
-kind: ClusterConfig
-
-metadata:
-    name: $CLUSTER_NAME-$CLUSTER_SUFFIX
-    region: $region
-    version: "$USED_PLATFORM_VER"
-    tags:
-        'delete-cluster-after-hours': '10'
-iam:
-  withOIDC: true
-
-addons:
-- name: aws-ebs-csi-driver
-  wellKnownPolicies:
-    ebsCSIController: true
-
-nodeGroups:
-    - name: ng-1
-      minSize: 3
-      maxSize: 5
-      iam:
-        attachPolicyARNs:
-        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
-        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
-        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
-        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-        - arn:aws:iam::aws:policy/AmazonS3FullAccess
-      instancesDistribution:
-        maxPrice: 0.15
-        instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
-        onDemandBaseCapacity: 0
-        onDemandPercentageAboveBaseCapacity: 50
-        spotInstancePools: 2
-      tags:
-        'iit-billing-tag': 'jenkins-eks'
-        'delete-cluster-after-hours': '10'
-        'team': 'cloud'
-        'product': 'psmdb-operator'
-EOF
-    """
-
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+            mkdir -p openshift/$CLUSTER_SUFFIX
+tee openshift/$CLUSTER_SUFFIX/install-config.yaml << EOF
+additionalTrustBundlePolicy: Proxyonly
+apiVersion: v1
+baseDomain: cd.percona.com
+compute:
+- architecture: amd64
+  hyperthreading: Enabled
+  name: worker
+  platform:
+    aws:
+      type: m5.2xlarge
+  replicas: 3
+controlPlane:
+  architecture: amd64
+  hyperthreading: Enabled
+  name: master
+  platform: {}
+  replicas: 1
+metadata:
+  creationTimestamp: null
+  name: openshift4-lat-psmdb-jenkins-$CLUSTER_SUFFIX
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 10.0.0.0/16
+  networkType: OVNKubernetes
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  aws:
+    region: $region
+    userTags:
+      iit-billing-tag: openshift
+      delete-cluster-after-hours: 8
+      team: cloud
+      product: psmdb-operator
+
+publish: External
+EOF
+            cat $OPENSHIFT_CONF_FILE >> openshift/$CLUSTER_SUFFIX/install-config.yaml
+        """
+
+        sshagent(['aws-openshift-41-key']) {
+            sh """
+                /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
+                export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+
+            """
+        }
+    }
+}
+
+void shutdownCluster(String CLUSTER_SUFFIX) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+        sshagent(['aws-openshift-41-key']) {
+            sh """
+                export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                    kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete services --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+                done
+                kubectl get svc --all-namespaces || true
+
+                /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
+            """
+        }
+    }
+}
+
+void pushArtifactFile(String FILE_NAME) {
+    echo "Push $FILE_NAME file to S3!"
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            touch $FILE_NAME
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
+            aws s3 ls \$S3_PATH/$FILE_NAME || :
+            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
         """
     }
+}
+
+TestsReport = '<testsuite name=\\"PSMDB\\">\n'
+void makeReport() {
+    for (int i=0; i<tests.size(); i++) {
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"]
+        def testName = tests[i]["name"]
+
+        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
+    }
+    TestsReport = TestsReport + '</testsuite>\n'
 }
 
 void runTest(Integer TEST_ID) {
@@ -212,22 +260,22 @@ void runTest(Integer TEST_ID) {
             tests[TEST_ID]["result"] = "failure"
 
             timeout(time: 90, unit: 'MINUTES') {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
-                    sh """
-                        cd source
+                sh """
+                    cd source
 
-                        export DEBUG_TESTS=1
-                        [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                        export IMAGE_MONGOD=$IMAGE_MONGOD
-                        export IMAGE_BACKUP=$IMAGE_BACKUP
-                        export IMAGE_PMM=$IMAGE_PMM
-                        export IMAGE_PMM_SERVER_REPO=$IMAGE_PMM_SERVER_REPO
-                        export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
-                        export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+                    export DEBUG_TESTS=1
+                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$env.GIT_BRANCH
+                    export IMAGE_MONGOD=$IMAGE_MONGOD
+                    export IMAGE_BACKUP=$IMAGE_BACKUP
+                    export IMAGE_PMM=$IMAGE_PMM
+                    export IMAGE_PMM_SERVER_REPO=$IMAGE_PMM_SERVER_REPO
+                    export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
 
-                        e2e-tests/$testName/run
-                    """
-                }
+                    export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
+                    oc whoami
+
+                    e2e-tests/$testName/run
+                """
             }
             pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
@@ -250,79 +298,9 @@ void runTest(Integer TEST_ID) {
     }
 }
 
-void pushArtifactFile(String FILE_NAME) {
-    echo "Push $FILE_NAME file to S3!"
-
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            touch $FILE_NAME
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
-            aws s3 ls \$S3_PATH/$FILE_NAME || :
-            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
-        """
-    }
-}
-
-TestsReport = '<testsuite name=\\"PSMDB\\">\n'
-void makeReport() {
-    echo "=========================[ Generating Test Report ]========================="
-    for (int i=0; i<tests.size(); i++) {
-        def testResult = tests[i]["result"]
-        def testTime = tests[i]["time"]
-        def testName = tests[i]["name"]
-
-        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
-    }
-    TestsReport = TestsReport + '</testsuite>\n'
-}
-
-void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-$CLUSTER_SUFFIX --region $region || true
-            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
-            done
-            kubectl get svc --all-namespaces || true
-
-            VPC_ID=\$(eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $region -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
-            if [ -n "\$VPC_ID" ]; then
-                LOADBALS=\$(aws elb describe-load-balancers --region $region --output json | jq --raw-output '.LoadBalancerDescriptions[] | select(.VPCId == "'\$VPC_ID'").LoadBalancerName')
-                for loadbal in \$LOADBALS; do
-                    aws elb delete-load-balancer --load-balancer-name \$loadbal --region $region
-                done
-                eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction || true
-
-                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $region || true)
-                if [ -n "\$VPC_DESC" ]; then
-                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $region || true
-                fi
-                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $region || true)
-                if [ -n "\$VPC_DESC" ]; then
-                    for secgroup in \$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=\$VPC_ID --query 'SecurityGroups[*].GroupId' --output text --region $region); do
-                        aws ec2 delete-security-group --group-id \$secgroup --region $region || true
-                    done
-
-                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $region || true
-                fi
-            fi
-            aws cloudformation delete-stack --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $region || true
-            aws cloudformation wait stack-delete-complete --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $region || true
-
-            eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $region || true
-            aws cloudformation list-stacks --region $region | jq '.StackSummaries[] | select(.StackName | startswith("'eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster'"))' || true
-        """
-    }
-}
-
 pipeline {
     environment {
+        TF_IN_AUTOMATION = 'true'
         CLEAN_NAMESPACE = 1
         MDB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
     }
@@ -350,7 +328,7 @@ pipeline {
             name: 'GIT_REPO')
         string(
             defaultValue: 'latest',
-            description: 'EKS kubernetes version',
+            description: 'OpenShift version',
             name: 'PLATFORM_VER')
         choice(
             choices: 'YES\nNO',
@@ -370,7 +348,7 @@ pipeline {
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/pmm-client:dev-latest',
+            description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
             name: 'IMAGE_PMM')
         string(
             defaultValue: '',
@@ -408,26 +386,46 @@ pipeline {
                 initTests()
             }
         }
-        stage('Run Tests') {
+        stage('Run tests') {
             parallel {
                 stage('cluster1') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
                     steps {
                         clusterRunner('cluster1')
                     }
                 }
                 stage('cluster2') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
                     steps {
                         clusterRunner('cluster2')
                     }
                 }
                 stage('cluster3') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
                     steps {
                         clusterRunner('cluster3')
                     }
                 }
                 stage('cluster4') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
                     steps {
                         clusterRunner('cluster4')
+                    }
+                }
+                stage('cluster5') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
+                    steps {
+                        clusterRunner('cluster5')
                     }
                 }
             }
@@ -444,6 +442,10 @@ pipeline {
             archiveArtifacts '*.xml'
 
             script {
+                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
+                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+                }
+
                 clusters.each { shutdownCluster(it) }
             }
 
