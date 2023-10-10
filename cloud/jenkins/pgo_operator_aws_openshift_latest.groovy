@@ -1,4 +1,4 @@
-region='us-central1-a'
+region='eu-west-3'
 tests=[]
 clusters=[]
 
@@ -10,34 +10,28 @@ void prepareNode() {
 
         curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
+
         sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
         sudo chmod +x /usr/local/bin/yq
 
         sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
         sudo chmod +x /usr/local/bin/jq
 
-        sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
-[google-cloud-cli]
-name=Google Cloud CLI
-baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-        sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+        sudo percona-release enable-only tools
+        sudo yum install -y percona-xtrabackup-80 | true
+
+        wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
+        unzip terraform_0.11.14_linux_amd64.zip
+        sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
     """
+}
 
-    echo "=========================[ Logging in the Kubernetes provider ]========================="
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
-            gcloud config set project $GCP_PROJECT
-        """
-    }
-
+void prepareSources() {
     if ("$PLATFORM_VER" == "latest") {
-        USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
+        USED_PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", , returnStdout: true).trim()
     } else {
         USED_PLATFORM_VER="$PLATFORM_VER"
     }
@@ -57,8 +51,8 @@ EOF
 
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-        CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM-$IMAGE_PMM_SERVER_REPO-$IMAGE_PMM_SERVER_TAG | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        CLUSTER_NAME = sh(script: "echo jenkins-lat-pg-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_HA_IMAGE-$PGO_BACKREST_IMAGE-$PGO_PGBADGER_IMAGE-$PMM_SERVER_IMAGE_BASE-$PMM_SERVER_IMAGE_TAG-$PMM_CLIENT_IMAGE | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -67,12 +61,12 @@ void dockerBuildPush() {
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             if [[ "$OPERATOR_IMAGE" ]]; then
-                echo "SKIP: Build is not needed, PSMDB operator image was set!"
+                echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
                 sg docker -c "
                     docker login -u '$USER' -p '$PASS'
-                    export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                    export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                     e2e-tests/build
                     docker logout
                 "
@@ -113,7 +107,7 @@ void initTests() {
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PPG_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
@@ -127,11 +121,15 @@ void initTests() {
         }
     }
 
-    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret.yml
+            cp $CLOUD_MINIO_SECRET_FILE source/e2e-tests/conf/cloud-secret-minio-gw.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret-minio-gw.yml
         """
     }
+    stash includes: "source/**", name: "sourceFILES"
 }
 
 void clusterRunner(String cluster) {
@@ -158,41 +156,64 @@ void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
     if ("$CLUSTER_WIDE" == "YES") {
-        OPERATOR_NS = 'psmdb-operator'
+        OPERATOR_NS = 'pg-operator'
     }
 
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            mkdir -p openshift/$CLUSTER_SUFFIX
+tee openshift/$CLUSTER_SUFFIX/install-config.yaml << EOF
+additionalTrustBundlePolicy: Proxyonly
+apiVersion: v1
+baseDomain: cd.percona.com
+compute:
+- architecture: amd64
+  hyperthreading: Enabled
+  name: worker
+  platform:
+    aws:
+      type: m5.2xlarge
+  replicas: 3
+controlPlane:
+  architecture: amd64
+  hyperthreading: Enabled
+  name: master
+  platform: {}
+  replicas: 1
+metadata:
+  creationTimestamp: null
+  name: openshift-lat-pg-jenkins-$CLUSTER_SUFFIX
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 10.0.0.0/16
+  networkType: OVNKubernetes
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  aws:
+    region: $region
+    userTags:
+      iit-billing-tag: openshift
+      delete-cluster-after-hours: 8
+      team: cloud
+      product: pg-operator
 
-            maxRetries=15
-            exitCode=1
-            while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
-                gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                    --release-channel rapid \
-                    --zone $region \
-                    --cluster-version $USED_PLATFORM_VER \
-                    --preemptible \
-                    --disk-size 30 \
-                    --machine-type n1-standard-4 \
-                    --num-nodes=4 \
-                    --min-nodes=4 \
-                    --max-nodes=6 \
-                    --network=jenkins-vpc \
-                    --subnetwork=jenkins-$CLUSTER_SUFFIX \
-                    --cluster-ipv4-cidr=/21 \
-                    --labels delete-cluster-after-hours=6 \
-                    --enable-ip-alias \
-                    --workload-pool=cloud-dev-112233.svc.id.goog &&\
-                kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
-                exitCode=\$?
-                if [[ \$exitCode == 0 ]]; then break; fi
-                (( maxRetries -- ))
-                sleep 1
-            done
-            if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
+publish: External
+EOF
+            cat $OPENSHIFT_CONF_FILE >> openshift/$CLUSTER_SUFFIX/install-config.yaml
         """
-   }
+
+        sshagent(['aws-openshift-41-key']) {
+            sh """
+                /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
+                export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+
+            """
+        }
+    }
 }
 
 void runTest(Integer TEST_ID) {
@@ -210,24 +231,32 @@ void runTest(Integer TEST_ID) {
                 sh """
                     cd source
 
-                    export DEBUG_TESTS=1
-                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                    export IMAGE_MONGOD=$IMAGE_MONGOD
-                    export IMAGE_BACKUP=$IMAGE_BACKUP
-                    export IMAGE_PMM=$IMAGE_PMM
-                    export IMAGE_PMM_SERVER_REPO=$IMAGE_PMM_SERVER_REPO
-                    export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE_OPERATOR=$OPERATOR_IMAGE || export IMAGE_OPERATOR=perconalab/percona-postgresql-operator:$GIT_BRANCH-postgres-operator
+
+                    export IMAGE_PGOEVENT=$PGO_EVENT_IMAGE
+                    export IMAGE_RMDATA=$PGO_RMDATA_IMAGE
+                    export IMAGE_SCHEDULER=$PGO_SCHEDULER_IMAGE
+                    export IMAGE_DEPLOYER=$PGO_DEPLOYER_IMAGE
+                    export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
+                    if [[ "$PGO_POSTGRES_HA_IMAGE" ]]; then
+                        export IMAGE_POSTGRESQL=${PGO_POSTGRES_HA_IMAGE}
+                        export PG_VER=\$(echo \${IMAGE_POSTGRESQL} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
+                    fi
+                    export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
+                    export IMAGE_BACKREST_REPO=$PGO_BACKREST_REPO_IMAGE
+                    export IMAGE_PGBADGER=$PGO_PGBADGER_IMAGE
+                    export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
+                    oc whoami
 
                     e2e-tests/$testName/run
                 """
             }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PPG_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
         catch (exc) {
-            if (retryCount >= 1) {
+            if (retryCount >= 2) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
@@ -256,7 +285,7 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PSMDB\\">\n'
+TestsReport = '<testsuite name=\\"PGO\\">\n'
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
     for (int i=0; i<tests.size(); i++) {
@@ -270,27 +299,31 @@ void makeReport() {
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
-            done
-            kubectl get svc --all-namespaces || true
-            gcloud container clusters delete --zone $region $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
-        """
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+        sshagent(['aws-openshift-41-key']) {
+            sh """
+                export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                    kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete services --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+                done
+                kubectl get svc --all-namespaces || true
+
+                /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
+            """
+        }
     }
 }
 
 pipeline {
     environment {
+        CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
-        MDB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
+        PPG_TAG = sh(script: "[[ \"$OPERATOR_IMAGE\" ]] && echo $OPERATOR_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg15", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -306,46 +339,58 @@ pipeline {
             description: 'Ignore passed tests in previous run (run all)',
             name: 'IGNORE_PREVIOUS_RUN'
         )
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
-            name: 'GIT_BRANCH')
-        string(
-            defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
-            description: 'percona-server-mongodb-operator repository',
-            name: 'GIT_REPO')
-        string(
-            defaultValue: 'latest',
-            description: 'GKE kubernetes version',
-            name: 'PLATFORM_VER')
         choice(
             choices: 'YES\nNO',
-            description: 'Run tests in cluster wide mode',
+            description: 'Run tests with cluster wide',
             name: 'CLUSTER_WIDE')
         string(
+            defaultValue: 'latest',
+            description: 'Kubernetes target version',
+            name: 'PLATFORM_VER')
+        string(
+            defaultValue: 'main',
+            description: 'Tag/Branch for percona/percona-postgresql-operator repository',
+            name: 'GIT_BRANCH')
+        string(
+            defaultValue: 'https://github.com/percona/percona-postgresql-operator',
+            description: 'percona-postgresql-operator repository',
+            name: 'GIT_REPO')
+        string(
             defaultValue: '',
-            description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
+            description: 'PG version',
+            name: 'PG_VERSION')
+        string(
+            defaultValue: '',
+            description: 'Operator image: perconalab/percona-postgresql-operator:main',
             name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod5.0',
-            name: 'IMAGE_MONGOD')
+            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg15-pgbouncer',
+            name: 'PGO_PGBOUNCER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-server-mongodb-operator:main-backup',
-            name: 'IMAGE_BACKUP')
+            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg15-postgres-ha',
+            name: 'PGO_POSTGRES_HA_IMAGE')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/pmm-client:dev-latest',
-            name: 'IMAGE_PMM')
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg15-pgbackrest',
+            name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',
-            description: 'PMM server image repo: perconalab/pmm-server',
-            name: 'IMAGE_PMM_SERVER_REPO')
+            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg15-pgbadger',
+            name: 'PGO_PGBADGER_IMAGE')
+        string(
+            defaultValue: '',
+            description: 'PMM server image base: perconalab/pmm-server',
+            name: 'PMM_SERVER_IMAGE_BASE')
         string(
             defaultValue: '',
             description: 'PMM server image tag: dev-latest',
-            name: 'IMAGE_PMM_SERVER_TAG')
+            name: 'PMM_SERVER_IMAGE_TAG')
+        string(
+            defaultValue: '',
+            description: 'PMM server image: perconalab/pmm-client:dev-latest',
+            name: 'PMM_CLIENT_IMAGE')
     }
     agent {
         label 'docker'
@@ -356,12 +401,13 @@ pipeline {
         disableConcurrentBuilds()
     }
     triggers {
-        cron('0 15 * * 6')
+        cron('0 15 * * 0')
     }
     stages {
         stage('Prepare node') {
             steps {
                 prepareNode()
+                prepareSources()
             }
         }
         stage('Docker Build and Push') {
@@ -377,33 +423,43 @@ pipeline {
         stage('Run Tests') {
             parallel {
                 stage('cluster1') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
                 }
                 stage('cluster2') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
                 }
                 stage('cluster3') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
                 }
                 stage('cluster4') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster4')
-                    }
-                }
-                stage('cluster5') {
-                    steps {
-                        clusterRunner('cluster5')
-                    }
-                }
-                stage('cluster6') {
-                    steps {
-                        clusterRunner('cluster6')
                     }
                 }
             }

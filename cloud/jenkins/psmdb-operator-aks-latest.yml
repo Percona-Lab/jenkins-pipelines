@@ -11,7 +11,7 @@
         artifact-days-to-keep: -1
         artifact-num-to-keep: 10
     triggers:
-      - timed: "0 0 * * 1"
+      - timed: "0 15 * * 6"
     pipeline-scm:
       scm:
         - git:
@@ -35,7 +35,7 @@
         default: sergey.pronin
         description: Slack user to notify on failures
     - string:
-        name: PSMDB_OPERATOR_IMAGE
+        name: OPERATOR_IMAGE
         default:
         description: Operator image
     - string:
