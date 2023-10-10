@@ -55,7 +55,7 @@ def call(String type='latest') {
 
   List<String> versionsList = new ArrayList<>(versions.keySet());
   // Grab 5 latest versions
-  List<String> ovfVersions = ['2.38.1', '2.38.0', '2.37.1', '2.37.0', '2.36.0', '2.35.0'];
+  List<String> ovfVersions = ['2.39.0', '2.38.1', '2.38.0', '2.37.1', '2.37.0', '2.36.0'];
   List<String> dbaasVersions = ['2.38.1', '2.38.0', '2.37.1', '2.37.0', '2.36.0', '2.35.0'];
 
   switch(type) {

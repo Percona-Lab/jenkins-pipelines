@@ -10,26 +10,16 @@ set -o xtrace
 ROOT_DIR=$(cd $(dirname $0)/..; pwd -P)/sources
 
 if [ ! -d "${ROOT_DIR}" ]; then
-    git clone "${GIT_REPO:-https://github.com/percona/percona-xtrabackup}" "${ROOT_DIR}"
+    BRANCH_CMD=""
+    if [ -n "${BRANCH}" ]; then
+        BRANCH_CMD="-b ${BRANCH}"
+    fi
+    git clone --depth=1 ${BRANCH_CMD} "${GIT_REPO:-https://github.com/percona/percona-xtrabackup}" "${ROOT_DIR}"
 fi
 
 pushd $ROOT_DIR
 
-    if [ -n "${GIT_REPO}" ]; then
-        git remote set-url origin "${GIT_REPO}"
-        git fetch --all
-    fi
-
-    git reset --hard
-    git clean -xdf
-
-    if [ -n "${BRANCH}" ]; then
-        git checkout "${BRANCH}"
-    fi
-    if [ -n "${GIT_REPO}" -a -n "${BRANCH}" ]; then
-        git pull origin ${BRANCH}
-    fi
-    git submodule deinit -f . || true
-    git submodule init
-    git submodule update
+git submodule deinit -f . || true
+git submodule init
+git submodule update
 popd

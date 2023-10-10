@@ -1,7 +1,7 @@
 pipeline {
     parameters {
         choice(
-            choices: 'centos:7\ncentos:8\noraclelinux:9\nubuntu:bionic\nubuntu:focal\nubuntu:jammy\ndebian:buster\ndebian:bullseye\nasan',
+            choices: 'centos:7\ncentos:8\noraclelinux:9\nubuntu:jammy\ndebian:bullseye\nasan',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -34,15 +34,15 @@ pipeline {
             name: 'WITH_AZURITE')
         booleanParam(
             name: 'WITH_XBCLOUD_TESTS',
-            defaultValue: true,
+            defaultValue: false,
             description: 'Run xbcloud tests')
         booleanParam(
             name: 'WITH_VAULT_TESTS',
-            defaultValue: true,
+            defaultValue: false,
             description: 'Run vault tests')
         booleanParam(
             name: 'WITH_KMIP_TESTS',
-            defaultValue: true,
+            defaultValue: false,
             description: 'Run kmip tests')
         choice(
             choices: 'docker-32gb\ndocker',
@@ -78,7 +78,7 @@ pipeline {
                         sudo git -C sources reset --hard || :
                         sudo git -C sources clean -xdf   || :
                         '''
-                    copyArtifacts filter: 'COMPILE_BUILD_TAG', projectName: 'percona-xtrabackup-8.0-compile-param', selector: lastSuccessful()
+                    copyArtifacts filter: 'COMPILE_BUILD_TAG', projectName: 'percona-xtrabackup-8.0-compile-param', selector: specific("${USE_BINARIES_FROM_BUILD_ID}")
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '24e68886-c552-4033-8503-ed85bbaa31f3', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
                             #!/bin/bash
