@@ -289,7 +289,7 @@ pipeline {
                 setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', ENABLE_PULL_MODE, 'no', 'yes', 'compose_setup', ADMIN_PASSWORD)
                 script {
                     env.PS_VERSION = "8.0.33"
-                    env.MO_VERSION = "4.4.25"
+                    env.MODB_VERSION = "4.4.25"
                     env.PDPGSQL_VERSION = "16.0"
                 }
                 sh """
@@ -301,11 +301,11 @@ pipeline {
                     fi
                     
                     export PS_VERSION=${env.PS_VERSION}
-                    export MO_VERSION=${env.MO_VERSION}
+                    export MODB_VERSION=${env.MODB_VERSION}
                     export PDPGSQL_VERSION=${env.PDPGSQL_VERSION}
                     export PMM_REPO=${env.PMM_REPO}
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
-                        --mo-version  ${env.MO_VERSION} \
+                        --modb-version  ${env.MODB_VERSION} \
                         --ps-version  ${env.PS_VERSION} \
                         --pdpgsql-version ${env.PDPGSQL_VERSION} \
                         --download \
