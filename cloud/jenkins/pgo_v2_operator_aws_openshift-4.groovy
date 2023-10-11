@@ -154,9 +154,18 @@ void createCluster(String CLUSTER_SUFFIX) {
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
+            platform_version=`echo "\${params.PLATFORM_VER}" | awk -F. '{ printf("%d%03d%03d%03d\\n", \$1,\$2,\$3,\$4); }';`
+            version=`echo "4.12.0" | awk -F. '{ printf("%d%03d%03d%03d\\n", \$1,\$2,\$3,\$4); }';`
+            if [ \$platform_version -ge \$version ];then
+                POLICY="additionalTrustBundlePolicy: Proxyonly"
+                NETWORK_TYPE="OVNKubernetes"
+            else
+                POLICY=""
+                NETWORK_TYPE="OpenShiftSDN"
+            fi
             mkdir -p openshift/$CLUSTER_SUFFIX
 tee openshift/$CLUSTER_SUFFIX/install-config.yaml << EOF
-additionalTrustBundlePolicy: Proxyonly
+\$POLICY
 apiVersion: v1
 baseDomain: cd.percona.com
 compute:
@@ -182,7 +191,7 @@ networking:
     hostPrefix: 23
   machineNetwork:
   - cidr: 10.0.0.0/16
-  networkType: OVNKubernetes
+  networkType: \$NETWORK_TYPE
   serviceNetwork:
   - 172.30.0.0/16
 platform:
