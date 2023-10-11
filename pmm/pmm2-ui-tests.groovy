@@ -288,7 +288,7 @@ pipeline {
             steps {
                 setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', ENABLE_PULL_MODE, 'no', 'yes', 'compose_setup', ADMIN_PASSWORD)
                 script {
-                    env.PS_VERSION = "8.0.33"
+                    env.PS_VERSION = "8.0.34-26"
                     env.MODB_VERSION = "4.4.25"
                     env.PDPGSQL_VERSION = "16.0"
                 }
