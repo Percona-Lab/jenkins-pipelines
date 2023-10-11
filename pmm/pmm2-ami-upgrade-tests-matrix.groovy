@@ -1,4 +1,7 @@
-library 'my-shared-library'
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+        $class: 'GitSCMSource',
+        remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+]) _
 
 void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH) {
     upgradeJob = build job: 'pmm2-ami-upgrade-tests', parameters: [
