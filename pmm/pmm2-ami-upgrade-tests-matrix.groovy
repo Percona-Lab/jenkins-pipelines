@@ -18,7 +18,7 @@ def devLatestVersion = pmmVersion()
 def amiVersions = pmmVersion('ami').keySet() as List
 def versions = amiVersions[-5..-1]
 def parallelStagesMatrix = versions.collectEntries {
-    def to = PMM_SERVER_LATEST
+    def to = params.PMM_SERVER_LATEST
     ["${it}->${to}" : generateStage(it)]
 }
 
