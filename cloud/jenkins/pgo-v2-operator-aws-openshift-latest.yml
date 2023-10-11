@@ -24,10 +24,6 @@
         default: main
         description: Tag/Branch for percona/percona-postgresql-operator repository
     - string:
-        name: GKE_VERSION
-        default: 'latest'
-        description: GKE version
-    - string:
         name: OWNER_SLACK
         default: sergey.pronin
         description: Slack user to notify on failures
@@ -36,43 +32,15 @@
         default:
         description: Operator image
     - string:
-        name: PGO_APISERVER_IMAGE
-        default:
-        description: Operator API server image
-    - string:
-        name: PGO_EVENT_IMAGE
-        default:
-        description: Operator event server image
-    - string:
-        name: PGO_RMDATA_IMAGE
-        default:
-        description: Operator rmdata image
-    - string:
-        name: PGO_SCHEDULER_IMAGE
-        default:
-        description: Operator scheduler image
-    - string:
-        name: PGO_DEPLOYER_IMAGE
-        default:
-        description: Operator deployer image
-    - string:
         name: PGO_PGBOUNCER_IMAGE
         default:
         description: Operator pgBouncer image
     - string:
-        name: PGO_POSTGRES_HA_IMAGE
+        name: PGO_POSTGRES_IMAGE
         default:
         description: Operator postgres image
     - string:
         name: PGO_BACKREST_IMAGE
         default:
         description: Operator backrest utility image
-    - string:
-        name: PGO_BACKREST_REPO_IMAGE
-        default:
-        description: Operator backrest utility image
-    - string:
-        name: PGO_PGBADGER_IMAGE
-        default:
-        description: Operator pgBadger image
 
