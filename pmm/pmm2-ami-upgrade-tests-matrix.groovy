@@ -26,13 +26,13 @@ def parallelStagesMatrix = versions.collectEntries {String it ->
         enableTestingRepo = 'yes'
         pmmServerLatestVersion = pmmVersion('rc')
     }
-    ["${it} -> ${pmmServerLatestVersion}" : generateStage(it, pmmServerLatestVersion)]
+    ["${it} -> ${pmmServerLatestVersion}" : generateStage(it, pmmServerLatestVersion, enableTestingRepo)]
 }
 
-def generateStage(String VERSION, String p ) {
+def generateStage(String version, String latest, String enableRepo) {
     return {
-        stage("${VERSION}") {
-            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, VERSION, p, ENABLE_TESTING_REPO, PMM_QA_BRANCH)
+        stage("${version}") {
+            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, version, latest, enableRepo, PMM_QA_BRANCH)
         }
     }
 }
@@ -54,10 +54,6 @@ pipeline {
                 choices: ['dev-latest', 'release candidate'],
                 description: 'Upgrade to:',
                 name: 'UPGRADE_TO')
-        choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo for RC',
-            name: 'ENABLE_TESTING_REPO')
     }
     options {
         skipDefaultCheckout()
