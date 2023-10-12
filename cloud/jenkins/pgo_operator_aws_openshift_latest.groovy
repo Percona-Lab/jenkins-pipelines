@@ -52,7 +52,7 @@ void prepareSources() {
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-pg-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_HA_IMAGE-$PGO_BACKREST_IMAGE-$PGO_PGBADGER_IMAGE-$PMM_SERVER_IMAGE_BASE-$PMM_SERVER_IMAGE_TAG-$PMM_CLIENT_IMAGE | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_HA_IMAGE-$PGO_BACKREST_IMAGE-$PGO_PGBADGER_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -245,6 +245,8 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
                     export IMAGE_BACKREST_REPO=$PGO_BACKREST_REPO_IMAGE
                     export IMAGE_PGBADGER=$PGO_PGBADGER_IMAGE
+                    export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                    export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
                     export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
                     oc whoami
 
@@ -381,16 +383,12 @@ pipeline {
             name: 'PGO_PGBADGER_IMAGE')
         string(
             defaultValue: '',
-            description: 'PMM server image base: perconalab/pmm-server',
-            name: 'PMM_SERVER_IMAGE_BASE')
+            description: 'PMM client image: perconalab/pmm-client:dev-latest',
+            name: 'IMAGE_PMM_CLIENT')
         string(
             defaultValue: '',
-            description: 'PMM server image tag: dev-latest',
-            name: 'PMM_SERVER_IMAGE_TAG')
-        string(
-            defaultValue: '',
-            description: 'PMM server image: perconalab/pmm-client:dev-latest',
-            name: 'PMM_CLIENT_IMAGE')
+            description: 'PMM server image: perconalab/pmm-server:dev-latest',
+            name: 'IMAGE_PMM_SERVER')
     }
     agent {
         label 'docker'
