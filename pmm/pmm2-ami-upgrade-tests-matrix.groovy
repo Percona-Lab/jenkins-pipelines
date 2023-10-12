@@ -49,14 +49,14 @@ pipeline {
                 choices: ['dev-latest', 'release candidate'],
                 description: 'Upgrade to:',
                 name: 'UPGRADE_TO')
-//        string(
-//                defaultValue: devLatestVersion,
-//                description: 'Upgrade to version:',
-//                name: 'PMM_SERVER_LATEST')
-//        choice(
-//            choices: ['no', 'yes'],
-//            description: 'Enable Testing Repo for RC',
-//            name: 'ENABLE_TESTING_REPO')
+        string(
+                defaultValue: devLatestVersion,
+                description: 'Upgrade to version:',
+                name: 'PMM_SERVER_LATEST')
+        choice(
+            choices: ['no', 'yes'],
+            description: 'Enable Testing Repo for RC',
+            name: 'ENABLE_TESTING_REPO')
     }
     options {
         skipDefaultCheckout()
