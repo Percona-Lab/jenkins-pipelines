@@ -22,18 +22,18 @@ List versions = amiVersions[-5..-1]
 def parallelStagesMatrix = versions.collectEntries {String it ->
     if ("${params.UPGRADE_TO}" == "dev-latest") {
         enableTestingRepo = 'no'
-        to = pmmVersion()
+        String to = pmmVersion()
     } else {
         enableTestingRepo = 'yes'
-        to = pmmVersion('rc')
+        String to = pmmVersion('rc')
     }
-    ["${it} -> ${to}" : generateStage(it)]
+    ["${it} -> ${to}" : generateStage(it, to)]
 }
 
-def generateStage(String VERSION) {
+def generateStage(String VERSION, String pmmServerLatest ) {
     return {
         stage("${VERSION}") {
-            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH)
+            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, VERSION, pmmServerLatest, ENABLE_TESTING_REPO, PMM_QA_BRANCH)
         }
     }
 }
