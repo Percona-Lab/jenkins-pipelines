@@ -14,11 +14,14 @@ void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, String PMM_VERSION, PMM_SERVER
     ]
 }
 
+String enableTestingRepo
+String pmmServerLatestVersion
 String devLatestVersion = pmmVersion()
 List amiVersions = pmmVersion('ami').keySet() as List
 List versions = amiVersions[-5..-1]
 def parallelStagesMatrix = versions.collectEntries {String it ->
-    ["${it} -> ${params.PMM_SERVER_LATEST}" : generateStage(it)]
+    String to = pmmServerLatestVersion
+    ["${it} -> ${to}" : generateStage(it)]
 }
 
 def generateStage(String VERSION) {
@@ -42,14 +45,18 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_BRANCH')
-        string(
-                defaultValue: devLatestVersion,
-                description: 'Upgrade to version:',
-                name: 'PMM_SERVER_LATEST')
         choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo for RC',
-            name: 'ENABLE_TESTING_REPO')
+                choices: ['dev-latest', 'release candidate'],
+                description: 'Upgrade to:',
+                name: 'UPGRADE_TO')
+//        string(
+//                defaultValue: devLatestVersion,
+//                description: 'Upgrade to version:',
+//                name: 'PMM_SERVER_LATEST')
+//        choice(
+//            choices: ['no', 'yes'],
+//            description: 'Enable Testing Repo for RC',
+//            name: 'ENABLE_TESTING_REPO')
     }
     options {
         skipDefaultCheckout()
@@ -59,6 +66,22 @@ pipeline {
         cron('0 1 * * 0')
     }
     stages{
+        stage('Process choices') {
+            steps {
+                script {
+                    if ("${params.UPGRADE_TO}" == "dev-latest") {
+                        enableTestingRepo = 'no'
+                        pmmServerLatestVersion = pmmVersion()
+                    } else {
+                        enableTestingRepo = 'yes'
+                        pmmServerLatestVersion = pmmVersion('rc')
+                    }
+                    versions.each { axis.add(new UpgradeRun(it, pmmServerLatestVersion, enableTestingRepo)) }
+                    echo "Starting with the following parameters: 'ENABLE_TESTING_REPO' = '${enableTestingRepo}'; " +
+                            "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
+                }
+            }
+        }
         stage('AMI Upgrade Matrix'){
             steps{
                 script {
