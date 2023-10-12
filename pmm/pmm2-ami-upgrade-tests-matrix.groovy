@@ -51,9 +51,9 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_BRANCH')
         choice(
-                choices: ['dev-latest', 'release candidate'],
-                description: 'Upgrade to:',
-                name: 'UPGRADE_TO')
+            choices: ['dev-latest', 'release candidate'],
+            description: 'Upgrade to:',
+            name: 'UPGRADE_TO')
     }
     options {
         skipDefaultCheckout()
