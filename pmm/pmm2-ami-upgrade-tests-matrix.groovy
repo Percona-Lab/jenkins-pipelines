@@ -56,10 +56,6 @@ pipeline {
                 choices: ['dev-latest', 'release candidate'],
                 description: 'Upgrade to:',
                 name: 'UPGRADE_TO')
-        string(
-                defaultValue: devLatestVersion,
-                description: 'Upgrade to version:',
-                name: 'PMM_SERVER_LATEST')
         choice(
             choices: ['no', 'yes'],
             description: 'Enable Testing Repo for RC',
@@ -73,21 +69,6 @@ pipeline {
         cron('0 1 * * 0')
     }
     stages{
-        stage('Process choices') {
-            steps {
-                script {
-                    if ("${params.UPGRADE_TO}" == "dev-latest") {
-                        enableTestingRepo = 'no'
-                        pmmServerLatestVersion = pmmVersion()
-                    } else {
-                        enableTestingRepo = 'yes'
-                        pmmServerLatestVersion = pmmVersion('rc')
-                    }
-                    echo "Starting with the following parameters: 'ENABLE_TESTING_REPO' = '${enableTestingRepo}'; " +
-                            "'PMM_SERVER_LATEST' = '${pmmServerLatestVersion}'"
-                }
-            }
-        }
         stage('AMI Upgrade Matrix'){
             steps{
                 script {
