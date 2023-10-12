@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH) {
+void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, String PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH) {
     upgradeJob = build job: 'pmm2-ami-upgrade-tests', parameters: [
         string(name: 'GIT_BRANCH', value: PMM_UI_TESTS_BRANCH),
         string(name: 'CLIENT_VERSION', value: PMM_VERSION),
@@ -14,17 +14,16 @@ void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, PMM_VERSION, PMM_SERVER_LATEST
     ]
 }
 
-def devLatestVersion = pmmVersion()
-def amiVersions = pmmVersion('ami').keySet() as List
-def versions = amiVersions[-5..-1]
-def parallelStagesMatrix = versions.collectEntries {
-    def to = params.PMM_SERVER_LATEST
-    ["${it}->${params.PMM_SERVER_LATEST}" : generateStage(it)]
+String devLatestVersion = pmmVersion()
+List amiVersions = pmmVersion('ami').keySet() as List
+List versions = amiVersions[-5..-1]
+def parallelStagesMatrix = versions.collectEntries {String it ->
+    ["${it} -> ${params.PMM_SERVER_LATEST}" : generateStage(it)]
 }
 
-def generateStage(VERSION) {
+def generateStage(String VERSION) {
     return {
-        stage("${VERSION} -> ${PMM_SERVER_LATEST}") {
+        stage("${VERSION}") {
             runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH)
         }
     }
