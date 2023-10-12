@@ -20,7 +20,13 @@ String devLatestVersion = pmmVersion()
 List amiVersions = pmmVersion('ami').keySet() as List
 List versions = amiVersions[-5..-1]
 def parallelStagesMatrix = versions.collectEntries {String it ->
-    String to = pmmServerLatestVersion
+    if ("${params.UPGRADE_TO}" == "dev-latest") {
+        enableTestingRepo = 'no'
+        to = pmmVersion()
+    } else {
+        enableTestingRepo = 'yes'
+        to = pmmVersion('rc')
+    }
     ["${it} -> ${to}" : generateStage(it)]
 }
 
