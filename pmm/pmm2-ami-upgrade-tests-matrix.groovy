@@ -1,6 +1,6 @@
 library changelog: false, identifier: 'lib@master', retriever: modernSCM([
-        $class: 'GitSCMSource',
-        remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, String PMM_VERSION, String PMM_SERVER_LATEST, String ENABLE_TESTING_REPO, PMM_QA_BRANCH) {
