@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, String PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_BRANCH) {
+void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, String PMM_VERSION, String PMM_SERVER_LATEST, String ENABLE_TESTING_REPO, PMM_QA_BRANCH) {
     upgradeJob = build job: 'pmm2-ami-upgrade-tests', parameters: [
         string(name: 'GIT_BRANCH', value: PMM_UI_TESTS_BRANCH),
         string(name: 'CLIENT_VERSION', value: PMM_VERSION),
