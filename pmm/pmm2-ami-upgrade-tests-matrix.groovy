@@ -14,6 +14,17 @@ void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, String PMM_VERSION, String PMM
     ]
 }
 
+def getVersion() {
+    def resp = httpRequest "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc"
+    println resp.content
+    return new groovy.json.JsonSlurper().parseText(temp.content)
+            .results
+            .findAll { it.name.endsWith("-rc") }
+            .collect { it.name }
+            .sort()[-1]
+            .split('-')[0]
+}
+
 String enableTestingRepo
 String pmmServerLatestVersion
 List amiVersions = pmmVersion('ami').keySet() as List
@@ -24,7 +35,7 @@ def parallelStagesMatrix = versions.collectEntries {String it ->
         pmmServerLatestVersion = pmmVersion()
     } else {
         enableTestingRepo = 'yes'
-        pmmServerLatestVersion = pmmVersion('rc')
+        pmmServerLatestVersion = getVersion()
     }
     ["${it} -> ${pmmServerLatestVersion}" : generateStage(it, pmmServerLatestVersion, enableTestingRepo)]
 }
