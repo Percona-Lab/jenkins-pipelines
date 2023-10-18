@@ -74,6 +74,8 @@ if [ -f /usr/bin/yum ]; then
   fi
 else
   if [[ $(lsb_release -sc) == "focal" ]] || [[ $(lsb_release -sc) == "buster" ]]; then
+    sudo apt update
+    sudo DEBIAN_FRONTEND=noninteractive apt install -y libtirpc3
     if [[ ${XTRABACKUP_TARGET} == "galera56" ]] || [[ ${XTRABACKUP_TARGET} == "xtradb56" ]]; then
       errmsg
     fi
