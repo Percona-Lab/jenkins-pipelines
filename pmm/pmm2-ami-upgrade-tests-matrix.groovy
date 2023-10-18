@@ -17,7 +17,7 @@ void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, String PMM_VERSION, String PMM
 def getVersion() {
 //    return '2.40.1'
     def resp = httpRequest "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc"
-    return new groovy.json.JsonSlurper().parseText(temp.content)
+    return new groovy.json.JsonSlurper().parseText(resp.content)
             .results
             .findAll { it.name.endsWith("-rc") }
             .collect { it.name }
