@@ -40,11 +40,11 @@ pipeline {
             description: 'Tag/Branch for PXB repository',
             name: 'BRANCH')
         string(
-            defaultValue: '1.1',
+            defaultValue: '1',
             description: 'RPM release value',
             name: 'RPM_RELEASE')
         string(
-            defaultValue: '1.1',
+            defaultValue: '1',
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
