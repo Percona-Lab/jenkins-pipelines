@@ -59,14 +59,8 @@ def call(String type='dev-latest') {
 
   switch(type) {
     case 'dev-latest':
-      sh(script: "sudo yum install -y wget jq")
-      String rcLatest = sh(
-              script: """wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name | grep '.*.*-rc\$' | sort -V | tail -n1""",
-              returnStdout: true
-      ).trim()
-      int major = rcLatest.split('\\.')[0] as Integer
-      int minor = rcLatest.split('\\.')[1] as Integer
-      return major + "." + ++minor + ".0"
+      def latestVersion = httpRequest "https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/PMM-2.0/VERSION"
+      return latestVersion.content
     case 'rc':
       sh(script: "sudo yum install -y wget jq")
       String rcLatest = sh(
