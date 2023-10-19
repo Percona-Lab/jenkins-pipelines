@@ -63,6 +63,114 @@ void cleanUpWS() {
     """
 }
 
+def package_tests_ps80(){
+
+                    ps80_install_pkg_minitests_playbook = 'ps_80.yml'
+                    install_repo = 'testing'
+                    action_to_test = 'install'
+                    check_warnings = 'no'
+                    install_mysql_shell = 'no'
+                    def arrayA = [  "min-buster-x64",
+                                    "min-bullseye-x64",
+                                    "min-bookworm-x64",
+                                    "min-centos-7-x64",
+                                    "min-ol-8-x64",
+                                    "min-bionic-x64",
+                                    "min-focal-x64",
+                                    "min-amazon-2-x64",
+                                    "min-jammy-x64",
+                                    "min-ol-9-x64"     ]
+
+                    def stepsForParallel = [:]
+
+                    for (int i = 0; i < arrayA.size(); i++) {
+                        def nodeName = arrayA[i]
+                        stepsForParallel[nodeName] = {
+                                stage("Run on ${nodeName}") {
+                                    node(nodeName){
+                                    try{
+                                        if (nodeName == 'min-buster-x64' || nodeName == 'min-bullseye-x64' || nodeName == 'min-bookworm-x64') {
+                                            
+                                            sh '''
+                                                sudo apt-get update
+                                                sudo apt-get install -y ansible git wget
+                                            '''
+
+                                        } else if (nodeName == 'min-ol-8-x64') {
+                                            
+                                            sh '''
+                                                sudo yum install -y epel-release
+                                                sudo yum -y update
+                                                sudo yum install -y ansible-2.9.27 git wget tar
+                                            '''
+
+                                        } else if (nodeName == 'min-centos-7-x64' || nodeName == 'min-ol-9-x64'){
+                                            
+                                            sh '''
+                                                sudo yum install -y epel-release
+                                                sudo yum -y update
+                                                sudo yum install -y ansible git wget tar
+                                            '''
+
+                                        } else if (nodeName == 'min-bionic-x64' || nodeName == 'min-focal-x64' || nodeName == 'min-jammy-x64'){
+
+                                            sh '''
+                                                sudo apt-get update
+                                                sudo apt-get install -y software-properties-common
+                                                sudo apt-add-repository --yes --update ppa:ansible/ansible
+                                                sudo apt-get install -y ansible git wget
+                                            '''
+                                        
+                                        } else if (nodeName == 'min-amazon-2-x64'){
+
+                                            sh '''
+                                                sudo amazon-linux-extras install epel
+                                                sudo yum -y update
+                                                sudo yum install -y ansible git wget
+                                            '''
+
+                                        }  else {
+                                            
+                                            echo "Unexpected node name: ${nodeName}"
+                                        
+                                        }
+                                    } catch (Exception e){
+                                            stageSuccess = false
+                                            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: Server Provision for Mini Package Testing for ${nodeName} at ${BRANCH}  FAILED !!")
+                                    }
+                                        def playbook = "${ps80_install_pkg_minitests_playbook}"
+                                        def playbook_path = "package-testing/playbooks/${playbook}"
+
+                                        sh '''
+                                            git clone --depth 1 https://github.com/Percona-QA/package-testing
+                                        '''
+
+                                        try{
+                                            sh """
+                                                export install_repo="\${install_repo}"
+                                                export client_to_test="ps80"
+                                                export check_warning="\${check_warnings}"
+                                                export install_mysql_shell="\${install_mysql_shell}"
+                                                ansible-playbook \
+                                                --connection=local \
+                                                --inventory 127.0.0.1, \
+                                                --limit 127.0.0.1 \
+                                                ${playbook_path}
+                                            """
+                                        } catch (Exception e){
+                                            stageSuccess = false
+                                            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: Mini Package Testing for ${nodeName} at ${BRANCH}  FAILED !!")
+                                        }
+                                        if (!stageSuccessful) {
+                                            error("Mini Package Tests Failed! for ${nodeName}")
+                                        }
+                                    }                                    
+                                }
+                        }
+                    }
+                    parallel stepsForParallel
+}
+
 def AWS_STASH_PATH
 
 pipeline {
@@ -656,9 +764,17 @@ parameters {
 
                 """
                 }
+
+                echo "Start Minitests for PS"
+                
+                package_tests_ps80()
+                
                 echo "Trigger Package Testing Job for PS"
+
                 build job: 'package-testing-ps80', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: 'ps80'),string(name: 'install_repo', value: "testing"),string(name: 'node_to_test', value: "all"),string(name: 'action_to_test', value: "all"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
+                
                 echo "Trigger PMM_PS Github Actions Workflow"
+                
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                     sh """
                         curl -i -v -X POST \
@@ -668,6 +784,7 @@ parameters {
                              -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
                     """
                 }
+
             }
             deleteDir()
         }
