@@ -62,12 +62,13 @@ def call(String type='dev-latest') {
       def latestVersion = httpRequest "https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/PMM-2.0/VERSION"
       return latestVersion.content
     case 'rc':
-      sh(script: "sudo yum install -y wget jq")
-      String rcLatest = sh(
-              script: """wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name | grep '.*.*-rc\$' | sort -V | tail -n1""",
-              returnStdout: true
-      ).trim()
-      return rcLatest.split('-')[0]
+      def resp = httpRequest "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc"
+      return new groovy.json.JsonSlurper().parseText(resp.content)
+              .results
+              .findAll { it.name.endsWith("-rc") }
+              .collect { it.name }
+              .sort()[-1]
+              .split('-')[0]
     case 'stable':
       return versionsList[versionsList.size() - 2]
     case 'ami':
