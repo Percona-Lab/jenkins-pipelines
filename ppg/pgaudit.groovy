@@ -38,11 +38,11 @@ pipeline {
             name: 'GIT_REPO')
         string(
             defaultValue: 'ver_1.4.4',
-            description: 'Tag/Branch for postgresql',
+            description: 'Tag/Branch for pg_audit repository',
             name: 'PG_BRANCH')
         string(
             defaultValue: '16.0',
-            description: 'Tag/Branch for pg_audit repository',
+            description: 'Tag/Branch for pg_audit packaging repository',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '1',
@@ -110,7 +110,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:bionic", "--build_src_deb=1")
+                        buildStage("ubuntu:focal", "--build_src_deb=1")
 
                         pushArtifactFolder("source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
