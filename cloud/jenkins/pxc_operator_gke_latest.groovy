@@ -222,7 +222,7 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
-                    
+
                     e2e-tests/$testName/run
                 """
             }
