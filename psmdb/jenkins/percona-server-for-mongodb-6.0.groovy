@@ -299,10 +299,13 @@ pipeline {
                             } else {
                                 buildStage("centos:7", "--build_tarball=1")
                             }
+                            if (env.FIPSMODE == 'yes') {
+                                echo "The step is skipped ..."
+                            } else {
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                            }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Centos 7 debug binary tarball(glibc2.17)') {
@@ -342,10 +345,13 @@ pipeline {
                             } else {
                                 buildStage("ubuntu:jammy", "--build_tarball=1")
                             }
+                            if (env.FIPSMODE == 'yes') {
+                                echo "The step is skipped ..."
+                            } else {
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                            }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Ubuntu Jammy(22.04) debug binary tarball(glibc2.35)') {
