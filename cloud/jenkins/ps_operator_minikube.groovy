@@ -65,7 +65,7 @@ void markPassedTests() {
     }
 }
 
-TestsReport = '<testsuite name=\\"PS\\">\n'
+TestsReport = '<testsuite name=\\"PS-MiniKube-version\\">\n'
 void makeReport() {
     for (int i=0; i<tests.size(); i++) {
         def testResult = tests[i]["result"]

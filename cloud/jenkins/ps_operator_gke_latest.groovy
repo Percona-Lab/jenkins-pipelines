@@ -286,7 +286,7 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PS\\">\n'
+TestsReport = '<testsuite name=\\"PS-GKE-latest\\">\n'
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
     for (int i=0; i<tests.size(); i++) {

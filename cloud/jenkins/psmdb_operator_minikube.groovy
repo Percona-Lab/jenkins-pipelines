@@ -71,7 +71,7 @@ void markPassedTests() {
     }
 }
 
-TestsReport = '<testsuite name=\\"PSMDB\\">\n'
+TestsReport = '<testsuite name=\\"PSMDB-MiniKube-version\\">\n'
 void makeReport() {
     for (int i=0; i<tests.size(); i++) {
         def testResult = tests[i]["result"]
