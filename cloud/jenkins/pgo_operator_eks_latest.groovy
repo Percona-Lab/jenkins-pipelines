@@ -240,8 +240,8 @@ void runTest(Integer TEST_ID) {
                         export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
 
                         if [[ "$PGO_POSTGRES_IMAGE" ]]; then
-                            export IMAGE_POSTGRESQL=${PGO_POSTGRES_IMAGE}
-                            export PG_VER=\$(echo \${IMAGE_POSTGRESQL} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
+                            export IMAGE_POSTGRESQL=$PGO_POSTGRES_IMAGE
+                            export PG_VER=\$(echo \$IMAGE_POSTGRESQL | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                         fi
 
                         export IMAGE_BACKREST=$PGO_BACKREST_IMAGE

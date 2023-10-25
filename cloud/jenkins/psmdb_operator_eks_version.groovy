@@ -224,30 +224,19 @@ void runTest(Integer TEST_ID) {
             timeout(time: 90, unit: 'MINUTES') {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
                     sh """
+                        cd source
+
                         export DEBUG_TESTS=1
-
-                        cd ./source
-                        if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
-                            export IMAGE=${PSMDB_OPERATOR_IMAGE}
-                        else
-                            export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
-                        fi
-
-                        if [ -n "${IMAGE_MONGOD}" ]; then
-                            export IMAGE_MONGOD=${IMAGE_MONGOD}
-                        fi
-
-                        if [ -n "${IMAGE_BACKUP}" ]; then
-                            export IMAGE_BACKUP=${IMAGE_BACKUP}
-                        fi
-
+                        [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                        export IMAGE_MONGOD=$IMAGE_MONGOD
+                        export IMAGE_BACKUP=$IMAGE_BACKUP
                         export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                         export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
                         export PATH=/home/ec2-user/.local/bin:$PATH
                         source $HOME/google-cloud-sdk/path.bash.inc
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
-                        ./e2e-tests/$testName/run
+                        e2e-tests/$testName/run
                     """
                 }
             }
@@ -310,7 +299,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
-            name: 'PSMDB_OPERATOR_IMAGE')
+            name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
             description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod5.0',
@@ -354,7 +343,7 @@ pipeline {
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                     CLUSTER_NAME = sh(script: "echo jenkins-ver-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PSMDB_OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
                 }
                 initTests()
 
@@ -391,7 +380,7 @@ pipeline {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
                     sh '''
-                        if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                        if [[ "$OPERATOR_IMAGE" ]]; then
                             echo "SKIP: Build is not needed, PSMDB operator image was set!"
                         else
                             cd ./source/

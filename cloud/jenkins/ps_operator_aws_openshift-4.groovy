@@ -38,7 +38,7 @@ void runTest(String TEST_NAME) {
             echo "The $TEST_NAME test was started!"
             testsReportMap[TEST_NAME] = 'failure'
 
-            def FILE_NAME = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-eks-${env.PLATFORM_VER}"
+            def FILE_NAME = "$GIT_BRANCH-$GIT_SHORT_COMMIT-$TEST_NAME-eks-$PLATFORM_VER-$PARAMS_HASH"
             popArtifactFile("$FILE_NAME")
 
             timeout(time: 90, unit: 'MINUTES') {
@@ -46,33 +46,15 @@ void runTest(String TEST_NAME) {
                     if [ -f "$FILE_NAME" ]; then
                         echo "Skipping $TEST_NAME test because it passed in previous run."
                     else
-                        cd ./source
-                        if [ -n "${OPERATOR_IMAGE}" ]; then
-                            export IMAGE=${OPERATOR_IMAGE}
-                        else
-                            export IMAGE=perconalab/percona-server-mysql-operator:${env.GIT_BRANCH}
-                        fi
+                        cd source
 
-                        if [ -n "${IMAGE_MYSQL}" ]; then
-                            export IMAGE_MYSQL=${IMAGE_MYSQL}
-                        fi
-
-                        if [ -n "${IMAGE_ORCHESTRATOR}" ]; then
-                            export IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR}
-                        fi
-
-                        if [ -n "${IMAGE_ROUTER}" ]; then
-                            export IMAGE_ROUTER=${IMAGE_ROUTER}
-                        fi
-
-                        if [ -n "${IMAGE_BACKUP}" ]; then
-                            export IMAGE_BACKUP=${IMAGE_BACKUP}
-                        fi
-
-                        if [ -n "${IMAGE_TOOLKIT}" ]; then
-                            export IMAGE_TOOLKIT=${IMAGE_TOOLKIT}
-                        fi
-
+                        [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
+                        export IMAGE_MYSQL=$IMAGE_MYSQL
+                        export IMAGE_ORCHESTRATOR=$IMAGE_ORCHESTRATOR
+                        export IMAGE_ROUTER=$IMAGE_ROUTER
+                        export IMAGE_HAPROXY=$IMAGE_HAPROXY
+                        export IMAGE_BACKUP=$IMAGE_BACKUP
+                        export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
                         export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                         export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
@@ -243,7 +225,7 @@ pipeline {
 
                         cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
 
-                        if [ -n "${OPERATOR_IMAGE}" ]; then
+                        if [[ "$OPERATOR_IMAGE" ]]; then
                             echo "SKIP: Build is not needed, operator image was set!"
                         else
                             cd ./source/
@@ -279,6 +261,7 @@ pipeline {
         stage('E2E Basic Tests') {
             environment {
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$OPERATOR_IMAGE-$IMAGE_MYSQL-$IMAGE_ORCHESTRATOR-$IMAGE_ROUTER-$IMAGE_BACKUP-$IMAGE_TOOLKIT-$IMAGE_HAPROXY-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
             }
             options {
                 timeout(time: 3, unit: 'HOURS')

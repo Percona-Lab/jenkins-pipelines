@@ -227,6 +227,7 @@ void runTest(Integer TEST_ID) {
                         export IMAGE_MYSQL=$IMAGE_MYSQL
                         export IMAGE_ORCHESTRATOR=$IMAGE_ORCHESTRATOR
                         export IMAGE_ROUTER=$IMAGE_ROUTER
+                        export IMAGE_HAPROXY=$IMAGE_HAPROXY
                         export IMAGE_BACKUP=$IMAGE_BACKUP
                         export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
                         export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT

@@ -104,23 +104,12 @@ void runTest(Integer TEST_ID) {
             tests[TEST_ID]["result"] = "failure"
 
             sh """
+                cd source
+
                 export DEBUG_TESTS=1
-
-                cd ./source
-                if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
-                    export IMAGE=${PSMDB_OPERATOR_IMAGE}
-                else
-                    export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
-                fi
-
-                if [ -n "${IMAGE_MONGOD}" ]; then
-                    export IMAGE_MONGOD=${IMAGE_MONGOD}
-                fi
-
-                if [ -n "${IMAGE_BACKUP}" ]; then
-                    export IMAGE_BACKUP=${IMAGE_BACKUP}
-                fi
-
+                [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                export IMAGE_MONGOD=$IMAGE_MONGOD
+                export IMAGE_BACKUP=$IMAGE_BACKUP
                 export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                 export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
@@ -194,7 +183,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
-            name: 'PSMDB_OPERATOR_IMAGE')
+            name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
             description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod4.0',
@@ -245,7 +234,7 @@ pipeline {
                 stash includes: "source/**", name: "sourceFILES", useDefaultExcludes: false
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PXC_OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
                 }
                 initTests()
             }
@@ -260,7 +249,7 @@ pipeline {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                        if [[ "$OPERATOR_IMAGE" ]]; then
                             echo "SKIP: Build is not needed, PSMDB operator image was set!"
                         else
                             cd ./source/

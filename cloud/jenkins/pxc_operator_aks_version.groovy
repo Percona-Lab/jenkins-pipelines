@@ -156,35 +156,15 @@ void runTest(Integer TEST_ID) {
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
+                    cd source
+
                     export DEBUG_TESTS=1
-
-                    cd ./source
-                    if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                        export IMAGE=${PXC_OPERATOR_IMAGE}
-                    else
-                        export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
-                    fi
-
-                    if [ -n "${IMAGE_PXC}" ]; then
-                        export IMAGE_PXC=${IMAGE_PXC}
-                    fi
-
-                    if [ -n "${IMAGE_PROXY}" ]; then
-                        export IMAGE_PROXY=${IMAGE_PROXY}
-                    fi
-
-                    if [ -n "${IMAGE_HAPROXY}" ]; then
-                        export IMAGE_HAPROXY=${IMAGE_HAPROXY}
-                    fi
-
-                    if [ -n "${IMAGE_BACKUP}" ]; then
-                        export IMAGE_BACKUP=${IMAGE_BACKUP}
-                    fi
-
-                    if [ -n "${IMAGE_LOGCOLLECTOR}" ]; then
-                        export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
-                    fi
-
+                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                    export IMAGE_PXC=$IMAGE_PXC
+                    export IMAGE_PROXY=$IMAGE_PROXY
+                    export IMAGE_HAPROXY=$IMAGE_HAPROXY
+                    export IMAGE_BACKUP=$IMAGE_BACKUP
+                    export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
@@ -356,7 +336,7 @@ EOF
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
-                        if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                        if [[ "$PXC_OPERATOR_IMAGE" ]]; then
                             echo "SKIP: Build is not needed, PXC operator image was set!"
                         else
                             cd ./source/

@@ -201,35 +201,15 @@ void runTest(Integer TEST_ID) {
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
+                    cd source
+
                     export DEBUG_TESTS=1
-
-                    cd ./source
-                    if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                        export IMAGE=${PXC_OPERATOR_IMAGE}
-                    else
-                        export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
-                    fi
-
-                    if [ -n "${IMAGE_PXC}" ]; then
-                        export IMAGE_PXC=${IMAGE_PXC}
-                    fi
-
-                    if [ -n "${IMAGE_PROXY}" ]; then
-                        export IMAGE_PROXY=${IMAGE_PROXY}
-                    fi
-
-                    if [ -n "${IMAGE_HAPROXY}" ]; then
-                        export IMAGE_HAPROXY=${IMAGE_HAPROXY}
-                    fi
-
-                    if [ -n "${IMAGE_BACKUP}" ]; then
-                        export IMAGE_BACKUP=${IMAGE_BACKUP}
-                    fi
-
-                    if [ -n "${IMAGE_LOGCOLLECTOR}" ]; then
-                        export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
-                    fi
-
+                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                    export IMAGE_PXC=$IMAGE_PXC
+                    export IMAGE_PROXY=$IMAGE_PROXY
+                    export IMAGE_HAPROXY=$IMAGE_HAPROXY
+                    export IMAGE_BACKUP=$IMAGE_BACKUP
+                    export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
@@ -302,7 +282,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-xtradb-cluster-operator:main',
-            name: 'PXC_OPERATOR_IMAGE')
+            name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
             description: 'PXC image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0',
@@ -358,7 +338,7 @@ pipeline {
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                     CLUSTER_NAME = sh(script: "echo jenkins-par-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PXC_OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
 
                 }
                 initTests()
@@ -398,7 +378,7 @@ pipeline {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
-                        if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                        if [[ "$OPERATOR_IMAGE" ]]; then
                             echo "SKIP: Build is not needed, PXC operator image was set!"
                         else
                             cd ./source/

@@ -98,33 +98,15 @@ void runTest(Integer TEST_ID) {
             tests[TEST_ID]["result"] = "failure"
 
             sh """
-                cd ./source
-                if [ -n "${OPERATOR_IMAGE}" ]; then
-                    export IMAGE=${OPERATOR_IMAGE}
-                else
-                    export IMAGE=perconalab/percona-server-mysql-operator:${env.GIT_BRANCH}
-                fi
+                cd source
 
-                if [ -n "${IMAGE_MYSQL}" ]; then
-                    export IMAGE_MYSQL=${IMAGE_MYSQL}
-                fi
-
-                if [ -n "${IMAGE_ORCHESTRATOR}" ]; then
-                    export IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR}
-                fi
-
-                if [ -n "${IMAGE_ROUTER}" ]; then
-                    export IMAGE_ROUTER=${IMAGE_ROUTER}
-                fi
-
-                if [ -n "${IMAGE_BACKUP}" ]; then
-                    export IMAGE_BACKUP=${IMAGE_BACKUP}
-                fi
-
-                if [ -n "${IMAGE_TOOLKIT}" ]; then
-                    export IMAGE_TOOLKIT=${IMAGE_TOOLKIT}
-                fi
-
+                [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
+                export IMAGE_MYSQL=$IMAGE_MYSQL
+                export IMAGE_ORCHESTRATOR=$IMAGE_ORCHESTRATOR
+                export IMAGE_ROUTER=$IMAGE_ROUTER
+                export IMAGE_HAPROXY=$IMAGE_HAPROXY
+                export IMAGE_BACKUP=$IMAGE_BACKUP
+                export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
                 export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                 export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
@@ -265,7 +247,7 @@ pipeline {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        if [ -n "${OPERATOR_IMAGE}" ]; then
+                        if [[ "$OPERATOR_IMAGE" ]]; then
                             echo "SKIP: Build is not needed, operator image was set!"
                         else
                             cd ./source/
