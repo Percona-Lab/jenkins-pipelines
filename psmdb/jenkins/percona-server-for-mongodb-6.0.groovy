@@ -319,9 +319,7 @@ pipeline {
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 echo "The step is skipped ..."
-                                /*
                                 buildStage("centos:7", "--debug=1 --enable_fipsmode=1")
-                                */
                             } else {
                                 buildStage("centos:7", "--debug=1")
                             }
@@ -367,9 +365,7 @@ pipeline {
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 echo "The step is skipped ..."
-                                /*
                                 buildStage("ubuntu:jammy", "--debug=1 --enable_fipsmode=1")
-                                */
                             } else {
                                 buildStage("ubuntu:jammy", "--debug=1")
                             }
