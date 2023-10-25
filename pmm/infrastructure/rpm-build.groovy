@@ -30,7 +30,7 @@ pipeline {
                         steps {
                             git poll: true,
                                 branch: PMM_GIT_BRANCH,
-                                url: 'https://github.com/percona/pmm.git'
+                                url: 'https://github.com/adivinho/pmm.git'
                         }
                     }
                     stage('Build') {
@@ -70,7 +70,7 @@ pipeline {
                         steps {
                             git poll: true,
                                 branch: PMM_GIT_BRANCH,
-                                url: 'https://github.com/percona/pmm.git'
+                                url: 'https://github.com/adivinho/pmm.git'
                         }
                     }
                     stage('Build') {
