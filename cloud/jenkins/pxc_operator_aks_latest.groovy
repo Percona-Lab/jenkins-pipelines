@@ -36,7 +36,7 @@ void prepareNode() {
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        USED_PLATFORM_VER = sh(script: "az aks get-versions --location $location --output json | jq -r '.values | max_by(.version) | .version'", , returnStdout: true).trim()
+        USED_PLATFORM_VER = sh(script: "az aks get-versions --location $location --output json | jq -r '.values | max_by(.patchVersions) | .patchVersions | keys[]' | sort --version-sort | tail -1", , returnStdout: true).trim()
     } else {
         USED_PLATFORM_VER="$PLATFORM_VER"
     }
@@ -209,7 +209,7 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
-                    
+
                     e2e-tests/$testName/run
                 """
             }
