@@ -374,9 +374,9 @@ pipeline {
                         pushArtifactFolder("debug/", AWS_STASH_PATH)
                     }
                 }
+*/
             }
         }
-*/
         stage('Sign packages') {
             steps {
                 signRPM()
