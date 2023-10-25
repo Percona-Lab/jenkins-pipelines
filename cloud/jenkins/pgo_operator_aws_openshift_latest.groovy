@@ -232,7 +232,6 @@ void runTest(Integer TEST_ID) {
                     cd source
 
                     [[ "$OPERATOR_IMAGE" ]] && export IMAGE_OPERATOR=$OPERATOR_IMAGE || export IMAGE_OPERATOR=perconalab/percona-postgresql-operator:$GIT_BRANCH-postgres-operator
-
                     export IMAGE_PGOEVENT=$PGO_EVENT_IMAGE
                     export IMAGE_RMDATA=$PGO_RMDATA_IMAGE
                     export IMAGE_SCHEDULER=$PGO_SCHEDULER_IMAGE
@@ -248,8 +247,8 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
                     export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
-                    oc whoami
 
+                    oc whoami
                     e2e-tests/$testName/run
                 """
             }
@@ -287,7 +286,7 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PG-OpenShift-latest\\">\n'
+TestsReport = '<testsuite name=\\"PGO\\">\n'
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
     for (int i=0; i<tests.size(); i++) {

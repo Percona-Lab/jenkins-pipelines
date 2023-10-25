@@ -131,17 +131,8 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PGBADGER=${PGO_PGBADGER_IMAGE}
                 fi
 
-                if [ -n "${PMM_SERVER_IMAGE_BASE}" ]; then
-                    export IMAGE_PMM_SERVER_REPO=${PMM_SERVER_IMAGE_BASE}
-                fi
-
-                if [ -n "${PMM_SERVER_IMAGE_TAG}" ]; then
-                    export IMAGE_PMM_SERVER_TAG=${PMM_SERVER_IMAGE_TAG}
-                fi
-
-                if [ -n "${PMM_CLIENT_IMAGE}" ]; then
-                    export IMAGE_PMM=${PMM_CLIENT_IMAGE}
-                fi
+                export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
                 sudo rm -rf /tmp/hostpath-provisioner/*
 
@@ -241,17 +232,13 @@ pipeline {
             description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg13-pgbadger',
             name: 'PGO_PGBADGER_IMAGE')
         string(
-            defaultValue: 'perconalab/pmm-server',
-            description: 'PMM server image base: perconalab/pmm-server',
-            name: 'PMM_SERVER_IMAGE_BASE')
+            defaultValue: '',
+            description: 'PMM client image: perconalab/pmm-client:dev-latest',
+            name: 'IMAGE_PMM_CLIENT')
         string(
-            defaultValue: 'dev-latest',
-            description: 'PMM server image tag: dev-latest',
-            name: 'PMM_SERVER_IMAGE_TAG')
-        string(
-            defaultValue: 'perconalab/pmm-client:dev-latest',
-            description: 'PMM server image: perconalab/pmm-client:dev-latest',
-            name: 'PMM_CLIENT_IMAGE')
+            defaultValue: '',
+            description: 'PMM server image: perconalab/pmm-server:dev-latest',
+            name: 'IMAGE_PMM_SERVER')
         string(
             defaultValue: 'latest',
             description: 'Kubernetes Version',
@@ -286,7 +273,7 @@ pipeline {
                 stash includes: "source/**", name: "sourceFILES", useDefaultExcludes: false
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                    PARAMS_HASH = sh(script: "echo \"${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${params.PLATFORM_VER}-${params.PG_VERSION}-${params.PGO_OPERATOR_IMAGE}-${params.PGO_PGBOUNCER_IMAGE}-${params.PGO_POSTGRES_HA_IMAGE}-${params.PGO_BACKREST_IMAGE}-${params.PGO_PGBADGER_IMAGE}-${params.PMM_SERVER_IMAGE_BASE}-${params.PMM_SERVER_IMAGE_TAG}-${params.PMM_CLIENT_IMAGE}\" | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$PG_VERSION-$PGO_OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_HA_IMAGE-$PGO_BACKREST_IMAGE-$PGO_PGBADGER_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
                 }
                 initTests()
             }
