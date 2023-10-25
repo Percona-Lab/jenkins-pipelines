@@ -243,7 +243,7 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PXC\\">\n'
+TestsReport = '<testsuite name=\\"PXC-OpenShift-latest\\">\n'
 void makeReport() {
     for (int i=0; i<tests.size(); i++) {
         def testResult = tests[i]["result"]

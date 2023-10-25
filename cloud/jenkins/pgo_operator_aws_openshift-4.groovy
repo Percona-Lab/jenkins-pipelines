@@ -22,7 +22,7 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite  name=\\"PGO\\">\n'
+TestsReport = '<testsuite  name=\\"PG-OpenShift-version\\">\n'
 testsReportMap = [:]
 void makeReport() {
     for ( test in testsReportMap ) {

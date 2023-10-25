@@ -111,7 +111,7 @@ void markPassedTests() {
     }
 }
 
-TestsReport = '<testsuite name=\\"PXC\\">\n'
+TestsReport = '<testsuite name=\\"PXC-AKS-version\\">\n'
 void makeReport() {
     for (int i=0; i<tests.size(); i++) {
         def testResult = tests[i]["result"]
@@ -321,7 +321,7 @@ pipeline {
 
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                    CLUSTER_NAME = sh(script: "echo jenkins-par-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                    CLUSTER_NAME = sh(script: "echo jenkins-ver-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
                     PARAMS_HASH = sh(script: "echo \"${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${params.PLATFORM_VER}-${params.CLUSTER_WIDE}-${params.PXC_OPERATOR_IMAGE}-${params.IMAGE_PXC}-${params.IMAGE_PROXY}-${params.IMAGE_HAPROXY}-${params.IMAGE_BACKUP}-${params.IMAGE_PMM}-${params.IMAGE_LOGCOLLECTOR}-${params.IMAGE_PMM_SERVER_REPO}-${params.IMAGE_PMM_SERVER_TAG}\" | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
                 }
                 initTests()
