@@ -308,6 +308,7 @@ pipeline {
                         }
                     }
                 }
+/*
                 stage('Centos 7 debug binary tarball(glibc2.17)') {
                     agent {
                         label 'docker-64gb'
@@ -329,6 +330,7 @@ pipeline {
                         pushArtifactFolder("debug/", AWS_STASH_PATH)
                     }
                 }
+*/
                 stage('Ubuntu Jammy(22.04) binary tarball(glibc2.35)') {
                     agent {
                         label 'docker-64gb'
@@ -354,6 +356,7 @@ pipeline {
                         }
                     }
                 }
+/*
                 stage('Ubuntu Jammy(22.04) debug binary tarball(glibc2.35)') {
                     agent {
                         label 'docker-64gb'
@@ -377,7 +380,7 @@ pipeline {
                 }
             }
         }
-
+*/
         stage('Sign packages') {
             steps {
                 signRPM()
