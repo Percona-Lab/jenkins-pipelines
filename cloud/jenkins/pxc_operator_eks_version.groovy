@@ -178,7 +178,7 @@ void markPassedTests() {
     }
 }
 
-TestsReport = '<testsuite name=\\"PXC\\">\n'
+TestsReport = '<testsuite name=\\"PXC-EKS-version\\">\n'
 void makeReport() {
     for (int i=0; i<tests.size(); i++) {
         def testResult = tests[i]["result"]
