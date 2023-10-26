@@ -24,7 +24,7 @@ void prepareNode() {
 
         # v0.15.0 kuttl version
         kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/a67f31ecb2e62f15149ca66d096357050f07b77d/plugins/kuttl.yaml
-        echo $(kubectl kuttl --version) is installed
+        echo \$(kubectl kuttl --version) is installed
 
         curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
     """
