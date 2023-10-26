@@ -19,7 +19,12 @@ void prepareNode() {
         curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
         ./krew-linux_amd64 install krew
         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-        kubectl krew install kuttl assert
+
+        kubectl krew install assert
+
+        # v0.15.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/a67f31ecb2e62f15149ca66d096357050f07b77d/plugins/kuttl.yaml
+        echo \$(kubectl kuttl --version) is installed
 
         curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
     """
@@ -227,6 +232,7 @@ void runTest(Integer TEST_ID) {
                         export IMAGE_MYSQL=$IMAGE_MYSQL
                         export IMAGE_ORCHESTRATOR=$IMAGE_ORCHESTRATOR
                         export IMAGE_ROUTER=$IMAGE_ROUTER
+                        export IMAGE_HAPROXY=$IMAGE_HAPROXY
                         export IMAGE_BACKUP=$IMAGE_BACKUP
                         export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
                         export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
