@@ -109,6 +109,11 @@ initMap['docker'] = '''
     sudo systemctl status docker || sudo systemctl start docker
     sudo service docker status || sudo service docker start
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+
+    #Meteorops cloudwatch
+    sudo yum -y install amazon-cloudwatch-agent
+    sudo curl https://raw.githubusercontent.com/vorsel/aux/master/amazon-cloudwatch-agent-config/config.json -o /mnt/config.json
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/mnt/config.json
 '''
 initMap['docker2'] = initMap['docker']
 initMap['docker-32gb'] = '''
@@ -183,6 +188,11 @@ initMap['docker-32gb'] = '''
     CRICTL_LATEST_VERSION=$(curl -s https://api.github.com/repos/kubernetes-sigs/cri-tools/releases/latest|grep tag_name | cut -d '"' -f 4)
     sudo curl -Lo /tmp/crictl-${CRICTL_LATEST_VERSION}-linux-amd64.tar.gz https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRICTL_LATEST_VERSION}/crictl-${CRICTL_LATEST_VERSION}-linux-amd64.tar.gz
     sudo tar xvfz /tmp/crictl-${CRICTL_LATEST_VERSION}-linux-amd64.tar.gz -C /usr/bin/
+
+    #Meteorops cloudwatch
+    sudo yum -y install amazon-cloudwatch-agent
+    sudo curl https://raw.githubusercontent.com/vorsel/aux/master/amazon-cloudwatch-agent-config/config.json -o /mnt/config.json
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/mnt/config.json
 '''
 initMap['micro-amazon'] = '''
     set -o xtrace
@@ -206,6 +216,11 @@ initMap['micro-amazon'] = '''
     sudo amazon-linux-extras install java-openjdk11 -y || :
     sudo yum -y install git aws-cli || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+
+    #Meteorops cloudwatch
+    sudo yum -y install amazon-cloudwatch-agent
+    sudo curl https://raw.githubusercontent.com/vorsel/aux/master/amazon-cloudwatch-agent-config/config.json -o /mnt/config.json
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/mnt/config.json
 '''
 
 capMap = [:]
