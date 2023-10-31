@@ -230,18 +230,16 @@ void runTest(Integer TEST_ID) {
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
                     cd source
-
-                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE_OPERATOR=$OPERATOR_IMAGE || export IMAGE_OPERATOR=perconalab/percona-postgresql-operator:$GIT_BRANCH-postgres-operator
-
-                    export IMAGE_PGOEVENT=$PGO_EVENT_IMAGE
-                    export IMAGE_RMDATA=$PGO_RMDATA_IMAGE
-                    export IMAGE_SCHEDULER=$PGO_SCHEDULER_IMAGE
-                    export IMAGE_DEPLOYER=$PGO_DEPLOYER_IMAGE
+                    [[ "$OPERATOR_IMAGE" ]] && export OPERATOR=$OPERATOR_IMAGE || export OPERATOR=perconalab/percona-postgresql-operator:$GIT_BRANCH-postgres-operator
+                    export PG_VER=$PG_VERSION
                     export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
                     if [[ "$PGO_POSTGRES_IMAGE" ]]; then
                         export IMAGE_POSTGRESQL=${PGO_POSTGRES_IMAGE}
                         export PG_VER=\$(echo \${IMAGE_POSTGRESQL} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                     fi
+                    export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                    export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+
                     export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
                     export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
                     export PATH="$HOME/.krew/bin:$PATH"
@@ -375,16 +373,12 @@ pipeline {
             name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',
-            description: 'PMM server image base: perconalab/pmm-server',
-            name: 'PMM_SERVER_IMAGE_BASE')
+            description: 'PMM client image: perconalab/pmm-client:dev-latest',
+            name: 'IMAGE_PMM_CLIENT')
         string(
             defaultValue: '',
-            description: 'PMM server image tag: dev-latest',
-            name: 'PMM_SERVER_IMAGE_TAG')
-        string(
-            defaultValue: '',
-            description: 'PMM server image: perconalab/pmm-client:dev-latest',
-            name: 'PMM_CLIENT_IMAGE')
+            description: 'PMM server image: perconalab/pmm-server:dev-latest',
+            name: 'IMAGE_PMM_SERVER')
     }
     agent {
         label 'docker'
