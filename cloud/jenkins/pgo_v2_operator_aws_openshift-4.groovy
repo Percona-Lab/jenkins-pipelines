@@ -246,9 +246,9 @@ void runTest(Integer TEST_ID) {
                     fi
                     export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
                     export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
-                    oc whoami
-
-                    e2e-tests/$testName/run
+                    export PATH="$HOME/.krew/bin:$PATH"
+                    source $HOME/google-cloud-sdk/path.bash.inc
+                    kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
                 """
             }
             pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$PPG_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
