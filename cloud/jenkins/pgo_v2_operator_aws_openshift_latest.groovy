@@ -182,7 +182,7 @@ controlPlane:
   replicas: 1
 metadata:
   creationTimestamp: null
-  name: openshift-lat-pg-jenkins-$CLUSTER_SUFFIX
+  name: openshift-v2-lat-pg-jenkins-$CLUSTER_SUFFIX
 networking:
   clusterNetwork:
   - cidr: 10.128.0.0/14

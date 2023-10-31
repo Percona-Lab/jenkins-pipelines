@@ -184,7 +184,7 @@ controlPlane:
   replicas: 1
 metadata:
   creationTimestamp: null
-  name: openshift4-par-pgo-jenkins-$CLUSTER_SUFFIX
+  name: openshift4-v2-par-pgo-jenkins-$CLUSTER_SUFFIX
 networking:
   clusterNetwork:
   - cidr: 10.128.0.0/14
