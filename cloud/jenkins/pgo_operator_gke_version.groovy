@@ -23,7 +23,7 @@ void runGKEcluster(String CLUSTER_SUFFIX) {
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
                 gcloud config set project $GCP_PROJECT
                 gcloud container clusters list --filter \$(echo $CLUSTER_NAME-${CLUSTER_SUFFIX} | cut -c-40) --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
-                gcloud container clusters create --zone $GKERegion \$(echo $CLUSTER_NAME-${CLUSTER_SUFFIX} | cut -c-40) --cluster-version=$PLATFORM_VERSION --machine-type=n1-standard-4 --preemptible --disk-size 30 --num-nodes=3 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_SUFFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
+                gcloud container clusters create --zone $GKERegion \$(echo $CLUSTER_NAME-${CLUSTER_SUFFIX} | cut -c-40) --cluster-version=$PLATFORM_VER --machine-type=n1-standard-4 --preemptible --disk-size 30 --num-nodes=3 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_SUFFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -47,7 +47,7 @@ void runGKEclusterAlpha(String CLUSTER_SUFFIX) {
                 ret_val=0
                 gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE && \
                 gcloud config set project $GCP_PROJECT && \
-                gcloud alpha container clusters create --release-channel rapid \$(echo $CLUSTER_NAME-${CLUSTER_SUFFIX} | cut -c-40) --zone ${GKERegion} --cluster-version $PLATFORM_VERSION --project $GCP_PROJECT --preemptible --disk-size 30 --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_SUFFIX} --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
+                gcloud alpha container clusters create --release-channel rapid \$(echo $CLUSTER_NAME-${CLUSTER_SUFFIX} | cut -c-40) --zone ${GKERegion} --cluster-version $PLATFORM_VER --project $GCP_PROJECT --preemptible --disk-size 30 --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-pg-vpc --subnetwork=jenkins-pg-${CLUSTER_SUFFIX} --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -148,7 +148,7 @@ void markPassedTests() {
     }
 }
 
-TestsReport = '<testsuite name=\\"PGO\\">\n'
+TestsReport = '<testsuite name=\\"PG-GKE-version\\">\n'
 void makeReport() {
     for (int i=0; i<tests.size(); i++) {
         def testResult = tests[i]["result"]
@@ -192,44 +192,20 @@ void runTest(Integer TEST_ID) {
 
             timeout(time: 120, unit: 'MINUTES') {
                 sh """
-                    cd ./source
-                    if [ -n "${PG_VERSION}" ]; then
-                        export PG_VER=${PG_VERSION}
-                    fi
-                    if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
-                        export IMAGE=${PGO_OPERATOR_IMAGE}
-                    else
-                        export IMAGE=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}
+                    cd source
+
+                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
+                    export PG_VER=$PG_VERSION
+                    export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
+
+                    if [[ "$PGO_POSTGRES_HA_IMAGE" ]]; then
+                        export IMAGE_POSTGRESQL=$PGO_POSTGRES_HA_IMAGE
+                        export PG_VER=\$(echo \$IMAGE_POSTGRESQL | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                     fi
 
-                    if [ -n "${PGO_PGBOUNCER_IMAGE}" ]; then
-                        export IMAGE_PGBOUNCER=${PGO_PGBOUNCER_IMAGE}
-                    fi
-
-                    if [ -n "${PGO_POSTGRES_HA_IMAGE}" ]; then
-                        export IMAGE_POSTGRESQL=${PGO_POSTGRES_HA_IMAGE}
-                        export PG_VER=\$(echo \${IMAGE_POSTGRESQL} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
-                    fi
-
-                    if [ -n "${PGO_BACKREST_IMAGE}" ]; then
-                        export IMAGE_BACKREST=${PGO_BACKREST_IMAGE}
-                    fi
-
-                    if [ -n "${PGO_PGBADGER_IMAGE}" ]; then
-                        export IMAGE_PGBADGER=${PGO_PGBADGER_IMAGE}
-                    fi
-
-                    if [ -n "${PMM_SERVER_IMAGE_BASE}" ]; then
-                        export IMAGE_PMM_SERVER_REPO=${PMM_SERVER_IMAGE_BASE}
-                    fi
-
-                    if [ -n "${PMM_SERVER_IMAGE_TAG}" ]; then
-                        export IMAGE_PMM_SERVER_TAG=${PMM_SERVER_IMAGE_TAG}
-                    fi
-
-                    if [ -n "${PMM_CLIENT_IMAGE}" ]; then
-                        export IMAGE_PMM=${PMM_CLIENT_IMAGE}
-                    fi
+                    export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
+                    export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                    export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                     export PATH="$HOME/.krew/bin:$PATH"
@@ -237,7 +213,7 @@ void runTest(Integer TEST_ID) {
                     kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
                 """
             }
-            pushArtifactFile("${env.GIT_BRANCH}-$GIT_SHORT_COMMIT-$testName-${params.PLATFORM_VERSION}-$PPG_TAG-${PARAMS_HASH}")
+            pushArtifactFile("${env.GIT_BRANCH}-$GIT_SHORT_COMMIT-$testName-${params.PLATFORM_VER}-$PPG_TAG-${PARAMS_HASH}")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -264,11 +240,11 @@ void prepareNode() {
             rm -rf $HOME/google-cloud-sdk
             curl https://sdk.cloud.google.com | bash
         fi
-    
+
         source $HOME/google-cloud-sdk/path.bash.inc
         gcloud components install alpha
         gcloud components install kubectl
-    
+
         curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
         curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
@@ -290,8 +266,11 @@ void prepareNode() {
         ./"${KREW}" install krew
         rm -f "${KREW}.tar.gz"
         export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
-        kubectl krew install kuttl
-        kubectl krew install assert     
+
+        # v0.15.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/a67f31ecb2e62f15149ca66d096357050f07b77d/plugins/kuttl.yaml
+        printf "%s is installed" "$(kubectl kuttl --version)"
+        kubectl krew install assert
     '''
 }
 
@@ -342,7 +321,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-postgresql-operator:main',
-            name: 'PGO_OPERATOR_IMAGE')
+            name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
             description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg13-pgbouncer',
@@ -357,20 +336,12 @@ pipeline {
             name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg13-pgbadger',
-            name: 'PGO_PGBADGER_IMAGE')
+            description: 'PMM client image: perconalab/pmm-client:dev-latest',
+            name: 'IMAGE_PMM_CLIENT')
         string(
-            defaultValue: 'perconalab/pmm-server',
-            description: 'PMM server image base: perconalab/pmm-server',
-            name: 'PMM_SERVER_IMAGE_BASE')
-        string(
-            defaultValue: 'dev-latest',
-            description: 'PMM server image tag: dev-latest',
-            name: 'PMM_SERVER_IMAGE_TAG')
-        string(
-            defaultValue: 'perconalab/pmm-client:dev-latest',
-            description: 'PMM server image: perconalab/pmm-client:dev-latest',
-            name: 'PMM_CLIENT_IMAGE')
+            defaultValue: '',
+            description: 'PMM server image: perconalab/pmm-server:dev-latest',
+            name: 'IMAGE_PMM_SERVER')
     }
     agent {
         label 'docker'
@@ -399,7 +370,7 @@ pipeline {
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                     CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-                    PARAMS_HASH = sh(script: "echo \"${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${params.PLATFORM_VER}-${params.PG_VERSION}-${params.PGO_OPERATOR_IMAGE}-${params.PGO_PGBOUNCER_IMAGE}-${params.PGO_POSTGRES_HA_IMAGE}-${params.PGO_BACKREST_IMAGE}-${params.PGO_PGBADGER_IMAGE}-${params.PMM_SERVER_IMAGE_BASE}-${params.PMM_SERVER_IMAGE_TAG}-${params.PMM_CLIENT_IMAGE}\" | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_HA_IMAGE-$PGO_BACKREST_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
                 }
                 initTests()
 
@@ -419,7 +390,7 @@ pipeline {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
+                        if [ -n "${OPERATOR_IMAGE}" ]; then
                             echo "SKIP: Build is not needed, PG operator image was set!"
                         else
                             cd ./source/

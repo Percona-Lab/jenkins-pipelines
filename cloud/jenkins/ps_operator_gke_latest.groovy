@@ -19,7 +19,12 @@ void prepareNode() {
         curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
         ./krew-linux_amd64 install krew
         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-        kubectl krew install kuttl assert
+
+        kubectl krew install assert
+
+        # v0.15.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/a67f31ecb2e62f15149ca66d096357050f07b77d/plugins/kuttl.yaml
+        echo \$(kubectl kuttl --version) is installed
 
         sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
 [google-cloud-cli]
@@ -65,7 +70,7 @@ void prepareSources() {
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-ps-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$OPERATOR_IMAGE-$IMAGE_MYSQL-$IMAGE_ORCHESTRATOR-$IMAGE_ROUTER-$IMAGE_BACKUP-$IMAGE_TOOLKIT-$IMAGE_HAPROXY-$IMAGE_PMM-$IMAGE_PMM_SERVER_REPO-$IMAGE_PMM_SERVER_TAG | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$OPERATOR_IMAGE-$IMAGE_MYSQL-$IMAGE_ORCHESTRATOR-$IMAGE_ROUTER-$IMAGE_BACKUP-$IMAGE_TOOLKIT-$IMAGE_HAPROXY-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -242,11 +247,11 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_MYSQL=$IMAGE_MYSQL
                     export IMAGE_ORCHESTRATOR=$IMAGE_ORCHESTRATOR
                     export IMAGE_ROUTER=$IMAGE_ROUTER
+                    export IMAGE_HAPROXY=$IMAGE_HAPROXY
                     export IMAGE_BACKUP=$IMAGE_BACKUP
                     export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
-                    export IMAGE_PMM=$IMAGE_PMM
-                    export IMAGE_PMM_SERVER_REPO=$IMAGE_PMM_SERVER_REPO
-                    export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
+                    export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                    export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                     export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
 
@@ -287,7 +292,7 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PS\\">\n'
+TestsReport = '<testsuite name=\\"PS-GKE-latest\\">\n'
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
     for (int i=0; i<tests.size(); i++) {
@@ -391,16 +396,12 @@ pipeline {
             name: 'IMAGE_HAPROXY')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/pmm-client:dev-latest',
-            name: 'IMAGE_PMM')
+            description: 'PMM client image: perconalab/pmm-client:dev-latest',
+            name: 'IMAGE_PMM_CLIENT')
         string(
             defaultValue: '',
-            description: 'PMM server image repo: perconalab/pmm-server',
-            name: 'IMAGE_PMM_SERVER_REPO')
-        string(
-            defaultValue: '',
-            description: 'PMM server image tag: dev-latest',
-            name: 'IMAGE_PMM_SERVER_TAG')
+            description: 'PMM server image: perconalab/pmm-server:dev-latest',
+            name: 'IMAGE_PMM_SERVER')
     }
     agent {
         label 'docker'
