@@ -243,7 +243,7 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
                     export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
                     export PATH="$HOME/.krew/bin:$PATH"
-                    source $HOME/google-cloud-sdk/path.bash.inc
+                    
                     kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
 
                 """
