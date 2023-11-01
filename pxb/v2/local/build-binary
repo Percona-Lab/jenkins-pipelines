@@ -97,8 +97,6 @@ if [[ "${DOCKER_OS}" = "centos-7" ]] || [[ "${DOCKER_OS}" = "asan" ]]; then
 fi
 if [[ "${DOCKER_OS}" = "centos-8" ]]; then
   if [[ ${XB_VERSION_MAJOR} -eq 8 ]] && [[ -f /opt/rh/gcc-toolset-10/enable ]]; then
-    # Temporary patch for PXB-3192
-    sudo yum install -y gcc-toolset-10-annobin
     source /opt/rh/gcc-toolset-10/enable
   fi
 fi
