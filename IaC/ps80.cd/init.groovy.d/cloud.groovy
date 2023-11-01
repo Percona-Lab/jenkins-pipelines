@@ -249,11 +249,6 @@ initMap['docker'] = '''
     sudo systemctl status docker || sudo systemctl start docker
     sudo service docker status || sudo service docker start
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
-
-    #Meteorops cloudwatch
-    sudo yum -y install amazon-cloudwatch-agent
-    sudo curl https://raw.githubusercontent.com/Percona-Lab/release-aux/main/amazon-cloudwatch-agent-config/config.json -o /mnt/config.json
-    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/mnt/config.json
 '''
 initMap['docker-32gb'] = initMap['docker']
 initMap['docker-32gb-hirsute'] = '''
@@ -322,16 +317,6 @@ initMap['docker-32gb-hirsute'] = '''
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl restart docker
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
-
-    #Meteorops cloudwatch
-    if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]] || [[ ${DEB_VER} == "bookworm" ]]; then
-        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/debian/amd64/latest/amazon-cloudwatch-agent.deb -o /tmp/amazon-cloudwatch-agent.deb
-    else
-        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb -o /tmp/amazon-cloudwatch-agent.deb
-    fi
-    sudo apt -y install /tmp/amazon-cloudwatch-agent.deb
-    sudo curl https://raw.githubusercontent.com/Percona-Lab/release-aux/main/amazon-cloudwatch-agent-config/config.json -o /mnt/config.json
-    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/mnt/config.json
 '''
 initMap['docker-32gb-jammy'] = initMap['docker-32gb-hirsute']
 initMap['docker-32gb-focal'] = initMap['docker-32gb-hirsute']
@@ -401,22 +386,10 @@ initMap['docker-32gb-bullseye'] = '''
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl restart docker
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
-
-    #Meteorops cloudwatch
-    if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]] || [[ ${DEB_VER} == "bookworm" ]]; then
-        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/debian/amd64/latest/amazon-cloudwatch-agent.deb -o /tmp/amazon-cloudwatch-agent.deb
-    else
-        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb -o /tmp/amazon-cloudwatch-agent.deb
-    fi
-    sudo apt -y install /tmp/amazon-cloudwatch-agent.deb
-    sudo curl https://raw.githubusercontent.com/Percona-Lab/release-aux/main/amazon-cloudwatch-agent-config/config.json -o /mnt/config.json
-    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/mnt/config.json
 '''
 initMap['docker2'] = initMap['docker']
 initMap['micro-amazon'] = '''
     set -o xtrace
-    RHVER=$(rpm --eval %rhel)
-    SYSREL=$(cat /etc/system-release | tr -dc '0-9.'|awk -F'.' {'print $1'})
     if ! mountpoint -q /mnt; then
         for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
             if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
@@ -449,19 +422,6 @@ initMap['micro-amazon'] = '''
     sudo yum -y install aws-cli || :
     sudo yum -y install git || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-
-    #2-8-9Meteorops cloudwatch
-    sudo curl https://raw.githubusercontent.com/Percona-Lab/release-aux/main/amazon-cloudwatch-agent-config/config.json -o /mnt/config.json
-    if [[ ${SYSREL} == "2" ]]; then
-        sudo yum -y install amazon-cloudwatch-agent
-    elif [[ ${RHVER} == "8" ]] || [[ ${RHVER} == "9" ]]; then
-        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/oracle_linux/amd64/latest/amazon-cloudwatch-agent.rpm -o /tmp/amazon-cloudwatch-agent.rpm
-        sudo yum -y install /tmp/amazon-cloudwatch-agent.rpm
-    else
-        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/centos/amd64/latest/amazon-cloudwatch-agent.rpm -o /tmp/amazon-cloudwatch-agent.rpm
-        sudo yum -y install /tmp/amazon-cloudwatch-agent.rpm
-    fi
-    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/mnt/config.json
 '''
 initMap['min-amazon-2-x64'] = initMap['micro-amazon']
 initMap['min-centos-6-x64'] = '''
@@ -523,16 +483,6 @@ initMap['min-bionic-x64'] = '''
     done
     sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openjdk-11-jre-headless git
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-
-    #Meteorops cloudwatch
-    if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]] || [[ ${DEB_VER} == "bookworm" ]]; then
-        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/debian/amd64/latest/amazon-cloudwatch-agent.deb -o /tmp/amazon-cloudwatch-agent.deb
-    else
-        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb -o /tmp/amazon-cloudwatch-agent.deb
-    fi
-    sudo apt -y install /tmp/amazon-cloudwatch-agent.deb
-    sudo curl https://raw.githubusercontent.com/Percona-Lab/release-aux/main/amazon-cloudwatch-agent-config/config.json -o /mnt/config.json
-    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/mnt/config.json
 '''
 initMap['min-buster-x64'] = '''
     set -o xtrace
@@ -571,16 +521,6 @@ initMap['min-buster-x64'] = '''
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
     fi
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
-
-    #Meteorops cloudwatch
-    if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]] || [[ ${DEB_VER} == "bookworm" ]]; then
-        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/debian/amd64/latest/amazon-cloudwatch-agent.deb -o /tmp/amazon-cloudwatch-agent.deb
-    else
-        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb -o /tmp/amazon-cloudwatch-agent.deb
-    fi
-    sudo apt -y install /tmp/amazon-cloudwatch-agent.deb
-    sudo curl https://raw.githubusercontent.com/Percona-Lab/release-aux/main/amazon-cloudwatch-agent-config/config.json -o /mnt/config.json
-    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/mnt/config.json
 '''
 initMap['min-jammy-x64'] = initMap['min-bionic-x64']
 initMap['min-focal-x64'] = initMap['min-bionic-x64']
