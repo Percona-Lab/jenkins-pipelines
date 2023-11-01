@@ -26,6 +26,12 @@ void prepareNode() {
         wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
         unzip terraform_0.11.14_linux_amd64.zip
         sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
+        
+        kubectl krew install assert
+
+        # v0.15.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/a67f31ecb2e62f15149ca66d096357050f07b77d/plugins/kuttl.yaml
+        echo \$(kubectl kuttl --version) is installed
     """
 }
 
