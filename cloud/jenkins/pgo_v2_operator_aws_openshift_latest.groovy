@@ -230,7 +230,7 @@ void runTest(Integer TEST_ID) {
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
                     cd source
-                    [[ "$OPERATOR_IMAGE" ]] && export OPERATOR=$OPERATOR_IMAGE || export OPERATOR=perconalab/percona-postgresql-operator:$GIT_BRANCH-postgres-operator
+                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH-postgres-operator
                     export PG_VER=$PG_VERSION
                     export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
                     if [[ "$PGO_POSTGRES_IMAGE" ]]; then
@@ -245,6 +245,7 @@ void runTest(Integer TEST_ID) {
                     export PATH="$HOME/.krew/bin:$PATH"
                     source $HOME/google-cloud-sdk/path.bash.inc
                     kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
+
                 """
             }
             pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PPG_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
