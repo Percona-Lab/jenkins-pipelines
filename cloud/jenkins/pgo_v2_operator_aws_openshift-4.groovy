@@ -253,7 +253,7 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
                     export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
-                    export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
+                    export KUBECONFIG=$WORKSPACE/openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
                     export PATH="$HOME/.krew/bin:$PATH"
 
                     kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
