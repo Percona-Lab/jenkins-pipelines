@@ -213,13 +213,13 @@ platform:
 
 publish: External
 EOF
-            cat $OPENSHIFT_CONF_FILE >> openshift/$CLUSTER_SUFFIX/install-config.yaml
+            cat $OPENSHIFT_CONF_FILE >> ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
         """
 
         sshagent(['aws-openshift-41-key']) {
             sh """
-                /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
-                export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
+                export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
 
             """
         }
@@ -251,7 +251,7 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
                     export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
-                    export KUBECONFIG=$WORKSPACE/openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
+                    export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
                     export PATH="$HOME/.krew/bin:$PATH"
                     
                     kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
@@ -320,7 +320,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
                 done
                 kubectl get svc --all-namespaces || true
 
-                /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
+                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/$CLUSTER_SUFFIX || true
             """
         }
     }
