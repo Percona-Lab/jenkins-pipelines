@@ -335,6 +335,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
+        copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
     triggers {
         cron('0 15 * * 6')

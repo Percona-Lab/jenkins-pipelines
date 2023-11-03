@@ -13,4 +13,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/psmdb_operator_aws_openshift-latest.groovy
+      script-path: cloud/jenkins/psmdb_operator_aws_openshift_latest.groovy
