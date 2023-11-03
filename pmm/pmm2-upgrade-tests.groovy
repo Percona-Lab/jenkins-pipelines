@@ -316,6 +316,7 @@ pipeline {
                     '''
                     script {
                         env.ADMIN_PASSWORD = "${env.NEW_ADMIN_PASSWORD}"
+                        env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
                     }
                 }
             }
@@ -340,6 +341,7 @@ pipeline {
                 '''
                     script {
                         env.ADMIN_PASSWORD = "${env.NEW_ADMIN_PASSWORD}"
+                        env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
                     }
                     sh '''
                     # run the upgrade script
