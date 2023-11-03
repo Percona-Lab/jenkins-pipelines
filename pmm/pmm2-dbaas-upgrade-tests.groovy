@@ -258,7 +258,7 @@ pipeline {
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                             docker stop ${VM_NAME}-server
                             docker rename ${VM_NAME}-server ${VM_NAME}-server-old
-                            docker run -d -p 80:80 -p 443:443  --volumes-from ${VM_NAME}-data --name pmm-server-upgraded --restart always -e ENABLE_DBAAS=1 -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1 -e PERCONA_TEST_DBAAS_PMM_CLIENT=perconalab/pmm-client:dev-latest ${PMM_SERVER_TAG}
+                            docker run -d -p 80:8080 -p 443:8443  --volumes-from ${VM_NAME}-data --name pmm-server-upgraded --restart always -e ENABLE_DBAAS=1 -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1 -e PERCONA_TEST_DBAAS_PMM_CLIENT=perconalab/pmm-client:dev-latest ${PMM_SERVER_TAG}
                         '
                     """
                 }
