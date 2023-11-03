@@ -297,6 +297,7 @@ pipeline {
             steps {
                 script {
                     checkUpgrade(DOCKER_VERSION, "pre")
+                    env.NEW_ADMIN_PASSWORD = "new_admin_password"
                 }
             }
         }
@@ -326,9 +327,6 @@ pipeline {
                 expression { env.PERFORM_DOCKER_WAY_UPGRADE == "yes" }
             }
             steps {
-                script {
-                        env.NEW_ADMIN_PASSWORD = "new_admin_password"
-                    }
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
                     # run pre-upgrade tests
