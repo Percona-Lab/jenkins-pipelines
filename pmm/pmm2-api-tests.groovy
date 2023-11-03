@@ -95,8 +95,8 @@ pipeline {
                     -e PERCONA_TEST_DBAAS=0 \
                     -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com \
                     -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
-                    -p 80:80 \
-                    -p 443:443 \
+                    -p 80:8080 \
+                    -p 443:8443 \
                     -v \${PWD}/managed/testdata/checks:/srv/checks \
                     \${DOCKER_VERSION}
 
