@@ -337,10 +337,6 @@ pipeline {
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@pre-upgrade'
                 '''
-                    script {
-                        env.ADMIN_PASSWORD = "${env.NEW_ADMIN_PASSWORD}"
-                        env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
-                    }
                     sh '''
                     # run the upgrade script
                     sudo chmod 755 /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh
@@ -354,6 +350,17 @@ pipeline {
                     ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@post-upgrade'
                 '''
                 }
+            }
+        }
+        stage('Update ADMIN_PASSWORD variable') {
+            when {
+                expression { getMinorVersion(DOCKER_VERSION) >= 35 }
+            }
+            steps {
+                script {
+                        env.ADMIN_PASSWORD = "${env.NEW_ADMIN_PASSWORD}"
+                        env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                    }
             }
         }
         stage('Check Packages after Upgrade') {
