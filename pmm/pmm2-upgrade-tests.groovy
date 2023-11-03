@@ -314,6 +314,9 @@ pipeline {
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
                     '''
+                    script {
+                        env.ADMIN_PASSWORD = "${env.NEW_ADMIN_PASSWORD}"
+                    }
                 }
             }
         }
@@ -322,6 +325,9 @@ pipeline {
                 expression { env.PERFORM_DOCKER_WAY_UPGRADE == "yes" }
             }
             steps {
+                script {
+                        env.NEW_ADMIN_PASSWORD = "new_admin_password"
+                    }
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
                     # run pre-upgrade tests
@@ -332,6 +338,9 @@ pipeline {
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@pre-upgrade'
                 '''
+                    script {
+                        env.ADMIN_PASSWORD = "${env.NEW_ADMIN_PASSWORD}"
+                    }
                     sh '''
                     # run the upgrade script
                     sudo chmod 755 /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh
@@ -363,6 +372,11 @@ pipeline {
         }
         stage('Check Client Upgrade') {
             steps {
+                script {
+                    env.SERVER_IP = "127.0.0.1"
+                    env.PMM_UI_URL = "http://${env.SERVER_IP}/"
+                    env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                }
                 checkClientAfterUpgrade(PMM_SERVER_LATEST);
                 sh '''
                     export PWD=$(pwd)
