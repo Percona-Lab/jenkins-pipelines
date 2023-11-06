@@ -297,6 +297,7 @@ pipeline {
             steps {
                 script {
                     checkUpgrade(DOCKER_VERSION, "pre")
+                    env.NEW_ADMIN_PASSWORD = "new_admin_password"
                 }
             }
         }
@@ -347,6 +348,17 @@ pipeline {
                 }
             }
         }
+        stage('Update ADMIN_PASSWORD variable') {
+            when {
+                expression { getMinorVersion(DOCKER_VERSION) >= 35 }
+            }
+            steps {
+                script {
+                        env.ADMIN_PASSWORD = "${env.NEW_ADMIN_PASSWORD}"
+                        env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                    }
+            }
+        }
         stage('Check Packages after Upgrade') {
             steps {
                 script {
@@ -363,6 +375,11 @@ pipeline {
         }
         stage('Check Client Upgrade') {
             steps {
+                script {
+                    env.SERVER_IP = "127.0.0.1"
+                    env.PMM_UI_URL = "http://${env.SERVER_IP}/"
+                    env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                }
                 checkClientAfterUpgrade(PMM_SERVER_LATEST);
                 sh '''
                     export PWD=$(pwd)

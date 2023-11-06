@@ -12,43 +12,38 @@ pipeline {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: ppgOperatingSystems()
-        )
-        choice(
-            name: 'REPO',
-            description: 'Repo for testing',
             choices: [
-                'testing',
-                'experimental',
-                'release'
+                'debian-12',
+                'ol-9',
+                'ubuntu-jammy'
             ]
         )
         string(
-            defaultValue: 'ppg-11.9',
-            description: 'PG version for test',
+            defaultValue: '16.0',
+            description: 'Docker PG version for test. For example, 15.4.',
             name: 'VERSION'
-         )
-        choice(
-            name: 'SCENARIO',
-            description: 'PG scenario for test',
-            choices: ppgScenarios()
         )
         string(
             defaultValue: 'main',
             description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
+            name: 'TESTING_BRANCH'
+        )
+        choice(
+            name: 'REPOSITORY',
+            description: 'Docker hub repository to use for docker images.',
+            choices: [
+                'percona',
+                'perconalab'
+            ]
+        )
         string(
-            defaultValue: 'no',
+            defaultValue: 'yes',
             description: 'Destroy VM after tests',
             name: 'DESTROY_ENV')
-        booleanParam(
-            name: 'MAJOR_REPO',
-            description: "Enable to use major (ppg-14) repo instead of ppg-14.3"
-        )
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "ppg/${SCENARIO}";
+      MOLECULE_DIR = "docker/ppg-docker";
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
@@ -58,7 +53,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.PLATFORM}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-docker-${env.VERSION}-${env.PLATFORM}"
                 }
             }
         }
@@ -86,20 +81,6 @@ pipeline {
       steps {
           script{
               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
-            }
-        }
-    }
-    stage ('Start testinfra tests') {
-      steps {
-            script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
-            }
-        }
-    }
-      stage ('Start Cleanup ') {
-        steps {
-             script {
-               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
             }
         }
     }
