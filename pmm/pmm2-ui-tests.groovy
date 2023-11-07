@@ -291,6 +291,10 @@ pipeline {
                     set -o errexit
                     set -o xtrace
                     export PATH=\$PATH:/usr/sbin
+                    export PMM_CLIENT_VERSION=${CLIENT_VERSION}
+		    if [[ ${CLIENT_VERSION} == dev-latest ]]; then
+                        export PMM_CLIENT_VERSION="latest"
+                    fi
                     if [[ \$CLIENT_VERSION != dev-latest ]]; then
                         export PATH="`pwd`/pmm2-client/bin:$PATH"
                     fi
