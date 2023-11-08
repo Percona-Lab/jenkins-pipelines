@@ -131,11 +131,11 @@ void prepareNode() {
             rm -rf $HOME/google-cloud-sdk
             curl https://sdk.cloud.google.com | bash
         fi
-    
+
         source $HOME/google-cloud-sdk/path.bash.inc
         gcloud components install alpha
         gcloud components install kubectl
-    
+
         curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
         curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
@@ -262,48 +262,24 @@ void runTest(Integer TEST_ID) {
             timeout(time: 90, unit: 'MINUTES') {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        cd ./source
-                        if [ -n "${PG_VERSION}" ]; then
-                            export PG_VER=${PG_VERSION}
+                        cd source
+
+                        [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
+                        export PG_VER=$PG_VERSION
+                        export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
+
+                        if [[ "$PGO_POSTGRES_IMAGE" ]]; then
+                            export IMAGE_POSTGRESQL=$PGO_POSTGRES_IMAGE
+                            export PG_VER=\$(echo \$IMAGE_POSTGRESQL | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                         fi
-                        if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
-                            export IMAGE=${PGO_OPERATOR_IMAGE}
-                        else
-                            export IMAGE=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}
-                        fi
-    
-                        if [ -n "${PGO_PGBOUNCER_IMAGE}" ]; then
-                            export IMAGE_PGBOUNCER=${PGO_PGBOUNCER_IMAGE}
-                        fi
-    
-                        if [ -n "${PGO_POSTGRES_IMAGE}" ]; then
-                            export IMAGE_POSTGRESQL=${PGO_POSTGRES_IMAGE}
-                            export PG_VER=\$(echo \${IMAGE_POSTGRESQL} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
-                        fi
-    
-                        if [ -n "${PGO_BACKREST_IMAGE}" ]; then
-                            export IMAGE_BACKREST=${PGO_BACKREST_IMAGE}
-                        fi
-    
-                        if [ -n "${PGO_PGBADGER_IMAGE}" ]; then
-                            export IMAGE_PGBADGER=${PGO_PGBADGER_IMAGE}
-                        fi
-    
-                        if [ -n "${PMM_SERVER_IMAGE_BASE}" ]; then
-                            export IMAGE_PMM_SERVER_REPO=${PMM_SERVER_IMAGE_BASE}
-                        fi
-    
-                        if [ -n "${PMM_SERVER_IMAGE_TAG}" ]; then
-                            export IMAGE_PMM_SERVER_TAG=${PMM_SERVER_IMAGE_TAG}
-                        fi
-    
-                        if [ -n "${PMM_CLIENT_IMAGE}" ]; then
-                            export IMAGE_PMM=${PMM_CLIENT_IMAGE}
-                        fi
-    
+
+                        export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
+                        export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                        export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                         export PATH="$HOME/.krew/bin:$PATH"
                         source $HOME/google-cloud-sdk/path.bash.inc
+
                         kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
                     """
                 }
@@ -378,7 +354,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-postgresql-operator:main',
-            name: 'PGO_OPERATOR_IMAGE')
+            name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
             description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg15-pgbouncer',
@@ -393,20 +369,12 @@ pipeline {
             name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg15-pgbadger',
-            name: 'PGO_PGBADGER_IMAGE')
+            description: 'PMM client image: perconalab/pmm-client:dev-latest',
+            name: 'IMAGE_PMM_CLIENT')
         string(
-            defaultValue: 'perconalab/pmm-server',
-            description: 'PMM server image base: perconalab/pmm-server',
-            name: 'PMM_SERVER_IMAGE_BASE')
-        string(
-            defaultValue: 'dev-latest',
-            description: 'PMM server image tag: dev-latest',
-            name: 'PMM_SERVER_IMAGE_TAG')
-        string(
-            defaultValue: 'perconalab/pmm-client:dev-latest',
-            description: 'PMM server image: perconalab/pmm-client:dev-latest',
-            name: 'PMM_CLIENT_IMAGE')
+            defaultValue: '',
+            description: 'PMM server image: perconalab/pmm-server:dev-latest',
+            name: 'IMAGE_PMM_SERVER')
     }
     agent {
          label 'docker'
@@ -436,7 +404,7 @@ pipeline {
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                     CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-                    PARAMS_HASH = sh(script: "echo \"${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${params.PLATFORM_VERSION}-${params.PG_VERSION}-${params.PGO_OPERATOR_IMAGE}-${params.PGO_PGBOUNCER_IMAGE}-${params.PGO_POSTGRES_HA_IMAGE}-${params.PGO_BACKREST_IMAGE}-${params.PGO_PGBADGER_IMAGE}-${params.PMM_SERVER_IMAGE_BASE}-${params.PMM_SERVER_IMAGE_TAG}-${params.PMM_CLIENT_IMAGE}\" | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VERSION-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_HA_IMAGE-$PGO_BACKREST_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
                 }
                 initTests()
 
@@ -456,7 +424,7 @@ pipeline {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
+                        if [[ "$OPERATOR_IMAGE" ]]; then
                             echo "SKIP: Build is not needed, PGO operator image was set!"
                         else
                             cd ./source/

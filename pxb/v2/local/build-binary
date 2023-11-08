@@ -43,7 +43,7 @@ wget_loop() {
 }
 
 BOOST_VERSION=$(grep 'SET(BOOST_PACKAGE_NAME' ${SOURCEDIR}/cmake/boost.cmake | sed -re 's/.*([0-9]+_[0-9]+_[0-9]+).*/\1/')
-wget_loop "boost_${BOOST_VERSION}.tar.gz" "http://downloads.sourceforge.net/boost/boost/${BOOST_VERSION//_/.}/boost_${BOOST_VERSION}.tar.gz"
+wget_loop "boost_${BOOST_VERSION}.tar.bz2" "http://downloads.sourceforge.net/boost/boost/${BOOST_VERSION//_/.}/boost_${BOOST_VERSION}.tar.bz2"
 
 # ------------------------------------------------------------------------------
 # Set OS/Arch flags
@@ -89,10 +89,15 @@ else
     export BUILD_TYPE=" -DBUILD_CONFIG=xtrabackup_release"
 fi
 
-# Enable devtoolset if XB_MAJOR_VERSION is 8 and for  CentOS 6 and 7 only
-if [[ "${DOCKER_OS}" = "centos-6" ]] || [[ "${DOCKER_OS}" = "centos-7" ]] || [[ "${DOCKER_OS}" = "asan" ]]; then
-  if [[ ${XB_VERSION_MAJOR} -eq 8 ]] && [[ -f /opt/rh/devtoolset-8/enable ]]; then
-    source /opt/rh/devtoolset-8/enable
+# Enable devtoolset if XB_MAJOR_VERSION is 8 and for  CentOS 7
+if [[ "${DOCKER_OS}" = "centos-7" ]] || [[ "${DOCKER_OS}" = "asan" ]]; then
+  if [[ ${XB_VERSION_MAJOR} -eq 8 ]] && [[ -f /opt/rh/devtoolset-10/enable ]]; then
+    source /opt/rh/devtoolset-10/enable
+  fi
+fi
+if [[ "${DOCKER_OS}" = "centos-8" ]]; then
+  if [[ ${XB_VERSION_MAJOR} -eq 8 ]] && [[ -f /opt/rh/gcc-toolset-10/enable ]]; then
+    source /opt/rh/gcc-toolset-10/enable
   fi
 fi
 
