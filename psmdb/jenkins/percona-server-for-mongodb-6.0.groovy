@@ -103,8 +103,12 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_src_rpm=1")
-
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("centos:7", "--build_src_rpm=1")
+                            }
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
