@@ -109,6 +109,8 @@ pipeline {
                             } else {
                                 buildStage("centos:7", "--build_src_rpm=1")
                             }
+                        }
+
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
