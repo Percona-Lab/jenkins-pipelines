@@ -22,8 +22,8 @@ pipeline {
 
     parameters {
         choice(
-            choices: ['pxb80', 'pxb24'],
-            description: 'Choose the product version to test: PXB8.0 OR PXB2.4',
+            choices: ['pxb81', 'pxb80', 'pxb24'],
+            description: 'Choose the product version to test: PXB8.1, PXB8.0 OR PXB2.4',
             name: 'product_to_test'
         )
         choice(
