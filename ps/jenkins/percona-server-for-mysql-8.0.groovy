@@ -541,7 +541,7 @@ parameters {
         stage('Push to public repository') {
             steps {
                 unstash 'properties'
-                PS_MAJOR_RELEASE = sh(returnStdout: true, script: "echo ${BRANCH} | sed 's/release-//g' | sed 's/\.//g' | awk '{print substr($0, 0, 2)}'").trim()
+                PS_MAJOR_RELEASE = sh(returnStdout: true, script: "echo ${BRANCH} | sed 's/release-//g' | sed 's/\\.//g' | awk '{print substr($0, 0, 2)}'").trim()
                 // sync packages
                 sync2ProdAutoBuild("ps-"+PS_MAJOR_RELEASE, COMPONENT)
             }
