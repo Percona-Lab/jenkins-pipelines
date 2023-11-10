@@ -540,8 +540,10 @@ parameters {
         }
         stage('Push to public repository') {
             steps {
+                unstash 'properties'
+                PS_MAJOR_RELEASE = sh(returnStdout: true, script: "echo ${BRANCH} | sed 's/release-//g' | sed 's/\.//g' | awk '{print substr($0, 0, 2)}'").trim()
                 // sync packages
-                sync2ProdAutoBuild('ps-80', COMPONENT)
+                sync2ProdAutoBuild("ps-"+PS_MAJOR_RELEASE, COMPONENT)
             }
         }
         stage('Push Tarballs to TESTING download area') {
@@ -571,6 +573,7 @@ parameters {
                 unstash 'properties'
                 sh '''
                     PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                    PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | sed 's/\.//g' | awk '{print substr($0, 0, 2)}');
                     sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                     sudo apt-get install -y docker.io
                     sudo systemctl status docker
@@ -580,8 +583,10 @@ parameters {
                     cd percona-docker/percona-server-8.0
                     sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
                     sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile
+                    sed -i "s/percona-release enable ps-80/percona-release enable ps-${PS_MAJOR_RELEASE}/g" Dockerfile
                     sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile.aarch64
                     sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile.aarch64
+                    sed -i "s/percona-release enable ps-80/percona-release enable ps-${PS_MAJOR_RELEASE}/g" Dockerfile.aarch64
                     sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} .
                     sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 -f Dockerfile.aarch64 .
                     sudo docker images
