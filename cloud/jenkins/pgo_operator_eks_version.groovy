@@ -151,7 +151,7 @@ void clusterRunner(String cluster) {
     }
 }
 
-void createCluster(String CLUSTER_SUFFIX){
+void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
     if ("$CLUSTER_WIDE" == "YES") {
@@ -209,7 +209,7 @@ EOF
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
             eksctl create cluster -f cluster-$CLUSTER_SUFFIX.yaml
         """
     }
@@ -409,7 +409,7 @@ pipeline {
             name: 'IMAGE_PMM_SERVER')
     }
     agent {
-         label 'docker'
+        label 'docker'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
