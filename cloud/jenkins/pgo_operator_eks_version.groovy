@@ -54,7 +54,6 @@ EOF
         sh """
             export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
             export PATH=/home/ec2-user/.local/bin:$PATH
-            source $HOME/google-cloud-sdk/path.bash.inc
             eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
         """
     }
@@ -64,7 +63,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            source $HOME/google-cloud-sdk/path.bash.inc
             eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-$CLUSTER_SUFFIX --region $AWSRegion || true
             for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
                 kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
@@ -126,45 +124,33 @@ void pushArtifactFile(String FILE_NAME) {
 }
 
 void prepareNode() {
-    sh '''
-        if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-            rm -rf $HOME/google-cloud-sdk
-            curl https://sdk.cloud.google.com | bash
-        fi
+    sh """
+        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+        kubectl version --client --output=yaml
 
-        source $HOME/google-cloud-sdk/path.bash.inc
-        gcloud components install alpha
-        gcloud components install kubectl
+        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
-        curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
-            | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-        curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
-            | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
-        curl -s -L https://github.com/mitchellh/golicense/releases/latest/download/golicense_0.2.0_linux_x86_64.tar.gz \
-            | sudo tar -C /usr/local/bin --wildcards -zxvpf -
-
-        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
+        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
         sudo chmod +x /usr/local/bin/yq
-        sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+
+        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
         sudo chmod +x /usr/local/bin/jq
 
-        curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-        sudo mv -v /tmp/eksctl /usr/local/bin
-        cd "$(mktemp -d)"
-        OS="$(uname | tr '[:upper:]' '[:lower:]')"
-        ARCH="$(uname -m | sed -e 's/x86_64/amd64/')"
-        KREW="krew-${OS}_${ARCH}"
-        curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/download/v0.4.3/${KREW}.tar.gz"
-        tar zxvf "${KREW}.tar.gz"
-        ./"${KREW}" install krew
-        rm -f "${KREW}.tar.gz"
-        export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
+        ./krew-linux_amd64 install krew
+        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+
+        kubectl krew install assert
 
         # v0.15.0 kuttl version
         kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/a67f31ecb2e62f15149ca66d096357050f07b77d/plugins/kuttl.yaml
-        printf "%s is installed" "$(kubectl kuttl --version)"
-        kubectl krew install assert
-    '''
+        echo \$(kubectl kuttl --version) is installed
+
+        curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
+
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+        sudo percona-release enable-only tools
+    """
 }
 void initTests() {
     echo "Populating tests into the tests array!"
@@ -278,7 +264,6 @@ void runTest(Integer TEST_ID) {
                         export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                         export PATH="$HOME/.krew/bin:$PATH"
-                        source $HOME/google-cloud-sdk/path.bash.inc
 
                         kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
                     """
@@ -507,9 +492,8 @@ pipeline {
                 clusters.each { shutdownCluster(it) }
             }
             sh '''
-                sudo docker rmi -f \$(sudo docker images -q) || true
-                sudo rm -rf $HOME/google-cloud-sdk
-                sudo rm -rf ./*
+                sudo docker system prune --volumes -af
+                sudo rm -rf *
             '''
             deleteDir()
         }
