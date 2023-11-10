@@ -300,7 +300,7 @@ void installRpms() {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        PPG_TAG = sh(script: "[[ $PGO_POSTGRES_IMAGE ]] && echo $PGO_POSTGRES_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
+        PPG_TAG = sh(script: "[[ \$PGO_POSTGRES_IMAGE ]] && echo \$PGO_POSTGRES_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
     }
     parameters {
         choice(
