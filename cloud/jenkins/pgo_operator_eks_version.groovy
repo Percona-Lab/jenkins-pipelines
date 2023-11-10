@@ -205,7 +205,7 @@ EOF
     """
 
     // this is needed for always post action because pipeline runs earch parallel step on another instance
-    stash includes: "cluster-$CLUSTER_SUFFIX.yaml", name: "cluster-$CLUSTER_SUFFIX-config"
+    stash includes: "cluster-${CLUSTER_SUFFIX}.yaml", name: "cluster-$CLUSTER_SUFFIX-config"
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
