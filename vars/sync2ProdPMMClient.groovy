@@ -59,13 +59,13 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
 
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/percona/yum/${DESTINATION}/ \
-                            10.10.9.209:/www/repo.percona.com/htdocs/percona/yum/${DESTINATION}/
+                            10.30.9.32:/www/repo.percona.com/htdocs/percona/yum/${DESTINATION}/
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/apt/ \
-                            10.10.9.209:/www/repo.percona.com/htdocs/apt/
+                            10.30.9.32:/www/repo.percona.com/htdocs/apt/
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/version \
-                            10.10.9.209:/www/repo.percona.com/htdocs/
+                            10.30.9.32:/www/repo.percona.com/htdocs/
 ENDSSH
                 """
             }

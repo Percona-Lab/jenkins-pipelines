@@ -75,13 +75,13 @@ def call(String REPO_NAME, String DESTINATION) {
 
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/private/${REPO_NAME}/yum/${DESTINATION}/ \
-                            10.10.9.209:/www/repo.percona.com/htdocs/private/${REPO_NAME}/yum/${DESTINATION}/
+                            10.30.9.32:/www/repo.percona.com/htdocs/private/${REPO_NAME}/yum/${DESTINATION}/
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/private/${REPO_NAME}/apt/ \
-                            10.10.9.209:/www/repo.percona.com/htdocs/private/${REPO_NAME}/apt/
+                            10.30.9.32:/www/repo.percona.com/htdocs/private/${REPO_NAME}/apt/
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/version \
-                            10.10.9.209:/www/repo.percona.com/htdocs/private/
+                            10.30.9.32:/www/repo.percona.com/htdocs/private/
                     '
                 """
             }
