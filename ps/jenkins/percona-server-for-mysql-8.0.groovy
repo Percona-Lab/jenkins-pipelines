@@ -542,6 +542,7 @@ parameters {
             steps {
                 unstash 'properties'
                 script {
+                    PS_RELEASE = sh(returnStdout: true, script: "echo ${BRANCH} | sed 's/release-//g'").trim()
                     PS_MAJOR_RELEASE = sh(returnStdout: true, script: "echo ${BRANCH} | sed 's/release-//g' | sed 's/\\.//g' | awk '{print substr($0, 0, 2)}'").trim()
                     // sync packages
                     sync2ProdAutoBuild("ps-"+PS_MAJOR_RELEASE, COMPONENT)
