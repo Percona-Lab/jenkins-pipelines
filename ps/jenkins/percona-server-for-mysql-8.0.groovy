@@ -544,7 +544,7 @@ parameters {
                 script {
                     PS_RELEASE = sh(returnStdout: true, script: "echo ${BRANCH} | sed 's/release-//g'").trim()
                     myString = sh(script: 'echo "${BRANCH}" | sed "s/\\./_/g"', returnStdout: true).trim()
-                    PS_MAJOR_RELEASE = sh(returnStdout: true, script: 'echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk "{print substr($0, 0, 2)}"').trim()
+                    PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
                     // sync packages
                     sync2ProdAutoBuild("ps-"+PS_MAJOR_RELEASE, COMPONENT)
                 }
@@ -577,7 +577,7 @@ parameters {
                 unstash 'properties'
                 sh '''
                     PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                    PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | sed 's/\.//g' | awk '{print substr($0, 0, 2)}');
+                    PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}');
                     sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                     sudo apt-get install -y docker.io
                     sudo systemctl status docker
