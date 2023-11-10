@@ -278,7 +278,7 @@ pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
-        PPG_TAG = sh(script: "if [ -n \"\${PGO_POSTGRES_IMAGE}\" ] ; then echo ${PGO_POSTGRES_IMAGE} | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' ; else echo 'main-ppg15'; fi", , returnStdout: true).trim()
+        PPG_TAG = sh(script: "if [ -n \"\${PGO_POSTGRES_IMAGE}\" ] ; then echo ${PGO_POSTGRES_IMAGE} | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' ; else echo main-ppg16; fi", , returnStdout: true).trim()
     }
     parameters {
         choice(

@@ -14,7 +14,7 @@ kind: ClusterConfig
 metadata:
     name: ${CLUSTER_NAME}-${CLUSTER_SUFFIX}
     region: $AWSRegion
-    version: "$PLATFORM_VERSION"
+    version: "$PLATFORM_VER"
     tags:
         'delete-cluster-after-hours': '10'
 iam:
@@ -186,7 +186,7 @@ void markPassedTests() {
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VERSION}-$PPG_TAG-${PARAMS_HASH}"
+                def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$PPG_TAG-${PARAMS_HASH}"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
@@ -263,14 +263,14 @@ void runTest(Integer TEST_ID) {
                         export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                         export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
-                        export PATH="$HOME/.krew/bin:$PATH"
+                        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
 
-                        kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
+                        kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
                     """
                 }
             }
 
-            pushArtifactFile("${env.GIT_BRANCH}-$GIT_SHORT_COMMIT-$testName-${params.PLATFORM_VERSION}-$PPG_TAG-${PARAMS_HASH}")
+            pushArtifactFile("${env.GIT_BRANCH}-$GIT_SHORT_COMMIT-$testName-${params.PLATFORM_VER}-$PPG_TAG-${PARAMS_HASH}")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -300,7 +300,7 @@ void installRpms() {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        PPG_TAG = sh(script: "if [ -n \"\${PGO_POSTGRES_IMAGE}\" ] ; then echo ${PGO_POSTGRES_IMAGE} | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' ; else echo 'main-ppg15'; fi", , returnStdout: true).trim()
+        PPG_TAG = sh(script: "[[ $PGO_POSTGRES_IMAGE ]] && echo $PGO_POSTGRES_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -317,13 +317,13 @@ pipeline {
             name: 'IGNORE_PREVIOUS_RUN'
         )
         choice(
-            choices: 'NO\nYES',
+            choices: 'YES\nNO',
             description: 'Run tests with cluster wide',
             name: 'CLUSTER_WIDE')
         string(
-            defaultValue: '1.23',
+            defaultValue: '1.28',
             description: 'Kubernetes target version',
-            name: 'PLATFORM_VERSION')
+            name: 'PLATFORM_VER')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-postgresql-operator repository',
@@ -389,7 +389,7 @@ pipeline {
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
                     CLUSTER_NAME = sh(script: "echo jenkins-ver-pgv2-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VERSION-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_HA_IMAGE-$PGO_BACKREST_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_IMAGE-$PGO_BACKREST_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
                 }
                 initTests()
 

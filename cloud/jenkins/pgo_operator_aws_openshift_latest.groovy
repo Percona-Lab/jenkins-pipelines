@@ -330,7 +330,7 @@ pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
-        PPG_TAG = sh(script: "[[ \"$OPERATOR_IMAGE\" ]] && echo $OPERATOR_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg15", , returnStdout: true).trim()
+        PPG_TAG = sh(script: "[[ \"$OPERATOR_IMAGE\" ]] && echo $OPERATOR_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
     }
     parameters {
         choice(
