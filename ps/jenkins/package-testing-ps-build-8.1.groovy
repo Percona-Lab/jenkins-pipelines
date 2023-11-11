@@ -70,7 +70,7 @@ List all_actions = [
 ]
 
 product_action_playbooks = [
-    ps80: [
+    ps81: [
         install: "ps_81.yml",
         upgrade: "ps_81_upgrade.yml",
         "maj-upgrade-to": "ps_81_major_upgrade_to.yml",
@@ -106,7 +106,7 @@ void runPlaybook(String action_to_test) {
 
     sh """
         export install_repo="\${install_repo}"
-        export client_to_test="ps80"
+        export client_to_test="ps81"
         export check_warning="\${check_warnings}"
         export install_mysql_shell="\${install_mysql_shell}"
         ansible-playbook \
@@ -158,7 +158,7 @@ pipeline {
         choice(
             name: "install_mysql_shell",
             choices: ["yes", "no"],
-            description: "install and check mysql-shell for ps80"
+            description: "install and check mysql-shell for ps81"
         )
         
     }
