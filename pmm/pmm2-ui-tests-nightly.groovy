@@ -229,11 +229,11 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['13', '12', '11', '10.8'],
+            choices: ['15', '14', '13', '12', '11'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['15.2','14.7', '13.10', '12.14', '11.19'],
+            choices: ['16.0','15.4','14.9', '13.12', '12.16', '11.21'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -317,7 +317,7 @@ pipeline {
         stage('Setup Node') {
             steps {
                 sh """
-                    curl -sL https://deb.nodesource.com/setup_14.x -o nodesource_setup.sh
+                    curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
                     sudo bash nodesource_setup.sh
                     sudo apt install nodejs
                     sudo apt-get install -y gettext

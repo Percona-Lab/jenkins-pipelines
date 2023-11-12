@@ -25,17 +25,17 @@ netMap['us-east-2c'] = 'subnet-00b3df129e7d8c658'
 imageMap = [:]
 imageMap['us-east-2a.min-rhel-7-x64']     = 'ami-00f8e2c955f7ffa9b'               // centos 7
 imageMap['us-east-2a.min-centos-7-x64']   = imageMap['us-east-2a.min-rhel-7-x64'] // centos 7
-imageMap['us-east-2a.min-rhel-8-x64']     = 'ami-02fb9384e880ed67c'               // rocky linux 8
-imageMap['us-east-2a.min-ol-8-x64']       = 'ami-06ac6a66b683196b8'               // oraclelinux 8
-imageMap['us-east-2a.min-rhel-9-x64']     = 'ami-0206fd54d15d43153'               // oraclelinux 9
+imageMap['us-east-2a.min-rhel-8-x64']     = 'ami-0426a691fd088149c'               // rocky linux 8
+imageMap['us-east-2a.min-ol-8-x64']       = 'ami-046d14d0ddf879691'               // oraclelinux 8
+imageMap['us-east-2a.min-rhel-9-x64']     = 'ami-08ac8951dc7903bf1'               // oraclelinux 9
 imageMap['us-east-2a.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64'] // oraclelinux 9
-imageMap['us-east-2a.min-bionic-x64']     = 'ami-0a029e6f47affbaec'               // ubuntu 18
-imageMap['us-east-2a.min-focal-x64']      = 'ami-06c4532923d4ba1ec'               // ubuntu 20
-imageMap['us-east-2a.min-jammy-x64']      = 'ami-05537cc6c0fbd4ee7'               // ubuntu 22
+imageMap['us-east-2a.min-bionic-x64']     = 'ami-0bb220fc4bffd88dd'               // ubuntu 18
+imageMap['us-east-2a.min-focal-x64']      = 'ami-01936e31f56bdacde'               // ubuntu 20
+imageMap['us-east-2a.min-jammy-x64']      = 'ami-0e83be366243f524a'               // ubuntu 22
 imageMap['us-east-2a.min-stretch-x64']    = 'ami-0a694f67ea86df8a7'               // debian 9
-imageMap['us-east-2a.min-buster-x64']     = 'ami-0246e87085c5c98e3'               // debian 10
-imageMap['us-east-2a.min-bullseye-x64']   = 'ami-0f35413f664528e13'               // debian 11
-imageMap['us-east-2a.min-bookworm-x64']   = 'ami-05a78d853b2c06c4c'               // debian 12
+imageMap['us-east-2a.min-buster-x64']     = 'ami-0dc2cee9dad26918a'               // debian 10
+imageMap['us-east-2a.min-bullseye-x64']   = 'ami-023766a7f545f3c77'               // debian 11
+imageMap['us-east-2a.min-bookworm-x64']   = 'ami-014d6017733aee708'               // debian 12
 
 imageMap['us-east-2b.min-rhel-7-x64']     = imageMap['us-east-2a.min-rhel-7-x64']
 imageMap['us-east-2b.min-centos-7-x64']   = imageMap['us-east-2a.min-rhel-7-x64'] // centos 7
@@ -196,11 +196,12 @@ initMap['debMap'] = '''
         JDK_PACKAGE=openjdk-11-jdk
     fi
 
-    if [[ ${DEB_VERSION} == "bookworm" ]]; then
+    if [[ ${DEB_VERSION} == "bookworm" ]] || [[ ${DEB_VERSION} == "buster" ]]; then
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JDK_PACKAGE} git
         sudo mv /etc/ssl /etc/ssl_old
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JDK_PACKAGE}
         sudo cp -r /etc/ssl_old /etc/ssl
+        sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JDK_PACKAGE}
     else
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JDK_PACKAGE} git
     fi

@@ -45,24 +45,33 @@ void initTests() {
 void markPassedTests() {
     echo "Marking passed tests in the tests map!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
-        """
+    if ("${params.IGNORE_PREVIOUS_RUN}" == "NO") {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            sh """
+                aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
+            """
 
-        for (int i=0; i<tests.size(); i++) {
-            def testName = tests[i]["name"]
-            def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$PPG_TAG"
-            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+            for (int i=0; i<tests.size(); i++) {
+                def testName = tests[i]["name"]
+                def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$PPG_TAG-${PARAMS_HASH}"
+                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
 
-            if (retFileExists == 0) {
-                tests[i]["result"] = "passed"
+                if (retFileExists == 0) {
+                    tests[i]["result"] = "passed"
+                }
             }
+        }
+    }
+    else {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            sh """
+                aws s3 rm "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" --recursive --exclude "*" --include "*-${PARAMS_HASH}" || :
+            """
         }
     }
 }
 
-TestsReport = '<testsuite name=\\"PG\\">\n'
+TestsReport = '<testsuite name=\\"PG-MiniKube-version\\">\n'
 void makeReport() {
     for (int i=0; i<tests.size(); i++) {
         def testResult = tests[i]["result"]
@@ -95,44 +104,20 @@ void runTest(Integer TEST_ID) {
             tests[TEST_ID]["result"] = "failure"
 
             sh """
-                cd ./source
-                if [ -n "${PG_VERSION}" ]; then
-                    export PG_VER=${PG_VERSION}
-                fi
-                if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
-                    export IMAGE=${PGO_OPERATOR_IMAGE}
-                else
-                    export IMAGE=perconalab/percona-postgresql-operator:${env.GIT_BRANCH}
+                cd source
+
+                [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
+                export PG_VER=$PG_VERSION
+                export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
+
+                if [[ "$PGO_POSTGRES_HA_IMAGE" ]]; then
+                    export IMAGE_POSTGRESQL=$PGO_POSTGRES_HA_IMAGE
+                    export PG_VER=\$(echo \$IMAGE_POSTGRESQL | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                 fi
 
-                if [ -n "${PGO_PGBOUNCER_IMAGE}" ]; then
-                    export IMAGE_PGBOUNCER=${PGO_PGBOUNCER_IMAGE}
-                fi
-
-                if [ -n "${PGO_POSTGRES_HA_IMAGE}" ]; then
-                    export IMAGE_POSTGRESQL=${PGO_POSTGRES_HA_IMAGE}
-                    export PG_VER=\$(echo \${IMAGE_POSTGRESQL} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
-                fi
-
-                if [ -n "${PGO_BACKREST_IMAGE}" ]; then
-                    export IMAGE_BACKREST=${PGO_BACKREST_IMAGE}
-                fi
-
-                if [ -n "${PGO_PGBADGER_IMAGE}" ]; then
-                    export IMAGE_PGBADGER=${PGO_PGBADGER_IMAGE}
-                fi
-
-                if [ -n "${PMM_SERVER_IMAGE_BASE}" ]; then
-                    export IMAGE_PMM_SERVER_REPO=${PMM_SERVER_IMAGE_BASE}
-                fi
-
-                if [ -n "${PMM_SERVER_IMAGE_TAG}" ]; then
-                    export IMAGE_PMM_SERVER_TAG=${PMM_SERVER_IMAGE_TAG}
-                fi
-
-                if [ -n "${PMM_CLIENT_IMAGE}" ]; then
-                    export IMAGE_PMM=${PMM_CLIENT_IMAGE}
-                fi
+                export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
+                export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
                 sudo rm -rf /tmp/hostpath-provisioner/*
 
@@ -142,7 +127,7 @@ void runTest(Integer TEST_ID) {
 
                 kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
             """
-            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$PPG_TAG")
+            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$PPG_TAG-${PARAMS_HASH}")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -192,6 +177,11 @@ pipeline {
             name: 'TEST_LIST')
         choice(
             choices: 'NO\nYES',
+            description: 'Ignore passed tests in previous run (run all)',
+            name: 'IGNORE_PREVIOUS_RUN'
+        )
+        choice(
+            choices: 'NO\nYES',
             description: 'Run tests with cluster wide',
             name: 'CLUSTER_WIDE')
         string(
@@ -209,7 +199,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-postgresql-operator:main',
-            name: 'PGO_OPERATOR_IMAGE')
+            name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
             description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg13-pgbouncer',
@@ -224,20 +214,12 @@ pipeline {
             name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg13-pgbadger',
-            name: 'PGO_PGBADGER_IMAGE')
+            description: 'PMM client image: perconalab/pmm-client:dev-latest',
+            name: 'IMAGE_PMM_CLIENT')
         string(
-            defaultValue: 'perconalab/pmm-server',
-            description: 'PMM server image base: perconalab/pmm-server',
-            name: 'PMM_SERVER_IMAGE_BASE')
-        string(
-            defaultValue: 'dev-latest',
-            description: 'PMM server image tag: dev-latest',
-            name: 'PMM_SERVER_IMAGE_TAG')
-        string(
-            defaultValue: 'perconalab/pmm-client:dev-latest',
-            description: 'PMM server image: perconalab/pmm-client:dev-latest',
-            name: 'PMM_CLIENT_IMAGE')
+            defaultValue: '',
+            description: 'PMM server image: perconalab/pmm-server:dev-latest',
+            name: 'IMAGE_PMM_SERVER')
         string(
             defaultValue: 'latest',
             description: 'Kubernetes Version',
@@ -272,6 +254,7 @@ pipeline {
                 stash includes: "source/**", name: "sourceFILES", useDefaultExcludes: false
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_HA_IMAGE-$PGO_BACKREST_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
                 }
                 initTests()
             }
@@ -286,7 +269,7 @@ pipeline {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        if [ -n "${PGO_OPERATOR_IMAGE}" ]; then
+                        if [[ "$OPERATOR_IMAGE" ]]; then
                             echo "SKIP: Build is not needed, PG operator image was set!"
                         else
                             cd ./source/

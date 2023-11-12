@@ -63,7 +63,7 @@ pipeline {
         disableConcurrentBuilds()
     }
     triggers {
-        cron('0 1 * * 7')
+        cron('0 1 * * 0')
     }
     stages {
         stage('Upgrade OVF Upgrade Matrix'){
