@@ -19,13 +19,6 @@ setup_rhel8_package_tests = { ->
     '''
 }
 
-setup_amazon_package_tests = { ->
-    sh '''
-        sudo amazon-linux-extras install epel
-        sudo yum -y update
-        sudo yum install -y ansible git wget
-    '''
-}
 
 setup_debian_package_tests = { ->
     sh '''
@@ -50,7 +43,7 @@ node_setups = [
     "min-ol-8-x64": setup_rhel8_package_tests,
     "min-centos-7-x64": setup_rhel_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
-    "min-amazon-2-x64": setup_amazon_package_tests,
+    "min-amazon-2-x64": setup_rhel_package_tests,
     "min-jammy-x64": setup_ubuntu_package_tests,
     "min-ol-9-x64": setup_rhel_package_tests,
 ]
