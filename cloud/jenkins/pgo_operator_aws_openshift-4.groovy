@@ -26,11 +26,11 @@ void prepareNode() {
         wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
         unzip terraform_0.11.14_linux_amd64.zip
         sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
-        
+
         curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
         ./krew-linux_amd64 install krew
         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-        
+
         kubectl krew install assert
 
         # v0.15.0 kuttl version
@@ -332,7 +332,7 @@ pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
-        PPG_TAG = sh(script: "[[ \"$OPERATOR_IMAGE\" ]] && echo $OPERATOR_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg15", , returnStdout: true).trim()
+        PPG_TAG = sh(script: "[[ \"$OPERATOR_IMAGE\" ]] && echo $OPERATOR_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
     }
     parameters {
         choice(

@@ -303,7 +303,7 @@ pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
-        PPG_TAG = sh(script: "[[ \"$OPERATOR_IMAGE\" ]] && echo $OPERATOR_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg15", , returnStdout: true).trim()
+        PPG_TAG = sh(script: "[[ \$PGO_POSTGRES_IMAGE ]] && echo \$PGO_POSTGRES_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -345,15 +345,15 @@ pipeline {
             name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg15-pgbouncer',
+            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg16-pgbouncer',
             name: 'PGO_PGBOUNCER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg15-postgres-ha',
+            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg16-postgres-ha',
             name: 'PGO_POSTGRES_HA_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg15-pgbackrest',
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg16-pgbackrest',
             name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',
