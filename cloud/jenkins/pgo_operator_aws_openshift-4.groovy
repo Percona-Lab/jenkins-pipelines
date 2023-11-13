@@ -225,8 +225,8 @@ EOF
                 export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
                 
                 machineset="\$(oc get machineset  -n openshift-machine-api | awk 'NR==2 {print \$1; exit}')"
-                echo $machineset
-                oc get machineset $machineset -o yaml -n openshift-machine-api \\
+                echo "MACHINESET $machineset"
+                oc get machineset $machineset -o yaml -n openshift-machine-api \
                     | yq eval '.spec.template.spec.providerSpec.value.spotMarketOptions = {}' 
                     | oc apply -f -
                 oc scale machineset --replicas=3  $machineset -n openshift-machine-api
