@@ -104,7 +104,7 @@ if [ -f /usr/bin/yum ]; then
     if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 9 ]]; then
         PKGLIST+=" lz4 perl-Memoize perl-open valgrind-devel libubsan rpcgen libtirpc-devel boost-devel"
         
-        PKGLIST_DEVTOOLSET10+=" gcc-toolset-10-gcc-c++ gcc-toolset-10-binutils"
+        PKGLIST_DEVTOOLSET10+=" gcc-toolset-10-gcc-c++ gcc-toolset-10-binutils gcc-toolset-10-annobin"
         PKGLIST_DEVTOOLSET10+=" gcc-toolset-10-valgrind gcc-toolset-10-valgrind-devel gcc-toolset-10-libatomic-devel"
         PKGLIST_DEVTOOLSET10+=" gcc-toolset-10-libasan-devel gcc-toolset-10-libubsan-devel"
 

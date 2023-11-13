@@ -121,11 +121,11 @@ pipeline {
             description: 'deb release number',
             name: 'DEB_RELEASE'
          )
-        choice(
-            name: 'PG_RELEASE',
+        string(
+            defaultValue: '16.1',
             description: 'PPG major version to test',
-            choices: ['16.0', '15.4', '14.9', '13.12', '12.16', '11.21']
-        )
+            name: 'PG_RELEASE'
+         )
         choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
             description: 'Repo component to push packages to',

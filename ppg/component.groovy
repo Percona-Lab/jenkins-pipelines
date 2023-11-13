@@ -17,7 +17,7 @@ def sendSlackNotification(componentName, ppgVersion, componentVersion)
 
 pipeline {
   agent {
-  label 'min-centos-7-x64'
+  label 'min-ol-8-x64'
   }
 
   parameters {

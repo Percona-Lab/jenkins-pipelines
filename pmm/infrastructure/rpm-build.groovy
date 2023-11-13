@@ -14,7 +14,7 @@ pipeline {
         IMAGE_REGISTRY = "public.ecr.aws/e7j3v3n0"
     }
     stages {
-        stage('Build rpmbuild image') {
+        stage('Build rpmbuild images el7') {
             matrix {
                 agent {
                     label "agent-${ARCH}"
@@ -60,6 +60,38 @@ pipeline {
                     }
                 }
             }
+        }
+        stage('Build rpmbuild image ol9') {
+                agent {
+                    label "agent-amd64"
+                }
+                stages {
+                    stage('Prepare') {
+                        steps {
+                            git poll: true,
+                                branch: PMM_GIT_BRANCH,
+                                url: 'https://github.com/percona/pmm.git'
+                        }
+                    }
+                    stage('Build') {
+                        steps {
+                            sh """
+                                cd build/docker/rpmbuild/
+                                docker build --pull --tag ${IMAGE_REGISTRY}/rpmbuild:ol9 -f Dockerfile.el9 .
+                            """
+                            withCredentials([[
+                                $class: 'AmazonWebServicesCredentialsBinding',
+                                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                credentialsId: 'ECRRWUser',
+                                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                                sh """
+                                    aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin ${IMAGE_REGISTRY}
+                                    docker push ${IMAGE_REGISTRY}/rpmbuild:ol9
+                                """
+                            }
+                        }
+                    }
+                }
         }
     }
 }

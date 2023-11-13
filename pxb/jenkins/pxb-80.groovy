@@ -40,11 +40,11 @@ pipeline {
             description: 'Tag/Branch for PXB repository',
             name: 'BRANCH')
         string(
-            defaultValue: '1.1',
+            defaultValue: '1',
             description: 'RPM release value',
             name: 'RPM_RELEASE')
         string(
-            defaultValue: '1.1',
+            defaultValue: '1',
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
@@ -286,9 +286,14 @@ pipeline {
                     sed -i s/PXB80_VER=\$OLD_PXB80_VER/PXB80_VER='"'${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}'"'/g VERSIONS
                     sed -i s/PXB80PKG_VER=\$OLD_PXB80PKG_VER/PXB80PKG_VER='"'${XB_VERSION_EXTRA}'"'/g VERSIONS
                     git diff
-                    git add -A
-                    git commit -m "Autocommit: add ${XB_VERSION_MAJOR}-${XB_VERSION_MINOR}-${XB_VERSION_PATCH} and ${XB_VERSION_EXTRA} for PXB80 package testing VERSIONS file."
-                    git push 
+                    if [[ -z \$(git diff) ]]; then
+                        echo "No changes"
+                    else
+                        echo "There are changes"
+                        git add -A
+                        git commit -m "Autocommit: add ${XB_VERSION_MAJOR}-${XB_VERSION_MINOR}-${XB_VERSION_PATCH} and ${XB_VERSION_EXTRA} for PXB80 package testing VERSIONS file."
+                        git push
+                    fi
                 """
                 }
                 build job: 'pxb-package-testing-all', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: 'pxb80'),string(name: 'install_repo', value: "testing"),string(name: 'git_repo', value: "https://github.com/Percona-QA/package-testing.git")]

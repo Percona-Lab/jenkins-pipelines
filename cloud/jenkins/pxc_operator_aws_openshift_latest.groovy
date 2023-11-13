@@ -49,7 +49,7 @@ void prepareNode() {
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_PMM-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_SERVER_REPO-$IMAGE_PMM_SERVER_TAG | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -243,7 +243,7 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PXC\\">\n'
+TestsReport = '<testsuite name=\\"PXC-OpenShift-latest\\">\n'
 void makeReport() {
     for (int i=0; i<tests.size(); i++) {
         def testResult = tests[i]["result"]
@@ -276,12 +276,11 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PROXY=$IMAGE_PROXY
                     export IMAGE_HAPROXY=$IMAGE_HAPROXY
                     export IMAGE_BACKUP=$IMAGE_BACKUP
-                    export IMAGE_PMM=$IMAGE_PMM
                     export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
-                    export IMAGE_PMM_SERVER_REPO=$IMAGE_PMM_SERVER_REPO
-                    export IMAGE_PMM_SERVER_TAG=$IMAGE_PMM_SERVER_TAG
-
+                    export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                    export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
                     export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
+
                     oc whoami
 
                     e2e-tests/$testName/run
@@ -366,20 +365,16 @@ pipeline {
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/percona-xtradb-cluster-operator:main-pmm',
-            name: 'IMAGE_PMM')
-        string(
-            defaultValue: '',
             description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
             name: 'IMAGE_LOGCOLLECTOR')
         string(
             defaultValue: '',
-            description: 'PMM server image repo: perconalab/pmm-server',
-            name: 'IMAGE_PMM_SERVER_REPO')
+            description: 'PMM client image: perconalab/pmm-client:dev-latest',
+            name: 'IMAGE_PMM_CLIENT')
         string(
             defaultValue: '',
-            description: 'PMM server image tag: dev-latest',
-            name: 'IMAGE_PMM_SERVER_TAG')
+            description: 'PMM server image: perconalab/pmm-server:dev-latest',
+            name: 'IMAGE_PMM_SERVER')
     }
     agent {
          label 'docker'
