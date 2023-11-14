@@ -223,7 +223,7 @@ EOF
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
                 export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
-                echo "TEST SPOT
+                echo "TEST SPOT"
                 oc get machineset  -n openshift-machine-api | awk "NR==2 {print \$1; exit}"
                 machineset=`oc get machineset  -n openshift-machine-api | awk "NR==2 {print \$1; exit}"`
                 echo "MACHINESET \$machineset"
