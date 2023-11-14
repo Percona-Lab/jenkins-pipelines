@@ -4,6 +4,8 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+import groovy.transform.Field
+
 void installCli(String PLATFORM) {
     sh """
         set -o xtrace
@@ -121,11 +123,10 @@ def runPlaybook(def nodeName) {
     def ps80_install_pkg_minitests_playbook = 'ps_80.yml'
     def install_repo = 'testing'
     def action_to_test = 'install'
-    def check_warnings = 'no'
+    def check_warnings = 'yes'
     def install_mysql_shell = 'no'
 
     try {
-
         def playbook = "${ps80_install_pkg_minitests_playbook}"
         def playbook_path = "package-testing/playbooks/${playbook}"
 
@@ -147,24 +148,25 @@ def runPlaybook(def nodeName) {
         """
     } catch (Exception e) {
         slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: Mini Package Testing for ${nodeName} at ${BRANCH}  FAILED !!!")
+        mini_test_error="True"
     }
 }
 
-def package_tests_ps80() {
-    def arrayA = [  "min-buster-x64",
-                    "min-bullseye-x64",
-                    "min-bookworm-x64",
-                    "min-centos-7-x64",
-                    "min-ol-8-x64",
-                    "min-bionic-x64",
-                    "min-focal-x64",
-                    "min-amazon-2-x64",
-                    "min-jammy-x64",
-                    "min-ol-9-x64"     ]
+def minitestNodes = [  "min-buster-x64",
+                       "min-bullseye-x64",
+                       "min-bookworm-x64",
+                       "min-centos-7-x64",
+                       "min-ol-8-x64",
+                       "min-bionic-x64",
+                       "min-focal-x64",
+                       "min-amazon-2-x64",
+                       "min-jammy-x64",
+                       "min-ol-9-x64"     ]
 
+def package_tests_ps80(def nodes) {
     def stepsForParallel = [:]
-    for (int i = 0; i < arrayA.size(); i++) {
-        def nodeName = arrayA[i]
+    for (int i = 0; i < nodes.size(); i++) {
+        def nodeName = nodes[i]
         stepsForParallel[nodeName] = {
             stage("Minitest run on ${nodeName}") {
                 node(nodeName) {
@@ -178,6 +180,7 @@ def package_tests_ps80() {
 }
 
 def AWS_STASH_PATH
+@Field def mini_test_error = "False"
 
 pipeline {
     agent {
@@ -216,6 +219,7 @@ parameters {
         timestamps ()
     }
     stages {
+
         stage('Create PS source tarball') {
             agent {
                label 'min-bionic-x64'
@@ -745,7 +749,6 @@ parameters {
             slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
             slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: Triggering Builds for Package Testing for ${BRANCH} - [${BUILD_URL}]")
             unstash 'properties'
-
             script {
                 currentBuild.description = "Built on ${BRANCH}; path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
                 REVISION = sh(returnStdout: true, script: "grep REVISION test/percona-server-8.0.properties | awk -F '=' '{ print\$2 }'").trim()
@@ -770,27 +773,29 @@ parameters {
 
                 """
                 }
-
                 echo "Start Minitests for PS"
                 
-                package_tests_ps80()
-                
-                echo "Trigger Package Testing Job for PS"
+                package_tests_ps80(minitestNodes)
 
-                build job: 'package-testing-ps80', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: 'ps80'),string(name: 'install_repo', value: "testing"),string(name: 'node_to_test', value: "all"),string(name: 'action_to_test', value: "all"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
-                
-                echo "Trigger PMM_PS Github Actions Workflow"
-                
-                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                    sh """
-                        curl -i -v -X POST \
-                             -H "Accept: application/vnd.github.v3+json" \
-                             -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                             "https://api.github.com/repos/Percona-Lab/qa-integration/actions/workflows/PMM_PS.yaml/dispatches" \
-                             -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
-                    """
+                if("${mini_test_error}" == "True"){
+                    echo "NOT TRIGGERING PACKAGE TESTS AND INTEGRATION TESTS DUE TO MINITEST FAILURE !!"
+                }else{
+                    echo "Trigger Package Testing Job for PS"
+
+                    build job: 'package-testing-ps80', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: 'ps80'),string(name: 'install_repo', value: "testing"),string(name: 'node_to_test', value: "all"),string(name: 'action_to_test', value: "all"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
+                    
+                    echo "Trigger PMM_PS Github Actions Workflow"
+                    
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                        sh """
+                            curl -i -v -X POST \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                "https://api.github.com/repos/Percona-Lab/qa-integration/actions/workflows/PMM_PS.yaml/dispatches" \
+                                -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
+                        """
+                    }
                 }
-
             }
             deleteDir()
         }
