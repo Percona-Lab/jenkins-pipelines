@@ -37,17 +37,13 @@ pipeline {
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
         string(
-            defaultValue: 'percona/percona-server-mongodb:4.2',
+            defaultValue: 'percona/percona-server-mongodb:4.4',
             description: 'Percona Server MongoDb Docker Container Image',
             name: 'MONGO_IMAGE')
         string(
             defaultValue: '',
             description: 'Author of recent Commit to pmm',
             name: 'OWNER')
-        string (
-            defaultValue: 'master',
-            description: 'Branch for pmm-agent Repo, used for docker-compose setup',
-            name: 'GIT_BRANCH_PMM_AGENT')
     }
     options {
         skipDefaultCheckout()
@@ -82,16 +78,14 @@ pipeline {
         {
             steps{
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
+                    sh '''
                         echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                    """
+                    '''
                 }
                 sh '''
                     docker run -d \
-                    -e ENABLE_ALERTING=1 \
                     -e PMM_DEBUG=1 \
                     -e PERCONA_TEST_CHECKS_INTERVAL=10s \
-                    -e ENABLE_BACKUP_MANAGEMENT=1 \
                     -e PERCONA_TEST_DBAAS=0 \
                     -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com \
                     -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
@@ -144,17 +138,21 @@ pipeline {
             junit '${BUILD_TAG}.xml'
             script {
                 archiveArtifacts artifacts: 'logs.zip'
-                if (currentBuild.result == 'SUCCESS') {
-                    slackSend botUser: true,
-                              channel: '#pmm-ci',
-                              color: '#00FF00',
-                              message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                } else {
+                if (currentBuild.result != 'SUCCESS') {
                     slackSend botUser: true,
                               channel: '#pmm-ci',
                               color: '#FF0000',
                               message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, owner: @${OWNER}"
                 }
+            }
+        }
+        success {
+            script {
+                slackSend botUser: true,
+                          channel: '#pmm-ci',
+                          color: '#00FF00',
+                          message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+
             }
         }
     }
