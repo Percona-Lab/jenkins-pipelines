@@ -119,8 +119,25 @@ def installDependencies(def nodeName) {
 }
 
 def runPlaybook(def nodeName) {
+    
+    def ps80_install_pkg_minitests_playbook
 
-    def ps80_install_pkg_minitests_playbook = 'ps_80.yml'
+    if ("${PS8_RELEASE_VERSION}") { // Checks if PS8_RELEASE_VERSION is not empty
+        echo "MAJOR VERSION IS ${PS8_RELEASE_VERSION}"
+
+        if("${PS8_RELEASE_VERSION}" == "8.0"){
+            ps80_install_pkg_minitests_playbook = 'ps_80.yml'
+            PS8_RELEASE_VERSION_PRODUCT_TO_TEST = 'ps80'
+        }
+        else if("${PS8_RELEASE_VERSION}" == "8.1" ){
+            ps80_install_pkg_minitests_playbook = 'ps_81.yml'    
+            PS8_RELEASE_VERSION_PRODUCT_TO_TEST = 'ps81'
+        }
+    }
+    else{
+        echo "Not Supported Version so NOT SETTING VALUES IN RUN PLAYBOOK !!!!!!! SHOULD FAIL"
+    }
+    
     def install_repo = 'testing'
     def action_to_test = 'install'
     def check_warnings = 'yes'
@@ -180,7 +197,9 @@ def package_tests_ps80(def nodes) {
 }
 
 def AWS_STASH_PATH
+@Field def PS8_RELEASE_VERSION
 @Field def mini_test_error = "False"
+@Field def PS8_RELEASE_VERSION_PRODUCT_TO_TEST
 
 pipeline {
     agent {
@@ -219,7 +238,6 @@ parameters {
         timestamps ()
     }
     stages {
-
         stage('Create PS source tarball') {
             agent {
                label 'min-bionic-x64'
@@ -760,7 +778,7 @@ parameters {
                 currentBuild.description = "Built on ${BRANCH}; path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
                 REVISION = sh(returnStdout: true, script: "grep REVISION test/percona-server-8.0.properties | awk -F '=' '{ print\$2 }'").trim()
                 PS_RELEASE = sh(returnStdout: true, script: "echo ${BRANCH} | sed 's/release-//g'").trim()
-
+                PS8_RELEASE_VERSION = sh(returnStdout: true, script: """ echo ${BRANCH} | sed -nE '/release-(8\\.0|8\\.1)\\..*/s//\\1/p' """).trim()
                 withCredentials([string(credentialsId: 'PXC_GITHUB_API_TOKEN', variable: 'TOKEN')]) {
                 sh """
                     
@@ -769,40 +787,58 @@ parameters {
                     cd package-testing
                     git config user.name "jenkins-pxc-cd"
                     git config user.email "it+jenkins-pxc-cd@percona.com"
-                    OLD_REV=\$(cat VERSIONS | grep PS80_REV | cut -d '=' -f2- )
-                    OLD_VER=\$(cat VERSIONS | grep PS80_VER | cut -d '=' -f2- )
-                    sed -i s/PS80_REV=\$OLD_REV/PS80_REV='"'${REVISION}'"'/g VERSIONS
-                    sed -i s/PS80_VER=\$OLD_VER/PS80_VER='"'${PS_RELEASE}'"'/g VERSIONS
+                    echo "${PS8_RELEASE_VERSION} is the VALUE!!@!"
+                    if [[ "${PS8_RELEASE_VERSION}" == "8.0" ]]; then
+                        OLD_REV=\$(cat VERSIONS | grep PS80_REV | cut -d '=' -f2- )
+                        OLD_VER=\$(cat VERSIONS | grep PS80_VER | cut -d '=' -f2- )
+                        sed -i s/PS80_REV=\$OLD_REV/PS80_REV='"'${REVISION}'"'/g VERSIONS
+                        sed -i s/PS80_VER=\$OLD_VER/PS80_VER='"'${PS_RELEASE}'"'/g VERSIONS
+                    elif [[ "${PS8_RELEASE_VERSION}" == "8.1" ]];then
+                        OLD_REV=\$(cat VERSIONS | grep PS81_REV | cut -d '=' -f2- )
+                        OLD_VER=\$(cat VERSIONS | grep PS81_VER | cut -d '=' -f2- )
+                        sed -i s/PS81_REV=\$OLD_REV/PS81_REV='"'${REVISION}'"'/g VERSIONS
+                        sed -i s/PS81_VER=\$OLD_VER/PS81_VER='"'${PS_RELEASE}'"'/g VERSIONS
+                    else
+                        echo "INVALID PS8_RELEASE_VERSION VALUE: ${PS8_RELEASE_VERSION}"
+                    fi
                     git diff
-                    git add -A
-                    git commit -m "Autocommit: add ${REVISION} and ${PS_RELEASE} for ps80 package testing VERSIONS file."
-                    git push 
-
+                    if [[ -z \$(git diff) ]]; then
+                        echo "No changes"
+                    else
+                        echo "There are changes"
+                        git add -A
+                    git commit -m "Autocommit: add ${REVISION} and ${PS_RELEASE} for ps80 ${PS8_RELEASE_VERSION} package testing VERSIONS file."
+                        git push
+                    fi
                 """
                 }
-                echo "Start Minitests for PS"
-                
-                package_tests_ps80(minitestNodes)
+                if("${PS8_RELEASE_VERSION}"){
+                    echo "Executing MINITESTS as VALID VALUES FOR PS8_RELEASE_VERSION:${PS8_RELEASE_VERSION}"
+                    package_tests_ps80(minitestNodes)
+                    if("${mini_test_error}" == "True"){
+                        echo "NOT TRIGGERING PACKAGE TESTS AND INTEGRATION TESTS DUE TO MINITEST FAILURE !!"
+                    }else{
+                        echo "Trigger Package Testing Job for PS8 with ${PS8_RELEASE_VERSION_PRODUCT_TO_TEST}"
 
-                if("${mini_test_error}" == "True"){
-                    echo "NOT TRIGGERING PACKAGE TESTS AND INTEGRATION TESTS DUE TO MINITEST FAILURE !!"
-                }else{
-                    echo "Trigger Package Testing Job for PS"
-
-                    build job: 'package-testing-ps80', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: 'ps80'),string(name: 'install_repo', value: "testing"),string(name: 'node_to_test', value: "all"),string(name: 'action_to_test', value: "all"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
-                    
-                    echo "Trigger PMM_PS Github Actions Workflow"
-                    
-                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                        sh """
-                            curl -i -v -X POST \
-                                -H "Accept: application/vnd.github.v3+json" \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/Percona-Lab/qa-integration/actions/workflows/PMM_PS.yaml/dispatches" \
-                                -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
-                        """
+                        build job: 'package-testing-ps80', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: "${PS8_RELEASE_VERSION_PRODUCT_TO_TEST}"),string(name: 'install_repo', value: "testing"),string(name: 'node_to_test', value: "all"),string(name: 'action_to_test', value: "all"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
+                                                                                                                                            
+                        echo "Trigger PMM_PS Github Actions Workflow"
+                        
+                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                            sh """
+                                curl -i -v -X POST \
+                                    -H "Accept: application/vnd.github.v3+json" \
+                                    -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                    "https://api.github.com/repos/Percona-Lab/qa-integration/actions/workflows/PMM_PS.yaml/dispatches" \
+                                    -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
+                            """
+                        }
                     }
                 }
+                else{
+                    echo "Skipping MINITESTS and Other Triggers as invalid RELEASE VERSION FOR THIS JOB"
+                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: Skipping MINITESTS and Other Triggers as invalid RELEASE VERSION FOR THIS JOB ${BRANCH} - [${BUILD_URL}]")
+                } 
             }
             deleteDir()
         }
