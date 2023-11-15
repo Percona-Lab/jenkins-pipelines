@@ -25,10 +25,6 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
-            defaultValue: 'dev-latest',
-            description: 'PMM Client version',
-            name: 'CLIENT_VERSION')
-        string(
             defaultValue: 'percona:5.7',
             description: 'Percona Server Docker Container Image',
             name: 'MYSQL_IMAGE')
