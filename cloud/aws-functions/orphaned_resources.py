@@ -129,6 +129,8 @@ def delete_subnets(ec2_resource, vpc_id):
             for attempt in range(0, 10):
                 logging.info(f"Removing subnet with id: {sub.id}. Attempt {attempt}/10")
                 try:
+                    for interface in sub.network_interfaces.all():
+                        interface.delete()
                     sub.delete()
                 except ClientError as e:
                     logging.info(f"Failed to delete subnet, will try again. The error was: {e}. Sleeping 10 seconds")
