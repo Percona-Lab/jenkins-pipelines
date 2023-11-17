@@ -185,8 +185,8 @@ ENDSSH
                             REPO=\$(echo \${REPOSITORY} | tr '[:upper:]' '[:lower:]' )
                             date +%s > /srv/repo-copy/version
                             RSYNC_TRANSFER_OPTS=" -avt --delete --delete-excluded --delete-after --progress"
-                            rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.10.9.209:/www/repo.percona.com/htdocs/\${REPO}/
-                            rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/version 10.10.9.209:/www/repo.percona.com/htdocs/
+                            rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.30.9.32:/www/repo.percona.com/htdocs/\${REPO}/
+                            rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/version 10.30.9.32:/www/repo.percona.com/htdocs/
                         done
 ENDSSH
                     """
@@ -376,9 +376,9 @@ ENDSSH
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
                             rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                                 /srv/repo-copy/pmm2-components/yum/release \
-                                10.10.9.209:/www/repo.percona.com/htdocs/pmm2-components/yum/
+                                10.30.9.32:/www/repo.percona.com/htdocs/pmm2-components/yum/
                             date +%s > /srv/repo-copy/version
-                            rsync /srv/repo-copy/version 10.10.9.209:/www/repo.percona.com/htdocs/
+                            rsync /srv/repo-copy/version 10.30.9.32:/www/repo.percona.com/htdocs/
                         "
                     """
                 }

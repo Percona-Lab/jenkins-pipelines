@@ -16,6 +16,13 @@ product_action_playbooks = [
         upgrade: 'pxb_24_upgrade.yml',
         upstream: 'pxb_24_upstream.yml',
         tarball: 'pxb_24_tarball.yml'
+    ],
+    pxb81: [
+        install: 'pxb_81.yml',
+        upgrade: 'pxb_81_upgrade.yml',
+        upstream: 'pxb_81_upstream.yml',
+        tarball: 'pxb_81_tarball.yml',
+        kmip: 'pxb_81_kmip.yml'
     ]
 ]
 
@@ -126,8 +133,8 @@ pipeline {
 
     parameters {
         choice(
-            choices: ['pxb80', 'pxb24'],
-            description: 'Choose the product version to test: PXB8.0 OR PXB2.4',
+            choices: ['pxb81', 'pxb80', 'pxb24'],
+            description: 'Choose the product version to test: PXB8.1, PXB8.0 OR PXB2.4',
             name: 'product_to_test'
         )
         choice(
