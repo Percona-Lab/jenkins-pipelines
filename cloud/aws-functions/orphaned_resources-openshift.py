@@ -12,13 +12,13 @@ def isResourceToTerminate(instance):
     tags = instance.tags
     tags_dict = {item['Key']: item['Value'] for item in tags}
     state = instance.state['Name']
-    if 'delete-cluster-after-hours' not in tags_dict.keys() and state == 'running':
+    instance_name = tags_dict['Name']
+    if 'delete-cluster-after-hours' not in tags_dict.keys() and state == 'running' and 'openshift' in instance_name:
         return True
     instance_lifetime = float(tags_dict['delete-cluster-after-hours'])
     current_time = datetime.datetime.now().timestamp()
-    creation_time = datetime.datetime.strptime(str(instance['instance']['createdAt']),
-                                               "%Y-%m-%d %H:%M:%S.%f%z").timestamp()
-    if (current_time - creation_time) / 3600 > instance_lifetime and state == 'running':
+    creation_time = instance.launch_time.timestamp()
+    if (current_time - creation_time) / 3600 > instance_lifetime and state == 'running' and 'openshift' in instance_name:
         return True
     return False
 
@@ -30,7 +30,6 @@ def get_instances_to_terminate(aws_region):
     if not instances:
         logging.info(f"There are no instances in cloud")
         sys.exit("There are no instances in cloud")
-
     for instance in instances:
         if isResourceToTerminate(instance):
             instances_for_deletion.append(instance)
