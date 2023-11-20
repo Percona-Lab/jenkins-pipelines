@@ -13,12 +13,12 @@ def isResourceToTerminate(instance):
     tags_dict = {item['Key']: item['Value'] for item in tags}
     state = instance.state['Name']
     instance_name = tags_dict['Name']
-    if 'delete-cluster-after-hours' not in tags_dict.keys() and state == 'running' and 'openshift' in instance_name:
+    if 'delete-cluster-after-hours' not in tags_dict.keys() and state == 'running' and tags_dict['iit-billing-tag'] == 'openshift':
         return True
     instance_lifetime = float(tags_dict['delete-cluster-after-hours'])
     current_time = datetime.datetime.now().timestamp()
     creation_time = instance.launch_time.timestamp()
-    if (current_time - creation_time) / 3600 > instance_lifetime and state == 'running' and 'openshift' in instance_name:
+    if (current_time - creation_time) / 3600 > instance_lifetime and state == 'running' and tags_dict['iit-billing-tag'] == 'openshift':
         return True
     return False
 
