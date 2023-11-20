@@ -121,6 +121,9 @@ pipeline {
                     build('postgres')
                 }
                 retry(3) {
+                    build('postgres-postgis')
+                }
+                retry(3) {
                     build('pgbadger')
                 }
             }
@@ -132,6 +135,7 @@ pipeline {
                 pushImageToDocker('pgbouncer')
                 pushImageToDocker('postgres-ha')
                 pushImageToDocker('postgres')
+                pushImageToDocker('postgres-postgis')
                 pushImageToDocker('pgbadger')
             }
         }
@@ -184,6 +188,16 @@ pipeline {
                     post {
                         always {
                             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-postgres.xml"
+                        }
+                    }
+                }
+                stage('postgres-postgis'){
+                    steps {
+                        checkImageForDocker('postgres-postgis')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-postgres-postgis.xml"
                         }
                     }
                 }

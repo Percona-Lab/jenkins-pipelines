@@ -89,10 +89,15 @@ else
     export BUILD_TYPE=" -DBUILD_CONFIG=xtrabackup_release"
 fi
 
-# Enable devtoolset if XB_MAJOR_VERSION is 8 and for  CentOS 6 and 7 only
-if [[ "${DOCKER_OS}" = "centos-6" ]] || [[ "${DOCKER_OS}" = "centos-7" ]] || [[ "${DOCKER_OS}" = "asan" ]]; then
-  if [[ ${XB_VERSION_MAJOR} -eq 8 ]] && [[ -f /opt/rh/devtoolset-8/enable ]]; then
-    source /opt/rh/devtoolset-8/enable
+# Enable devtoolset if XB_MAJOR_VERSION is 8 and for  CentOS 7
+if [[ "${DOCKER_OS}" = "centos-7" ]] || [[ "${DOCKER_OS}" = "asan" ]]; then
+  if [[ ${XB_VERSION_MAJOR} -eq 8 ]] && [[ -f /opt/rh/devtoolset-10/enable ]]; then
+    source /opt/rh/devtoolset-10/enable
+  fi
+fi
+if [[ "${DOCKER_OS}" = "centos-8" ]]; then
+  if [[ ${XB_VERSION_MAJOR} -eq 8 ]] && [[ -f /opt/rh/gcc-toolset-10/enable ]]; then
+    source /opt/rh/gcc-toolset-10/enable
   fi
 fi
 

@@ -3,14 +3,14 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotification(scenario, version)
+def sendSlackNotification(repo,version)
 {
  if ( currentBuild.result == "SUCCESS" ) {
-  buildSummary = "Job: ${env.JOB_NAME}\nScenario: ${scenario}\nVersion: ${version}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
+  buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nRepo: ${repo}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
   slackSend color : "good", message: "${buildSummary}", channel: '#postgresql-test'
  }
  else {
-  buildSummary = "Job: ${env.JOB_NAME}\nScenario: ${scenario}\nVersion: ${version}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
+  buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nRepo: ${repo}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
   slackSend color : "danger", message: "${buildSummary}", channel: '#postgresql-test'
  }
 }
@@ -21,37 +21,32 @@ pipeline {
       label 'min-ol-8-x64'
   }
   parameters {
-        choice(
-            name: 'REPO',
-            description: 'Repo for testing',
-            choices: [
-                'testing',
-                'release',
-                'experimental'
-            ]
-        )
         string(
-            defaultValue: 'ppg-11.9',
-            description: 'PG version for test',
+            defaultValue: '16.0',
+            description: 'Docker PG version for test. For example, 15.4.',
             name: 'VERSION'
-        )
-        choice(
-            name: 'SCENARIO',
-            description: 'PG scenario for test',
-            choices: ppgScenarios()
         )
         string(
             defaultValue: 'main',
             description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
-        booleanParam(
-            name: 'MAJOR_REPO',
-            description: "Enable to use major (ppg-14) repo instead of ppg-14.3"
+            name: 'TESTING_BRANCH'
         )
+        choice(
+            name: 'REPOSITORY',
+            description: 'Docker hub repository to use for docker images.',
+            choices: [
+                'percona',
+                'perconalab'
+            ]
+        )
+        string(
+            defaultValue: 'yes',
+            description: 'Destroy VM after tests',
+            name: 'DESTROY_ENV')
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "ppg/${SCENARIO}";
+      MOLECULE_DIR = "docker/ppg-docker";
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
@@ -61,7 +56,7 @@ pipeline {
         stage('Set build name'){
           steps {
                     script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}"
                     }
                 }
             }
@@ -81,7 +76,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(ppgOperatingSystems(), env.MOLECULE_DIR)
+                    moleculeParallelTest(['ol-9', 'debian-12', 'ubuntu-jammy'], env.MOLECULE_DIR)
                 }
             }
          }
@@ -89,8 +84,10 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(ppgOperatingSystems(), env.MOLECULE_DIR)
-              sendSlackNotification(env.SCENARIO, env.VERSION)
+              if (env.DESTROY_ENV == "yes") {
+                    moleculeParallelPostDestroy(['ol-9', 'debian-12', 'ubuntu-jammy'], env.MOLECULE_DIR)
+              }
+              sendSlackNotification(env.REPOSITORY, env.VERSION)
          }
       }
    }
