@@ -82,6 +82,7 @@ pipeline {
                             fi
 
                             docker login -u '${USER}' -p '${PASS}'
+                            docker buildx create --use
 
                             ./e2e-tests/build
 
