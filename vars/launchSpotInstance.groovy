@@ -110,7 +110,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                         --query SpotInstanceRequests[].SpotInstanceRequestId
                 )
                 echo \$REQUEST_ID > REQUEST_ID
-                ATTEMPS=10
+                ATTEMPTS=2
                 until [ -s IP ]; do
                     sleep 5
                     aws ec2 describe-instances \
@@ -119,8 +119,8 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                         --output text \
                         --region us-east-2 \
                         | tee IP
-                    ATTEMPS=\$((ATTEMPS-1))
-                    if [ \$ATTEMPS -eq 0 ]; then
+                    ATTEMPTS=\$((ATTEMPTS-1))
+                    if [ \$ATTEMPTS -eq 0 ]; then
                         break
                     fi
                 done

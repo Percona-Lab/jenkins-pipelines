@@ -20,6 +20,7 @@
         - choice:
             name: product_to_test
             choices:
+                - "pxb81"
                 - "pxb80"
                 - "pxb24"
             description: 'Choose the product version to test: PXB8.0 OR PXB2.4'
@@ -34,6 +35,7 @@
                 - 'min-jammy-x64'
                 - 'min-buster-x64'
                 - 'min-bullseye-x64'
+                - 'min-bookworm-x64'
             description: 'Node to run tests'
         - choice:
             name: install_repo

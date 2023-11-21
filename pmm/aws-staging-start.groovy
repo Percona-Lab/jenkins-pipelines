@@ -31,18 +31,18 @@ pipeline {
     parameters {
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
-            description: 'PMM Server docker container version (image-name:version-tag ex. perconalab/pmm-server:dev-latest or perconalab/pmm-server:pmm1-dev-latest)',
+            description: 'PMM Server docker container version (image-name:version-tag, ex: perconalab/pmm-server:dev-latest)',
             name: 'DOCKER_VERSION')
         string(
             defaultValue: 'dev-latest',
-            description: 'PMM Client version ("dev-latest" for master branch, "pmm1-dev-latest" for 1.x latest, "latest" or "X.X.X" for released version, "http://..." for feature build)',
+            description: 'PMM Client version ("dev-latest" for main branch, "latest" or "X.X.X" for released version, "pmm2-rc" for Release Candidate, "http://..." for feature build)',
             name: 'CLIENT_VERSION')
         string(
             defaultValue: '',
             description: 'public ssh key for "ec2-user" user, please set if you need ssh access',
             name: 'SSH_KEY')
         string(
-            defaultValue: 'admin',
+            defaultValue: 'pmm2023fortesting!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         choice(
@@ -78,11 +78,11 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['13', '12', '11', '10.8'],
+            choices: ['15','14', '13', '12', '11'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['15.1','15.0','14.6','14.4','14.3','14.2', '14.1', '14.0','13.9', '13.7', '13.6', '13.4', '13.2', '13.1','12.13', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
+            choices: ['16.0','15.4', '14.9', '13.12', '12.16', '11.21'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -166,7 +166,6 @@ pipeline {
                 script {
                     // getPMMBuildParams sets envvars: VM_NAME, OWNER, OWNER_SLACK
                     getPMMBuildParams('pmm-')
-
                     echo """
                         DOCKER_VERSION:  ${DOCKER_VERSION}
                         CLIENT_VERSION:  ${CLIENT_VERSION}
@@ -185,7 +184,7 @@ pipeline {
                         VM_NAME:         ${VM_NAME}
                         VERSION_SERVICE: ${VERSION_SERVICE_IMAGE}
                     """
-
+                    env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     if (params.NOTIFY == "true") {
                         slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         if (env.OWNER_SLACK) {
@@ -229,7 +228,7 @@ pipeline {
                         sudo amazon-linux-extras install epel -y
                         sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
-                        sudo yum repolist all
+                        sudo yum repolist
 
                         # exclude unavailable mirrors
                         echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
@@ -387,7 +386,7 @@ pipeline {
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
-                    setupPMMClient(SERVER_IP, CLIENT_VERSION, PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
+                    setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
                     script {
                         env.PMM_REPO="experimental"
                         if(env.CLIENT_VERSION == "pmm2-rc") {

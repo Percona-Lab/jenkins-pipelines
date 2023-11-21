@@ -23,15 +23,15 @@
     parameters:
         - string:
             name: UPSTREAM_VERSION
-            default: "8.0.23"
+            default: "8.0.32"
             description: "Upstream MySQL version"
         - string:
             name: PS_VERSION
-            default: "14"
+            default: "24"
             description: "Percona part of version"
         - string:
             name: PS_REVISION
-            default: "3558242"
+            default: "e5c6e9d2"
             description: "Short git hash for release"
         - choice:
             name: TEST_DIST
@@ -39,6 +39,7 @@
                 - 'ubuntu-focal'
                 - 'ubuntu-bionic'
                 - 'ubuntu-jammy'
+                - 'debian-12'
                 - 'debian-11'
                 - 'debian-10'
                 - 'centos-7'

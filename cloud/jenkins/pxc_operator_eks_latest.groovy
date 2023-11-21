@@ -1,18 +1,166 @@
-AWSRegion='eu-west-2'
+region='eu-west-3'
+tests=[]
+clusters=[]
 
-void CreateCluster( String CLUSTER_SUFFIX ){
+void prepareNode() {
+    echo "=========================[ Installing tools on the Jenkins executor ]========================="
+    sh """
+        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+        kubectl version --client --output=yaml
+
+        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+
+        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
+        sudo chmod +x /usr/local/bin/yq
+
+        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+        sudo chmod +x /usr/local/bin/jq
+
+        curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
+
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+        sudo percona-release enable-only tools
+        sudo yum install -y percona-xtrabackup-80 | true
+    """
+
+    if ("$PLATFORM_VER" == "latest") {
+        USED_PLATFORM_VER = sh(script: "eksctl version -ojson | jq -r '.EKSServerSupportedVersions | max'", , returnStdout: true).trim()
+    } else {
+        USED_PLATFORM_VER="$PLATFORM_VER"
+    }
+    echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
+
+    echo "=========================[ Cloning the sources ]========================="
+    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    sh """
+        # sudo is needed for better node recovery after compilation failure
+        # if building failed on compilation stage directory will have files owned by docker user
+        sudo sudo git config --global --add safe.directory '*'
+        sudo git reset --hard
+        sudo git clean -xdf
+        sudo rm -rf source
+        cloud/local/checkout $GIT_REPO $GIT_BRANCH
+    """
+
+    script {
+        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+        CLUSTER_NAME = sh(script: "echo jenkins-lat-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+    }
+}
+
+void dockerBuildPush() {
+    echo "=========================[ Building and Pushing the Docker image ]========================="
+    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        sh """
+            if [[ "$OPERATOR_IMAGE" ]]; then
+                echo "SKIP: Build is not needed, operator image was set!"
+            else
+                cd source
+                sg docker -c "
+                    docker login -u '$USER' -p '$PASS'
+                    export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                    e2e-tests/build
+                    docker logout
+                "
+                sudo rm -rf build
+            fi
+        """
+    }
+}
+
+void initTests() {
+    echo "=========================[ Initializing the tests ]========================="
+
+    echo "Populating tests into the tests array!"
+    def testList = "$TEST_LIST"
+    def suiteFileName = "source/e2e-tests/$TEST_SUITE"
+
+    if (testList.length() != 0) {
+        suiteFileName = 'source/e2e-tests/run-custom.csv'
+        sh """
+            echo -e "$testList" > $suiteFileName
+            echo "Custom test suite contains following tests:"
+            cat $suiteFileName
+        """
+    }
+
+    def records = readCSV file: suiteFileName
+
+    for (int i=0; i<records.size(); i++) {
+        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
+    }
+
+    echo "Marking passed tests in the tests map!"
+    if ("$IGNORE_PREVIOUS_RUN" == "NO") {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            sh """
+                aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
+            """
+
+            for (int i=0; i<tests.size(); i++) {
+                def testName = tests[i]["name"]
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
+
+                if (retFileExists == 0) {
+                    tests[i]["result"] = "passed"
+                }
+            }
+        }
+    } else {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            sh """
+                aws s3 rm "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" --recursive --exclude "*" --include "*-$PARAMS_HASH" || :
+            """
+        }
+    }
+
+    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+        sh """
+            cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+        """
+    }
+}
+
+void clusterRunner(String cluster) {
+    def clusterCreated=0
+
+    for (int i=0; i<tests.size(); i++) {
+        if (tests[i]["result"] == "skipped") {
+            tests[i]["result"] = "failure"
+            tests[i]["cluster"] = cluster
+            if (clusterCreated == 0) {
+                createCluster(cluster)
+                clusterCreated++
+            }
+            runTest(i)
+        }
+    }
+
+    if (clusterCreated >= 1) {
+        shutdownCluster(cluster)
+    }
+}
+
+void createCluster(String CLUSTER_SUFFIX) {
+    clusters.add("$CLUSTER_SUFFIX")
+
+    if ("$CLUSTER_WIDE" == "YES") {
+        OPERATOR_NS = 'pxc-operator'
+    }
 
     sh """
-cat <<-EOF > cluster-${CLUSTER_SUFFIX}.yaml
+tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
 ---
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-    name: ${CLUSTER_NAME}-${CLUSTER_SUFFIX}
-    region: $AWSRegion
-    version: "$PLATFORM_VER"
+    name: $CLUSTER_NAME-$CLUSTER_SUFFIX
+    region: $region
+    version: "$USED_PLATFORM_VER"
     tags:
         'delete-cluster-after-hours': '10'
 iam:
@@ -50,27 +198,62 @@ EOF
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             export PATH=/home/ec2-user/.local/bin:$PATH
-            source $HOME/google-cloud-sdk/path.bash.inc
             eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
         """
     }
 }
 
-void ShutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
-            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-${CLUSTER_SUFFIX} --region $AWSRegion
-            eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction
-        """
-    }
-}
+void runTest(Integer TEST_ID) {
+    def retryCount = 0
+    def testName = tests[TEST_ID]["name"]
+    def clusterSuffix = tests[TEST_ID]["cluster"]
 
-void IsRunTestsInClusterWide() {
-    if ( "${params.CLUSTER_WIDE}" == "YES" ) {
-        env.OPERATOR_NS = 'pxc-operator'
+    waitUntil {
+        def timeStart = new Date().getTime()
+        try {
+            echo "The $testName test was started on cluster $CLUSTER_NAME-$clusterSuffix !"
+            tests[TEST_ID]["result"] = "failure"
+
+            timeout(time: 90, unit: 'MINUTES') {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
+                    sh """
+                        cd source
+
+                        export DEBUG_TESTS=1
+                        [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                        export IMAGE_PXC=$IMAGE_PXC
+                        export IMAGE_PROXY=$IMAGE_PROXY
+                        export IMAGE_HAPROXY=$IMAGE_HAPROXY
+                        export IMAGE_BACKUP=$IMAGE_BACKUP
+                        export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
+                        export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                        export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+
+                        e2e-tests/$testName/run
+                    """
+                }
+            }
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+            tests[TEST_ID]["result"] = "passed"
+            return true
+        }
+        catch (exc) {
+            if (retryCount >= 1) {
+                currentBuild.result = 'FAILURE'
+                return true
+            }
+            retryCount++
+            return false
+        }
+        finally {
+            def timeStop = new Date().getTime()
+            def durationSec = (timeStop - timeStart) / 1000
+            tests[TEST_ID]["time"] = durationSec
+            echo "The $testName test was finished!"
+        }
     }
 }
 
@@ -79,136 +262,91 @@ void pushArtifactFile(String FILE_NAME) {
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            touch ${FILE_NAME}
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git -C source describe --always --dirty)
-            aws s3 ls \$S3_PATH/${FILE_NAME} || :
-            aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
+            touch $FILE_NAME
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
+            aws s3 ls \$S3_PATH/$FILE_NAME || :
+            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
         """
     }
 }
 
-void popArtifactFile(String FILE_NAME) {
-    echo "Try to get $FILE_NAME file from S3!"
-
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git -C source describe --always --dirty)
-            aws s3 cp --quiet \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
-        """
-    }
-}
-
-TestsReport = '<testsuite name=\\"PXC\\">\n'
-testsReportMap = [:]
+TestsReport = '<testsuite name=\\"PXC-EKS-latest\\">\n'
 void makeReport() {
-    for ( test in testsReportMap ) {
-        TestsReport = TestsReport + "<testcase name=\\\"${test.key}\\\"><${test.value}/></testcase>\n"
+    echo "=========================[ Generating Test Report ]========================="
+    for (int i=0; i<tests.size(); i++) {
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"]
+        def testName = tests[i]["name"]
+
+        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
     }
     TestsReport = TestsReport + '</testsuite>\n'
 }
 
-void runTest(String TEST_NAME, String CLUSTER_SUFFIX) {
-    def retryCount = 0
-    waitUntil {
-        try {
-            echo "The $TEST_NAME test was started!"
+void shutdownCluster(String CLUSTER_SUFFIX) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-$CLUSTER_SUFFIX --region $region || true
+            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+            done
+            kubectl get svc --all-namespaces || true
 
-            PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ] ; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
-            VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
-            testsReportMap[TEST_NAME] = 'failure'
+            VPC_ID=\$(eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $region -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
+            if [ -n "\$VPC_ID" ]; then
+                LOADBALS=\$(aws elb describe-load-balancers --region $region --output json | jq --raw-output '.LoadBalancerDescriptions[] | select(.VPCId == "'\$VPC_ID'").LoadBalancerName')
+                for loadbal in \$LOADBALS; do
+                    aws elb delete-load-balancer --load-balancer-name \$loadbal --region $region
+                done
+                eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction || true
 
-            popArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
+                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $region || true)
+                if [ -n "\$VPC_DESC" ]; then
+                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $region || true
+                fi
+                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $region || true)
+                if [ -n "\$VPC_DESC" ]; then
+                    for secgroup in \$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=\$VPC_ID --query 'SecurityGroups[*].GroupId' --output text --region $region); do
+                        aws ec2 delete-security-group --group-id \$secgroup --region $region || true
+                    done
 
-            timeout(time: 90, unit: 'MINUTES') {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
-                    sh """
-                        if [ -f "$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}" ]; then
-                            echo Skip $TEST_NAME test
-                        else
-                            cd ./source
-                            if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                                export IMAGE=${PXC_OPERATOR_IMAGE}
-                            else
-                                export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
-                            fi
+                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $region || true
+                fi
+            fi
+            aws cloudformation delete-stack --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $region || true
+            aws cloudformation wait stack-delete-complete --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $region || true
 
-                            if [ -n "${IMAGE_PXC}" ]; then
-                                export IMAGE_PXC=${IMAGE_PXC}
-                            fi
-
-                            if [ -n "${IMAGE_PROXY}" ]; then
-                                export IMAGE_PROXY=${IMAGE_PROXY}
-                            fi
-
-                            if [ -n "${IMAGE_HAPROXY}" ]; then
-                                export IMAGE_HAPROXY=${IMAGE_HAPROXY}
-                            fi
-
-                            if [ -n "${IMAGE_BACKUP}" ]; then
-                                export IMAGE_BACKUP=${IMAGE_BACKUP}
-                            fi
-
-                            if [ -n "${IMAGE_PMM}" ]; then
-                                export IMAGE_PMM=${IMAGE_PMM}
-                            fi
-
-                            if [ -n "${IMAGE_LOGCOLLECTOR}" ]; then
-                                export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
-                            fi
-
-                            if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
-                                export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
-                            fi
-
-                            if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
-                                export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
-                            fi
-
-                            export PATH=/home/ec2-user/.local/bin:$PATH
-                            source $HOME/google-cloud-sdk/path.bash.inc
-                            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
-
-                            ./e2e-tests/$TEST_NAME/run
-                        fi
-                    """
-                }
-            }
-            pushArtifactFile("$VERSION-$TEST_NAME-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}")
-            testsReportMap[TEST_NAME] = 'passed'
-            return true
-        }
-        catch (exc) {
-            if (retryCount >= 2) {
-                currentBuild.result = 'FAILURE'
-                return true
-            }
-            retryCount++
-            return false
-        }
+            eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $region || true
+            aws cloudformation list-stacks --region $region | jq '.StackSummaries[] | select(.StackName | startswith("'eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster'"))' || true
+        """
     }
-
-    echo "The $TEST_NAME test was finished!"
 }
 
-void conditionalRunTest(String TEST_NAME, String CLUSTER_SUFFIX) {
-    if ( TEST_NAME == 'default-cr' ) {
-        if ( params.GIT_BRANCH.contains('release-') ) {
-            runTest(TEST_NAME, CLUSTER_SUFFIX)
-        }
-        return 0
-    }
-    runTest(TEST_NAME, CLUSTER_SUFFIX)
-}
-
-void installRpms() {
-    sh """
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 jq | true
-    """
-}
 pipeline {
+    environment {
+        CLEAN_NAMESPACE = 1
+        PXC_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
+    }
     parameters {
+        choice(
+            choices: ['run-release.csv', 'run-distro.csv'],
+            description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
+            name: 'TEST_SUITE')
+        text(
+            defaultValue: '',
+            description: 'List of tests to run separated by new line',
+            name: 'TEST_LIST')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Ignore passed tests in previous run (run all)',
+            name: 'IGNORE_PREVIOUS_RUN'
+        )
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
@@ -218,17 +356,17 @@ pipeline {
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.24',
+            defaultValue: 'latest',
             description: 'EKS kubernetes version',
             name: 'PLATFORM_VER')
         choice(
-            choices: 'NO\nYES',
-            description: 'Run tests with cluster wide',
+            choices: 'YES\nNO',
+            description: 'Run tests in cluster wide mode',
             name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-xtradb-cluster-operator:main',
-            name: 'PXC_OPERATOR_IMAGE')
+            name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
             description: 'PXC image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0',
@@ -247,229 +385,115 @@ pipeline {
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/percona-xtradb-cluster-operator:main-pmm',
-            name: 'IMAGE_PMM')
-        string(
-            defaultValue: '',
             description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
             name: 'IMAGE_LOGCOLLECTOR')
         string(
             defaultValue: '',
-            description: 'PMM server image repo: perconalab/pmm-server',
-            name: 'IMAGE_PMM_SERVER_REPO')
+            description: 'PMM client image: perconalab/pmm-client:dev-latest',
+            name: 'IMAGE_PMM_CLIENT')
         string(
             defaultValue: '',
-            description: 'PMM server image tag: dev-latest',
-            name: 'IMAGE_PMM_SERVER_TAG')
+            description: 'PMM server image: perconalab/pmm-server:dev-latest',
+            name: 'IMAGE_PMM_SERVER')
     }
     agent {
-         label 'docker'
+        label 'docker'
     }
     options {
-        buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '10', artifactNumToKeepStr: '10'))
+        buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-
+    triggers {
+        cron('0 8 * * 6')
+    }
     stages {
-        stage('Prepare') {
+        stage('Prepare node') {
             steps {
-                installRpms()
-                sh '''
-                    if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-                        rm -rf $HOME/google-cloud-sdk
-                        curl https://sdk.cloud.google.com | bash
-                    fi
-
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    gcloud components update kubectl
-                    gcloud version
-
-                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
-                        | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
-                    sudo chmod +x /usr/local/bin/yq
-
-                    curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-                    sudo mv -v /tmp/eksctl /usr/local/bin
-                '''
-
+                prepareNode()
             }
         }
-        stage('Build docker image') {
+        stage('Docker Build and Push') {
             steps {
-                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-                    sh '''
-                        sudo sudo git config --global --add safe.directory '*'
-                        sudo git reset --hard
-                        sudo git clean -xdf
-                        sudo rm -rf source
-                        ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
-
-                        cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-
-                        if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                            echo "SKIP: Build is not needed, PXC operator image was set!"
-                        else
-                            cd ./source/
-                            sg docker -c "
-                                docker login -u '${USER}' -p '${PASS}'
-                                export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
-                                ./e2e-tests/build
-                                docker logout
-                            "
-                            sudo rm -rf ./build
-                        fi
-                    '''
-                }
+                dockerBuildPush()
             }
         }
-        stage('Create EKS Infrastructure') {
+        stage('Init tests') {
             steps {
-                IsRunTestsInClusterWide()
+                initTests()
             }
         }
-        stage('Run tests') {
-            environment {
-                CLEAN_NAMESPACE = 1
-                GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                CLUSTER_NAME = sh(script: "echo jenkins-lat-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-            }
+        stage('Run Tests') {
             parallel {
-                stage('E2E Upgrade') {
+                stage('cluster1') {
                     options {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        CreateCluster('upgrade')
-                        runTest('upgrade-haproxy', 'upgrade')
-                        runTest('upgrade-proxysql', 'upgrade')
-                        runTest('smart-update1', 'upgrade')
-                        runTest('smart-update2', 'upgrade')
-                        runTest('upgrade-consistency', 'upgrade')
-                        ShutdownCluster('upgrade')
+                        clusterRunner('cluster1')
                     }
                 }
-                stage('E2E Basic Tests') {
+                stage('cluster2') {
                     options {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        CreateCluster('basic')
-                        conditionalRunTest('default-cr', 'basic')
-                        runTest('init-deploy', 'basic')
-                        runTest('limits', 'basic')
-                        runTest('monitoring-2-0', 'basic')
-                        runTest('affinity', 'basic')
-                        runTest('one-pod', 'basic')
-                        runTest('auto-tuning', 'basic')
-                        runTest('proxysql-sidecar-res-limits', 'basic')
-                        runTest('users', 'basic')
-                        runTest('haproxy', 'basic')
-                        runTest('tls-issue-self', 'basic')
-                        runTest('tls-issue-cert-manager', 'basic')
-                        runTest('tls-issue-cert-manager-ref', 'basic')
-                        runTest('validation-hook', 'basic')
-                        runTest('proxy-protocol', 'basic')
-                        ShutdownCluster('basic')
+                        clusterRunner('cluster2')
                     }
                 }
-                stage('E2E Scaling') {
+                stage('cluster3') {
                     options {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        CreateCluster('scaling')
-                        runTest('scaling', 'scaling')
-                        runTest('scaling-proxysql', 'scaling')
-                        runTest('security-context', 'scaling')
-                        ShutdownCluster('scaling')
+                        clusterRunner('cluster3')
                     }
                 }
-                stage('E2E SelfHealing') {
+                stage('cluster4') {
                     options {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        CreateCluster('selfhealing')
-                        runTest('storage', 'selfhealing')
-                        runTest('self-healing-chaos', 'selfhealing')
-                        runTest('self-healing-advanced-chaos', 'selfhealing')
-                        runTest('operator-self-healing-chaos', 'selfhealing')
-                        ShutdownCluster('selfhealing')
+                        clusterRunner('cluster4')
                     }
                 }
-                stage('E2E Backups') {
+                stage('cluster5') {
                     options {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        CreateCluster('backup')
-                        runTest('recreate', 'backup')
-                        runTest('restore-to-encrypted-cluster', 'backup')
-                        runTest('demand-backup', 'backup')
-                        runTest('demand-backup-cloud', 'backup')
-                        runTest('demand-backup-encrypted-with-tls', 'backup')
-                        runTest('pitr', 'backup')
-                        runTest('scheduled-backup', 'backup')
-                        ShutdownCluster('backup')
+                        clusterRunner('cluster5')
                     }
                 }
-                stage('E2E BigData and CrossSite') {
+                stage('cluster6') {
                     options {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        CreateCluster('bigcross')
-                        runTest('big-data', 'bigcross')
-                        runTest('cross-site', 'bigcross')
-                        ShutdownCluster('bigcross')
+                        clusterRunner('cluster6')
                     }
                 }
-            }
-        }
-        stage('Make report') {
-            steps {
-                makeReport()
-                sh """
-                    echo "${TestsReport}" > TestsReport.xml
-                """
-                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-                archiveArtifacts '*.xml'
             }
         }
     }
-
     post {
         always {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        export CLUSTER_NAME=$(echo jenkins-lat-pxc-$(git -C source rev-parse --short HEAD) | tr '[:upper:]' '[:lower:]')
-                    
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-scaling" --region $AWSRegion > /dev/null 2>&1
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-basic" --region $AWSRegion > /dev/null 2>&1
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-selfhealing" --region $AWSRegion > /dev/null 2>&1
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-backup" --region $AWSRegion > /dev/null 2>&1
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-upgrade" --region $AWSRegion > /dev/null 2>&1
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster "$CLUSTER_NAME-bigcross" --region $AWSRegion > /dev/null 2>&1
-                        
-                        eksctl delete cluster -f cluster-scaling.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
-                        eksctl delete cluster -f cluster-basic.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
-                        eksctl delete cluster -f cluster-selfhealing.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
-                        eksctl delete cluster -f cluster-backup.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
-                        eksctl delete cluster -f cluster-upgrade.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
-                        eksctl delete cluster -f cluster-bigcross.yaml --wait --force --disable-nodegroup-eviction > /dev/null 2>&1
-                       
-                    '''
-                }
+            echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
+            makeReport()
+            sh """
+                echo "$TestsReport" > TestsReport.xml
+            """
+            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            archiveArtifacts '*.xml'
 
-            sh '''
-                sudo docker rmi -f \$(sudo docker images -q) || true
-                sudo rm -rf $HOME/google-cloud-sdk
-                sudo rm -rf ./*
-            '''
+            script {
+                clusters.each { shutdownCluster(it) }
+            }
+
+            sh """
+                sudo docker system prune --volumes -af
+                sudo rm -rf *
+            """
             deleteDir()
         }
     }

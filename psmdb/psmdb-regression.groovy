@@ -12,6 +12,7 @@ pipeline {
     }
     parameters {
         choice(name: 'image', choices: ['build','tarball','predefined'], description: 'Build image from sources, build image from tarball, or use predefined docker image for tests')
+        string(name: 'dockerfile', defaultValue: 'https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/regression-tests/build_image/Dockerfile', description: 'Dockerfile for image')
         string(name: 'branch', defaultValue: 'v6.0', description: 'Repo branch for build image from sources')
         string(name: 'version', defaultValue: '6.0.3', description: 'Version for build tag (psm_ver) to build image from sources')
         string(name: 'release', defaultValue: '3', description: 'Release for build tag (psm_release) to build image from sources')
@@ -26,6 +27,9 @@ pipeline {
         string(name: 'paralleljobs', defaultValue: '2', description: 'Number of parallel jobs passed to resmoke.py')
         booleanParam(name: 'unittests',defaultValue: false, description: 'Check if list of suites contains unittests')
         booleanParam(name: 'integrationtests',defaultValue: false, description: 'Check if list of suites contains integration tests')
+        booleanParam(name: 'benchmarktests',defaultValue: false, description: 'Check if list of suites contains benchmark tests')
+        string(name: 'scons_params', defaultValue: 'CC=/usr/bin/gcc-8 CXX=/usr/bin/g++-8 --disable-warnings-as-errors --release --ssl --opt=size -j6 --use-sasl-client --wiredtiger --audit --inmemory --hotbackup CPPPATH=/usr/local/include LIBPATH=/usr/local/lib', description: 'Parameters for scons')
+        string(name: 'resmoke_params', defaultValue: '--excludeWithAnyTags=featureFlagColumnstoreIndexes,featureFlagUpdateOneWithoutShardKey,featureFlagGlobalIndexesShardingCatalog,featureFlagGlobalIndexes,featureFlagTelemetry,featureFlagAuditConfigClusterParameter,serverless,does_not_support_config_fuzzer,featureFlagDeprioritizeLowPriorityOperations', description: 'Extra params passed to resmoke.py')
     }
     options {
         withCredentials(moleculePbmJenkinsCreds())
@@ -57,9 +61,9 @@ pipeline {
                          fi
                          if [ -f "/usr/bin/yum" ] ; then sudo yum install -y unzip ; else sudo apt-get update && apt-get -y install unzip ; fi
                          unzip -o awscliv2.zip
-                         sudo ./aws/install
+                         sudo ./aws/install || true
                          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
-                         curl -o Dockerfile https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/regression-tests/build_image/Dockerfile
+                         curl -o Dockerfile ${params.dockerfile}
                          VER=\$(echo ${params.version} | cut -d"." -f1)
                          if [ \$VER -ge 6 ]; then
                              docker build . -t public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} \
@@ -79,6 +83,11 @@ pipeline {
                          fi    
                      """
                 }    
+            }
+            post {
+                always {
+                    sh 'sudo rm -rf ./*'
+                }
             }
         }
         stage ('Build image from tarball') {
@@ -108,6 +117,11 @@ pipeline {
                      """
                 }
             }
+            post {
+                always {
+                    sh 'sudo rm -rf ./*'
+                }
+            }
         }
         stage ('Run suites') {
             steps {
@@ -118,6 +132,7 @@ pipeline {
                     for (int i=0; i<parallelexec; i++) {
                         runners["${i}"] = {
                             node("${params.instance}") {
+                              try{
                                 stage ("node ${env.NODE_NAME}") {
                                     sh """
                                        echo -e '{\n  "experimental": true,\n  "ipv6": true,\n  "fixed-cidr-v6": "2001:db8:1::/64"\n}' | sudo tee /etc/docker/daemon.json
@@ -141,7 +156,7 @@ pipeline {
                                         Collections.shuffle(Arrays.asList(suites))
                                         for (int j=0; j<suites.size(); j++) {
                                             def fullsuite = suites[j]
-                                            if ( !checklist.contains(fullsuite) && !fullsuite.startsWith(" ") && !fullsuite.startsWith("unittests") && !fullsuite.startsWith("integration_tests")) {
+                                            if ( !checklist.contains(fullsuite) && !fullsuite.startsWith(" ") && !fullsuite.startsWith("unittests") && !fullsuite.startsWith("integration_tests") && !fullsuite.startsWith("benchmarks")) {
                                                 checklist.add(fullsuite)
                                                 def suiteArray = fullsuite.split('\\|',-1)
                                                 def suite = suiteArray[0]
@@ -159,18 +174,28 @@ pipeline {
                                                     suite += " --jobs=${params.paralleljobs}"
                                                 }
                                                 if ( storage == 'wiredTiger' ) {
-                                                    suite += " --storageEngine=wiredTiger --storageEngineCacheSizeGB=1 --excludeWithAnyTags=requires_mmapv1"
+                                                    if ( !suite.contains('--storageEngineCacheSizeGB') ) {
+                                                       suite += " --storageEngine=wiredTiger --storageEngineCacheSizeGB=1 --excludeWithAnyTags=requires_mmapv1"
+                                                    }
+                                                    else {
+                                                       suite += " --storageEngine=wiredTiger --excludeWithAnyTags=requires_mmapv1"
+                                                    }
                                                     suiteName += "-wiredTiger" 
                                                 }
                                                 if ( storage == 'inMemory' ) {
-                                                    suite += " --storageEngine=inMemory --storageEngineCacheSizeGB=4 --excludeWithAnyTags=requires_persistence,requires_journaling,requires_mmapv1,uses_transactions"
+                                                    if ( !suite.contains('--storageEngineCacheSizeGB') ) {
+                                                       suite += " --storageEngine=inMemory --storageEngineCacheSizeGB=4 --excludeWithAnyTags=requires_persistence,requires_journaling,requires_mmapv1,uses_transactions,requires_wiredtiger"
+                                                    }
+                                                    else {
+                                                       suite += " --storageEngine=inMemory --excludeWithAnyTags=requires_persistence,requires_journaling,requires_mmapv1,uses_transactions,requires_wiredtiger"
+                                                    }
                                                     suiteName +="-inMemory"
                                                 }
                                                 if ( script ) {
                                                     sh """ 
                                                         echo "start suite ${suiteName}"
                                                         docker run -v `pwd`/test_results:/work -w /work --rm -i ${image} bash -c 'rm -rf *'
-                                                        docker run -v `pwd`/test_results:/work --rm ${image} bash -c "${script} && python buildscripts/resmoke.py run --suite ${suite} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
+                                                        docker run -v `pwd`/test_results:/work --rm ${image} bash -c "${script} && python buildscripts/resmoke.py run --suite ${suite} ${params.resmoke_params} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
                                                         docker run -v `pwd`/test_results:/work -w /work --rm  ${image} bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py && chmod -R 777 /work'
                                                         echo "finish suite ${suiteName}"
                                                     """
@@ -179,7 +204,7 @@ pipeline {
                                                     sh """
                                                         echo "start suite ${suiteName}" 
                                                         docker run -v `pwd`/test_results:/work -w /work --rm -i ${image} bash -c 'rm -rf *'
-                                                        docker run -v `pwd`/test_results:/work --rm ${image} bash -c "python buildscripts/resmoke.py run --suite $suite --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
+                                                        docker run -v `pwd`/test_results:/work --rm ${image} bash -c "python buildscripts/resmoke.py run --suite $suite ${params.resmoke_params} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
                                                         docker run -v `pwd`/test_results:/work -w /work --rm  ${image} bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py && chmod -R 777 /work'
                                                         echo "finish suite ${suiteName}"
                                                     """
@@ -196,11 +221,17 @@ pipeline {
                                     }
                                 }
                             }
+                          finally {
+				sh 'sudo rm -rf ./*'
+				deleteDir()
+			    }
+                          }
                         }
                     }
                     if (params.unittests) {
                         runners["unittests"] = {
                             node("${params.instance}") {
+                             try {
                                 stage ("node ${env.NODE_NAME}") {
                                     withEnv(['PATH=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin:/bin']){
                                     sh '''
@@ -211,7 +242,7 @@ pipeline {
                                         def image = "public.ecr.aws/e7j3v3n0/psmdb-build:" + params.tag
                                         sh """
                                             docker pull ${image}
-                                            docker run -v `pwd`/build:/opt/percona-server-mongodb/build -i --rm ${image} bash -c 'buildscripts/scons.py CC=/usr/bin/gcc-8 CXX=/usr/bin/g++-8 --disable-warnings-as-errors --release --ssl --opt=size -j6 --use-sasl-client --wiredtiger --audit --inmemory --hotbackup CPPPATH=/usr/local/include LIBPATH="/usr/local/lib /usr/local/lib64" install-unittests'
+                                            docker run -v `pwd`/build:/opt/percona-server-mongodb/build -i --rm ${image} bash -c "buildscripts/scons.py ${params.scons_params} install-unittests"
                                         """  
                                         def suites = []
                                         if ( params.listsuites != '') {
@@ -282,11 +313,17 @@ pipeline {
                                     }
                                 }
                             }
+                          finally {
+				sh 'sudo rm -rf ./*'
+				deleteDir()
+			    }
+                          }
                         }
                     }
-                    if (params.integrationtests) {
-                        runners["integration-tests"] = {
+                    if (params.benchmarktests) {
+                        runners["benchmarktests"] = {
                             node("${params.instance}") {
+                              try {
                                 stage ("node ${env.NODE_NAME}") {
                                     withEnv(['PATH=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin:/bin']){
                                     sh '''
@@ -297,7 +334,99 @@ pipeline {
                                         def image = "public.ecr.aws/e7j3v3n0/psmdb-build:" + params.tag
                                         sh """
                                             docker pull ${image}
-                                            docker run -v `pwd`/build:/opt/percona-server-mongodb/build -i --rm ${image} bash -c 'buildscripts/scons.py CC=/usr/bin/gcc-8 CXX=/usr/bin/g++-8 --disable-warnings-as-errors --release --ssl --opt=size -j6 --use-sasl-client --wiredtiger --audit --inmemory --hotbackup CPPPATH=/usr/local/include LIBPATH="/usr/local/lib /usr/local/lib64" install-integration-tests'
+                                            docker run -v `pwd`/build:/opt/percona-server-mongodb/build -i --rm ${image} bash -c "buildscripts/scons.py ${params.scons_params} install-benchmarks"
+                                        """
+                                        def suites = []
+                                        if ( params.listsuites != '') {
+                                            sh """
+                                               curl -o suites.txt "${params.listsuites}"
+                                            """
+                                            suites = readFile(file: 'suites.txt').split('\n')
+                                        }
+                                        else {
+                                            suites = "${params.testsuites}".split(',')
+                                        }
+                                        Collections.shuffle(Arrays.asList(suites))
+                                        for (int j=0; j<suites.size(); j++) {
+                                            def fullsuite = suites[j]
+                                            if ( !checklist.contains(fullsuite) && fullsuite.startsWith("benchmark")) {
+                                                checklist.add(fullsuite)
+                                                def suiteArray = fullsuite.split('\\|',-1)
+                                                def suite = suiteArray[0]
+                                                def storage = ''
+                                                def script = ''
+                                                if ( suiteArray.size() >= 2 ) {
+                                                    storage = suiteArray[1]
+                                                }
+                                                if ( suiteArray.size() >= 3 ) {
+                                                    script = suiteArray[2]
+                                                }
+                                                def suiteName = suite.split(' ')[0]
+                                                suite += " --continueOnFailure --shuffle"
+                                                if ( !suite.contains('--jobs') ) {
+                                                    suite += " --jobs=${params.paralleljobs}"
+                                                }
+                                                if ( storage == 'wiredTiger' ) {
+                                                    suite += " --storageEngine=wiredTiger --storageEngineCacheSizeGB=1 --excludeWithAnyTags=requires_mmapv1"
+                                                    suiteName += "-wiredTiger"
+                                                }
+                                                if ( storage == 'inMemory' ) {
+                                                    suite += " --storageEngine=inMemory --storageEngineCacheSizeGB=4 --excludeWithAnyTags=requires_persistence,requires_journaling,requires_mmapv1,uses_transactions"
+                                                    suiteName +="-inMemory"
+                                                }
+                                                if ( script ) {
+                                                    sh """
+                                                        echo "start suite ${suiteName}"
+                                                        docker run -v `pwd`/test_results:/work -v `pwd`/build:/opt/percona-server-mongodb/build -w /work --rm -i ${image} bash -c 'rm -rf *'
+                                                        docker run -v `pwd`/test_results:/work -v `pwd`/build:/opt/percona-server-mongodb/build --rm ${image} bash -c "${script} && python buildscripts/resmoke.py run --suite ${suite} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
+                                                        docker run -v `pwd`/test_results:/work -v `pwd`/build:/opt/percona-server-mongodb/build -w /work --rm  ${image} bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py && chmod -R 777 /work'
+                                                        echo "finish suite ${suiteName}"
+                                                    """
+                                                }
+                                                else {
+                                                    sh """
+                                                        echo "start suite ${suiteName}"
+                                                        docker run -v `pwd`/test_results:/work -v `pwd`/build:/opt/percona-server-mongodb/build -w /work --rm -i ${image} bash -c 'rm -rf *'
+                                                        docker run -v `pwd`/test_results:/work -v `pwd`/build:/opt/percona-server-mongodb/build --rm ${image} bash -c "python buildscripts/resmoke.py run --suite $suite --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
+                                                        docker run -v `pwd`/test_results:/work -v `pwd`/build:/opt/percona-server-mongodb/build -w /work --rm  ${image} bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py && chmod -R 777 /work'
+                                                        echo "finish suite ${suiteName}"
+                                                    """
+                                                }
+                                                junit testResults: "test_results/junit.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
+                                                sh """
+                                                    rm -rf test_results
+                                                """
+                                            }
+                                            else if ( !checklist.contains(fullsuite) && fullsuite.startsWith(" ") ) {
+                                                checklist.add(fullsuite)
+                                            }
+                                        }
+                                    }
+                                    }
+                                }
+                            }
+                          finally {
+				sh 'sudo rm -rf ./*'
+				deleteDir()
+			    }
+                          }
+                        }
+                    }
+                    if (params.integrationtests) {
+                        runners["integration-tests"] = {
+                            node("${params.instance}") {
+                              try {
+                                stage ("node ${env.NODE_NAME}") {
+                                    withEnv(['PATH=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin:/bin']){
+                                    sh '''
+                                        echo -e '{\n  "experimental": true,\n  "ipv6": true,\n  "fixed-cidr-v6": "2001:db8:1::/64"\n}' | sudo tee /etc/docker/daemon.json
+                                        sudo systemctl restart docker
+                                    '''
+                                    script {
+                                        def image = "public.ecr.aws/e7j3v3n0/psmdb-build:" + params.tag
+                                        sh """
+                                            docker pull ${image}
+                                            docker run -v `pwd`/build:/opt/percona-server-mongodb/build -i --rm ${image} bash -c "buildscripts/scons.py ${params.scons_params} install-integration-tests"
                                         """  
                                         def suites = []
                                         if ( params.listsuites != '') {
@@ -368,6 +497,11 @@ pipeline {
                                     }
                                 }
                             }
+                          finally {
+				sh 'sudo rm -rf ./*'
+				deleteDir()
+			    }
+                          }
                         }
                     }
                     parallel runners  

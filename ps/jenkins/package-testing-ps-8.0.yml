@@ -38,6 +38,7 @@
                 - "all"
                 - "min-buster-x64"
                 - "min-bullseye-x64"
+                - "min-bookworm-x64"
                 - "min-centos-7-x64"
                 - "min-ol-8-x64"
                 - "min-bionic-x64"

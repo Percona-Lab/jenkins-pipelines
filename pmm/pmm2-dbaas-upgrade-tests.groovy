@@ -72,7 +72,7 @@ pipeline {
             description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
             name: 'PMM_SERVER_TAG')
         string(
-            defaultValue: 'admin-password',
+            defaultValue: 'pmm2023fortesting!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         choice(
@@ -223,7 +223,7 @@ pipeline {
                         echo "${KUBECONFIG}" > kubeconfig
                         export KUBECONFIG=./kubeconfig
                         kubectl get nodes
-                        ./node_modules/.bin/codeceptjs run-multiple parallel -c pr.codecept.js --grep '@upgrade-dbaas-before'
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-before'
                         kubectl get pods
                     """
                 }
@@ -241,7 +241,7 @@ pipeline {
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);
                     export CHROMIUM_PATH=/usr/bin/chromium
-                    ./node_modules/.bin/codeceptjs run-multiple parallel -c pr.codecept.js --grep '@upgrade-dbaas-ui'
+                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-ui'
                 """
             }
         }
@@ -317,7 +317,7 @@ pipeline {
                         export kubeconfig_minikube="${KUBECONFIG}"
                         echo "${KUBECONFIG}" > kubeconfig
                         export KUBECONFIG=./kubeconfig
-                        ./node_modules/.bin/codeceptjs run-multiple parallel -c pr.codecept.js --grep '@upgrade-dbaas-after'
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@upgrade-dbaas-after'
                     """
                 }
             }
@@ -353,6 +353,7 @@ pipeline {
                     archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
                 }
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -360,6 +361,7 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
             sh '''
                 sudo rm -r node_modules/
                 sudo rm -r tests/output

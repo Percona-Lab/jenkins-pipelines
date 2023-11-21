@@ -7,6 +7,7 @@ List all_nodes = [
                 'ubuntu-jammy',
                 'ubuntu-focal',
                 'ubuntu-bionic',
+                'debian-12',
                 'debian-11',
                 'debian-10',
                 'centos-7',
@@ -36,7 +37,7 @@ void runNodeBuild(String node_to_test) {
     }
 
     build(
-        job: 'wip-pxc-package-testing',
+        job: 'pxc-package-testing',
         parameters: [
             string(name: "product_to_test", value: params.product_to_test),
             string(name: "node_to_test", value: node_to_test),
@@ -121,6 +122,21 @@ pipeline {
 
                     steps {
                         runNodeBuild("debian-11")
+                    }
+                }
+
+                stage("Debian-12") {
+                    when {
+                        expression {
+                            allOf{
+                                nodes_to_test.contains("debian-12")
+
+                            }
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("debian-12")
                     }
                 }
 

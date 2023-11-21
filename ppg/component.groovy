@@ -17,7 +17,7 @@ def sendSlackNotification(componentName, ppgVersion, componentVersion)
 
 pipeline {
   agent {
-  label 'min-centos-7-x64'
+  label 'min-ol-8-x64'
   }
 
   parameters {
@@ -46,7 +46,7 @@ pipeline {
             name: 'COMPONENT_VERSION'
          )
         string(
-            defaultValue: 'ppg-11.9',
+            defaultValue: 'ppg-15.3',
             description: 'PPG version for test',
             name: 'VERSION'
          )
@@ -59,6 +59,8 @@ pipeline {
                       'patroni',
                       'pgbackrest',
                       'pg_stat_monitor',
+                      'pgpool',
+                      'postgis',
                       'pgaudit13_set_user',
                       'pgbadger',
                       'pgbouncer',
@@ -67,7 +69,12 @@ pipeline {
         choice(
             name: 'SCENARIO',
             description: 'PPG major version to test',
-            choices: ['ppg-11', 'ppg-12', 'ppg-13', 'ppg-14', 'ppg-15']
+            choices: ['ppg-11', 'ppg-12', 'ppg-13', 'ppg-14', 'ppg-15', 'ppg-16']
+        )
+        string(
+            defaultValue: 'no',
+            description: 'Destroy VM after tests',
+            name: 'DESTROY_ENV'
         )
   }
   environment {
@@ -110,7 +117,9 @@ pipeline {
   post {
     always {
           script {
+             if (env.DESTROY_ENV == "yes") {
              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "default")
+             }
              sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION)
         }
     }

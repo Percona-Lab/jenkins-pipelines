@@ -16,6 +16,13 @@ product_action_playbooks = [
         upgrade: 'pxb_24_upgrade.yml',
         upstream: 'pxb_24_upstream.yml',
         tarball: 'pxb_24_tarball.yml'
+    ],
+    pxb81: [
+        install: 'pxb_81.yml',
+        upgrade: 'pxb_81_upgrade.yml',
+        upstream: 'pxb_81_upstream.yml',
+        tarball: 'pxb_81_tarball.yml',
+        kmip: 'pxb_81_kmip.yml'
     ]
 ]
 
@@ -28,6 +35,15 @@ setup_centos_package_tests = { ->
 }
 
 setup_oracle8_package_tests = { ->
+    sh '''
+        sudo yum install -y epel-release
+        sudo yum -y update
+        sudo yum install -y ansible-2.9.27
+        sudo yum install -y tar
+    '''
+}
+
+setup_oracle9_package_tests = { ->
     sh '''
         sudo yum install -y epel-release
         sudo yum -y update
@@ -59,15 +75,30 @@ setup_ubuntu_package_tests = { ->
     '''
 }
 
+setup_ubuntu_jammy_package_tests = { ->
+    sh '''
+        sudo apt-get update
+        sudo apt-get install -y software-properties-common
+        sudo apt-get install -y python3 python3-pip
+        echo $PATH
+        python3 -m pip install --user ansible==2.9.27
+        ~/.local/bin/ansible --version
+        sudo ln -s ~/.local/bin/ansible /usr/bin/ansible
+        sudo ln -s ~/.local/bin/ansible-playbook /usr/bin/ansible-playbook
+    '''
+}
+
+
 node_setups = [
     "min-buster-x64": setup_buster_package_tests,
     "min-bullseye-x64": setup_bullseye_package_tests,
+    "min-bookworm-x64": setup_bullseye_package_tests,
     "min-centos-7-x64": setup_centos_package_tests,
     "min-ol-8-x64": setup_oracle8_package_tests,
-    "min-ol-9-x64": setup_oracle8_package_tests,
+    "min-ol-9-x64": setup_oracle9_package_tests,
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
-    "min-jammy-x64": setup_ubuntu_package_tests,
+    "min-jammy-x64": setup_ubuntu_jammy_package_tests
 ]
 
 void setup_package_tests() {
@@ -77,10 +108,11 @@ void setup_package_tests() {
 void runPlaybook(String action_to_test) {
     def playbook = product_action_playbooks[params.product_to_test][action_to_test]
     def playbook_path = "package-testing/playbooks/${playbook}"
+    def git_repo = params.git_repo
 
-    sh '''
+    sh """
         git clone --depth 1 "${git_repo}"
-    '''
+    """
 
     setup_package_tests()
 
@@ -101,8 +133,8 @@ pipeline {
 
     parameters {
         choice(
-            choices: ['pxb80', 'pxb24'],
-            description: 'Choose the product version to test: PXB8.0 OR PXB2.4',
+            choices: ['pxb81', 'pxb80', 'pxb24'],
+            description: 'Choose the product version to test: PXB8.1, PXB8.0 OR PXB2.4',
             name: 'product_to_test'
         )
         choice(
@@ -114,7 +146,8 @@ pipeline {
                 'min-focal-x64',
                 'min-jammy-x64',
                 'min-buster-x64',
-                'min-bullseye-x64'
+                'min-bullseye-x64',
+                'min-bookworm-x64'
             ],
             description: 'Node to run tests',
             name: 'node_to_test'
@@ -130,11 +163,11 @@ pipeline {
             name: 'git_repo',
             trim: false
         )
+
     }
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '15'))
-        skipDefaultCheckout()
     }
 
     stages {

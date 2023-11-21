@@ -30,6 +30,13 @@ pipeline {
     agent {
         label 'agent-amd64'
     }
+    parameters {
+        choice(
+            // default is choices.get(0) - el9
+            choices: ['el9', 'el7'],
+            description: 'Select the OS to build for',
+            name: 'BUILD_OS')
+    }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
     }
@@ -130,7 +137,10 @@ pipeline {
                 stash includes: 'CLIENT_URL', name: 'CLIENT_URL'
             }
         }
-        stage('Build client source rpm') {
+        stage('Build client source rpm EL7') {
+            when {
+                expression { params.BUILD_OS == "el7" }
+            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
@@ -142,7 +152,25 @@ pipeline {
                 }
             }
         }
-        stage('Build client binary rpm') {
+        stage('Build client source rpm') {
+            when {
+                expression { params.BUILD_OS == "el9" }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh '''
+                        set -o errexit
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+
+                        ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                    '''
+                }
+            }
+        }
+        stage('Build client binary rpm EL7') {
+            when {
+                expression { params.BUILD_OS == "el7" }
+            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
@@ -155,6 +183,25 @@ pipeline {
                         mkdir -p tmp/pmm-server/RPMS/
                         cp results/rpm/pmm2-client-*.rpm tmp/pmm-server/RPMS/
                     """
+                }
+            }
+        }
+        stage('Build client binary rpm') {
+            when {
+                expression { params.BUILD_OS == "el9" }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh '''
+                        set -o errexit
+
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+
+                        ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+
+                        mkdir -p tmp/pmm-server/RPMS/
+                        cp results/rpm/pmm2-client-*.rpm tmp/pmm-server/RPMS/
+                    '''
                 }
             }
         }
@@ -177,7 +224,10 @@ pipeline {
                 archiveArtifacts 'results/docker/CLIENT_TAG'
             }
         }
-        stage('Build server packages') {
+        stage('Build server packages EL7') {
+            when {
+                expression { params.BUILD_OS == "el7" }
+            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
@@ -193,7 +243,32 @@ pipeline {
                 }
             }
         }
-        stage('Build server docker') {
+        stage('Build server packages') {
+            when {
+                expression { params.BUILD_OS == "el9" }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh '''
+
+                        set -o errexit
+
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+
+                        export RPM_EPOCH=1
+                        export PATH=${PATH}:$(pwd -P)/${PATH_TO_SCRIPTS}
+                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                        export RPMBUILD_DIST="el9"
+
+                        ${PATH_TO_SCRIPTS}/build-server-rpm-all
+                    '''
+                }
+            }
+        }
+        stage('Build server docker EL7') {
+            when {
+                expression { params.BUILD_OS == "el7" }
+            }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
@@ -209,6 +284,34 @@ pipeline {
 
                         ${PATH_TO_SCRIPTS}/build-server-docker
                     """
+                }
+                stash includes: 'results/docker/TAG', name: 'IMAGE'
+                archiveArtifacts 'results/docker/TAG'
+            }
+        }
+        stage('Build server docker') {
+            when {
+                expression { params.BUILD_OS == "el9" }
+            }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh '''
+                        docker login -u "${USER}" -p "${PASS}"
+                    '''
+                }
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh '''
+                        set -o errexit
+
+                        export PUSH_DOCKER=1
+                        export DOCKER_TAG=perconalab/pmm-server-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+
+                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                        export RPMBUILD_DIST="el9"
+                        export DOCKERFILE=Dockerfile.el9
+
+                        ${PATH_TO_SCRIPTS}/build-server-docker
+                    '''
                 }
                 stash includes: 'results/docker/TAG', name: 'IMAGE'
                 archiveArtifacts 'results/docker/TAG'

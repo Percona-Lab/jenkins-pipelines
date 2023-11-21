@@ -22,6 +22,14 @@ setup_centos_package_tests = { ->
     '''
 }
 
+setup_oracle8_package_tests = { ->
+    sh '''
+        sudo yum install -y epel-release
+        sudo yum -y update
+        sudo yum install -y ansible-2.9.27
+    '''
+}
+
 setup_stretch_package_tests = { ->
     sh '''
         sudo apt-get update
@@ -50,13 +58,15 @@ setup_ubuntu_package_tests = { ->
 }
 
 node_setups = [
-    "min-stretch-x64": setup_stretch_package_tests,
     "min-buster-x64": setup_buster_bullseye_package_tests,
     "min-bullseye-x64": setup_buster_bullseye_package_tests,
     "min-centos-7-x64": setup_centos_package_tests,
-    "min-ol-8-x64": setup_centos_package_tests,
+    "min-ol-8-x64": setup_oracle8_package_tests,
+    "min-ol-9-x64": setup_centos_package_tests,
     "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
+    "min-jammy-x64": setup_ubuntu_package_tests,
+    "min-bookworm-x64": setup_buster_bullseye_package_tests,
 ]
 
 void setup_package_tests() {
@@ -92,7 +102,7 @@ pipeline {
 
     parameters {
         choice(
-            choices: ['proxysql', 'proxysql2'],
+            choices: ['proxysql2', 'proxysql'],
             description: 'Choose the product version to test: proxysql OR proxysql2',
             name: 'product_to_test'
         )
@@ -100,11 +110,13 @@ pipeline {
             choices: [
                 'min-centos-7-x64',
                 'min-ol-8-x64',
+                'min-ol-9-x64',
                 'min-bionic-x64',
                 'min-focal-x64',
-                'min-stretch-x64',
+                'min-jammy-x64',
                 'min-buster-x64',
-                'min-bullseye-x64'
+                'min-bullseye-x64',
+                'min-bookworm-x64'
             ],
             description: 'Node to run tests',
             name: 'node_to_test'
@@ -152,7 +164,12 @@ pipeline {
                     agent {
                         label params.node_to_test
                     }
-
+                    when {
+                        beforeAgent true
+                        expression {
+                            params.install_repo != 'main'
+                        }
+                    }
                     steps {
                         runPlaybook("upgrade")
                     }

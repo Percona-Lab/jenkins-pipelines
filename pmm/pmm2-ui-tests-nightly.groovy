@@ -94,6 +94,20 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP) {
     }
 }
 
+void checkAndRestartMySQL(String VM_CLIENT_IP) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no "${USER}@${VM_CLIENT_IP}" '
+                set -o errexit
+                set -o xtrace
+                echo "Checking MySQL Status on Client Nodes"
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_and_restart_mysql.sh
+                bash -xe /srv/pmm-qa/pmm-tests/check_and_restart_mysql.sh
+            '
+        """
+    }
+}
+
 void destroyStaging(IP) {
     build job: 'aws-staging-stop', parameters: [
         string(name: 'VM', value: IP),
@@ -191,7 +205,7 @@ pipeline {
             description: 'Enable Pull Mode, if you are using this instance as Client Node',
             name: 'ENABLE_PULL_MODE')
         string(
-            defaultValue: 'admin-password',
+            defaultValue: 'pmm2023fortesting!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         string (
@@ -215,11 +229,11 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['13', '12', '11', '10.8'],
+            choices: ['15', '14', '13', '12', '11'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['15.1', '15.0','14.4','14.3','14.2', '14.1', '14.0', '13.7', '13.6', '13.4', '13.2', '13.1', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
+            choices: ['16.0','15.4','14.9', '13.12', '12.16', '11.21'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -271,7 +285,7 @@ pipeline {
                 runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service', CLIENT_INSTANCE, '127.0.0.1', ADMIN_PASSWORD)
             }
         }
-        stage('Setup PMM Client and Kubernetes Cluster') {
+        stage('Setup PMM Clients') {
             parallel {
                 stage('Start Client Instance - ps-replication') {
                     steps {
@@ -303,7 +317,7 @@ pipeline {
         stage('Setup Node') {
             steps {
                 sh """
-                    curl -sL https://deb.nodesource.com/setup_14.x -o nodesource_setup.sh
+                    curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
                     sudo bash nodesource_setup.sh
                     sudo apt install nodejs
                     sudo apt-get install -y gettext
@@ -312,6 +326,12 @@ pipeline {
                     sudo npx playwright install-deps
                     envsubst < env.list > env.generated.list
                 """
+            }
+        }
+        stage('MySQL status check') {
+            steps {
+                checkAndRestartMySQL(env.VM_CLIENT_IP_MYSQL)
+                checkAndRestartMySQL(env.VM_CLIENT_IP_PXC)
             }
         }
         stage('Sleep') {
@@ -333,7 +353,7 @@ pipeline {
                             sh """
                                 sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                                 export PWD=\$(pwd);
-                                npx codeceptjs run --steps --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
+                                npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
                             """
                         }
                     }
@@ -380,6 +400,7 @@ pipeline {
                     archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -387,6 +408,7 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
             script {
                 if(env.VM_NAME)
                 {

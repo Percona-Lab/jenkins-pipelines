@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 void runNodeBuild(String node_to_test) {
     build(
-        job: 'pxb-node-tests-branch',
+        job: 'pxb-package-testing',
         parameters: [
             string(name: 'product_to_test', value: product_to_test),
             string(name: 'install_repo', value: params.install_repo),
@@ -22,8 +22,8 @@ pipeline {
 
     parameters {
         choice(
-            choices: ['pxb80', 'pxb24'],
-            description: 'Choose the product version to test: PXB8.0 OR PXB2.4',
+            choices: ['pxb81', 'pxb80', 'pxb24'],
+            description: 'Choose the product version to test: PXB8.1, PXB8.0 OR PXB2.4',
             name: 'product_to_test'
         )
         choice(
@@ -56,6 +56,12 @@ pipeline {
                 stage('Debian Bullseye') {
                     steps {
                         runNodeBuild('min-bullseye-x64')
+                    }
+                }
+
+                stage('Debian Bookworm') {
+                    steps {
+                        runNodeBuild('min-bookworm-x64')
                     }
                 }
 
@@ -94,6 +100,7 @@ pipeline {
                         runNodeBuild('min-ol-9-x64')
                     }
                 }
+
             }
         }
     }

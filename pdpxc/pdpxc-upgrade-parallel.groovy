@@ -32,32 +32,37 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.29',
-            description: 'From this version pdmysql will be updated',
+            defaultValue: '8.0.30',
+            description: 'From this version pdmysql will be updated. Possible values are with and without percona release: 8.0.30 OR 8.0.30-22',
             name: 'FROM_VERSION'
         )
         string(
-            defaultValue: '8.0.30',
-            description: 'To this version pdmysql will be updated',
+            defaultValue: '8.0.31-23',
+            description: 'To this version pdmysql will be updated. Possible values are with and without percona release and build: 8.0.32, 8.0.32-24 OR 8.0.32-24.2',
             name: 'VERSION'
         )
         string(
-            defaultValue: '8.0.30',
-            description: 'PXB version for test',
+            defaultValue: '',
+            description: 'PXC revision for test after update. Empty by default (not checked).',
+            name: 'PXC_REVISION'
+        )
+        string(
+            defaultValue: '8.0.31-24',
+            description: 'PXB version for test. Possible values are with and without percona release and build: 8.0.32, 8.0.32-25 OR 8.0.32-25.1',
             name: 'PXB_VERSION'
         )
         string(
-            defaultValue: '2.4.4',
+            defaultValue: '2.4.8',
             description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
         )
         string(
-            defaultValue: '2.5.10',
+            defaultValue: '2.5.12',
             description: 'HAProxy version for test',
             name: 'HAPROXY_VERSION'
         )
         string(
-            defaultValue: '3.5.0',
+            defaultValue: '3.5.1',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
         )
@@ -71,6 +76,11 @@ pipeline {
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
+        string(
+            defaultValue: 'Percona-QA',
+            description: 'Git account for package-testing repository',
+            name: 'TESTING_GIT_ACCOUNT'
+        )
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())
@@ -80,7 +90,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
             }
         }
         stage ('Prepare') {

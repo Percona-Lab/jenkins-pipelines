@@ -22,7 +22,7 @@ netMap['us-west-2b'] = 'subnet-011f09cf273aeef73'
 netMap['us-west-2c'] = 'subnet-00b0d1d8bd8af5c07'
 
 imageMap = [:]
-imageMap['docker'] = 'ami-0f9f005c313373218'
+imageMap['docker'] = 'ami-0f64dfdea96e44686'
 imageMap['docker-32gb'] = imageMap['docker']
 imageMap['micro-amazon'] = imageMap['docker']
 imageMap['min-centos-7-x64'] = 'ami-0686851c4e7b1a8e1'
@@ -34,14 +34,12 @@ imageMap['min-buster-x64']   = 'ami-090cd3aed687b1ee1'
 imageMap['min-focal-x64']    = 'ami-01773ce53581acf22'
 imageMap['min-jammy-x64']    = 'ami-0ee8244746ec5d6d4'
 imageMap['min-bullseye-x64'] = 'ami-0d0f7602aa5c2425d'
+imageMap['min-bookworm-x64'] = 'ami-0544719b13af6edc3'
 
 priceMap = [:]
-priceMap['t3a.medium'] = '0.035'
-priceMap['m1.medium'] = '0.05'
-priceMap['c5ad.2xlarge'] = '0.18'
-priceMap['m3.2xlarge'] = '0.23'
-priceMap['m4.2xlarge'] = '0.28' // type=m4.2xlarge, vCPU=8, memory=32GiB, saving=55%, interruption='<5%', price=0.225100
-priceMap['c5ad.4xlarge'] = '0.40'
+priceMap['c5a.large'] = '0.08'    // type=c5a.large, vCPU=2, memory=4GiB, saving=55%, interruption='<5%', price=0.043400
+priceMap['m5n.2xlarge'] = '0.32'  // type=m5n.2xlarge, vCPU=8, memory=32GiB, saving=48%, interruption='<5%', price=0.253000
+priceMap['m5n.4xlarge'] = '0.62'  // type=m5n.4xlarge, vCPU=16, memory=64GiB, saving=48%, interruption='<5%', price=0.512200
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
@@ -57,6 +55,7 @@ userMap['min-buster-x64'] = 'admin'
 userMap['min-focal-x64'] = 'ubuntu'
 userMap['min-jammy-x64'] = 'ubuntu'
 userMap['min-bullseye-x64'] = 'admin'
+userMap['min-bookworm-x64'] = 'admin'
 
 initMap = [:]
 initMap['docker'] = '''
@@ -152,7 +151,7 @@ initMap['rpmMap'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-11-openjdk git ${PKGLIST} || :
+    sudo yum -y install java-11-openjdk tzdata-java git ${PKGLIST} || :
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     # CentOS 6 x32 workarounds
@@ -205,12 +204,19 @@ initMap['debMap'] = '''
         echo try again
     done
     DEB_VER=$(lsb_release -sc)
-    if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]]; then
-        JAVA_VER="openjdk-11-jre-headless"
+    if [[ ${DEB_VER} == "bookworm" ]]; then
+        JAVA_VER="openjdk-17-jre-headless"
     else
         JAVA_VER="openjdk-11-jre-headless"
     fi
-    sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ${JAVA_VER} git
+    if [[ ${DEB_VER} == "bookworm" ]]; then
+        sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
+        sudo mv /etc/ssl /etc/ssl_old
+        sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
+        sudo cp -r /etc/ssl_old /etc/ssl
+    else
+        sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
+    fi
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 
@@ -223,6 +229,7 @@ initMap['min-ol-9-x64'] = initMap['rpmMap']
 
 initMap['min-buster-x64'] = initMap['debMap']
 initMap['min-bullseye-x64'] = initMap['debMap']
+initMap['min-bookworm-x64'] = initMap['debMap']
 
 initMap['min-bionic-x64'] = initMap['debMap']
 initMap['min-focal-x64']  = initMap['debMap']
@@ -230,16 +237,14 @@ initMap['min-jammy-x64']  = initMap['debMap']
 
 
 capMap = [:]
-capMap['c5ad.2xlarge'] = '80'
-capMap['m3.2xlarge'] = '60'
-capMap['m4.2xlarge'] = '120'
-capMap['c5ad.4xlarge'] = '80'
-capMap['m1.medium'] = '10'
+capMap['m5n.2xlarge'] = '120'
+capMap['m5n.4xlarge'] = '80'
+capMap['c5a.large'] = '15'
 
 typeMap = [:]
-typeMap['micro-amazon'] = 't3a.medium'
-typeMap['docker'] = 'm4.2xlarge'
-typeMap['docker-32gb'] = 'c5ad.4xlarge'
+typeMap['micro-amazon'] = 'c5a.large'
+typeMap['docker'] = 'm5n.2xlarge'
+typeMap['docker-32gb'] = 'm5n.4xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-8-x64'] = typeMap['min-centos-7-x64']
@@ -250,6 +255,7 @@ typeMap['min-focal-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-jammy-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bullseye-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-bookworm-x64'] = typeMap['min-centos-7-x64']
 
 execMap = [:]
 execMap['docker'] = '1'
@@ -265,6 +271,7 @@ execMap['min-buster-x64'] = '1'
 execMap['min-focal-x64'] = '1'
 execMap['min-jammy-x64'] = '1'
 execMap['min-bullseye-x64'] = '1'
+execMap['min-bookworm-x64'] = '1'
 
 devMap = [:]
 devMap['docker'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -280,6 +287,7 @@ devMap['min-ol-8-x64'] = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-ol-9-x64'] = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-buster-x64'] = '/dev/xvda=:30:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-bullseye-x64'] = '/dev/xvda=:30:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-bookworm-x64'] = '/dev/xvda=:30:true:gp2,/dev/xvdd=:80:true:gp2'
 
 labelMap = [:]
 labelMap['docker'] = ''
@@ -295,6 +303,23 @@ labelMap['min-ol-8-x64'] = ''
 labelMap['min-ol-9-x64'] = ''
 labelMap['min-buster-x64'] = ''
 labelMap['min-bullseye-x64'] = ''
+labelMap['min-bookworm-x64'] = ''
+
+jvmoptsMap = [:]
+jvmoptsMap['docker'] = '-Xmx512m -Xms512m'
+jvmoptsMap['docker-32gb'] = jvmoptsMap['docker']
+jvmoptsMap['micro-amazon'] = jvmoptsMap['docker']
+jvmoptsMap['min-bionic-x64'] = jvmoptsMap['docker']
+jvmoptsMap['min-focal-x64'] = jvmoptsMap['docker']
+jvmoptsMap['min-jammy-x64'] = jvmoptsMap['docker']
+jvmoptsMap['min-centos-7-x64'] = jvmoptsMap['docker']
+jvmoptsMap['fips-centos-7-x64'] = jvmoptsMap['docker']
+jvmoptsMap['min-centos-8-x64'] = jvmoptsMap['docker']
+jvmoptsMap['min-ol-8-x64'] = jvmoptsMap['docker']
+jvmoptsMap['min-ol-9-x64'] = jvmoptsMap['docker']
+jvmoptsMap['min-buster-x64'] = jvmoptsMap['docker']
+jvmoptsMap['min-bullseye-x64'] = jvmoptsMap['docker']
+jvmoptsMap['min-bookworm-x64'] = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -315,7 +340,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
         new UnixData('', '', '', '22', ''),         // AMITypeData amiType
-        '-Xmx512m -Xms512m',                        // String jvmopts
+        jvmoptsMap[OSType],                         // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
         [
@@ -376,6 +401,7 @@ String region = 'us-west-2'
             getTemplate('min-focal-x64', "${region}${it}"),
             getTemplate('min-jammy-x64', "${region}${it}"),
             getTemplate('min-bullseye-x64', "${region}${it}"),
+            getTemplate('min-bookworm-x64', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
        '',
        ''

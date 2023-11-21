@@ -20,19 +20,21 @@
         - choice:
             name: product_to_test
             choices:
-                - "proxysql"
                 - "proxysql2"
-            description: 'Choose the product version to test: Pproxysql OR proxysql2'
+                - "proxysql"
+            description: 'Choose the product version to test: Proxysql OR proxysql2'
         - choice:
             name: node_to_test
             choices:
                 - 'min-centos-7-x64'
                 - 'min-ol-8-x64'
+                - 'min-ol-9-x64'
                 - 'min-bionic-x64'
                 - 'min-focal-x64'
-                - 'min-stretch-x64'
+                - 'min-jammy-x64'
                 - 'min-buster-x64'
                 - 'min-bullseye-x64'
+                - 'min-bookworm-x64'
             description: 'Node to run tests'
         - choice:
             name: install_repo

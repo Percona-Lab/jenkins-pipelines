@@ -8,7 +8,7 @@ pipeline {
             name: 'GIT_REPO',
             trim: true)
         string(
-            defaultValue: 'v2.4.8',
+            defaultValue: 'v2.5.5',
             description: 'Tag/Branch for ProxySQL repository',
             name: 'BRANCH',
             trim: true)
@@ -23,7 +23,7 @@ pipeline {
             name: 'PROXYSQL_PACKAGE_BRANCH',
             trim: true)
         string(
-            defaultValue: 'v2.4.8-dev',
+            defaultValue: 'v2.5.5-dev',
             description: 'Tag/Branch for ProxySQL-admin-tool repository',
             name: 'PAT_TAG',
             trim: true)
@@ -65,6 +65,9 @@ pipeline {
         stage('Build ProxySQL') {
                 agent { label 'docker' }
                 steps {
+                    script {
+                        currentBuild.displayName = "#${BUILD_NUMBER}-${params.BRANCH}-${params.DOCKER_OS}-${params.CMAKE_BUILD_TYPE}-${params.PXC_VERSION}"
+                    }
                     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Checkout ProxySQL sources'
                     sh '''

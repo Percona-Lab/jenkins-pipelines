@@ -4,7 +4,7 @@ void pushArtifactFile(String FILE_NAME) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             touch ${FILE_NAME}
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git -C source describe --always --dirty)
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git -C source rev-parse --short HEAD)
             aws s3 ls \$S3_PATH/${FILE_NAME} || :
             aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
         """
@@ -16,13 +16,13 @@ void popArtifactFile(String FILE_NAME) {
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git -C source describe --always --dirty)
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git -C source rev-parse --short HEAD)
             aws s3 cp --quiet \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
         """
     }
 }
 
-TestsReport = '<testsuite name=\\"PSMO\\">\n'
+TestsReport = '<testsuite name=\\"PS-OpenShift-version\\">\n'
 testsReportMap = [:]
 void makeReport() {
     for ( test in testsReportMap ) {
@@ -38,7 +38,7 @@ void runTest(String TEST_NAME) {
             echo "The $TEST_NAME test was started!"
             testsReportMap[TEST_NAME] = 'failure'
 
-            def FILE_NAME = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME-eks-${env.PLATFORM_VER}"
+            def FILE_NAME = "$GIT_BRANCH-$GIT_SHORT_COMMIT-$TEST_NAME-eks-$PLATFORM_VER-$PARAMS_HASH"
             popArtifactFile("$FILE_NAME")
 
             timeout(time: 90, unit: 'MINUTES') {
@@ -46,44 +46,17 @@ void runTest(String TEST_NAME) {
                     if [ -f "$FILE_NAME" ]; then
                         echo "Skipping $TEST_NAME test because it passed in previous run."
                     else
-                        cd ./source
-                        if [ -n "${OPERATOR_IMAGE}" ]; then
-                            export IMAGE=${OPERATOR_IMAGE}
-                        else
-                            export IMAGE=perconalab/percona-server-mysql-operator:${env.GIT_BRANCH}
-                        fi
+                        cd source
 
-                        if [ -n "${IMAGE_MYSQL}" ]; then
-                            export IMAGE_MYSQL=${IMAGE_MYSQL}
-                        fi
-
-                        if [ -n "${IMAGE_ORCHESTRATOR}" ]; then
-                            export IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR}
-                        fi
-
-                        if [ -n "${IMAGE_ROUTER}" ]; then
-                            export IMAGE_ROUTER=${IMAGE_ROUTER}
-                        fi
-
-                        if [ -n "${IMAGE_BACKUP}" ]; then
-                            export IMAGE_BACKUP=${IMAGE_BACKUP}
-                        fi
-
-                        if [ -n "${IMAGE_TOOLKIT}" ]; then
-                            export IMAGE_TOOLKIT=${IMAGE_TOOLKIT}
-                        fi
-
-                        if [ -n "${IMAGE_PMM}" ]; then
-                            export IMAGE_PMM=${IMAGE_PMM}
-                        fi
-
-                        if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
-                            export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
-                        fi
-
-                        if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
-                            export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
-                        fi
+                        [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
+                        export IMAGE_MYSQL=$IMAGE_MYSQL
+                        export IMAGE_ORCHESTRATOR=$IMAGE_ORCHESTRATOR
+                        export IMAGE_ROUTER=$IMAGE_ROUTER
+                        export IMAGE_HAPROXY=$IMAGE_HAPROXY
+                        export IMAGE_BACKUP=$IMAGE_BACKUP
+                        export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
+                        export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                        export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
                         export PATH="${HOME}/.krew/bin:$PATH"
                         source $HOME/google-cloud-sdk/path.bash.inc
@@ -125,7 +98,6 @@ void installRpms() {
     sh """
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable-only tools
-        sudo yum install -y jq | true
     """
 }
 pipeline {
@@ -172,16 +144,12 @@ pipeline {
             name: 'IMAGE_HAPROXY')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/pmm-client:dev-latest',
-            name: 'IMAGE_PMM')
+            description: 'PMM client image: perconalab/pmm-client:dev-latest',
+            name: 'IMAGE_PMM_CLIENT')
         string(
             defaultValue: '',
-            description: 'PMM server image repo: perconalab/pmm-server',
-            name: 'IMAGE_PMM_SERVER_REPO')
-        string(
-            defaultValue: '',
-            description: 'PMM server image tag: dev-latest',
-            name: 'IMAGE_PMM_SERVER_TAG')
+            description: 'PMM server image: perconalab/pmm-server:dev-latest',
+            name: 'IMAGE_PMM_SERVER')
     }
     environment {
         TF_IN_AUTOMATION = 'true'
@@ -191,7 +159,7 @@ pipeline {
          label 'docker'
     }
     options {
-        buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '10', artifactNumToKeepStr: '10'))
+        buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
@@ -218,8 +186,10 @@ pipeline {
                     curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.16.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
+                    sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+                    sudo chmod +x /usr/local/bin/jq
 
                     curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux-$PLATFORM_VER.tar.gz \
                         | sudo tar -C /usr/local/bin --wildcards -zxvpf -
@@ -237,6 +207,7 @@ pipeline {
                     export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
 
                     kubectl krew install kuttl
+                    kubectl krew install assert
                 '''
 
             }
@@ -254,7 +225,7 @@ pipeline {
 
                         cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
 
-                        if [ -n "${OPERATOR_IMAGE}" ]; then
+                        if [[ "$OPERATOR_IMAGE" ]]; then
                             echo "SKIP: Build is not needed, operator image was set!"
                         else
                             cd ./source/
@@ -290,16 +261,23 @@ pipeline {
         stage('E2E Basic Tests') {
             environment {
                 GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$OPERATOR_IMAGE-$IMAGE_MYSQL-$IMAGE_ORCHESTRATOR-$IMAGE_ROUTER-$IMAGE_BACKUP-$IMAGE_TOOLKIT-$IMAGE_HAPROXY-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
             }
             options {
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
+                runTest('async-ignore-annotations')
                 runTest('auto-config')
                 runTest('config')
+                runTest('config-router')
                 runTest('demand-backup')
                 runTest('gr-demand-backup')
+                runTest('gr-ignore-annotations')
                 runTest('gr-init-deploy')
+                runTest('gr-one-pod')
+                runTest('gr-scaling')
+                runTest('gr-tls-cert-manager')
                 runTest('haproxy')
                 runTest('init-deploy')
                 runTest('limits')

@@ -19,8 +19,8 @@
         - choice:
             name: product_to_test
             choices:
-                - "proxysql"
                 - "proxysql2"
+                - "proxysql"
             description: 'Choose the product version to test: proxysql OR proxysql2'
         - choice:
             name: install_repo

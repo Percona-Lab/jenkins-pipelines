@@ -5,7 +5,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'docker'
+        label 'master'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
@@ -36,7 +36,8 @@ pipeline {
             steps { 
                 script {
                     def version = params.PSMDB_VERSION + '-' + params.PSMDB_RELEASE 
-                    build job: 'psmdb-docker', parameters: [string(name: 'PSMDB_REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'LATEST', value: "no") ]
+                    build job: 'psmdb-docker', parameters: [string(name: 'PSMDB_REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'TARGET_REPO', value: "PerconaLab") ]
+                    build job: 'psmdb-docker-arm', parameters: [string(name: 'PSMDB_REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'TARGET_REPO', value: "PerconaLab") ]
                 }
             }
         }

@@ -189,11 +189,22 @@ pipeline {
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
                             set -o errexit
                             set -o xtrace
+
                             [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
-                            echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
-                            sudo yum makecache
-                            sudo yum -y install git svn docker
+
+                            if grep -q Oracle /etc/os-release; then
+                                sudo dnf remove -y podman buildah
+                                sudo dnf -y install 'dnf-command(config-manager)'
+                                sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+                                sudo dnf install -y git svn docker-ce docker-ce-cli containerd.io docker-compose-plugin
+                            else
+                                echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+                                sudo yum makecache
+                                sudo yum -y install git svn docker
+                            fi
+
                             sudo systemctl start docker
+
                             curl -L -s https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 | sudo tee /usr/bin/docker-compose > /dev/null
                             sudo chmod +x /usr/bin/docker-compose
                             sudo mkdir -p /srv/pmm-qa || :
@@ -208,17 +219,6 @@ pipeline {
                 }
                 archiveArtifacts 'PUBLIC_IP'
                 archiveArtifacts 'INSTANCE_ID'
-            }
-        }
-        stage('Upgrade workaround for nginx package') {
-            steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh '''
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
-                            sudo sed -i 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
-                        "
-                    '''
-                }
             }
         }
         stage('Enable Testing Repo') {

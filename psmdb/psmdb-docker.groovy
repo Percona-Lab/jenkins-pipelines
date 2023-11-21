@@ -13,8 +13,9 @@ pipeline {
     parameters {
         choice(name: 'PSMDB_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PSMDB_VERSION', defaultValue: '6.0.2-1', description: 'PSMDB version')
-        choice(name: 'LATEST', choices: ['no','yes'], description: 'Tag image as latest')
+        choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
         choice(name: 'DEBUG', choices: ['no','yes'], description: 'Additionally build debug image')
+        choice(name: 'TESTS', choices: ['yes','no'], description: 'Run tests after building')
     }
     options {
         disableConcurrentBuilds()
@@ -53,6 +54,7 @@ pipeline {
                     wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
                     wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
+                    curl https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/docker/trivyignore -o ".trivyignore"
                     if [ ${params.PSMDB_REPO} = "release" ]; then
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
                                          --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-server-mongodb
@@ -70,7 +72,7 @@ pipeline {
         }
         stage ('Push image to aws ecr') {
             when {
-                environment name: 'PSMDB_REPO', value: 'experimental'
+                environment name: 'TARGET_REPO', value: 'AWS_ECR'
             }
             steps {
                 withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
@@ -92,7 +94,7 @@ pipeline {
         }
         stage ('Push images to perconalab') {
             when {
-                environment name: 'PSMDB_REPO', value: 'testing'
+                environment name: 'TARGET_REPO', value: 'PerconaLab'
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -106,10 +108,6 @@ pipeline {
                          docker push perconalab/percona-server-mongodb:\$MIN_VER
                          docker tag percona-server-mongodb perconalab/percona-server-mongodb:\$MAJ_VER
                          docker push perconalab/percona-server-mongodb:\$MAJ_VER 
-                         if [ ${params.LATEST} = "yes" ]; then
-                             docker tag percona-server-mongodb perconalab/percona-server-mongodb:latest
-                             docker push perconalab/percona-server-mongodb:latest
-                         fi
                          if [ ${params.DEBUG} = "yes" ]; then
                              docker tag percona-server-mongodb-debug perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-debug
                              docker push perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-debug
@@ -120,7 +118,7 @@ pipeline {
         }
         stage ('Push images to official percona docker registry') {
             when {
-                environment name: 'PSMDB_REPO', value: 'release'
+                environment name: 'TARGET_REPO', value: 'DockerHub'
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -134,15 +132,33 @@ pipeline {
                          docker push percona/percona-server-mongodb:\$MIN_VER
                          docker tag percona-server-mongodb percona/percona-server-mongodb:\$MAJ_VER
                          docker push percona/percona-server-mongodb:\$MAJ_VER
-                         if [ ${params.LATEST} = "yes" ]; then
-                             docker tag percona-server-mongodb percona/percona-server-mongodb:latest
-                             docker push percona/percona-server-mongodb:latest
-                         fi
                          if [ ${params.DEBUG} = "yes" ]; then
                              docker tag percona-server-mongodb-debug percona/percona-server-mongodb:${params.PSMDB_VERSION}-debug
                              docker push percona/percona-server-mongodb:${params.PSMDB_VERSION}-debug
                          fi
                      """
+                }
+            }
+        }
+        stage ('Run testing job') {
+            when {
+                environment name: 'TESTS', value: 'yes'
+            }
+            steps {
+                script {
+                    def psmdb_image = 'percona/percona-server-mongodb:' + params.PSMDB_VERSION
+                    if ( params.PSMDB_REPO == 'testing' ) {
+                        psmdb_image = 'perconalab/percona-server-mongodb:' + params.PSMDB_VERSION
+                    }
+                    if ( params.PSMDB_REPO == 'experimental' ) {
+                        psmdb_image = 'public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-' + params.PSMDB_VERSION
+                    }
+                    def pbm_branch = sh(returnStdout: true, script: """
+                        git clone https://github.com/percona/percona-backup-mongodb.git >/dev/null 2>/dev/null
+                        PBM_RELEASE=\$(cd percona-backup-mongodb && git branch -r | grep release | sed 's|origin/||' | sort --version-sort | tail -1)
+                        echo \$PBM_RELEASE
+                        """).trim()
+                    build job: 'pbm-functional-tests', propagate: false, wait: false, parameters: [string(name: 'PBM_BRANCH', value: pbm_branch ), string(name: 'PSMDB', value: psmdb_image )]
                 }
             }
         }
@@ -156,13 +172,13 @@ pipeline {
             deleteDir()
         }
         success {
-            slackNotify("#opensource-psmdb", "#00FF00", "[${JOB_NAME}]: Building of PSMDB ${PSMDB_VERSION} repo ${PSMDB_REPO} succeed")
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: Building of PSMDB ${PSMDB_VERSION} repo ${PSMDB_REPO} succeed")
         }
         unstable {
-            slackNotify("#opensource-psmdb", "#F6F930", "[${JOB_NAME}]: Building of PSMDB ${PSMDB_VERSION} repo ${PSMDB_REPO} unstable - [${BUILD_URL}testReport/]")
+            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: Building of PSMDB ${PSMDB_VERSION} repo ${PSMDB_REPO} unstable - [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("#opensource-psmdb", "#FF0000", "[${JOB_NAME}]: Building of PSMDB ${PSMDB_VERSION} repo ${PSMDB_REPO} failed - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: Building of PSMDB ${PSMDB_VERSION} repo ${PSMDB_REPO} failed - [${BUILD_URL}]")
         }
     }
 }

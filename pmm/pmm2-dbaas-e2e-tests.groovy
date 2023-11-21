@@ -16,7 +16,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENT_INSTANCE, SE
 
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
-    env.ADMIN_PASSWORD = "admin"
+    env.ADMIN_PASSWORD = "pmm2023fortesting!"
 
     if ( CLIENT_INSTANCE == "yes" ) {
         env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
@@ -72,6 +72,10 @@ pipeline {
             defaultValue: "'@dbaas'",
             description: 'Pass test tags ex. @dbaas',
             name: 'TEST_TAGS')
+        string(
+            defaultValue: '',
+            description: 'Custom build description',
+            name: 'BUILD_DESC')    
         choice(
             choices: ['no', 'yes'],
             description: "Use this instance only as a client host",
@@ -113,6 +117,11 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                script {
+                    if(env.BUILD_DESC != "") {
+                        currentBuild.description = env.BUILD_DESC
+                    }
+                }
                 // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
                 git poll: false,
@@ -189,7 +198,7 @@ pipeline {
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run --debug --steps --reporter mocha-multi -c pr.codecept.js --grep ${TEST_TAGS}
+                        ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep ${TEST_TAGS}
                     """
                 }
             }
@@ -202,7 +211,7 @@ pipeline {
                 expression { env.OVF_TEST == "no" }
             }
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
@@ -211,7 +220,7 @@ pipeline {
                         echo "${KUBECONFIG}" > kubeconfig
                         export KUBECONFIG=./kubeconfig
                         kubectl get nodes
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --debug --steps --reporter mocha-multi -c pr.codecept.js --grep ${TEST_TAGS}
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep ${TEST_TAGS}
                     """
                 }
             }
@@ -264,6 +273,7 @@ pipeline {
                     archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
+            /*
             allure([
                 includeProperties: false,
                 jdk: '',
@@ -271,6 +281,7 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'tests/output/allure']]
             ])
+            */
         }
     }
 }

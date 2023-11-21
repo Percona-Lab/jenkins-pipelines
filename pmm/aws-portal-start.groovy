@@ -242,10 +242,10 @@ EOF
                     def SLACK_MESSAGE = """[${JOB_NAME}]: build finished, URL: ${BUILD_URL}, IP: ${env.IP}
 In order to access the instance you need:
 1. make sure that `/etc/hosts` on your machine contains the following line
-```127.0.0.1 platform.localhost check.localhost pmm.localhost```
+```127.0.0.1 portal.local platform.local check.local pmm.local```
 2. run the following command in your terminal to proxy-pass http(s) ports:
 ```sudo ssh -N -L :443:${env.MINIKUBE_IP}:443 -N -L :80:${env.MINIKUBE_IP}:80 ec2-user@${env.IP}```
-3. open https://platform.localhost in your browser
+3. open https://portal.local in your browser
 4. to allow another person to access the instance, please run this command in your terminal:
 ```ssh ec2-user@${env.IP} 'echo "THEIR_PUBLIC_SSH_KEY" >> ~/.ssh/authorized_keys'```
 *Note: the other user should also complete the steps 1-2*

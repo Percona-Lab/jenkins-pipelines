@@ -19,7 +19,7 @@ setup_aws() {
 
 install_software() {
     wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-    rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+    rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
 
     until yum makecache; do
         sleep 1
@@ -30,7 +30,7 @@ install_software() {
     amazon-linux-extras install -y nginx1.12
     amazon-linux-extras install -y epel
     amazon-linux-extras install -y java-openjdk11
-    yum -y install jenkins-2.361.2 certbot git yum-cron aws-cli xfsprogs
+    yum -y install jenkins-2.414.2 certbot git yum-cron aws-cli xfsprogs
 
     sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
     sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -186,6 +186,10 @@ setup_nginx() {
                  include         /etc/nginx/conf.d/*-list.conf;
                  satisfy         any;
 
+		  ssl_protocols TLSv1.2;
+		  ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+		  ssl_prefer_server_ciphers off;
+
 		  location / {
 		    proxy_set_header        Host \$host:\$server_port;
 		    proxy_set_header        X-Real-IP \$remote_addr;
@@ -255,7 +259,7 @@ EOF
 }
 
 setup_ssh_keys() {
-    KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets surabhi.bhat"
+    KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets surabhi.bhat talha.rizwan"
 
     for KEY in $KEYS_LIST; do
         RETRY="3"

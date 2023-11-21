@@ -1,0 +1,15 @@
+- job:
+    name: pxc57-autobuild-RELEASE
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/surbhat1595/jenkins-pipelines.git
+            branches:
+            - 'ENG-1197'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pxc/jenkins/percona-xtradb-cluster-5.7.groovy
+
