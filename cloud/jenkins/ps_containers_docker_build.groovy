@@ -33,7 +33,7 @@ void checkImageForDocker(String IMAGE_SUFFIX){
         sh """
             IMAGE_SUFFIX=${IMAGE_SUFFIX}
             IMAGE_NAME='percona-server-mysql-operator'
-            TrivyLog="$WORKSPACE/trivy-\$IMAGE_NAME-\${IMAGE_SUFFIX}.xml"
+            TrivyLog="$WORKSPACE/trivy-\$IMAGE_NAME-${IMAGE_SUFFIX}.xml"
             wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
 
             sg docker -c "
@@ -46,18 +46,18 @@ void checkImageForDocker(String IMAGE_SUFFIX){
 void pushImageToDocker(String IMAGE_POSTFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
         sh """
-            sg docker -c '
+            IMAGE_POSTFIX=${IMAGE_POSTFIX}
+            sg docker -c "
                 if [ ! -d ~/.docker/trust/private ]; then
                     mkdir -p /home/ec2-user/.docker/trust/private
-                    cp "${docker_key}" ~/.docker/trust/private/
+                    cp '${docker_key}' ~/.docker/trust/private/
                 fi
-
                 docker login -u '${USER}' -p '${PASS}'
                 export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
                 docker trust sign perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}
                 docker push perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}
                 docker logout
-            '
+            "
         """
     }
 }
