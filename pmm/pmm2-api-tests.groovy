@@ -63,16 +63,15 @@ pipeline {
         }
         stage('Checkout Commit') {
             when {
-                expression { env.GIT_COMMIT_HASH.length()>0 }
+                expression { env.GIT_COMMIT_HASH.length() > 0 }
             }
             steps {
                 sh 'git checkout ' + env.GIT_COMMIT_HASH
             }
         }
 
-        stage('API Tests Setup')
-        {
-            steps{
+        stage('API Tests Setup') {
+            steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
                         echo "${PASS}" | docker login -u "${USER}" --password-stdin
@@ -80,23 +79,25 @@ pipeline {
                 }
                 sh '''
                     docker run -d \
-                    -e PMM_DEBUG=1 \
-                    -e PERCONA_TEST_CHECKS_INTERVAL=10s \
-                    -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com \
-                    -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
-                    -p 80:80 \
-                    -p 443:443 \
-                    -v \${PWD}/managed/testdata/checks:/srv/checks \
-                    \${DOCKER_VERSION}
+                      -e PMM_DEBUG=1 \
+                      -e PERCONA_TEST_CHECKS_INTERVAL=10s \
+                      -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com \
+                      -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
+                      -p 80:80 \
+                      -p 443:443 \
+                      -v ${PWD}/managed/testdata/checks:/srv/checks \
+                      ${DOCKER_VERSION}
 
                     docker build -t pmm-api-tests .
                     cd api-tests
-                    docker-compose up test_db
-                    MYSQL_IMAGE=\${MYSQL_IMAGE} docker-compose up -d mysql
-                    MONGO_IMAGE=\${MONGO_IMAGE} docker-compose up -d mongo
-                    POSTGRES_IMAGE=\${POSTGRES_IMAGE} docker-compose up -d postgres
-                    docker-compose up -d sysbench
-                    cd ../
+                    docker compose up test_db
+
+                    # None of these services is required to run API tests
+                    # MYSQL_IMAGE=${MYSQL_IMAGE} docker compose up -d mysql
+                    # MONGO_IMAGE=${MONGO_IMAGE} docker compose up -d mongo
+                    # POSTGRES_IMAGE=${POSTGRES_IMAGE} docker compose up -d postgres
+                    # docker compose up -d sysbench
+                    cd -
                 '''
                 script {
                     env.VM_IP = "127.0.0.1"
@@ -104,8 +105,7 @@ pipeline {
                 }
             }
         }
-        stage('Sanity Check')
-        {
+        stage('Sanity Check') {
             steps {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
@@ -113,7 +113,7 @@ pipeline {
         stage('Run API Test') {
             steps {
                 sh '''
-                    docker run -e PMM_SERVER_URL=\${PMM_URL} \
+                    docker run -e PMM_SERVER_URL=${PMM_URL} \
                                -e PMM_RUN_UPDATE_TEST=0 \
                                -e PMM_RUN_STT_TESTS=0 \
                                --name ${BUILD_TAG} \
