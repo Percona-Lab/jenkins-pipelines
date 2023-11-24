@@ -361,6 +361,7 @@ EOF
                 runTest('version-service')
                 runTest('users')
                 runTest('ns-mode')
+                runTest('data-migration-gcs')
             }
         }
         stage('Make report') {
