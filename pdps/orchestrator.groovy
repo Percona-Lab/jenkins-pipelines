@@ -58,6 +58,10 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                script {
+                    currentBuild.displayName = "#${BUILD_NUMBER}-${REPO}-${VERSION}"
+                    currentBuild.description = "${TESTING_BRANCH}-${TESTING_GIT_ACCOUNT}-${DESTROY_ENV}"
+                }
                 deleteDir()
                 git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git'
             }
