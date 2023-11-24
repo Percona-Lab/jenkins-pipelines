@@ -28,8 +28,6 @@ void pushImageToDocker(String IMAGE_SUFFIX){
             IMAGE_SUFFIX=${IMAGE_SUFFIX}
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                docker trust sign perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX}
                 docker push perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX}
                 docker logout
             "
@@ -117,8 +115,6 @@ pipeline {
                             cp "${docker_key}" ~/.docker/trust/private/
 
                             docker login -u '${USER}' -p '${PASS}'
-                            export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                            docker trust sign perconalab/percona-server-mongodb-operator:main
                             docker push perconalab/percona-server-mongodb-operator:main
                             docker logout
                         "

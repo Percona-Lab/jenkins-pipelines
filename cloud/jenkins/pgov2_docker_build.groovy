@@ -86,9 +86,6 @@ pipeline {
 
                             ./e2e-tests/build
 
-                            export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX
-
                             docker logout
                         "
                     """
