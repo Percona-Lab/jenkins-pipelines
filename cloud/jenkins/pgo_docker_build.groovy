@@ -85,14 +85,6 @@ pipeline {
 
                             ./e2e-tests/build
 
-                            export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-pgo-apiserver
-                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-pgo-event
-                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-pgo-rmdata
-                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-pgo-scheduler
-                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-postgres-operator
-                            docker trust sign perconalab/percona-postgresql-operator:\$TAG_PREFIX-pgo-deployer
-
                             docker logout
                         "
                     """
