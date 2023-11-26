@@ -103,7 +103,13 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_src_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("centos:7", "--build_src_rpm=1")
+                            }
+                        }
 
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
@@ -389,7 +395,7 @@ pipeline {
                 script {
                     if (env.FIPSMODE == 'yes') {
                         // Replace by a new procedure when it's ready
-                        sync2PrivateProdAutoBuild(PSMDB_REPO+"-fips", COMPONENT)
+                        sync2PrivateProdAutoBuild(PSMDB_REPO+"-pro", COMPONENT)
                     } else {
                         sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
                     }

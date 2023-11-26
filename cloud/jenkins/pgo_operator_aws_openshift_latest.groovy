@@ -26,6 +26,16 @@ void prepareNode() {
         wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
         unzip terraform_0.11.14_linux_amd64.zip
         sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
+        
+        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
+        ./krew-linux_amd64 install krew
+        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+        
+        kubectl krew install assert
+
+        # v0.15.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/a67f31ecb2e62f15149ca66d096357050f07b77d/plugins/kuttl.yaml
+        echo \$(kubectl kuttl --version) is installed
     """
 }
 
@@ -52,7 +62,7 @@ void prepareSources() {
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-pg-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_HA_IMAGE-$PGO_BACKREST_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_BACKREST_IMAGE-$PGO_POSTGRES_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -65,6 +75,7 @@ void dockerBuildPush() {
             else
                 cd source
                 sg docker -c "
+                    docker buildx create --use
                     docker login -u '$USER' -p '$PASS'
                     export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                     e2e-tests/build
@@ -182,7 +193,7 @@ controlPlane:
   replicas: 1
 metadata:
   creationTimestamp: null
-  name: openshift-lat-pg-jenkins-$CLUSTER_SUFFIX
+  name: openshift-v2-lat-pg-jenkins-$CLUSTER_SUFFIX
 networking:
   clusterNetwork:
   - cidr: 10.128.0.0/14
@@ -203,13 +214,13 @@ platform:
 
 publish: External
 EOF
-            cat $OPENSHIFT_CONF_FILE >> openshift/$CLUSTER_SUFFIX/install-config.yaml
+            cat $OPENSHIFT_CONF_FILE >> ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
         """
 
         sshagent(['aws-openshift-41-key']) {
             sh """
-                /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
-                export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
+                export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
 
             """
         }
@@ -230,25 +241,22 @@ void runTest(Integer TEST_ID) {
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
                     cd source
-
-                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE_OPERATOR=$OPERATOR_IMAGE || export IMAGE_OPERATOR=perconalab/percona-postgresql-operator:$GIT_BRANCH-postgres-operator
-                    export IMAGE_PGOEVENT=$PGO_EVENT_IMAGE
-                    export IMAGE_RMDATA=$PGO_RMDATA_IMAGE
-                    export IMAGE_SCHEDULER=$PGO_SCHEDULER_IMAGE
-                    export IMAGE_DEPLOYER=$PGO_DEPLOYER_IMAGE
+                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
+                    export PG_VER=$PG_VERSION
                     export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
-                    if [[ "$PGO_POSTGRES_HA_IMAGE" ]]; then
-                        export IMAGE_POSTGRESQL=${PGO_POSTGRES_HA_IMAGE}
+                    if [[ "$PGO_POSTGRES_IMAGE" ]]; then
+                        export IMAGE_POSTGRESQL=${PGO_POSTGRES_IMAGE}
                         export PG_VER=\$(echo \${IMAGE_POSTGRESQL} | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                     fi
-                    export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
-                    export IMAGE_BACKREST_REPO=$PGO_BACKREST_REPO_IMAGE
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-                    export KUBECONFIG=$WORKSPACE/openshift/auth/kubeconfig
 
-                    oc whoami
-                    e2e-tests/$testName/run
+                    export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
+                    export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
+                    export PATH="$HOME/.krew/bin:$PATH"
+                    
+                    kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
+
                 """
             }
             pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PPG_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
@@ -313,7 +321,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
                 done
                 kubectl get svc --all-namespaces || true
 
-                /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
+                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/$CLUSTER_SUFFIX || true
             """
         }
     }
@@ -323,7 +331,7 @@ pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
-        PPG_TAG = sh(script: "[[ \"$OPERATOR_IMAGE\" ]] && echo $OPERATOR_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg15", , returnStdout: true).trim()
+        PPG_TAG = sh(script: "[[ \"$OPERATOR_IMAGE\" ]] && echo $OPERATOR_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -345,7 +353,7 @@ pipeline {
             name: 'CLUSTER_WIDE')
         string(
             defaultValue: 'latest',
-            description: 'Kubernetes target version',
+            description: 'OpenShift version to use',
             name: 'PLATFORM_VER')
         string(
             defaultValue: 'main',
@@ -365,15 +373,15 @@ pipeline {
             name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg15-pgbouncer',
+            description: 'Postgres image: perconalab/percona-postgresql-operator:main-ppg16-postgres',
+            name: 'PGO_POSTGRES_IMAGE')
+        string(
+            defaultValue: '',
+            description: 'pgBouncer image: perconalab/percona-postgresql-operator:main-ppg16-pgbouncer',
             name: 'PGO_PGBOUNCER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg15-postgres-ha',
-            name: 'PGO_POSTGRES_HA_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg15-pgbackrest',
+            description: 'pgBackRest utility image: perconalab/percona-postgresql-operator:main-ppg16-pgbackrest',
             name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',
@@ -391,9 +399,6 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
-    }
-    triggers {
-        cron('0 15 * * 0')
     }
     stages {
         stage('Prepare node') {

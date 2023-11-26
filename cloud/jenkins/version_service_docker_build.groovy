@@ -97,8 +97,6 @@ pipeline {
                                 cp "${docker_key}" ~/.docker/trust/private/
                             fi
                             docker login -u '${USER}' -p '${PASS}'
-                            export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                            echo docker trust sign \$IMG
                             docker push \$IMG
                             docker logout
                         "

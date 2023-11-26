@@ -11,10 +11,10 @@ def call(String REPO_NAME) {
 
                     rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                         /srv/repo-copy/${REPO_NAME}/ \
-                        10.10.9.209:/www/repo.percona.com/htdocs/${REPO_NAME}/
+                        10.30.9.32:/www/repo.percona.com/htdocs/${REPO_NAME}/
                     rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                         /srv/repo-copy/version \
-                        10.10.9.209:/www/repo.percona.com/htdocs/
+                        10.30.9.32:/www/repo.percona.com/htdocs/
                 '
             """
         }
