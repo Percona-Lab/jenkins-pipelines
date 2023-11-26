@@ -29,6 +29,14 @@ pipeline {
                 'release'
             ]
         )
+        choice(
+            name: 'FROM_REPO_PRO',
+            description: 'USE PRO repo for base install',
+            choices: [
+                'false',
+                'true'
+            ]
+        )
         string(
             defaultValue: '4.4.8',
             description: 'From this version PSMDB will be updated',
@@ -41,6 +49,14 @@ pipeline {
                 'testing',
                 'experimental',
                 'release'
+            ]
+        )
+        choice(
+            name: 'TO_REPO_PRO',
+            description: 'Use PRO repo for update',
+            choices: [
+                'false',
+                'true'
             ]
         )
         string(
@@ -113,9 +129,11 @@ pipeline {
     }
     stage ('Run playbook for test with old version') {
       steps {
+          withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]){
           script{
               moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "converge", env.PLATFORM, env.OLDVERSIONS)              
             }
+          }
         }
     }
     stage ('Start testinfra tests for old version') {
@@ -127,9 +145,11 @@ pipeline {
     }
     stage ('Run playbook for test with new version') {
       steps {
+          withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
           script{
               moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "side-effect", env.PLATFORM, env.NEWVERSIONS)
             }
+          }
         }
     }
     stage ('Start testinfra tests for new version') {
