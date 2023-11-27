@@ -227,7 +227,7 @@ pipeline {
         string(
             defaultValue: '4.10.54',
             description: 'OpenShift version to use',
-            name: 'OS_VERSION')
+            name: 'PLATFORM_VER')
         string(
             defaultValue: '1.x',
             description: 'Tag/Branch for percona/percona-postgresql-operator repository',
