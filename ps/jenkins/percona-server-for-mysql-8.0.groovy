@@ -704,12 +704,14 @@ parameters {
                     git clone https://github.com/percona/percona-docker
                     cd percona-docker/percona-server-8.0
                     sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
+                    sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile
                     sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
                     sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile
                     if [ ${PS_MAJOR_RELEASE} != "80" ]; then
                         sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile
                     fi
                     sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile.aarch64
+                    sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile.aarch64
                     sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile.aarch64
                     if [ ${PS_MAJOR_RELEASE} != "80" ]; then
                         sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile.aarch64
