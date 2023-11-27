@@ -63,8 +63,6 @@ pipeline {
                             cp "${docker_key}" ~/.docker/trust/private/
 
                             docker login -u '${USER}' -p '${PASS}'
-                            export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                            docker trust sign perconalab/percona-server-mysql-operator:${DOCKER_TAG}
                             docker push perconalab/percona-server-mysql-operator:${DOCKER_TAG}
                             docker logout
                         "
