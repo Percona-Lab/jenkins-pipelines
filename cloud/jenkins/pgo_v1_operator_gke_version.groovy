@@ -214,12 +214,6 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     echo "The $TEST_NAME test was finished!"
 }
 
-void installRpms() {
-    sh '''
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-    '''
-}
 pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
@@ -325,7 +319,6 @@ pipeline {
                 """
                 stash includes: "source/**", name: "sourceFILES"
 
-                installRpms()
                 unstash "sourceFILES"
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
                     sh """
@@ -337,7 +330,7 @@ pipeline {
 
                         curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
-                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
+                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
                         sudo chmod +x /usr/local/bin/yq
 
                         sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
