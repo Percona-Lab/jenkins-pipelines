@@ -159,7 +159,7 @@ pipeline {
             description: 'percona-postgresql-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '',
+            defaultValue: '14',
             description: 'PG version',
             name: 'PG_VERSION')
         string(
@@ -289,7 +289,7 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-    name: eks-pgo-cluster
+    name: eks-pgo-pg$PG_VERSION-cluster
     region: eu-west-3
     version: '$KUBEVERSION'
 
@@ -313,6 +313,9 @@ nodeGroups:
         spotInstancePools: 2
       tags:
         'iit-billing-tag': 'jenkins-eks'
+        'delete-cluster-after-hours': '10'
+        'team': 'cloud'
+        'product': 'pgv1-operator'
 EOF
                 '''
 
@@ -365,10 +368,10 @@ EOF
         always {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     unstash 'cluster_conf'
-                    sh """
-                        eksctl delete addon --name aws-ebs-csi-driver --cluster eks-pgo-cluster --region eu-west-3
+                    sh '''
+                        eksctl delete addon --name aws-ebs-csi-driver --cluster eks-pgo-pg$PG_VERSION-cluster --region eu-west-3
                         eksctl delete cluster -f cluster.yaml --wait --force
-                    """
+                    '''
                 }
 
             sh '''
