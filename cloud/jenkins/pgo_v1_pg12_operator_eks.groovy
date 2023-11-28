@@ -121,10 +121,9 @@ void runTest(String TEST_NAME) {
                         fi
 
                         export PATH=/home/ec2-user/.local/bin:$PATH
-                        source $HOME/google-cloud-sdk/path.bash.inc
                         export KUBECONFIG=~/.kube/config
 
-                        ./e2e-tests/$TEST_NAME/run
+                        e2e-tests/$TEST_NAME/run
                     fi
                 """
             }
@@ -144,13 +143,7 @@ void runTest(String TEST_NAME) {
 
     echo "The $TEST_NAME test was finished!"
 }
-void installRpms() {
-    sh """
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y jq | true
-    """
-}
+
 pipeline {
     parameters {
         string(
@@ -238,29 +231,21 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                installRpms()
-                withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-                    sh '''
-                        if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-                            rm -rf $HOME/google-cloud-sdk
-                            curl https://sdk.cloud.google.com | bash
-                        fi
-
-                        source $HOME/google-cloud-sdk/path.bash.inc
-                        gcloud components update kubectl
-                        gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
-                        gcloud config set project $GCP_PROJECT
-                        gcloud version
-
-                        curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
-                            | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-
-                        curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-                        sudo mv -v /tmp/eksctl /usr/local/bin
+                withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT')]) {
+                    sh """
+                        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
                         sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
                         sudo chmod +x /usr/local/bin/yq
-                    '''
+
+                        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+                        sudo chmod +x /usr/local/bin/jq
+
+                        curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
+
+                        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+                        sudo percona-release enable-only tools
+                    """
                 }
             }
         }
@@ -328,18 +313,15 @@ nodeGroups:
         spotInstancePools: 2
       tags:
         'iit-billing-tag': 'jenkins-eks'
-        team: cloud
-        product: pgo-v1-operator
-        job: $JOB_NAME
-        build: '$BUILD_NUMBER'
+        'delete-cluster-after-hours': '10'
+        'team': 'cloud'
+        'product': 'pgv1-operator'
 EOF
                 '''
 
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                      sh """
                          export PATH=/home/ec2-user/.local/bin:$PATH
-                         source $HOME/google-cloud-sdk/path.bash.inc
-
                          eksctl create cluster -f cluster.yaml
                      """
                 }
@@ -356,8 +338,8 @@ EOF
                 runTest('recreate')
                 runTest('affinity')
                 runTest('monitoring')
-                // runTest('self-healing')
-                // runTest('operator-self-healing')
+                runTest('self-healing')
+                runTest('operator-self-healing')
                 runTest('demand-backup')
                 runTest('scheduled-backup')
                 runTest('upgrade')
@@ -365,6 +347,9 @@ EOF
                 runTest('version-service')
                 runTest('users')
                 runTest('ns-mode')
+                runTest('data-migration-gcs')
+                runTest('clone-cluster')
+                runTest('tls-check')
             }
         }
         stage('Make report') {
@@ -391,8 +376,7 @@ EOF
 
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
-                sudo rm -rf $HOME/google-cloud-sdk
-                sudo rm -rf ./*
+                sudo rm -rf *
             '''
             deleteDir()
         }
