@@ -47,7 +47,6 @@ def pmm_submodules() {
         "pmm-qa",
         "mysqld_exporter",
         "grafana",
-        "dbaas-controller",
         "node_exporter",
         "postgres_exporter",
         "clickhouse_exporter",
