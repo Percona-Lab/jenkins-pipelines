@@ -90,13 +90,13 @@ pipeline {
 
                     docker build -t pmm-api-tests .
                     cd api-tests
-                    docker compose up test_db
+                    docker-compose up test_db
 
                     # None of these services is required to run API tests
-                    # MYSQL_IMAGE=${MYSQL_IMAGE} docker compose up -d mysql
-                    # MONGO_IMAGE=${MONGO_IMAGE} docker compose up -d mongo
-                    # POSTGRES_IMAGE=${POSTGRES_IMAGE} docker compose up -d postgres
-                    # docker compose up -d sysbench
+                    # MYSQL_IMAGE=${MYSQL_IMAGE} docker-compose up -d mysql
+                    # MONGO_IMAGE=${MONGO_IMAGE} docker-compose up -d mongo
+                    # POSTGRES_IMAGE=${POSTGRES_IMAGE} docker-compose up -d postgres
+                    # docker-compose up -d sysbench
                     cd -
                 '''
                 script {
