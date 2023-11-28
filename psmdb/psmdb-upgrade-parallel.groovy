@@ -24,6 +24,14 @@ pipeline {
                 'release'
             ]
         )
+        choice(
+            name: 'FROM_REPO_PRO',
+            description: 'USE PRO repo for base install',
+            choices: [
+                'false',
+                'true'
+            ]
+        )
         string(
             defaultValue: '4.4.8',
             description: 'From this version PSMDB will be updated',
@@ -38,6 +46,14 @@ pipeline {
                 'release'
             ]
         )
+        choice(
+            name: 'TO_REPO_PRO',
+            description: 'USE PRO repo for update',
+            choices: [
+                'false',
+                'true'
+            ]
+        )
         string(
             defaultValue: '5.0.2',
             description: 'To this version PSMDB will be updated',
@@ -49,7 +65,8 @@ pipeline {
             choices: [
                 'NONE',
                 'VAULT',
-                'KEYFILE'
+                'KEYFILE',
+                'KMIP'
             ]
         )
         choice(
@@ -100,9 +117,11 @@ pipeline {
          }
         stage('Install old version') {
           steps {
+                withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                 script {
                     runMoleculeCommandParallelWithVariableList(pdmdbOperatingSystems(), moleculeDir, "converge", env.OLDVERSIONS)
                 }
+              }
             }
          }
         stage('Test old version') {
@@ -114,9 +133,11 @@ pipeline {
          }
         stage('Install new version') {
           steps {
+		withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                 script {
                     runMoleculeCommandParallelWithVariableList(pdmdbOperatingSystems(), moleculeDir, "side-effect", env.NEWVERSIONS)
                 }
+              }
             }
          }
         stage('Test new version') {
