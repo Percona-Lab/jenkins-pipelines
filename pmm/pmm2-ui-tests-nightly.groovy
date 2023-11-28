@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@Stage', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -30,7 +30,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
 }
 
 void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD = "admin") {
-    stagingJob = build job: 'aws-staging-start', parameters: [
+    stagingJob = build job: 'copy-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
