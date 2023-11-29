@@ -34,6 +34,9 @@
         // Create a map to store data
         def cloudData = [:]
 
+        // Flag to check if there were any price changes
+        def priceChanges = false
+
         // Multiline output
         def dbgOutput = ""
 
@@ -156,6 +159,7 @@
                                 // Update only if the newMaxBidPrice is different
                                 if (instanceData.newMaxBidPrice != maxBidPrice) {
                                     template.spotConfig.setSpotMaxBidPrice(instanceData.newMaxBidPrice)
+                                    priceChanges = true
                                     dbgOutput += " Price change for ${templateName}(${data.availabilityZone}, ${instanceData.instanceType}):\n"
                                     dbgOutput += "                  ${maxBidPrice} -> ${instanceData.newMaxBidPrice}\n"
                                 }
@@ -165,17 +169,33 @@
                 }
             }
             // Remove the existing cloud with the same name
+            def cloudsToRemove = []
             jenkins.clouds.each {
                 if (it.hasProperty('cloudName') && it['cloudName'] == cloud.getDisplayName()) {
-                    jenkins.clouds.remove(it)
+                    cloudsToRemove.add(it)
                 }
+            }
+            // Remove the clouds outside prev iteration: fixes java.util.NoSuchElementException
+            //  if only 1 cloud is configured
+            cloudsToRemove.each {
+                jenkins.clouds.remove(it)
             }
 
             // Add the updated cloud configuration
             jenkins.clouds.add(cloud)
         }
+        jenkins.save()
+
         // Print output
         println dbgOutput
 
-        jenkins.save()
+        // Set the build result and description based on the priceChanges flag
+        if (priceChanges) {
+            currentBuild.result = 'UNSTABLE'
+            currentBuild.description = 'The prices were changed'
+        } else {
+            currentBuild.result = 'SUCCESS'
+            currentBuild.description = 'No price changes'
+        }
+
         return
