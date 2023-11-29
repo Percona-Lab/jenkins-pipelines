@@ -3,7 +3,7 @@ import hudson.slaves.*
 import jenkins.model.Jenkins
 import hudson.plugins.sshslaves.SSHLauncher
 
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-12557-staging-start', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -380,7 +380,9 @@ pipeline {
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
+                    // Download the client, install it outside of PMM and configure it to connect to PMM
                     setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
+
                     script {
                         env.PMM_REPO="experimental"
                         if(env.CLIENT_VERSION == "pmm2-rc") {
