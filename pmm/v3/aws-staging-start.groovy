@@ -385,11 +385,11 @@ pipeline {
 
                     script {
                         env.PMM_REPO="experimental"
-                        if(env.CLIENT_VERSION == "pmm2-rc") {
+                        if (env.CLIENT_VERSION == "pmm2-rc") {
                             env.PMM_REPO="testing"
                         }
-                        
                     }
+
                     sh '''
                         set -o errexit
                         set -o xtrace
@@ -402,9 +402,11 @@ pipeline {
 
                         export PMM_SERVER_IP=${SERVER_IP}
 
-                        if [[ "${CLIENT_VERSION}" != 3-dev-latest ]]; then
-                            export PATH="`pwd`/pmm2-client/bin:$PATH"
+                        if [[ "${CLIENT_VERSION}" = http* ]]; then
+                            source ~/.bash_profile
                         fi
+                        echo "PATH: $PATH"
+
                         if [[ "${CLIENT_INSTANCE}" = no ]]; then
                             export PMM_SERVER_IP=${IP}
                         fi
