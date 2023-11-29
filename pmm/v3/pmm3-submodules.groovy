@@ -33,7 +33,7 @@ pipeline {
     parameters {
         choice(
             // default is choices.get(0) - el9
-            choices: ['el9', 'el7'],
+            choices: ['el9'],
             description: 'Select the OS to build for',
             name: 'BUILD_OS')
     }
@@ -44,11 +44,11 @@ pipeline {
     stages {
         stage('Prepare') {
             when {
-                        beforeAgent true
-                        expression {
-                            env.PMM_VER =~ '^3.'
-                        }
-                  }
+                beforeAgent true
+                expression {
+                    env.PMM_VER =~ '^3.'
+                }
+            }
             steps {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                 sh '''
@@ -112,11 +112,11 @@ pipeline {
         }
         stage('Build client source') {
             when {
-                        beforeAgent true
-                        expression {
-                            env.PMM_VER =~ '^3.'
-                        }
-                  }
+                beforeAgent true
+                expression {
+                    env.PMM_VER =~ '^3.'
+                }
+            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
@@ -131,11 +131,11 @@ pipeline {
         }
         stage('Build client binary') {
             when {
-                        beforeAgent true
-                        expression {
-                            env.PMM_VER =~ '^3.'
-                        }
-                  }
+                beforeAgent true
+                expression {
+                    env.PMM_VER =~ '^3.'
+                }
+            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
@@ -159,11 +159,11 @@ pipeline {
         }
         stage('Build client source rpm EL7') {
             when {
-                 beforeAgent true
-                 allOf{
-                     expression{ params.BUILD_OS == "el7" }
-                     expression{ env.PMM_VER =~ '^3.' }
-                     }
+                beforeAgent true
+                allOf{
+                    expression{ params.BUILD_OS == "el7" }
+                    expression{ env.PMM_VER =~ '^3.' }
+                }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -178,11 +178,11 @@ pipeline {
         }
         stage('Build client source rpm') {
             when {
-                 beforeAgent true
-                 allOf{
-                     expression{ params.BUILD_OS == "el9" }
-                     expression{ env.PMM_VER =~ '^3.' }
-                     }
+                beforeAgent true
+                allOf{
+                    expression{ params.BUILD_OS == "el9" }
+                    expression{ env.PMM_VER =~ '^3.' }
+                }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -197,11 +197,11 @@ pipeline {
         }
         stage('Build client binary rpm EL7') {
             when {
-                 beforeAgent true
-                 allOf{
-                     expression{ params.BUILD_OS == "el7" }
-                     expression{ env.PMM_VER =~ '^3.' }
-                     }
+                beforeAgent true
+                allOf{
+                    expression{ params.BUILD_OS == "el7" }
+                    expression{ env.PMM_VER =~ '^3.' }
+                }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -220,11 +220,11 @@ pipeline {
         }
         stage('Build client binary rpm') {
             when {
-                 beforeAgent true
-                 allOf{
-                     expression{ params.BUILD_OS == "el9" }
-                     expression{ env.PMM_VER =~ '^3.' }
-                     }
+                beforeAgent true
+                allOf {
+                    expression{ params.BUILD_OS == "el9" }
+                    expression{ env.PMM_VER =~ '^3.' }
+                }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -243,11 +243,11 @@ pipeline {
         }
         stage('Build client docker') {
             when {
-                        beforeAgent true
-                        expression {
-                            env.PMM_VER =~ '^3.'
-                        }
-                  }
+                beforeAgent true
+                    expression {
+                        env.PMM_VER =~ '^3.'
+                    }
+            }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
@@ -268,11 +268,11 @@ pipeline {
         }
         stage('Build server packages EL7') {
             when {
-                 beforeAgent true
-                 allOf{
-                     expression{ params.BUILD_OS == "el7" }
-                     expression{ env.PMM_VER =~ '^3.' }
-                     }
+                beforeAgent true
+                allOf {
+                    expression{ params.BUILD_OS == "el7" }
+                    expression{ env.PMM_VER =~ '^3.' }
+                }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -291,11 +291,11 @@ pipeline {
         }
         stage('Build server packages') {
             when {
-                 beforeAgent true
-                 allOf{
-                     expression{ params.BUILD_OS == "el9" }
-                     expression{ env.PMM_VER =~ '^3.' }
-                     }
+                beforeAgent true
+                allOf {
+                    expression{ params.BUILD_OS == "el9" }
+                    expression{ env.PMM_VER =~ '^3.' }
+                }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -317,11 +317,11 @@ pipeline {
         }
         stage('Build server docker EL7') {
             when {
-                 beforeAgent true
-                 allOf{
-                     expression{ params.BUILD_OS == "el7" }
-                     expression{ env.PMM_VER =~ '^3.' }
-                     }
+                beforeAgent true
+                allOf {
+                    expression{ params.BUILD_OS == "el7" }
+                    expression{ env.PMM_VER =~ '^3.' }
+                }
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -345,11 +345,11 @@ pipeline {
         }
         stage('Build server docker') {
             when {
-                 beforeAgent true
-                 allOf{
-                     expression{ params.BUILD_OS == "el9" }
-                     expression{ env.PMM_VER =~ '^3.' }
-                     }
+                beforeAgent true
+                allOf {
+                    expression{ params.BUILD_OS == "el9" }
+                    expression{ env.PMM_VER =~ '^3.' }
+                }
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -378,11 +378,11 @@ pipeline {
         stage('Trigger workflows in GH')
         {
             when {
-                        beforeAgent true
-                        expression {
-                            env.PMM_VER =~ '^3.'
-                        }
-                  }
+                beforeAgent true
+                expression {
+                    env.PMM_VER =~ '^3.'
+                }
+            }
             steps{
                 script{
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
@@ -447,11 +447,11 @@ pipeline {
         }
         stage('Tests Execution') {
             when {
-                        beforeAgent true
-                        expression {
-                            env.PMM_VER =~ '^3.'
-                        }
-                  }
+                beforeAgent true
+                expression {
+                    env.PMM_VER =~ '^3.'
+                }
+            }
             parallel {
                 stage('Test: API') {
                     steps {
@@ -477,18 +477,19 @@ pipeline {
         }
     }
     post {
+        success {
+            script {
+                if (env.CHANGE_URL && env.PMM_VER =~ '^3.') {
+                    unstash 'IMAGE'
+                    def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
+                    addComment("Building PMM v3.x ...")
+                }
+            }
+        }
         always {
             script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    if (env.CHANGE_URL && env.PMM_VER =~ '^3.') {
-                        unstash 'IMAGE'
-                        def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                        slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
-                    }
-                    else {
-                        addComment("PMM3 Submodules skipped")
-                    }
-                } else {
+                if (currentBuild.result != 'SUCCESS') {
                     if(env.API_TESTS_RESULT != "SUCCESS" && env.API_TESTS_URL) {
                         addComment("API tests have failed, Please check: API: ${API_TESTS_URL}")
                     }
