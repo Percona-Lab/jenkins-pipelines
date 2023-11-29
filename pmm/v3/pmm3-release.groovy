@@ -1,11 +1,11 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-12557', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 pipeline {
     agent {
-        label 'master'
+        label 'PMM-12557'
     }
 
     environment {
