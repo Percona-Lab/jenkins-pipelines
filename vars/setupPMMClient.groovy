@@ -8,14 +8,13 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             export IP=$(curl ifconfig.me)
             export SERVER_IP=${SERVER_IP}
             export CLIENT_VERSION=${CLIENT_VERSION}
-            export PMM_VERSION=${PMM_VERSION}
             export ENABLE_PULL_MODE=${ENABLE_PULL_MODE}
             export ENABLE_TESTING_REPO=${ENABLE_TESTING_REPO}
             export CLIENT_INSTANCE=${CLIENT_INSTANCE}
             export SETUP_TYPE=${SETUP_TYPE}
             export ADMIN_PASSWORD=${ADMIN_PASSWORD}
-            export PMM_DIR=${WORKSPACE}/pmm2
-            export PMM_BINARY=${WORKSPACE}/pmm2-client
+            export PMM_DIR=${WORKSPACE}/${PMM_VERSION}
+            export PMM_BINARY=${WORKSPACE}/${PMM_VERSION}-client
 
             if [ "$SETUP_TYPE" = compose_setup ]; then
                 export IP=192.168.0.1
@@ -24,7 +23,9 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 export ADMIN_PASSWORD=admin
             fi
 
-            echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+            if [ "${PMM_VERSION}" = pmm2 ]; then
+              echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+            fi
             sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
             sudo yum clean all
             sudo yum makecache
@@ -51,23 +52,23 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 sleep 10
             else
                 if [[ "$CLIENT_VERSION" = http* ]]; then
-                    wget -O pmm2-client.tar.gz --progress=dot:giga "${CLIENT_VERSION}"
+                    wget -O pmm-client.tar.gz --progress=dot:giga "${CLIENT_VERSION}"
                 else
-                    wget -O pmm2-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm2/${CLIENT_VERSION}/binary/tarball/pmm2-client-${CLIENT_VERSION}.tar.gz"
+                    wget -O pmm-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm2/${CLIENT_VERSION}/binary/tarball/pmm2-client-${CLIENT_VERSION}.tar.gz"
                 fi
 
                 export BUILD_ID=dont-kill-the-process
                 export JENKINS_NODE_COOKIE=dont-kill-the-process
-                tar -zxpf pmm2-client.tar.gz
-                rm -f pmm2-client.tar.gz
-                mv pmm2-client-* "$PMM_BINARY"
+                mkdir -p "$PMM_BINARY"
+                tar -xzpf pmm-client.tar.gz --strip-components=1 -C "$PMM_BINARY"
+                rm -f pmm-client.tar.gz
 
-                # install the client to PMM_DIR
+                # Install the client to PMM_DIR
                 mkdir -p "$PMM_DIR"
                 bash -E "$PMM_BINARY/install_tarball" # PMM_DIR is passed to it via -E option, it's owned by ec2-user
+                rm -rf "$PMM_BINARY"
 
-                export PMM_CLIENT_BASEDIR=$(ls -1td "$PMM_BINARY" 2>/dev/null | grep -v ".tar" | head -n1) # Do we need this?
-                echo "export PATH=$PMM_BINARY/bin:$PATH" >> ~/.bash_profile
+                echo "export PATH=$PMM_DIR/bin:$PATH" >> ~/.bash_profile
                 source ~/.bash_profile
                 pmm-admin --version
 

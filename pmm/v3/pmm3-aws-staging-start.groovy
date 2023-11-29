@@ -380,14 +380,16 @@ pipeline {
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
+                    // Download the client, install it outside of PMM and configure it to connect to PMM
                     setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
+
                     script {
                         env.PMM_REPO="experimental"
-                        if(env.CLIENT_VERSION == "pmm2-rc") {
+                        if (env.CLIENT_VERSION == "pmm2-rc") {
                             env.PMM_REPO="testing"
                         }
-                        
                     }
+
                     sh '''
                         set -o errexit
                         set -o xtrace
@@ -398,11 +400,13 @@ pipeline {
                         fi
                         [ -z "${CLIENTS}" ] && exit 0 || :
 
+                        if [[ "${CLIENT_VERSION}" = http* ]]; then
+                            source ~/.bash_profile
+                        fi
+                        echo "PATH: $PATH"
+
                         export PMM_SERVER_IP=${SERVER_IP}
 
-                        if [[ "${CLIENT_VERSION}" != 3-dev-latest ]]; then
-                            export PATH="`pwd`/pmm2-client/bin:$PATH"
-                        fi
                         if [[ "${CLIENT_INSTANCE}" = no ]]; then
                             export PMM_SERVER_IP=${IP}
                         fi
