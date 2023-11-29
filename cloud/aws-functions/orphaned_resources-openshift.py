@@ -8,7 +8,7 @@ from botocore.exceptions import ClientError
 from boto3.exceptions import Boto3Error
 
 
-def isResourceToTerminate(instance):
+def isInstanceToTerminate(instance):
     tags = instance.tags
     tags_dict = {item['Key']: item['Value'] for item in tags}
     state = instance.state['Name']
@@ -28,6 +28,7 @@ def isResourceToTerminate(instance):
 
 def get_instances_to_terminate(aws_region):
     instances_for_deletion = []
+    vpcs_for_deletion = []
     ec2 = boto3.resource('ec2', region_name=aws_region)
     instances = ec2.instances.all()
     if not instances:
@@ -35,12 +36,13 @@ def get_instances_to_terminate(aws_region):
         sys.exit("There are no instances in cloud")
     for instance in instances:
         if isResourceToTerminate(instance):
-            instances_for_deletion.append(instance)
+            instances_for_deletion.append(instance.id)
+            vpcs_for_deletion.append(instance.vpc_id)
 
     if not instances_for_deletion:
         logging.info(f"There are no instances for deletion")
         sys.exit("There are instances for deletion")
-    return instances_for_deletion
+    return instances_for_deletion, vpcs_for_deletion
 
 def delete_vpc_ep(aws_region, vpc_id):
     ec2_client = boto3.client('ec2', region_name=aws_region)
@@ -56,7 +58,7 @@ def delete_vpc_ep(aws_region, vpc_id):
 
 def delete_instance(aws_region, instance_id):
     ec2 = boto3.resource('ec2', region_name=aws_region)
-    ec2.terminate_instances(InstanceIds=[instance_id])
+    ec2.instances.filter(InstanceIds = [instance_id]).terminate()
 
 def delete_load_balancers(aws_region, vpc_id):
     elb_client = boto3.client('elb', region_name=aws_region)
@@ -227,16 +229,15 @@ def terminate_vpc(vpc_id, aws_region):
 
 def lambda_handler(event, context):
     aws_region = 'eu-west-3'
-
     logging.info(f"Searching for resources to remove in {aws_region}.")
-    instances = get_instances_to_terminate(aws_region)
-    for instance in instances:
-        instance_id = instance.id
-        logging.info(f"Terminating {instance_id}")
+    instances, vpcs = get_instances_to_terminate(aws_region)
+
+    for instance_id in instances:
+        logging.info(f"Terminating {instance}")
         delete_instance(instance_id=instance_id, aws_region=aws_region)
 
+    for vpc in vpcs:
         logging.info(f"Deleting all resources and VPC.")
-        vpc_id = instance.vpc_id
         terminate_vpc(vpc_id, aws_region)
 
 
