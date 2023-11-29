@@ -8,13 +8,12 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             export IP=$(curl ifconfig.me)
             export SERVER_IP=${SERVER_IP}
             export CLIENT_VERSION=${CLIENT_VERSION}
-            export PMM_VERSION=${PMM_VERSION}
             export ENABLE_PULL_MODE=${ENABLE_PULL_MODE}
             export ENABLE_TESTING_REPO=${ENABLE_TESTING_REPO}
             export CLIENT_INSTANCE=${CLIENT_INSTANCE}
             export SETUP_TYPE=${SETUP_TYPE}
             export ADMIN_PASSWORD=${ADMIN_PASSWORD}
-            export PMM_DIR=${WORKSPACE}/${PMM_VERSION)
+            export PMM_DIR=${WORKSPACE}/${PMM_VERSION}
             export PMM_BINARY=${WORKSPACE}/${PMM_VERSION}-client
 
             if [ "$SETUP_TYPE" = compose_setup ]; then
