@@ -67,6 +67,8 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 mkdir -p "$PMM_DIR"
                 bash -E "$PMM_BINARY/install_tarball" # PMM_DIR is passed to it via -E option, it's owned by ec2-user
 
+                # This is used by pmm-qa/pmm-tests/pmm-framework.sh
+                export PMM_CLIENT_BASEDIR=$(ls -1td "$PMM_BINARY" 2>/dev/null | grep -v ".tar" | head -n1)
                 echo "export PATH=$PMM_BINARY/bin:$PATH" >> ~/.bash_profile
                 source ~/.bash_profile
                 pmm-admin --version
