@@ -95,6 +95,15 @@ pipeline {
                         runTest('run-new-cluster', '6.0', 'logical')
                     }
                 }
+                stage('New cluster 7.0 logical') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+			prepareCluster('70-newc-logic')
+			runTest('run-new-cluster', '7.0', 'logical')
+                    }
+                }
                 stage('Sharded 4.4 logical') {
                     agent {
                         label 'docker-32gb'
@@ -120,6 +129,15 @@ pipeline {
                     steps {
 			prepareCluster('60-shrd-logic')
                         runTest('run-sharded', '6.0', 'logical')
+                    }
+                }
+                stage('Sharded 7.0 logical') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+			prepareCluster('70-shrd-logic')
+			runTest('run-sharded', '7.0', 'logical')
                     }
                 }
                 stage('Non-sharded 4.4 logical') {
@@ -149,6 +167,15 @@ pipeline {
                         runTest('run-rs', '6.0', 'logical')
                     }
                 }
+                stage('Non-sharded 7.0 logical') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+			prepareCluster('70-rs-logic')
+			runTest('run-rs', '7.0', 'logical')
+                    }
+                }
                 stage('Single-node 4.4 logical') {
                     agent {
                         label 'docker'
@@ -174,6 +201,15 @@ pipeline {
                     steps {
 			prepareCluster('60-single-logic')
                         runTest('run-single', '6.0', 'logical')
+                    }
+                }
+                stage('Single-node 7.0 logical') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+			prepareCluster('70-single-logic')
+			runTest('run-single', '7.0', 'logical')
                     }
                 }
                 stage('Sharded 4.4 physical') {
@@ -203,6 +239,15 @@ pipeline {
                         runTest('run-sharded', '6.0', 'physical')
                     }
                 }
+                stage('Sharded 7.0 physical') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+			prepareCluster('70-shrd-phys')
+			runTest('run-sharded', '7.0', 'physical')
+                    }
+                }
                 stage('Non-sharded 4.4 physical') {
                     agent {
                         label 'docker'
@@ -230,6 +275,15 @@ pipeline {
                         runTest('run-rs', '6.0', 'physical')
                     }
                 }
+                stage('Non-sharded 7.0 physical') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+			prepareCluster('70-rs-phys')
+			runTest('run-rs', '7.0', 'physical')
+                    }
+                }
                 stage('Single-node 4.4 physical') {
                     agent {
                         label 'docker'
@@ -255,6 +309,15 @@ pipeline {
                     steps {
 			prepareCluster('60-single-phys')
                         runTest('run-single', '6.0', 'physical')
+                    }
+                }
+                stage('Single-node 7.0 physical') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+			prepareCluster('70-single-phys')
+			runTest('run-single', '7.0', 'physical')
                     }
                 }
             }
