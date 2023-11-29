@@ -40,6 +40,14 @@ pipeline {
                 'true'
             ]
         )
+        choice(
+            name: 'GATED_BUILD',
+            description: 'Test private repo?',
+            choices: [
+                'false',
+                'true'
+            ]
+        )
         string(
             defaultValue: 'main',
             description: 'Branch for testing repository',
@@ -79,9 +87,11 @@ pipeline {
     }
     stage ('Run playbook for test') {
       steps {
+          withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
           script{
               moleculeExecuteActionWithScenario(moleculeDir, "converge", env.PLATFORM)
             }
+          }
         }
     }
     stage ('Start testinfra tests') {

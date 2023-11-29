@@ -111,7 +111,7 @@ void markPassedTests() {
     }
 }
 
-TestsReport = '<testsuite name=\\"PXC\\">\n'
+TestsReport = '<testsuite name=\\"PXC-AKS-version\\">\n'
 void makeReport() {
     for (int i=0; i<tests.size(); i++) {
         def testResult = tests[i]["result"]
@@ -156,46 +156,17 @@ void runTest(Integer TEST_ID) {
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
+                    cd source
+
                     export DEBUG_TESTS=1
-
-                    cd ./source
-                    if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
-                        export IMAGE=${PXC_OPERATOR_IMAGE}
-                    else
-                        export IMAGE=perconalab/percona-xtradb-cluster-operator:${env.GIT_BRANCH}
-                    fi
-
-                    if [ -n "${IMAGE_PXC}" ]; then
-                        export IMAGE_PXC=${IMAGE_PXC}
-                    fi
-
-                    if [ -n "${IMAGE_PROXY}" ]; then
-                        export IMAGE_PROXY=${IMAGE_PROXY}
-                    fi
-
-                    if [ -n "${IMAGE_HAPROXY}" ]; then
-                        export IMAGE_HAPROXY=${IMAGE_HAPROXY}
-                    fi
-
-                    if [ -n "${IMAGE_BACKUP}" ]; then
-                        export IMAGE_BACKUP=${IMAGE_BACKUP}
-                    fi
-
-                    if [ -n "${IMAGE_PMM}" ]; then
-                        export IMAGE_PMM=${IMAGE_PMM}
-                    fi
-
-                    if [ -n "${IMAGE_LOGCOLLECTOR}" ]; then
-                        export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR}
-                    fi
-
-                    if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
-                        export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
-                    fi
-
-                    if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
-                        export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
-                    fi
+                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                    export IMAGE_PXC=$IMAGE_PXC
+                    export IMAGE_PROXY=$IMAGE_PROXY
+                    export IMAGE_HAPROXY=$IMAGE_HAPROXY
+                    export IMAGE_BACKUP=$IMAGE_BACKUP
+                    export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
+                    export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                    export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                     ./e2e-tests/$testName/run
@@ -280,20 +251,16 @@ pipeline {
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/percona-xtradb-cluster-operator:main-pmm',
-            name: 'IMAGE_PMM')
-        string(
-            defaultValue: '',
             description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
             name: 'IMAGE_LOGCOLLECTOR')
         string(
             defaultValue: '',
-            description: 'PMM server image repo: perconalab/pmm-server',
-            name: 'IMAGE_PMM_SERVER_REPO')
+            description: 'PMM client image: perconalab/pmm-client:dev-latest',
+            name: 'IMAGE_PMM_CLIENT')
         string(
             defaultValue: '',
-            description: 'PMM server image tag: dev-latest',
-            name: 'IMAGE_PMM_SERVER_TAG')
+            description: 'PMM server image: perconalab/pmm-server:dev-latest',
+            name: 'IMAGE_PMM_SERVER')
     }
     agent {
         label 'docker'
@@ -321,8 +288,8 @@ pipeline {
 
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                    CLUSTER_NAME = sh(script: "echo jenkins-par-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-                    PARAMS_HASH = sh(script: "echo \"${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${params.PLATFORM_VER}-${params.CLUSTER_WIDE}-${params.PXC_OPERATOR_IMAGE}-${params.IMAGE_PXC}-${params.IMAGE_PROXY}-${params.IMAGE_HAPROXY}-${params.IMAGE_BACKUP}-${params.IMAGE_PMM}-${params.IMAGE_LOGCOLLECTOR}-${params.IMAGE_PMM_SERVER_REPO}-${params.IMAGE_PMM_SERVER_TAG}\" | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+                    CLUSTER_NAME = sh(script: "echo jenkins-ver-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PXC_OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
                 }
                 initTests()
 
@@ -341,7 +308,7 @@ EOF
                     sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
                     sudo percona-release enable-only tools
                     sudo yum install -y percona-xtrabackup-80 | true
-                    
+
                     curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
                     curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
@@ -350,7 +317,7 @@ EOF
                     sudo chmod +x /usr/local/bin/yq
                     sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
                     sudo chmod +x /usr/local/bin/jq
-                    
+
                     if ! command -v az &>/dev/null; then
                         curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
                         printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
@@ -369,7 +336,7 @@ EOF
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
-                        if [ -n "${PXC_OPERATOR_IMAGE}" ]; then
+                        if [[ "$PXC_OPERATOR_IMAGE" ]]; then
                             echo "SKIP: Build is not needed, PXC operator image was set!"
                         else
                             cd ./source/
