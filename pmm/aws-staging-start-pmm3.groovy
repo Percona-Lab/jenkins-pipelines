@@ -46,7 +46,7 @@ pipeline {
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         choice(
-            choices: ['pmm2', 'pmm'],
+            choices: ['pmm'],
             description: 'Which Version of PMM Server: pmm stands for PMM v3 and up',
             name: 'PMM_VERSION')
         choice(
@@ -230,11 +230,6 @@ pipeline {
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum repolist
 
-                        # exclude unavailable mirrors
-                        if [ "${PMM_VERSION}" = pmm2 ]; then
-                          echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
-                        fi
-
                         sudo amazon-linux-extras enable epel
                         sudo amazon-linux-extras enable php7.4
                         sudo yum --enablerepo epel install php -y
@@ -340,7 +335,7 @@ pipeline {
         }
         stage('Enable Testing Repo') {
             when {
-                expression { env.ENABLE_TESTING_REPO == "yes" && env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" }
+                expression { env.ENABLE_TESTING_REPO == "yes" && env.CLIENT_INSTANCE == "no" }
             }
             steps {
                 script {
@@ -351,9 +346,6 @@ pipeline {
                                 set -o xtrace
 
                                 # exclude unavailable mirrors
-                                if [ "${PMM_VERSION}" = pmm2 ]; then
-                                    docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
-                                fi
                                 docker exec ${VM_NAME}-server yum update -y percona-release
                                 docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/${PMM_VERSION}-server.repo
                                 docker exec ${VM_NAME}-server percona-release enable percona testing
@@ -366,7 +358,7 @@ pipeline {
         }
         stage('Enable Experimental Repo') {
             when {
-                expression { env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" && env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
+                expression { env.CLIENT_INSTANCE == "no" && env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
             }
             steps {
                 script {
@@ -375,9 +367,6 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                if [ "${PMM_VERSION}" = pmm2 ]; then
-                                  docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
-                                fi
                                 docker exec ${VM_NAME}-server yum update -y percona-release
                                 docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/${PMM_VERSION}-server.repo
                                 docker exec ${VM_NAME}-server percona-release enable percona experimental
