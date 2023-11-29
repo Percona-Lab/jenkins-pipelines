@@ -10,9 +10,9 @@
     properties:
     - build-discarder:
         days-to-keep: -1
-        num-to-keep: 10
+        num-to-keep: 1000
         artifact-days-to-keep: -1
-        artifact-num-to-keep: 10
+        artifact-num-to-keep: 1000
     triggers:
     - timed: 'H/15 * * * *'
     dsl: |
