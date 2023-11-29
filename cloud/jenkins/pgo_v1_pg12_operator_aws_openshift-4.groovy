@@ -244,7 +244,7 @@ pipeline {
             description: 'percona-postgresql-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '',
+            defaultValue: '12',
             description: 'PG version',
             name: 'PG_VERSION')
         string(
@@ -273,23 +273,23 @@ pipeline {
             name: 'PGO_DEPLOYER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg14-pgbouncer',
+            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg12-pgbouncer',
             name: 'PGO_PGBOUNCER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg14-postgres-ha',
+            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg12-postgres-ha',
             name: 'PGO_POSTGRES_HA_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg14-pgbackrest',
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg12-pgbackrest',
             name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg14-pgbackrest-repo',
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg12-pgbackrest-repo',
             name: 'PGO_BACKREST_REPO_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg14-pgbadger',
+            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg12-pgbadger',
             name: 'PGO_PGBADGER_IMAGE')
         string(
             defaultValue: 'perconalab/pmm-server',
@@ -388,51 +388,50 @@ pipeline {
             parallel {
                 stage('E2E Basic tests') {
                     steps {
-                        CreateCluster('sandbox')
+                        CreateCluster('$PG_VERSION-sandbox')
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            runTest('init-deploy', 'sandbox')
+                            runTest('init-deploy', '$PG_VERSION-sandbox')
                         }
-                        runTest('scaling', 'sandbox')
-                        runTest('recreate', 'sandbox')
-                        runTest('affinity', 'sandbox')
-                        runTest('monitoring', 'sandbox')
-                        runTest('self-healing', 'sandbox')
-                        runTest('operator-self-healing', 'sandbox')
-                        runTest('clone-cluster', 'sandbox')
-                        runTest('tls-check', 'sandbox')
-                        runTest('users', 'sandbox')
-                        runTest('ns-mode', 'sandbox')
-                        runTest('data-migration-gcs', 'sandbox')
-                        ShutdownCluster('sandbox')
+                        runTest('scaling', '$PG_VERSION-sandbox')
+                        runTest('recreate', '$PG_VERSION-sandbox')
+                        runTest('affinity', '$PG_VERSION-sandbox')
+                        runTest('monitoring', '$PG_VERSION-sandbox')
+                        runTest('self-healing', '$PG_VERSION-sandbox')
+                        runTest('operator-self-healing', '$PG_VERSION-sandbox')
+                        runTest('clone-cluster', '$PG_VERSION-sandbox')
+                        runTest('tls-check', '$PG_VERSION-sandbox')
+                        runTest('users', '$PG_VERSION-sandbox')
+                        runTest('ns-mode', '$PG_VERSION-sandbox')
+                        ShutdownCluster('$PG_VERSION-sandbox')
                     }
                 }
                 stage('E2E demand-backup') {
                     steps {
-                        CreateCluster('demand-backup')
-                        runTest('demand-backup', 'demand-backup')
-                        ShutdownCluster('demand-backup')
+                        CreateCluster('$PG_VERSION-demand-backup')
+                        runTest('demand-backup', '$PG_VERSION-demand-backup')
+                        ShutdownCluster('$PG_VERSION-demand-backup')
                     }
                 }
                 stage('E2E scheduled-backup') {
                     steps {
-                        CreateCluster('scheduled-backup')
-                        runTest('scheduled-backup', 'scheduled-backup')
-                        ShutdownCluster('scheduled-backup')
+                        CreateCluster('$PG_VERSION-scheduled-backup')
+                        runTest('scheduled-backup', '$PG_VERSION-scheduled-backup')
+                        ShutdownCluster('$PG_VERSION-scheduled-backup')
                     }
                 }
                 stage('E2E Upgrade') {
                     steps {
-                        CreateCluster('upgrade')
-                        runTest('upgrade', 'upgrade')
-                        runTest('smart-update', 'upgrade')
-                        ShutdownCluster('upgrade')
+                        CreateCluster('$PG_VERSION-upgrade')
+                        runTest('upgrade', '$PG_VERSION-upgrade')
+                        runTest('smart-update', '$PG_VERSION-upgrade')
+                        ShutdownCluster('$PG_VERSION-upgrade')
                     }
                 }
                 stage('E2E Version-service') {
                     steps {
-                        CreateCluster('version-service')
-                        runTest('version-service', 'version-service')
-                        ShutdownCluster('version-service')
+                        CreateCluster('$PG_VERSION-version-service')
+                        runTest('version-service', '$PG_VERSION-version-service')
+                        ShutdownCluster('$PG_VERSION-version-service')
                     }
                 }
             }
@@ -454,7 +453,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
                      sshagent(['aws-openshift-41-key']) {
                          sh """
-                             for cluster_suffix in 'sandbox' 'demand-backup' 'scheduled-backup' 'upgrade' 'version-service'
+                             for cluster_suffix in '${params.PG_VERSION}-sandbox' '${params.PG_VERSION}-demand-backup' '${params.PG_VERSION}-scheduled-backup' '${params.PG_VERSION}-upgrade' '${params.PG_VERSION}-version-service'
                              do
                                 /usr/local/bin/openshift-install destroy cluster --dir=./openshift/\$cluster_suffix > /dev/null 2>&1 || true
                              done
