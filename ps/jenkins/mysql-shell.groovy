@@ -13,7 +13,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./mysql-shell_builder.sh --builddir=\${build_dir}/test --install_deps=1
+            bash -x ./mysql-shell_builder.sh --builddir=\${build_dir}/test --install_deps=1 --mysqlshell_branch=$SHELL_BRANCH
             bash -x mysql-shell_builder.sh --builddir=\${build_dir}/test --repo_mysqlshell=$SHELL_REPO --mysqlshell_branch=$SHELL_BRANCH --repo=${PS_REPO} --branch_db=${PS_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
 }

@@ -361,6 +361,9 @@ EOF
                 runTest('version-service')
                 runTest('users')
                 runTest('ns-mode')
+                runTest('data-migration-gcs')
+                runTest('clone-cluster')
+                runTest('tls-check')
             }
         }
         stage('Make report') {
