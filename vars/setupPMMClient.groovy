@@ -23,7 +23,9 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 export ADMIN_PASSWORD=admin
             fi
 
-            echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+            if [ "${PMM_VERSION}" = pmm2 ]; then
+              echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+            fi
             sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
             sudo yum clean all
             sudo yum makecache
@@ -57,9 +59,9 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
 
                 export BUILD_ID=dont-kill-the-process
                 export JENKINS_NODE_COOKIE=dont-kill-the-process
-                tar -zxpf pmm-client.tar.gz
+                mkdir -p "$PMM_BINARY"
+                tar -xzpf pmm-client.tar.gz --strip-components=1 -C "$PMM_BINARY"
                 rm -f pmm-client.tar.gz
-                mv pmm?-client-* "$PMM_BINARY"
 
                 # install the client to PMM_DIR
                 mkdir -p "$PMM_DIR"
