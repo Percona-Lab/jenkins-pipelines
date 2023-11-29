@@ -15,13 +15,21 @@ void prepareCluster(String TEST_TYPE) {
         sudo rm -rf ./*
     """
 
+    sh """
+        sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+
+        wget https://download.docker.com/linux/static/stable/x86_64/docker-24.0.7.tgz
+        tar -xvf docker-24.0.7.tgz
+        sudo systemctl stop docker containerd
+        sudo cp docker/* /usr/bin/
+        sudo systemctl start docker containerd
+    """
+
     git poll: false, branch: params.PBM_BRANCH, url: 'https://github.com/percona/percona-backup-mongodb.git'
 
     withCredentials([file(credentialsId: 'PBM-AWS-S3', variable: 'PBM_AWS_S3_YML'), file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'), file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML')]) {
     sh """
-        sudo curl -L "https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
-        sudo chmod +x /usr/local/bin/docker-compose
-
         cp $PBM_AWS_S3_YML ./e2e-tests/docker/conf/aws.yaml
         cp $PBM_GCS_S3_YML ./e2e-tests/docker/conf/gcs.yaml
 #       cp $PBM_AZURE_YML ./e2e-tests/docker/conf/azure.yaml
