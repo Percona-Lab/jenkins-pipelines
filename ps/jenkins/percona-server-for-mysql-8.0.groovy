@@ -66,7 +66,7 @@ void cleanUpWS() {
 }
 
 def installDependencies(def nodeName) {
-    def aptNodes = ['min-buster-x64', 'min-bullseye-x64', 'min-bookworm-x64', 'min-bionic-x64', 'min-focal-x64', 'min-jammy-x64']
+    def aptNodes = ['min-buster-x64', 'min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64']
     def yumNodes = ['min-ol-8-x64', 'min-centos-7-x64', 'min-ol-9-x64', 'min-amazon-2-x64']
     try{
         if (aptNodes.contains(nodeName)) {
@@ -75,7 +75,7 @@ def installDependencies(def nodeName) {
                     sudo apt-get update
                     sudo apt-get install -y ansible git wget
                 '''
-            }else if(nodeName == "min-bionic-x64" || nodeName == "min-focal-x64" || nodeName == "min-jammy-x64"){
+            }else if(nodeName == "min-focal-x64" || nodeName == "min-jammy-x64"){
                 sh '''
                     sudo apt-get update
                     sudo apt-get install -y software-properties-common
@@ -157,7 +157,6 @@ def minitestNodes = [  "min-buster-x64",
                        "min-bookworm-x64",
                        "min-centos-7-x64",
                        "min-ol-8-x64",
-                       "min-bionic-x64",
                        "min-focal-x64",
                        "min-amazon-2-x64",
                        "min-jammy-x64",
@@ -222,7 +221,7 @@ parameters {
 
         stage('Create PS source tarball') {
             agent {
-               label 'min-bionic-x64'
+               label 'min-buster-x64'
             }
             steps {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
@@ -266,7 +265,7 @@ parameters {
                 }
                 stage('Build PS generic source deb') {
                     agent {
-                        label 'min-bionic-x64'
+                        label 'min-buster-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -351,20 +350,6 @@ parameters {
                         buildStage("oraclelinux:9", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Ubuntu Bionic(18.04)') {
-                    agent {
-                        label 'min-bionic-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("none", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal(20.04)') {
@@ -535,34 +520,6 @@ parameters {
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
-                stage('Bionic(18.04) binary tarball') {
-                    agent {
-                        label 'min-bionic-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--build_tarball=1 ")
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Bionic(18.04) debug tarball') {
-                    agent {
-                        label 'min-bionic-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--debug=1 --build_tarball=1 ")
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Ubuntu Focal(20.04) tarball') {
                     agent {
                         label 'min-focal-x64'
@@ -681,7 +638,7 @@ parameters {
         }
         stage('Build docker containers') {
             agent {
-                label 'min-bionic-x64'
+                label 'min-buster-x64'
             }
             steps {
                 echo "====> Build docker container"
