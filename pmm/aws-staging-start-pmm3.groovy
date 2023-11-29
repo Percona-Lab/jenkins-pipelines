@@ -46,8 +46,8 @@ pipeline {
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         choice(
-            choices: ['pmm2', 'pmm1'],
-            description: 'Which Version of PMM-Server',
+            choices: ['pmm2', 'pmm'],
+            description: 'Which Version of PMM Server: pmm stands for PMM v3 and up',
             name: 'PMM_VERSION')
         choice(
             choices: ['no', 'yes'],
@@ -231,7 +231,9 @@ pipeline {
                         sudo yum repolist
 
                         # exclude unavailable mirrors
-                        echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+                        if [ "${PMM_VERSION}" = pmm2 ]; then
+                          echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+                        fi
 
                         sudo amazon-linux-extras enable epel
                         sudo amazon-linux-extras enable php7.4
@@ -267,46 +269,45 @@ pipeline {
                                 sh '''
                                     set -o errexit
                                     set -o xtrace
-                                    if [[ ${PMM_VERSION} == pmm2 ]]; then
-                                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-                                        docker create \
-                                            -v /srv \
-                                            --name ${VM_NAME}-data \
-                                            ${DOCKER_VERSION} /bin/true
 
-                                        if [ ${VERSION_SERVICE_VERSION} == dev ]; then
-                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1"
+                                    aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                                    docker create \
+                                        -v /srv \
+                                        --name ${VM_NAME}-data \
+                                        ${DOCKER_VERSION} /bin/true
+
+                                    if [ ${VERSION_SERVICE_VERSION} == dev ]; then
+                                        export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1"
+                                    else
+                                        export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check.percona.com/versions/v1"
+                                    fi
+
+                                    if [ -n "${VERSION_SERVICE_IMAGE}" ]; then
+                                        export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=http://${VM_NAME}-version-service/versions/v1"
+                                    else
+                                        export ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
+                                    fi
+                                    docker network create pmm-qa || true
+
+                                    docker run -d \
+                                        -p 80:80 \
+                                        -p 443:443 \
+                                        -p 9000:9000 \
+                                        --volumes-from ${VM_NAME}-data \
+                                        --name ${VM_NAME}-server \
+                                        --network pmm-qa \
+                                        --restart always \
+                                        $ENV_VARIABLE \
+                                        ${DOCKER_VERSION}
+
+                                    sleep 10
+                                    docker logs ${VM_NAME}-server
+
+                                    if [ ${ADMIN_PASSWORD} != admin ]; then
+                                        if [ ${CHANGE_USER_PASSWORD_UTILITY} == yes ]; then
+                                            docker exec ${VM_NAME}-server change-admin-password ${ADMIN_PASSWORD}
                                         else
-                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check.percona.com/versions/v1"
-                                        fi
-
-                                        if [ -n "${VERSION_SERVICE_IMAGE}" ]; then
-                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=http://${VM_NAME}-version-service/versions/v1"
-                                        else
-                                            export ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
-                                        fi
-                                        docker network create pmm-qa || true
-
-                                        docker run -d \
-                                            -p 80:80 \
-                                            -p 443:443 \
-                                            -p 9000:9000 \
-                                            --volumes-from ${VM_NAME}-data \
-                                            --name ${VM_NAME}-server \
-                                            --network pmm-qa \
-                                            --restart always \
-                                            $ENV_VARIABLE \
-                                            ${DOCKER_VERSION}
-
-                                        sleep 10
-                                        docker logs ${VM_NAME}-server
-
-                                        if [ ${ADMIN_PASSWORD} != admin ]; then
-                                            if [ ${CHANGE_USER_PASSWORD_UTILITY} == yes ]; then
-                                                docker exec ${VM_NAME}-server change-admin-password ${ADMIN_PASSWORD}
-                                            else
-                                                docker exec ${VM_NAME}-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password ${ADMIN_PASSWORD}
-                                            fi
+                                            docker exec ${VM_NAME}-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password ${ADMIN_PASSWORD}
                                         fi
                                     fi
                                 '''
@@ -350,9 +351,11 @@ pipeline {
                                 set -o xtrace
 
                                 # exclude unavailable mirrors
-                                docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
+                                if [ "${PMM_VERSION}" = pmm2 ]; then
+                                    docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
+                                fi
                                 docker exec ${VM_NAME}-server yum update -y percona-release
-                                docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
+                                docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/${PMM_VERSION}-server.repo
                                 docker exec ${VM_NAME}-server percona-release enable percona testing
                                 docker exec ${VM_NAME}-server yum clean all
                             """
@@ -372,9 +375,11 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
+                                if [ "${PMM_VERSION}" = pmm2 ]; then
+                                  docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
+                                fi
                                 docker exec ${VM_NAME}-server yum update -y percona-release
-                                docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
+                                docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/${PMM_VERSION}-server.repo
                                 docker exec ${VM_NAME}-server percona-release enable percona experimental
                                 docker exec ${VM_NAME}-server yum clean all
                             """
@@ -399,39 +404,36 @@ pipeline {
                         set -o xtrace
                         export PATH=$PATH:/usr/sbin
                         export PMM_CLIENT_VERSION=${CLIENT_VERSION}
-                        if [[ ${CLIENT_VERSION} == 3-dev-latest ]]; then
-                                export PMM_CLIENT_VERSION="latest"
+                        if [[ "${CLIENT_VERSION}" = 3-dev-latest ]]; then
+                            export PMM_CLIENT_VERSION="latest"
                         fi
                         [ -z "${CLIENTS}" ] && exit 0 || :
 
-                        if [[ ${PMM_VERSION} == pmm2 ]]; then
+                        export PMM_SERVER_IP=${SERVER_IP}
 
-                            export PMM_SERVER_IP=${SERVER_IP}
-
-                            if [[ ${CLIENT_VERSION} != 3-dev-latest ]]; then
-                                export PATH="`pwd`/pmm2-client/bin:$PATH"
-                            fi
-                            if [[ ${CLIENT_INSTANCE} == no ]]; then
-                                export PMM_SERVER_IP=${IP}
-                            fi
-
-                            bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
-                                --ms-version  ${MS_VERSION} \
-                                --mo-version  ${MO_VERSION} \
-                                --ps-version  ${PS_VERSION} \
-                                --modb-version ${MODB_VERSION} \
-                                --md-version  ${MD_VERSION} \
-                                --pgsql-version ${PGSQL_VERSION} \
-                                --pxc-version ${PXC_VERSION} \
-                                --pdpgsql-version ${PDPGSQL_VERSION} \
-                                --download \
-                                ${CLIENTS} \
-                                --pmm2 \
-                                --dbdeployer \
-                                --run-load-pmm2 \
-                                --query-source=${QUERY_SOURCE} \
-                                --pmm2-server-ip=$PMM_SERVER_IP
+                        if [[ "${CLIENT_VERSION}" != 3-dev-latest ]]; then
+                            export PATH="`pwd`/pmm2-client/bin:$PATH"
                         fi
+                        if [[ "${CLIENT_INSTANCE}" = no ]]; then
+                            export PMM_SERVER_IP=${IP}
+                        fi
+
+                        bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
+                            --ms-version  ${MS_VERSION} \
+                            --mo-version  ${MO_VERSION} \
+                            --ps-version  ${PS_VERSION} \
+                            --modb-version ${MODB_VERSION} \
+                            --md-version  ${MD_VERSION} \
+                            --pgsql-version ${PGSQL_VERSION} \
+                            --pxc-version ${PXC_VERSION} \
+                            --pdpgsql-version ${PDPGSQL_VERSION} \
+                            --download \
+                            ${CLIENTS} \
+                            --pmm2 \
+                            --dbdeployer \
+                            --run-load-pmm2 \
+                            --query-source=${QUERY_SOURCE} \
+                            --pmm2-server-ip=$PMM_SERVER_IP
                     '''
                 }
             }
