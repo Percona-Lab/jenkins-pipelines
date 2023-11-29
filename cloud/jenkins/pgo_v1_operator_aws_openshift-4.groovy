@@ -336,6 +336,17 @@ pipeline {
                         wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
                         unzip terraform_0.11.14_linux_amd64.zip
                         sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
+
+                        sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
+[google-cloud-cli]
+name=Google Cloud CLI
+baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+                        sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
                     """
                 }
 
