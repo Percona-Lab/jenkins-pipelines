@@ -76,7 +76,7 @@ networking:
   - 172.30.0.0/16
 platform:
   aws:
-    region: eu-west-3
+    region: eu-west-1
     userTags:
       iit-billing-tag: openshift
       delete-cluster-after-hours: 8
