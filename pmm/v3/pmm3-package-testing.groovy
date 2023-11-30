@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@PMM-12557', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -77,7 +77,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM-12557',
+            defaultValue: 'master',
             description: 'Tag/Branch for package-testing repository',
             name: 'GIT_BRANCH',
             trim: true)

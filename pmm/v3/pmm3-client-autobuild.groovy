@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@PMM-12557', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -211,7 +211,7 @@ pipeline {
         }
         stage('Push to public repository') {
             agent {
-                label 'PMM-12557'
+                label 'master'
             }
             steps {
                 // sync packages
