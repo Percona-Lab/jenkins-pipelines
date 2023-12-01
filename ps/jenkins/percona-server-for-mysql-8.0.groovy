@@ -619,10 +619,10 @@ parameters {
                 script {
                     PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
                     // sync packages
-                    if (${PS_MAJOR_RELEASE} != "80") {
-                        sync2ProdAutoBuild("ps-8x-innovation", COMPONENT)
-                    } else {
+                    if ("${PS_MAJOR_RELEASE}" == "80") {
                         sync2ProdAutoBuild("ps-80", COMPONENT)
+                    } else {
+                        sync2ProdAutoBuild("ps-8x-innovation", COMPONENT)
                     }
                 }
             }
