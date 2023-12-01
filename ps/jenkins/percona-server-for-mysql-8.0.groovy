@@ -619,7 +619,11 @@ parameters {
                 script {
                     PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
                     // sync packages
-                    sync2ProdAutoBuild("ps-"+PS_MAJOR_RELEASE, COMPONENT)
+                    if ("${PS_MAJOR_RELEASE}" == "80") {
+                        sync2ProdAutoBuild("ps-80", COMPONENT)
+                    } else {
+                        sync2ProdAutoBuild("ps-8x-innovation", COMPONENT)
+                    }
                 }
             }
         }
@@ -650,9 +654,9 @@ parameters {
                 unstash 'properties'
                 sh '''
                     PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
-                    MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
-                    PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                    MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                    PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 3)}')
                     sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                     sudo apt-get install -y docker.io
                     sudo systemctl status docker
@@ -694,7 +698,7 @@ parameters {
                  sh '''
                      echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                      PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                     MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                     MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
                      PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
                      sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}
                      sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
