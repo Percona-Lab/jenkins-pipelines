@@ -132,7 +132,7 @@ void runTest(String TEST_NAME) {
             return true
         }
         catch (exc) {
-            if (retryCount >= 2) {
+            if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
