@@ -423,9 +423,6 @@ pipeline {
         disableConcurrentBuilds()
         copyArtifactPermission('pg-operator-latest-scheduler');
     }
-    triggers {
-        cron('0 15 * * 0')
-    }
     stages {
         stage('Prepare node') {
             steps {

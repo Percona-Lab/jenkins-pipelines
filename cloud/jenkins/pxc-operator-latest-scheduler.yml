@@ -3,6 +3,8 @@
     project-type: pipeline
     description: |
         Do not edit this job through the web!
+    triggers:
+      - timed: "0 8 * * 6"
     pipeline-scm:
       scm:
         - git:

@@ -363,9 +363,6 @@ pipeline {
         disableConcurrentBuilds()
         copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
-    triggers {
-        cron('0 15 * * 6')
-    }
     stages {
         stage('Prepare node') {
             steps {

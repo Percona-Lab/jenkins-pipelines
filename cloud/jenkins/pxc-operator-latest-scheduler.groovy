@@ -77,6 +77,9 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
         timestamps ()
     }
+    triggers {
+        cron('0 8 * * 6')
+    }
     stages {
         stage("Run parallel") {
             parallel{

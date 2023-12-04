@@ -415,9 +415,6 @@ pipeline {
         disableConcurrentBuilds()
         copyArtifactPermission('ps-operator-latest-scheduler');
     }
-    triggers {
-        cron('0 8 * * 0')
-    }
     stages {
         stage('Prepare node') {
             steps {

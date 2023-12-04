@@ -369,9 +369,6 @@ pipeline {
         disableConcurrentBuilds()
         copyArtifactPermission('pxc-operator-latest-scheduler');
     }
-    triggers {
-        cron('0 8 * * 6')
-    }
     stages {
         stage('Prepare node') {
             steps {
