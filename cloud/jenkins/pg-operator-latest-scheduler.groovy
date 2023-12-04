@@ -80,15 +80,7 @@ pipeline {
     stages {
         stage("Run parallel") {
             parallel{
-/*
-                stage('Trigger pgo-operator-aks-latest job 3 times') {
-                    steps {
-                        build job: 'pgo-operator-aks-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),string(name: 'TEST_LIST', value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'CLUSTER_WIDE', value: "${CLUSTER_WIDE}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'PG_VERSION', value: "${PG_VERSION}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'PGO_PGBOUNCER_IMAGE', value: "${PGO_PGBOUNCER_IMAGE}"),string(name: 'PGO_POSTGRES_IMAGE', value: "${PGO_POSTGRES_IMAGE}"),string(name: 'PGO_BACKREST_IMAGE', value: "${PGO_BACKREST_IMAGE}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_SERVER}")]
-                        build job: 'pgo-operator-aks-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),string(name: 'TEST_LIST', value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'CLUSTER_WIDE', value: "${CLUSTER_WIDE}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'PG_VERSION', value: "${PG_VERSION}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'PGO_PGBOUNCER_IMAGE', value: "${PGO_PGBOUNCER_IMAGE}"),string(name: 'PGO_POSTGRES_IMAGE', value: "${PGO_POSTGRES_IMAGE}"),string(name: 'PGO_BACKREST_IMAGE', value: "${PGO_BACKREST_IMAGE}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_SERVER}")]
-                        build job: 'pgo-operator-aks-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),string(name: 'TEST_LIST', value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'CLUSTER_WIDE', value: "${CLUSTER_WIDE}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'PG_VERSION', value: "${PG_VERSION}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'PGO_PGBOUNCER_IMAGE', value: "${PGO_PGBOUNCER_IMAGE}"),string(name: 'PGO_POSTGRES_IMAGE', value: "${PGO_POSTGRES_IMAGE}"),string(name: 'PGO_BACKREST_IMAGE', value: "${PGO_BACKREST_IMAGE}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_SERVER}")]
-                    }
-                }
-*/
+
                 stage('Trigger pgo-operator-gke-latest job 3 times') {
                     steps {
                         build job: 'pgo-operator-gke-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),string(name: 'TEST_LIST', value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'CLUSTER_WIDE', value: "${CLUSTER_WIDE}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'PG_VERSION', value: "${PG_VERSION}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'PGO_PGBOUNCER_IMAGE', value: "${PGO_PGBOUNCER_IMAGE}"),string(name: 'PGO_POSTGRES_HA_IMAGE', value: "${PGO_POSTGRES_HA_IMAGE}"),string(name: 'PGO_BACKREST_IMAGE', value: "${PGO_BACKREST_IMAGE}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_SERVER}")]
@@ -116,8 +108,6 @@ pipeline {
     }
     post {
         always {
-
-            //copyArtifacts(projectName: 'pgo-operator-aks-latest', selector: lastCompleted(), target: 'pgo-operator-aks-latest')
 
             copyArtifacts(projectName: 'pgo-operator-gke-latest', selector: lastCompleted(), target: 'pgo-operator-gke-latest')
 

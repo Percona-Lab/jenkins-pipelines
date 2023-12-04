@@ -84,15 +84,7 @@ pipeline {
     stages {
         stage("Run parallel") {
             parallel{
-/*
-                stage('Trigger ps-operator-aks-latest job 3 times') {
-                    steps {
-                        build job: 'ps-operator-aks-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),string(name: 'TEST_LIST', value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'IMAGE_MYSQL', value: "${IMAGE_MYSQL}"),string(name: 'IMAGE_ORCHESTRATOR', value: "${IMAGE_ORCHESTRATOR}"),string(name: 'IMAGE_ROUTER', value: "${IMAGE_ROUTER}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_TOOLKIT', value: "${IMAGE_TOOLKIT}"),string(name: 'IMAGE_HAPROXY', value: "${IMAGE_HAPROXY}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_CLIENT}")]
-                        build job: 'ps-operator-aks-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),string(name: 'TEST_LIST', value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'IMAGE_MYSQL', value: "${IMAGE_MYSQL}"),string(name: 'IMAGE_ORCHESTRATOR', value: "${IMAGE_ORCHESTRATOR}"),string(name: 'IMAGE_ROUTER', value: "${IMAGE_ROUTER}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_TOOLKIT', value: "${IMAGE_TOOLKIT}"),string(name: 'IMAGE_HAPROXY', value: "${IMAGE_HAPROXY}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_CLIENT}")]
-                        build job: 'ps-operator-aks-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),string(name: 'TEST_LIST', value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'IMAGE_MYSQL', value: "${IMAGE_MYSQL}"),string(name: 'IMAGE_ORCHESTRATOR', value: "${IMAGE_ORCHESTRATOR}"),string(name: 'IMAGE_ROUTER', value: "${IMAGE_ROUTER}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_TOOLKIT', value: "${IMAGE_TOOLKIT}"),string(name: 'IMAGE_HAPROXY', value: "${IMAGE_HAPROXY}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_CLIENT}")]
-                    }
-                }
-*/
+
                 stage('Trigger ps-operator-gke-latest job 3 times') {
                     steps {
                         build job: 'ps-operator-gke-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),string(name: 'TEST_LIST', value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'IS_GKE_ALPHA', value: "${IS_GKE_ALPHA}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'IMAGE_MYSQL', value: "${IMAGE_MYSQL}"),string(name: 'IMAGE_ORCHESTRATOR', value: "${IMAGE_ORCHESTRATOR}"),string(name: 'IMAGE_ROUTER', value: "${IMAGE_ROUTER}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_TOOLKIT', value: "${IMAGE_TOOLKIT}"),string(name: 'IMAGE_HAPROXY', value: "${IMAGE_HAPROXY}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_CLIENT}")]
@@ -108,29 +100,14 @@ pipeline {
                         build job: 'ps-operator-eks-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),string(name: 'TEST_LIST', value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'IMAGE_MYSQL', value: "${IMAGE_MYSQL}"),string(name: 'IMAGE_ORCHESTRATOR', value: "${IMAGE_ORCHESTRATOR}"),string(name: 'IMAGE_ROUTER', value: "${IMAGE_ROUTER}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_TOOLKIT', value: "${IMAGE_TOOLKIT}"),string(name: 'IMAGE_HAPROXY', value: "${IMAGE_HAPROXY}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_CLIENT}")]
                     }
                 }
-/*
-                stage('Trigger ps-operator-aws-openshift-latest job 3 times') {
-                    steps {
-                        build job: 'ps-operator-aws-openshift-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),string(name: 'TEST_LIST', value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'IMAGE_MYSQL', value: "${IMAGE_MYSQL}"),string(name: 'IMAGE_ORCHESTRATOR', value: "${IMAGE_ORCHESTRATOR}"),string(name: 'IMAGE_ROUTER', value: "${IMAGE_ROUTER}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_TOOLKIT', value: "${IMAGE_TOOLKIT}"),string(name: 'IMAGE_HAPROXY', value: "${IMAGE_HAPROXY}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_CLIENT}")]
-                        build job: 'ps-operator-aws-openshift-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),string(name: 'TEST_LIST', value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'IMAGE_MYSQL', value: "${IMAGE_MYSQL}"),string(name: 'IMAGE_ORCHESTRATOR', value: "${IMAGE_ORCHESTRATOR}"),string(name: 'IMAGE_ROUTER', value: "${IMAGE_ROUTER}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_TOOLKIT', value: "${IMAGE_TOOLKIT}"),string(name: 'IMAGE_HAPROXY', value: "${IMAGE_HAPROXY}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_CLIENT}")]
-                        build job: 'ps-operator-aws-openshift-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),string(name: 'TEST_LIST', value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'IMAGE_MYSQL', value: "${IMAGE_MYSQL}"),string(name: 'IMAGE_ORCHESTRATOR', value: "${IMAGE_ORCHESTRATOR}"),string(name: 'IMAGE_ROUTER', value: "${IMAGE_ROUTER}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_TOOLKIT', value: "${IMAGE_TOOLKIT}"),string(name: 'IMAGE_HAPROXY', value: "${IMAGE_HAPROXY}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_CLIENT}")]
-                    }
-                }
-*/
             }
         }
     }
     post {
         always {
 
-            //copyArtifacts(projectName: 'ps-operator-aks-latest', selector: lastCompleted(), target: 'ps-operator-aks-latest')
-
             copyArtifacts(projectName: 'ps-operator-gke-latest', selector: lastCompleted(), target: 'ps-operator-gke-latest')
-
             copyArtifacts(projectName: 'ps-operator-eks-latest', selector: lastCompleted(), target: 'ps-operator-eks-latest')
-            
-            //copyArtifacts(projectName: 'ps-operator-aws-openshift-latest', selector: lastCompleted(), target: 'ps-operator-aws-openshift-latest')
-
             archiveArtifacts '*/*.xml'
             step([$class: 'JUnitResultArchiver', testResults: '*/*.xml', healthScaleFactor: 1.0])
 
