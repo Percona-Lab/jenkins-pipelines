@@ -106,10 +106,12 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'yes') {
-                            buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
-                        } else {
-                            buildStage("centos:7", "--build_src_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("centos:7", "--build_src_rpm=1")
+                            }
                         }
 
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
@@ -123,12 +125,13 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'yes') {
-                            buildStage("ubuntu:focal", "--build_src_deb=1 --enable_fipsmode=1")
-                        } else {
-                            buildStage("ubuntu:focal", "--build_src_deb=1")
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("ubuntu:focal", "--build_src_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:focal", "--build_src_deb=1")
+                            }
                         }
-
                         pushArtifactFolder("source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
                     }
@@ -144,10 +147,12 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'yes') {
-                            buildStage("centos:7", "--build_rpm=1 --enable_fipsmode=1")
-                        } else {
-                            buildStage("centos:7", "--build_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("centos:7", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("centos:7", "--build_rpm=1")
+                            }
                         }
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
@@ -161,10 +166,12 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'yes') {
-                            buildStage("oraclelinux:8", "--build_rpm=1 --enable_fipsmode=1")
-                        } else {
-                            buildStage("oraclelinux:8", "--build_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("oraclelinux:8", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("oraclelinux:8", "--build_rpm=1")
+                            }
                         }
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
@@ -178,10 +185,12 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'yes') {
-                            buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
-                        } else {
-                            buildStage("oraclelinux:9", "--build_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("oraclelinux:9", "--build_rpm=1")
+                            }
                         }
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
@@ -195,10 +204,12 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'yes') {
-                            buildStage("ubuntu:focal", "--build_deb=1 --enable_fipsmode=1")
-                        } else {
-                            buildStage("ubuntu:focal", "--build_deb=1")
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("ubuntu:focal", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:focal", "--build_deb=1")
+                            }
                         }
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
@@ -212,10 +223,12 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'yes') {
-                            buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
-                        } else {
-                            buildStage("ubuntu:jammy", "--build_deb=1")
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:jammy", "--build_deb=1")
+                            }
                         }
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
@@ -229,10 +242,12 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'yes') {
-                            buildStage("debian:bullseye", "--build_deb=1 --enable_fipsmode=1")
-                        } else {
-                            buildStage("debian:bullseye", "--build_deb=1")
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("debian:bullseye", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:bullseye", "--build_deb=1")
+                            }
                         }
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
@@ -246,10 +261,12 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'yes') {
-                            buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
-                        } else {
-                            buildStage("debian:bookworm", "--build_deb=1")
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:bookworm", "--build_deb=1")
+                            }
                         }
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
@@ -263,19 +280,21 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'yes') {
-                            echo "The step is skipped ..."
-                            /*
-                            buildStage("centos:7", "--build_tarball=1 --enable_fipsmode=1")
-                            */
-                        } else {
-                            buildStage("centos:7", "--build_tarball=1")
-                        }
-                        if (env.FIPSMODE == 'yes') {
-                            echo "The step is skipped ..."
-                        } else {
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                echo "The step is skipped ..."
+                                /*
+                                buildStage("centos:7", "--build_tarball=1 --enable_fipsmode=1")
+                                */
+                            } else {
+                                buildStage("centos:7", "--build_tarball=1")
+                            }
+                            if (env.FIPSMODE == 'yes') {
+                                echo "The step is skipped ..."
+                            } else {
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                            }
                         }
                     }
                 }
@@ -286,15 +305,17 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'yes') {
-                            echo "The step is skipped ..."
-                        } else {
-                            buildStage("centos:7", "--debug=1")
-                        }
-                        if (env.FIPSMODE == 'yes') {
-                            echo "The step is skipped ..."
-                        } else {
-                            pushArtifactFolder("debug/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                echo "The step is skipped ..."
+                            } else {
+                                buildStage("centos:7", "--debug=1")
+                            }
+                            if (env.FIPSMODE == 'yes') {
+                                echo "The step is skipped ..."
+                            } else {
+                                pushArtifactFolder("debug/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -305,19 +326,21 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'yes') {
-                            echo "The step is skipped ..."
-                            /*
-                            buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
-                            */
-                        } else {
-                            buildStage("ubuntu:jammy", "--build_tarball=1")
-                        }
-                        if (env.FIPSMODE == 'yes') {
-                            echo "The step is skipped ..."
-                        } else {
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                echo "The step is skipped ..."
+                                /*
+                                buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
+                                */
+                            } else {
+                                buildStage("ubuntu:jammy", "--build_tarball=1")
+                            }
+                            if (env.FIPSMODE == 'yes') {
+                                echo "The step is skipped ..."
+                            } else {
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                            }
                         }
                     }
                 }
@@ -328,19 +351,21 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'yes') {
-                            echo "The step is skipped ..."
-                            /*
-                            buildStage("ubuntu:jammy", "--debug=1 --enable_fipsmode=1")
-                            */
-                        } else {
-                            buildStage("ubuntu:jammy", "--debug=1")
-                        }
-                        if (env.FIPSMODE == 'yes') {
-                            echo "The step is skipped ..."
-                        } else {
-                            pushArtifactFolder("debug/", AWS_STASH_PATH)
-                        }
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                echo "The step is skipped ..."
+                                /*
+                                buildStage("ubuntu:jammy", "--debug=1 --enable_fipsmode=1")
+                                */
+                            } else {
+                                buildStage("ubuntu:jammy", "--debug=1")
+                            }
+                            if (env.FIPSMODE == 'yes') {
+                                echo "The step is skipped ..."
+                            } else {
+                                pushArtifactFolder("debug/", AWS_STASH_PATH)
+                            }
+                       }
                     }
                 }
             }
@@ -355,10 +380,12 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                if (env.FIPSMODE == 'yes') {
-                    sync2PrivateProdAutoBuild(PSMDB_REPO+"-pro", COMPONENT)
-                } else {
-                    sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
+                script {
+                    if (env.FIPSMODE == 'yes') {
+                        sync2PrivateProdAutoBuild(PSMDB_REPO+"-pro", COMPONENT)
+                    } else {
+                        sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
+                    }
                 }
             }
         }
