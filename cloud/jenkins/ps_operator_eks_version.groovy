@@ -55,7 +55,6 @@ EOF
         sh """
             export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
             export PATH=/home/ec2-user/.local/bin:$PATH
-            source $HOME/google-cloud-sdk/path.bash.inc
             eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
         """
     }
@@ -68,7 +67,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            source $HOME/google-cloud-sdk/path.bash.inc
             eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-$CLUSTER_SUFFIX --region $AWSRegion || true
             for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
                 kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
@@ -125,13 +123,8 @@ void pushArtifactFile(String FILE_NAME) {
 
 void prepareNode() {
     sh '''
-        if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-            rm -rf $HOME/google-cloud-sdk
-            curl https://sdk.cloud.google.com | bash
-        fi
-
-        source $HOME/google-cloud-sdk/path.bash.inc
-        gcloud components install kubectl
+        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+        kubectl version --client --output=yaml
 
         curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
@@ -270,7 +263,6 @@ void runTest(Integer TEST_ID) {
                         export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
                         export PATH="/home/ec2-user/.local/bin:${HOME}/.krew/bin:$PATH"
-                        source $HOME/google-cloud-sdk/path.bash.inc
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
 
                         kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
@@ -495,7 +487,6 @@ pipeline {
             sh """
                 sudo docker system prune -fa
                 sudo rm -rf ./*
-                sudo rm -rf $HOME/google-cloud-sdk
             """
             deleteDir()
         }
