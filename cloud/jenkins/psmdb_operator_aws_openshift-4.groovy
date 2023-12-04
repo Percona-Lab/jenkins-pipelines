@@ -22,6 +22,7 @@ void createCluster(String CLUSTER_SUFFIX){
                 NETWORK_TYPE="OpenShiftSDN"
             fi
             mkdir -p openshift/${CLUSTER_SUFFIX}
+            timestamp="\$(date +%s)"
 cat <<-EOF > ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
 \$POLICY
 apiVersion: v1
@@ -60,6 +61,7 @@ platform:
       delete-cluster-after-hours: 8
       team: cloud
       product: psmdb-operator
+      creation-time: \$timestamp
 
 publish: External
 EOF
