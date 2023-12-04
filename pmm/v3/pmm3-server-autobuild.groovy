@@ -39,12 +39,12 @@ pipeline {
                 script {
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         sh '''
-                            # 'ref' is a required parameter, it should always equal 'main'
+                            # 'ref' is a required parameter, it should always equal 'v3' (or 'main' for v2)
                             curl -L -X POST \
                                 -H "Accept: application/vnd.github+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 "https://api.github.com/repos/percona/pmm/actions/workflows/devcontainer.yml/dispatches" \
-                                -d '{"ref":"main"}'
+                                -d '{"ref":"v3"}'
                         '''
                     }
                 }
