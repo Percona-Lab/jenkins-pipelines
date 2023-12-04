@@ -343,7 +343,9 @@ pipeline {
                     sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
                 """
                 sh '''
-                    
+                    sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+                    kubectl version --client --output=yaml
+
                     curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
 

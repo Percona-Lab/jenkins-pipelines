@@ -66,7 +66,7 @@ void cleanUpWS() {
 }
 
 def installDependencies(def nodeName) {
-    def aptNodes = ['min-buster-x64', 'min-bullseye-x64', 'min-bookworm-x64', 'min-bionic-x64', 'min-focal-x64', 'min-jammy-x64']
+    def aptNodes = ['min-buster-x64', 'min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64']
     def yumNodes = ['min-ol-8-x64', 'min-centos-7-x64', 'min-ol-9-x64', 'min-amazon-2-x64']
     try{
         if (aptNodes.contains(nodeName)) {
@@ -75,7 +75,7 @@ def installDependencies(def nodeName) {
                     sudo apt-get update
                     sudo apt-get install -y ansible git wget
                 '''
-            }else if(nodeName == "min-bionic-x64" || nodeName == "min-focal-x64" || nodeName == "min-jammy-x64"){
+            }else if(nodeName == "min-focal-x64" || nodeName == "min-jammy-x64"){
                 sh '''
                     sudo apt-get update
                     sudo apt-get install -y software-properties-common
@@ -157,7 +157,6 @@ def minitestNodes = [  "min-buster-x64",
                        "min-bookworm-x64",
                        "min-centos-7-x64",
                        "min-ol-8-x64",
-                       "min-bionic-x64",
                        "min-focal-x64",
                        "min-amazon-2-x64",
                        "min-jammy-x64",
@@ -222,7 +221,7 @@ parameters {
 
         stage('Create PS source tarball') {
             agent {
-               label 'min-bionic-x64'
+               label 'min-buster-x64'
             }
             steps {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
@@ -266,7 +265,7 @@ parameters {
                 }
                 stage('Build PS generic source deb') {
                     agent {
-                        label 'min-bionic-x64'
+                        label 'min-buster-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -351,20 +350,6 @@ parameters {
                         buildStage("oraclelinux:9", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Ubuntu Bionic(18.04)') {
-                    agent {
-                        label 'min-bionic-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("none", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal(20.04)') {
@@ -535,34 +520,6 @@ parameters {
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
-                stage('Bionic(18.04) binary tarball') {
-                    agent {
-                        label 'min-bionic-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--build_tarball=1 ")
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Bionic(18.04) debug tarball') {
-                    agent {
-                        label 'min-bionic-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--debug=1 --build_tarball=1 ")
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Ubuntu Focal(20.04) tarball') {
                     agent {
                         label 'min-focal-x64'
@@ -662,7 +619,11 @@ parameters {
                 script {
                     PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
                     // sync packages
-                    sync2ProdAutoBuild("ps-"+PS_MAJOR_RELEASE, COMPONENT)
+                    if ("${PS_MAJOR_RELEASE}" == "80") {
+                        sync2ProdAutoBuild("ps-80", COMPONENT)
+                    } else {
+                        sync2ProdAutoBuild("ps-8x-innovation", COMPONENT)
+                    }
                 }
             }
         }
@@ -681,7 +642,7 @@ parameters {
         }
         stage('Build docker containers') {
             agent {
-                label 'min-bionic-x64'
+                label 'min-buster-x64'
             }
             steps {
                 echo "====> Build docker container"
@@ -693,9 +654,9 @@ parameters {
                 unstash 'properties'
                 sh '''
                     PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
-                    MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
-                    PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                    MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                    PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 3)}')
                     sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                     sudo apt-get install -y docker.io
                     sudo systemctl status docker
@@ -737,7 +698,7 @@ parameters {
                  sh '''
                      echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                      PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                     MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                     MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
                      PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
                      sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}
                      sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
