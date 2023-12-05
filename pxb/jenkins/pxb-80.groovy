@@ -66,7 +66,7 @@ pipeline {
             steps {
                 // slackNotify("", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                buildStage("debian:buster", "--get_sources=1")
+                buildStage("ubuntu:focal", "--get_sources=1")
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-xtrabackup-8.0.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
@@ -189,12 +189,19 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:buster", "--build_deb=1")
+                        script {
+                            PXB_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
+                            if ("${PXB_MAJOR_RELEASE}" == "80") {
+                                cleanUpWS()
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                buildStage("debian:buster", "--build_deb=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                           } else {
+                                echo "The step is skiped"
+                           }
+                       }
                     }
                 }
                 stage('Debian Bullseye(11)') {
