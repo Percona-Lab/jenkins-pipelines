@@ -20,7 +20,6 @@ void runGKEcluster(String CLUSTER_SUFFIX) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
-            source $HOME/google-cloud-sdk/path.bash.inc
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
@@ -42,7 +41,6 @@ void runGKEclusterAlpha(String CLUSTER_SUFFIX) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
-            source $HOME/google-cloud-sdk/path.bash.inc
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
@@ -71,7 +69,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
-            source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account $ACCOUNT@"$GCP_PROJECT".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
             for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
@@ -208,7 +205,6 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
-                    source $HOME/google-cloud-sdk/path.bash.inc
                     e2e-tests/$testName/run
                 """
             }
@@ -325,14 +321,20 @@ pipeline {
                 initTests()
 
                 sh """
-                    if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-                        rm -rf $HOME/google-cloud-sdk
-                        curl https://sdk.cloud.google.com | bash
-                    fi
+                    sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+                    kubectl version --client --output=yaml
 
-                    source $HOME/google-cloud-sdk/path.bash.inc
+                    sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
+[google-cloud-cli]
+name=Google Cloud CLI
+baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+                    sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
                     gcloud components install alpha
-                    gcloud components install kubectl
 
                     curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -

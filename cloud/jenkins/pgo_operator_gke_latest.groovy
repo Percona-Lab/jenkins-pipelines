@@ -70,7 +70,7 @@ void prepareSources() {
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-pg-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_HA_IMAGE-$PGO_BACKREST_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_IMAGE-$PGO_BACKREST_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -83,6 +83,7 @@ void dockerBuildPush() {
             else
                 cd source
                 sg docker -c "
+                    docker buildx create --use
                     docker login -u '$USER' -p '$PASS'
                     export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                     e2e-tests/build
@@ -228,8 +229,8 @@ void runTest(Integer TEST_ID) {
                     export PG_VER=$PG_VERSION
                     export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
 
-                    if [[ "$PGO_POSTGRES_HA_IMAGE" ]]; then
-                        export IMAGE_POSTGRESQL=$PGO_POSTGRES_HA_IMAGE
+                    if [[ "$PGO_POSTGRES_IMAGE" ]]; then
+                        export IMAGE_POSTGRESQL=$PGO_POSTGRES_IMAGE
                         export PG_VER=\$(echo \$IMAGE_POSTGRESQL | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                     fi
 
@@ -302,7 +303,7 @@ pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
-        PPG_TAG = sh(script: "[[ \"$OPERATOR_IMAGE\" ]] && echo $OPERATOR_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg15", , returnStdout: true).trim()
+        PPG_TAG = sh(script: "[[ \$PGO_POSTGRES_IMAGE ]] && echo \$PGO_POSTGRES_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -344,15 +345,15 @@ pipeline {
             name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg15-pgbouncer',
+            description: 'Postgres image: perconalab/percona-postgresql-operator:main-ppg16-postgres',
+            name: 'PGO_POSTGRES_IMAGE')
+        string(
+            defaultValue: '',
+            description: 'pgBouncer image: perconalab/percona-postgresql-operator:main-ppg16-pgbouncer',
             name: 'PGO_PGBOUNCER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg15-postgres-ha',
-            name: 'PGO_POSTGRES_HA_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg15-pgbackrest',
+            description: 'pgBackRest utility image: perconalab/percona-postgresql-operator:main-ppg16-pgbackrest',
             name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',

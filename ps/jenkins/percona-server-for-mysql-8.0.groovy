@@ -4,6 +4,8 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+import groovy.transform.Field
+
 void installCli(String PLATFORM) {
     sh """
         set -o xtrace
@@ -63,7 +65,121 @@ void cleanUpWS() {
     """
 }
 
+def installDependencies(def nodeName) {
+    def aptNodes = ['min-buster-x64', 'min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64']
+    def yumNodes = ['min-ol-8-x64', 'min-centos-7-x64', 'min-ol-9-x64', 'min-amazon-2-x64']
+    try{
+        if (aptNodes.contains(nodeName)) {
+            if(nodeName == "min-buster-x64" || nodeName == "min-bullseye-x64" || nodeName == "min-bookworm-x64"){            
+                sh '''
+                    sudo apt-get update
+                    sudo apt-get install -y ansible git wget
+                '''
+            }else if(nodeName == "min-focal-x64" || nodeName == "min-jammy-x64"){
+                sh '''
+                    sudo apt-get update
+                    sudo apt-get install -y software-properties-common
+                    sudo apt-add-repository --yes --update ppa:ansible/ansible
+                    sudo apt-get install -y ansible git wget
+                '''
+            }else {
+                error "Node Not Listed in APT"
+            }
+        } else if (yumNodes.contains(nodeName)) {
+
+            if(nodeName == "min-centos-7-x64" || nodeName == "min-ol-9-x64"){            
+                sh '''
+                    sudo yum install -y epel-release
+                    sudo yum -y update
+                    sudo yum install -y ansible git wget tar
+                '''
+            }else if(nodeName == "min-ol-8-x64"){
+                sh '''
+                    sudo yum install -y epel-release
+                    sudo yum -y update
+                    sudo yum install -y ansible-2.9.27 git wget tar
+                '''
+            }else if(nodeName == "min-amazon-2-x64"){
+                sh '''
+                    sudo amazon-linux-extras install epel
+                    sudo yum -y update
+                    sudo yum install -y ansible git wget
+                '''
+            }
+            else {
+                error "Node Not Listed in YUM"
+            }
+        } else {
+            echo "Unexpected node name: ${nodeName}"
+        }
+    } catch (Exception e) {
+        slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: Server Provision for Mini Package Testing for ${nodeName} at ${BRANCH}  FAILED !!")
+    }
+
+}
+
+def runPlaybook(def nodeName) {
+
+    def ps80_install_pkg_minitests_playbook = 'ps_80.yml'
+    def install_repo = 'testing'
+    def action_to_test = 'install'
+    def check_warnings = 'yes'
+    def install_mysql_shell = 'no'
+
+    try {
+        def playbook = "${ps80_install_pkg_minitests_playbook}"
+        def playbook_path = "package-testing/playbooks/${playbook}"
+
+        sh '''
+            set -xe
+            git clone --depth 1 https://github.com/Percona-QA/package-testing
+        '''
+        sh """
+            set -xe
+            export install_repo="\${install_repo}"
+            export client_to_test="ps80"
+            export check_warning="\${check_warnings}"
+            export install_mysql_shell="\${install_mysql_shell}"
+            ansible-playbook \
+            --connection=local \
+            --inventory 127.0.0.1, \
+            --limit 127.0.0.1 \
+            ${playbook_path}
+        """
+    } catch (Exception e) {
+        slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: Mini Package Testing for ${nodeName} at ${BRANCH}  FAILED !!!")
+        mini_test_error="True"
+    }
+}
+
+def minitestNodes = [  "min-buster-x64",
+                       "min-bullseye-x64",
+                       "min-bookworm-x64",
+                       "min-centos-7-x64",
+                       "min-ol-8-x64",
+                       "min-focal-x64",
+                       "min-amazon-2-x64",
+                       "min-jammy-x64",
+                       "min-ol-9-x64"     ]
+
+def package_tests_ps80(def nodes) {
+    def stepsForParallel = [:]
+    for (int i = 0; i < nodes.size(); i++) {
+        def nodeName = nodes[i]
+        stepsForParallel[nodeName] = {
+            stage("Minitest run on ${nodeName}") {
+                node(nodeName) {
+                        installDependencies(nodeName)
+                        runPlaybook(nodeName)
+                }
+            }
+        }
+    }
+    parallel stepsForParallel
+}
+
 def AWS_STASH_PATH
+@Field def mini_test_error = "False"
 
 pipeline {
     agent {
@@ -102,9 +218,10 @@ parameters {
         timestamps ()
     }
     stages {
+
         stage('Create PS source tarball') {
             agent {
-               label 'min-bionic-x64'
+               label 'min-buster-x64'
             }
             steps {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
@@ -148,7 +265,7 @@ parameters {
                 }
                 stage('Build PS generic source deb') {
                     agent {
-                        label 'min-bionic-x64'
+                        label 'min-buster-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -233,20 +350,6 @@ parameters {
                         buildStage("oraclelinux:9", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Ubuntu Bionic(18.04)') {
-                    agent {
-                        label 'min-bionic-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("none", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal(20.04)') {
@@ -417,34 +520,6 @@ parameters {
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
-                stage('Bionic(18.04) binary tarball') {
-                    agent {
-                        label 'min-bionic-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--build_tarball=1 ")
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Bionic(18.04) debug tarball') {
-                    agent {
-                        label 'min-bionic-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--debug=1 --build_tarball=1 ")
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Ubuntu Focal(20.04) tarball') {
                     agent {
                         label 'min-focal-x64'
@@ -540,8 +615,16 @@ parameters {
         }
         stage('Push to public repository') {
             steps {
-                // sync packages
-                sync2ProdAutoBuild('ps-80', COMPONENT)
+                unstash 'properties'
+                script {
+                    PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
+                    // sync packages
+                    if ("${PS_MAJOR_RELEASE}" == "80") {
+                        sync2ProdAutoBuild("ps-80", COMPONENT)
+                    } else {
+                        sync2ProdAutoBuild("ps-8x-innovation", COMPONENT)
+                    }
+                }
             }
         }
         stage('Push Tarballs to TESTING download area') {
@@ -559,7 +642,7 @@ parameters {
         }
         stage('Build docker containers') {
             agent {
-                label 'min-bionic-x64'
+                label 'min-buster-x64'
             }
             steps {
                 echo "====> Build docker container"
@@ -571,6 +654,9 @@ parameters {
                 unstash 'properties'
                 sh '''
                     PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                    MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                    PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 3)}')
                     sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                     sudo apt-get install -y docker.io
                     sudo systemctl status docker
@@ -579,11 +665,29 @@ parameters {
                     git clone https://github.com/percona/percona-docker
                     cd percona-docker/percona-server-8.0
                     sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
+                    sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile
+                    sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
                     sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile
+                    if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                        sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile
+                    fi
                     sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile.aarch64
+                    sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile.aarch64
                     sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile.aarch64
+                    if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                        sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile.aarch64
+                    fi
                     sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} .
                     sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 -f Dockerfile.aarch64 .
+                    cd ../mysql-router
+                    sed -i "s/ENV ROUTE_VERSION.*/ENV ROUTE_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
+                    sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
+                    if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                        sed -i "s/percona-release setup pdps-.*/percona-release enable ps-8x-innovation testing/g" Dockerfile
+                    else
+                        sed -i "s/percona-release setup pdps-8.0/percona-release enable ps-80 testing/g" Dockerfile
+                    fi
+                    sudo docker build -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE} .
                     sudo docker images
                  '''
                  withCredentials([
@@ -594,12 +698,17 @@ parameters {
                  sh '''
                      echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                      PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                     MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                     PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
                      sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}
                      sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                      sudo docker push perconalab/percona-server:${PS_RELEASE}
                      sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 perconalab/percona-server:${PS_RELEASE}-aarch64
                      sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64
                      sudo docker push perconalab/percona-server:${PS_RELEASE}-aarch64
+                     sudo docker tag perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE} perconalab/percona-mysql-router:${PS_MAJOR_RELEASE}
+                     sudo docker push perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}
+                     sudo docker push perconalab/percona-mysql-router:${PS_MAJOR_RELEASE}
                  '''
                  }
                  sh '''
@@ -631,7 +740,6 @@ parameters {
             slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
             slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: Triggering Builds for Package Testing for ${BRANCH} - [${BUILD_URL}]")
             unstash 'properties'
-
             script {
                 currentBuild.description = "Built on ${BRANCH}; path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
                 REVISION = sh(returnStdout: true, script: "grep REVISION test/percona-server-8.0.properties | awk -F '=' '{ print\$2 }'").trim()
@@ -656,17 +764,28 @@ parameters {
 
                 """
                 }
-                echo "Trigger Package Testing Job for PS"
-                build job: 'package-testing-ps80', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: 'ps80'),string(name: 'install_repo', value: "testing"),string(name: 'node_to_test', value: "all"),string(name: 'action_to_test', value: "all"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
-                echo "Trigger PMM_PS Github Actions Workflow"
-                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                    sh """
-                        curl -i -v -X POST \
-                             -H "Accept: application/vnd.github.v3+json" \
-                             -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                             "https://api.github.com/repos/Percona-Lab/qa-integration/actions/workflows/PMM_PS.yaml/dispatches" \
-                             -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
-                    """
+                echo "Start Minitests for PS"
+                
+                package_tests_ps80(minitestNodes)
+
+                if("${mini_test_error}" == "True"){
+                    echo "NOT TRIGGERING PACKAGE TESTS AND INTEGRATION TESTS DUE TO MINITEST FAILURE !!"
+                }else{
+                    echo "Trigger Package Testing Job for PS"
+
+                    build job: 'package-testing-ps80', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: 'ps80'),string(name: 'install_repo', value: "testing"),string(name: 'node_to_test', value: "all"),string(name: 'action_to_test', value: "all"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
+                    
+                    echo "Trigger PMM_PS Github Actions Workflow"
+                    
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                        sh """
+                            curl -i -v -X POST \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                "https://api.github.com/repos/Percona-Lab/qa-integration/actions/workflows/PMM_PS.yaml/dispatches" \
+                                -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
+                        """
+                    }
                 }
             }
             deleteDir()

@@ -53,8 +53,6 @@ void pushImageToDocker(String IMAGE_POSTFIX){
                 fi
 
                 docker login -u '${USER}' -p '${PASS}'
-                export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                docker trust sign perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}
                 docker push perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}
                 docker logout
             '

@@ -69,6 +69,7 @@ void dockerBuildPush() {
             else
                 cd source
                 sg docker -c "
+                    docker buildx create --use
                     docker login -u '$USER' -p '$PASS'
                     export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                     e2e-tests/build
@@ -353,7 +354,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        PPG_TAG = sh(script: "[[ \"$OPERATOR_IMAGE\" ]] && echo $OPERATOR_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg15", , returnStdout: true).trim()
+        PPG_TAG = sh(script: "[[ \$PGO_POSTGRES_IMAGE ]] && echo \$PGO_POSTGRES_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -395,15 +396,15 @@ pipeline {
             name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg15-pgbouncer',
-            name: 'PGO_PGBOUNCER_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg15-postgres',
+            description: 'Postgres image: perconalab/percona-postgresql-operator:main-ppg16-postgres',
             name: 'PGO_POSTGRES_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg15-pgbackrest',
+            description: 'pgBouncer image: perconalab/percona-postgresql-operator:main-ppg16-pgbouncer',
+            name: 'PGO_PGBOUNCER_IMAGE')
+        string(
+            defaultValue: '',
+            description: 'pgBackRest utility image: perconalab/percona-postgresql-operator:main-ppg16-pgbackrest',
             name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',
