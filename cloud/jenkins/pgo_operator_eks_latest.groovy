@@ -165,6 +165,7 @@ void createCluster(String CLUSTER_SUFFIX) {
     }
 
     sh """
+        timestamp="\$(date +%s)"
 tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
 ---
@@ -207,6 +208,7 @@ nodeGroups:
         'delete-cluster-after-hours': '10'
         'team': 'cloud'
         'product': 'pgv2-operator'
+        'creation-time': \$timestamp
 EOF
     """
 
