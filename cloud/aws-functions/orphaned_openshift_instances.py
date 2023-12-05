@@ -12,16 +12,16 @@ def isInstanceToTerminate(instance):
     tags = instance.tags
     tags_dict = {item['Key']: item['Value'] for item in tags}
     state = instance.state['Name']
-    if 'iit-billing-tag' not in tags_dict.keys() or state != 'running':
+    if 'team' not in tags_dict.keys() or state != 'running':
         return False
-    if 'delete-cluster-after-hours' not in tags_dict.keys() and tags_dict['iit-billing-tag'] == 'openshift':
+    if 'delete-cluster-after-hours' not in tags_dict.keys() and tags_dict['team'] == 'cloud':
         return True
 
     instance_lifetime = float(tags_dict['delete-cluster-after-hours'])
     current_time = datetime.datetime.now().timestamp()
     creation_time = instance.launch_time.timestamp()
 
-    if (current_time - creation_time) / 3600 > instance_lifetime and tags_dict['iit-billing-tag'] == 'openshift':
+    if (current_time - creation_time) / 3600 > instance_lifetime and tags_dict['team'] == 'cloud':
         return True
     return False
 
