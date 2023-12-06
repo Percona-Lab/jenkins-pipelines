@@ -163,7 +163,7 @@ pipeline {
                             --output text \
                             --query 'Reservations[].Instances[].PrivateIpAddress' \
                             | tee PRIVATE_IP
-                        
+
                         # wait for the instance to get ready
                         aws ec2 wait instance-running \
                             --instance-ids $INSTANCE_ID
@@ -196,11 +196,11 @@ pipeline {
                                 sudo dnf remove -y podman buildah
                                 sudo dnf -y install 'dnf-command(config-manager)'
                                 sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
-                                sudo dnf install -y git svn docker-ce docker-ce-cli containerd.io docker-compose-plugin
+                                sudo dnf install -y git docker-ce docker-ce-cli containerd.io docker-compose-plugin
                             else
                                 echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
                                 sudo yum makecache
-                                sudo yum -y install git svn docker
+                                sudo yum -y install git docker
                             fi
 
                             sudo systemctl start docker
@@ -211,7 +211,7 @@ pipeline {
                             pushd /srv/pmm-qa
                                 sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                                 sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
-                                sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
+                                sudo wget https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
                                 sudo chmod 755 get_download_link.sh
                             popd
                         "
@@ -281,14 +281,14 @@ pipeline {
         success {
             script {
                 if (params.NOTIFY == "true") {
-                    slackSend botUser: true, 
-                        channel: '#pmm-ci', 
-                        color: '#00FF00', 
+                    slackSend botUser: true,
+                        channel: '#pmm-ci',
+                        color: '#00FF00',
                         message: "[${JOB_NAME}]: build ${BUILD_URL} finished, owner: @${OWNER} - https://${PUBLIC_IP}, Instance ID: ${INSTANCE_ID}"
                     if (OWNER_SLACK) {
-                        slackSend botUser: true, 
-                            channel: "@${OWNER_SLACK}", 
-                            color: '#00FF00', 
+                        slackSend botUser: true,
+                            channel: "@${OWNER_SLACK}",
+                            color: '#00FF00',
                             message: "[${JOB_NAME}]: build ${BUILD_URL} finished - https://${PUBLIC_IP}, Instance ID: ${INSTANCE_ID}"
                     }
                 }
