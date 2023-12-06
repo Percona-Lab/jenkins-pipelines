@@ -37,7 +37,7 @@ pipeline {
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
         string(
-            defaultValue: 'percona/percona-server-mongodb:4.2',
+            defaultValue: 'percona/percona-server-mongodb:4.4',
             description: 'Percona Server MongoDb Docker Container Image',
             name: 'MONGO_IMAGE')
         string(

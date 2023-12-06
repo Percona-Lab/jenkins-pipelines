@@ -23,12 +23,12 @@ pipeline {
     }
     stages {
         stage('Start PMM3 Server Autobuilds') {
-             steps {
-                 build job: 'pmm3-server-autobuild-el9', parameters: [
-                 string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
-                 string(name: 'DESTINATION', value: params.DESTINATION)
-                 ]
-             }
+            steps {
+                build job: 'pmm3-server-autobuild-el9', parameters: [
+                  string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
+                  string(name: 'DESTINATION', value: params.DESTINATION)
+                ]
+            }
         }
         stage('Trigger a devcontainer build') {
             when {
