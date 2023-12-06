@@ -178,6 +178,7 @@ metadata:
     version: "$USED_PLATFORM_VER"
     tags:
         'delete-cluster-after-hours': '10'
+        'creation-time': '\$timestamp'
 iam:
   withOIDC: true
 
@@ -208,7 +209,6 @@ nodeGroups:
         'delete-cluster-after-hours': '10'
         'team': 'cloud'
         'product': 'pgv2-operator'
-        'creation-time': \$timestamp
 EOF
     """
 
