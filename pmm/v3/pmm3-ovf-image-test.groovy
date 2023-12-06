@@ -138,7 +138,7 @@ pipeline {
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone https://github.com/percona/pmm-qa.git .
-                        sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
+                        sudo wget https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
                         sudo chmod 755 get_download_link.sh
                     popd
                     sudo git clone --single-branch --branch ${GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
