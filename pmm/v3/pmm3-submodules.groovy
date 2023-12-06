@@ -4,7 +4,7 @@ library changelog: false, identifier: 'lib@PMM-12557', retriever: modernSCM([
 ]) _
 
 void runAPItests(String DOCKER_IMAGE_VERSION, GIT_URL, GIT_BRANCH, GIT_COMMIT_HASH, CLIENT_VERSION) {
-    apiTestJob = build job: 'pmm-api-tests', propagate: false, parameters: [
+    apiTestJob = build job: 'pmm3-api-tests', propagate: false, parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_IMAGE_VERSION),
         string(name: 'GIT_URL', value: GIT_URL),
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
