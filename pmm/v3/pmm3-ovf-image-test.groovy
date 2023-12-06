@@ -138,7 +138,7 @@ pipeline {
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone https://github.com/percona/pmm-qa.git .
-                        sudo wget https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
+                        sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
                         sudo chmod 755 get_download_link.sh
                     popd
                     sudo git clone --single-branch --branch ${GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
@@ -158,7 +158,7 @@ pipeline {
                     popd
                 """
                 sh '''
-                    wget -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION} > /dev/null
+                    curl -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION} > /dev/null
                 '''
                 sh '''
                     export BUILD_ID=dont-kill-virtualbox

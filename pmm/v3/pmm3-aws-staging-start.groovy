@@ -225,7 +225,7 @@ pipeline {
                         pushd /srv/pmm-qa
                             sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                             sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
-                            sudo wget https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
+                            sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
                             sudo chmod 755 get_download_link.sh
                         popd
                     """
