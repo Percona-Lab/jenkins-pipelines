@@ -196,11 +196,11 @@ pipeline {
                                 sudo dnf remove -y podman buildah
                                 sudo dnf -y install 'dnf-command(config-manager)'
                                 sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
-                                sudo dnf install -y git docker-ce docker-ce-cli containerd.io docker-compose-plugin
+                                sudo dnf install -y git wget docker-ce docker-ce-cli containerd.io docker-compose-plugin
                             else
                                 echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
                                 sudo yum makecache
-                                sudo yum -y install git docker
+                                sudo yum -y install git wget docker
                             fi
 
                             sudo systemctl start docker
