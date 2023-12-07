@@ -240,10 +240,9 @@ pipeline {
             steps {
                 sh '''
                     timeout 240 bash -c \\
-                    'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' http://${PMM_UI_URL}/v1/readyz)" != "200" ]]; 
-                    do echo "Waiting for http://${PMM_UI_URL}/v1/readyz" && do sleep 2; \\
+                    'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' http://${PMM_UI_URL}/v1/readyz)" != "200" ]]; \\
+                    do echo "Waiting for http://${PMM_UI_URL}/v1/readyz" && sleep 2; \\
                     done' || false
-                    
                 '''
             }
         }
