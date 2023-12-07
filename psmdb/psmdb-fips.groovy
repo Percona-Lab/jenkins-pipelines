@@ -27,7 +27,13 @@ pipeline {
         string(
             defaultValue: '5.0.22',
             description: 'PSMDB Version for tests',
-            name: 'PSMDB_VERSION')
+            name: 'PSMDB_VERSION'
+        )
+        string(
+            defaultValue: '2.1.1',
+            description: 'Mongosh version for PSMDB 6.0+',
+            name: 'MONGOSH_VERSION'
+        )
         choice(
             name: 'GATED_BUILD',
             description: 'Test private repo?',
@@ -46,6 +52,13 @@ pipeline {
         disableConcurrentBuilds()
     }
     stages {
+        stage('Set build name'){
+            steps {
+                script {
+                    currentBuild.displayName = "${params.PSMDB_REPO}-${params.PSMDB_VERSION}"
+                }
+            }
+        }
         stage('Checkout') {
             steps {
                 deleteDir()
