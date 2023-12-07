@@ -28,11 +28,6 @@ pipeline {
             description: 'PSMDB Version for tests',
             name: 'PSMDB_VERSION'
         )
-        string(
-            defaultValue: '2.1.1',
-            description: 'Mongosh version for PSMDB 6.0+',
-            name: 'MONGOSH_VERSION' 
-        )
         choice( 
             name: 'ENABLE_TOOLKIT',
             description: 'Enable or disable percona toolkit check',

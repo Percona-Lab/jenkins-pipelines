@@ -24,11 +24,6 @@ pipeline {
             name: 'PDMDB_VERSION'
         )
         string(
-            defaultValue: '2.1.1',
-            description: 'Mongosh version for PDMDB 6.0+',
-            name: 'PSMDB_VERSION' 
-        )
-        string(
             defaultValue: '1.6.0',
             description: 'PBM Version for tests',
             name: 'VERSION'
