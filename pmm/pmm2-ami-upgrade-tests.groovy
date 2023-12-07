@@ -239,22 +239,11 @@ pipeline {
         stage('Health check') {
             steps {
                 sh '''
-                    wait-for-url() {
-                        echo "Waiting for $1"
-                        timeout -s TERM 240 bash -c \\
-                        'while [[ "$(curl -s -o /dev/null -L -w ''%{http_code}'' ${0})" != "200" ]];\\
-                        do echo "Waiting for ${0}" && sleep 2;\\
-                        done' ${1}
-                        echo "OK!"
-                        if curl -I $1; then
-                            echo "PMM is ready"
-                            exit 0
-                        else
-                            echo "PMM is not ready"
-                            exit 1
-                        fi
-                    }
-                    wait-for-url ${PMM_URL}/v1/readyz
+                    timeout 240 bash -c \\
+                    'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' http://${PMM_UI_URL}/v1/readyz)" != "200" ]]; 
+                    do echo "Waiting for http://${PMM_UI_URL}/v1/readyz" && do sleep 2; \\
+                    done' || false
+                    
                 '''
             }
         }
