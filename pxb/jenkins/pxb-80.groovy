@@ -47,8 +47,8 @@ pipeline {
             defaultValue: '1',
             description: 'DEB release value',
             name: 'DEB_RELEASE')
-        string(
-            defaultValue: 'pxb-80',
+        choice(
+            choices: 'pxb-80\npxb8x-innovation\npxb-8x-lts\npxb-9x-innovation\npxb-9x-lts',
             description: 'PXB repo name',
             name: 'PXB_REPO')
         choice(
