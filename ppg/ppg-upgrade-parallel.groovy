@@ -83,7 +83,7 @@ pipeline {
         stage ('Prepare') {
           steps {
                 script {
-                   installMolecule()
+                   installMoleculePPG()
              }
            }
         }
