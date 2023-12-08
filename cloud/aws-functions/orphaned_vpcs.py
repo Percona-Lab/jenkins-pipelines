@@ -7,6 +7,10 @@ from time import sleep
 from botocore.exceptions import ClientError
 from boto3.exceptions import Boto3Error
 
+def get_regions_list():
+    client = boto3.client('ec2')
+    regions = [region['RegionName'] for region in client.describe_regions()['Regions']]
+    return regions
 
 def is_vpc_to_terminate(vpc):
     tags = vpc.tags
@@ -222,7 +226,7 @@ def terminate_vpc(vpc_id, aws_region):
 
 
 def lambda_handler(event, context):
-    aws_regions = ['eu-west-2','eu-west-3']
+    aws_regions = get_regions_list()
 
     for aws_region in aws_regions:
         logging.info(f"Searching for resources to remove in {aws_region}.")
