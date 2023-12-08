@@ -53,7 +53,7 @@ pipeline {
         skipDefaultCheckout()
     }
     triggers {
-        upstream upstreamProjects: 'pmm-server-autobuild', threshold: hudson.model.Result.SUCCESS
+        upstream upstreamProjects: 'pmm3-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
     stages {
         stage('Prepare') {
@@ -78,13 +78,12 @@ pipeline {
             }
         }
 
-        stage('API Tests Setup')
-        {
+        stage('API Tests Setup') {
             steps{
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
+                    sh '''
                         echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                    """
+                    '''
                 }
                 sh '''
                     docker run -d \
@@ -103,10 +102,10 @@ pipeline {
                     docker build -t pmm-api-tests .
                     cd api-tests
                     docker-compose up test_db
-                    MYSQL_IMAGE=\${MYSQL_IMAGE} docker-compose up -d mysql
-                    MONGO_IMAGE=\${MONGO_IMAGE} docker-compose up -d mongo
-                    POSTGRES_IMAGE=\${POSTGRES_IMAGE} docker-compose up -d postgres
-                    docker-compose up -d sysbench
+                    # MYSQL_IMAGE=\${MYSQL_IMAGE} docker-compose up -d mysql
+                    # MONGO_IMAGE=\${MONGO_IMAGE} docker-compose up -d mongo
+                    # POSTGRES_IMAGE=\${POSTGRES_IMAGE} docker-compose up -d postgres
+                    # docker-compose up -d sysbench
                     cd ../
                 '''
                 script {
@@ -115,8 +114,7 @@ pipeline {
                 }
             }
         }
-        stage('Sanity Check')
-        {
+        stage('Sanity Check') {
             steps {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
@@ -144,17 +142,21 @@ pipeline {
             junit '${BUILD_TAG}.xml'
             script {
                 archiveArtifacts artifacts: 'logs.zip'
-                if (currentBuild.result == 'SUCCESS') {
-                    slackSend botUser: true,
-                              channel: '#pmm-ci',
-                              color: '#00FF00',
-                              message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                } else {
+                if (currentBuild.result != 'SUCCESS') {
                     slackSend botUser: true,
                               channel: '#pmm-ci',
                               color: '#FF0000',
                               message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, owner: @${OWNER}"
                 }
+            }
+        }
+        success {
+            script {
+                slackSend botUser: true,
+                          channel: '#pmm-ci',
+                          color: '#00FF00',
+                          message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+
             }
         }
     }
