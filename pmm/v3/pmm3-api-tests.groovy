@@ -106,7 +106,7 @@ pipeline {
                     # MONGO_IMAGE=\${MONGO_IMAGE} docker-compose up -d mongo
                     # POSTGRES_IMAGE=\${POSTGRES_IMAGE} docker-compose up -d postgres
                     # docker-compose up -d sysbench
-                    cd ../
+                    cd -
                 '''
                 script {
                     env.VM_IP = "127.0.0.1"
