@@ -6,11 +6,7 @@ import sys
 from time import sleep
 from botocore.exceptions import ClientError
 from boto3.exceptions import Boto3Error
-
-def get_regions_list():
-    client = boto3.client('ec2')
-    regions = [region['RegionName'] for region in client.describe_regions()['Regions']]
-    return regions
+from utils import get_regions_list
 
 def is_stack_to_terminate(stack):
     tags = stack.tags

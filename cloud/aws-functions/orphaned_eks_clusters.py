@@ -6,11 +6,8 @@ import sys
 from time import sleep
 from botocore.exceptions import ClientError
 from boto3.exceptions import Boto3Error
+from utils import get_regions_list
 
-def get_regions_list():
-    client = boto3.client('ec2')
-    regions = [region['RegionName'] for region in client.describe_regions()['Regions']]
-    return regions
 
 def is_cluster_to_terminate(cluster):
     cluster = eks_client.describe_cluster(name=cluster)
