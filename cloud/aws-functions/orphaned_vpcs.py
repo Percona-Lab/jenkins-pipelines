@@ -8,20 +8,20 @@ from botocore.exceptions import ClientError
 from boto3.exceptions import Boto3Error
 
 
-def isVpcToTerminate(vpc):
+def is_vpc_to_terminate(vpc):
     tags = vpc.tags
     tags_dict = {item['Key']: item['Value'] for item in tags}
 
-    if 'team' not in tags_dict.keys():
+    if 'team' not in tags_dict.keys() or ('team' in tags_dict.keys() and tags_dict['team'] != 'cloud'):
         return False
-    if 'delete-cluster-after-hours' not in tags_dict.keys() and tags_dict['team'] == 'cloud':
+    if 'delete-cluster-after-hours' not in tags_dict.keys():
         return True
 
     instance_lifetime = float(tags_dict['delete-cluster-after-hours'])
     current_time = datetime.datetime.now().timestamp()
     creation_time = int(tags_dict['creation-time'])
 
-    if (current_time - creation_time) / 3600 > instance_lifetime and tags_dict['team'] == 'cloud':
+    if (current_time - creation_time) / 3600 > instance_lifetime:
         return True
     return False
 
@@ -34,7 +34,7 @@ def get_vpcs_to_terminate(aws_region):
         logging.info(f"There are no vpcs in cloud")
         sys.exit("There are no vpcs in cloud")
     for vpc in vpcs:
-        if isVpcToTerminate(vpc):
+        if is_vpc_to_terminate(vpc):
             vpcs_for_deletion.append(vpc.id)
 
     if not vpcs_for_deletion:
@@ -222,12 +222,14 @@ def terminate_vpc(vpc_id, aws_region):
 
 
 def lambda_handler(event, context):
-    aws_region = 'eu-west-3'
-    logging.info(f"Searching for resources to remove in {aws_region}.")
-    vpcs = get_vpcs_to_terminate(aws_region)
+    aws_regions = ['eu-west-2','eu-west-3']
 
-    for vpc in vpcs:
-        logging.info(f"Deleting all resources and VPC.")
-        terminate_vpc(vpc_id, aws_region)
+    for aws_region in aws_regions:
+        logging.info(f"Searching for resources to remove in {aws_region}.")
+        vpcs = get_vpcs_to_terminate(aws_region)
+
+        for vpc in vpcs:
+            logging.info(f"Deleting all resources and VPC.")
+            terminate_vpc(vpc_id, aws_region)
 
 

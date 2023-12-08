@@ -7,6 +7,23 @@ from time import sleep
 from botocore.exceptions import ClientError
 from boto3.exceptions import Boto3Error
 
+def is_cluster_to_terminate(cluster):
+    cluster = eks_client.describe_cluster(name=cluster)
+
+    if 'team' not in cluster['cluster']['tags'].keys() or ('team' in cluster['cluster']['tags'].keys() and cluster['cluster']['tags']['team'] != 'cloud'):
+        return False
+
+    if 'delete-cluster-after-hours' not in cluster['cluster']['tags'].keys():
+        return True
+
+    cluster_lifetime = float(cluster['cluster']['tags']['delete-cluster-after-hours'])
+    current_time = datetime.datetime.now().timestamp()
+    creation_time = datetime.datetime.strptime(str(cluster['cluster']['createdAt']),
+                                               "%Y-%m-%d %H:%M:%S.%f%z").timestamp()
+    if (current_time - creation_time) / 3600 > cluster_lifetime:
+        return True
+
+    return False
 
 def get_clusters_to_terminate(aws_region):
     clusters_for_deletion = []
@@ -17,16 +34,8 @@ def get_clusters_to_terminate(aws_region):
         sys.exit("There are no clusters in cloud")
 
     for cluster in clusters:
-        cluster = eks_client.describe_cluster(name=cluster)
-        if 'delete-cluster-after-hours' not in cluster['cluster']['tags'].keys():
+        if is_cluster_to_terminate(cluster):
             clusters_for_deletion.append(cluster)
-        else:
-            cluster_lifetime = float(cluster['cluster']['tags']['delete-cluster-after-hours'])
-            current_time = datetime.datetime.now().timestamp()
-            creation_time = datetime.datetime.strptime(str(cluster['cluster']['createdAt']),
-                                                       "%Y-%m-%d %H:%M:%S.%f%z").timestamp()
-            if (current_time - creation_time) / 3600 > cluster_lifetime:
-                clusters_for_deletion.append(cluster)
 
     if not clusters_for_deletion:
         logging.info(f"There are no clusters for deletion")
@@ -86,13 +95,14 @@ def terminate_cluster(cluster_name, aws_region):
 
 
 def lambda_handler(event, context):
-    aws_region = 'eu-west-3'
+    aws_regions = ['eu-west-2','eu-west-3']
 
-    logging.info(f"Searching for resources to remove in {aws_region}.")
-    clusters = get_clusters_to_terminate(aws_region)
-    for cluster in clusters:
-        cluster_name = cluster['cluster']['name']
-        logging.info(f"Terminating {cluster_name}")
-        terminate_cluster(cluster_name=cluster_name, aws_region=aws_region)
+    for aws_region in aws_regions:
+        logging.info(f"Searching for resources to remove in {aws_region}.")
+        clusters = get_clusters_to_terminate(aws_region)
+        for cluster in clusters:
+            cluster_name = cluster['cluster']['name']
+            logging.info(f"Terminating {cluster_name}")
+            terminate_cluster(cluster_name=cluster_name, aws_region=aws_region)
 
 
