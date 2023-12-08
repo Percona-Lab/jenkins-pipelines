@@ -33,7 +33,7 @@ def get_instances_to_terminate(aws_region):
         logging.info(f"There are no instances in cloud")
         sys.exit("There are no instances in cloud")
     for instance in instances:
-        if isResourceToTerminate(instance):
+        if isInstanceToTerminate(instance):
             instances_for_deletion.append(instance.id)
 
     if not instances_for_deletion:

@@ -224,7 +224,7 @@ def terminate_vpc(vpc_id, aws_region):
 def lambda_handler(event, context):
     aws_region = 'eu-west-3'
     logging.info(f"Searching for resources to remove in {aws_region}.")
-    vpcs = get_instances_to_terminate(aws_region)
+    vpcs = get_vpcs_to_terminate(aws_region)
 
     for vpc in vpcs:
         logging.info(f"Deleting all resources and VPC.")
