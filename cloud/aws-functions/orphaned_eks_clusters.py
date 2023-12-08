@@ -47,6 +47,25 @@ def get_clusters_to_terminate(aws_region):
         sys.exit("There are no clusters for deletion")
     return clusters_for_deletion
 
+def wait_for_node_group_delete(autoscaling_client, autoscaling_group_name):
+    timeout = 300  # 5 min
+    attempt = 0
+    sleep_time = 10
+    attempts = timeout // sleep_time
+
+    while attempt < attempts:
+        try:
+            status_info = autoscaling_client.describe_auto_scaling_groups(AutoScalingGroupNames=[autoscaling_group_name])['AutoScalingGroups']
+        except IndexError as e:
+            logging.info(f"Node group {autoscaling_group_name} was successfully deleted.")
+            break
+        logging.info(f"Node group {autoscaling_group_name} deletion. "
+                         f"Attempt {attempt}/{attempts}. Sleeping {sleep_time} seconds.")
+        sleep(sleep_time)
+        attempt += 1
+    else:
+        logging.error(f"Node group {autoscaling_group_name} was not deleted in {timeout} seconds.")
+
 def delete_nodegroup(aws_region, cluster_name):
     autoscaling_client = boto3.client('autoscaling', region_name=aws_region)
     ec2 = boto3.resource('ec2')
@@ -62,9 +81,9 @@ def delete_nodegroup(aws_region, cluster_name):
             break
         else:
             continue
-
     try:
         autoscaling_client.delete_auto_scaling_group(AutoScalingGroupName=autoscaling_group_name, ForceDelete=True)
+        wait_for_node_group_delete(autoscaling_client, autoscaling_group_name)
     except Boto3Error as e:
         logging.error(f"Deleting autoscaling group {autoscaling_group_name} failed with error: {e}")
 
