@@ -9,7 +9,7 @@ void addComment(String COMMENT) {
             REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
             curl -X POST \
                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                -d "{\\"body\\":\\"${COMMENT}\\"}" \
+                -d '{"body":"${COMMENT}"}' \
                 "https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments"
         '''
     }
