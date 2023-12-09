@@ -50,6 +50,9 @@ pipeline {
                 }
             }
             steps {
+                script {
+                    addComment("Building PMM v3.x ...")
+                }
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                 sh '''
                     set -o errexit
@@ -300,12 +303,22 @@ pipeline {
                         def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
                         def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                         sh '''
+                            # IMAGE=$(cat results/docker/TAG | tr -d ' ')
+                            # CLIENT_IMAGE=$(cat results/docker/CLIENT_TAG | tr -d ' ')
+                            # CLIENT_URL=$(cat CLIENT_URL | tr -d ' ')
                             REPO=$(echo "$CHANGE_URL" | cut -d '/' -f 4-5)
-                            echo <<-EOF > body.txt
-                            {"body":"server docker - ${IMAGE}\nclient docker - ${CLIENT_IMAGE}\nclient - ${CLIENT_URL}\nCreate Staging Instance: https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"}
-                            EOF
+                            BODY='{"body":"'
+                            BODY+="Server docker: ${IMAGE}\\n"
+                            BODY+="Client docker: ${CLIENT_IMAGE}\\n"
+                            BODY+="Client tarball: ${CLIENT_URL}\\n"
+                            BODY+="Staging Instance: https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
+                            BODY+='"}'
 
-                            curl -v -H "Authorization: token ${GITHUB_API_TOKEN}"
+                            # https://docs.github.com/en/rest/issues/comments?apiVersion=2022-11-28#create-an-issue-comment
+                            curl -v 
+                                -H "Accept: application/vnd.github+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                -H "X-GitHub-Api-Version: 2022-11-28" \
                                 -d @body.txt \
                                 "https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments"
                             rm -f body.txt
@@ -395,7 +408,6 @@ pipeline {
                     unstash 'IMAGE'
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
-                    addComment("Building PMM v3.x ...")
                 }
             }
         }
