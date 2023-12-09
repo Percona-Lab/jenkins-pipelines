@@ -3,18 +3,6 @@ library changelog: false, identifier: 'lib@PMM-12557', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runAPItests(String DOCKER_IMAGE_VERSION, GIT_URL, GIT_BRANCH, GIT_COMMIT_HASH, CLIENT_VERSION) {
-    apiTestJob = build job: 'pmm3-api-tests', propagate: false, parameters: [
-        string(name: 'DOCKER_VERSION', value: DOCKER_IMAGE_VERSION),
-        string(name: 'GIT_URL', value: GIT_URL),
-        string(name: 'GIT_BRANCH', value: GIT_BRANCH),
-        string(name: 'OWNER', value: "FB"),
-        string(name: 'GIT_COMMIT_HASH', value: GIT_COMMIT_HASH)
-    ]
-    env.API_TESTS_URL = apiTestJob.absoluteUrl
-    env.API_TESTS_RESULT = apiTestJob.result
-}
-
 void addComment(String COMMENT) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
         sh '''
@@ -33,7 +21,6 @@ pipeline {
     }
     parameters {
         choice(
-            // default is choices.get(0) - el9
             choices: ['el9'],
             description: 'Select the OS to build for',
             name: 'BUILD_OS')
@@ -165,7 +152,6 @@ pipeline {
             when {
                 beforeAgent true
                 allOf{
-                    expression{ params.BUILD_OS == "el9" }
                     expression{ env.PMM_VER =~ '^3.' }
                 }
             }
@@ -184,7 +170,6 @@ pipeline {
             when {
                 beforeAgent true
                 allOf {
-                    expression{ params.BUILD_OS == "el9" }
                     expression{ env.PMM_VER =~ '^3.' }
                 }
             }
@@ -232,7 +217,6 @@ pipeline {
             when {
                 beforeAgent true
                 allOf {
-                    expression{ params.BUILD_OS == "el9" }
                     expression{ env.PMM_VER =~ '^3.' }
                 }
             }
@@ -257,10 +241,7 @@ pipeline {
         stage('Build server docker') {
             when {
                 beforeAgent true
-                allOf {
-                    expression{ params.BUILD_OS == "el9" }
-                    expression{ env.PMM_VER =~ '^3.' }
-                }
+                expression{ env.PMM_VER =~ '^3.' }
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -286,16 +267,13 @@ pipeline {
                 archiveArtifacts 'results/docker/TAG'
             }
         }
-        stage('Trigger workflows in GH')
-        {
+        stage('Trigger workflows in GH') {
             when {
                 beforeAgent true
-                expression {
-                    env.PMM_VER =~ '^3.'
-                }
+                expression { env.PMM_VER =~ '^3.' }
             }
-            steps{
-                script{
+            steps {
+                script {
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         unstash 'IMAGE'
                         unstash 'pmmQABranch'
@@ -304,14 +282,16 @@ pipeline {
                             IMAGE=$(cat results/docker/TAG | tr -d ' ')
                             CLIENT_IMAGE=$(cat results/docker/CLIENT_TAG | tr -d ' ')
                             CLIENT_URL=$(cat CLIENT_URL | tr -d ' ')
+                            FB_COMMIT_HASH=$(cat fbCommitSha | tr -d ' ')
                             REPO=$(echo "$CHANGE_URL" | cut -d '/' -f 4-5)
+
                             BODY='{"body":"'
                             BODY+="Server docker: ${IMAGE}\\n"
                             BODY+="Client docker: ${CLIENT_IMAGE}\\n"
                             BODY+="Client tarball: ${CLIENT_URL}\\n"
                             BODY+="Staging instance: https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
                             BODY+='"}'
-                            echo "$BODY"
+
                             # https://docs.github.com/en/rest/issues/comments?apiVersion=2022-11-28#create-an-issue-comment
                             curl -X POST \
                                 -H "Accept: application/vnd.github+json" \
@@ -319,22 +299,21 @@ pipeline {
                                 -H "X-GitHub-Api-Version: 2022-11-28" \
                                 -d "${BODY}" \
                                 "https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments"
+
+                            # Trigger a workflow on GH to run some test there as well, pass server and client images as parameters
+                            curl -X POST \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                "https://api.github.com/repos/${REPO}/actions/workflows/jenkins-dispatch.yml/dispatches" \
+                                -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}"}}'
                         '''
                         def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                         def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
                         def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                         def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
-                        // trigger workflow in GH to run some test there as well, pass server and client images as parameters
-                        sh """
-                            curl -v -X POST \
-                                -H "Accept: application/vnd.github.v3+json" \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/jenkins-dispatch.yml/dispatches" \
-                                -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}"}}'
-                        """
                         // trigger workflow in GH to run PMM binary cli tests
                         sh """
-                            curl -v -X POST \
+                            curl -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/pmm-cli.yml/dispatches" \
@@ -343,7 +322,7 @@ pipeline {
                         // trigger workflow in GH to run testsuite tests
                         def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
                         sh """
-                            curl -v -X POST \
+                            curl -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/pmm-testsuite.yml/dispatches" \
@@ -352,7 +331,7 @@ pipeline {
                         // trigger workflow in GH to run ui tests
                         def PMM_UI_TESTS_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmUITestBranch").trim()
                         sh """
-                            curl -v -X POST \
+                            curl -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/pmm-ui-tests-fb.yml/dispatches" \
@@ -360,7 +339,7 @@ pipeline {
                         """
                         // trigger workflow in GH to run trivy for vulnerability scan
                         sh """
-                            curl -v -X POST \
+                            curl -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/trivy_scan.yml/dispatches" \
@@ -370,32 +349,35 @@ pipeline {
                 }
             }
         }
-        stage('Tests Execution') {
+        stage('Test API') {
             when {
-                beforeAgent true
                 expression {
                     env.PMM_VER =~ '^3.'
                 }
             }
-            parallel {
-                stage('Test: API') {
-                    steps {
-                        script {
-                            unstash 'IMAGE'
-                            unstash 'apiURL'
-                            unstash 'apiBranch'
-                            unstash 'apiCommitSha'
-                            def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                            def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
-                            def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
-                            def API_TESTS_URL = sh(returnStdout: true, script: "cat apiURL").trim()
-                            def API_TESTS_BRANCH = sh(returnStdout: true, script: "cat apiBranch").trim()
-                            def GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat apiCommitSha").trim()
-                            runAPItests(IMAGE, API_TESTS_URL, API_TESTS_BRANCH, GIT_COMMIT_HASH, CLIENT_URL)
-                            if (!env.API_TESTS_RESULT.equals("SUCCESS")) {
-                                sh "exit 1"
-                            }
-                        }
+            steps {
+                script {
+                    unstash 'IMAGE'
+                    unstash 'apiURL'
+                    unstash 'apiBranch'
+                    unstash 'apiCommitSha'
+                    def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                    def API_TESTS_URL = sh(returnStdout: true, script: "cat apiURL").trim()
+                    def API_TESTS_BRANCH = sh(returnStdout: true, script: "cat apiBranch").trim()
+                    def GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat apiCommitSha").trim()
+                    // runAPItests(IMAGE, API_TESTS_URL, API_TESTS_BRANCH, GIT_COMMIT_HASH, CLIENT_URL)
+                    apiTestJob = build job: 'pmm3-api-tests', propagate: false, parameters: [
+                        string(name: 'DOCKER_VERSION', value: IMAGE),
+                        string(name: 'GIT_URL', value: API_TESTS_URL),
+                        string(name: 'GIT_BRANCH', value: API_TESTS_BRANCH),
+                        string(name: 'OWNER', value: "FB"),
+                        string(name: 'GIT_COMMIT_HASH', value: GIT_COMMIT_HASH)
+                    ]
+                    env.API_TESTS_URL = apiTestJob.absoluteUrl
+                    env.API_TESTS_RESULT = apiTestJob.result
+
+                    if (!env.API_TESTS_RESULT.equals("SUCCESS")) {
+                        sh "exit 1"
                     }
                 }
             }
@@ -414,14 +396,8 @@ pipeline {
         always {
             script {
                 if (currentBuild.result != 'SUCCESS') {
-                    if(env.API_TESTS_RESULT != "SUCCESS" && env.API_TESTS_URL) {
+                    if (env.API_TESTS_RESULT != "SUCCESS" && env.API_TESTS_URL) {
                         addComment("API tests have failed. Please check: API: ${API_TESTS_URL}")
-                    }
-                    if(env.BATS_TESTS_RESULT != "SUCCESS" && env.BATS_TESTS_URL) {
-                        addComment("pmm-client testsuite has failed. Please check: BATS: ${BATS_TESTS_URL}")
-                    }
-                    if(env.UI_TESTS_RESULT != "SUCCESS" && env.UI_TESTS_URL) {
-                        addComment("UI tests have failed. Please check: UI: ${UI_TESTS_URL}")
                     }
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} build job link: ${BUILD_URL}"
                 }
