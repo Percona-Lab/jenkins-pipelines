@@ -17,12 +17,13 @@ void runAPItests(String DOCKER_IMAGE_VERSION, GIT_URL, GIT_BRANCH, GIT_COMMIT_HA
 
 void addComment(String COMMENT) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-        sh """
-            curl -v -X POST \
+        sh '''
+            REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
+            curl -X POST \
                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                 -d "{\\"body\\":\\"${COMMENT}\\"}" \
-                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/issues/${CHANGE_ID}/comments"
-        """
+                "https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments"
+        '''
     }
 }
 
@@ -299,32 +300,31 @@ pipeline {
                         unstash 'IMAGE'
                         unstash 'pmmQABranch'
                         unstash 'pmmUITestBranch'
-                        def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                        def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
-                        def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                         sh '''
-                            # IMAGE=$(cat results/docker/TAG | tr -d ' ')
-                            # CLIENT_IMAGE=$(cat results/docker/CLIENT_TAG | tr -d ' ')
-                            # CLIENT_URL=$(cat CLIENT_URL | tr -d ' ')
+                            IMAGE=$(cat results/docker/TAG | tr -d ' ')
+                            CLIENT_IMAGE=$(cat results/docker/CLIENT_TAG | tr -d ' ')
+                            CLIENT_URL=$(cat CLIENT_URL | tr -d ' ')
                             REPO=$(echo "$CHANGE_URL" | cut -d '/' -f 4-5)
                             BODY='{"body":"'
                             BODY+="Server docker: ${IMAGE}\\n"
                             BODY+="Client docker: ${CLIENT_IMAGE}\\n"
                             BODY+="Client tarball: ${CLIENT_URL}\\n"
-                            BODY+="Staging Instance: https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
+                            BODY+="Staging instance: https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
                             BODY+='"}'
-
+                            echo "$BODY"
                             # https://docs.github.com/en/rest/issues/comments?apiVersion=2022-11-28#create-an-issue-comment
-                            curl -v 
+                            curl -X POST \
                                 -H "Accept: application/vnd.github+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 -H "X-GitHub-Api-Version: 2022-11-28" \
-                                -d @body.txt \
+                                -d "${BODY}" \
                                 "https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments"
-                            rm -f body.txt
                         '''
-                        // trigger workflow in GH to run some test there as well, pass server and client images as parameters
+                        def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                        def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
+                        def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                         def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
+                        // trigger workflow in GH to run some test there as well, pass server and client images as parameters
                         sh """
                             curl -v -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
