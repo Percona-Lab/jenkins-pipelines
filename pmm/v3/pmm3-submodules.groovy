@@ -301,10 +301,14 @@ pipeline {
                         def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                         sh '''
                             REPO=$(echo "$CHANGE_URL" | cut -d '/' -f 4-5)
-                            curl -v -X POST \
-                                -H 'Authorization: token ${GITHUB_API_TOKEN}' \
-                                -d '{"body":"server docker - ${IMAGE}\nclient docker - ${CLIENT_IMAGE}\nclient - ${CLIENT_URL}\nCreate Staging Instance: https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"}' \
+                            echo <<-EOF > body.txt
+                            {"body":"server docker - ${IMAGE}\nclient docker - ${CLIENT_IMAGE}\nclient - ${CLIENT_URL}\nCreate Staging Instance: https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"}
+                            EOF
+
+                            curl -v -H "Authorization: token ${GITHUB_API_TOKEN}"
+                                -d @body.txt \
                                 "https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments"
+                            rm -f body.txt
                         '''
                         // trigger workflow in GH to run some test there as well, pass server and client images as parameters
                         def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
