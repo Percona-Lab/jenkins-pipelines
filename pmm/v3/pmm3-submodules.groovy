@@ -1,3 +1,5 @@
+import groovy.json.JsonOutput
+
 library changelog: false, identifier: 'lib@PMM-12557', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
@@ -5,11 +7,16 @@ library changelog: false, identifier: 'lib@PMM-12557', retriever: modernSCM([
 
 void addComment(String COMMENT) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+        payload = [
+            body: "${COMMENT}",
+        ]
+        writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
+
         sh '''
             REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
             curl -X POST \
                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                -d '{"body":"${COMMENT}"}' \
+                -d @body.json \
                 "https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments"
         '''
     }
@@ -145,7 +152,7 @@ pipeline {
                     def clientPackageURL = sh script:'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL', returnStdout: true
                     env.CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                 }
-                stash includes: 'CLIENT_URL', name: 'CLIENT_URL'
+                // stash includes: 'CLIENT_URL', name: 'CLIENT_URL'
             }
         }
         stage('Build client source rpm') {
@@ -278,73 +285,113 @@ pipeline {
                         unstash 'IMAGE'
                         unstash 'pmmQABranch'
                         unstash 'pmmUITestBranch'
+                        def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                        def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
+                        // def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
+                        def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
+                        def STAGING_URL = "https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/"
+
+                        def payload = [
+                          body: "Server docker: ${IMAGE}\nClient docker: ${CLIENT_IMAGE}\nClient tarball: ${CLIENT_URL}\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
+                        ]
+                        writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
                         sh '''
-                            IMAGE=$(cat results/docker/TAG | tr -d ' ')
-                            CLIENT_IMAGE=$(cat results/docker/CLIENT_TAG | tr -d ' ')
-                            CLIENT_URL=$(cat CLIENT_URL | tr -d ' ')
-                            FB_COMMIT_HASH=$(cat fbCommitSha | tr -d ' ')
                             REPO=$(echo "$CHANGE_URL" | cut -d '/' -f 4-5)
 
-                            BODY='{"body":"'
-                            BODY+="Server docker: ${IMAGE}\\n"
-                            BODY+="Client docker: ${CLIENT_IMAGE}\\n"
-                            BODY+="Client tarball: ${CLIENT_URL}\\n"
-                            BODY+="Staging instance: https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
-                            BODY+='"}'
-
                             # https://docs.github.com/en/rest/issues/comments?apiVersion=2022-11-28#create-an-issue-comment
+                            # Comment on PR with docker server, client and the staging link
                             curl -X POST \
                                 -H "Accept: application/vnd.github+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 -H "X-GitHub-Api-Version: 2022-11-28" \
-                                -d "${BODY}" \
+                                -d @body.json \
                                 "https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments"
+                        '''
 
+                        payload = [
+                          ref: "${CHANGE_BRANCH}",
+                          inputs: [
+                            server_image: "${IMAGE}", client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}"
+                          ]
+                        ]
+                        writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
+                        sh '''
                             # Trigger a workflow on GH to run some test there as well, pass server and client images as parameters
                             curl -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 "https://api.github.com/repos/${REPO}/actions/workflows/jenkins-dispatch.yml/dispatches" \
-                                -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}"}}'
+                                -d @body.json
                         '''
-                        def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                        def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
-                        def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
-                        def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
-                        // trigger workflow in GH to run PMM binary cli tests
-                        sh """
+
+                        payload = [
+                          ref: "${CHANGE_BRANCH}",
+                          inputs: [
+                            client_tar_url: "${CLIENT_URL}", sha: "${FB_COMMIT_HASH}"
+                          ]
+                        ]
+                        writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
+                        // Trigger a workflow on GH to run PMM binary cli tests
+                        sh '''
                             curl -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/pmm-cli.yml/dispatches" \
-                                -d '{"ref":"${CHANGE_BRANCH}","inputs":{"client_tar_url":"${CLIENT_URL}","sha":"${FB_COMMIT_HASH}"}}'
-                        """
-                        // trigger workflow in GH to run testsuite tests
+                                "https://api.github.com/repos/${REPO}/actions/workflows/pmm-cli.yml/dispatches" \
+                                -d @body.json
+                        '''
+
                         def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
-                        sh """
+                        payload = [
+                          ref: "${CHANGE_BRANCH}",
+                          inputs: [
+                            server_image: "${IMAGE}", client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
+                            pmm_qa_branch: "${PMM_QA_GIT_BRANCH}", client_version: "${CLIENT_URL}"
+                          ]
+                        ]
+                        writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
+                        // Trigger a workflow on GH to run testsuite tests
+                        sh '''
                             curl -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/pmm-testsuite.yml/dispatches" \
-                                -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}", "pmm_qa_branch": "${PMM_QA_GIT_BRANCH}", "client_version": "${CLIENT_URL}"}}'
-                        """
-                        // trigger workflow in GH to run ui tests
+                                "https://api.github.com/repos/${REPO}/actions/workflows/pmm-testsuite.yml/dispatches" \
+                                -d @body.json
+                        '''
+
                         def PMM_UI_TESTS_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmUITestBranch").trim()
-                        sh """
+                        payload = [
+                          ref: "${CHANGE_BRANCH}",
+                          inputs: [
+                            server_image: "${IMAGE}", client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
+                            pmm_qa_branch: "${PMM_QA_GIT_BRANCH}", pmm_ui_branch: "${PMM_UI_TESTS_GIT_BRANCH}",
+                            client_version: "${CLIENT_URL}"
+                          ]
+                        ]
+                        writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
+                        // Trigger a workflow on GH to run ui tests
+                        sh '''
                             curl -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/pmm-ui-tests-fb.yml/dispatches" \
-                                -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}", "pmm_qa_branch": "${PMM_QA_GIT_BRANCH}", "pmm_ui_branch": "${PMM_UI_TESTS_GIT_BRANCH}", "client_version": "${CLIENT_URL}"}}'
-                        """
-                        // trigger workflow in GH to run trivy for vulnerability scan
-                        sh """
+                                "https://api.github.com/repos/${REPO}/actions/workflows/pmm-ui-tests-fb.yml/dispatches" \
+                                -d @body.json
+                        '''
+
+                        payload = [
+                          ref: "${CHANGE_BRANCH}",
+                          inputs: [
+                            server_image: "${IMAGE}", client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
+                          ]
+                        ]
+                        writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
+                        // Trigger a workflow on GH to run trivy for vulnerability scan
+                        sh '''
                             curl -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/actions/workflows/trivy_scan.yml/dispatches" \
-                                -d '{"ref":"${CHANGE_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}"}}'
-                        """
+                                "https://api.github.com/repos/${REPO}/actions/workflows/trivy_scan.yml/dispatches" \
+                                -d @body.json
+                        '''
                     }
                 }
             }
