@@ -40,9 +40,7 @@ pipeline {
         stage('Prepare') {
             when {
                 beforeAgent true
-                expression {
-                    env.PMM_VER =~ '^3.'
-                }
+                expression { env.PMM_VER =~ '^3.' }
             }
             steps {
                 script {
@@ -111,9 +109,7 @@ pipeline {
         stage('Build client source') {
             when {
                 beforeAgent true
-                expression {
-                    env.PMM_VER =~ '^3.'
-                }
+                expression { env.PMM_VER =~ '^3.' }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -130,13 +126,11 @@ pipeline {
         stage('Build client binary') {
             when {
                 beforeAgent true
-                expression {
-                    env.PMM_VER =~ '^3.'
-                }
+                expression { env.PMM_VER =~ '^3.' }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
 
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
@@ -145,22 +139,19 @@ pipeline {
                         aws s3 cp \
                             --acl public-read \
                             results/tarball/pmm-client-*.tar.gz \
-                            s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-\${BRANCH_NAME}-\${GIT_COMMIT:0:7}.tar.gz
-                    """
+                            s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz
+                    '''
                 }
                 script {
                     def clientPackageURL = sh script:'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL', returnStdout: true
                     env.CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                 }
-                // stash includes: 'CLIENT_URL', name: 'CLIENT_URL'
             }
         }
         stage('Build client source rpm') {
             when {
                 beforeAgent true
-                allOf{
-                    expression{ env.PMM_VER =~ '^3.' }
-                }
+                expression { env.PMM_VER =~ '^3.' }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -176,9 +167,7 @@ pipeline {
         stage('Build client binary rpm') {
             when {
                 beforeAgent true
-                allOf {
-                    expression{ env.PMM_VER =~ '^3.' }
-                }
+                expression { env.PMM_VER =~ '^3.' }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -198,9 +187,7 @@ pipeline {
         stage('Build client docker') {
             when {
                 beforeAgent true
-                    expression {
-                        env.PMM_VER =~ '^3.'
-                    }
+                expression { env.PMM_VER =~ '^3.' }
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -209,12 +196,12 @@ pipeline {
                     '''
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
                         export PUSH_DOCKER=1
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
                         ${PATH_TO_SCRIPTS}/build-client-docker
-                    """
+                    '''
                 }
                 stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
                 archiveArtifacts 'results/docker/CLIENT_TAG'
@@ -287,16 +274,15 @@ pipeline {
                         unstash 'pmmUITestBranch'
                         def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                         def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
-                        // def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                         def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                         def STAGING_URL = "https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/"
+                        def REPO = sh(returnStdout: true, script: "echo ${CHANGE_URL} | cut -d '/' -f 4-5").trim()
 
                         def payload = [
                           body: "Server docker: ${IMAGE}\nClient docker: ${CLIENT_IMAGE}\nClient tarball: ${CLIENT_URL}\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
                         ]
                         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
                         sh '''
-                            REPO=$(echo "$CHANGE_URL" | cut -d '/' -f 4-5)
 
                             # https://docs.github.com/en/rest/issues/comments?apiVersion=2022-11-28#create-an-issue-comment
                             # Comment on PR with docker server, client and the staging link
@@ -398,9 +384,7 @@ pipeline {
         }
         stage('Test API') {
             when {
-                expression {
-                    env.PMM_VER =~ '^3.'
-                }
+                expression { env.PMM_VER =~ '^3.' }
             }
             steps {
                 script {
@@ -412,7 +396,6 @@ pipeline {
                     def API_TESTS_URL = sh(returnStdout: true, script: "cat apiURL").trim()
                     def API_TESTS_BRANCH = sh(returnStdout: true, script: "cat apiBranch").trim()
                     def GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat apiCommitSha").trim()
-                    // runAPItests(IMAGE, API_TESTS_URL, API_TESTS_BRANCH, GIT_COMMIT_HASH, CLIENT_URL)
                     apiTestJob = build job: 'pmm3-api-tests', propagate: false, parameters: [
                         string(name: 'DOCKER_VERSION', value: IMAGE),
                         string(name: 'GIT_URL', value: API_TESTS_URL),
