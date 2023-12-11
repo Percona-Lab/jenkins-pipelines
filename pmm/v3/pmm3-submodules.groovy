@@ -43,9 +43,6 @@ pipeline {
                 expression { env.PMM_VER =~ '^3.' }
             }
             steps {
-                script {
-                    addComment("Building PMM v3.x ...")
-                }
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                 sh '''
                     set -o errexit
