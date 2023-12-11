@@ -114,7 +114,7 @@ pipeline {
         stage('Connectivity Check') {
             steps {
                 sh '''
-                    timeout 100 bash -c "while [[ ! $(curl -sf \${PMM_URL}/ping) ]]; do sleep 5; done" || false
+                    timeout 100 bash -c "while ! curl -sf \${PMM_URL}/ping; do sleep 5; done" || false
                 '''
             }
         }
