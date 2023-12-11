@@ -359,6 +359,9 @@ pipeline {
             }
         }
         stage('Run Clients') {
+            when {
+              expression { false }
+            }
             steps {
                 node(env.VM_NAME){
                     // Download the client, install it outside of PMM and configure it to connect to PMM
