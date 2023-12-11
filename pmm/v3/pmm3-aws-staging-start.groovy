@@ -369,7 +369,7 @@ pipeline {
 
                     script {
                         env.PMM_REPO="experimental"
-                        if (env.CLIENT_VERSION == "pmm2-rc") {
+                        if (env.CLIENT_VERSION == "pmm-rc") {
                             env.PMM_REPO="testing"
                         }
                     }
