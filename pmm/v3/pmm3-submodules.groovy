@@ -276,7 +276,7 @@ pipeline {
                         def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
                         def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                         def STAGING_URL = "https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/"
-                        def REPO = sh(returnStdout: true, script: "echo ${CHANGE_URL} | cut -d '/' -f 4-5").trim()
+                        def REPO = sh(returnStdout: true, script: '''echo ${CHANGE_URL} | cut -d '/' -f 4-5''').trim()
 
                         def payload = [
                           body: "Server docker: ${IMAGE}\nClient docker: ${CLIENT_IMAGE}\nClient tarball: ${CLIENT_URL}\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
