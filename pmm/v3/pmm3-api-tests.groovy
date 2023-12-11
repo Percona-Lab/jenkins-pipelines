@@ -71,7 +71,7 @@ pipeline {
         }
         stage('Checkout Commit') {
             when {
-                expression { env.GIT_COMMIT_HASH.length()>0 }
+                expression { env.GIT_COMMIT_HASH.length() > 0 }
             }
             steps {
                 sh 'git checkout ' + env.GIT_COMMIT_HASH
@@ -79,7 +79,7 @@ pipeline {
         }
 
         stage('API Tests Setup') {
-            steps{
+            steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
                         echo "${PASS}" | docker login -u "${USER}" --password-stdin
@@ -99,12 +99,12 @@ pipeline {
                     -v \${PWD}/managed/testdata/checks:/srv/checks \
                     \${DOCKER_VERSION}
 
-                    docker build -t pmm-api-tests .
+                    docker build -t percona/pmm-api-tests .
                     cd api-tests
                     docker-compose up test_db
-                    # MYSQL_IMAGE=\${MYSQL_IMAGE} docker-compose up -d mysql
-                    # MONGO_IMAGE=\${MONGO_IMAGE} docker-compose up -d mongo
-                    # POSTGRES_IMAGE=\${POSTGRES_IMAGE} docker-compose up -d postgres
+                    # MYSQL_IMAGE=${MYSQL_IMAGE} docker-compose up -d mysql
+                    # MONGO_IMAGE=${MONGO_IMAGE} docker-compose up -d mongo
+                    # POSTGRES_IMAGE=${POSTGRES_IMAGE} docker-compose up -d postgres
                     # docker-compose up -d sysbench
                     cd -
                 '''
@@ -114,9 +114,11 @@ pipeline {
                 }
             }
         }
-        stage('Sanity Check') {
+        stage('Connectivity Check') {
             steps {
-                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+                sh '''
+                    timeout 100 bash -c "while [[ ! $(curl -sf \${PMM_URL}/ping) ]]; do sleep 5; done" || false
+                '''
             }
         }
         stage('Run API Test') {
@@ -127,7 +129,7 @@ pipeline {
                                -e PMM_RUN_STT_TESTS=0 \
                                --name ${BUILD_TAG} \
                                --network host \
-                               pmm-api-tests
+                               percona/pmm-api-tests
                 '''
             }
         }
