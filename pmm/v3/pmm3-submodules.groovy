@@ -276,13 +276,13 @@ pipeline {
                         def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
                         def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                         def STAGING_URL = "https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/"
-                        def REPO = sh(returnStdout: true, script: '''echo $CHANGE_URL | cut -d '/' -f 4-5''').trim()
 
                         def payload = [
                           body: "Server docker: ${IMAGE}\nClient docker: ${CLIENT_IMAGE}\nClient tarball: ${CLIENT_URL}\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
                         ]
                         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
                         sh '''
+                            REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
                             # https://docs.github.com/en/rest/issues/comments?apiVersion=2022-11-28#create-an-issue-comment
                             # Comment on PR with docker server, client and the staging link
                             curl -X POST \
@@ -300,8 +300,9 @@ pipeline {
                           ]
                         ]
                         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
+                        // Trigger a workflow on GH to run some test there as well, pass server and client images as parameters
                         sh '''
-                            # Trigger a workflow on GH to run some test there as well, pass server and client images as parameters
+                            REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
                             curl -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
@@ -318,6 +319,7 @@ pipeline {
                         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
                         // Trigger a workflow on GH to run PMM binary cli tests
                         sh '''
+                            REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
                             curl -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
@@ -336,6 +338,7 @@ pipeline {
                         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
                         // Trigger a workflow on GH to run testsuite tests
                         sh '''
+                            REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
                             curl -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
@@ -371,6 +374,7 @@ pipeline {
                         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
                         // Trigger a workflow on GH to run trivy for vulnerability scan
                         sh '''
+                            REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
                             curl -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
