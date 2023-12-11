@@ -30,6 +30,9 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/percona-packaging/scripts/pg_stat_monitor_builder.sh -O psm_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/percona-packaging/scripts/pg_stat_monitor_builder.sh -o psm_builder.sh
         if [ -f /etc/redhat-release ]; then
             sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+            wget https://raw.githubusercontent.com/percona/percona-repositories/release-1.0-28/scripts/percona-release.sh
+            mv percona-release.sh /usr/bin/percona-release
+            chmod 777 /usr/bin/percona-release
         else
             DEBIAN_VERSION=\$(lsb_release -sc)
             sed -e '/.*backports.*/d' /etc/apt/sources.list > sources.list.new

@@ -1,0 +1,14 @@
+- job:
+    name: wal2json-arm-RELEASE
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'ARM_pg'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ppg/wal2json-arm.groovy
