@@ -385,6 +385,7 @@ pipeline {
                         [ -z "${CLIENTS}" ] && exit 0 || :
 
                         if [[ "${CLIENT_VERSION}" = http* ]]; then
+                            # This is generated in `setupPMMClient` function
                             source ~/.bash_profile
                         fi
                         echo "PATH: $PATH"
