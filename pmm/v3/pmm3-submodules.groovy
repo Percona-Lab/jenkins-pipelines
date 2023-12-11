@@ -355,6 +355,7 @@ pipeline {
                         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
                         // Trigger a workflow on GH to run ui tests
                         sh '''
+                            REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
                             curl -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
