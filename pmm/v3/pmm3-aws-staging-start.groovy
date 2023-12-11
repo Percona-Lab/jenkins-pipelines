@@ -201,13 +201,13 @@ pipeline {
                     Jenkins.instance.addNode(node)
                 }
                 node(env.VM_NAME){
-                    sh """
+                    sh '''
                         set -o errexit
                         set -o xtrace
 
                         echo "${DEFAULT_SSH_KEYS}" >> /home/ec2-user/.ssh/authorized_keys
                         if [ -n "${SSH_KEY}" ]; then
-                            echo '${SSH_KEY}' >> /home/ec2-user/.ssh/authorized_keys
+                            echo "${SSH_KEY}" >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
                         sudo yum-config-manager --disable hashicorp
@@ -228,7 +228,7 @@ pipeline {
                             sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
                             sudo chmod 755 get_download_link.sh
                         popd
-                    """
+                    '''
                 }
                 script {
                     def node = Jenkins.instance.getNode(env.VM_NAME)
@@ -359,9 +359,6 @@ pipeline {
             }
         }
         stage('Run Clients') {
-            when {
-              expression { false }
-            }
             steps {
                 node(env.VM_NAME){
                     // Download the client, install it outside of PMM and configure it to connect to PMM
@@ -390,10 +387,10 @@ pipeline {
                         fi
                         echo "PATH: $PATH"
 
-                        export PMM_SERVER_IP=${SERVER_IP}
+                        PMM_SERVER_IP=${SERVER_IP}
 
                         if [[ "${CLIENT_INSTANCE}" = no ]]; then
-                            export PMM_SERVER_IP=${IP}
+                            PMM_SERVER_IP=${IP}
                         fi
 
                         bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
