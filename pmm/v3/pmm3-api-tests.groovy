@@ -135,12 +135,16 @@ pipeline {
         always {
             sh '''
                 docker cp ${BUILD_TAG}:/go/src/github.com/percona/pmm/api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml || true
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || touch logz.zip
                 sudo chown -R ec2-user:ec2-user api-tests || true
             '''
-            junit '${BUILD_TAG}.xml'
             script {
-                archiveArtifacts artifacts: 'logs.zip'
+                if (fileExists("${BUILD_TAG}.xml")) {
+                  junit "${BUILD_TAG}.xml"
+                }
+                if (fileExists("logz.zip")) {
+                  archiveArtifacts artifacts: 'logs.zip'
+                }
                 if (currentBuild.result != 'SUCCESS') {
                     slackSend botUser: true,
                               channel: '#pmm-ci',
