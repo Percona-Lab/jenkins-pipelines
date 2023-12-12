@@ -371,9 +371,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
-    }
-    triggers {
-        cron('0 15 * * 0')
+        copyArtifactPermission('pg-operator-latest-scheduler');
     }
     stages {
         stage('Prepare node') {
