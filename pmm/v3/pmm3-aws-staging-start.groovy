@@ -18,92 +18,113 @@ pipeline {
         string(
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag, ex: perconalab/pmm-server:3-dev-latest)',
-            name: 'DOCKER_VERSION')
+            name: 'DOCKER_VERSION'
+        )
         string(
             defaultValue: '3-dev-latest',
             description: 'PMM Client version ("3-dev-latest" for main branch, "latest" or "X.X.X" for released version, "pmm2-rc" for Release Candidate, "http://..." for feature build)',
-            name: 'CLIENT_VERSION')
+            name: 'CLIENT_VERSION'
+        )
         string(
             defaultValue: '',
             description: 'public ssh key for "ec2-user" user, please set if you need ssh access',
-            name: 'SSH_KEY')
+            name: 'SSH_KEY'
+        )
         string(
             defaultValue: 'pmm2023fortesting!',
             description: 'pmm-server admin user default password',
-            name: 'ADMIN_PASSWORD')
+            name: 'ADMIN_PASSWORD'
+        )
         choice(
             choices: ['pmm'],
             description: 'Which Version of PMM Server: pmm stands for PMM v3 and up',
-            name: 'PMM_VERSION')
+            name: 'PMM_VERSION'
+        )
         choice(
             choices: ['no', 'yes'],
             description: 'Enable Testing Repo, for RC testing',
-            name: 'ENABLE_TESTING_REPO')
+            name: 'ENABLE_TESTING_REPO'
+        )
         choice(
             choices: ['yes', 'no'],
             description: 'Enable Experimental Repo, for 3-dev-latest',
-            name: 'ENABLE_EXPERIMENTAL_REPO')
+            name: 'ENABLE_EXPERIMENTAL_REPO'
+        )
         choice(
             choices: ['no', 'yes'],
             description: 'Enable Pull Mode, if you are using this instance as Client Node',
-            name: 'ENABLE_PULL_MODE')
+            name: 'ENABLE_PULL_MODE'
+        )
         choice(
             choices: '1\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
-            name: 'DAYS')
+            name: 'DAYS'
+        )
         choice(
             choices: ['8.0','5.7'],
             description: 'Percona XtraDB Cluster version',
-            name: 'PXC_VERSION')
+            name: 'PXC_VERSION'
+        )
         choice(
             choices: ['8.0', '5.7', '5.7.30', '5.6'],
             description: "Percona Server for MySQL version",
-            name: 'PS_VERSION')
+            name: 'PS_VERSION'
+        )
         choice(
             choices: ['8.0', '5.7', '5.6'],
             description: 'MySQL Community Server version',
-            name: 'MS_VERSION')
+            name: 'MS_VERSION'
+        )
         choice(
             choices: ['15','14', '13', '12', '11'],
             description: "Which version of PostgreSQL",
-            name: 'PGSQL_VERSION')
+            name: 'PGSQL_VERSION'
+        )
         choice(
             choices: ['16.0','15.4', '14.9', '13.12', '12.16', '11.21'],
             description: 'Percona Distribution for PostgreSQL',
-            name: 'PDPGSQL_VERSION')
+            name: 'PDPGSQL_VERSION'
+        )
         choice(
             choices: ['10.6', '10.5', '10.4', '10.3', '10.2'],
             description: "MariaDB Server version",
-            name: 'MD_VERSION')
+            name: 'MD_VERSION'
+        )
         choice(
             choices: ['6.0', '5.0', '4.4', '4.2', '4.0', '3.6'],
             description: "Percona Server for MongoDB version",
-            name: 'MO_VERSION')
+            name: 'MO_VERSION'
+        )
         choice(
             choices: ['4.4', '4.2', '4.0', '6.0', '5.0.2'],
             description: "Official MongoDB version from MongoDB Inc",
-            name: 'MODB_VERSION')
+            name: 'MODB_VERSION'
+        )
         choice(
             choices: ['perfschema', 'slowlog'],
             description: "Query Source for Monitoring",
-            name: 'QUERY_SOURCE')
+            name: 'QUERY_SOURCE'
+        )
         choice(
             choices: ['dev','prod'],
             description: 'Prod or Dev version service',
-            name: 'VERSION_SERVICE_VERSION')
+            name: 'VERSION_SERVICE_VERSION'
+        )
         string(
             defaultValue: '',
             description: '''
             Docker image for version service, use it if you want to run your own version service.
             ''',
-            name: 'VERSION_SERVICE_IMAGE')
+            name: 'VERSION_SERVICE_IMAGE'
+        )
         text(
             defaultValue: '-e PMM_DEBUG=1 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ -e PERCONA_PORTAL_URL=https://portal-dev.percona.com  -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443',
             description: '''
-            Passing Env Variables to PMM Server Docker Container, supported only for pmm2.x
+            Passing Env Variables to PMM Server Docker Container, supported for pmm v2 and up
             An Example: -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PERCONA_TEST_TELEMETRY_INTERVAL=10s -e PMM_DEBUG=1
             ''',
-            name: 'DOCKER_ENV_VARIABLE')
+            name: 'DOCKER_ENV_VARIABLE'
+        )
         text(
             defaultValue: '--addclient=ps,1',
             description: '''
@@ -116,29 +137,35 @@ pipeline {
             modb - Official MongoDB version from MongoDB Inc (ex. --addclient=modb,1),
             pgsql - Postgre SQL Server (ex. --addclient=pgsql,1)
             pdpgsql - Percona Distribution for PostgreSQL (ex. --addclient=pdpgsql,1)
-            An example: --addclient=ps,1 --addclient=mo,1 --addclient=md,1 --addclient=pgsql,2 --addclient=modb,2
+            An example: --addclient=ps,1 --addclient=mo,2 --addclient=md,1 --addclient=pgsql,1 --addclient=modb,1
             ''',
-            name: 'CLIENTS')
+            name: 'CLIENTS'
+        )
         choice(
             choices: ['true', 'false'],
             description: 'Enable Slack notification (option for high level pipelines)',
-            name: 'NOTIFY')
+            name: 'NOTIFY'
+        )
         choice(
             choices: ['no', 'yes'],
             description: "Use this instance only as a client host",
-            name: 'CLIENT_INSTANCE')
+            name: 'CLIENT_INSTANCE'
+        )
         string (
             defaultValue: '0.0.0.0',
             description: 'Please change the default Value for Server Public IP, When you need to use this instance just as client',
-            name: 'SERVER_IP')
+            name: 'SERVER_IP'
+        )
         string(
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm-qa repository',
-            name: 'PMM_QA_GIT_BRANCH')
+            name: 'PMM_QA_GIT_BRANCH'
+        )
         string(
             defaultValue: '',
             description: 'Commit hash for pmm-qa branch',
-            name: 'PMM_QA_GIT_COMMIT_HASH')
+            name: 'PMM_QA_GIT_COMMIT_HASH'
+        )
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
