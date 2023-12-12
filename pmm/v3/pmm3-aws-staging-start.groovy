@@ -304,7 +304,7 @@ pipeline {
                                         --name ${VM_NAME}-server \
                                         --network pmm-qa \
                                         --restart always \
-                                        -e DISABLE_TELEMETRY=1
+                                        -e DISABLE_TELEMETRY=1 \
                                         $ENV_VARIABLE \
                                         ${DOCKER_VERSION}
 
