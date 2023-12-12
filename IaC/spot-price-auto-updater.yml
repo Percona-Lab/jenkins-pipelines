@@ -92,7 +92,6 @@
 
                             // Create the EC2 client using the instance profile credentials provider
                             def ec2Client = AmazonEC2ClientBuilder.standard()
-                                    .withCredentials(new InstanceProfileCredentialsProvider(false))
                                     .withRegion(region)
                                     .build()
 
