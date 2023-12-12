@@ -284,15 +284,15 @@ pipeline {
                                         ${DOCKER_VERSION} /bin/true
 
                                     if [ ${VERSION_SERVICE_VERSION} == dev ]; then
-                                        export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1"
+                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1"
                                     else
-                                        export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check.percona.com/versions/v1"
+                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check.percona.com/versions/v1"
                                     fi
 
                                     if [ -n "${VERSION_SERVICE_IMAGE}" ]; then
-                                        export ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=http://${VM_NAME}-version-service/versions/v1"
+                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=http://${VM_NAME}-version-service/versions/v1"
                                     else
-                                        export ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
+                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
                                     fi
                                     docker network create pmm-qa || true
 
@@ -304,6 +304,7 @@ pipeline {
                                         --name ${VM_NAME}-server \
                                         --network pmm-qa \
                                         --restart always \
+                                        -e DISABLE_TELEMETRY=1
                                         $ENV_VARIABLE \
                                         ${DOCKER_VERSION}
 
