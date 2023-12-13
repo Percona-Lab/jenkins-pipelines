@@ -11,6 +11,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             export PMM_VERSION=${PMM_VERSION}
             export ENABLE_PULL_MODE=${ENABLE_PULL_MODE}
             export ENABLE_TESTING_REPO=${ENABLE_TESTING_REPO}
+            export ENABLE_EXPERIMENTAL_REPO=${ENABLE_EXPERIMENTAL_REPO}
             export CLIENT_INSTANCE=${CLIENT_INSTANCE}
             export SETUP_TYPE=${SETUP_TYPE}
             export ADMIN_PASSWORD=${ADMIN_PASSWORD}
@@ -45,7 +46,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     sudo percona-release enable-only original testing
                 elif [[ "$ENABLE_TESTING_REPO" = no ]]; then
                     sudo percona-release enable-only original experimental
-                else
+                elif [[ "$ENABLE_TESTING_REPO" = no && "$ENABLE_EXPERIMENTAL_REPO" = no  ]]; then
                     sudo percona-release enable-only original release
                 fi
                 sleep 10
