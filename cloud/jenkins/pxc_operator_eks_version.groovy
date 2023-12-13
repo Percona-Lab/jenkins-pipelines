@@ -6,6 +6,7 @@ void createCluster(String CLUSTER_SUFFIX){
     clusters.add("${CLUSTER_SUFFIX}")
 
     sh """
+        timestamp="\$(date +%s)"
 cat <<-EOF > cluster-${CLUSTER_SUFFIX}.yaml
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
 ---
@@ -18,6 +19,7 @@ metadata:
     version: "$PLATFORM_VER"
     tags:
         'delete-cluster-after-hours': '10'
+        'creation-time': '\$timestamp'
 iam:
   withOIDC: true
 
