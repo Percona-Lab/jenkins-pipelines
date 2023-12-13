@@ -28,9 +28,10 @@ pipeline {
     }
     parameters {
         choice(
-            choices: ['el9'],
-            description: 'Select the OS to build for',
-            name: 'BUILD_OS')
+            choices: ['no', 'yes'],
+            description: 'Build a base image for PMM server',
+            name: 'BUILD_BASE_IMAGE'
+        )
     }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
@@ -61,6 +62,7 @@ pipeline {
                         echo $pmm_ui_tests_branch > pmmUITestBranch
                         echo $pmm_ui_tests_commit > pmmUITestsCommitSha
                     else
+                        # This method requires feature branches to be manually set in .gitmodules
                         sudo rm -rf results tmp || :
                         git reset --hard
                         git clean -fdx
@@ -100,7 +102,7 @@ pipeline {
                 stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
                 stash includes: 'pmmUITestsCommitSha', name: 'pmmUITestsCommitSha'
                 stash includes: 'fbCommitSha', name: 'fbCommitSha'
-                slackSend channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: v3 build started, URL: ${BUILD_URL}"
             }
         }
         stage('Build client source') {
@@ -229,10 +231,10 @@ pipeline {
                 }
             }
         }
-        stage('Build server docker') {
+        stage('Build a base image for server docker') {
             when {
                 beforeAgent true
-                expression{ env.PMM_VER =~ '^3.' }
+                expression { env.PMM_VER =~ '^3.' && env.BUILD_BASE_IMAGE == 'yes' }
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -245,7 +247,42 @@ pipeline {
                         set -o errexit
 
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+                        export DOCKER_TAG=perconalab/pmm-server:v3-base
+
+                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                        export RPMBUILD_DIST="el9"
+                        export DOCKERFILE=Dockerfile.el9.base
+                        if [ ! -f "${PATH_TO_SCRIPTS}/../docker/server/${DOCKERFILE}" ]; then
+                          echo "Error: could not find the custom Dockerfile" >&2
+                          exit 1
+                        fi
+
+                        ${PATH_TO_SCRIPTS}/build-server-docker
+                    '''
+                }
+                stash includes: 'results/docker/TAG', name: 'IMAGE'
+                archiveArtifacts 'results/docker/TAG'
+                // Terminate the pipeline
+                currentBuild.result = 'SUCCESS'
+            }
+        }
+        stage('Build server docker') {
+            when {
+                beforeAgent true
+                expression { env.PMM_VER =~ '^3.' && env.BUILD_BASE_IMAGE != 'yes'  }
+            }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh '''
+                        docker login -u "${USER}" -p "${PASS}"
+                    '''
+                }
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh '''
+                        set -o errexit
+
+                        export PUSH_DOCKER=1
+                        export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
 
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                         export RPMBUILD_DIST="el9"
@@ -420,7 +457,7 @@ pipeline {
                 if (env.CHANGE_URL && env.PMM_VER =~ '^3.') {
                     unstash 'IMAGE'
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
                 }
             }
         }
@@ -428,9 +465,9 @@ pipeline {
             script {
                 if (currentBuild.result != 'SUCCESS') {
                     if (env.API_TESTS_RESULT != "SUCCESS" && env.API_TESTS_URL) {
-                        addComment("API tests have failed. Please check: API: ${API_TESTS_URL}")
+                        addComment("API tests have failed. Please check: ${API_TESTS_URL}")
                     }
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} build job link: ${BUILD_URL}"
+                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
                 }
             }
         }
