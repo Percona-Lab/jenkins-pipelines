@@ -84,7 +84,6 @@ def delete_nodegroup(aws_region, cluster_name):
     except Boto3Error as e:
         logging.error(f"Deleting autoscaling group {autoscaling_group_name} failed with error: {e}")
 
-    sleep(200)
 
 def delete_cluster(aws_region, cluster_name):
     eks_client = boto3.client('eks', region_name=aws_region)
