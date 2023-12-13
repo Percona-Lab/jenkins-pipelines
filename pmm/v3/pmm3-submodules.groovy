@@ -234,7 +234,7 @@ pipeline {
         stage('Build a base image for server docker') {
             when {
                 beforeAgent true
-                expression { env.PMM_VER =~ '^3.' && env.BUILD_BASE_IMAGE == 'yes' }
+                expression { env.PMM_VER =~ '^3.' && params.BUILD_BASE_IMAGE == 'yes' }
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -262,8 +262,10 @@ pipeline {
                 }
                 stash includes: 'results/docker/TAG', name: 'IMAGE'
                 archiveArtifacts 'results/docker/TAG'
-                // Terminate the pipeline
-                currentBuild.result = 'SUCCESS'
+                script {
+                    // Terminate the pipeline
+                    currentBuild.result = 'SUCCESS'
+                }
             }
         }
         stage('Build server docker') {
