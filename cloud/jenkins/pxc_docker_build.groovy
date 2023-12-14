@@ -52,6 +52,7 @@ pipeline {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
+                        docker buildx create --use
                         cd ./source/
                         DOCKER_PUSH=0 ./e2e-tests/build
                         sudo rm -rf ./build
