@@ -247,7 +247,7 @@ pipeline {
                         set -o errexit
 
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server:v3-base
+                        export DOCKER_TAG=perconalab/pmm-server:3-base
 
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                         export RPMBUILD_DIST="el9"
@@ -265,6 +265,7 @@ pipeline {
                 script {
                     // Terminate the pipeline
                     currentBuild.result = 'SUCCESS'
+                    return
                 }
             }
         }
