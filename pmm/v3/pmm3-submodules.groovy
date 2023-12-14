@@ -28,9 +28,9 @@ pipeline {
     }
     parameters {
         choice(
-            choices: ['no', 'yes'],
-            description: 'Build a base image for PMM server',
-            name: 'BUILD_BASE_IMAGE'
+            choices: ['el9', 'next'],
+            description: 'The base OS of the image',
+            name: 'BASE_OS'
         )
     }
     environment {
@@ -231,47 +231,10 @@ pipeline {
                 }
             }
         }
-        stage('Build a base image for server docker') {
-            when {
-                beforeAgent true
-                expression { env.PMM_VER =~ '^3.' && params.BUILD_BASE_IMAGE == 'yes' }
-            }
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh '''
-                        docker login -u "${USER}" -p "${PASS}"
-                    '''
-                }
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        set -o errexit
-
-                        export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server:3-base
-
-                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                        export RPMBUILD_DIST=el9
-                        export DOCKERFILE=Dockerfile.el9.base
-                        if [ ! -f "${PATH_TO_SCRIPTS}/../docker/server/${DOCKERFILE}" ]; then
-                          echo "Error: could not find the custom Dockerfile" >&2
-                          exit 1
-                        fi
-
-                        ${PATH_TO_SCRIPTS}/build-server-docker
-                    '''
-                }
-                stash includes: 'results/docker/TAG', name: 'IMAGE'
-                archiveArtifacts 'results/docker/TAG'
-                script {
-                    // Terminate the pipeline
-                    currentBuild.result = 'UNSTABLE'
-                }
-            }
-        }
         stage('Build server docker') {
             when {
                 beforeAgent true
-                expression { env.PMM_VER =~ '^3.' && env.BUILD_BASE_IMAGE == 'no'  }
+                expression { env.PMM_VER =~ '^3.'}
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
