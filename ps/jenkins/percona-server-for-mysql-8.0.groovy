@@ -303,19 +303,19 @@ parameters {
                         label 'min-centos-7-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("none", "--build_rpm=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("srpm/", AWS_STASH_PATH)
                                 buildStage("none", "--build_rpm=1")
+
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Centos 8') {
@@ -323,19 +323,19 @@ parameters {
                         label 'min-centos-8-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("none", "--build_rpm=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("srpm/", AWS_STASH_PATH)
                                 buildStage("none", "--build_rpm=1")
+
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Centos 8 ARM') {
@@ -343,19 +343,19 @@ parameters {
                         label 'docker-32gb-aarch64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("centos:8", "--build_rpm=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("srpm/", AWS_STASH_PATH)
                                 buildStage("centos:8", "--build_rpm=1")
+
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9') {
@@ -403,19 +403,19 @@ parameters {
                         label 'min-focal-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("none", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
+                                cleanUpWS()
+                                installCli("deb")
+                                unstash 'properties'
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("none", "--build_deb=1 --with_zenfs=1")
+
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy(22.04)') {
@@ -443,19 +443,19 @@ parameters {
                         label 'min-buster-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("none", "--build_deb=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
+                                cleanUpWS()
+                                installCli("deb")
+                                unstash 'properties'
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("none", "--build_deb=1")
+
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bullseye(11)') {
@@ -463,19 +463,19 @@ parameters {
                         label 'min-bullseye-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("none", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
+                                cleanUpWS()
+                                installCli("deb")
+                                unstash 'properties'
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("none", "--build_deb=1 --with_zenfs=1")
+
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bookworm(12)') {
@@ -503,19 +503,19 @@ parameters {
                         label 'min-centos-7-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("none", "--build_tarball=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("none", "--build_tarball=1")
+
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Centos 7 debug tarball') {
@@ -523,19 +523,19 @@ parameters {
                         label 'min-centos-7-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("none", "--debug=1 --build_tarball=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("none", "--debug=1 --build_tarball=1")
+
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Centos 8 binary tarball') {
@@ -543,19 +543,19 @@ parameters {
                         label 'min-centos-8-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("none", "--build_tarball=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("none", "--build_tarball=1")
+
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Centos 8 debug tarball') {
@@ -563,19 +563,19 @@ parameters {
                         label 'min-centos-8-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("none", "--debug=1 --build_tarball=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("none", "--debug=1 --build_tarball=1")
+
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9 tarball') {
@@ -643,19 +643,19 @@ parameters {
                         label 'min-focal-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("none", "--build_tarball=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
+                                cleanUpWS()
+                                installCli("deb")
+                                unstash 'properties'
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("none", "--build_tarball=1")
+
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal(20.04) debug tarball') {
@@ -663,19 +663,19 @@ parameters {
                         label 'min-focal-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("none", "--debug=1 --build_tarball=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
+                                cleanUpWS()
+                                installCli("deb")
+                                unstash 'properties'
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("none", "--debug=1 --build_tarball=1")
+
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy(22.04) tarball') {
