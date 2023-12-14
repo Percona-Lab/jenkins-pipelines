@@ -34,9 +34,7 @@ pipeline {
                 }
 
                 script {
-                    def changes_count = sh(returnStdout: true, script: '''
-                        git status --short | wc -l
-                    ''').trim()
+                    def changes_count = sh(returnStdout: true, script: '''git status --short | wc -l''').trim()
                     if (changes_count == '0') {
                         echo "WARNING: everything up-to-date, skip rewind"
                         currentBuild.result = 'UNSTABLE'
@@ -46,16 +44,14 @@ pipeline {
         }
         stage('Commit') {
             steps {
-                sh """
-                    git config --global user.email "dev-services@percona.com"
-                    git config --global user.name "PMM Jenkins"
-
-                    git commit -a -m "rewind submodules"
-                    git show
-                """
-
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
+                        git config --global user.email "dev-services@percona.com"
+                        git config --global user.name "PMM Jenkins"
+
+                        git commit -a -m "chore: rewind submodules"
+                        git show
+
                         export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
                         git config --global push.default matching

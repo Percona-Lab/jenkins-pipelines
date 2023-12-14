@@ -210,7 +210,7 @@ pipeline {
             when {
                 beforeAgent true
                 allOf {
-                    expression{ env.PMM_VER =~ '^3.' }
+                    expression { env.PMM_VER =~ '^3.' }
                 }
             }
             steps {
@@ -250,7 +250,7 @@ pipeline {
                         export DOCKER_TAG=perconalab/pmm-server:3-base
 
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                        export RPMBUILD_DIST="el9"
+                        export RPMBUILD_DIST=el9
                         export DOCKERFILE=Dockerfile.el9.base
                         if [ ! -f "${PATH_TO_SCRIPTS}/../docker/server/${DOCKERFILE}" ]; then
                           echo "Error: could not find the custom Dockerfile" >&2
@@ -264,15 +264,14 @@ pipeline {
                 archiveArtifacts 'results/docker/TAG'
                 script {
                     // Terminate the pipeline
-                    currentBuild.result = 'SUCCESS'
-                    return
+                    currentBuild.result = 'UNSTABLE'
                 }
             }
         }
         stage('Build server docker') {
             when {
                 beforeAgent true
-                expression { env.PMM_VER =~ '^3.' && env.BUILD_BASE_IMAGE != 'yes'  }
+                expression { env.PMM_VER =~ '^3.' && env.BUILD_BASE_IMAGE == 'no'  }
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -288,7 +287,7 @@ pipeline {
                         export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
 
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                        export RPMBUILD_DIST="el9"
+                        export RPMBUILD_DIST=el9
                         export DOCKERFILE=Dockerfile.el9
 
                         ${PATH_TO_SCRIPTS}/build-server-docker
@@ -437,6 +436,7 @@ pipeline {
                     def API_TESTS_URL = sh(returnStdout: true, script: "cat apiURL").trim()
                     def API_TESTS_BRANCH = sh(returnStdout: true, script: "cat apiBranch").trim()
                     def GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat apiCommitSha").trim()
+
                     apiTestJob = build job: 'pmm3-api-tests', propagate: false, parameters: [
                         string(name: 'DOCKER_VERSION', value: IMAGE),
                         string(name: 'GIT_URL', value: API_TESTS_URL),
