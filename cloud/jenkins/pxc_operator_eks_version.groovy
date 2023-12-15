@@ -6,6 +6,7 @@ void createCluster(String CLUSTER_SUFFIX){
     clusters.add("${CLUSTER_SUFFIX}")
 
     sh """
+        timestamp="\$(date +%s)"
 cat <<-EOF > cluster-${CLUSTER_SUFFIX}.yaml
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
 ---
@@ -18,6 +19,7 @@ metadata:
     version: "$PLATFORM_VER"
     tags:
         'delete-cluster-after-hours': '10'
+        'creation-time': '\$timestamp'
 iam:
   withOIDC: true
 
@@ -55,7 +57,6 @@ EOF
         sh """
             export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
             export PATH=/home/ec2-user/.local/bin:$PATH
-            source $HOME/google-cloud-sdk/path.bash.inc
             eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
         """
     }
@@ -65,7 +66,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            source $HOME/google-cloud-sdk/path.bash.inc
             eksctl delete addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME-$CLUSTER_SUFFIX --region $AWSRegion || true
             for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
                 kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
@@ -237,7 +237,6 @@ void runTest(Integer TEST_ID) {
                         export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
                         export PATH=/home/ec2-user/.local/bin:$PATH
-                        source $HOME/google-cloud-sdk/path.bash.inc
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                         ./e2e-tests/$testName/run
                     """
@@ -367,14 +366,8 @@ pipeline {
                     sudo percona-release enable-only tools
                     sudo yum install -y percona-xtrabackup-80 | true
 
-                    if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-                        rm -rf $HOME/google-cloud-sdk
-                        curl https://sdk.cloud.google.com | bash
-                    fi
-
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    gcloud components update kubectl
-                    gcloud version
+                    sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+                    kubectl version --client --output=yaml
 
                     curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
@@ -405,6 +398,7 @@ pipeline {
                         else
                             cd ./source/
                             sg docker -c "
+                                docker buildx create --use
                                 docker login -u '${USER}' -p '${PASS}'
                                 export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
                                 ./e2e-tests/build
@@ -491,7 +485,6 @@ pipeline {
 
             sh """
                 sudo docker system prune -fa
-                sudo rm -rf $HOME/google-cloud-sdk
                 sudo rm -rf ./*
             """
             deleteDir()

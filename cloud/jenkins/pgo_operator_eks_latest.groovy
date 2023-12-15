@@ -165,6 +165,7 @@ void createCluster(String CLUSTER_SUFFIX) {
     }
 
     sh """
+        timestamp="\$(date +%s)"
 tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
 ---
@@ -177,6 +178,7 @@ metadata:
     version: "$USED_PLATFORM_VER"
     tags:
         'delete-cluster-after-hours': '10'
+        'creation-time': '\$timestamp'
 iam:
   withOIDC: true
 
@@ -263,7 +265,7 @@ void runTest(Integer TEST_ID) {
             return true
         }
         catch (exc) {
-            if (retryCount >= 2) {
+            if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
@@ -422,9 +424,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
-    }
-    triggers {
-        cron('0 15 * * 0')
+        copyArtifactPermission('pg-operator-latest-scheduler');
     }
     stages {
         stage('Prepare node') {
