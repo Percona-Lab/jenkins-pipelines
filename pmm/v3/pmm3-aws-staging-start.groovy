@@ -354,10 +354,10 @@ pipeline {
                                 set -o xtrace
 
                                 # exclude unavailable mirrors
-                                docker exec ${VM_NAME}-server yum update -y percona-release
-                                docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/${PMM_VERSION}-server.repo
-                                docker exec ${VM_NAME}-server percona-release enable percona testing
-                                docker exec ${VM_NAME}-server yum clean all
+                                docker exec --user root ${VM_NAME}-server yum update -y percona-release
+                                docker exec --user root ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/${PMM_VERSION}-server.repo
+                                docker exec --user root ${VM_NAME}-server percona-release enable percona testing
+                                docker exec --user root ${VM_NAME}-server yum clean all
                             """
                         }
                     }
@@ -375,10 +375,10 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                docker exec ${VM_NAME}-server yum update -y percona-release
-                                docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/${PMM_VERSION}-server.repo
-                                docker exec ${VM_NAME}-server percona-release enable percona experimental
-                                docker exec ${VM_NAME}-server yum clean all
+                                docker exec --user root ${VM_NAME}-server yum update -y percona-release
+                                docker exec --user root ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/${PMM_VERSION}-server.repo
+                                docker exec --user root ${VM_NAME}-server percona-release enable percona experimental
+                                docker exec --user root ${VM_NAME}-server yum clean all
                             """
                         }
                     }
