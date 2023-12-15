@@ -26,7 +26,8 @@ pipeline {
         string(
             defaultValue: '4.4.8',
             description: 'PSMDB Version for tests',
-            name: 'PSMDB_VERSION')
+            name: 'PSMDB_VERSION'
+        )
         choice( 
             name: 'ENABLE_TOOLKIT',
             description: 'Enable or disable percona toolkit check',
@@ -53,6 +54,13 @@ pipeline {
         disableConcurrentBuilds()
     }
     stages {
+        stage('Set build name'){
+            steps {
+                script {
+                    currentBuild.displayName = "${params.REPO}-${params.PSMDB_VERSION}"
+                }
+            }
+        }
         stage('Checkout') {
             steps {
                 deleteDir()
@@ -72,6 +80,11 @@ pipeline {
                     script {
                         moleculeParallelTest(pdmdbOperatingSystems(PSMDB_VERSION), moleculeDir)
                     }
+                }
+            }
+            post {
+                always {
+                    junit testResults: "**/*-report.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
                 }
             }
         }
