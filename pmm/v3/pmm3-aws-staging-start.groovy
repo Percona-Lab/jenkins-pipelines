@@ -22,7 +22,7 @@ pipeline {
         )
         string(
             defaultValue: '3-dev-latest',
-            description: 'PMM Client version ("3-dev-latest" for main branch, "latest" or "X.X.X" for released version, "pmm2-rc" for Release Candidate, "http://..." for feature build)',
+            description: 'PMM Client version ("3-dev-latest" for main branch, "latest" or "X.X.X" for released version, "pmm3-rc" for Release Candidate, "http://..." for feature build)',
             name: 'CLIENT_VERSION'
         )
         string(
@@ -112,15 +112,13 @@ pipeline {
         )
         string(
             defaultValue: '',
-            description: '''
-            Docker image for version service, use it if you want to run your own version service.
-            ''',
+            description: 'Docker image for version service, use it if you want to run your own version service.',
             name: 'VERSION_SERVICE_IMAGE'
         )
         text(
             defaultValue: '-e PMM_DEBUG=1 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ -e PERCONA_PORTAL_URL=https://portal-dev.percona.com  -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443',
             description: '''
-            Passing Env Variables to PMM Server Docker Container, supported for pmm v2 and up.\n
+            Passing Env Variables to PMM Server Docker Container, supported for pmm v2 and up.
             Example: -e PERCONA_TEST_CHECKS_INTERVAL=10s -e PERCONA_TEST_TELEMETRY_INTERVAL=10s -e PMM_DEBUG=1
             ''',
             name: 'DOCKER_ENV_VARIABLE'
@@ -128,15 +126,15 @@ pipeline {
         text(
             defaultValue: '--addclient=ps,1',
             description: '''
-            Configure PMM Clients:\n
-            ms - MySQL (ex. --addclient=ms,1)\n
-            ps - Percona Server for MySQL (ex. --addclient=ps,1)\n
-            pxc - Percona XtraDB Cluster, --with-proxysql (to be used with proxysql only ex. --addclient=pxc,1 --with-proxysql)\n
-            md - MariaDB Server (ex. --addclient=md,1)\n
-            mo - Percona Server for MongoDB(ex. --addclient=mo,1)\n
-            modb - Official MongoDB version from MongoDB Inc (ex. --addclient=modb,1)\n
-            pgsql - Postgre SQL Server (ex. --addclient=pgsql,1)\n
-            pdpgsql - Percona Distribution for PostgreSQL (ex. --addclient=pdpgsql,1)\n
+            Configure PMM Clients:
+            ms - MySQL (ex: --addclient=ms,1)
+            ps - Percona Server for MySQL (ex: --addclient=ps,1)
+            pxc - Percona XtraDB Cluster, --with-proxysql (to be used with proxysql only, ex: --addclient=pxc,1 --with-proxysql)
+            md - MariaDB Server (ex: --addclient=md,1)
+            mo - Percona Server for MongoDB (ex: --addclient=mo,1)
+            modb - Official MongoDB version (ex: --addclient=modb,1)
+            pgsql - PostgreSQL Server (ex: --addclient=pgsql,1)
+            pdpgsql - Percona Distribution for PostgreSQL (ex: --addclient=pdpgsql,1)
             -----
             Example: --addclient=ps,1 --addclient=mo,2 --addclient=md,1 --addclient=pgsql,1 --addclient=modb,1
             ''',
