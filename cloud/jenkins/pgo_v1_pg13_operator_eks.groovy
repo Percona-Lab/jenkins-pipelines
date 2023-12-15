@@ -132,7 +132,7 @@ void runTest(String TEST_NAME) {
             return true
         }
         catch (exc) {
-            if (retryCount >= 1) {
+            if (retryCount >= 2) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
@@ -159,7 +159,7 @@ pipeline {
             description: 'percona-postgresql-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '14',
+            defaultValue: '13',
             description: 'PG version',
             name: 'PG_VERSION')
         string(
@@ -188,23 +188,23 @@ pipeline {
             name: 'PGO_DEPLOYER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg14-pgbouncer',
+            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg13-pgbouncer',
             name: 'PGO_PGBOUNCER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg14-postgres-ha',
+            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg13-postgres-ha',
             name: 'PGO_POSTGRES_HA_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg14-pgbackrest',
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg13-pgbackrest',
             name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg14-pgbackrest-repo',
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg13-pgbackrest-repo',
             name: 'PGO_BACKREST_REPO_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg14-pgbadger',
+            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg13-pgbadger',
             name: 'PGO_PGBADGER_IMAGE')
         string(
             defaultValue: 'perconalab/pmm-server',
@@ -231,41 +231,23 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                sh """
-                    sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
-                    kubectl version --client --output=yaml
-
-                    curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
-                    sudo chmod +x /usr/local/bin/yq
-
-                    sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-                    sudo chmod +x /usr/local/bin/jq
-
-                    curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
-
-                    sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-                    sudo percona-release enable-only tools
-
-                    sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
-[google-cloud-cli]
-name=Google Cloud CLI
-baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-                    sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
-                """
-
-                echo "=========================[ Logging in the Kubernetes provider ]========================="
-                withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+                withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT')]) {
                     sh """
-                        gcloud auth activate-service-account --key-file=$CLIENT_SECRET_FILE
-                        gcloud config set project $GCP_PROJECT
-                        gcloud version
+                        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+                        kubectl version --client --output=yaml
+
+                        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+
+                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                        sudo chmod +x /usr/local/bin/yq
+
+                        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+                        sudo chmod +x /usr/local/bin/jq
+
+                        curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
+
+                        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+                        sudo percona-release enable-only tools
                     """
                 }
             }
@@ -391,7 +373,7 @@ EOF
                     unstash 'cluster_conf'
                     sh '''
                         eksctl delete addon --name aws-ebs-csi-driver --cluster eks-pgo-pg$PG_VERSION-cluster --region eu-west-3
-                        eksctl delete cluster -f cluster.yaml --wait --force --disable-nodegroup-eviction
+                        eksctl delete cluster -f cluster.yaml --wait --force
                     '''
                 }
 

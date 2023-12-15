@@ -1,13 +1,12 @@
 - job:
-    name: pgo-docker-build
+    name: pgo-v1-pg12-operator-gke-version
     project-type: pipeline
     description: |
         Do not edit this job through the web!
     concurrent: false
-    quiet-period: 28800
     properties:
     - build-discarder:
-        days-to-keep: 10
+        days-to-keep: -1
         num-to-keep: 10
         artifact-days-to-keep: -1
         artifact-num-to-keep: 10
@@ -19,7 +18,7 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pgo_docker_build.groovy
+      script-path: cloud/jenkins/pgo_v1_pg12_operator_gke_version.groovy
     parameters:
     - string:
         name: GIT_REPO
@@ -27,5 +26,9 @@
         description: percona/percona-postgresql-operator repository
     - string:
         name: GIT_BRANCH
-        default: 1.x
+        default: release-0.1.0
         description: Tag/Branch for percona/percona-postgresql-operator repository
+    - string:
+        name: GKE_VERSION
+        default: '1.23'
+        description: GKE version
