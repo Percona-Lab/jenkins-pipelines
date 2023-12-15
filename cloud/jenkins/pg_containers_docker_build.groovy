@@ -15,13 +15,10 @@ void checkImageForDocker(String IMAGE_POSTFIX){
                 sg docker -c "
                     IMAGE_NAME='percona-postgresql-operator'
                     docker login -u '${USER}' -p '${PASS}'
-                    if [ ! -f junit.tpl ]; then
-                        wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
-                    fi
 
                     for PG_VER in 16 15 14 13 12; do
                         TrivyLog="$WORKSPACE/trivy-hight-\\${IMAGE_NAME}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}.xml"
-                        /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrivyLog --ignore-unfixed --timeout 20m --exit-code 0 \
+                        /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --ignore-unfixed --timeout 20m --exit-code 0 \
                             --severity HIGH,CRITICAL perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
 
                     done
@@ -82,6 +79,11 @@ pipeline {
                     TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
                     wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
+
+                    if [ ! -f junit.tpl ]; then
+                        wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
+                    fi
+
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
                     sudo git config --global --add safe.directory '*'

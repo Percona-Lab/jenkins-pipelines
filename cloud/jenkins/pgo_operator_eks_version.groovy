@@ -159,6 +159,7 @@ void createCluster(String CLUSTER_SUFFIX) {
     }
 
     sh """
+        timestamp="\$(date +%s)"
 tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
 ---
@@ -171,6 +172,7 @@ metadata:
     version: "$PLATFORM_VER"
     tags:
         'delete-cluster-after-hours': '10'
+        'creation-time': '\$timestamp'
 iam:
   withOIDC: true
 
@@ -256,7 +258,7 @@ void runTest(Integer TEST_ID) {
             return true
         }
         catch (exc) {
-            if (retryCount >= 2) {
+            if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
