@@ -13,7 +13,7 @@ pipeline {
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(
-            // default is choices.get(0) - experimental
+            // default is 'experimental'
             choices: ['experimental', 'testing', 'laboratory'],
             description: 'Repo component to push packages to',
             name: 'DESTINATION')
@@ -23,9 +23,9 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-    // triggers {
-    //     upstream upstreamProjects: 'pmm3-submodules-rewind', threshold: hudson.model.Result.SUCCESS
-    // }
+    triggers {
+        upstream upstreamProjects: 'pmm3-submodules-rewind', threshold: hudson.model.Result.SUCCESS
+    }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
     }
@@ -165,22 +165,45 @@ pipeline {
                 sync2ProdPMM("pmm3-components/yum/${DESTINATION}", 'no', '9')
             }
         }
+        stage('Trigger a devcontainer build') {
+            when {
+                // a guard to avoid unnecessary builds
+                expression { params.GIT_BRANCH == "v3" && params.DESTINATION == "experimental" }
+            }          
+            steps {
+                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                    sh '''
+                        # 'ref' is a required parameter, it should always equal 'v3' (or 'main' for v2)
+                        curl -L -X POST \
+                            -H "Accept: application/vnd.github+json" \
+                            -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                            "https://api.github.com/repos/percona/pmm/actions/workflows/devcontainer.yml/dispatches" \
+                            -d '{"ref":"v3"}'
+                    '''
+                }
+            }
+        }
+        stage('Start API Tests') {
+            steps {
+                build job: 'pmm3-api-tests'
+            }
+        }
     }
     post {        
         success {
             script {
-                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE} - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}, URL: ${BUILD_URL}"
                 if (params.DESTINATION == "testing") {
-                    currentBuild.description = "RC Build(EL9), Image:" + env.IMAGE
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: RC build finished - ${IMAGE} - ${BUILD_URL}"
+                    currentBuild.description = "RC Build v3, Image:" + env.IMAGE
+                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: RC build finished - ${IMAGE}, URL: ${BUILD_URL}"
                 }
             }
         }
         failure {
             script {
                 echo "Pipeline failed"
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
             }
         }
     }

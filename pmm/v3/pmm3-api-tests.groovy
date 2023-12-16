@@ -48,11 +48,6 @@ pipeline {
             description: 'Percona Server MongoDb Docker Container Image',
             name: 'MONGO_IMAGE'
         )
-        string (
-            defaultValue: 'master',
-            description: 'Branch for pmm-agent Repo, used for docker-compose setup',
-            name: 'GIT_BRANCH_PMM_AGENT'
-        )
     }
     options {
         skipDefaultCheckout()
@@ -64,9 +59,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 // fetch API tests from pmm repository
-                git poll: false,
-                    branch: GIT_BRANCH,
-                    url: GIT_URL
+                git poll: false, branch: GIT_BRANCH, url: GIT_URL
 
                 slackSend botUser: true,
                           channel: '#pmm-ci',
@@ -170,7 +163,7 @@ pipeline {
                 slackSend botUser: true,
                           channel: '#pmm-ci',
                           color: '#00FF00',
-                          message: "[${JOB_NAME}]: build finished, URL: ${BUILD_URL}"
+                          message: "[${JOB_NAME}]: build finished, URL: ${BUILD_URL}, owner: @${OWNER}"
 
             }
         }
