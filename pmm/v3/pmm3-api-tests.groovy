@@ -114,14 +114,14 @@ pipeline {
         stage('Connectivity Check') {
             steps {
                 sh '''
-                    timeout 100 bash -c "while ! curl -sf \${PMM_URL}/ping; do sleep 5; done" || echo "The PMM Server did not pass the connectivity check" >&2
+                    timeout 100 bash -c "until curl -sf ${PMM_URL}/ping; do sleep 1; done" || echo "The PMM Server did not pass the connectivity check" >&2
                 '''
             }
         }
         stage('Run API Test') {
             steps {
                 sh '''
-                    docker run -e PMM_SERVER_URL=\${PMM_URL} \
+                    docker run -e PMM_SERVER_URL=${PMM_URL} \
                                -e PMM_RUN_UPDATE_TEST=0 \
                                -e PMM_RUN_STT_TESTS=0 \
                                --name ${BUILD_TAG} \
@@ -135,8 +135,9 @@ pipeline {
         always {
             sh '''
                 docker cp ${BUILD_TAG}:/go/src/github.com/percona/pmm/api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml || true
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || touch logz.zip
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                 sudo chown -R ec2-user:ec2-user api-tests || true
+                ls -la
             '''
             script {
                 if (fileExists("${BUILD_TAG}.xml")) {
