@@ -277,10 +277,6 @@ pipeline {
                                     set -o xtrace
 
                                     aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-                                    docker create \
-                                        -v /srv \
-                                        --name ${VM_NAME}-data \
-                                        ${DOCKER_VERSION} /bin/true
 
                                     if [ ${VERSION_SERVICE_VERSION} == dev ]; then
                                         ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1"
@@ -289,18 +285,21 @@ pipeline {
                                     fi
 
                                     if [ -n "${VERSION_SERVICE_IMAGE}" ]; then
-                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=http://${VM_NAME}-version-service/versions/v1"
+                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=http://version-service/versions/v1"
                                     else
                                         ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
                                     fi
+
                                     docker network create pmm-qa || true
+                                    docker volume create pmm-data
 
                                     docker run -d \
                                         -p 80:8080 \
                                         -p 443:8443 \
                                         -p 9000:9000 \
-                                        --volumes-from ${VM_NAME}-data \
-                                        --name ${VM_NAME}-server \
+                                        --volume pmm-data:/srv \
+                                        --name pmm-server \
+                                        --hostname pmm-server \
                                         --network pmm-qa \
                                         --restart always \
                                         -e DISABLE_TELEMETRY=1 \
@@ -308,10 +307,10 @@ pipeline {
                                         ${DOCKER_VERSION}
 
                                     sleep 10
-                                    docker logs ${VM_NAME}-server
+                                    docker logs pmm-server
 
                                     if [ ${ADMIN_PASSWORD} != admin ]; then
-                                        docker exec ${VM_NAME}-server change-admin-password ${ADMIN_PASSWORD}
+                                        docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
                                     fi
                                 '''
                             }
@@ -328,14 +327,14 @@ pipeline {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                         node(env.VM_NAME){
-                            sh """
+                            sh '''
                                 set -o errexit
                                 set -o xtrace
-                                docker run --name ${VM_NAME}-version-service -d --hostname=${VM_NAME}-version-service -e SERVE_HTTP=true -e GW_PORT=80 ${VERSION_SERVICE_IMAGE}
-                                docker network create ${VM_NAME}-network
-                                docker network connect ${VM_NAME}-network ${VM_NAME}-version-service
-                                docker network connect ${VM_NAME}-network ${VM_NAME}-server
-                            """
+                                docker run -d --name version-service --hostname=version-service -e SERVE_HTTP=true -e GW_PORT=80 ${VERSION_SERVICE_IMAGE}
+                                docker network create vs-network
+                                docker network connect vs-network version-service
+                                docker network connect vs-network pmm-server
+                            '''
                         }
                     }
                 }
@@ -349,16 +348,15 @@ pipeline {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                         node(env.VM_NAME){
-                            sh """
+                            sh '''
                                 set -o errexit
                                 set -o xtrace
 
-                                # exclude unavailable mirrors
-                                docker exec --user root ${VM_NAME}-server yum update -y percona-release
-                                docker exec --user root ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/${PMM_VERSION}-server.repo
-                                docker exec --user root ${VM_NAME}-server percona-release enable percona testing
-                                docker exec --user root ${VM_NAME}-server yum clean all
-                            """
+                                docker exec --user root pmm-server yum update -y percona-release
+                                docker exec --user root pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/${PMM_VERSION}-server.repo
+                                docker exec --user root pmm-server percona-release enable percona testing
+                                docker exec --user root pmm-server yum clean all
+                            '''
                         }
                     }
                 }
@@ -372,14 +370,14 @@ pipeline {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                         node(env.VM_NAME){
-                            sh """
+                            sh '''
                                 set -o errexit
                                 set -o xtrace
-                                docker exec --user root ${VM_NAME}-server yum update -y percona-release
-                                docker exec --user root ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/${PMM_VERSION}-server.repo
-                                docker exec --user root ${VM_NAME}-server percona-release enable percona experimental
-                                docker exec --user root ${VM_NAME}-server yum clean all
-                            """
+                                docker exec --user root pmm-server yum update -y percona-release
+                                docker exec --user root pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/${PMM_VERSION}-server.repo
+                                docker exec --user root pmm-server percona-release enable percona experimental
+                                docker exec --user root pmm-server yum clean all
+                            '''
                         }
                     }
                 }
@@ -408,17 +406,12 @@ pipeline {
                         fi
                         [ -z "${CLIENTS}" ] && exit 0 || :
 
-                        if [[ "${CLIENT_VERSION}" = http* ]]; then
-                            # The .bash_profile is updated by `var/setupPMMClient` function
-                            source ~/.bash_profile
-                        fi
-                        echo "PATH: $PATH"
-
                         PMM_SERVER_IP=${SERVER_IP}
-
                         if [[ "${CLIENT_INSTANCE}" = no ]]; then
                             PMM_SERVER_IP=${IP}
                         fi
+
+                        pmm-admin --version
 
                         bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                             --ms-version  ${MS_VERSION} \
@@ -467,7 +460,7 @@ pipeline {
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                 sh '''
                     set -o xtrace
-                    export REQUEST_ID=$(cat REQUEST_ID)
+                    REQUEST_ID=$(cat REQUEST_ID)
                     if [ -n "$REQUEST_ID" ]; then
                         aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids $REQUEST_ID
                         aws ec2 --region us-east-2 terminate-instances --instance-ids $(cat ID)

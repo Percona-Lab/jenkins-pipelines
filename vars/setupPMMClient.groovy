@@ -52,9 +52,9 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 sleep 10
             else
                 if [[ "$CLIENT_VERSION" = http* ]]; then
-                    wget -O pmm-client.tar.gz --progress=dot:giga "${CLIENT_VERSION}"
+                    curl -o pmm-client.tar.gz "${CLIENT_VERSION}"
                 else
-                    wget -O pmm-client.tar.gz --progress=dot:giga "https://www.percona.com/downloads/pmm2/${CLIENT_VERSION}/binary/tarball/pmm2-client-${CLIENT_VERSION}.tar.gz"
+                    curl -o pmm-client.tar.gz "https://www.percona.com/downloads/pmm2/${CLIENT_VERSION}/binary/tarball/pmm2-client-${CLIENT_VERSION}.tar.gz"
                 fi
 
                 export BUILD_ID=dont-kill-the-process
@@ -65,11 +65,13 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
 
                 # Install the client to PMM_DIR
                 mkdir -p "$PMM_DIR"
-                bash -E "$PMM_BINARY/install_tarball" # PMM_DIR is passed to it via -E option, it's owned by ec2-user
+                # PMM_DIR is passed to 'install_tarball' via -E option, it's owned by 'ec2-user'
+                bash -E "$PMM_BINARY/install_tarball" 
                 rm -rf "$PMM_BINARY"
 
-                echo "export PATH=$PMM_DIR/bin:$PATH" >> ~/.bash_profile
-                source ~/.bash_profile
+                # Create symlinks for pmm-admin and pmm-agent
+                sudo ln -s $PMM_DIR/bin/pmm-admin /usr/local/bin || :
+                sudo ln -s $PMM_DIR/bin/pmm-agent /usr/local/bin || :
                 pmm-admin --version
 
                 if [[ "$CLIENT_INSTANCE" = yes ]]; then
