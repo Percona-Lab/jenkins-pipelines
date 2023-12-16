@@ -11,43 +11,48 @@ pipeline {
         string(
             defaultValue: 'https://github.com/percona/pmm',
             description: 'Url for pmm repository',
-            name: 'GIT_URL')
+            name: 'GIT_URL'
+        )
         string(
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm repository',
-            name: 'GIT_BRANCH')
+            name: 'GIT_BRANCH'
+        )
         string(
             defaultValue: '',
             description: 'Commit hash for the branch',
-            name: 'GIT_COMMIT_HASH')
+            name: 'GIT_COMMIT_HASH'
+        )
         string(
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
-            name: 'DOCKER_VERSION')
+            name: 'DOCKER_VERSION'
+        )
         string(
             defaultValue: '3-dev-latest',
             description: 'PMM Client version',
-            name: 'CLIENT_VERSION')
+            name: 'CLIENT_VERSION'
+        )
         string(
             defaultValue: 'percona:5.7',
             description: 'Percona Server Docker Container Image',
-            name: 'MYSQL_IMAGE')
+            name: 'MYSQL_IMAGE'
+        )
         string(
             defaultValue: 'postgres:12',
             description: 'Postgresql Docker Container Image',
-            name: 'POSTGRES_IMAGE')
+            name: 'POSTGRES_IMAGE'
+        )
         string(
             defaultValue: 'percona/percona-server-mongodb:4.4',
             description: 'Percona Server MongoDb Docker Container Image',
-            name: 'MONGO_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Author of recent Commit to pmm',
-            name: 'OWNER')
+            name: 'MONGO_IMAGE'
+        )
         string (
             defaultValue: 'master',
             description: 'Branch for pmm-agent Repo, used for docker-compose setup',
-            name: 'GIT_BRANCH_PMM_AGENT')
+            name: 'GIT_BRANCH_PMM_AGENT'
+        )
     }
     options {
         skipDefaultCheckout()
@@ -67,11 +72,15 @@ pipeline {
                           channel: '#pmm-ci',
                           color: '#0000FF',
                           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                script {
+                    // Set envvars OWNER, OWNER_SLACK
+                    getPMMBuildParams('pmm-')
+                }
             }
         }
         stage('Checkout Commit') {
             when {
-                expression { env.GIT_COMMIT_HASH.length() > 0 }
+                expression { env.GIT_COMMIT_HASH.trim().length() > 0 }
             }
             steps {
                 sh 'git checkout ' + env.GIT_COMMIT_HASH
@@ -114,7 +123,10 @@ pipeline {
         stage('Connectivity Check') {
             steps {
                 sh '''
-                    timeout 100 bash -c "until curl -sf ${PMM_URL}/ping; do sleep 1; done" || echo "The PMM Server did not pass the connectivity check" >&2
+                    if ! timeout 100 bash -c "until curl -sf ${PMM_URL}/ping; do sleep 1; done"; then
+                        echo "PMM Server did not pass the connectivity check" >&2
+                        exit 1
+                    fi
                 '''
             }
         }
@@ -137,7 +149,6 @@ pipeline {
                 docker cp ${BUILD_TAG}:/go/src/github.com/percona/pmm/api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml || true
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                 sudo chown -R ec2-user:ec2-user api-tests || true
-                ls -la
             '''
             script {
                 if (fileExists("${BUILD_TAG}.xml")) {
@@ -150,7 +161,7 @@ pipeline {
                     slackSend botUser: true,
                               channel: '#pmm-ci',
                               color: '#FF0000',
-                              message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, owner: @${OWNER}"
+                              message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}, owner: @${OWNER}"
                 }
             }
         }
@@ -159,7 +170,7 @@ pipeline {
                 slackSend botUser: true,
                           channel: '#pmm-ci',
                           color: '#00FF00',
-                          message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                          message: "[${JOB_NAME}]: build finished, URL: ${BUILD_URL}"
 
             }
         }
