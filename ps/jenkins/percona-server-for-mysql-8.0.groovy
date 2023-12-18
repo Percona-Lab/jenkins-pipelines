@@ -203,7 +203,7 @@ parameters {
             description: 'Compile with ZenFS support?, only affects Ubuntu Hirsute',
             name: 'ENABLE_ZENFS')
         choice(
-            choices: 'no\nyes',
+            choices: 'NO\nYES',
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
         choice(
@@ -262,7 +262,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 buildStage("none", "--build_src_rpm=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("none", "--build_src_rpm=1")
@@ -283,7 +283,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 buildStage("none", "--build_source_deb=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("none", "--build_source_deb=1")
@@ -304,7 +304,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -324,7 +324,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -344,7 +344,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -368,7 +368,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 buildStage("none", "--build_rpm=1 --with_zenfs=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("none", "--build_rpm=1 --with_zenfs=1")
@@ -388,7 +388,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
@@ -404,7 +404,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -428,7 +428,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 buildStage("none", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("none", "--build_deb=1 --with_zenfs=1")
@@ -444,7 +444,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -464,7 +464,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -488,7 +488,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 buildStage("none", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("none", "--build_deb=1 --with_zenfs=1")
@@ -504,7 +504,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -524,7 +524,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -544,7 +544,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -564,7 +564,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -588,7 +588,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 buildStage("none", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("none", "--build_tarball=1")
@@ -608,7 +608,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 buildStage("none", "--build_tarball=1 --with_zenfs=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("none", "--build_tarball=1 --with_zenfs=1")
@@ -628,7 +628,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 buildStage("none", "--debug=1 --build_tarball=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("none", "--debug=1 --build_tarball=1")
@@ -644,7 +644,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -664,7 +664,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -688,7 +688,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 buildStage("none", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("none", "--build_tarball=1")
@@ -708,7 +708,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 buildStage("none", "--build_tarball=1 --with_zenfs=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("none", "--build_tarball=1 --with_zenfs=1")
@@ -728,7 +728,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
+                            if (env.FIPSMODE == 'YES') {
                                 buildStage("none", "--debug=1 --build_tarball=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("none", "--debug=1 --build_tarball=1")
@@ -768,7 +768,7 @@ parameters {
                     PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
                     // sync packages
                     if ("${PS_MAJOR_RELEASE}" == "80") {
-                        if (env.FIPSMODE == 'yes') {
+                        if (env.FIPSMODE == 'YES') {
                             sync2PrivateProdAutoBuild("ps-80-pro", COMPONENT)
                         } else {
                             sync2ProdAutoBuild("ps-80", COMPONENT)
@@ -783,7 +783,7 @@ parameters {
             steps {
                 script {
                     try {
-                        if (env.FIPSMODE == 'yes') {
+                        if (env.FIPSMODE == 'YES') {
                             uploadTarballToDownloadsTesting("ps-gated", "${BRANCH}")
                         } else {
                             uploadTarballToDownloadsTesting("ps", "${BRANCH}")
@@ -802,7 +802,7 @@ parameters {
             }
             steps {
                 script {
-                    if (env.FIPSMODE == 'yes') {
+                    if (env.FIPSMODE == 'YES') {
                         echo "The step is skipped ..."
                     } else {
                         echo "====> Build docker container"
@@ -900,7 +900,7 @@ parameters {
     post {
         success {
             script {
-                if (env.FIPSMODE == 'yes') {
+                if (env.FIPSMODE == 'YES') {
                     slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: PRO build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
                 } else {
                     slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
