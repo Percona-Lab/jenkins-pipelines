@@ -50,7 +50,7 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
-                    currentBuild.displayName = "${params.PSMDB_REPO}-${params.PSMDB_VERSION}"
+                    currentBuild.displayName = "${params.REPO}-${params.PSMDB_VERSION}"
                 }
             }
         }

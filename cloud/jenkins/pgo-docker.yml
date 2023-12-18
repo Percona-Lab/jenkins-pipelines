@@ -7,7 +7,7 @@
     quiet-period: 28800
     properties:
     - build-discarder:
-        days-to-keep: -1
+        days-to-keep: 10
         num-to-keep: 10
         artifact-days-to-keep: -1
         artifact-num-to-keep: 10
