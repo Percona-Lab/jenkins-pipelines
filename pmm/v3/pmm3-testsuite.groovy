@@ -131,7 +131,7 @@ pipeline {
             description: 'PMM Client Docker tag',
             name: 'CLIENT_DOCKER_VERSION')
         string(
-            defaultValue: 'main',
+            defaultValue: 'v3',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
@@ -278,7 +278,7 @@ pipeline {
                 junit allowEmptyResults: true, testResults: '**/*.xml'
             }
             script {
-                if(env.VM_NAME) {
+                if (env.VM_NAME) {
                     destroyStaging(VM_NAME)
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-agent.log'
@@ -288,10 +288,10 @@ pipeline {
             }
         }
         unstable {
-            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build failed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
+            slackSend channel: '#pmm-ci', color: '#FF5010', message: "[${JOB_NAME}]: build unstable\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
         }
         success {
-            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build Passed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
+            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build passed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
         }
         failure {
             slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"

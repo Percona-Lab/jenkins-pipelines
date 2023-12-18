@@ -92,7 +92,7 @@ void checkClientAfterUpgrade(String PMM_VERSION) {
         sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP_DB} '
                 export PMM_VERSION=${PMM_VERSION}
-                echo "Upgrading pmm-client";
+                echo "Upgrading pmm-client..."
                 sudo yum clean all
                 sudo yum makecache
                 sudo yum -y install pmm-client
@@ -175,7 +175,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'main',
+            defaultValue: 'v3',
             description: 'Tag/Branch for UI Tests Repo repository',
             name: 'GIT_BRANCH')
         choice(
@@ -191,7 +191,7 @@ pipeline {
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: 'main',
+            defaultValue: 'v3',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(

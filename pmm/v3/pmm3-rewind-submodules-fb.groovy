@@ -62,13 +62,19 @@ pipeline {
         }
     }
     post {
+        success {
+            script {
+                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build successful ${BUILD_URL}"
+            }
+        }
+        unstable {
+            script {
+                echo 'everything up to date'
+            }
+        }
         always {
             script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build successful ${BUILD_URL}"
-                } else if (currentBuild.result == 'UNSTABLE') {
-                    echo 'everything up to date'
-                } else {
+                if (currentBuild.result != 'SUCCESS') {
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}  ${BUILD_URL}"
                 }
             }

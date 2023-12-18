@@ -185,7 +185,7 @@ pipeline {
         }
         stage('Start API Tests') {
             steps {
-                build job: 'pmm3-api-tests'
+                build job: 'pmm3-api-tests', propagate: false
             }
         }
     }

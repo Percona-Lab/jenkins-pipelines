@@ -142,8 +142,8 @@ pipeline {
                     '''
                 }
                 script {
-                    def clientPackageURL = sh script:'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL', returnStdout: true
-                    env.CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
+                    sh (script: 'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL')
+                    env.CLIENT_URL = sh (script: "cat CLIENT_URL", returnStdout: true).trim()
                 }
             }
         }
@@ -209,9 +209,7 @@ pipeline {
         stage('Build server packages') {
             when {
                 beforeAgent true
-                allOf {
-                    expression { env.PMM_VER =~ '^3.' }
-                }
+                expression { env.PMM_VER =~ '^3.' }
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {

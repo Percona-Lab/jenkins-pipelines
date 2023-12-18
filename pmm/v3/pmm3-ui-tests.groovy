@@ -12,18 +12,10 @@ void uploadAllureArtifacts() {
     }
 }
 
-def changeUserPasswordUtility(dockerImage) {
-    tag = dockerImage.split(":")[1]
-
-    if (tag.startsWith("PR") || tag.startsWith("dev"))
-        return "yes"
-
-    minorVersion = tag.split("\\.")[1].toInteger()
-
-    if (minorVersion < 27)
-        return "no"
-    else
-        return "yes"
+void destroyStaging(IP) {
+    build job: 'aws-staging-stop', parameters: [
+        string(name: 'VM', value: IP),
+    ]
 }
 
 pipeline {
@@ -119,7 +111,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'main',
+            defaultValue: 'v3',
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         string(
@@ -179,7 +171,7 @@ pipeline {
             description: 'ProxySQL Docker Container Image',
             name: 'PROXYSQL_IMAGE')
         string(
-            defaultValue: 'main',
+            defaultValue: 'v3',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         text(
@@ -205,12 +197,11 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    env.CHANGE_USER_PASSWORD_UTILITY = changeUserPasswordUtility(DOCKER_VERSION)
-                    if(env.TAG != "") {
+                    if (env.TAG != "") {
                         currentBuild.description = env.TAG
                     }
                     env.PMM_REPO="experimental"
-                    if(env.CLIENT_VERSION == "pmm-rc") {
+                    if (env.CLIENT_VERSION == "pmm-rc") {
                         env.PMM_REPO="testing"
                     }
                 }
@@ -256,14 +247,10 @@ pipeline {
                         waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
                         waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                         waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
-                        sh """
-                            if [ \$CHANGE_USER_PASSWORD_UTILITY == yes ]; then
-                                docker exec pmm-server change-admin-password \${ADMIN_PASSWORD}
-                            else
-                                docker exec pmm-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password \${ADMIN_PASSWORD}
-                            fi
+                        sh '''
+                            docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
                             bash -x testdata/db_setup.sh
-                        """
+                        '''
                         script {
                             env.SERVER_IP = "127.0.0.1"
                             env.PMM_UI_URL = "http://${env.SERVER_IP}/"
@@ -307,9 +294,14 @@ pipeline {
         }
         stage('Setup') {
             parallel {
-                stage('Sanity check') {
+                stage('Connectivity check') {
                     steps {
-                        sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+                        sh '''
+                            if ! timeout 100 bash -c "until curl -sf ${PMM_URL}/ping; do sleep 1; done"; then
+                                echo "PMM Server did not pass the connectivity check" >&2
+                                exit 1
+                            fi
+                          '''
                     }
                 }
                 stage('Setup Node') {
@@ -330,7 +322,10 @@ pipeline {
                 expression { env.OVF_TEST == "yes" }
             }
             steps {
-                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                withCredentials([
+                    aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'),
+                    aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
                     sh """
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
@@ -448,7 +443,7 @@ pipeline {
         failure {
             script {
                 archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
             }
         }
     }
