@@ -3,51 +3,14 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runSubmodulesRewind(String SUBMODULES_GIT_BRANCH) {
-    rewindSubmodule = build job: 'pmm-rewind-submodules-fb', propagate: false, parameters: [
-        string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH)
-    ]
-}
-
-void runPMM3ServerAutobuild(String SUBMODULES_GIT_BRANCH, String DESTINATION) {
-    pmmServer = build job: 'pmm3-server-autobuild', parameters: [
-        string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH),
-        string(name: 'DESTINATION', value: DESTINATION)
-    ]
-}
-
-void runPMM3ClientAutobuild(String SUBMODULES_GIT_BRANCH, String DESTINATION) {
-    pmmClient = build job: 'pmm3-client-autobuilds', parameters: [
-        string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH),
-        string(name: 'DESTINATION', value: DESTINATION)
-    ]
-    env.TARBALL_URL = pmmClient.buildVariables.TARBALL_URL
-}
-
-void runPMM3AMIBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
-    pmmAMI = build job: 'pmm3-ami', parameters: [
-        string(name: 'PMM_BRANCH', value: SUBMODULES_GIT_BRANCH),
-        string(name: 'RELEASE_CANDIDATE', value: RELEASE_CANDIDATE)
-    ]
-    env.AMI_ID = pmmAMI.buildVariables.AMI_ID
-}
-
-void runPMM3OVFBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
-    pmmOVF = build job: 'pmm3-ovf', parameters: [
-        string(name: 'PMM_BRANCH', value: SUBMODULES_GIT_BRANCH),
-        string(name: 'RELEASE_CANDIDATE', value: RELEASE_CANDIDATE)
-    ]
-}
-
 def pmm_submodules() {
     return [
         "pmm",
         "grafana-dashboards",
+        "grafana",
         "pmm-ui-tests",
         "pmm-qa",
         "mysqld_exporter",
-        "grafana",
-        "dbaas-controller",
         "node_exporter",
         "postgres_exporter",
         "clickhouse_exporter",
@@ -80,8 +43,8 @@ void deleteReleaseBranches(String VERSION) {
 
 void setupReleaseBranches(String VERSION) {
     sh '''
-        git branch \${RELEASE_BRANCH}
-        git checkout \${RELEASE_BRANCH}
+        git branch ${RELEASE_BRANCH}
+        git checkout ${RELEASE_BRANCH}
     '''
     pmm_submodules().each { submodule ->
         println "Preparing Release branch for Submodule: $submodule"
@@ -105,7 +68,7 @@ void setupReleaseBranches(String VERSION) {
 
 void createBranch(String SUBMODULE, String BRANCH) {
     withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
-        sh """
+        sh '''
             set -o errexit
             set -o xtrace
 
@@ -113,26 +76,26 @@ void createBranch(String SUBMODULE, String BRANCH) {
             export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
             export SUBMODULE=${SUBMODULE}
             export BRANCH=${BRANCH}
-            export submodule_url=\$(git config --file=.gitmodules submodule.\${SUBMODULE}.url)
-            export submodule_branch=\$(git config --file=.gitmodules submodule.\${SUBMODULE}.branch)
-            export ssh_submodule_url=\$(echo \$submodule_url | sed "s^https://github.com/^git@github.com:^g")
-            git config --file=.gitmodules submodule.\${SUBMODULE}.branch \${BRANCH}
+            export submodule_url=\$(git config --file=.gitmodules submodule.${SUBMODULE}.url)
+            export submodule_branch=\$(git config --file=.gitmodules submodule.${SUBMODULE}.branch)
+            export ssh_submodule_url=\$(echo $submodule_url | sed "s^https://github.com/^git@github.com:^g")
+            git config --file=.gitmodules submodule.${SUBMODULE}.branch ${BRANCH}
             cd /tmp/
-            export submodule_branch_exist=\$(git ls-remote --heads \${submodule_url} \${BRANCH} | wc -l)
-            if [[ \${submodule_branch_exist} != 1 ]]; then
-                git clone --branch \${submodule_branch} \${ssh_submodule_url}
-                cd \${SUBMODULE}
-                git branch \${BRANCH}
-                git checkout \${BRANCH}
-                git push --set-upstream origin \${BRANCH}
+            export submodule_branch_exist=\$(git ls-remote --heads ${submodule_url} ${BRANCH} | wc -l)
+            if [[ ${submodule_branch_exist} != 1 ]]; then
+                git clone --branch ${submodule_branch} ${ssh_submodule_url}
+                cd ${SUBMODULE}
+                git branch ${BRANCH}
+                git checkout ${BRANCH}
+                git push --set-upstream origin ${BRANCH}
             fi
-        """
+        '''
     }
 }
 
 void deleteBranch(String SUBMODULE, String BRANCH) {
     withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
-        sh """
+        sh '''
             set -o errexit
             set -o xtrace
 
@@ -140,17 +103,17 @@ void deleteBranch(String SUBMODULE, String BRANCH) {
             export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
             export SUBMODULE=${SUBMODULE}
             export BRANCH=${BRANCH}
-            export submodule_url=\$(git config --file=.gitmodules submodule.\${SUBMODULE}.url)
-            export submodule_branch=\$(git config --file=.gitmodules submodule.\${SUBMODULE}.branch)
-            export ssh_submodule_url=\$(echo \$submodule_url | sed "s^https://github.com/^git@github.com:^g")
+            export submodule_url=$(git config --file=.gitmodules submodule.${SUBMODULE}.url)
+            export submodule_branch=\$(git config --file=.gitmodules submodule.${SUBMODULE}.branch)
+            export ssh_submodule_url=\$(echo $submodule_url | sed "s^https://github.com/^git@github.com:^g")
             cd /tmp/
-            export submodule_branch_exist=\$(git ls-remote --heads \${submodule_url} \${submodule_branch} | wc -l)
-            if [[ \${submodule_branch_exist} != 0 ]]; then
-                git clone --branch \${submodule_branch} \${ssh_submodule_url}
-                cd \${SUBMODULE}
-                git push origin --delete \${submodule_branch}
+            export submodule_branch_exist=\$(git ls-remote --heads ${submodule_url} ${submodule_branch} | wc -l)
+            if [[ ${submodule_branch_exist} != 0 ]]; then
+                git clone --branch ${submodule_branch} ${ssh_submodule_url}
+                cd ${SUBMODULE}
+                git push origin --delete ${submodule_branch}
             fi
-        """
+        '''
     }
 }
 
@@ -164,11 +127,13 @@ pipeline {
         string(
             defaultValue: DEFAULT_BRANCH,
             description: 'Prepare Submodules from pmm-submodules branch',
-            name: 'SUBMODULES_GIT_BRANCH')
+            name: 'SUBMODULES_GIT_BRANCH'
+        )
         choice(
             choices: ['no', 'yes'],
             description: 'Recreate Release branches, Option to be used only to recreate release branches',
-            name: 'REMOVE_RELEASE_BRANCH')
+            name: 'REMOVE_RELEASE_BRANCH'
+        )
     }
     stages {
         stage('Update API descriptors') {
@@ -246,7 +211,7 @@ pipeline {
                     env.RELEASE_BRANCH = 'pmm-' + VERSION
                 }
                 deleteReleaseBranches(env.SUBMODULES_GIT_BRANCH)
-                script{
+                script {
                     currentBuild.description = "Release beanches were deleted: ${env.SUBMODULES_GIT_BRANCH}"
                     return
                 }
@@ -286,7 +251,9 @@ pipeline {
                 expression { env.REMOVE_RELEASE_BRANCH == "no"}
             }
             steps {
-                runSubmodulesRewind(RELEASE_BRANCH)
+                rewindSubmodule = build job: 'pmm3-rewind-submodules-fb', propagate: false, parameters: [
+                    string(name: 'GIT_BRANCH', value: RELEASE_BRANCH)
+                ]
             }
         }
         stage('Autobuilds RC for Server & Client') {
@@ -296,12 +263,19 @@ pipeline {
             parallel {
                 stage('Start PMM3 Server Autobuild') {
                     steps {
-                        runPMM3ServerAutobuild(RELEASE_BRANCH, 'testing')
+                        pmmServer = build job: 'pmm3-server-autobuild', parameters: [
+                            string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                            string(name: 'DESTINATION', value: 'testing')
+                        ]                        
                     }
                 }
                 stage('Start PMM3 Client Autobuild') {
                     steps {
-                        runPMM3ClientAutobuild(RELEASE_BRANCH, 'testing')
+                        pmmClient = build job: 'pmm3-client-autobuilds', parameters: [
+                            string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                            string(name: 'DESTINATION', value: 'testing')
+                        ]
+                        env.TARBALL_URL = pmmClient.buildVariables.TARBALL_URL                        
                     }
                 }
             }
@@ -313,12 +287,19 @@ pipeline {
             parallel {
                 stage('Start AMI Build for RC') {
                     steps {
-                        runPMM3AMIBuild("pmm-${VERSION}", 'yes')
+                        pmmAMI = build job: 'pmm3-ami', parameters: [
+                            string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
+                            string(name: 'RELEASE_CANDIDATE', value: "yes")
+                        ]
+                        env.AMI_ID = pmmAMI.buildVariables.AMI_ID                        
                     }
                 }
                 stage('Start OVF Build for RC') {
                     steps {
-                        runPMM3OVFBuild("pmm-${VERSION}", 'yes')
+                        pmmOVF = build job: 'pmm3-ovf', parameters: [
+                            string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
+                            string(name: 'RELEASE_CANDIDATE', value: 'yes')
+                        ]                        
                     }
                 }
             }
