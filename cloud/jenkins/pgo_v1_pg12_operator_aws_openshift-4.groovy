@@ -55,7 +55,7 @@ compute:
   platform:
     aws:
       type: m5.2xlarge
-  replicas: 1
+  replicas: 3
 controlPlane:
   architecture: amd64
   hyperthreading: Enabled
@@ -76,7 +76,7 @@ networking:
   - 172.30.0.0/16
 platform:
   aws:
-    region: eu-west-3
+    region: eu-west-2
     userTags:
       iit-billing-tag: openshift
       delete-cluster-after-hours: 8
@@ -94,10 +94,6 @@ EOF
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
                 export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
-                
-                machineset=`oc get machineset  -n openshift-machine-api | awk 'NR==2 {print \$1; exit}'`
-                oc get machineset \$machineset -o yaml -n openshift-machine-api | yq eval '.spec.template.spec.providerSpec.value.spotMarketOptions = {}' | oc apply -f -
-                oc scale machineset --replicas=3  \$machineset -n openshift-machine-api
 
             """
         }
@@ -241,7 +237,7 @@ pipeline {
             description: 'percona-postgresql-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '14',
+            defaultValue: '12',
             description: 'PG version',
             name: 'PG_VERSION')
         string(
@@ -270,23 +266,23 @@ pipeline {
             name: 'PGO_DEPLOYER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg14-pgbouncer',
+            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg12-pgbouncer',
             name: 'PGO_PGBOUNCER_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg14-postgres-ha',
+            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg12-postgres-ha',
             name: 'PGO_POSTGRES_HA_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg14-pgbackrest',
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg12-pgbackrest',
             name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg14-pgbackrest-repo',
+            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg12-pgbackrest-repo',
             name: 'PGO_BACKREST_REPO_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg14-pgbadger',
+            description: 'Operators pgBadger image: perconalab/percona-postgresql-operator:main-ppg12-pgbadger',
             name: 'PGO_PGBADGER_IMAGE')
         string(
             defaultValue: 'perconalab/pmm-server',
@@ -340,17 +336,6 @@ pipeline {
                         wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
                         unzip -o terraform_0.11.14_linux_amd64.zip
                         sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
-
-                        sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
-[google-cloud-cli]
-name=Google Cloud CLI
-baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-                        sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
                     """
                 }
 

@@ -24,7 +24,7 @@ void prepareNode() {
         sudo yum install -y percona-xtrabackup-80 | true
 
         wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
-        unzip terraform_0.11.14_linux_amd64.zip
+        unzip -o terraform_0.11.14_linux_amd64.zip
         sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
     """
 
@@ -62,6 +62,7 @@ void dockerBuildPush() {
             else
                 cd source
                 sg docker -c "
+                    docker buildx create --use
                     docker login -u '$USER' -p '$PASS'
                     export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
                     e2e-tests/build

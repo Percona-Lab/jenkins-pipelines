@@ -161,7 +161,7 @@ pipeline {
                 }
                 stage('Build client source deb') {
                     steps {
-                        sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:bionic"
+                        sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:focal"
                         stash includes: 'results/source_deb/*', name: 'debs'
                         uploadDEB()
                     }
@@ -186,11 +186,6 @@ pipeline {
                         stage('Build client binary deb Jammy') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
-                            }
-                        }
-                        stage('Build client binary deb Bionic') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:bionic"
                             }
                         }
                         stage('Build client binary deb Focal') {

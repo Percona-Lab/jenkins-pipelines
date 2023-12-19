@@ -258,7 +258,7 @@ void runTest(Integer TEST_ID) {
             return true
         }
         catch (exc) {
-            if (retryCount >= 2) {
+            if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
@@ -287,7 +287,7 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PG-EKS-latest\\">\n'
+TestsReport = '<testsuite name=\\"PG-EKS-version\\">\n'
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
     for (int i=0; i<tests.size(); i++) {
