@@ -272,6 +272,7 @@ pipeline {
                         else
                             cd ./source/
                             sg docker -c "
+                                docker buildx create --use
                                 docker login -u '${USER}' -p '${PASS}'
                                 export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
                                 ./e2e-tests/build
@@ -294,14 +295,6 @@ pipeline {
                     sh """
                         sudo yum install -y conntrack
                         sudo usermod -aG docker $USER
-                        if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-                            rm -rf $HOME/google-cloud-sdk
-                            curl https://sdk.cloud.google.com | bash
-                        fi
-
-                        source $HOME/google-cloud-sdk/path.bash.inc
-                        gcloud components install alpha
-                        gcloud components install kubectl
 
                         curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
@@ -328,7 +321,6 @@ pipeline {
                 always {
                     sh """
                         /usr/local/bin/minikube delete || true
-                        sudo rm -rf $HOME/google-cloud-sdk
                         sudo rm -rf ./*
                     """
                     deleteDir()
@@ -351,7 +343,6 @@ pipeline {
     post {
         always {
             sh """
-                sudo rm -rf $HOME/google-cloud-sdk
                 sudo rm -rf ./*
             """
             deleteDir()

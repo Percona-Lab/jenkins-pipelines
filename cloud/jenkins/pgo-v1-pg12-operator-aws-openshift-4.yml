@@ -1,5 +1,5 @@
 - job:
-    name: pxc57-autobuild-RELEASE
+    name: pgo-v1-pg12-operator-aws-openshift-4
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,5 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pxc/jenkins/percona-xtradb-cluster-5.7.groovy
-
+      script-path: cloud/jenkins/pgo_v1_pg12_operator_aws_openshift-4.groovy

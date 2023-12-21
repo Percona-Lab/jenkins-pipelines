@@ -114,7 +114,6 @@ void runTest(Integer TEST_ID) {
 
                 export KUBECONFIG=~/.kube/config
                 export PATH="${HOME}/.krew/bin:$PATH"
-                source $HOME/google-cloud-sdk/path.bash.inc
 
                 kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
             """
@@ -273,16 +272,8 @@ pipeline {
                         sudo yum install -y conntrack
                         sudo usermod -aG docker $USER
 
-                        sudo yum install -y | true
-
-                        if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-                            rm -rf $HOME/google-cloud-sdk
-                            curl https://sdk.cloud.google.com | bash
-                        fi
-
-                        source $HOME/google-cloud-sdk/path.bash.inc
-                        gcloud components install alpha
-                        gcloud components install kubectl
+                        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+                        kubectl version --client --output=yaml
 
                         curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
@@ -320,7 +311,6 @@ pipeline {
                 always {
                     sh """
                         /usr/local/bin/minikube delete || true
-                        sudo rm -rf $HOME/google-cloud-sdk
                         sudo rm -rf ./*
                     """
                     deleteDir()
@@ -343,7 +333,6 @@ pipeline {
     post {
         always {
             sh """
-                sudo rm -rf $HOME/google-cloud-sdk
                 sudo rm -rf ./*
             """
             deleteDir()
