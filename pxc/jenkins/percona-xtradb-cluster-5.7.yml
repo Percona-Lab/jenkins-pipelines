@@ -6,9 +6,9 @@
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/surbhat1595/jenkins-pipelines.git
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'ENG-1197'
+            - 'master'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pxc/jenkins/percona-xtradb-cluster-5.7.groovy
