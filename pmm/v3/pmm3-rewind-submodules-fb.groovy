@@ -19,20 +19,17 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-
-                git branch: GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
-                
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
                         export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
+                        git clone --single-branch --branch ${GIT_BRANCH} git@github.com:Percona-Lab/pmm-submodules .
                         git reset --hard
                         git clean -xdff
                         git submodule update --remote --init --recommend-shallow --jobs 10
                         git submodule status
                     '''
                 }
-
                 script {
                     def changes_count = sh(returnStdout: true, script: '''git status --short | wc -l''').trim()
                     if (changes_count == '0') {
@@ -46,15 +43,13 @@ pipeline {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
+                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
                         git config --global user.email "dev-services@percona.com"
                         git config --global user.name "PMM Jenkins"
-
-                        git commit -a -m "chore: rewind submodules"
-                        git show
-
-                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-
                         git config --global push.default matching
+
+                        git commit -a -m "chore: rewind submodules for FB"
+                        git show
                         git push
                     '''
                 }
@@ -62,21 +57,19 @@ pipeline {
         }
     }
     post {
-        success {
-            script {
-                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build successful ${BUILD_URL}"
-            }
-        }
         unstable {
             script {
-                echo 'everything up to date'
+                echo 'INFO: everything up to date'
             }
         }
-        always {
+        success {
             script {
-                if (currentBuild.result != 'SUCCESS') {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}  ${BUILD_URL}"
-                }
+                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build successful, URL: ${BUILD_URL}"
+            }
+        }
+        failure {
+            script {
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
             }
         }
         cleanup {

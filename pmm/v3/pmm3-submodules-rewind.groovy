@@ -15,14 +15,11 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-
-                git branch: 'v3', credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
-                
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
-                        # Configure git to push using ssh
                         export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-
+                        # Clone 'v3' branch and update submodules
+                        git clone --single-branch --branch v3 git@github.com:Percona-Lab/pmm-submodules .
                         git reset --hard
                         git clean -xdff
                         git submodule update --remote --init --recommend-shallow --jobs 10
@@ -42,18 +39,15 @@ pipeline {
         }
         stage('Commit') {
             steps {
-                sh '''
-                    git config user.email "noreply@percona.com"
-                    git config user.name "PMM Jenkins"
-
-                    git commit -a -m "chore: rewind submodules for 3-dev-latest"
-                    git show
-                '''
-
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
                         export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+                        git config user.email "noreply@percona.com"
+                        git config user.name "PMM Jenkins"
                         git config --global push.default matching
+
+                        git commit -a -m "chore: rewind submodules for 3-dev-latest"
+                        git show                    
                         git push
                     '''
                 }
@@ -61,17 +55,14 @@ pipeline {
         }
     }
     post {
-        always {
-            deleteDir()
-        }
         unstable {
             script {
-                echo 'everything up to date' 
+                echo 'INFO: everything up to date' 
             }
         }
         success {
             script {
-                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: 3-dev-latest rewind successful, URL: ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build successful, URL: ${BUILD_URL}"
             }
         }
         failure {
@@ -79,5 +70,8 @@ pipeline {
                 slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
             }
         }
+        cleanup {
+            deleteDir()
+        }        
     }
 }

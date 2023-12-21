@@ -343,7 +343,7 @@ pipeline {
             parallel {
                 stage('Run UI - Tests') {
                     options {
-                        timeout(time: 150, unit: "MINUTES")
+                        timeout(time: 120, unit: "MINUTES")
                     }
                     when {
                         expression { env.AMI_TEST == "no" }
@@ -378,22 +378,24 @@ pipeline {
                         checkClientNodesAgentStatus(env.VM_CLIENT_IP_PGSQL)
                     }
                 }
-
             }
         }
     }
     post {
+        sucess {
+            script {
+                junit 'tests/output/*.xml'
+                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                archiveArtifacts artifacts: 'logs.zip'
+            }
+        }
         always {
             // stop staging
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/*.xml'
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'logs.zip'
-                } else {
+                if (currentBuild.result != 'SUCCESS') {
                     junit 'tests/output/*.xml'
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
@@ -410,31 +412,22 @@ pipeline {
             ])
             */
             script {
-                if(env.VM_NAME)
-                {
+                if (env.VM_NAME) {
                     destroyStaging(VM_NAME)
                 }
-                if(env.VM_CLIENT_NAME_MYSQL)
-                {
+                if (env.VM_CLIENT_NAME_MYSQL) {
                     destroyStaging(VM_CLIENT_NAME_MYSQL)
                 }
-                if(env.VM_CLIENT_NAME_MONGO)
-                {
+                if (env.VM_CLIENT_NAME_MONGO) {
                     destroyStaging(VM_CLIENT_NAME_MONGO)
                 }
-                if(env.VM_CLIENT_NAME_PXC)
-                {
+                if (env.VM_CLIENT_NAME_PXC) {
                     destroyStaging(VM_CLIENT_NAME_PXC)
                 }
-                if(env.VM_CLIENT_NAME_PGSQL)
-                {
+                if (env.VM_CLIENT_NAME_PGSQL) {
                     destroyStaging(VM_CLIENT_NAME_PGSQL)
                 }
             }
-            sh '''
-                sudo rm -r node_modules/
-                sudo rm -r tests/output
-            '''
             deleteDir()
         }
     }
