@@ -54,7 +54,7 @@ pipeline {
                     sh '''
                         docker buildx create --use
                         cd ./source/
-                        DOCKER_PUSH=0 ./e2e-tests/build
+                        ./e2e-tests/build
                         sudo rm -rf ./build
                     '''
                 }
