@@ -2,16 +2,14 @@
 import logging
 import datetime
 import boto3
-import sys
 from time import sleep
-from botocore.exceptions import ClientError
 from boto3.exceptions import Boto3Error
 from utils import get_regions_list
 
 
-def is_cluster_to_terminate(cluster):
+def is_cluster_to_terminate(cluster, eks_client):
     cluster = eks_client.describe_cluster(name=cluster)
-
+    print(f"CLUSTER is {cluster['cluster']['tags']['alpha.eksctl.io/cluster-name']}")
     if 'team' not in cluster['cluster']['tags'].keys() or ('team' in cluster['cluster']['tags'].keys() and cluster['cluster']['tags']['team'] != 'cloud'):
         return False
 
@@ -33,15 +31,13 @@ def get_clusters_to_terminate(aws_region):
     clusters = eks_client.list_clusters()['clusters']
     if not clusters:
         logging.info(f"There are no clusters in cloud")
-        sys.exit("There are no clusters in cloud")
 
     for cluster in clusters:
-        if is_cluster_to_terminate(cluster):
+        if is_cluster_to_terminate(cluster, eks_client):
             clusters_for_deletion.append(cluster)
 
     if not clusters_for_deletion:
         logging.info(f"There are no clusters for deletion")
-        sys.exit("There are no clusters for deletion")
     return clusters_for_deletion
 
 def wait_for_node_group_delete(autoscaling_client, autoscaling_group_name):
@@ -57,7 +53,7 @@ def wait_for_node_group_delete(autoscaling_client, autoscaling_group_name):
             logging.info(f"Node group {autoscaling_group_name} was successfully deleted.")
             break
         logging.info(f"Node group {autoscaling_group_name} deletion. "
-                         f"Attempt {attempt}/{attempts}. Sleeping {sleep_time} seconds.")
+                     f"Attempt {attempt}/{attempts}. Sleeping {sleep_time} seconds.")
         sleep(sleep_time)
         attempt += 1
     else:
@@ -69,8 +65,11 @@ def delete_nodegroup(aws_region, cluster_name):
 
     autoscaling_group_name = ""
     for instance in ec2.instances.all():
+
         tags = instance.tags
         tags_dict = {item['Key']: item['Value'] for item in tags}
+        if cluster_name not in tags_dict['Name']:
+            continue
         state = instance.state['Name']
         if tags_dict['alpha.eksctl.io/cluster-name'] and tags_dict[
             'alpha.eksctl.io/cluster-name'] == cluster_name and state == 'running':
@@ -78,6 +77,7 @@ def delete_nodegroup(aws_region, cluster_name):
             break
         else:
             continue
+
     try:
         autoscaling_client.delete_auto_scaling_group(AutoScalingGroupName=autoscaling_group_name, ForceDelete=True)
         wait_for_node_group_delete(autoscaling_client, autoscaling_group_name)
@@ -121,8 +121,5 @@ def lambda_handler(event, context):
         logging.info(f"Searching for resources to remove in {aws_region}.")
         clusters = get_clusters_to_terminate(aws_region)
         for cluster in clusters:
-            cluster_name = cluster['cluster']['name']
-            logging.info(f"Terminating {cluster_name}")
-            terminate_cluster(cluster_name=cluster_name, aws_region=aws_region)
-
-
+            logging.info(f"Terminating {cluster}")
+            terminate_cluster(cluster_name=cluster, aws_region=aws_region)
