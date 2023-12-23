@@ -9,7 +9,7 @@ pipeline {
         skipStagesAfterUnstable()
     }
     triggers {
-        cron('H/10 * * * *')
+        cron('H/15 * * * *')
     }
     stages {
         stage('Checkout') {
@@ -49,12 +49,9 @@ pipeline {
                         git commit -a -m "chore: rewind submodules for 3-dev-latest"
                         git show                    
                         git push
+
+                        echo "This will trigger pmm3-client-autobuild and pmm3-server-autobuild pipelines."
                     '''
-                }
-            }
-            post {
-                success {
-                    build job: 'pmm3-client-autobuild', propagate: false
                 }
             }
         }
