@@ -271,7 +271,7 @@ pipeline {
                 }
                 stage('Start PMM3 Client Autobuild') {
                     steps {
-                        pmmClient = build job: 'pmm3-client-autobuilds', parameters: [
+                        pmmClient = build job: 'pmm3-client-autobuild', parameters: [
                             string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
                             string(name: 'DESTINATION', value: 'testing')
                         ]

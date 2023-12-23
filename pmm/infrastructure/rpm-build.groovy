@@ -14,6 +14,10 @@ pipeline {
     environment {
         IMAGE_REGISTRY = "public.ecr.aws/e7j3v3n0"
     }
+    // Tag versions: (see what's available for download at https://gallery.ecr.aws/e7j3v3n0/rpmbuild)
+    // rpmbuild:2   - PMM2 el7
+    // rpmbuild:ol9 - PMM2 el9
+    // rpmbuild:3  - PMM3 el9
     stages {
         stage('Build rpmbuild images el7') {
             matrix {
@@ -82,9 +86,9 @@ pipeline {
                             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''
                                 cd build/docker/rpmbuild/
-                                docker build --pull --tag ${IMAGE_REGISTRY}/rpmbuild:v3 -f Dockerfile.el9 .
+                                docker build --pull --tag ${IMAGE_REGISTRY}/rpmbuild:3 -f Dockerfile.el9 .
                                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin ${IMAGE_REGISTRY}
-                                docker push ${IMAGE_REGISTRY}/rpmbuild:v3
+                                docker push ${IMAGE_REGISTRY}/rpmbuild:3
                             '''
                         }
                     }
