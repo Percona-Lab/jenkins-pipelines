@@ -9,7 +9,6 @@ from utils import get_regions_list
 
 def is_cluster_to_terminate(cluster, eks_client):
     cluster = eks_client.describe_cluster(name=cluster)
-    print(f"CLUSTER is {cluster['cluster']['tags']['alpha.eksctl.io/cluster-name']}")
     if 'team' not in cluster['cluster']['tags'].keys() or ('team' in cluster['cluster']['tags'].keys() and cluster['cluster']['tags']['team'] != 'cloud'):
         return False
 
