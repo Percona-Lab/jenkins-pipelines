@@ -36,10 +36,22 @@ pipeline {
             name: 'PREV_MAJ_PSMDB_VERSION'
         )
         string(
+            defaultValue: '6.0.4',
+            description: 'next major PSMDB version for upgrade tests (leave blank to skip)',
+            name: 'NEXT_MAJ_PSMDB_VERSION'
+        )
+        string(
             defaultValue: 'main',
             description: 'base Branch for upgrade test',
             name: 'TESTING_BRANCH')
-
+         choice(
+            name: 'functionaltests',
+            choices: ['no','yes'],
+            description: 'run functional tests')
+         choice(
+            name: 'no_encryption',
+            choices: ['no','yes'],
+            description: 'check upgrade without encryption')
     }
     options {
           withCredentials(moleculePbmJenkinsCreds())
@@ -50,17 +62,25 @@ pipeline {
             parallel {
                 stage ('functional tests') {
                     steps {
-                        build job: 'psmdb-parallel', parameters: [
-                        string(name: 'REPO', value: "${env.REPO}"),
-                        string(name: 'PSMDB_VERSION', value: "${env.PSMDB_VERSION}"),
-                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
-                        ]
+                        script {
+                            if (params.integrationtests == "yes") {
+                                 build job: 'psmdb-parallel', parameters: [
+                                 string(name: 'REPO', value: "${env.REPO}"),
+                                 string(name: 'PSMDB_VERSION', value: "${env.PSMDB_VERSION}"),
+                                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
+                                ]
+                             }
+                             else {
+                                  echo 'skipped functional tests'
+                             }
+                        }
+
                     }
                 }
                 stage('upgrade from minor version without encryption') {
                     steps {
                         script {
-                            if (env.PREV_MIN_PSMDB_VERSION != '') {
+                            if ((env.PREV_MIN_PSMDB_VERSION != '') && (params.no_encryption == "yes")) {
                                  build job: "psmdb-upgrade-parallel", parameters: [
                                  string(name: 'TO_REPO', value: "${env.REPO}"),
                                  string(name: 'FROM_REPO', value: "release"),
@@ -77,7 +97,7 @@ pipeline {
                         }
                     }
                 }
-                stage('upgrade from minor vesrsion with vault encryption') {
+                stage('upgrade from minor version with vault encryption') {
                     steps {
                         script {
                             if (env.PREV_MIN_PSMDB_VERSION != '') {
@@ -97,10 +117,30 @@ pipeline {
                         }
                     }
                 }
-                stage('upgrade from major version without encryption') {
+                stage('upgrade from minor version with KMIP encryption') {
                     steps {
                         script {
-                            if (env.PREV_MAJ_PSMDB_VERSION != '') {
+                            if (env.PREV_MIN_PSMDB_VERSION != '') {
+                                 build job: "psmdb-upgrade-parallel", parameters: [
+                                 string(name: 'TO_REPO', value: "${env.REPO}"),
+                                 string(name: 'FROM_REPO', value: "release"),
+                                 string(name: 'TO_PSMDB_VERSION', value: "${env.PSMDB_VERSION}"),
+                                 string(name: 'FROM_PSMDB_VERSION', value: "${env.PREV_MIN_PSMDB_VERSION}"),
+                                 string(name: 'ENCRYPTION', value: "KMIP"),
+                                 string(name: 'CIPHER', value: "AES256-CBC"),
+                                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
+                                 ]
+                            }
+                            else {
+                                 echo 'skipped upgrade from minor version'
+                            }
+                        }
+                    }
+                }
+                stage('upgrade from prev major version without encryption') {
+                    steps {
+                        script {
+                            if ((env.PREV_MIN_PSMDB_VERSION != '') && (params.no_encryption == "yes")) {
                                  build job: "psmdb-upgrade-parallel", parameters: [
                                  string(name: 'TO_REPO', value: "${env.REPO}"),
                                  string(name: 'FROM_REPO', value: "release"),
@@ -117,7 +157,7 @@ pipeline {
                         }
                     }
                 }
-                stage('upgrade from major version with vault encryption') {
+                stage('upgrade from prev major version with vault encryption') {
                     steps {
                         script {
                             if (env.PREV_MAJ_PSMDB_VERSION != '') {
@@ -137,10 +177,90 @@ pipeline {
                         }
                     }
                 }
+                stage('upgrade from prev major version with KMIP encryption') {
+                    steps {
+                        script {
+                            if (env.PREV_MAJ_PSMDB_VERSION != '') {
+                                 build job: "psmdb-upgrade-parallel", parameters: [
+                                 string(name: 'TO_REPO', value: "${env.REPO}"),
+                                 string(name: 'FROM_REPO', value: "release"),
+                                 string(name: 'TO_PSMDB_VERSION', value: "${env.PSMDB_VERSION}"),
+                                 string(name: 'FROM_PSMDB_VERSION', value: "${env.PREV_MAJ_PSMDB_VERSION}"),
+                                 string(name: 'ENCRYPTION', value: "KMIP"),
+                                 string(name: 'CIPHER', value: "AES256-CBC"),
+                                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
+                                 ]
+                            }
+                            else {
+                                 echo 'skipped upgrade from major version'
+                            }
+                        }
+                    }
+                }
+                stage('upgrade to next major version without encryption') {
+                    steps {
+                        script {
+                            if ((env.PREV_MIN_PSMDB_VERSION != '') && (params.no_encryption == "yes")) {
+                                 build job: "psmdb-upgrade-parallel", parameters: [
+                                 string(name: 'TO_REPO', value: "release"),
+                                 string(name: 'FROM_REPO', value: "${env.REPO}"),
+                                 string(name: 'TO_PSMDB_VERSION', value: "${env.NEXT_MAJ_PSMDB_VERSION}"),
+                                 string(name: 'FROM_PSMDB_VERSION', value: "${env.PSMDB_VERSION}"),
+                                 string(name: 'ENCRYPTION', value: "NONE"),
+                                 string(name: 'CIPHER', value: "AES256-CBC"),
+                                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
+                                 ]
+                            }
+                            else {
+                                 echo 'skipped upgrade to major version'
+                            }
+                        }
+                    }
+                }
+                stage('upgrade to next major version with vault encryption') {
+                    steps {
+                        script {
+                            if (env.NEXT_MAJ_PSMDB_VERSION != '') {
+                                 build job: "psmdb-upgrade-parallel", parameters: [
+                                 string(name: 'TO_REPO', value: "release"),
+                                 string(name: 'FROM_REPO', value: "${env.REPO}"),
+                                 string(name: 'TO_PSMDB_VERSION', value: "${env.NEXT_MAJ_PSMDB_VERSION}"),
+                                 string(name: 'FROM_PSMDB_VERSION', value: "${env.PSMDB_VERSION}"),
+                                 string(name: 'ENCRYPTION', value: "VAULT"),
+                                 string(name: 'CIPHER', value: "AES256-CBC"),
+                                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
+                                 ]
+                            }
+                            else {
+                                 echo 'skipped upgrade to major version'
+                            }
+                        }
+                    }
+                }
+                stage('upgrade to next major version with KMIP encryption') {
+                    steps {
+                        script {
+                            if (env.NEXT_MAJ_PSMDB_VERSION != '') {
+                                 build job: "psmdb-upgrade-parallel", parameters: [
+                                 string(name: 'TO_REPO', value: "release"),
+                                 string(name: 'FROM_REPO', value: "${env.REPO}"),
+                                 string(name: 'TO_PSMDB_VERSION', value: "${env.NEXT_MAJ_PSMDB_VERSION}"),
+                                 string(name: 'FROM_PSMDB_VERSION', value: "${env.PSMDB_VERSION}"),
+                                 string(name: 'ENCRYPTION', value: "KMIP"),
+                                 string(name: 'CIPHER', value: "AES256-CBC"),
+                                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
+                                 ]
+                            }
+                            else {
+                                 echo 'skipped upgrade to major version'
+                            }
+                        }
+                    }
+                }
                 stage('downgrade to minor version without encryption') {
                     steps {
                         script {
-                            if (env.PREV_MIN_PSMDB_VERSION != '') {
+                            if ((env.PREV_MIN_PSMDB_VERSION != '') && (params.no_encryption == "yes")) {
                                  build job: "psmdb-upgrade-parallel", parameters: [
                                  string(name: 'TO_REPO', value: "release"),
                                  string(name: 'FROM_REPO', value: "${env.REPO}"),
@@ -177,10 +297,30 @@ pipeline {
                         }
                     }
                 }
-                stage('downgrade to major version without encryption') {
+                stage('downgrade to minor version with KMIP encryption') {
                     steps {
                         script {
-                            if (env.PREV_MAJ_PSMDB_VERSION != '') {
+                            if (env.PREV_MIN_PSMDB_VERSION != '') {
+                                 build job: "psmdb-upgrade-parallel", parameters: [
+                                 string(name: 'TO_REPO', value: "release"),
+                                 string(name: 'FROM_REPO', value: "${env.REPO}"),
+                                 string(name: 'TO_PSMDB_VERSION', value: "${env.PREV_MIN_PSMDB_VERSION}"),
+                                 string(name: 'FROM_PSMDB_VERSION', value: "${env.PSMDB_VERSION}"),
+                                 string(name: 'ENCRYPTION', value: "KMIP"),
+                                 string(name: 'CIPHER', value: "AES256-CBC"),
+                                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
+                                 ]
+                            }
+                            else {
+                                 echo 'skipped downgrade to minor version'
+                            }
+                        }
+                    }
+                }
+                stage('downgrade to prev major version without encryption') {
+                    steps {
+                        script {
+                            if ((env.PREV_MIN_PSMDB_VERSION != '') && (params.no_encryption == "yes")) {
                                  build job: "psmdb-upgrade-parallel", parameters: [
                                  string(name: 'TO_REPO', value: "release"),
                                  string(name: 'FROM_REPO', value: "${env.REPO}"),
@@ -197,7 +337,7 @@ pipeline {
                         }
                     }
                 }
-                stage('downgrade to major version with vault encryption') {
+                stage('downgrade to prev major version with vault encryption') {
                     steps {
                         script {
                             if (env.PREV_MAJ_PSMDB_VERSION != '') {
@@ -213,6 +353,86 @@ pipeline {
                             }
                             else {
                                  echo 'skipped downgrade to major version'
+                            }
+                        }
+                    }
+                }
+                stage('downgrade to prev major version with KMIP encryption') {
+                    steps {
+                        script {
+                            if (env.PREV_MAJ_PSMDB_VERSION != '') {
+                                 build job: "psmdb-upgrade-parallel", parameters: [
+                                 string(name: 'TO_REPO', value: "release"),
+                                 string(name: 'FROM_REPO', value: "${env.REPO}"),
+                                 string(name: 'TO_PSMDB_VERSION', value: "${env.PREV_MAJ_PSMDB_VERSION}"),
+                                 string(name: 'FROM_PSMDB_VERSION', value: "${env.PSMDB_VERSION}"),
+                                 string(name: 'ENCRYPTION', value: "KMIP"),
+                                 string(name: 'CIPHER', value: "AES256-CBC"),
+                                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
+                                 ]
+                            }
+                            else {
+                                 echo 'skipped downgrade to major version'
+                            }
+                        }
+                    }
+                }
+                stage('downgrade from next major version without encryption') {
+                    steps {
+                        script {
+                            if ((env.PREV_MIN_PSMDB_VERSION != '') && (params.no_encryption == "yes")) {
+                                 build job: "psmdb-upgrade-parallel", parameters: [
+                                 string(name: 'TO_REPO', value: "${env.REPO}"),
+                                 string(name: 'FROM_REPO', value: "release"),
+                                 string(name: 'TO_PSMDB_VERSION', value: "${env.PSMDB_VERSION}"),
+                                 string(name: 'FROM_PSMDB_VERSION', value: "${env.NEXT_MAJ_PSMDB_VERSION}"),
+                                 string(name: 'ENCRYPTION', value: "NONE"),
+                                 string(name: 'CIPHER', value: "AES256-CBC"),
+                                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
+                                 ]
+                            }
+                            else {
+                                 echo 'skipped downgrade from major version'
+                            }
+                        }
+                    }
+                }
+                stage('downgrade from next major version with vault encryption') {
+                    steps {
+                        script {
+                            if (env.NEXT_MAJ_PSMDB_VERSION != '') {
+                                 build job: "psmdb-upgrade-parallel", parameters: [
+                                 string(name: 'TO_REPO', value: "${env.REPO}"),
+                                 string(name: 'FROM_REPO', value: "release"),
+                                 string(name: 'TO_PSMDB_VERSION', value: "${env.PSMDB_VERSION}"),
+                                 string(name: 'FROM_PSMDB_VERSION', value: "${env.NEXT_MAJ_PSMDB_VERSION}"),
+                                 string(name: 'ENCRYPTION', value: "VAULT"),
+                                 string(name: 'CIPHER', value: "AES256-CBC"),
+                                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
+                                 ]
+                            }
+                            else {
+                                 echo 'skipped downgrade from major version'
+                            }
+                        }
+                    }
+                }
+                stage('downgrade from next major version with KMIP encryption') {
+                    steps {
+                        script {
+                            if (env.NEXT_MAJ_PSMDB_VERSION != '') {
+                                 build job: "psmdb-upgrade-parallel", parameters: [
+                                 string(name: 'TO_REPO', value: "${env.REPO}"),
+                                 string(name: 'FROM_REPO', value: "release"),
+                                 string(name: 'TO_PSMDB_VERSION', value: "${env.PSMDB_VERSION}"),
+                                 string(name: 'FROM_PSMDB_VERSION', value: "${env.NEXT_MAJ_PSMDB_VERSION}"),
+                                 string(name: 'ENCRYPTION', value: "KMIP"),
+                                 string(name: 'CIPHER', value: "AES256-CBC"),
+                                 string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}")
+                                 ]
+                            }
+                            else {
+                                 echo 'skipped downgrade from major version'
                             }
                         }
                     }

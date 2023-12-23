@@ -159,6 +159,7 @@ void createCluster(String CLUSTER_SUFFIX) {
     }
 
     sh """
+        timestamp="\$(date +%s)"
 tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
 ---
@@ -171,6 +172,7 @@ metadata:
     version: "$PLATFORM_VER"
     tags:
         'delete-cluster-after-hours': '10'
+        'creation-time': '\$timestamp'
 iam:
   withOIDC: true
 
@@ -256,7 +258,7 @@ void runTest(Integer TEST_ID) {
             return true
         }
         catch (exc) {
-            if (retryCount >= 2) {
+            if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
@@ -285,7 +287,7 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PG-EKS-latest\\">\n'
+TestsReport = '<testsuite name=\\"PG-EKS-version\\">\n'
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
     for (int i=0; i<tests.size(); i++) {
@@ -389,15 +391,15 @@ pipeline {
             name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators pgBouncer image: perconalab/percona-postgresql-operator:main-ppg15-pgbouncer',
-            name: 'PGO_PGBOUNCER_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Operators postgres image: perconalab/percona-postgresql-operator:main-ppg15-postgres',
+            description: 'Postgres image: perconalab/percona-postgresql-operator:main-ppg16-postgres',
             name: 'PGO_POSTGRES_IMAGE')
         string(
             defaultValue: '',
-            description: 'Operators backrest utility image: perconalab/percona-postgresql-operator:main-ppg15-pgbackrest',
+            description: 'pgBouncer image: perconalab/percona-postgresql-operator:main-ppg16-pgbouncer',
+            name: 'PGO_PGBOUNCER_IMAGE')
+        string(
+            defaultValue: '',
+            description: 'pgBackRest utility image: perconalab/percona-postgresql-operator:main-ppg16-pgbackrest',
             name: 'PGO_BACKREST_IMAGE')
         string(
             defaultValue: '',

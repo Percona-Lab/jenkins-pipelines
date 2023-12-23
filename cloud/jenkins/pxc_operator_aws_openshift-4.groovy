@@ -22,6 +22,7 @@ void createCluster(String CLUSTER_SUFFIX){
                 NETWORK_TYPE="OpenShiftSDN"
             fi
             mkdir -p openshift/${CLUSTER_SUFFIX}
+            timestamp="\$(date +%s)"
 cat <<-EOF > ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
 \$POLICY
 apiVersion: v1
@@ -33,7 +34,7 @@ compute:
   platform:
     aws:
       type: m5.2xlarge
-  replicas: 3
+  replicas: 1
 controlPlane:
   architecture: amd64
   hyperthreading: Enabled
@@ -60,6 +61,7 @@ platform:
       delete-cluster-after-hours: 8
       team: cloud
       product: pxc-operator
+      creation-time: \$timestamp
 
 publish: External
 EOF
@@ -70,6 +72,10 @@ EOF
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
                 export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
+                
+                machineset=`oc get machineset  -n openshift-machine-api | awk 'NR==2 {print \$1; exit}'`
+                oc get machineset \$machineset -o yaml -n openshift-machine-api | yq eval '.spec.template.spec.providerSpec.value.spotMarketOptions = {}' | oc apply -f -
+                oc scale machineset --replicas=3  \$machineset -n openshift-machine-api
 
             """
         }
@@ -80,7 +86,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
         sshagent(['aws-openshift-41-key']) {
             sh """
-                source $HOME/google-cloud-sdk/path.bash.inc
                 export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
                 for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
                     kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
@@ -221,7 +226,6 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
-                    source $HOME/google-cloud-sdk/path.bash.inc
                     export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
                     oc whoami
 
@@ -359,14 +363,8 @@ pipeline {
                     sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
                 """
                 sh '''
-                    if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-                        rm -rf $HOME/google-cloud-sdk
-                        curl https://sdk.cloud.google.com | bash
-                    fi
-
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    gcloud components update kubectl
-                    gcloud version
+                    sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+                    kubectl version --client --output=yaml
 
                     curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
@@ -398,6 +396,7 @@ pipeline {
                         else
                             cd ./source/
                             sg docker -c "
+                                docker buildx create --use
                                 docker login -u '${USER}' -p '${PASS}'
                                 export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
                                 ./e2e-tests/build
@@ -492,7 +491,6 @@ pipeline {
 
             sh """
                 sudo docker system prune -fa
-                sudo rm -rf $HOME/google-cloud-sdk
                 sudo rm -rf ./*
             """
             deleteDir()

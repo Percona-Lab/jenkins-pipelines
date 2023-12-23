@@ -33,6 +33,11 @@ pipeline {
             name: 'TESTING_BRANCH'
         )
         string(
+            defaultValue: 'Percona-QA',
+            description: 'Git account for package-testing repository',
+            name: 'TESTING_GIT_ACCOUNT'
+        )
+        string(
             defaultValue: 'master',
             description: 'Tests will be run from branch of  https://github.com/percona/orchestrator',
             name: 'ORCHESTRATOR_TESTS_VERSION'
@@ -53,8 +58,12 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                script {
+                    currentBuild.displayName = "#${BUILD_NUMBER}-${REPO}-${VERSION}"
+                    currentBuild.description = "${TESTING_BRANCH}-${TESTING_GIT_ACCOUNT}-${DESTROY_ENV}"
+                }
                 deleteDir()
-                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/package-testing.git'
+                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git'
             }
         }
         stage ('Prepare') {
@@ -67,28 +76,28 @@ pipeline {
         stage ('Create virtual machines') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "create", "ubuntu-bionic")
+                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "create", "ubuntu-jammy")
                 }
             }
         }
         stage ('Run playbook for test') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", "ubuntu-bionic")
+                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", "ubuntu-jammy")
                 }
             }
         }
         stage ('Start testinfra tests') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", "ubuntu-bionic")
+                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", "ubuntu-jammy")
                 }
             }
         }
         stage ('Start Cleanup ') {
             steps {
                 script {
-                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "cleanup", "ubuntu-bionic")
+                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "cleanup", "ubuntu-jammy")
                 }
             }
         }
@@ -97,7 +106,7 @@ pipeline {
         always {
             script {
                 if (env.DESTROY_ENV == "yes") {
-                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "ubuntu-bionic")
+                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "ubuntu-jammy")
                     junit "${MOLECULE_DIR}/report.xml"
                 }
             }

@@ -29,6 +29,11 @@ pipeline {
                     TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
                     wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
+
+                    if [ ! -f junit.tpl ]; then
+                        wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
+                    fi
+
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
                     sudo sudo git config --global --add safe.directory '*'
@@ -63,8 +68,6 @@ pipeline {
                             cp "${docker_key}" ~/.docker/trust/private/
 
                             docker login -u '${USER}' -p '${PASS}'
-                            export DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE="${DOCKER_REPOSITORY_PASSPHRASE}"
-                            docker trust sign perconalab/percona-server-mysql-operator:${DOCKER_TAG}
                             docker push perconalab/percona-server-mysql-operator:${DOCKER_TAG}
                             docker logout
                         "
@@ -78,11 +81,10 @@ pipeline {
                     sh """
                         IMAGE_NAME='percona-server-mysql-operator'
                         TrivyLog="$WORKSPACE/trivy-ps.xml"
-                        wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
 
                         sg docker -c "
                             docker login -u '${USER}' -p '${PASS}'
-                            /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @junit.tpl -o \$TrivyLog --timeout 5m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
+                            /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --timeout 5m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
                         "
 
                     """

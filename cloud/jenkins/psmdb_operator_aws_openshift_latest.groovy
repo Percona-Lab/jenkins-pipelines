@@ -148,6 +148,7 @@ void createCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
             mkdir -p openshift/$CLUSTER_SUFFIX
+            timestamp="\$(date +%s)"
 tee openshift/$CLUSTER_SUFFIX/install-config.yaml << EOF
 additionalTrustBundlePolicy: Proxyonly
 apiVersion: v1
@@ -159,7 +160,7 @@ compute:
   platform:
     aws:
       type: m5.2xlarge
-  replicas: 3
+  replicas: 1
 controlPlane:
   architecture: amd64
   hyperthreading: Enabled
@@ -186,6 +187,7 @@ platform:
       delete-cluster-after-hours: 8
       team: cloud
       product: psmdb-operator
+      creation-time: \$timestamp
 
 publish: External
 EOF
@@ -196,6 +198,10 @@ EOF
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
                 export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                
+                machineset=`oc get machineset  -n openshift-machine-api | awk 'NR==2 {print \$1; exit}'`
+                oc get machineset \$machineset -o yaml -n openshift-machine-api | yq eval '.spec.template.spec.providerSpec.value.spotMarketOptions = {}' | oc apply -f -
+                oc scale machineset --replicas=3  \$machineset -n openshift-machine-api
 
             """
         }
@@ -361,9 +367,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
-    }
-    triggers {
-        cron('0 15 * * 6')
+        copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
     stages {
         stage('Prepare node') {
