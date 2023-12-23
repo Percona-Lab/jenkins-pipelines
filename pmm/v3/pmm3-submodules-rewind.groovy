@@ -52,6 +52,11 @@ pipeline {
                     '''
                 }
             }
+            post {
+                success {
+                    build job: 'pmm3-client-autobuild', propagate: false
+                }
+            }
         }
     }
     post {

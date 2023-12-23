@@ -9,20 +9,19 @@ pipeline {
         string(
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm-submodules repository',
-            name: 'GIT_BRANCH')
+            name: 'GIT_BRANCH'
+        )
         choice(
             choices: ['experimental', 'testing', 'laboratory'],
             description: 'Publish packages to repositories: testing (for RC), experimental: (for 3-dev-latest), laboratory: (for FBs)',
-            name: 'DESTINATION')
+            name: 'DESTINATION'
+        )
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
         parallelsAlwaysFailFast()
-    }
-    triggers {
-        upstream upstreamProjects: 'pmm3-submodules-rewind', threshold: hudson.model.Result.SUCCESS
     }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
@@ -73,6 +72,7 @@ pipeline {
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh """
                                 ${PATH_TO_SCRIPTS}/build-client-binary
+                                ls -la "results/tarball" || :
                                 aws s3 cp --acl public-read results/tarball/pmm-client-*.tar.gz \
                                     s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz
                             """
@@ -135,8 +135,6 @@ pipeline {
                         stage('Build client binary rpm EL7') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
-                                // sh "${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:8"
-                                // sh "${PATH_TO_SCRIPTS}/build-client-rpm almalinux:9.0"
                             }
                         }
                         stage('Build client binary rpm EL8') {
