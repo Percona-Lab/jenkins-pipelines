@@ -75,12 +75,12 @@ def delete_nodegroup(aws_region, cluster_name):
             break
         else:
             continue
-
-    try:
-        autoscaling_client.delete_auto_scaling_group(AutoScalingGroupName=autoscaling_group_name, ForceDelete=True)
-        wait_for_node_group_delete(autoscaling_client, autoscaling_group_name)
-    except Boto3Error as e:
-        logging.error(f"Deleting autoscaling group {autoscaling_group_name} failed with error: {e}")
+    if len(autoscaling_group_name) != 0:
+        try:
+            autoscaling_client.delete_auto_scaling_group(AutoScalingGroupName=autoscaling_group_name, ForceDelete=True)
+            wait_for_node_group_delete(autoscaling_client, autoscaling_group_name)
+        except Boto3Error as e:
+            logging.error(f"Deleting autoscaling group {autoscaling_group_name} failed with error: {e}")
 
 
 def delete_cluster(aws_region, cluster_name):
