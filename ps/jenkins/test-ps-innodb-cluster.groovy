@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@innodb', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 void installDependencies() {
@@ -16,7 +16,7 @@ void installDependencies() {
 
     sh '''
         rm -rf package-testing
-        git clone https://github.com/Percona-QA/package-testing
+        git clone -b innodb https://github.com/kaushikpuneet07/package-testing
     '''
 }
 
@@ -104,14 +104,14 @@ pipeline {
             name: 'TEST_DIST',
             choices: [
                 'ubuntu-focal',
-                'ubuntu-bionic',
                 'ubuntu-jammy',
                 'debian-12',
                 'debian-11',
                 'debian-10',
                 'centos-7',
                 'oracle-8',
-                'oracle-9'
+                'oracle-9',
+                'amazon-2'
             ],
             description: 'Distribution to run test'
         )

@@ -1,17 +1,18 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@innodb', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 List all_nodes = [
-    'ubuntu-bionic',
     'ubuntu-focal',
     'ubuntu-jammy',
     'debian-10',
     'debian-11',
+    'debian-12',
     'centos-7',
     'oracle-8',
-    'oracle-9'
+    'oracle-9',
+    'amazon-2'
 ]
 
 List TEST_DISTS = []
@@ -61,14 +62,15 @@ pipeline {
             name: 'TEST_DIST',
             choices: [
                 'all',
-                'ubuntu-bionic',
                 'ubuntu-focal',
                 'ubuntu-jammy',
                 'debian-10',
                 'debian-11',
+                'debian-12',
                 'centos-7',
                 'oracle-8',
-                'oracle-9'
+                'oracle-9',
+                'amazon-2'
             ],
             description: 'Distribution to run test'
         )
@@ -95,18 +97,6 @@ pipeline {
 
         stage("Run parallel") {
             parallel {
-                stage("Ubuntu Bionic") {
-                    when {
-                        expression {
-                            TEST_DISTS.contains("ubuntu-bionic")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("ubuntu-bionic")
-                    }
-                }
-
                 stage("Ubuntu Focal") {
                     when {
                         expression {
@@ -155,6 +145,18 @@ pipeline {
                     }
                 }
 
+                stage("Debian Bookworm") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("debian-12")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("debian-12")
+                    }
+                }
+
                 stage("Centos 7") {
                     when {
                         expression {
@@ -194,12 +196,12 @@ pipeline {
                 stage("Amazon Linux") {
                     when {
                         expression {
-                            TEST_DISTS.contains("min-amazon-2-x64")
+                            TEST_DISTS.contains("amazon-2")
                         }
                     }
 
                     steps {
-                        runNodeBuild("min-amazon-2-x64")
+                        runNodeBuild("amazon-2")
                     }
                 }
             }

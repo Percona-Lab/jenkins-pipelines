@@ -14,9 +14,9 @@
     pipeline-scm:
         scm:
             - git:
-                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                url: https://github.com/kaushikpuneet07/jenkins-pipelines.git
                 branches:
-                    - 'master'
+                    - 'innodb'
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: ps/jenkins/test-ps-innodb-cluster.groovy
@@ -37,7 +37,6 @@
             name: TEST_DIST
             choices:
                 - 'ubuntu-focal'
-                - 'ubuntu-bionic'
                 - 'ubuntu-jammy'
                 - 'debian-12'
                 - 'debian-11'
@@ -45,6 +44,7 @@
                 - 'centos-7'
                 - 'oracle-8'
                 - 'oracle-9'
+                - 'amazon-2'
             description: "Distribution to run test"
         - choice:
             name: INSTALL_REPO
