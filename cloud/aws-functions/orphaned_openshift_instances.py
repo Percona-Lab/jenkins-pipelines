@@ -2,17 +2,18 @@
 import logging
 import datetime
 import boto3
-import sys
-from time import sleep
-from botocore.exceptions import ClientError
-from boto3.exceptions import Boto3Error
 from utils import get_regions_list
 
 def is_instance_to_terminate(instance):
     tags = instance.tags
-    tags_dict = {item['Key']: item['Value'] for item in tags}
     state = instance.state['Name']
-    if 'team' not in tags_dict.keys() or ('team' in tags_dict.keys() and tags_dict['team'] != 'cloud') or state != 'running':
+
+    if state != 'running' or tags == None:
+        return False
+
+    tags_dict = {item['Key']: item['Value'] for item in tags}
+
+    if 'team' not in tags_dict.keys() or ('team' in tags_dict.keys() and tags_dict['team'] != 'cloud'):
         return False
 
     if 'delete-cluster-after-hours' not in tags_dict.keys():
@@ -31,15 +32,14 @@ def get_instances_to_terminate(aws_region):
     ec2 = boto3.resource('ec2', region_name=aws_region)
     instances = ec2.instances.all()
     if not instances:
-        logging.info(f"There are no instances in cloud")
-        sys.exit("There are no instances in cloud")
+        logging.info(f"There are no instances in region {aws_region}")
+
     for instance in instances:
         if is_instance_to_terminate(instance):
             instances_for_deletion.append(instance.id)
 
     if not instances_for_deletion:
         logging.info(f"There are no instances for deletion")
-        sys.exit("There are instances for deletion")
     return instances_for_deletion
 
 def delete_instance(aws_region, instance_id):
@@ -55,8 +55,5 @@ def lambda_handler(event, context):
         instances = get_instances_to_terminate(aws_region)
 
         for instance_id in instances:
-            logging.info(f"Terminating {instance}")
+            logging.info(f"Terminating {instance_id}")
             delete_instance(instance_id=instance_id, aws_region=aws_region)
-
-
-
