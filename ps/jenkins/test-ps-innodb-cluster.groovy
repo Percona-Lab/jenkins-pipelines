@@ -16,7 +16,7 @@ void installDependencies() {
 
     sh '''
         rm -rf package-testing
-        git clone -b innodb https://github.com/kaushikpuneet07/package-testing
+        git clone https://github.com/kaushikpuneet07/package-testing.git --branch innodb
     '''
 }
 
