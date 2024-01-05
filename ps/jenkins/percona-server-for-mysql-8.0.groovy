@@ -225,7 +225,7 @@ parameters {
 
         stage('Create PS source tarball') {
             agent {
-               label 'min-buster-x64'
+               label 'min-focal-x64'
             }
             steps {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
