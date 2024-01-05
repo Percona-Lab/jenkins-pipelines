@@ -2,7 +2,6 @@
 import logging
 import datetime
 import boto3
-import sys
 from time import sleep
 from botocore.exceptions import ClientError
 from boto3.exceptions import Boto3Error
@@ -10,6 +9,9 @@ from utils import get_regions_list
 
 def is_vpc_to_terminate(vpc):
     tags = vpc.tags
+    print(f"tags: {tags}")
+    if tags == None:
+        return False
     tags_dict = {item['Key']: item['Value'] for item in tags}
 
     if 'team' not in tags_dict.keys() or ('team' in tags_dict.keys() and tags_dict['team'] != 'cloud'):
@@ -19,7 +21,11 @@ def is_vpc_to_terminate(vpc):
 
     instance_lifetime = float(tags_dict['delete-cluster-after-hours'])
     current_time = datetime.datetime.now().timestamp()
-    creation_time = int(tags_dict['creation-time'])
+    
+    try:
+        creation_time = int(tags_dict['creation-time'])
+    except KeyError as e:
+        return False
 
     if (current_time - creation_time) / 3600 > instance_lifetime:
         return True
@@ -32,14 +38,12 @@ def get_vpcs_to_terminate(aws_region):
     vpcs = list(ec2.vpcs.all())
     if not vpcs:
         logging.info(f"There are no vpcs in cloud")
-        sys.exit("There are no vpcs in cloud")
     for vpc in vpcs:
         if is_vpc_to_terminate(vpc):
             vpcs_for_deletion.append(vpc.id)
 
     if not vpcs_for_deletion:
         logging.info(f"There are no vpcs for deletion")
-        sys.exit("There are vpcs for deletion")
     return vpcs_for_deletion
 
 def delete_vpc_ep(aws_region, vpc_id):
@@ -95,6 +99,9 @@ def delete_igw(ec2_resource, vpc_id):
             except Boto3Error as e:
                 logging.info(f"Detaching or deleting igw failed with error: {e}")
                 continue
+            except ClientError as e:
+                logging.info(f"Failed detach igw, will try again. The error was: {e}.")
+                continue
 
 
 def delete_subnets(ec2_resource, vpc_id):
@@ -130,6 +137,8 @@ def delete_route_tables(ec2_resource, vpc_id):
                 table.delete()
         except Boto3Error as e:
             logging.error(f"Delete of route table failed with error: {e}")
+        except ClientError as e:
+            logging.info(f"Failed detach route_table will try again. The error was: {e}.")
 
 
 def delete_security_groups(security_groups):
@@ -230,6 +239,4 @@ def lambda_handler(event, context):
 
         for vpc in vpcs:
             logging.info(f"Deleting all resources and VPC.")
-            terminate_vpc(vpc_id, aws_region)
-
-
+            terminate_vpc(vpc, aws_region)
