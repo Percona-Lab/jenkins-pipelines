@@ -444,16 +444,20 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                installCli("deb")
-                                unstash 'properties'
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                                buildStage("none", "--build_deb=1")
+                            if ("${PS_MAJOR_RELEASE}" == "80") {
+                                if (env.FIPSMODE == 'YES') {
+                                    echo "The step is skipped"
+                                } else {
+                                    cleanUpWS()
+                                    installCli("deb")
+                                    unstash 'properties'
+                                    popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                    buildStage("none", "--build_deb=1")
 
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                }
+                            } else {
+                                echo "The step is skipped"
                             }
                         }
                     }
