@@ -444,6 +444,7 @@ parameters {
                     }
                     steps {
                         script {
+                            PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
                             if ("${PS_MAJOR_RELEASE}" == "80") {
                                 if (env.FIPSMODE == 'YES') {
                                     echo "The step is skipped"
