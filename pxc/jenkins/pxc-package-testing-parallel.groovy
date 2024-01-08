@@ -6,7 +6,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 List all_nodes = [
                 'ubuntu-jammy',
                 'ubuntu-focal',
-                'ubuntu-bionic',
                 'debian-12',
                 'debian-11',
                 'debian-10',
@@ -200,20 +199,6 @@ pipeline {
                     }
                 }
 
-                stage("ubuntu-bionic") {
-                    when {
-                        expression {
-                            allOf{
-                                nodes_to_test.contains("ubuntu-bionic")
-                            
-                            }
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("ubuntu-bionic")
-                    }
-                }
 
                 stage("ubuntu-focal") {
                     when {
