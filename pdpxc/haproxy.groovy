@@ -40,10 +40,18 @@ pipeline {
         'percona'
       ]
     )
+    booleanParam(
+        name: 'skip_molecule',
+        description: "Enable to skip molecule HAproxy tests"
+    )
+    booleanParam(
+        name: 'skip_docker',
+        description: "Enable to skip Docker tests"
+    )
     string(
-    name: 'TESTING_REPO',
-    defaultValue: 'https://github.com/Percona-QA/package-testing.git',
-    description: 'Repo for package-testing repository'
+      name: 'TESTING_REPO',
+      defaultValue: 'https://github.com/Percona-QA/package-testing.git',
+      description: 'Repo for package-testing repository'
     )
     string(
       name: 'TESTING_BRANCH',
@@ -68,6 +76,11 @@ pipeline {
     stage("Run parallel") {
       parallel {
         stage ('Molecule') {
+          when {
+            expression {
+              !params.skip_molecule
+            }
+          }
           stages {
             stage ('Molecule: Prepare') {
               steps {
@@ -79,28 +92,28 @@ pipeline {
             stage ('Molecule: Create virtual machines') {
               steps {
                 script{
-                  moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "create", "ubuntu-bionic")
+                  moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "create", "ubuntu-jammy")
                 }
               }
             }
             stage ('Molecule: Run playbook for test') {
               steps {
                 script{
-                  moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", "ubuntu-bionic")
+                  moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", "ubuntu-jammy")
                 }
               }
             }
             stage ('Molecule: Start testinfra tests') {
               steps {
                 script{
-                  moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", "ubuntu-bionic")
+                  moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", "ubuntu-jammy")
                 }
               }
             }
             stage ('Molecule: Start Cleanup ') {
               steps {
                 script {
-                  moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "cleanup", "ubuntu-bionic")
+                  moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "cleanup", "ubuntu-jammy")
                 }
               }
             }
@@ -108,12 +121,18 @@ pipeline {
           post {
             always {
               script {
-                moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "ubuntu-bionic")
+                moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "ubuntu-jammy")
               }
             }
           }
         }
         stage ('Docker') {
+          when {
+            beforeAgent true
+            expression {
+              !params.skip_docker
+            }
+          }
           agent {
             label 'docker'
           }
