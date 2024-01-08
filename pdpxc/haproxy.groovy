@@ -66,6 +66,15 @@ pipeline {
   }
 
   stages {
+    stage('Set build name'){
+      steps {
+            script {
+              currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.HAPROXY_VERSION}"
+              currentBuild.description = "${env.REPO}-${env.DOCKER_ACC}-${env.TESTING_BRANCH}"
+            }
+          }
+        }
+
     stage('Checkout') {
       steps {
         deleteDir()
