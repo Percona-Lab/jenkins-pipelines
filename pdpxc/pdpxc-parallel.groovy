@@ -85,9 +85,10 @@ pipeline {
     stages {
         stage('Set build name'){
           steps {
-                    script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.MAJOR_REPO}"
-                    }
+                script {
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
+                    currentBuild.description = "${env.VERSION}-${env.REPO}-${env.TESTING_BRANCH}-${env.MAJOR_REPO}"
+                }
                 }
             }
         stage('Checkout') {
