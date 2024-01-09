@@ -58,6 +58,14 @@ pipeline {
       defaultValue: 'master',
       description: 'Branch for package-testing repository'
     )
+    choice(
+      name: 'DESTROY_MOLECULE_ENV',
+      description: 'Destroy VM after tests',
+      choices: [
+        'yes',
+        'no'
+      ]
+    )
   }
 
   options {
@@ -130,7 +138,9 @@ pipeline {
           post {
             always {
               script {
-                moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "ubuntu-jammy")
+                if (env.DESTROY_MOLECULE_ENV == "yes") {
+                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "ubuntu-jammy")
+                }
               }
             }
           }

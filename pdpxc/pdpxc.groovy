@@ -81,6 +81,14 @@ pipeline {
             name: 'MAJOR_REPO',
             description: "Enable to use major (pdpxc-8.0) repo instead of pdpxc-8.0.XX"
         )
+        choice(
+            name: 'DESTROY_ENV',
+            description: 'Destroy VM after tests',
+            choices: [
+                'yes',
+                'no'
+            ]
+        )
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())
@@ -139,8 +147,11 @@ pipeline {
   }
   post {
     always {
-          script {
-             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+        script {
+            if (env.DESTROY_ENV == "yes") {
+                moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+            }
+            junit "${MOLECULE_DIR}/report.xml"
         }
     }
   }

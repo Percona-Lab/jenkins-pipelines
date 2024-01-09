@@ -85,6 +85,14 @@ pipeline {
             description: 'Git account for package-testing repository',
             name: 'TESTING_GIT_ACCOUNT'
         )
+        choice(
+            name: 'DESTROY_ENV',
+            description: 'Destroy VM after tests',
+            choices: [
+                'yes',
+                'no'
+            ]
+        )
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())
@@ -144,8 +152,10 @@ pipeline {
   post {
     always {
           script {
-             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
-             junit "${MOLECULE_DIR}/report.xml"
+            if (env.DESTROY_ENV == "yes") {
+                moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+            }
+            junit "${MOLECULE_DIR}/report.xml"
         }
     }
   }
