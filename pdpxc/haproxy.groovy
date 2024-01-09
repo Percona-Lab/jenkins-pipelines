@@ -23,13 +23,13 @@ pipeline {
         ]
     )
     string(
-        defaultValue: '8.0.34',
+        defaultValue: '8.0.35',
         description: 'PXC version for test',
         name: 'VERSION'
     )
     string(
       name: 'HAPROXY_VERSION',
-      defaultValue: '2.8.1',
+      defaultValue: '2.8.5',
       description: 'Full haproxy version. Used as version and docker tag'
     )
     choice(
