@@ -23,13 +23,13 @@ pipeline {
         ]
     )
     string(
-        defaultValue: '8.0.34',
+        defaultValue: '8.0.35',
         description: 'PXC version for test',
         name: 'VERSION'
     )
     string(
       name: 'HAPROXY_VERSION',
-      defaultValue: '2.8.1',
+      defaultValue: '2.8.5',
       description: 'Full haproxy version. Used as version and docker tag'
     )
     choice(
@@ -57,6 +57,14 @@ pipeline {
       name: 'TESTING_BRANCH',
       defaultValue: 'master',
       description: 'Branch for package-testing repository'
+    )
+    choice(
+      name: 'DESTROY_MOLECULE_ENV',
+      description: 'Destroy VM after tests',
+      choices: [
+        'yes',
+        'no'
+      ]
     )
   }
 
@@ -130,7 +138,9 @@ pipeline {
           post {
             always {
               script {
-                moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "ubuntu-jammy")
+                if (env.DESTROY_MOLECULE_ENV == "yes") {
+                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "ubuntu-jammy")
+                }
               }
             }
           }
