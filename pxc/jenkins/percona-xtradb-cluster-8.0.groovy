@@ -362,6 +362,7 @@ pipeline {
 
                     cd percona-docker/percona-xtradb-cluster-8.0
                     sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
+                    sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}${MYSQL_VERSION_EXTRA}-${RPM_RELEASE}/g" Dockerfile
                     sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO testing/g" Dockerfile
                     sudo docker build -t perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} .
                     sudo docker build --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug .
