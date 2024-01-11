@@ -53,7 +53,7 @@ pipeline {
             description: 'BIN release value',
             name: 'BIN_RELEASE')
         string(
-            defaultValue: 'pxc-80',
+            choices: 'pxc-80\npxc-8x-innovation',
             description: 'PXC repo name',
             name: 'PXC_REPO')
         choice(
@@ -364,13 +364,13 @@ pipeline {
                     sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                     sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}${MYSQL_VERSION_EXTRA}-${RPM_RELEASE}/g" Dockerfile
                     sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO testing/g" Dockerfile
-                    sudo docker build -t perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} .
-                    sudo docker build --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug .
+                    sudo docker build --no-cache -t perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} --progress plain .
+                    sudo docker build --no-cache --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug --progress plain .
 
                     cd ../percona-xtradb-cluster-8.0-backup
                     sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                     sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO testing/g" Dockerfile
-                    sudo docker build -t perconalab/percona-xtradb-cluster-operator:${PXC_RELEASE}-pxc8.0-backup .
+                    sudo docker build --no-cache -t perconalab/percona-xtradb-cluster-operator:${PXC_RELEASE}-pxc8.0-backup --progress plain .
 
                     sudo docker images
                  '''
