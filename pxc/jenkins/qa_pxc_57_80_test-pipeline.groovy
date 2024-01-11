@@ -30,10 +30,10 @@ pipeline {
             choices: [
                 'min-centos-7-x64',
                 'min-ol-8-x64',
-                'min-bionic-x64',
                 'min-focal-x64',
                 'min-buster-x64',
                 'min-bullseye-x64',
+                'min-bookworm-x64',
                 'min-ol-9-x64',
                 'min-jammy-x64'
             ],
@@ -87,7 +87,10 @@ stages {
                     cd $ROOT_FS
                     rm -rf $ROOT_FS/pxc_8.0_tar || true
                     UPPER_PXC_TAR=upper-pxc-latest.tar.gz
-                    wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${PXC_UPPER_VERSION_TAR}/Percona-XtraDB-Cluster_${PXC_UPPER_VERSION_TAR}_Linux.x86_64.glibc2.17.tar.gz > ${UPPER_PXC_TAR}
+                    echo $PXC_UPPER_VERSION_TAR   
+                    MAJOR_PXC_UPPER_VERSION_TAR="$(echo ${PXC_UPPER_VERSION_TAR}|cut -d'-' -f1)"
+                    echo $MAJOR_PXC_UPPER_VERSION_TAR
+                    wget -qcO - https://downloads.percona.com/downloads/TESTING/pxc-${MAJOR_PXC_UPPER_VERSION_TAR}/Percona-XtraDB-Cluster_${PXC_UPPER_VERSION_TAR}_Linux.x86_64.glibc2.17.tar.gz > ${UPPER_PXC_TAR}
                     tar -xzf ${UPPER_PXC_TAR}
                     rm *.tar.gz
                     mv Percona-XtraDB-* pxc_8.0_tar
