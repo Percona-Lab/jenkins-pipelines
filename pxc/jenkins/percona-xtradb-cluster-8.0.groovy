@@ -52,7 +52,7 @@ pipeline {
             defaultValue: '1',
             description: 'BIN release value',
             name: 'BIN_RELEASE')
-        string(
+        choice(
             choices: 'pxc-80\npxc-8x-innovation',
             description: 'PXC repo name',
             name: 'PXC_REPO')
