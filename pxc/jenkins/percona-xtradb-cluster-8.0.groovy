@@ -361,16 +361,18 @@ pipeline {
                     git clone https://github.com/percona/percona-docker
 
                     cd percona-docker/percona-xtradb-cluster-8.0
-                    sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
-                    sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}${MYSQL_VERSION_EXTRA}-${RPM_RELEASE}/g" Dockerfile
+                    sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
+                    sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}-${RPM_RELEASE}/g" Dockerfile
                     sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO testing/g" Dockerfile
-                    sudo docker build --no-cache -t perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} --progress plain .
-                    sudo docker build --no-cache --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug --progress plain .
+                    ping -c 2 github.com
+                    BUILDKIT_DEBUG=1
+                    sudo docker build --no-cache -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} --progress plain .
+                    sudo docker build --no-cache --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:$${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug --progress plain .
 
                     cd ../percona-xtradb-cluster-8.0-backup
-                    sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
+                    sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                     sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO testing/g" Dockerfile
-                    sudo docker build --no-cache -t perconalab/percona-xtradb-cluster-operator:${PXC_RELEASE}-pxc8.0-backup --progress plain .
+                    sudo docker build --no-cache -t perconalab/percona-xtradb-cluster-operator:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}-pxc8.0-backup --progress plain .
 
                     sudo docker images
                  '''
@@ -384,9 +386,9 @@ pipeline {
                      PXC_RELEASE=$(echo ${GIT_BRANCH} | sed 's/release-//g')
                      curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
                      . ./MYSQL_VERSION
-                     sudo docker push perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
-                     sudo docker push perconalab/percona-xtradb-cluster:${PXC_RELEASE}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug
-                     sudo docker push perconalab/percona-xtradb-cluster-operator:${PXC_RELEASE}-pxc8.0-backup
+                     sudo docker push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
+                     sudo docker push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug
+                     sudo docker push perconalab/percona-xtradb-cluster-operator:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}-pxc8.0-backup
                  '''
                  }
             }
