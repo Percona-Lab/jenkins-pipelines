@@ -68,28 +68,31 @@ pipeline {
                 }
             }
         }
-
         stage('Build and push PGO docker images') {
             steps {
-                unstash "sourceFILES"
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
-                    sh """
-                        cd ./source/
-                        TAG_PREFIX=\$(echo $GIT_BRANCH | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
-                        sg docker -c "
-                            if [ ! -d ~/.docker/trust/private ]; then
-                                mkdir -p /home/ec2-user/.docker/trust/private
-                                cp "${docker_key}" ~/.docker/trust/private/
-                            fi
+                retry(3) {
+                    timeout(time: 30, unit: 'MINUTES') {
+                        unstash "sourceFILES"
+                        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
+                            sh """
+                                cd ./source/
+                                TAG_PREFIX=\$(echo $GIT_BRANCH | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
+                                sg docker -c "
+                                    if [ ! -d ~/.docker/trust/private ]; then
+                                        mkdir -p /home/ec2-user/.docker/trust/private
+                                        cp "${docker_key}" ~/.docker/trust/private/
+                                    fi
 
-                            docker login -u '${USER}' -p '${PASS}'
-                            docker buildx create --use
+                                    docker login -u '${USER}' -p '${PASS}'
+                                    docker buildx create --use
 
-                            ./e2e-tests/build
+                                    ./e2e-tests/build
 
-                            docker logout
-                        "
-                    """
+                                    docker logout
+                               "
+                            """
+                        }
+                    }
                 }
             }
         }
