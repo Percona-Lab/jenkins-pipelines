@@ -95,16 +95,20 @@ pipeline {
 
         stage('Build PSMDB operator docker image') {
             steps {
-                unstash "sourceFILES"
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh '''
-                        cd ./source/
-                        sg docker -c "
-                            docker login -u '${USER}' -p '${PASS}'
-                            RHEL=1 ./e2e-tests/build
-                            docker logout
-                        "
-                    '''
+                retry(3) {
+                    timeout(time: 30, unit: 'MINUTES') {
+                        unstash "sourceFILES"
+                        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                            sh '''
+                                cd ./source/
+                                sg docker -c "
+                                    docker login -u '${USER}' -p '${PASS}'
+                                    RHEL=1 ./e2e-tests/build
+                                    docker logout
+                                "
+                            '''
+                        }
+                    }
                 }
             }
         }

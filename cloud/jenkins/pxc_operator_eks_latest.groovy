@@ -166,6 +166,7 @@ metadata:
     tags:
         'delete-cluster-after-hours': '10'
         'creation-time': '\$timestamp'
+        'team': 'cloud'
 iam:
   withOIDC: true
 
