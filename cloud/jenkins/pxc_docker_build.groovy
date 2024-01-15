@@ -49,16 +49,20 @@ pipeline {
 
         stage('Build and push docker image') {
             steps {
-                unstash "sourceFILES"
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
-                        docker login -u '${USER}' -p '${PASS}'
-                        docker buildx create --use
-                        cd ./source/
-                        ./e2e-tests/build
-                        sudo rm -rf ./build
-                        docker logout
-                    """
+                retry(3) {
+                    timeout(time: 30, unit: 'MINUTES') {
+                        unstash "sourceFILES"
+                        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                            sh """
+                                docker login -u '${USER}' -p '${PASS}'
+                                docker buildx create --use
+                                cd ./source/
+                                ./e2e-tests/build
+                                sudo rm -rf ./build
+                                docker logout
+                            """
+                       }
+                    }
                 }
             }
         }

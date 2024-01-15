@@ -17,7 +17,8 @@ def call(String PRODUCT_NAME, String PRODUCT_VERSION) {
                 # Get PXC version from a file
                 if [ "x${PRODUCT_NAME}" == "xpxc" ]; then
                     curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${PRODUCT_VERSION}/MYSQL_VERSION
-                    cutProductVersion=\$(echo -n \$cutProductVersion; tail -1 MYSQL_VERSION | sed 's/.*=//')
+                    . ./MYSQL_VERSION
+                    cutProductVersion=${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}
                 fi
 
                 ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \

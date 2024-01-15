@@ -28,7 +28,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.31-23',
+            defaultValue: '8.0.35-27',
             description: 'PXC version for test. Possible values are with and without percona release and build: 8.0.32, 8.0.32-24 OR 8.0.32-24.2',
             name: 'VERSION'
         )
@@ -38,22 +38,22 @@ pipeline {
             name: 'PXC_REVISION'
         )
         string(
-            defaultValue: '8.0.31-24',
+            defaultValue: '8.0.35-30',
             description: 'PXB version for test. Possible values are with and without percona release and build: 8.0.32, 8.0.32-25 OR 8.0.32-25.1',
             name: 'PXB_VERSION'
         )
         string(
-            defaultValue: '2.4.8',
+            defaultValue: '2.5.5',
             description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
         )
         string(
-            defaultValue: '2.5.12',
+            defaultValue: '2.8.5',
             description: 'HAProxy version for test',
             name: 'HAPROXY_VERSION'
         )
         string(
-            defaultValue: '3.5.1',
+            defaultValue: '3.5.7',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
         )
@@ -80,6 +80,14 @@ pipeline {
         booleanParam(
             name: 'MAJOR_REPO',
             description: "Enable to use major (pdpxc-8.0) repo instead of pdpxc-8.0.XX"
+        )
+        choice(
+            name: 'DESTROY_ENV',
+            description: 'Destroy VM after tests',
+            choices: [
+                'yes',
+                'no'
+            ]
         )
   }
   options {
@@ -139,8 +147,11 @@ pipeline {
   }
   post {
     always {
-          script {
-             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+        script {
+            if (env.DESTROY_ENV == "yes") {
+                moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+            }
+            junit "${MOLECULE_DIR}/report.xml"
         }
     }
   }
