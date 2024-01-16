@@ -173,6 +173,7 @@ metadata:
     tags:
         'delete-cluster-after-hours': '10'
         'creation-time': '\$timestamp'
+        'team': 'cloud'
 iam:
   withOIDC: true
 
@@ -287,7 +288,7 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PG-EKS-latest\\">\n'
+TestsReport = '<testsuite name=\\"PG-EKS-version\\">\n'
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
     for (int i=0; i<tests.size(); i++) {

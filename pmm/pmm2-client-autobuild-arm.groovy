@@ -85,9 +85,10 @@ pipeline {
                 stage('Build client binary debs') {
                     steps {
                         sh './build/bin/build-client-deb debian:buster'
-                        sh './build/bin/build-client-deb debian:stretch'
                         sh './build/bin/build-client-deb debian:bullseye'
+                        sh './build/bin/build-client-deb debian:bookworm'
                         sh './build/bin/build-client-deb ubuntu:focal'
+                        sh './build/bin/build-client-deb ubuntu:jammy'
                         sh 'aws s3 cp --recursive --acl public-read --include "*.deb" results/deb/ \
                                 s3://pmm-build-cache/pmm2-client/ARM/'
                         stash includes: 'results/deb/*.deb', name: 'debs'

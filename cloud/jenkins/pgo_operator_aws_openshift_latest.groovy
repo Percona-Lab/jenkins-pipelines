@@ -24,13 +24,13 @@ void prepareNode() {
         sudo yum install -y percona-xtrabackup-80 | true
 
         wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
-        unzip terraform_0.11.14_linux_amd64.zip
+        unzip -o terraform_0.11.14_linux_amd64.zip
         sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
-        
+
         curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
         ./krew-linux_amd64 install krew
         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-        
+
         kubectl krew install assert
 
         # v0.15.0 kuttl version
@@ -259,7 +259,7 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
                     export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
                     export PATH="$HOME/.krew/bin:$PATH"
-                    
+
                     kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
 
                 """

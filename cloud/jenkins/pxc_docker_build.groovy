@@ -47,36 +47,26 @@ pipeline {
             }
         }
 
-        stage('Build docker image') {
+        stage('Build and push docker image') {
             steps {
-                unstash "sourceFILES"
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh '''
-                        docker buildx create --use
-                        cd ./source/
-                        DOCKER_PUSH=0 ./e2e-tests/build
-                        sudo rm -rf ./build
-                    '''
+                retry(3) {
+                    timeout(time: 30, unit: 'MINUTES') {
+                        unstash "sourceFILES"
+                        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                            sh """
+                                docker login -u '${USER}' -p '${PASS}'
+                                docker buildx create --use
+                                cd ./source/
+                                ./e2e-tests/build
+                                sudo rm -rf ./build
+                                docker logout
+                            """
+                       }
+                    }
                 }
             }
         }
 
-        stage('Push docker image to dockerhub') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
-                    sh '''
-                        sg docker -c "
-                            mkdir -p /home/ec2-user/.docker/trust/private
-                            cp "${docker_key}" ~/.docker/trust/private/
-
-                            docker login -u '${USER}' -p '${PASS}'
-                            docker push perconalab/percona-xtradb-cluster-operator:${DOCKER_TAG}
-                            docker logout
-                        "
-                    '''
-                }
-            }
-        }
         stage('Check PXC docker image') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {

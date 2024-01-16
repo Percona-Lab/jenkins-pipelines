@@ -141,7 +141,7 @@ if [ -f /usr/bin/yum ]; then
 
 #   Percona-Server 8.0
     if [[ ${RHVER} -eq 7 ]]; then
-        PKGLIST+=" cmake3 perl-Digest-Perl-MD5 libedit-devel"
+        PKGLIST+=" cmake3 perl-Digest-Perl-MD5 libedit-devel openssl11"
         PKGLIST_DEVTOOLSET10+=" devtoolset-10-gcc-c++ devtoolset-10-binutils"
         PKGLIST_DEVTOOLSET10+=" devtoolset-10-valgrind devtoolset-10-valgrind-devel devtoolset-10-libatomic-devel"
         PKGLIST_DEVTOOLSET10+=" devtoolset-10-libasan-devel devtoolset-10-libubsan-devel"

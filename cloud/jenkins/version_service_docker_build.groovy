@@ -101,6 +101,11 @@ pipeline {
                             fi
                             docker login -u '${USER}' -p '${PASS}'
                             docker push \$IMG
+                            if [[ "\$IMG" == *"perconalab/version-service:main-"* ]]; then
+                                export IMG_LATEST="perconalab/version-service:main-latest"
+                                docker tag \$IMG \\$IMG_LATEST
+                                docker push \\$IMG_LATEST
+                            fi
                             docker logout
                         "
                     '''
