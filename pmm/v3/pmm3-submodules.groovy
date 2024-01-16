@@ -47,10 +47,11 @@ pipeline {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                 sh '''
                     set -o errexit
+                    sudo rm -rf results tmp || :
+                    git reset --hard
+                    git clean -fdx
+
                     if [ -s ci.yml ]; then
-                        sudo rm -rf results tmp || :
-                        git reset --hard
-                        git clean -fdx
                         python3 ci.py
                         cat .git-sources
                         . ./.git-sources
@@ -62,12 +63,8 @@ pipeline {
                         echo $pmm_ui_tests_branch > pmmUITestBranch
                         echo $pmm_ui_tests_commit > pmmUITestsCommitSha
                     else
-                        # This method requires feature branches to be manually set in .gitmodules
-                        sudo rm -rf results tmp || :
-                        git reset --hard
-                        git clean -fdx
-                        git submodule foreach --recursive git reset --hard
-                        git submodule foreach --recursive git clean -fdx
+                        # This build method requires feature branches to be manually set in .gitmodules
+                        git submodule update --init --jobs 10
                         git submodule status
                         # Define variables
                         pmm_commit=$(git submodule status | grep 'sources/pmm/src' | awk -F ' ' '{print $1}')
