@@ -1,6 +1,6 @@
 import groovy.json.JsonOutput
 
-library changelog: false, identifier: 'lib@PMM-12557', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
