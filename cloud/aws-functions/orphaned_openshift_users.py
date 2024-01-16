@@ -32,7 +32,6 @@ def get_user_for_deletion(client):
     if not users_for_deletion:
         logging.info(f"There are no users for deletion")
 
-    print(users_for_deletion)
     return users_for_deletion
 
 
@@ -44,14 +43,12 @@ def delete_user(client, user_name):
 
 def delete_user_policies(client, user_name):
     user_policies = client.list_user_policies(UserName=user_name)['PolicyNames']
-    print(user_policies)
     if user_policies:
         for policy in user_policies:
             client.delete_user_policy(UserName=user_name, PolicyName=policy)
 
 def delete_user_access_keys(client, user_name):
     user_access_keys = client.list_access_keys(UserName=user_name)['AccessKeyMetadata']
-    print(f"{user_name} {user_access_keys}")
     if user_access_keys:
         for key in user_access_keys:
             client.delete_access_key(UserName=user_name, AccessKeyId=key['AccessKeyId'])
