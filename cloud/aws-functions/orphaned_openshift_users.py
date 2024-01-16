@@ -15,11 +15,9 @@ def is_user_to_terminate(client,user):
             return False
 
     current_time = datetime.datetime.now().timestamp()
-
     creation_time = int(user['CreateDate'].timestamp())
-    if (current_time - creation_time) / 3600 > 24:
-        return True
-    return False
+
+    return (current_time - creation_time) / 3600 > 24
 
 
 def get_user_for_deletion(client):
