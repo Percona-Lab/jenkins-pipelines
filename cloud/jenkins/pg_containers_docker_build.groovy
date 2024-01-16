@@ -2,7 +2,7 @@ void build(String IMAGE_POSTFIX){
     sh """
         cd ./source/
         for PG_VER in 16 15 14 13 12; do
-            docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} \
+            docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} --build-arg PGO_TAG=\${GIT_PD_BRANCH} \
                 -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX} \
                 -f ./postgresql-containers/build/${IMAGE_POSTFIX}/Dockerfile ./postgresql-containers
         done
