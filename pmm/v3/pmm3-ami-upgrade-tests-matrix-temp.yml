@@ -1,0 +1,14 @@
+- job:
+    name: pmm-ami-upgrade-tests-temp
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                branches:
+                    - 'PMM-7-jobs-improve'
+                wipe-workspace: false
+        lightweight-checkout: true
+        script-path: pmm/pmm-ami-upgrade-tests-matrix.groovy
