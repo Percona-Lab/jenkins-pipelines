@@ -18,18 +18,19 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
 }
 
 String getPostgreSQLVersion(String BRANCH_NAME, String configureFileName) {
-    sh """
+    def packageVersion = sh(script: """
         # Download the configure file
         wget https://raw.githubusercontent.com/postgres/postgres/${BRANCH_NAME}/configure -O ${configureFileName}
         # Read the PACKAGE_VERSION value from the configure file
         packageVersion=\$(grep -r 'PACKAGE_VERSION=' ${configureFileName} | tr -dc '[. [:digit:]]')
 
-	# Delete configure file
+        # Delete configure file
         rm -f ${configureFileName}
 
-        echo \$packageVersion
+        echo "\$packageVersion"
+    """, returnStdout: true).trim()
 
-    """
+    return packageVersion
 }
 
 void uploadTarballToTestingDownloadServer(String tarballDirectory, String packageVersion) {
