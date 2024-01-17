@@ -27,17 +27,6 @@ setup_amazon_package_tests = { ->
     '''
 }
 
-setup_stretch_package_tests = { ->
-    sh '''
-        sudo apt-get update
-        sudo apt-get install -y dirmngr gnupg2
-        echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
-        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
-        sudo apt-get update
-        sudo apt-get install -y ansible git wget
-    '''
-}
-
 setup_debian_package_tests = { ->
     sh '''
         sudo apt-get update
@@ -74,12 +63,10 @@ setup_ubuntu_package_tests = { ->
 }
 
 node_setups = [
-    "min-buster-x64": setup_debian_package_tests,
     "min-bullseye-x64": setup_debian_package_tests,
     "min-bookworm-x64": setup_debian_bookworm_package_tests,
     "min-ol-8-x64": setup_rhel8_package_tests,
     "min-centos-7-x64": setup_rhel_package_tests,
-    "min-bionic-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
     "min-amazon-2-x64": setup_amazon_package_tests,
     "min-jammy-x64": setup_ubuntu_package_tests,
@@ -132,7 +119,7 @@ void runPlaybook(String action_to_test) {
     setup_package_tests()
 
     sh '''
-        git clone -b master --depth 1 https://github.com/Percona-Lab/package-testing
+        git clone -b master --depth 1 https://github.com/Percona-QA/package-testing
     '''
 
     sh """

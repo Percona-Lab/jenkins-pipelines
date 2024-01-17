@@ -12,9 +12,9 @@
     pipeline-scm:
         scm:
             - git:
-                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                url: https://github.com/panchal-yash/jenkins-pipelines.git
                 branches:
-                    - 'master'
+                    - 'POC-INNOVATION-LTS'
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: ps/jenkins/package-testing-ps-innovation-lts.groovy
@@ -41,7 +41,6 @@
                 - "min-bookworm-x64"
                 - "min-centos-7-x64"
                 - "min-ol-8-x64"
-                - "min-bionic-x64"
                 - "min-focal-x64"
                 - "min-amazon-2-x64"
                 - "min-jammy-x64"

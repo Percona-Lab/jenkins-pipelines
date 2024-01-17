@@ -4,7 +4,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 List all_nodes = [
-    "min-buster-x64",
     "min-bullseye-x64",
     "min-bookworm-x64",
     "min-centos-7-x64",
@@ -94,18 +93,6 @@ pipeline {
 
         stage("Run parallel") {
             parallel {
-                stage("Debian Buster") {
-                    when {
-                        expression {
-                            nodes_to_test.contains("min-buster-x64")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("min-buster-x64")
-                    }
-                }
-
                 stage("Debian Bullseye") {
                     when {
                         expression {
