@@ -118,7 +118,7 @@ pipeline {
 				def PG_VERSION=16
 				def BRANCH_NAME = "REL_16_STABLE"
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
-
+				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
 				unstash 'timestamp'
@@ -141,7 +141,7 @@ pipeline {
 				def PG_VERSION=16
 				def BRANCH_NAME = 'REL_16_STABLE'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
-
+				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
                         	unstash 'timestamp'
@@ -187,7 +187,7 @@ pipeline {
                         	def PG_VERSION=15
                         	def BRANCH_NAME = 'REL_15_STABLE'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
-
+				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
                         	unstash 'timestamp'
@@ -210,7 +210,7 @@ pipeline {
                         	def PG_VERSION=14
                         	def BRANCH_NAME = 'REL_14_STABLE'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
-
+				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
                         	unstash 'timestamp'
@@ -233,7 +233,7 @@ pipeline {
                         	def PG_VERSION=14
                         	def BRANCH_NAME = 'REL_14_STABLE'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
-
+				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
                         	unstash 'timestamp'
@@ -256,7 +256,7 @@ pipeline {
 				def PG_VERSION=13
 				def BRANCH_NAME = 'REL_13_STABLE'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
-
+				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
 				unstash 'timestamp'
@@ -279,7 +279,7 @@ pipeline {
 				def PG_VERSION=13
 				def BRANCH_NAME = 'REL_13_STABLE'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
-
+				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
 				unstash 'timestamp'
@@ -302,7 +302,7 @@ pipeline {
 				def PG_VERSION=12
 				def BRANCH_NAME = 'REL_12_STABLE'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
-
+				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
 				unstash 'timestamp'
@@ -325,7 +325,7 @@ pipeline {
 				def PG_VERSION=12
 				def BRANCH_NAME = 'REL_12_STABLE'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
-
+				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
 				unstash 'timestamp'
