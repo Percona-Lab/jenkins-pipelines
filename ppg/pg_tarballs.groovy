@@ -94,7 +94,7 @@ pipeline {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 sh """
-                   TIMESTAMP=$(date +%s)
+                   TIMESTAMP=\$(date +%s)
                    REPO_UPLOAD_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${GIT_BRANCH}/${TIMESTAMP}"
                    AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${GIT_BRANCH}/${TIMESTAMP}"
                    echo ${REPO_UPLOAD_PATH} > uploadPath
