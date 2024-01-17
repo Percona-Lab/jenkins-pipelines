@@ -16,7 +16,7 @@ void installDependencies() {
 
     sh '''
         rm -rf package-testing
-        git clone https://github.com/Percona-QA/package-testing.git --branch master
+        git clone https://github.com/Percona-QA/package-testing
     '''
 }
 
