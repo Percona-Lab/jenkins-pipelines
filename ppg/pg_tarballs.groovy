@@ -94,13 +94,13 @@ pipeline {
             steps {
                 //slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-		TIMESTAMP = sh(script: 'date +%Y%m%d%H%M%S', returnStdout: true).trim()
-                sh """
-                   echo ${TIMESTAMP} > timestamp
-                   cat timestamp
-                """
-                script {
-                    TIMESTAMP = sh(returnStdout: true, script: "cat timestamp").trim()
+		script {
+			TIMESTAMP = sh(script: 'date +%Y%m%d%H%M%S', returnStdout: true).trim()
+                	sh """
+                   		echo ${TIMESTAMP} > timestamp
+                   		cat timestamp
+                	"""
+                    	TIMESTAMP = sh(returnStdout: true, script: "cat timestamp").trim()
                 }
                 stash includes: 'timestamp', name: 'timestamp'
             }
