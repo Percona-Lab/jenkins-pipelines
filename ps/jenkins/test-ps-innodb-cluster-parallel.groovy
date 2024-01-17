@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@innodb', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 List all_nodes = [
@@ -11,8 +11,7 @@ List all_nodes = [
     'debian-12',
     'centos-7',
     'oracle-8',
-    'oracle-9',
-    'amazon-2'
+    'oracle-9'
 ]
 
 List TEST_DISTS = []
@@ -69,8 +68,7 @@ pipeline {
                 'debian-12',
                 'centos-7',
                 'oracle-8',
-                'oracle-9',
-                'amazon-2'
+                'oracle-9'
             ],
             description: 'Distribution to run test'
         )
@@ -190,18 +188,6 @@ pipeline {
 
                     steps {
                         runNodeBuild("oracle-9")
-                    }
-                }
-
-                stage("Amazon Linux") {
-                    when {
-                        expression {
-                            TEST_DISTS.contains("amazon-2")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("amazon-2")
                     }
                 }
             }
