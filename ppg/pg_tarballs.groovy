@@ -32,6 +32,18 @@ String getPostgreSQLVersion(String BRANCH_NAME, String configureFileName) {
     """
 }
 
+void uploadTarballToTestingDownloadServer(String tarballDirectory, String packageVersion) {
+
+    script {
+        try {
+            uploadTarballToDownloadsTesting(tarballDirectory, packageVersion)
+        } catch (err) {
+            echo "Caught: ${err}"
+            currentBuild.result = 'UNSTABLE'
+        }
+    }
+}
+
 void cleanUpWS() {
     sh """
         sudo rm -rf ./*
@@ -73,6 +85,29 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
     }
     stages {
+
+	stage('Create upload paths') {
+            agent {
+                label 'docker'
+            }
+            steps {
+                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
+                cleanUpWS()
+                sh '''
+                   REPO_UPLOAD_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+                   AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+                   echo ${REPO_UPLOAD_PATH} > uploadPath
+                   echo ${AWS_STASH_PATH} > awsUploadPath
+                   cat uploadPath
+                   cat awsUploadPath
+                '''
+                script {
+                    AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
+                }
+                stash includes: 'uploadPath', name: 'uploadPath'
+            }
+        }
+
         stage('Build pg_tarballs 16 for OpenSSL 3') {
             parallel {
                 stage('Build pg_tarball 16 for OpenSSL 3') {
@@ -92,6 +127,8 @@ pipeline {
                         buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 			
 			pushArtifactFolder("tarballs/", AWS_STASH_PATH)
+			uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+			uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                     }
                 }
                 stage('Build pg_tarball 16 for OpenSSL 1.1') {
@@ -111,6 +148,8 @@ pipeline {
                         buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 
 			pushArtifactFolder("tarballs/", AWS_STASH_PATH)
+			uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+			uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                     }
                 }
 		stage('Build pg_tarball 15 for OpenSSL 3') {
@@ -130,6 +169,8 @@ pipeline {
                         buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 
 			pushArtifactFolder("tarballs/", AWS_STASH_PATH)
+			uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+			uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                     }
                 }
 		stage('Build pg_tarball 15 for OpenSSL 1.1') {
@@ -149,6 +190,8 @@ pipeline {
                         buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 
 			pushArtifactFolder("tarballs/", AWS_STASH_PATH)
+			uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+			uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                     }
                 }
 		stage('Build pg_tarball 14 for OpenSSL 3') {
@@ -168,6 +211,8 @@ pipeline {
                         buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 
 			pushArtifactFolder("tarballs/", AWS_STASH_PATH)
+			uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+			uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                     }
                 }
 		stage('Build pg_tarball 14 for OpenSSL 1.1') {
@@ -187,6 +232,8 @@ pipeline {
                         buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 
 			pushArtifactFolder("tarballs/", AWS_STASH_PATH)
+			uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+			uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                     }
                 }
 		stage('Build pg_tarball 13 for OpenSSL 3') {
@@ -206,6 +253,8 @@ pipeline {
                         buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 
 			pushArtifactFolder("tarballs/", AWS_STASH_PATH)
+			uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+			uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                     }
                 }
 		stage('Build pg_tarball 13 for OpenSSL 1.1') {
@@ -225,6 +274,8 @@ pipeline {
                         buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 
 			pushArtifactFolder("tarballs/", AWS_STASH_PATH)
+			uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+			uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                     }
                 }
 		stage('Build pg_tarball 12 for OpenSSL 3') {
@@ -244,6 +295,8 @@ pipeline {
                         buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 
 			pushArtifactFolder("tarballs/", AWS_STASH_PATH)
+			uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+			uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                     }
                 }
 		stage('Build pg_tarball 12 for OpenSSL 1.1') {
@@ -263,6 +316,8 @@ pipeline {
                         buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 
 			pushArtifactFolder("tarballs/", AWS_STASH_PATH)
+			uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+			uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                     }
                 }	
             }  //parallel
