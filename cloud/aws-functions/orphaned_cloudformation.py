@@ -2,9 +2,6 @@
 import logging
 import datetime
 import boto3
-import sys
-from time import sleep
-from botocore.exceptions import ClientError
 from boto3.exceptions import Boto3Error
 from utils import get_regions_list
 

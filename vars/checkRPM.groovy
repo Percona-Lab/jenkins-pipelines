@@ -13,7 +13,7 @@ def call(String DESTINATION, String RPM_NAME) {
             }
             echo "EXISTS: ${EXISTS}"
             if (EXISTS != "0") {
-                echo "WARNING: RPM package is already exists, skip building."
+                echo "WARNING: RPM package already exists, skip building."
                 currentBuild.result = 'UNSTABLE'
             }
         }
