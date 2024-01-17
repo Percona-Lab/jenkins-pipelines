@@ -93,13 +93,14 @@ pipeline {
             }
         }
 
-        stage('Build PSMDB operator docker image') {
+        stage('Build and push PSMDB operator docker image') {
             steps {
                 retry(3) {
                     timeout(time: 30, unit: 'MINUTES') {
                         unstash "sourceFILES"
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                             sh '''
+                                docker buildx create --use
                                 cd ./source/
                                 sg docker -c "
                                     docker login -u '${USER}' -p '${PASS}'
@@ -113,22 +114,6 @@ pipeline {
             }
         }
 
-        stage('Push docker image to dockerhub') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
-                    sh '''
-                        sg docker -c "
-                            mkdir -p /home/ec2-user/.docker/trust/private
-                            cp "${docker_key}" ~/.docker/trust/private/
-
-                            docker login -u '${USER}' -p '${PASS}'
-                            docker push perconalab/percona-server-mongodb-operator:main
-                            docker logout
-                        "
-                    '''
-                }
-            }
-        }
 
         stage('Build PSMDB docker images') {
             steps {
