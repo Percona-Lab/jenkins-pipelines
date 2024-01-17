@@ -86,7 +86,7 @@ pipeline {
     }
     stages {
 
-	stage('Create upload paths') {
+	stage('Create timestamp') {
             agent {
                 label 'docker'
             }
@@ -95,18 +95,13 @@ pipeline {
                 cleanUpWS()
                 sh """
                    TIMESTAMP=\$(date +%s)
-                   REPO_UPLOAD_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${GIT_BRANCH}/${TIMESTAMP}"
-                   AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${GIT_BRANCH}/${TIMESTAMP}"
-                   echo ${REPO_UPLOAD_PATH} > uploadPath
-                   echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat uploadPath
-                   cat awsUploadPath
+                   echo ${TIMESTAMP} > timestamp
+                   cat timestamp
                 """
                 script {
-                    AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
+                    TIMESTAMP = sh(returnStdout: true, script: "cat timestamp").trim()
                 }
-                stash includes: 'uploadPath', name: 'uploadPath'
-		stash includes: 'awsUploadPath', name: 'awsUploadPath'
+                stash includes: 'timestamp', name: 'timestamp'
             }
         }
 
@@ -125,10 +120,10 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-				//AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+				unstash 'timestamp'
+				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 	
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
-				unstash 'awsUploadPath'
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
@@ -148,10 +143,10 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-                        	//AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+                        	unstash 'timestamp'
+				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
-				unstash 'awsUploadPath'
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
@@ -171,10 +166,10 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-                        	//AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+                        	unstash 'timestamp'
+				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
-				unstash 'awsUploadPath'
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
@@ -194,10 +189,10 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-                        	//AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+                        	unstash 'timestamp'
+				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
-				unstash 'awsUploadPath'
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
@@ -217,10 +212,10 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-                        	//AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+                        	unstash 'timestamp'
+				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
-				unstash 'awsUploadPath'
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
@@ -240,10 +235,10 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-                        	//AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+                        	unstash 'timestamp'
+				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
-				unstash 'awsUploadPath'
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
@@ -263,10 +258,10 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-				//AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+				unstash 'timestamp'
+				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
-				unstash 'awsUploadPath'
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
@@ -286,10 +281,10 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-				//AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+				unstash 'timestamp'
+				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
-				unstash 'awsUploadPath'
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
@@ -309,10 +304,10 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-				//AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+				unstash 'timestamp'
+				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
-				unstash 'awsUploadPath'
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
@@ -332,10 +327,10 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-				//AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+				unstash 'timestamp'
+				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
-				unstash 'awsUploadPath'
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
@@ -348,14 +343,14 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
+            //slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
                 currentBuild.description = "Built on ${GIT_BRANCH}"
             }
             deleteDir()
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
+            //slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {
