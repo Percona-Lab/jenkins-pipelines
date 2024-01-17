@@ -93,14 +93,15 @@ pipeline {
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                sh '''
-                   REPO_UPLOAD_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
-                   AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+                sh """
+                   TIMESTAMP=$(date +%s)
+                   REPO_UPLOAD_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${GIT_BRANCH}/${TIMESTAMP}"
+                   AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${GIT_BRANCH}/${TIMESTAMP}"
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
                    cat uploadPath
                    cat awsUploadPath
-                '''
+                """
                 script {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
@@ -146,7 +147,7 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-                        	AWS_STASH_PATH=UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}
+                        	AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 
@@ -169,7 +170,7 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-                        	AWS_STASH_PATH=UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}
+                        	AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 
@@ -192,7 +193,7 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-                        	AWS_STASH_PATH=UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}
+                        	AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 
@@ -215,7 +216,7 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-                        	AWS_STASH_PATH=UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}
+                        	AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 
@@ -238,7 +239,7 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-                        	AWS_STASH_PATH=UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}
+                        	AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 
@@ -261,7 +262,7 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-				AWS_STASH_PATH=UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}
+				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 
@@ -284,7 +285,7 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-				AWS_STASH_PATH=UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}
+				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 
@@ -307,7 +308,7 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-				AWS_STASH_PATH=UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}
+				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 
@@ -330,7 +331,7 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
-				AWS_STASH_PATH=UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}
+				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
 
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 
