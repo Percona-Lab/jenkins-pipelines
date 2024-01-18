@@ -51,7 +51,6 @@ void cleanUpWS() {
     """
 }
 
-def AWS_STASH_PATH
 def TIMESTAMP
 
 pipeline {
