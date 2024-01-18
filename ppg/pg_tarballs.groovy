@@ -128,6 +128,7 @@ pipeline {
 					echo ${AWS_STASH_PATH} > uploadPath
 					cat uploadPath
 				"""
+				stash includes: 'uploadPath', name: 'uploadPath'
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -154,6 +155,7 @@ pipeline {
                                         echo ${AWS_STASH_PATH} > uploadPath
                                         cat uploadPath
                                 """
+				stash includes: 'uploadPath', name: 'uploadPath'
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -180,6 +182,7 @@ pipeline {
                                         echo ${AWS_STASH_PATH} > uploadPath
                                         cat uploadPath
                                 """
+				stash includes: 'uploadPath', name: 'uploadPath'
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -206,6 +209,7 @@ pipeline {
                                         echo ${AWS_STASH_PATH} > uploadPath
                                         cat uploadPath
                                 """
+				stash includes: 'uploadPath', name: 'uploadPath'
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -232,6 +236,7 @@ pipeline {
                                         echo ${AWS_STASH_PATH} > uploadPath
                                         cat uploadPath
                                 """
+				stash includes: 'uploadPath', name: 'uploadPath'
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -258,6 +263,7 @@ pipeline {
                                         echo ${AWS_STASH_PATH} > uploadPath
                                         cat uploadPath
                                 """
+				stash includes: 'uploadPath', name: 'uploadPath'
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -284,6 +290,7 @@ pipeline {
                                         echo ${AWS_STASH_PATH} > uploadPath
                                         cat uploadPath
                                 """
+				stash includes: 'uploadPath', name: 'uploadPath'
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -310,6 +317,7 @@ pipeline {
                                         echo ${AWS_STASH_PATH} > uploadPath
                                         cat uploadPath
                                 """
+				stash includes: 'uploadPath', name: 'uploadPath'
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -336,6 +344,7 @@ pipeline {
                                         echo ${AWS_STASH_PATH} > uploadPath
                                         cat uploadPath
                                 """
+				stash includes: 'uploadPath', name: 'uploadPath'
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -362,6 +371,7 @@ pipeline {
                                         echo ${AWS_STASH_PATH} > uploadPath
                                         cat uploadPath
                                 """
+				stash includes: 'uploadPath', name: 'uploadPath'
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
