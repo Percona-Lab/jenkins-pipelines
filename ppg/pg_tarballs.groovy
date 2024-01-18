@@ -124,7 +124,10 @@ pipeline {
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
 				unstash 'timestamp'
 				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
-	
+				sh """
+					echo ${AWS_STASH_PATH} > uploadPath
+					cat uploadPath
+				"""
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -147,7 +150,10 @@ pipeline {
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
                         	unstash 'timestamp'
 				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
-
+				sh """
+                                        echo ${AWS_STASH_PATH} > uploadPath
+                                        cat uploadPath
+                                """
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -170,7 +176,10 @@ pipeline {
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
                         	unstash 'timestamp'
 				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
-
+				sh """
+                                        echo ${AWS_STASH_PATH} > uploadPath
+                                        cat uploadPath
+                                """
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -193,7 +202,10 @@ pipeline {
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
                         	unstash 'timestamp'
 				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
-
+				sh """
+                                        echo ${AWS_STASH_PATH} > uploadPath
+                                        cat uploadPath
+                                """
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -216,7 +228,10 @@ pipeline {
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
                         	unstash 'timestamp'
 				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
-
+				sh """
+                                        echo ${AWS_STASH_PATH} > uploadPath
+                                        cat uploadPath
+                                """
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -239,7 +254,10 @@ pipeline {
                         	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
                         	unstash 'timestamp'
 				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
-
+				sh """
+                                        echo ${AWS_STASH_PATH} > uploadPath
+                                        cat uploadPath
+                                """
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -262,7 +280,10 @@ pipeline {
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
 				unstash 'timestamp'
 				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
-
+				sh """
+                                        echo ${AWS_STASH_PATH} > uploadPath
+                                        cat uploadPath
+                                """
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -285,7 +306,10 @@ pipeline {
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
 				unstash 'timestamp'
 				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
-
+				sh """
+                                        echo ${AWS_STASH_PATH} > uploadPath
+                                        cat uploadPath
+                                """
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -308,7 +332,10 @@ pipeline {
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
 				unstash 'timestamp'
 				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
-
+				sh """
+                                        echo ${AWS_STASH_PATH} > uploadPath
+                                        cat uploadPath
+                                """
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
@@ -331,7 +358,10 @@ pipeline {
 				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
 				unstash 'timestamp'
 				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
-
+				sh """
+                                        echo ${AWS_STASH_PATH} > uploadPath
+                                        cat uploadPath
+                                """
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 				pushArtifactFolder("tarballs/", AWS_STASH_PATH)
 				uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
