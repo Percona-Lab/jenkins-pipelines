@@ -770,16 +770,21 @@ parameters {
             steps {
                 unstash 'properties'
                 script {
+                    MYSQL_VERSION_MINOR = sh(returnStdout: true, script: '''curl -s -O $(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\.git$||')/)/${BRANCH}/MYSQL_VERSION; cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print $2}' ''').trim()
                     PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
                     // sync packages
-                    if ("${PS_MAJOR_RELEASE}" == "80") {
+                    if ("${MYSQL_VERSION_MINOR}" == "0") {
                         if (env.FIPSMODE == 'YES') {
                             sync2PrivateProdAutoBuild("ps-80-pro", COMPONENT)
                         } else {
                             sync2ProdAutoBuild("ps-80", COMPONENT)
                         }
                     } else {
-                        sync2ProdAutoBuild("ps-8x-innovation", COMPONENT)
+                        if (env.FIPSMODE == 'YES') {
+                            sync2PrivateProdAutoBuild("ps-80-innovation-pro", COMPONENT)
+                        } else {
+                            sync2ProdAutoBuild("ps-8x-innovation", COMPONENT)
+                        }
                     }
                 }
             }
