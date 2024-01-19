@@ -120,9 +120,8 @@ pipeline {
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
-				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
 				unstash 'timestamp'
-				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+				AWS_STASH_PATH="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-16/${TIMESTAMP}"
 				sh """
 					echo ${AWS_STASH_PATH} > uploadPath-${PACKAGE_VERSION}
 					cat uploadPath-${PACKAGE_VERSION}
@@ -147,9 +146,8 @@ pipeline {
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
-                        	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
                         	unstash 'timestamp'
-				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+				AWS_STASH_PATH="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-16/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -174,9 +172,8 @@ pipeline {
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
-                        	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
                         	unstash 'timestamp'
-				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+				AWS_STASH_PATH="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-15/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -201,9 +198,8 @@ pipeline {
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
-                        	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
                         	unstash 'timestamp'
-				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+				AWS_STASH_PATH="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-15/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -228,9 +224,8 @@ pipeline {
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
-                        	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
                         	unstash 'timestamp'
-				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+				AWS_STASH_PATH="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-14/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -255,9 +250,8 @@ pipeline {
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
-                        	def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
                         	unstash 'timestamp'
-				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+				AWS_STASH_PATH="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-14/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -282,9 +276,8 @@ pipeline {
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
-				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
 				unstash 'timestamp'
-				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+				AWS_STASH_PATH="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-13/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -309,9 +302,8 @@ pipeline {
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
-				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
 				unstash 'timestamp'
-				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+				AWS_STASH_PATH="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-13/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -336,9 +328,8 @@ pipeline {
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
-				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
 				unstash 'timestamp'
-				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+				AWS_STASH_PATH="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-12/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -363,9 +354,8 @@ pipeline {
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
-				def PRODUCT_FULL="${PRODUCT}-${PACKAGE_VERSION}"
 				unstash 'timestamp'
-				AWS_STASH_PATH="UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT_FULL}/${BRANCH_NAME}/${TIMESTAMP}"
+				AWS_STASH_PATH="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-12/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
