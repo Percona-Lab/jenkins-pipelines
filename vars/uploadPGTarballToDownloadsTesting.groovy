@@ -14,13 +14,6 @@ def call(String PRODUCT_NAME, String PRODUCT_VERSION) {
                 # Cut prefix if it's provided
                 cutProductVersion=\$(echo ${PRODUCT_VERSION} | sed 's/release-//g');
 
-                # Get PXC version from a file
-                if [ "x${PRODUCT_NAME}" == "xpxc" ]; then
-                    curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${PRODUCT_VERSION}/MYSQL_VERSION
-                    . ./MYSQL_VERSION
-                    cutProductVersion=${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}
-                fi
-
                 ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                     ssh -p 2222 jenkins-deploy.jenkins-deploy.web.r.int.percona.com mkdir -p /data/downloads/TESTING/${PRODUCT_NAME}-\${cutProductVersion}
 
