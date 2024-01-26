@@ -1,0 +1,51 @@
+- job:
+    name: pxc-keyring-test-pkgs
+    project-type: pipeline
+    description: |
+        PXC Keyring test via packages (Uses Molecule and Bash)
+    concurrent: true
+    properties:
+        - build-discarder:
+            artifact-days-to-keep: -1
+            artifact-num-to-keep: 20
+            days-to-keep: -1
+            num-to-keep: 20
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                branches:
+                    - 'master'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: pxc/jenkins/pxc-keyring-test-pkgs.groovy
+    parameters:
+        - choice:
+            name: product_to_test
+            choices:
+                - 'pxc80'
+            description: "PXC version to test"
+        - choice:
+            name: node_to_test
+            choices:
+                - 'ubuntu-focal'
+                - 'ubuntu-bionic'
+                - 'ubuntu-jammy'
+                - 'debian-11'
+                - 'debian-10'
+                - 'centos-7'
+                - 'ol-8'
+                - 'ol-9'
+                - 'min-amazon-2'
+            description: "Distribution to run test"
+        - choice:
+            name: test_type
+            choices:
+                - 'install'
+            description: "Test type to run test"
+        - choice:
+            name: test_repo
+            choices:
+                - 'main'
+                - 'testing'
+            description: "Test repo to run test"

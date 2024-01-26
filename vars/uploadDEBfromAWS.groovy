@@ -22,13 +22,21 @@ def call(String FOLDER_NAME, String AWS_STASH_PATH) {
                 fi
 
                 for deb in \$(find . -name '*.deb'); do
-                    dist=`echo \${deb} | sed -re 's/.*\\.([^.]+)_amd64.deb/\\1/'`
+                    dist=`echo \${deb} | sed -re 's/.*\\.([^.]+)_(amd64|arm64).deb/\\1/'`
+                    package=`echo \${deb} | sed -re 's/\\.\\/deb\\/(.*)_(.*)\\.([^.]+)_(amd64|arm64).deb/\\1/'`
+                    version=`echo \${deb} | sed -re 's/\\.\\/deb\\/(.*)_(.*)\\.([^.]+)_(amd64|arm64).deb/\\2/'`
                     path_to_dist=\${path_to_build}/binary/debian/\${dist}/x86_64
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                         mkdir -p \${path_to_dist}
-                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                        \${deb} \
-                        ${USER}@repo.ci.percona.com:\${path_to_dist}/
+                    if [ "\${package}" = "percona-release" ]; then
+                        scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                            \${deb} \
+                            ${USER}@repo.ci.percona.com:\${path_to_dist}/\${package}_\${version}.generic_all.deb
+                    else
+                        scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                            \${deb} \
+                            ${USER}@repo.ci.percona.com:\${path_to_dist}/
+                    fi
                 done
             """
         }

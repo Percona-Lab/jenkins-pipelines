@@ -16,7 +16,7 @@ pipeline {
     }
     parameters {
         string(name: 'BRANCH',description: 'PBM repo branch',defaultValue: 'main')
-        choice(name: 'PSMDB',description: 'PSMDB for testing',choices: ['psmdb-44','psmdb-42','psmdb-50','psmdb-60'])
+        choice(name: 'PSMDB',description: 'PSMDB for testing',choices: ['psmdb-60','psmdb-44','psmdb-50','psmdb-70'])
         choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['t2.micro','i3.large','i3en.large','i3.xlarge','i3en.xlarge'])
         choice(name: 'LAYOUT',description: 'Layout',choices: ['replicaset','sharded'])        
         string(name: 'TIMEOUT',description: 'Timeout for the job',defaultValue: '3600')
@@ -76,7 +76,7 @@ pipeline {
         }
         stage ('Create infrastructure') {
             steps {
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '67d10a9b-d873-450b-bf0f-95d32477501c', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     script{
                         moleculeExecuteActionWithScenario(moleculeDir, "converge", params.LAYOUT)
                     }

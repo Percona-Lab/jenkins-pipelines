@@ -132,9 +132,6 @@ if [[ ${RHVER} -eq 6 ]] || [[ ${RHVER} -eq 7 ]]; then
     JOB_CMAKE='cmake3'
 fi
 
-export CC=${CC:-gcc}
-export CXX=${CXX:-g++}
-
 PROCESSORS=$(grep -c ^processor /proc/cpuinfo)
 COMMON_FLAGS="-DPERCONA_INNODB_VERSION=${PERCONA_SERVER_EXTENSION}"
 export CFLAGS=" ${COMMON_FLAGS} -static-libgcc ${MACHINE_SPECS_CFLAGS} ${CFLAGS:-}"
@@ -147,11 +144,6 @@ export MAKE_JFLAG="${MAKE_JFLAG:--j${PROCESSORS}}"
 if [[ "${COMPILER}" != "default" ]]; then
     export CC=${COMPILER}
     export CXX=$(echo ${COMPILER} | sed -e 's/gcc/g++/; s/clang/clang++/')
-fi
-
-# CentOS 7
-if [[ -f /opt/rh/devtoolset-8/enable ]]; then
-    source /opt/rh/devtoolset-8/enable
 fi
 
 # ------------------------------------------------------------------------------
@@ -181,6 +173,7 @@ pushd ${WORKDIR}
         -DFORCE_INSOURCE_BUILD=1 \
         -DWITH_INNODB_MEMCACHED=ON \
         -DDOWNLOAD_BOOST=1 \
+        -DWITH_PACKAGE_FLAGS=OFF \
         -DWITH_BOOST=${DOWNLOAD_DIR} \
         -DCMAKE_INSTALL_PREFIX=/usr/local/${PRODUCT_FULL} \
         -DMYSQL_DATADIR=/usr/local/${PRODUCT_FULL}/data \

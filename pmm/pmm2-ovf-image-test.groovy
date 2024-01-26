@@ -91,7 +91,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 deleteDir()
-                withCredentials([string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+                withCredentials([string(credentialsId: 'f5415992-e274-45c2-9eb9-59f9e8b90f43', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
                     sh '''
                         set -o xtrace
 
@@ -102,7 +102,7 @@ pipeline {
                     '''
                     script {
                         env.PUBLIC_IP = sh(
-                            returnStdout: true, 
+                            returnStdout: true,
                             script: 'curl -s http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address'
                         ).trim()
                     }
@@ -138,7 +138,7 @@ pipeline {
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone https://github.com/percona/pmm-qa.git .
-                        sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
+                        sudo wget https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
                         sudo chmod 755 get_download_link.sh
                     popd
                     sudo git clone --single-branch --branch ${GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git

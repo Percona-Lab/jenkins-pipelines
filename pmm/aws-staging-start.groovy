@@ -31,11 +31,11 @@ pipeline {
     parameters {
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
-            description: 'PMM Server docker container version (image-name:version-tag ex. perconalab/pmm-server:dev-latest or perconalab/pmm-server:pmm1-dev-latest)',
+            description: 'PMM Server docker container version (image-name:version-tag, ex: perconalab/pmm-server:dev-latest)',
             name: 'DOCKER_VERSION')
         string(
             defaultValue: 'dev-latest',
-            description: 'PMM Client version ("dev-latest" for master branch, "pmm1-dev-latest" for 1.x latest, "latest" or "X.X.X" for released version, "http://..." for feature build)',
+            description: 'PMM Client version ("dev-latest" for main branch, "latest" or "X.X.X" for released version, "pmm2-rc" for Release Candidate, "http://..." for feature build)',
             name: 'CLIENT_VERSION')
         string(
             defaultValue: '',
@@ -78,11 +78,11 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['13', '12', '11', '10.8'],
+            choices: ['15','14', '13', '12', '11'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['15.2', '15.1', '15.0', '14.6', '14.4', '14.3', '14.2', '14.1', '14.0', '13.9', '13.7', '13.6', '13.4', '13.2', '13.1', '12.13', '12.11', '12.10', '12.8', '11.16', '11.15', '11.13'],
+            choices: ['16.1','15.5', '14.10', '13.13', '12.17', '11.22'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -228,7 +228,7 @@ pipeline {
                         sudo amazon-linux-extras install epel -y
                         sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
-                        sudo yum repolist all
+                        sudo yum repolist
 
                         # exclude unavailable mirrors
                         echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
@@ -242,7 +242,7 @@ pipeline {
                         pushd /srv/pmm-qa
                             sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                             sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
-                            sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
+                            sudo wget https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
                             sudo chmod 755 get_download_link.sh
                         popd
                     """

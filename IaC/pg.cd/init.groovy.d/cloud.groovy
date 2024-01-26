@@ -68,7 +68,7 @@ initMap['micro-amazon'] = '''
     done
     sudo amazon-linux-extras install epel -y
     sudo amazon-linux-extras install java-openjdk11 -y || :
-    sudo yum -y install java-11-openjdk git || :
+    sudo yum -y install java-11-openjdk tzdata-java git || :
     sudo yum -y install git || :
     sudo yum -y install awscli || :
     sudo yum -y remove java-1.7.0-openjdk || :

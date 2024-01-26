@@ -36,7 +36,7 @@ pipeline {
             description: 'URL for postgis packaging repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '15.2',
+            defaultValue: '15.4',
             description: 'Tag/Branch for postgis packaging repository',
             name: 'GIT_BRANCH')
         string(
@@ -60,7 +60,7 @@ pipeline {
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
-            defaultValue: 'ppg-12.14',
+            defaultValue: 'ppg-15.4',
             description: 'POSTGIS repo name',
             name: 'POSTGIS_REPO')
         choice(
@@ -166,19 +166,6 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 } 
-                stage('Ubuntu Bionic(18.04)') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:bionic", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'docker'
@@ -226,6 +213,19 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Bookworm(12)') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bookworm", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)

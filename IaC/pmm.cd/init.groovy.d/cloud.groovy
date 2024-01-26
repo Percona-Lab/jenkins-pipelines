@@ -25,16 +25,17 @@ netMap['us-east-2c'] = 'subnet-00b3df129e7d8c658'
 imageMap = [:]
 imageMap['us-east-2a.min-rhel-7-x64']     = 'ami-00f8e2c955f7ffa9b'               // centos 7
 imageMap['us-east-2a.min-centos-7-x64']   = imageMap['us-east-2a.min-rhel-7-x64'] // centos 7
-imageMap['us-east-2a.min-rhel-8-x64']     = 'ami-02fb9384e880ed67c'               // rocky linux 8
-imageMap['us-east-2a.min-ol-8-x64']       = 'ami-06ac6a66b683196b8'               // oraclelinux 8
-imageMap['us-east-2a.min-rhel-9-x64']     = 'ami-0206fd54d15d43153'               // oraclelinux 9
+imageMap['us-east-2a.min-rhel-8-x64']     = 'ami-0426a691fd088149c'               // rocky linux 8
+imageMap['us-east-2a.min-ol-8-x64']       = 'ami-046d14d0ddf879691'               // oraclelinux 8
+imageMap['us-east-2a.min-rhel-9-x64']     = 'ami-08ac8951dc7903bf1'               // oraclelinux 9
 imageMap['us-east-2a.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64'] // oraclelinux 9
-imageMap['us-east-2a.min-bionic-x64']     = 'ami-0a029e6f47affbaec'               // ubuntu 18
-imageMap['us-east-2a.min-focal-x64']      = 'ami-06c4532923d4ba1ec'               // ubuntu 20
-imageMap['us-east-2a.min-jammy-x64']      = 'ami-05537cc6c0fbd4ee7'               // ubuntu 22
+imageMap['us-east-2a.min-bionic-x64']     = 'ami-0bb220fc4bffd88dd'               // ubuntu 18
+imageMap['us-east-2a.min-focal-x64']      = 'ami-01936e31f56bdacde'               // ubuntu 20
+imageMap['us-east-2a.min-jammy-x64']      = 'ami-0e83be366243f524a'               // ubuntu 22
 imageMap['us-east-2a.min-stretch-x64']    = 'ami-0a694f67ea86df8a7'               // debian 9
-imageMap['us-east-2a.min-buster-x64']     = 'ami-0246e87085c5c98e3'               // debian 10
-imageMap['us-east-2a.min-bullseye-x64']   = 'ami-0f35413f664528e13'               // debian 11
+imageMap['us-east-2a.min-buster-x64']     = 'ami-0dc2cee9dad26918a'               // debian 10
+imageMap['us-east-2a.min-bullseye-x64']   = 'ami-023766a7f545f3c77'               // debian 11
+imageMap['us-east-2a.min-bookworm-x64']   = 'ami-014d6017733aee708'               // debian 12
 
 imageMap['us-east-2b.min-rhel-7-x64']     = imageMap['us-east-2a.min-rhel-7-x64']
 imageMap['us-east-2b.min-centos-7-x64']   = imageMap['us-east-2a.min-rhel-7-x64'] // centos 7
@@ -48,6 +49,7 @@ imageMap['us-east-2b.min-jammy-x64']      = imageMap['us-east-2a.min-jammy-x64']
 imageMap['us-east-2b.min-stretch-x64']    = imageMap['us-east-2a.min-stretch-x64']
 imageMap['us-east-2b.min-buster-x64']     = imageMap['us-east-2a.min-buster-x64']
 imageMap['us-east-2b.min-bullseye-x64']   = imageMap['us-east-2a.min-bullseye-x64']
+imageMap['us-east-2b.min-bookworm-x64']   = imageMap['us-east-2a.min-bookworm-x64']
 
 imageMap['us-east-2c.min-rhel-7-x64']     = imageMap['us-east-2a.min-rhel-7-x64']
 imageMap['us-east-2c.min-centos-7-x64']   = imageMap['us-east-2a.min-rhel-7-x64'] // centos 7
@@ -61,6 +63,7 @@ imageMap['us-east-2c.min-jammy-x64']      = imageMap['us-east-2a.min-jammy-x64']
 imageMap['us-east-2c.min-stretch-x64']    = imageMap['us-east-2a.min-stretch-x64']
 imageMap['us-east-2c.min-buster-x64']     = imageMap['us-east-2a.min-buster-x64']
 imageMap['us-east-2c.min-bullseye-x64']   = imageMap['us-east-2a.min-bullseye-x64']
+imageMap['us-east-2c.min-bookworm-x64']   = imageMap['us-east-2a.min-bookworm-x64']
 
 
 priceMap = [:]
@@ -82,6 +85,7 @@ userMap['min-jammy-x64']     = 'ubuntu'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
 userMap['min-bullseye-x64']  = 'admin'
+userMap['min-bookworm-x64']  = 'admin'
 
 initMap = [:]
 
@@ -117,7 +121,7 @@ initMap['rpmMap'] = '''
     elif [[ $SYSREL -eq 7 ]]; then
         PKGLIST="tar coreutils java-11-openjdk"
     elif [[ $SYSREL -ge 8 ]]; then
-        PKGLIST="tar coreutils java-11-openjdk"
+        PKGLIST="tar coreutils java-11-openjdk tzdata-java"
     fi
 
     until sudo yum makecache; do
@@ -177,7 +181,11 @@ initMap['debMap'] = '''
 
 
     DEB_VERSION=$(lsb_release -sc)
-    JDK_PACKAGE=openjdk-11-jre-headless
+    if [[ ${DEB_VERSION} == "bookworm" ]]; then
+        JDK_PACKAGE="openjdk-17-jre-headless"
+    else
+        JDK_PACKAGE="openjdk-11-jre-headless"
+    fi
 
     if [ "$DEB_VERSION" == "stretch" ]; then
         echo 'deb http://ftp.debian.org/debian stretch-backports main' | sudo tee /etc/apt/sources.list.d/stretch-backports.list
@@ -188,7 +196,16 @@ initMap['debMap'] = '''
         JDK_PACKAGE=openjdk-11-jdk
     fi
 
-    sudo apt-get -y install ${JDK_PACKAGE} git
+    if [[ ${DEB_VERSION} == "bookworm" ]] || [[ ${DEB_VERSION} == "buster" ]]; then
+        sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JDK_PACKAGE} git
+        sudo mv /etc/ssl /etc/ssl_old
+        sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JDK_PACKAGE}
+        sudo cp -r /etc/ssl_old /etc/ssl
+        sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JDK_PACKAGE}
+    else
+        sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JDK_PACKAGE} git
+    fi
+
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
 '''
@@ -204,6 +221,7 @@ initMap['min-bionic-x64']   = initMap['debMap']
 initMap['min-jammy-x64']    = initMap['debMap']
 initMap['min-stretch-x64']  = initMap['debMap']
 initMap['min-bullseye-x64'] = initMap['debMap']
+initMap['min-bookworm-x64'] = initMap['debMap']
 initMap['min-buster-x64']   = initMap['debMap']
 
 capMap = [:]
@@ -225,6 +243,7 @@ typeMap['min-jammy-x64']    = typeMap['min-rhel-7-x64']
 typeMap['min-stretch-x64']  = typeMap['min-rhel-7-x64']
 typeMap['min-buster-x64']   = typeMap['min-rhel-7-x64']
 typeMap['min-bullseye-x64'] = typeMap['min-rhel-7-x64']
+typeMap['min-bookworm-x64'] = typeMap['min-rhel-7-x64']
 
 execMap = [:]
 execMap['min-rhel-7-x64']   = '1'
@@ -239,6 +258,7 @@ execMap['min-jammy-x64']    = '1'
 execMap['min-stretch-x64']  = '1'
 execMap['min-buster-x64']   = '1'
 execMap['min-bullseye-x64'] = '1'
+execMap['min-bookworm-x64'] = '1'
 
 devMap = [:]
 devMap['min-rhel-7-x64']   = '/dev/sda1=:80:true:gp2,/dev/sdd=:20:true:gp2'
@@ -253,6 +273,7 @@ devMap['min-jammy-x64']    = devMap['min-rhel-7-x64']
 devMap['min-stretch-x64']  = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
 devMap['min-buster-x64']   = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
 devMap['min-bullseye-x64'] = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
+devMap['min-bookworm-x64'] = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
 
 labelMap = [:]
 labelMap['min-rhel-7-x64']   = 'min-rhel-7-x64'
@@ -267,6 +288,22 @@ labelMap['min-jammy-x64']    = 'min-jammy-x64'
 labelMap['min-stretch-x64']  = 'min-stretch-x64'
 labelMap['min-buster-x64']   = 'min-buster-x64'
 labelMap['min-bullseye-x64'] = 'min-bullseye-x64'
+labelMap['min-bookworm-x64'] = 'min-bookworm-x64'
+
+jvmoptsMap = [:]
+jvmoptsMap['min-rhel-7-x64']   = '-Xmx512m -Xms512m'
+jvmoptsMap['min-centos-7-x64'] = jvmoptsMap['min-rhel-7-x64']
+jvmoptsMap['min-rhel-8-x64']   = jvmoptsMap['min-rhel-7-x64']
+jvmoptsMap['min-ol-8-x64']     = jvmoptsMap['min-rhel-7-x64']
+jvmoptsMap['min-rhel-9-x64']   = jvmoptsMap['min-rhel-7-x64']
+jvmoptsMap['min-ol-9-x64']     = jvmoptsMap['min-rhel-7-x64']
+jvmoptsMap['min-focal-x64']    = jvmoptsMap['min-rhel-7-x64']
+jvmoptsMap['min-bionic-x64']   = jvmoptsMap['min-rhel-7-x64']
+jvmoptsMap['min-jammy-x64']    = jvmoptsMap['min-rhel-7-x64']
+jvmoptsMap['min-stretch-x64']  = jvmoptsMap['min-rhel-7-x64']
+jvmoptsMap['min-buster-x64']   = jvmoptsMap['min-rhel-7-x64']
+jvmoptsMap['min-bullseye-x64'] = jvmoptsMap['min-rhel-7-x64']
+jvmoptsMap['min-bookworm-x64'] = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 // https://javadoc.jenkins.io/plugin/ec2/index.html?hudson/plugins/ec2/UnixData.html
@@ -288,7 +325,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         execMap[OSType],                            // String numExecutors
         userMap[OSType],                            // String remoteAdmin
         new UnixData('', '', '', '22', ''),         // AMITypeData amiType
-        '-Xmx512m -Xms512m',                        // String jvmopts
+        jvmoptsMap[OSType],                         // String jvmopts
         false,                                      // boolean stopOnTerminate
         netMap[AZ],                                 // String subnetId
         [
@@ -349,6 +386,7 @@ String region = 'us-east-2'
             getTemplate('min-stretch-x64',   "${region}${it}"),
             getTemplate('min-buster-x64',    "${region}${it}"),
             getTemplate('min-bullseye-x64',  "${region}${it}"),
+            getTemplate('min-bookworm-x64',  "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''

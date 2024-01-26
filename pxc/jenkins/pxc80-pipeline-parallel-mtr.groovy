@@ -213,32 +213,41 @@ void build(String SCRIPT) {
 }
 
 void setupTestSuitesSplit() {
-    sh """
+    def split_script = """#!/bin/bash
         if [[ "${FULL_MTR}" == "yes" ]]; then
-            # Try to get suites split from pxc repo. If not present, fallback to hardcoded.
+            # Try to get suites split from PS repo. If not present, fallback to hardcoded.
             RAW_VERSION_LINK=\$(echo \${GIT_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
             REPLY=\$(curl -Is \${RAW_VERSION_LINK}/${BRANCH}/mysql-test/suites-groups.sh | head -n 1 | awk '{print \$2}')
+            CUSTOM_SPLIT=0
             if [[ \${REPLY} != 200 ]]; then
-                # Unit tests will be executed by worker 1, so do not assign galera suites, wich are executed
-                # with less parallelism
-                WORKER_1_MTR_SUITES=innodb_undo,test_services,audit_null,service_sys_var_registration,connection_control,data_masking,binlog_57_decryption,service_udf_registration,service_status_var_registration,procfs,interactive_utilities,percona-pam-for-mysql
-                WORKER_2_MTR_SUITES=galera_nbo,galera_3nodes,galera_sr,galera_3nodes_nbo,galera_3nodes_sr,galera_encryption,wsrep
-                WORKER_3_MTR_SUITES=engines/funcs,innodb
-                WORKER_4_MTR_SUITES=main,rpl
-                WORKER_5_MTR_SUITES=rpl_nogtid,rpl_gtid
-                WORKER_6_MTR_SUITES=parts,group_replication,clone,innodb_gis
-                WORKER_7_MTR_SUITES=stress,perfschema,component_keyring_file,binlog,innodb_fts,sys_vars,innodb_zip,x,gcol,engines/iuds,encryption,federated,funcs_1,auth_sec,binlog_nogtid,binlog_gtid,funcs_2,jp,information_schema,rpl_encryption,sysschema,json,opt_trace,audit_log,collations,gis,query_rewrite_plugins,test_service_sql_api,secondary_engine
-                WORKER_8_MTR_SUITES=galera
+                # The given branch does not contain customized suites-groups.sh file. Use default configuration.
+                echo "Using pipeline built-in MTR suites split"
+                cp ./pxc/jenkins/suites-groups.sh ${WORKSPACE}/suites-groups.sh
             else
+                echo "Using custom MTR suites split"
                 wget \${RAW_VERSION_LINK}/${BRANCH}/mysql-test/suites-groups.sh -O ${WORKSPACE}/suites-groups.sh
+                CUSTOM_SPLIT=1
+            fi
+            # Check if split contain all suites
+            wget \${RAW_VERSION_LINK}/${BRANCH}/mysql-test/mysql-test-run.pl -O ${WORKSPACE}/mysql-test-run.pl
+            chmod +x ${WORKSPACE}/suites-groups.sh
+            set +e
+            echo "Check if suites list is consistent with the one specified in mysql-test-run.pl"
+            ${WORKSPACE}/suites-groups.sh check ${WORKSPACE}/mysql-test-run.pl ${CMAKE_BUILD_TYPE}
+            CHECK_RESULT=\$?
+            set -e
+            echo "CHECK_RESULT: \${CHECK_RESULT}"
+            # Fail only if this is built-in split.
+            if [[ \${CUSTOM_SPLIT} -eq 0 ]] && [[ \${CHECK_RESULT} -ne 0 ]]; then
+                echo "Default MTR split is inconsistent. Exiting."
+                exit 1
+            fi
 
-                # Check if splitted suites contain all suites
-                wget \${RAW_VERSION_LINK}/${BRANCH}/mysql-test/mysql-test-run.pl -O ${WORKSPACE}/mysql-test-run.pl
-                chmod +x ${WORKSPACE}/suites-groups.sh
-                ${WORKSPACE}/suites-groups.sh check ${WORKSPACE}/mysql-test-run.pl
-
-                # Source suites split
-                source ${WORKSPACE}/suites-groups.sh
+            # Set suites split definition, that is WORKER_x_MTR_SUITES
+            source ${WORKSPACE}/suites-groups.sh
+            # Call set_suites() function if exists
+            if [[ \$(type -t set_suites) == function ]]; then
+                set_suites ${CMAKE_BUILD_TYPE}
             fi
 
             echo \${WORKER_1_MTR_SUITES} > ${WORKSPACE}/worker_1.suites
@@ -251,6 +260,9 @@ void setupTestSuitesSplit() {
             echo \${WORKER_8_MTR_SUITES} > ${WORKSPACE}/worker_8.suites
         fi
     """
+    def split_script_output = sh(script: split_script, returnStdout: true)
+    echo split_script_output
+
     script {
         if (env.FULL_MTR == 'yes') {
             env.WORKER_1_MTR_SUITES = sh(returnStdout: true, script: "cat ${WORKSPACE}/worker_1.suites").trim()
@@ -506,7 +518,7 @@ pipeline {
             description: 'path to cmake binary',
             name: 'JOB_CMAKE')
         choice(
-            choices: 'centos:7\ncentos:8\noraclelinux:9\nubuntu:bionic\nubuntu:focal\nubuntu:jammy\ndebian:buster\ndebian:bullseye',
+            choices: 'centos:7\ncentos:8\noraclelinux:9\nubuntu:bionic\nubuntu:focal\nubuntu:jammy\ndebian:buster\ndebian:bullseye\ndebian:bookworm',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -599,6 +611,13 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                script {
+                    echo "JENKINS_SCRIPTS_BRANCH: $JENKINS_SCRIPTS_BRANCH"
+                    echo "JENKINS_SCRIPTS_REPO: $JENKINS_SCRIPTS_REPO"
+                    echo "Using instances with LABEL ${LABEL} for build and test stages"
+                }
+                git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
+
                 script {
                     BUILD_TRIGGER_BY = " (${currentBuild.getBuildCauses()[0].userId})"
                     if (BUILD_TRIGGER_BY == " (null)") {

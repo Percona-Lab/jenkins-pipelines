@@ -222,7 +222,8 @@ pipeline {
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                         sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
-                        sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
+                        sudo yum -y install wget
+                        sudo wget https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
                         sudo chmod 755 get_download_link.sh
                     popd
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
@@ -235,36 +236,13 @@ pipeline {
                 customSetupAMIInstance(AMI_INSTANCE_IP)
             }
         }
-        stage('Sanity check') {
+        stage('Health check') {
             steps {
                 sh '''
-                    set +xe
-                    COUNT=0
-                    TIMEOUT=100
-                    RET_VAL=1
-
-                    while true; do
-                        set -x
-                        # we only want to see the http code to improve troubleshooting
-                        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 ${PMM_URL}/ping)
-                        set +x
-                    
-                        if [[ $HTTP_CODE == "200" ]]; then
-                            RET_VAL=0
-                            break
-                        fi
-                        
-                        # 000 means the host is unreachable
-                        # curl is set to timeout in 5 secs if the host is unreachable, so we only sleep if otherwise
-                        [ $HTTP_CODE != "000" ] && sleep 5
-                        ((COUNT+=5))
-
-                        if [ $COUNT -ge $TIMEOUT ]; then
-                            echo "Warning: could not connect to ${PMM_URL}"
-                            break
-                        fi
-                    done
-                    exit $RET_VAL
+                    timeout 300 bash -cx \\
+                    'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' http://${VM_IP}/v1/readyz)" != "200" ]]; \\
+                    do echo "Waiting for http://${VM_IP}/v1/readyz" && sleep 2; \\
+                    done' || false
                 '''
             }
         }

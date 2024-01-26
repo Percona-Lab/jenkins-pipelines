@@ -47,7 +47,6 @@ def pmm_submodules() {
         "pmm-qa",
         "mysqld_exporter",
         "grafana",
-        "dbaas-controller",
         "node_exporter",
         "postgres_exporter",
         "clickhouse_exporter",
@@ -171,6 +170,55 @@ pipeline {
             name: 'REMOVE_RELEASE_BRANCH')
     }
     stages {
+        stage('Update API descriptors') {
+            when {
+                expression { env.REMOVE_RELEASE_BRANCH == 'no' }
+            }
+            steps {
+                script {
+                    env.TARGET_BRANCH = params.SUBMODULES_GIT_BRANCH == DEFAULT_BRANCH ? 'main' : params.SUBMODULES_GIT_BRANCH
+
+                    git branch: env.TARGET_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:percona/pmm'
+
+                    withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
+                        sh '''
+                            set -ex
+
+                            # Configure git to push using ssh
+                            git config --global user.email "noreply@percona.com"
+                            git config --global user.name "PMM Jenkins"
+                            export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+                            docker run --rm -v $PWD/.:/pmm public.ecr.aws/e7j3v3n0/rpmbuild:ol9 sh -c '
+                                cd /pmm
+                                make init
+                                make descriptors
+                            '
+
+                            API_DESCRIPTOR=$(git diff --text | grep -q 'descriptor\\.bin' && echo "CHANGED" || echo "NOT_CHANGED")
+                            if [[ $API_DESCRIPTOR == "CHANGED" ]]; then
+                                git commit -a -m "Update descriptors"
+                                git show
+                                git push origin ${TARGET_BRANCH}
+                            fi
+                            echo "${API_DESCRIPTOR}" > descriptor_status.txt
+                        '''
+                    }
+
+                    env.API_DESCRIPTOR = sh(script: 'cat descriptor_status.txt', returnStdout: true).trim()
+
+                    deleteDir()
+                }
+            }
+        }
+        stage('Rewind Submodules') {
+            when {
+                expression { env.REMOVE_RELEASE_BRANCH == 'no' && env.TARGET_BRANCH == 'main' && env.API_DESCRIPTOR == 'CHANGED' }
+            }
+            steps {
+                build job: 'pmm2-submodules-rewind', propagate: false, wait: true
+            }
+        }
         stage('Get version') {
             steps {
                 script {
@@ -225,10 +273,10 @@ pipeline {
             }
             steps {
                 git branch: SUBMODULES_GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
-                sh """
-                    git config --global user.email "dev-services@percona.com"
+                sh '''
+                    git config --global user.email "noreply@percona.com"
                     git config --global user.name "PMM Jenkins"
-                """
+                '''
                 setupReleaseBranches(VERSION)
             }
         }
@@ -311,8 +359,8 @@ pipeline {
                         archiveArtifacts "report-${VERSION}-rc.html"
                         env.SCAN_REPORT_URL = "CVE Scan Report: ${BUILD_URL}artifact/report-${VERSION}-rc.html"
 
-                        copyArtifacts filter: 'evaluation_*.json', projectName: 'pmm2-image-scanning'
-                        sh 'mv evaluation_*.json report-${VERSION}-rc.json'
+                        copyArtifacts filter: 'evaluations/**/evaluation_*.json', projectName: 'pmm2-image-scanning'
+                        sh 'mv evaluations/*/*/*/evaluation_*.json ./report-${VERSION}-rc.json'
                         archiveArtifacts "report-${VERSION}-rc.json"
                     }
                 }

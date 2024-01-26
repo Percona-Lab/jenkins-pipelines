@@ -1,4 +1,4 @@
-def call(String DESTINATION, String SYNC_PMM_CLIENT) {
+def call(String DESTINATION, String SYNC_PMM_CLIENT, String OS_VERSION) {
     node('master') {
         unstash 'uploadPath'
         def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
@@ -11,14 +11,12 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                         set -o xtrace
 
                         pushd ${path_to_build}/binary
-                            if [ "${SYNC_PMM_CLIENT}" == 'no' ]; then
-                                rsync_exclude=" --exclude pmm2-client-*"
-                                find_exclude="! -name pmm2-client-*"
-                            fi
+                            rsync_exclude=" --exclude pmm2-client-*"
+                            find_exclude="! -name pmm2-client-*"
 
                             for rhel in \$(ls -1 redhat); do
-                                # skip synchronization of el8/el6 repos in case of pmm server rpms sync
-                                if [ "${SYNC_PMM_CLIENT}" == 'no' ] && [ "\${rhel}" -eq '8' -o "\${rhel}" -eq '6' ]; then
+                                # skip synchronization of el8/el6/{el7|el9} repos based on OS_VERSION in case of pmm server rpms sync
+                                if [ "${SYNC_PMM_CLIENT}" == 'no' ] && [ "${OS_VERSION}" != "\${rhel}" ]; then
                                     continue
                                 fi
 
@@ -51,30 +49,20 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                                 gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} \${dest_path}/SRPMS/repodata/repomd.xml 
                             done
 
-                            for dist in \$(ls -1 debian); do
-                                for deb in \$(find debian/\${dist} -name '*.deb'); do
-                                    repopush --remove-package --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/apt
-                                done
-
-                                # source deb
-                                #for dsc in \$(find ../source -name '*.dsc'); do
-                                #    repopush --remove-package --gpg-pass ${SIGN_PASSWORD} --package \${dsc} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/apt
-                                #done
-                            done
                         popd
 
                         # Update /srv/repo-copy/version
                         date +%s > /srv/repo-copy/version
 
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
-                            /srv/repo-copy/${DESTINATION}/ \
-                            10.10.9.209:/www/repo.percona.com/htdocs/${DESTINATION}/
+                            /srv/repo-copy/${DESTINATION}/${OS_VERSION}/ \
+                            10.30.9.32:/www/repo.percona.com/htdocs/${DESTINATION}/${OS_VERSION}/
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/apt/ \
-                            10.10.9.209:/www/repo.percona.com/htdocs/apt/
+                            10.30.9.32:/www/repo.percona.com/htdocs/apt/
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/version \
-                            10.10.9.209:/www/repo.percona.com/htdocs/
+                            10.30.9.32:/www/repo.percona.com/htdocs/
 ENDSSH
                 """
             }

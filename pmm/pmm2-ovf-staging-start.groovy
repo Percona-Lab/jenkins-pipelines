@@ -18,7 +18,6 @@ void enableRepo(String REPO, String PUBLIC_IP) {
             export REPO=${REPO}
             export PUBLIC_IP=${PUBLIC_IP}
             ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${PUBLIC_IP} '
-                sudo sed -i'' 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
                 sudo yum update -y percona-release || true
                 sudo sed -i'' -e 's^/release/^/${REPO}/^' /etc/yum.repos.d/pmm2-server.repo
                 sudo percona-release enable percona ${REPO}
@@ -72,7 +71,7 @@ pipeline {
                 }
                 withCredentials([
                         sshUserPrivateKey(credentialsId: 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER'),
-                        string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')
+                        string(credentialsId: 'f5415992-e274-45c2-9eb9-59f9e8b90f43', variable: 'DIGITALOCEAN_ACCESS_TOKEN')
                     ]) {
                     sh '''
                         # Constants we rely on for PMM builds/tests:
@@ -228,7 +227,7 @@ pipeline {
             }
         }
         failure {
-            withCredentials([string(credentialsId: '82c0e9e0-75b5-40ca-8514-86eca3a028e0', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+            withCredentials([string(credentialsId: 'f5415992-e274-45c2-9eb9-59f9e8b90f43', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
                 sh '''
                     set -o xtrace
 

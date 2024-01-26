@@ -6,14 +6,14 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 def moleculeDir = "psmdb/psmdb"
 
 pipeline {
-  agent {
-      label 'min-centos-7-x64'
-  }
-  environment {
-      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
-      ANSIBLE_DISPLAY_SKIPPED_HOSTS = false
-  }
-  parameters {
+    agent {
+        label 'min-centos-7-x64'
+    }
+    environment {
+        PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+        ANSIBLE_DISPLAY_SKIPPED_HOSTS = false
+    }
+    parameters {
         choice(
             name: 'REPO',
             description: 'Repo for testing',
@@ -26,10 +26,19 @@ pipeline {
         string(
             defaultValue: '4.4.8',
             description: 'PSMDB Version for tests',
-            name: 'PSMDB_VERSION')
+            name: 'PSMDB_VERSION'
+        )
         choice( 
             name: 'ENABLE_TOOLKIT',
             description: 'Enable or disable percona toolkit check',
+            choices: [
+                'false',
+                'true'
+            ]
+        )
+        choice(
+            name: 'GATED_BUILD',
+            description: 'Test private repo?',
             choices: [
                 'false',
                 'true'
@@ -39,12 +48,19 @@ pipeline {
             defaultValue: 'main',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
-  }
-  options {
-          withCredentials(moleculePbmJenkinsCreds())
-          disableConcurrentBuilds()
-  }
+    }
+    options {
+        withCredentials(moleculePbmJenkinsCreds())
+        disableConcurrentBuilds()
+    }
     stages {
+        stage('Set build name'){
+            steps {
+                script {
+                    currentBuild.displayName = "${params.REPO}-${params.PSMDB_VERSION}"
+                }
+            }
+        }
         stage('Checkout') {
             steps {
                 deleteDir()
@@ -52,26 +68,33 @@ pipeline {
             }
         }
         stage ('Prepare') {
-          steps {
+            steps {
                 script {
-                   installMolecule()
-             }
-           }
+                    installMolecule()
+                }
+            }
         }
         stage('Test') {
             steps {
-                script {
-                    moleculeParallelTest(pdmdbOperatingSystems(PSMDB_VERSION), moleculeDir)
+                withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                    script {
+                        moleculeParallelTest(pdmdbOperatingSystems(PSMDB_VERSION), moleculeDir)
+                    }
                 }
             }
-         }
-  }
+            post {
+                always {
+                    junit testResults: "**/*-report.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
+                }
+            }
+        }
+    }
     post {
         success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION} repo ${REPO} finished succesfully - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION}, repo ${REPO}, private repo - ${GATED_BUILD} finished succesfully - [${BUILD_URL}]")
         }
         failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION} repo ${REPO} failed - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION}, repo ${REPO}, private repo - ${GATED_BUILD} failed - [${BUILD_URL}]")
         }
         always {
             script {

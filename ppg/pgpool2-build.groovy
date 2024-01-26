@@ -50,7 +50,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 sleep 30
                 echo "Waiting ..."
             done
-            until sudo apt-get -y install gpgv curl clang-11 gnupg; do
+            until sudo apt-get -y install gpgv curl clang gnupg; do
                 sleep 30
                 echo "Waiting ..."
             done
@@ -121,11 +121,11 @@ pipeline {
             description: 'deb release number',
             name: 'DEB_RELEASE'
          )
-        choice(
-            name: 'PG_RELEASE',
+        string(
+            defaultValue: '16.1',
             description: 'PPG major version to test',
-            choices: ['15.2', '14.7', '13.10', '12.14', '11.19']
-        )
+            name: 'PG_RELEASE'
+         )
         choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
             description: 'Repo component to push packages to',
@@ -256,22 +256,6 @@ pipeline {
         } //stage
         stage('Build pgpool2 DEBs') {
             parallel {
-                stage('Ubuntu 18.04') {
-                    agent {
-                        label 'min-bionic-x64'
-                    }
-                    steps {
-                        echo "====> Build pgpool2 deb on Ubuntu 18.04 PG${PG_RELEASE}"
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:bionic", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                } //stage
                 stage('Ubuntu 20.04') {
                     agent {
                         label 'min-focal-x64'
@@ -331,6 +315,22 @@ pipeline {
                         unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                } //stage
+                stage('Debian 12') {
+                    agent {
+                        label 'min-bookworm-x64'
+                    }
+                    steps {
+                        echo "====> Build pgpool2 deb on Debian 11 PG${PG_RELEASE}"
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bookworm", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)

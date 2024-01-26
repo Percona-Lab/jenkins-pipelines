@@ -163,7 +163,7 @@ pipeline {
                             --output text \
                             --query 'Reservations[].Instances[].PrivateIpAddress' \
                             | tee PRIVATE_IP
-                        
+
                         # wait for the instance to get ready
                         aws ec2 wait instance-running \
                             --instance-ids $INSTANCE_ID
@@ -189,18 +189,29 @@ pipeline {
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
                             set -o errexit
                             set -o xtrace
+
                             [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
-                            echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
-                            sudo yum makecache
-                            sudo yum -y install git svn docker
+
+                            if grep -q Oracle /etc/os-release; then
+                                sudo dnf remove -y podman buildah
+                                sudo dnf -y install 'dnf-command(config-manager)'
+                                sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+                                sudo dnf install -y git wget docker-ce docker-ce-cli containerd.io docker-compose-plugin
+                            else
+                                echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+                                sudo yum makecache
+                                sudo yum -y install git wget docker
+                            fi
+
                             sudo systemctl start docker
+
                             curl -L -s https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 | sudo tee /usr/bin/docker-compose > /dev/null
                             sudo chmod +x /usr/bin/docker-compose
                             sudo mkdir -p /srv/pmm-qa || :
                             pushd /srv/pmm-qa
                                 sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                                 sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
-                                sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
+                                sudo wget https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
                                 sudo chmod 755 get_download_link.sh
                             popd
                         "
@@ -208,17 +219,6 @@ pipeline {
                 }
                 archiveArtifacts 'PUBLIC_IP'
                 archiveArtifacts 'INSTANCE_ID'
-            }
-        }
-        stage('Upgrade workaround for nginx package') {
-            steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh '''
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
-                            sudo sed -i 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
-                        "
-                    '''
-                }
             }
         }
         stage('Enable Testing Repo') {
@@ -281,14 +281,14 @@ pipeline {
         success {
             script {
                 if (params.NOTIFY == "true") {
-                    slackSend botUser: true, 
-                        channel: '#pmm-ci', 
-                        color: '#00FF00', 
+                    slackSend botUser: true,
+                        channel: '#pmm-ci',
+                        color: '#00FF00',
                         message: "[${JOB_NAME}]: build ${BUILD_URL} finished, owner: @${OWNER} - https://${PUBLIC_IP}, Instance ID: ${INSTANCE_ID}"
                     if (OWNER_SLACK) {
-                        slackSend botUser: true, 
-                            channel: "@${OWNER_SLACK}", 
-                            color: '#00FF00', 
+                        slackSend botUser: true,
+                            channel: "@${OWNER_SLACK}",
+                            color: '#00FF00',
                             message: "[${JOB_NAME}]: build ${BUILD_URL} finished - https://${PUBLIC_IP}, Instance ID: ${INSTANCE_ID}"
                     }
                 }

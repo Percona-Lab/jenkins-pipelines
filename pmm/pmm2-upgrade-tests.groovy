@@ -172,6 +172,7 @@ pipeline {
                 waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
                 waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                 waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
+                sleep 20
                 sh """
                     bash -x testdata/db_setup.sh
                 """
@@ -225,6 +226,7 @@ pipeline {
                         docker exec pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
                         docker exec pmm-server percona-release enable percona testing
                         docker exec pmm-server yum clean all
+                        docker exec pmm-server yum clean metadata
                     """
                     setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'yes', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
                 }
@@ -243,6 +245,7 @@ pipeline {
                         docker exec pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
                         docker exec pmm-server percona-release enable percona experimental
                         docker exec pmm-server yum clean all
+                        docker exec pmm-server yum clean metadata
                     """
                     setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
                 }
@@ -259,6 +262,7 @@ pipeline {
                         set -o xtrace
                         docker exec pmm-server yum update -y percona-release || true
                         docker exec pmm-server yum clean all
+                        docker exec pmm-server yum clean metadata
                     """
                     setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
                 }
@@ -293,6 +297,7 @@ pipeline {
             steps {
                 script {
                     checkUpgrade(DOCKER_VERSION, "pre")
+                    env.NEW_ADMIN_PASSWORD = "new_admin_password"
                 }
             }
         }
@@ -343,6 +348,17 @@ pipeline {
                 }
             }
         }
+        stage('Update ADMIN_PASSWORD variable') {
+            when {
+                expression { getMinorVersion(DOCKER_VERSION) >= 35 }
+            }
+            steps {
+                script {
+                        env.ADMIN_PASSWORD = "${env.NEW_ADMIN_PASSWORD}"
+                        env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                    }
+            }
+        }
         stage('Check Packages after Upgrade') {
             steps {
                 script {
@@ -359,6 +375,11 @@ pipeline {
         }
         stage('Check Client Upgrade') {
             steps {
+                script {
+                    env.SERVER_IP = "127.0.0.1"
+                    env.PMM_UI_URL = "http://${env.SERVER_IP}/"
+                    env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                }
                 checkClientAfterUpgrade(PMM_SERVER_LATEST);
                 sh '''
                     export PWD=$(pwd)
@@ -385,6 +406,8 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-managed.log >> pmm-managed-full.log || true
                 docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
                 echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
+                docker cp pmm-server:/srv/logs srv-logs
+                tar -zcvf srv-logs.tar.gz srv-logs
 
                 # stop the containers
                 docker-compose down || true
@@ -397,6 +420,7 @@ pipeline {
                 archiveArtifacts artifacts: 'pmm-update-perform.log'
                 archiveArtifacts artifacts: 'pmm-agent.log'
                 archiveArtifacts artifacts: 'logs.zip'
+                archiveArtifacts artifacts: 'srv-logs.tar.gz'
 
                 def PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
                 try {

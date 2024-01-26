@@ -32,8 +32,16 @@ if [ -f /usr/bin/yum ]; then
       fi
     fi
 elif [ -f /usr/bin/apt ]; then
-  sudo apt-get install -y uuid-dev
   DEBIAN_VERSION=$(lsb_release -sc)
+  if [ ${DEBIAN_VERSION} = "stretch" ]; then
+    sudo sed -i s/deb.debian.org/archive.debian.org/g /etc/apt/sources.list
+    sudo sed -i 's|security.debian.org|archive.debian.org|g' /etc/apt/sources.list
+    sudo sed -i '/stretch-updates/d' /etc/apt/sources.list
+    sudo apt-get -y update
+    sudo apt-get install -y uuid-dev
+  else
+    sudo apt-get install -y uuid-dev
+  fi
   if [ ${DEBIAN_VERSION} = "bionic" -o ${DEBIAN_VERSION} = "buster" -o ${DEBIAN_VERSION} = "stretch" ]; then
     sudo wget https://github.com/Kitware/CMake/releases/download/v3.19.8/cmake-3.19.8.tar.gz
     sudo tar -zxvf cmake-3.19.8.tar.gz

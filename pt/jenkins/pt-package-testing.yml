@@ -27,8 +27,8 @@
             choices:
                 - 'min-centos-7-x64'
                 - 'min-ol-8-x64'
-                - 'min-bionic-x64'
                 - 'min-focal-x64'
+                - 'min-jammy-x64'
                 - 'min-buster-x64'
                 - 'min-bullseye-x64'
             description: 'Node to run tests on'
@@ -73,6 +73,10 @@
             name: skip_psmdb50
             default: false
             description: "Enable to skip psmdb 5.0 packages installation tests"
+        - bool:
+            name: skip_psmdb60
+            default: true
+            description: "Enable to skip psmdb 6.0 packages installation tests. Leave enabled till PT-2217 is fixed"
         - bool:
             name: skip_upstream57
             default: false

@@ -104,3 +104,4 @@
           - ubuntu:jammy
           - debian:buster
           - debian:bullseye
+          - debian:bookworm

@@ -131,19 +131,6 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu Bionic(18.04)') {
-                    agent {
-                        label 'docker-32gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:bionic", "--build_mongosh=1 --build_variant=deb-x64")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'docker-32gb'
@@ -191,6 +178,19 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "--build_mongosh=1 --build_variant=deb-x64")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Bookworm(12)') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:bookworm", "--build_mongosh=1 --build_variant=deb-x64")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)

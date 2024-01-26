@@ -45,24 +45,33 @@ void initTests() {
 void markPassedTests() {
     echo "Marking passed tests in the tests map!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
-        """
+    if ("${params.IGNORE_PREVIOUS_RUN}" == "NO") {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            sh """
+                aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
+            """
 
-        for (int i=0; i<tests.size(); i++) {
-            def testName = tests[i]["name"]
-            def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}"
-            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+            for (int i=0; i<tests.size(); i++) {
+                def testName = tests[i]["name"]
+                def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}-${PARAMS_HASH}"
+                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
 
-            if (retFileExists == 0) {
-                tests[i]["result"] = "passed"
+                if (retFileExists == 0) {
+                    tests[i]["result"] = "passed"
+                }
             }
+        }
+    }
+    else {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            sh """
+                aws s3 rm "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" --recursive --exclude "*" --include "*-${PARAMS_HASH}" || :
+            """
         }
     }
 }
 
-TestsReport = '<testsuite name=\\"PSMDB\\">\n'
+TestsReport = '<testsuite name=\\"PSMDB-MiniKube-version\\">\n'
 void makeReport() {
     for (int i=0; i<tests.size(); i++) {
         def testResult = tests[i]["result"]
@@ -95,37 +104,19 @@ void runTest(Integer TEST_ID) {
             tests[TEST_ID]["result"] = "failure"
 
             sh """
-                cd ./source
-                if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
-                    export IMAGE=${PSMDB_OPERATOR_IMAGE}
-                else
-                    export IMAGE=perconalab/percona-server-mongodb-operator:${env.GIT_BRANCH}
-                fi
+                cd source
 
-                if [ -n "${IMAGE_MONGOD}" ]; then
-                    export IMAGE_MONGOD=${IMAGE_MONGOD}
-                fi
-
-                if [ -n "${IMAGE_BACKUP}" ]; then
-                    export IMAGE_BACKUP=${IMAGE_BACKUP}
-                fi
-
-                if [ -n "${IMAGE_PMM}" ]; then
-                    export IMAGE_PMM=${IMAGE_PMM}
-                fi
-
-                if [ -n "${IMAGE_PMM_SERVER_REPO}" ]; then
-                    export IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO}
-                fi
-
-                if [ -n "${IMAGE_PMM_SERVER_TAG}" ]; then
-                    export IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG}
-                fi
+                export DEBUG_TESTS=1
+                [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                export IMAGE_MONGOD=$IMAGE_MONGOD
+                export IMAGE_BACKUP=$IMAGE_BACKUP
+                export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
                 sudo rm -rf /tmp/hostpath-provisioner/*
                 ./e2e-tests/$testName/run
             """
-            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}")
+            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}-${PARAMS_HASH}")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -159,7 +150,7 @@ gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cl
 EOF
         sudo mv /tmp/kubernetes.repo /etc/yum.repos.d/
         sudo yum clean all || true
-        sudo yum install -y jq kubectl
+        sudo yum install -y kubectl
     """
 }
 pipeline {
@@ -172,6 +163,11 @@ pipeline {
             defaultValue: '',
             description: 'List of tests to run separated by new line',
             name: 'TEST_LIST')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Ignore passed tests in previous run (run all)',
+            name: 'IGNORE_PREVIOUS_RUN'
+        )
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
@@ -187,7 +183,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
-            name: 'PSMDB_OPERATOR_IMAGE')
+            name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
             description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod4.0',
@@ -198,26 +194,23 @@ pipeline {
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
-            description: 'PMM image: perconalab/percona-server-mongodb-operator:main-pmm',
-            name: 'IMAGE_PMM')
+            description: 'PMM client image: perconalab/pmm-client:dev-latest',
+            name: 'IMAGE_PMM_CLIENT')
         string(
-            defaultValue: 'v1.24.3',
+            defaultValue: '',
+            description: 'PMM server image: perconalab/pmm-server:dev-latest',
+            name: 'IMAGE_PMM_SERVER')
+        string(
+            defaultValue: 'latest',
             description: 'Kubernetes Version',
             name: 'PLATFORM_VER',
             trim: true)
-        string(
-            defaultValue: '',
-            description: 'PMM server image repo: perconalab/pmm-server',
-            name: 'IMAGE_PMM_SERVER_REPO')
-        string(
-            defaultValue: '',
-            description: 'PMM server image tag: dev-latest',
-            name: 'IMAGE_PMM_SERVER_TAG')
     }
     agent {
          label 'micro-amazon'
     }
     options {
+        buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
     }
     environment {
@@ -241,6 +234,7 @@ pipeline {
                 stash includes: "source/**", name: "sourceFILES", useDefaultExcludes: false
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
                 }
                 initTests()
             }
@@ -255,11 +249,12 @@ pipeline {
                 unstash "sourceFILES"
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        if [ -n "${PSMDB_OPERATOR_IMAGE}" ]; then
+                        if [[ "$OPERATOR_IMAGE" ]]; then
                             echo "SKIP: Build is not needed, PSMDB operator image was set!"
                         else
                             cd ./source/
                             sg docker -c "
+                                docker buildx create --use
                                 docker login -u '${USER}' -p '${PASS}'
                                 export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                                 ./e2e-tests/build
@@ -282,26 +277,17 @@ pipeline {
                     sh """
                         sudo yum install -y conntrack
                         sudo usermod -aG docker $USER
-                        if [ ! -d $HOME/google-cloud-sdk/bin ]; then
-                            rm -rf $HOME/google-cloud-sdk
-                            curl https://sdk.cloud.google.com | bash
-                        fi
-
-                        source $HOME/google-cloud-sdk/path.bash.inc
-                        gcloud components install alpha
-                        gcloud components install kubectl
 
                         curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
+                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
                         sudo chmod +x /usr/local/bin/yq
+                        sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+                        sudo chmod +x /usr/local/bin/jq
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
                         export CHANGE_MINIKUBE_NONE_USER=true
                         /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER} --cpus=6 --memory=28G
-
-                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
-                        sudo chmod +x /usr/local/bin/yq
                     """
 
                     unstash "sourceFILES"
@@ -318,7 +304,6 @@ pipeline {
                 always {
                     sh """
                         /usr/local/bin/minikube delete || true
-                        sudo rm -rf $HOME/google-cloud-sdk
                         sudo rm -rf ./*
                     """
                     deleteDir()
@@ -341,7 +326,6 @@ pipeline {
     post {
         always {
             sh """
-                sudo rm -rf $HOME/google-cloud-sdk
                 sudo rm -rf ./*
             """
             deleteDir()
