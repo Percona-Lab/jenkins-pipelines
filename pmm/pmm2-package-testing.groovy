@@ -116,7 +116,7 @@ pipeline {
     stages {
         stage('Setup Server Instance') {
             steps {
-                runStaging(DOCKER_VERSION, '--addclient=ps,1')
+                runStaging(DOCKER_VERSION, '')
             }
         }
         stage('Execute Package Tests') {
@@ -150,9 +150,6 @@ pipeline {
                     }
                 }
                 stage('ol-9-x64') {
-                    when {
-                        expression { env.TESTS == "pmm2-client" || env.TESTS == "pmm2-client_upgrade" }
-                    }
                     agent {
                         label 'min-ol-9-x64'
                     }
@@ -198,9 +195,6 @@ pipeline {
                     agent {
                         label 'min-jammy-x64'
                     }
-                    when {
-                        expression { env.TESTS == "pmm2-client" }
-                    }
                     steps{
                         setup_ubuntu_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
@@ -226,9 +220,6 @@ pipeline {
                     }
                 }
                 stage('bullseye-x64') {
-                    when {
-                        expression { env.TESTS == "pmm2-client" || env.TESTS == "pmm2-client_upgrade" }
-                    }
                     agent {
                         label 'min-bullseye-x64'
                     }
