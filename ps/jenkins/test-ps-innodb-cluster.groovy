@@ -104,7 +104,6 @@ pipeline {
             name: 'TEST_DIST',
             choices: [
                 'ubuntu-focal',
-                'ubuntu-bionic',
                 'ubuntu-jammy',
                 'debian-12',
                 'debian-11',

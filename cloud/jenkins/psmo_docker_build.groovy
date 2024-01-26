@@ -45,16 +45,20 @@ pipeline {
                 stash includes: "source/**", name: "sourceFILES"
             }
         }
-        
-        stage('Build docker image') {
+
+        stage('Build PS operator docker image') {
             steps {
-                unstash "sourceFILES"
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh '''
-                        cd ./source/
-                        DOCKER_PUSH=0 ./e2e-tests/build
-                        sudo rm -rf ./build
-                    '''
+                retry(3) {
+                    timeout(time: 30, unit: 'MINUTES') {
+                        unstash "sourceFILES"
+                        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                            sh '''
+                                cd ./source/
+                                DOCKER_PUSH=0 ./e2e-tests/build
+                                sudo rm -rf ./build
+                            '''
+                        }
+                    }
                 }
             }
         }
