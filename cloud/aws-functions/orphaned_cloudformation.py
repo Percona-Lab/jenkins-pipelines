@@ -2,9 +2,6 @@
 import logging
 import datetime
 import boto3
-import sys
-from time import sleep
-from botocore.exceptions import ClientError
 from boto3.exceptions import Boto3Error
 from utils import get_regions_list
 
@@ -27,12 +24,11 @@ def is_stack_to_terminate(stack):
 
 def get_cloudformation_to_terminate(aws_region):
     cf_client = boto3.resource('cloudformation')
-    statuses = ['ROLLBACK_COMPLETE', 'CREATE_COMPLETE', 'UPDATE_COMPLETE']
+    statuses = ['ROLLBACK_COMPLETE', 'CREATE_COMPLETE', 'UPDATE_COMPLETE', 'DELETE_FAILED']
     stacks_for_deletion = []
     cloudformation_stacks = [stack for stack in cf_client.stacks.all() if stack.stack_status in statuses]
     if not cloudformation_stacks:
         logging.info(f"There are no cloudformation_stacks in cloud")
-        sys.exit("There are no cloudformation_stacks in cloud")
 
     for stack in cloudformation_stacks:
         if is_stack_to_terminate(stack):
@@ -40,7 +36,6 @@ def get_cloudformation_to_terminate(aws_region):
 
     if not stacks_for_deletion:
         logging.info(f"There are no stacks for deletion")
-        sys.exit("There are no stacks for deletion")
     return stacks_for_deletion
 
 def delete_cloudformation_stacks(cloudformation_stack):
@@ -57,6 +52,7 @@ def lambda_handler(event, context):
     for aws_region in aws_regions:
         logging.info(f"Searching for resources to remove in {aws_region}.")
         cloudformation_stacks = get_cloudformation_to_terminate(aws_region)
+
         for cloudformation_stack in cloudformation_stacks:
             logging.info(f"Deleting cloudformation stacks.")
             delete_cloudformation_stacks(cloudformation_stack)

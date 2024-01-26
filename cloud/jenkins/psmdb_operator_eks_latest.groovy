@@ -54,6 +54,7 @@ void dockerBuildPush() {
             else
                 cd source
                 sg docker -c "
+                    docker buildx create --use
                     docker login -u '$USER' -p '$PASS'
                     export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                     e2e-tests/build
@@ -161,6 +162,7 @@ metadata:
     tags:
         'delete-cluster-after-hours': '10'
         'creation-time': '\$timestamp'
+        'team': 'cloud'
 iam:
   withOIDC: true
 
@@ -198,6 +200,7 @@ EOF
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+            kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
         """
     }
 }

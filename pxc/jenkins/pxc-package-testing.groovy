@@ -156,7 +156,7 @@ void setInventories(String param_test_type){
                     KEYPATH_COMMON="/home/centos/.cache/molecule/${product_to_test}-common-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
 
 
-                    if(("${params.node_to_test}" == "ubuntu-focal")  ||  ("${params.node_to_test}" == "ubuntu-bionic") || ("${params.node_to_test}" == "ubuntu-jammy")){
+                    if(("${params.node_to_test}" == "ubuntu-focal")  ||  ("${params.node_to_test}" == "ubuntu-jammy")){
                         SSH_USER="ubuntu"            
                     }else if(("${params.node_to_test}" == "debian-11") ||  ("${params.node_to_test}" == "debian-10") ||("${params.node_to_test}" == "debian-12")){
                         SSH_USER="admin"
@@ -338,7 +338,6 @@ pipeline {
             choices: [
                 'ubuntu-jammy',
                 'ubuntu-focal',
-                'ubuntu-bionic',
                 'debian-12',
                 'debian-11',
                 'debian-10',

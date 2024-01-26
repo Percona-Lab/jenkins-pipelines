@@ -36,12 +36,12 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.30',
+            defaultValue: '8.0.34',
             description: 'From this version pdmysql will be updated. Possible values are with and without percona release: 8.0.30 OR 8.0.30-22',
             name: 'FROM_VERSION'
         )
         string(
-            defaultValue: '8.0.31-23',
+            defaultValue: '8.0.35-27',
             description: 'To this version pdmysql will be updated.  Possible values are with and without percona release and build: 8.0.32, 8.0.32-24 OR 8.0.32-24.2',
             name: 'VERSION'
         )
@@ -51,22 +51,22 @@ pipeline {
             name: 'PXC_REVISION'
         )
         string(
-            defaultValue: '8.0.31-24',
+            defaultValue: '8.0.35-30',
             description: 'PXB version for test. Possible values are with and without percona release and build: 8.0.32, 8.0.32-25 OR 8.0.32-25.1',
             name: 'PXB_VERSION'
         )
         string(
-            defaultValue: '2.4.8',
+            defaultValue: '2.5.5',
             description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
         )
         string(
-            defaultValue: '2.5.12',
+            defaultValue: '2.8.5',
             description: 'HAProxy version for test',
             name: 'HAPROXY_VERSION'
         )
         string(
-            defaultValue: '3.5.1',
+            defaultValue: '3.5.7',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
         )
@@ -85,6 +85,14 @@ pipeline {
             description: 'Git account for package-testing repository',
             name: 'TESTING_GIT_ACCOUNT'
         )
+        choice(
+            name: 'DESTROY_ENV',
+            description: 'Destroy VM after tests',
+            choices: [
+                'yes',
+                'no'
+            ]
+        )
   }
   options {
           withCredentials(moleculePdpxcJenkinsCreds())
@@ -94,7 +102,8 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-${env.MOLECULE_DIR}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}"
+                    currentBuild.description = "From: ${env.FROM_VERSION} ${env.FROM_REPO}; to: ${env.VERSION} ${env.TO_REPO}. Git br: ${env.TESTING_BRANCH}"
                 }
             }
         }
@@ -143,8 +152,10 @@ pipeline {
   post {
     always {
           script {
-             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
-             junit "${MOLECULE_DIR}/report.xml"
+            if (env.DESTROY_ENV == "yes") {
+                moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+            }
+            junit "${MOLECULE_DIR}/report.xml"
         }
     }
   }

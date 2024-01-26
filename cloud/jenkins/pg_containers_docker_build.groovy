@@ -2,7 +2,7 @@ void build(String IMAGE_POSTFIX){
     sh """
         cd ./source/
         for PG_VER in 16 15 14 13 12; do
-            docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} \
+            docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} --build-arg PGO_TAG=\${GIT_PD_BRANCH} \
                 -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX} \
                 -f ./postgresql-containers/build/${IMAGE_POSTFIX}/Dockerfile ./postgresql-containers
         done
@@ -18,7 +18,7 @@ void checkImageForDocker(String IMAGE_POSTFIX){
 
                     for PG_VER in 16 15 14 13 12; do
                         TrivyLog="$WORKSPACE/trivy-hight-\\${IMAGE_NAME}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}.xml"
-                        /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --ignore-unfixed --timeout 20m --exit-code 0 \
+                        /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \\${TrivyLog} --ignore-unfixed --timeout 20m --exit-code 0 \
                             --severity HIGH,CRITICAL perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
 
                     done
