@@ -193,16 +193,18 @@ pipeline {
         }
     }
     post {
-        always {
+        success {
+            slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: stop successful"
+        }
+        unstable {
             script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: stop successful"
-                } else if (currentBuild.result == 'UNSTABLE') {
-                    echo 'everything ok'
-                } else {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}"
-                }
+                echo 'No instances reached TTL.'
             }
+        }
+        failure {
+            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
+        }
+        cleanup {
             deleteDir()
         }
     }

@@ -35,6 +35,7 @@ def call(String VM_PREFIX) {
     env.OWNER_SLACK = OWNER_SLACK
 
     // Some pipelines rely on those values being persisted as files.
+    // TODO: refactor, it's a bad programming style
     sh """
         set -x
         echo "${VM_NAME}" > VM_NAME

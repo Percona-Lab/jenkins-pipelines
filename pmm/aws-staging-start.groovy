@@ -82,7 +82,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['16.0','15.4', '14.9', '13.12', '12.16', '11.21'],
+            choices: ['16.1','15.5', '14.10', '13.13', '12.17', '11.22'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -242,7 +242,7 @@ pipeline {
                         pushd /srv/pmm-qa
                             sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                             sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
-                            sudo svn export https://github.com/Percona-QA/percona-qa.git/trunk/get_download_link.sh
+                            sudo wget https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
                             sudo chmod 755 get_download_link.sh
                         popd
                     """

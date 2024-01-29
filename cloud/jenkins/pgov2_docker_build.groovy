@@ -4,13 +4,10 @@ void checkImageForDocker(String IMAGE_SUFFIX){
             IMAGE_SUFFIX=\$(echo ${IMAGE_SUFFIX} | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
             IMAGE_NAME='percona-postgresql-operator'
             TrivyLog="$WORKSPACE/trivy-\$IMAGE_NAME-${IMAGE_SUFFIX}.xml"
-            if [ ! -f junit.tpl ]; then
-                wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
-            fi
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image  --format template --template @junit.tpl -o \$TrivyLog \
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image  --format template --template @/tmp/junit.tpl -o \$TrivyLog \
                     --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
             "
         """
@@ -50,6 +47,10 @@ pipeline {
                         wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
                         sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
 
+                        if [ ! -f junit.tpl ]; then
+                            wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
+                        fi
+
                         # sudo is needed for better node recovery after compilation failure
                         # if building failed on compilation stage directory will have files owned by docker user
                         sudo git config --global --add safe.directory '*'
@@ -67,28 +68,31 @@ pipeline {
                 }
             }
         }
-
         stage('Build and push PGO docker images') {
             steps {
-                unstash "sourceFILES"
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
-                    sh """
-                        cd ./source/
-                        TAG_PREFIX=\$(echo $GIT_BRANCH | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
-                        sg docker -c "
-                            if [ ! -d ~/.docker/trust/private ]; then
-                                mkdir -p /home/ec2-user/.docker/trust/private
-                                cp "${docker_key}" ~/.docker/trust/private/
-                            fi
+                retry(3) {
+                    timeout(time: 30, unit: 'MINUTES') {
+                        unstash "sourceFILES"
+                        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
+                            sh """
+                                cd ./source/
+                                TAG_PREFIX=\$(echo $GIT_BRANCH | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
+                                sg docker -c "
+                                    if [ ! -d ~/.docker/trust/private ]; then
+                                        mkdir -p /home/ec2-user/.docker/trust/private
+                                        cp "${docker_key}" ~/.docker/trust/private/
+                                    fi
 
-                            docker login -u '${USER}' -p '${PASS}'
-                            docker buildx create --use
+                                    docker login -u '${USER}' -p '${PASS}'
+                                    docker buildx create --use
 
-                            ./e2e-tests/build
+                                    ./e2e-tests/build
 
-                            docker logout
-                        "
-                    """
+                                    docker logout
+                               "
+                            """
+                        }
+                    }
                 }
             }
         }

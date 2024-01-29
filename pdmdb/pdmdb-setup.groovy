@@ -21,15 +21,18 @@ pipeline {
         string(
             defaultValue: 'pdmdb-4.2.8',
             description: 'PDMDB Version for tests',
-            name: 'PDMDB_VERSION')
+            name: 'PDMDB_VERSION'
+        )
         string(
             defaultValue: '1.6.0',
             description: 'PBM Version for tests',
-            name: 'VERSION')
+            name: 'VERSION'
+        )
         string(
             defaultValue: 'main',
             description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH')
+            name: 'TESTING_BRANCH'
+        )
   }
   options {
           withCredentials(moleculePbmJenkinsCreds())

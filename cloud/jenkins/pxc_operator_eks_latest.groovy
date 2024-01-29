@@ -58,6 +58,7 @@ void dockerBuildPush() {
             else
                 cd source
                 sg docker -c "
+                    docker buildx create --use
                     docker login -u '$USER' -p '$PASS'
                     export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
                     e2e-tests/build
@@ -151,6 +152,7 @@ void createCluster(String CLUSTER_SUFFIX) {
     }
 
     sh """
+        timestamp="\$(date +%s)"
 tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
 ---
@@ -163,6 +165,8 @@ metadata:
     version: "$USED_PLATFORM_VER"
     tags:
         'delete-cluster-after-hours': '10'
+        'creation-time': '\$timestamp'
+        'team': 'cloud'
 iam:
   withOIDC: true
 
@@ -201,6 +205,7 @@ EOF
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             export PATH=/home/ec2-user/.local/bin:$PATH
             eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+            kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
         """
     }
 }
@@ -403,9 +408,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
-    }
-    triggers {
-        cron('0 8 * * 6')
+        copyArtifactPermission('pxc-operator-latest-scheduler');
     }
     stages {
         stage('Prepare node') {
