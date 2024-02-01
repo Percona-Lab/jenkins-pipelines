@@ -1,5 +1,5 @@
 - job:
-    name: pxb-package-testing
+    name: pxb-package-testing-test
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -10,12 +10,12 @@
     pipeline-scm:
         scm:
             - git:
-                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                url: https://github.com/panchal-yash/jenkins-pipelines.git
                 branches:
-                    - 'master'
+                    - 'pxb-innovation-lts-package-tests'
                 wipe-workspace: true
         lightweight-checkout: true
-        script-path: pxb/jenkins/pxb-package-testing.groovy
+        script-path: pxb/jenkins/pxb-package-testing-test.groovy
     parameters:
         - choice:
             name: product_to_test
@@ -23,6 +23,7 @@
                 - "pxb81"
                 - "pxb80"
                 - "pxb24"
+                - "pxb-innovation-lts"
             description: 'Choose the product version to test: PXB8.0 OR PXB2.4'
         - choice:
             name: node_to_test
@@ -46,6 +47,6 @@
             description: 'Choose the repo to install packages and run the tests'
         - string:
             name: git_repo
-            default: 'https://github.com/Percona-QA/package-testing.git'
+            default: 'https://github.com/panchal-yash/package-testing.git'
             description: ""
             trim: false
