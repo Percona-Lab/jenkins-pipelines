@@ -403,7 +403,6 @@ pipeline {
                 script {
                     if (env.FIPSMODE == 'yes') {
                         echo "The step is skipped ..."
-                        /*
                         try {
                             uploadTarballToDownloadsTesting("gpsmdb", "${PSMDB_VERSION}")
                         }
@@ -411,7 +410,6 @@ pipeline {
                             echo "Caught: ${err}"
                             currentBuild.result = 'UNSTABLE'
                         }
-                        */
                     } else {
                         try {
                             uploadTarballToDownloadsTesting("psmdb", "${PSMDB_VERSION}")
