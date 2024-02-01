@@ -131,7 +131,7 @@ pipeline {
                         buildStage("ubuntu:focal", "--build_mongosh=1 --build_variant=deb-arm64")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy') {
@@ -144,7 +144,7 @@ pipeline {
                         buildStage("ubuntu:jammy", "--build_mongosh=1 --build_variant=deb-arm64")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
             }
