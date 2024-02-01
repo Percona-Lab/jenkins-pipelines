@@ -93,7 +93,7 @@ pipeline {
                 uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
-        stage('Build MongoDB Shell aarch64 RPMs') {
+        stage('Build MongoDB Shell aarch64 Packages') {
             parallel {
                 stage('Oracle Linux 8') {
                     agent {
@@ -108,12 +108,52 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
+                stage('Oracle Linux 9') {
+                    agent {
+                        label 'docker-64gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_mongosh=1 --build_variant=rpm-arm64")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Focal') {
+                    agent {
+                        label 'docker-64gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:focal", "--build_mongosh=1 --build_variant=deb-arm64")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Jammy') {
+                    agent {
+                        label 'docker-64gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_mongosh=1 --build_variant=deb-arm64")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
             }
         }
 
         stage('Sign packages') {
             steps {
                 signRPM()
+                signDEB()
             }
         }
         stage('Push to public repository') {
