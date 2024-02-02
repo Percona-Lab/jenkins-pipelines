@@ -300,7 +300,6 @@ pipeline {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
                                 buildStage("centos:7", "--debug=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("centos:7", "--debug=1")
@@ -369,7 +368,13 @@ pipeline {
             steps {
                 script {
                     if (env.FIPSMODE == 'yes') {
-                        echo "The step is skipped ..."
+                        try {
+                            uploadTarballToDownloadsTesting("gpsmdb", "${PSMDB_VERSION}")
+                        }
+                        catch (err) {
+                            echo "Caught: ${err}"
+                            currentBuild.result = 'UNSTABLE'
+                        }
                     } else {
                         try {
                             uploadTarballToDownloadsTesting("psmdb", "${PSMDB_VERSION}")

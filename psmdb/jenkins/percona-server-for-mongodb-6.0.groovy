@@ -294,19 +294,12 @@ pipeline {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
-                                /*
                                 buildStage("centos:7", "--build_tarball=1 --enable_fipsmode=1")
-                                */
                             } else {
                                 buildStage("centos:7", "--build_tarball=1")
                             }
-                            if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
-                            } else {
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                            }
+                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                         }
                     }
                 }
@@ -340,19 +333,12 @@ pipeline {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
-                                /*
                                 buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
-                                */
                             } else {
                                 buildStage("ubuntu:jammy", "--build_tarball=1")
                             }
-                            if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
-                            } else {
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                            }
+                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                         }
                     }
                 }
@@ -402,7 +388,6 @@ pipeline {
             steps {
                 script {
                     if (env.FIPSMODE == 'yes') {
-                        echo "The step is skipped ..."
                         try {
                             uploadTarballToDownloadsTesting("gpsmdb", "${PSMDB_VERSION}")
                         }
