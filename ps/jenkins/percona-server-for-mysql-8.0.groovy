@@ -66,11 +66,11 @@ void cleanUpWS() {
 }
 
 def installDependencies(def nodeName) {
-    def aptNodes = ['min-buster-x64', 'min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64']
+    def aptNodes = ['min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64']
     def yumNodes = ['min-ol-8-x64', 'min-centos-7-x64', 'min-ol-9-x64', 'min-amazon-2-x64']
     try{
         if (aptNodes.contains(nodeName)) {
-            if(nodeName == "min-buster-x64" || nodeName == "min-bullseye-x64" || nodeName == "min-bookworm-x64"){            
+            if(nodeName == "min-bullseye-x64" || nodeName == "min-bookworm-x64"){            
                 sh '''
                     sudo apt-get update
                     sudo apt-get install -y ansible git wget
@@ -120,14 +120,8 @@ def installDependencies(def nodeName) {
 
 def runPlaybook(def nodeName) {
 
-    def ps80_install_pkg_minitests_playbook = 'ps_80.yml'
-    def install_repo = 'testing'
-    def action_to_test = 'install'
-    def check_warnings = 'yes'
-    def install_mysql_shell = 'no'
-
     try {
-        def playbook = "${ps80_install_pkg_minitests_playbook}"
+        def playbook = "ps_lts_innovation.yml"
         def playbook_path = "package-testing/playbooks/${playbook}"
 
         sh '''
@@ -152,8 +146,7 @@ def runPlaybook(def nodeName) {
     }
 }
 
-def minitestNodes = [  "min-buster-x64",
-                       "min-bullseye-x64",
+def minitestNodes = [  "min-bullseye-x64",
                        "min-bookworm-x64",
                        "min-centos-7-x64",
                        "min-ol-8-x64",
@@ -178,8 +171,14 @@ def package_tests_ps80(def nodes) {
     parallel stepsForParallel
 }
 
-def AWS_STASH_PATH
 @Field def mini_test_error = "False"
+def AWS_STASH_PATH
+def PS8_RELEASE_VERSION
+def product_to_test = 'innovation-lts'
+def install_repo = 'testing'
+def action_to_test = 'install'
+def check_warnings = 'yes'
+def install_mysql_shell = 'no'
 
 pipeline {
     agent {
@@ -922,48 +921,66 @@ parameters {
                 currentBuild.description = "Built on ${BRANCH}; path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
                 REVISION = sh(returnStdout: true, script: "grep REVISION test/percona-server-8.0.properties | awk -F '=' '{ print\$2 }'").trim()
                 PS_RELEASE = sh(returnStdout: true, script: "echo ${BRANCH} | sed 's/release-//g'").trim()
+                PS8_RELEASE_VERSION = sh(returnStdout: true, script: """ echo ${BRANCH} | sed -nE '/release-(8\\.[0-9]{1})\\..*/s//\\1/p' """).trim()
 
-                withCredentials([string(credentialsId: 'PXC_GITHUB_API_TOKEN', variable: 'TOKEN')]) {
-                sh """
-                    
-                    set -x
-                    git clone https://jenkins-pxc-cd:$TOKEN@github.com/Percona-QA/package-testing.git
-                    cd package-testing
-                    git config user.name "jenkins-pxc-cd"
-                    git config user.email "it+jenkins-pxc-cd@percona.com"
-                    OLD_REV=\$(cat VERSIONS | grep PS80_REV | cut -d '=' -f2- )
-                    OLD_VER=\$(cat VERSIONS | grep PS80_VER | cut -d '=' -f2- )
-                    sed -i s/PS80_REV=\$OLD_REV/PS80_REV='"'${REVISION}'"'/g VERSIONS
-                    sed -i s/PS80_VER=\$OLD_VER/PS80_VER='"'${PS_RELEASE}'"'/g VERSIONS
-                    git diff
-                    git add -A
-                    git commit -m "Autocommit: add ${REVISION} and ${PS_RELEASE} for ps80 package testing VERSIONS file."
-                    git push 
+                if("${PS8_RELEASE_VERSION}"){
+                    echo "Executing MINITESTS as VALID VALUES FOR PS8_RELEASE_VERSION:${PS8_RELEASE_VERSION}"
+                    echo "Checking for the Github Repo VERSIONS file changes..."
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+                    sh """
+                        set -x
+                        git clone https://jenkins-pxc-cd:$TOKEN@github.com/Percona-QA/package-testing.git
+                        cd package-testing
+                        git config user.name "jenkins-pxc-cd"
+                        git config user.email "it+jenkins-pxc-cd@percona.com"
+                        echo "${PS8_RELEASE_VERSION} is the VALUE!!@!"
+                        export RELEASE_VER_VAL="${PS8_RELEASE_VERSION}"
+                        if [[ "\$RELEASE_VER_VAL" =~ ^8.[0-9]{1}\$ ]]; then
+                            echo "\$RELEASE_VER_VAL is a valid version"
+                            OLD_REV=\$(cat VERSIONS | grep PS_INN_LTS_REV | cut -d '=' -f2- )
+                            OLD_VER=\$(cat VERSIONS | grep PS_INN_LTS_VER | cut -d '=' -f2- )
+                            sed -i s/PS_INN_LTS_REV=\$OLD_REV/PS_INN_LTS_REV='"'${REVISION}'"'/g VERSIONS
+                            sed -i s/PS_INN_LTS_VER=\$OLD_VER/PS_INN_LTS_VER='"'${PS_RELEASE}'"'/g VERSIONS
 
-                """
-                }
-                echo "Start Minitests for PS"
-                
-                package_tests_ps80(minitestNodes)
-
-                if("${mini_test_error}" == "True"){
-                    echo "NOT TRIGGERING PACKAGE TESTS AND INTEGRATION TESTS DUE TO MINITEST FAILURE !!"
-                }else{
-                    echo "Trigger Package Testing Job for PS"
-
-                    build job: 'package-testing-ps80', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: 'ps80'),string(name: 'install_repo', value: "testing"),string(name: 'node_to_test', value: "all"),string(name: 'action_to_test', value: "all"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
-                    
-                    echo "Trigger PMM_PS Github Actions Workflow"
-                    
-                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                        sh """
-                            curl -i -v -X POST \
-                                -H "Accept: application/vnd.github.v3+json" \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/Percona-Lab/qa-integration/actions/workflows/PMM_PS.yaml/dispatches" \
-                                -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
-                        """
+                        else
+                            echo "INVALID PS8_RELEASE_VERSION VALUE: ${PS8_RELEASE_VERSION}"
+                        fi
+                        git diff
+                        if [[ -z \$(git diff) ]]; then
+                            echo "No changes"
+                        else
+                            echo "There are changes"
+                            git add -A
+                        git commit -m "Autocommit: add ${REVISION} and ${PS_RELEASE} for ${PS8_RELEASE_VERSION} package testing VERSIONS file."
+                            git push
+                        fi
+                    """
                     }
+                    echo "Start Minitests for PS"                
+                    package_tests_ps80(minitestNodes)
+                    if("${mini_test_error}" == "True"){
+                        error "NOT TRIGGERING PACKAGE TESTS AND INTEGRATION TESTS DUE TO MINITEST FAILURE !!"
+                    }else{
+                        echo "TRIGGERING THE PACKAGE TESTING JOB!!!"
+                        build job: 'package-testing-ps-innovation-lts', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: "${product_to_test}"),string(name: 'install_repo', value: "testing"),string(name: 'node_to_test', value: "all"),string(name: 'action_to_test', value: "all"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
+                                                                                                                                            
+                        echo "Trigger PMM_PS Github Actions Workflow"
+                        
+                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                            sh """
+                                curl -i -v -X POST \
+                                    -H "Accept: application/vnd.github.v3+json" \
+                                    -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                    "https://api.github.com/repos/Percona-Lab/qa-integration/actions/workflows/PMM_PS.yaml/dispatches" \
+                                    -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
+                            """
+                        }
+
+                    }
+                }
+                else{
+                    error "Skipping MINITESTS and Other Triggers as invalid RELEASE VERSION FOR THIS JOB"
+                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: Skipping MINITESTS and Other Triggers as invalid RELEASE VERSION FOR THIS JOB ${BRANCH} - [${BUILD_URL}]")
                 }
             }
             deleteDir()
