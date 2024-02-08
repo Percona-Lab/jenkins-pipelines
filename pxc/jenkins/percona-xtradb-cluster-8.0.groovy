@@ -351,7 +351,7 @@ pipeline {
                 unstash 'pxc-80.properties'
                 sh '''
                     PXC_RELEASE=$(echo ${GIT_BRANCH} | sed 's/release-//g')
-                    PXC_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 3)}')
+                    PXC_MAJOR_RELEASE=$(echo ${GIT_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 3)}')
                     sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                     sudo apt-get install -y docker.io
                     sudo systemctl status docker
