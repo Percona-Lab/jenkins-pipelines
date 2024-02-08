@@ -126,13 +126,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Run PMM with @mongodb-exporter'){
-                    steps {
-                        script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@mongodb-exporter|@exporters', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--addclient=modb,1');
-                        }
-                    }
-                }
                  stage('Run Experimental features tests @experimental'){
                     steps {
                         script {
