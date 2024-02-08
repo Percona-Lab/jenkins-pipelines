@@ -407,7 +407,7 @@ pipeline {
                 script {
                     if (env.FIPSMODE == 'yes') {
                         try {
-                            uploadTarballToDownloadsTesting("gpsmdb", "${PSMDB_VERSION}")
+                            uploadTarballToDownloadsTesting("psmdb-gated", "${PSMDB_VERSION}")
                         }
                         catch (err) {
                             echo "Caught: ${err}"

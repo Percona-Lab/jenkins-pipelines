@@ -282,15 +282,16 @@ pipeline {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("centos:7", "--build_tarball=1 --enable_fipsmode=1")
+                                echo "The step is skipped ..."
                             } else {
                                 buildStage("centos:7", "--build_tarball=1")
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                             }
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                         }
                     }
                 }
+/*
                 stage('Centos 7 debug binary tarball(glibc2.17)') {
                     agent {
                         label 'docker-64gb'
@@ -300,11 +301,30 @@ pipeline {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("centos:7", "--debug=1 --enable_fipsmode=1")
+                                echo "The step is skipped ..."
                             } else {
                                 buildStage("centos:7", "--debug=1")
+                                pushArtifactFolder("debug/", AWS_STASH_PATH)
                             }
-                            pushArtifactFolder("debug/", AWS_STASH_PATH)
+                        }
+                    }
+                }
+*/
+                stage('Oracle Linux 9 binary tarball(glibc2.34)') {
+                    agent {
+                        label 'docker-64gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("oraclelinux:9", "--build_tarball=1 --enable_fipsmode=1")
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                            } else {
+                                echo "The step is skipped ..."
+                            }
                         }
                     }
                 }
@@ -326,6 +346,7 @@ pipeline {
                         }
                     }
                 }
+/*
                 stage('Ubuntu Jammy(22.04) debug binary tarball(glibc2.35)') {
                     agent {
                         label 'docker-64gb'
@@ -343,6 +364,7 @@ pipeline {
                        }
                     }
                 }
+*/
             }
         }
 
@@ -369,7 +391,7 @@ pipeline {
                 script {
                     if (env.FIPSMODE == 'yes') {
                         try {
-                            uploadTarballToDownloadsTesting("gpsmdb", "${PSMDB_VERSION}")
+                            uploadTarballToDownloadsTesting("psmdb-gated", "${PSMDB_VERSION}")
                         }
                         catch (err) {
                             echo "Caught: ${err}"
