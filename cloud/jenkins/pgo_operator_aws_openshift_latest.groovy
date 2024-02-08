@@ -24,13 +24,13 @@ void prepareNode() {
         sudo yum install -y percona-xtrabackup-80 | true
 
         wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
-        unzip terraform_0.11.14_linux_amd64.zip
+        unzip -o terraform_0.11.14_linux_amd64.zip
         sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
-        
+
         curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
         ./krew-linux_amd64 install krew
         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-        
+
         kubectl krew install assert
 
         # v0.15.0 kuttl version
@@ -173,6 +173,7 @@ void createCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
             mkdir -p openshift/$CLUSTER_SUFFIX
+            timestamp="\$(date +%s)"
 tee openshift/$CLUSTER_SUFFIX/install-config.yaml << EOF
 additionalTrustBundlePolicy: Proxyonly
 apiVersion: v1
@@ -184,7 +185,7 @@ compute:
   platform:
     aws:
       type: m5.2xlarge
-  replicas: 3
+  replicas: 1
 controlPlane:
   architecture: amd64
   hyperthreading: Enabled
@@ -211,6 +212,7 @@ platform:
       delete-cluster-after-hours: 8
       team: cloud
       product: pg-operator
+      creation-time: \$timestamp
 
 publish: External
 EOF
@@ -221,7 +223,10 @@ EOF
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
                 export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
-
+                
+                machineset=`oc get machineset  -n openshift-machine-api | awk 'NR==2 {print \$1; exit}'`
+                oc get machineset \$machineset -o yaml -n openshift-machine-api | yq eval '.spec.template.spec.providerSpec.value.spotMarketOptions = {}' | oc apply -f -
+                oc scale machineset --replicas=3  \$machineset -n openshift-machine-api  
             """
         }
     }
@@ -254,7 +259,7 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
                     export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
                     export PATH="$HOME/.krew/bin:$PATH"
-                    
+
                     kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
 
                 """
@@ -264,7 +269,7 @@ void runTest(Integer TEST_ID) {
             return true
         }
         catch (exc) {
-            if (retryCount >= 2) {
+            if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
@@ -399,6 +404,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
+        copyArtifactPermission('pg-operator-latest-scheduler');
     }
     stages {
         stage('Prepare node') {

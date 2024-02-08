@@ -117,7 +117,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("debian:buster", "--build_source_deb=1")
+                        buildStage("ubuntu:bionic", "--build_source_deb=1")
 
                         pushArtifactFolder("source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
@@ -223,12 +223,19 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:buster", "--build_deb=1")
+                        script {
+                            cleanUpWS()
+                            PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
+                            if ("${PS_MAJOR_RELEASE}" == "80") {
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                buildStage("debian:buster", "--build_deb=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            } else {
+                                echo "The step is skipped"
+                            }
+                        }
                     }
                 }
                 stage('Debian Bullseye (11)') {

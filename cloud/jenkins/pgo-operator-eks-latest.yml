@@ -1,10 +1,8 @@
 - job:
-    name: pgo-operator-eks
+    name: pgo-operator-eks-latest
     project-type: pipeline
     description: |
         Do not edit this job through the web!
-    triggers:
-      - timed: "0 15 * * 0"
     pipeline-scm:
       scm:
         - git:
@@ -13,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pgo_operator_eks.groovy
+      script-path: cloud/jenkins/pgo_operator_eks_latest.groovy

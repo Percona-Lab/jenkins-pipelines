@@ -44,7 +44,14 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
 
                             for dist in \$(ls -1 debian); do
                                 for deb in \$(find debian/\${dist} -name '*.deb'); do
-                                    repopush --remove-package --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/apt
+                                    pkg_fname=\$(basename \${deb} | awk -F'_' '{print \$2}' )
+                                    EC=0
+                                    reprepro -Vb /srv/repo-copy/apt -C ${DESTINATION} list \${dist} | sed -re "s|[0-9]:||" | grep \${pkg_fname} > /dev/null || EC=\$?
+                                    REPOPUSH_ARGS=""
+                                    if [ \${EC} -eq 0 ]; then
+                                        REPOPUSH_ARGS=" --remove-package "
+                                    fi
+                                    repopush \${REPOPUSH_ARGS} --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/apt
                                 done
 
                                 # source deb

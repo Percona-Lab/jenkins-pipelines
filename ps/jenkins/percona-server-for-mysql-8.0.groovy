@@ -37,7 +37,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 . ./test/percona-server-8.0.properties
             fi
             sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            if [${BUILD_TOKUDB_TOKUBACKUP} = "ON" ]; then
+            if [ ${BUILD_TOKUDB_TOKUBACKUP} = "ON" ]; then
                 bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --build_tokudb_tokubackup=1 --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
             else
                 bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
@@ -66,11 +66,11 @@ void cleanUpWS() {
 }
 
 def installDependencies(def nodeName) {
-    def aptNodes = ['min-buster-x64', 'min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64']
+    def aptNodes = ['min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64']
     def yumNodes = ['min-ol-8-x64', 'min-centos-7-x64', 'min-ol-9-x64', 'min-amazon-2-x64']
     try{
         if (aptNodes.contains(nodeName)) {
-            if(nodeName == "min-buster-x64" || nodeName == "min-bullseye-x64" || nodeName == "min-bookworm-x64"){            
+            if(nodeName == "min-bullseye-x64" || nodeName == "min-bookworm-x64"){            
                 sh '''
                     sudo apt-get update
                     sudo apt-get install -y ansible git wget
@@ -120,14 +120,8 @@ def installDependencies(def nodeName) {
 
 def runPlaybook(def nodeName) {
 
-    def ps80_install_pkg_minitests_playbook = 'ps_80.yml'
-    def install_repo = 'testing'
-    def action_to_test = 'install'
-    def check_warnings = 'yes'
-    def install_mysql_shell = 'no'
-
     try {
-        def playbook = "${ps80_install_pkg_minitests_playbook}"
+        def playbook = "ps_lts_innovation.yml"
         def playbook_path = "package-testing/playbooks/${playbook}"
 
         sh '''
@@ -152,8 +146,7 @@ def runPlaybook(def nodeName) {
     }
 }
 
-def minitestNodes = [  "min-buster-x64",
-                       "min-bullseye-x64",
+def minitestNodes = [  "min-bullseye-x64",
                        "min-bookworm-x64",
                        "min-centos-7-x64",
                        "min-ol-8-x64",
@@ -178,8 +171,14 @@ def package_tests_ps80(def nodes) {
     parallel stepsForParallel
 }
 
-def AWS_STASH_PATH
 @Field def mini_test_error = "False"
+def AWS_STASH_PATH
+def PS8_RELEASE_VERSION
+def product_to_test = 'innovation-lts'
+def install_repo = 'testing'
+def action_to_test = 'install'
+def check_warnings = 'yes'
+def install_mysql_shell = 'no'
 
 pipeline {
     agent {
@@ -203,6 +202,10 @@ parameters {
             description: 'Compile with ZenFS support?, only affects Ubuntu Hirsute',
             name: 'ENABLE_ZENFS')
         choice(
+            choices: 'NO\nYES',
+            description: 'Enable fipsmode',
+            name: 'FIPSMODE')
+        choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
@@ -221,7 +224,7 @@ parameters {
 
         stage('Create PS source tarball') {
             agent {
-               label 'min-buster-x64'
+               label 'min-focal-x64'
             }
             steps {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
@@ -257,7 +260,13 @@ parameters {
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--build_src_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("none", "--build_src_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("none", "--build_src_rpm=1")
+                            }
+                        }
 
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
@@ -272,7 +281,13 @@ parameters {
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--build_source_deb=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("none", "--build_source_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("none", "--build_source_deb=1")
+                            }
+                        }
 
                         pushArtifactFolder("source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
@@ -287,13 +302,19 @@ parameters {
                         label 'min-centos-7-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("none", "--build_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                buildStage("none", "--build_rpm=1")
 
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                            }
+                        }
                     }
                 }
                 stage('Centos 8') {
@@ -301,13 +322,19 @@ parameters {
                         label 'min-centos-8-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("none", "--build_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                buildStage("none", "--build_rpm=1")
 
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                            }
+                        }
                     }
                 }
                 stage('Centos 8 ARM') {
@@ -315,13 +342,19 @@ parameters {
                         label 'docker-32gb-aarch64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:8", "--build_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                buildStage("centos:8", "--build_rpm=1")
 
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                            }
+                        }
                     }
                 }
                 stage('Oracle Linux 9') {
@@ -333,7 +366,13 @@ parameters {
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("none", "--build_rpm=1 --with_zenfs=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("none", "--build_rpm=1 --with_zenfs=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("none", "--build_rpm=1 --with_zenfs=1")
+                            }
+                        }
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
@@ -347,7 +386,13 @@ parameters {
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:9", "--build_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("oraclelinux:9", "--build_rpm=1")
+                            }
+                        }
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
@@ -357,13 +402,19 @@ parameters {
                         label 'min-focal-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("none", "--build_deb=1 --with_zenfs=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("deb")
+                                unstash 'properties'
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                buildStage("none", "--build_deb=1 --with_zenfs=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            }
+                        }
                     }
                 }
                 stage('Ubuntu Jammy(22.04)') {
@@ -375,7 +426,13 @@ parameters {
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("none", "--build_deb=1 --with_zenfs=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("none", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("none", "--build_deb=1 --with_zenfs=1")
+                            }
+                        }
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
@@ -385,13 +442,24 @@ parameters {
                         label 'min-buster-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("none", "--build_deb=1")
+                        script {
+                            PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
+                            if ("${PS_MAJOR_RELEASE}" == "80") {
+                                if (env.FIPSMODE == 'YES') {
+                                    echo "The step is skipped"
+                                } else {
+                                    cleanUpWS()
+                                    installCli("deb")
+                                    unstash 'properties'
+                                    popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                    buildStage("none", "--build_deb=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                }
+                            } else {
+                                echo "The step is skipped"
+                            }
+                        }
                     }
                 }
                 stage('Debian Bullseye(11)') {
@@ -399,13 +467,19 @@ parameters {
                         label 'min-bullseye-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("none", "--build_deb=1 --with_zenfs=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("deb")
+                                unstash 'properties'
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                buildStage("none", "--build_deb=1 --with_zenfs=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            }
+                        }
                     }
                 }
                 stage('Debian Bookworm(12)') {
@@ -417,7 +491,13 @@ parameters {
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("none", "--build_deb=1 --with_zenfs=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("none", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("none", "--build_deb=1 --with_zenfs=1")
+                            }
+                        }
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
@@ -427,13 +507,19 @@ parameters {
                         label 'min-centos-7-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--build_tarball=1 ")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                buildStage("none", "--build_tarball=1")
 
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            }
+                        }
                     }
                 }
                 stage('Centos 7 debug tarball') {
@@ -441,13 +527,19 @@ parameters {
                         label 'min-centos-7-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--debug=1 --build_tarball=1 ")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                buildStage("none", "--debug=1 --build_tarball=1")
 
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            }
+                        }
                     }
                 }
                 stage('Centos 8 binary tarball') {
@@ -455,13 +547,19 @@ parameters {
                         label 'min-centos-8-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--build_tarball=1 ")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                buildStage("none", "--build_tarball=1")
 
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            }
+                        }
                     }
                 }
                 stage('Centos 8 debug tarball') {
@@ -469,13 +567,19 @@ parameters {
                         label 'min-centos-8-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--debug=1 --build_tarball=1 ")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                buildStage("none", "--debug=1 --build_tarball=1")
 
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            }
+                        }
                     }
                 }
                 stage('Oracle Linux 9 tarball') {
@@ -487,7 +591,13 @@ parameters {
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--build_tarball=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("none", "--build_tarball=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("none", "--build_tarball=1")
+                            }
+                        }
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
@@ -501,7 +611,13 @@ parameters {
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--build_tarball=1 --with_zenfs=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("none", "--build_tarball=1 --with_zenfs=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("none", "--build_tarball=1 --with_zenfs=1")
+                            }
+                        }
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
@@ -515,7 +631,13 @@ parameters {
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--debug=1 --build_tarball=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("none", "--debug=1 --build_tarball=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("none", "--debug=1 --build_tarball=1")
+                            }
+                        }
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
@@ -525,13 +647,19 @@ parameters {
                         label 'min-focal-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--build_tarball=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("deb")
+                                unstash 'properties'
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                buildStage("none", "--build_tarball=1")
 
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            }
+                        }
                     }
                 }
                 stage('Ubuntu Focal(20.04) debug tarball') {
@@ -539,13 +667,19 @@ parameters {
                         label 'min-focal-x64'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--debug=1 --build_tarball=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("deb")
+                                unstash 'properties'
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                buildStage("none", "--debug=1 --build_tarball=1")
 
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            }
+                        }
                     }
                 }
                 stage('Ubuntu Jammy(22.04) tarball') {
@@ -557,7 +691,13 @@ parameters {
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--build_tarball=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("none", "--build_tarball=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("none", "--build_tarball=1")
+                            }
+                        }
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
@@ -571,7 +711,13 @@ parameters {
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--build_tarball=1 --with_zenfs=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("none", "--build_tarball=1 --with_zenfs=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("none", "--build_tarball=1 --with_zenfs=1")
+                            }
+                        }
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
@@ -585,7 +731,13 @@ parameters {
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("none", "--debug=1 --build_tarball=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("none", "--debug=1 --build_tarball=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("none", "--debug=1 --build_tarball=1")
+                            }
+                        }
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
@@ -617,12 +769,21 @@ parameters {
             steps {
                 unstash 'properties'
                 script {
+                    MYSQL_VERSION_MINOR = sh(returnStdout: true, script: ''' curl -s -O $(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git$||')/${BRANCH}/MYSQL_VERSION; cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print $2}' ''').trim()
                     PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
                     // sync packages
-                    if ("${PS_MAJOR_RELEASE}" == "80") {
-                        sync2ProdAutoBuild("ps-80", COMPONENT)
+                    if ("${MYSQL_VERSION_MINOR}" == "0") {
+                        if (env.FIPSMODE == 'YES') {
+                            sync2PrivateProdAutoBuild("ps-80-pro", COMPONENT)
+                        } else {
+                            sync2ProdAutoBuild("ps-80", COMPONENT)
+                        }
                     } else {
-                        sync2ProdAutoBuild("ps-8x-innovation", COMPONENT)
+                        if (env.FIPSMODE == 'YES') {
+                            sync2PrivateProdAutoBuild("ps-80-innovation-pro", COMPONENT)
+                        } else {
+                            sync2ProdAutoBuild("ps-8x-innovation", COMPONENT)
+                        }
                     }
                 }
             }
@@ -631,7 +792,11 @@ parameters {
             steps {
                 script {
                     try {
-                        uploadTarballToDownloadsTesting("ps", "${BRANCH}")
+                        if (env.FIPSMODE == 'YES') {
+                            uploadTarballToDownloadsTesting("ps-gated", "${BRANCH}")
+                        } else {
+                            uploadTarballToDownloadsTesting("ps", "${BRANCH}")
+                        }
                     }
                     catch (err) {
                         echo "Caught: ${err}"
@@ -645,147 +810,177 @@ parameters {
                 label 'min-buster-x64'
             }
             steps {
-                echo "====> Build docker container"
-                cleanUpWS()
-                installCli("deb")
-                sh '''
-                   sleep 900
-                '''
-                unstash 'properties'
-                sh '''
-                    PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
-                    MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
-                    PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 3)}')
-                    sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-                    sudo apt-get install -y docker.io
-                    sudo systemctl status docker
-                    sudo apt-get install -y qemu binfmt-support qemu-user-static
-                    sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-                    git clone https://github.com/percona/percona-docker
-                    cd percona-docker/percona-server-8.0
-                    sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
-                    sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile
-                    sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
-                    sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile
-                    if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                        sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile
-                    fi
-                    sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile.aarch64
-                    sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile.aarch64
-                    sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile.aarch64
-                    if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                        sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile.aarch64
-                    fi
-                    sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} .
-                    sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 -f Dockerfile.aarch64 .
-                    cd ../mysql-router
-                    sed -i "s/ENV ROUTE_VERSION.*/ENV ROUTE_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
-                    sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
-                    if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                        sed -i "s/percona-release setup pdps-.*/percona-release enable ps-8x-innovation testing/g" Dockerfile
-                    else
-                        sed -i "s/percona-release setup pdps-8.0/percona-release enable ps-80 testing/g" Dockerfile
-                    fi
-                    sudo docker build -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE} .
-                    sudo docker images
-                 '''
-                 withCredentials([
-                     usernamePassword(credentialsId: 'hub.docker.com',
-                     passwordVariable: 'PASS',
-                     usernameVariable: 'USER'
-                     )]) {
-                 sh '''
-                     echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                     PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                     MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
-                     PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
-                     sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}
-                     sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
-                     sudo docker push perconalab/percona-server:${PS_RELEASE}
-                     sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 perconalab/percona-server:${PS_RELEASE}-aarch64
-                     sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64
-                     sudo docker push perconalab/percona-server:${PS_RELEASE}-aarch64
-                     sudo docker tag perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE} perconalab/percona-mysql-router:${PS_MAJOR_RELEASE}
-                     sudo docker push perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}
-                     sudo docker push perconalab/percona-mysql-router:${PS_MAJOR_RELEASE}
-                 '''
-                 }
-                 sh '''
-                    PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                    sudo docker manifest create perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi \
-                         perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} \
-                         perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64
-                    sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 --os linux --arch arm64 --variant v8
-                    sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} --os linux --arch amd64
-                    sudo docker manifest inspect perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi
-                '''
-                 withCredentials([
-                    usernamePassword(credentialsId: 'hub.docker.com',
-                    passwordVariable: 'PASS',
-                    usernameVariable: 'USER'
-                    )]) {
-                 sh '''
-                    PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                    echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                    PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                    sudo docker manifest push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi
-                 '''
-                 }
-           }
+                script {
+                    if (env.FIPSMODE == 'YES') {
+                        echo "The step is skipped ..."
+                    } else {
+                        echo "====> Build docker container"
+                        cleanUpWS()
+                        installCli("deb")
+                        sh '''
+                           sleep 900
+                        '''
+                        unstash 'properties'
+                        sh '''
+                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                            MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                            MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                            PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 3)}')
+                            sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+                            sudo apt-get install -y docker.io
+                            sudo systemctl status docker
+                            sudo apt-get install -y qemu binfmt-support qemu-user-static
+                            sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+                            git clone https://github.com/percona/percona-docker
+                            cd percona-docker/percona-server-8.0
+                            sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
+                            sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile
+                            sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
+                            sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile
+                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                                sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile
+                            fi
+                            sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile.aarch64
+                            sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile.aarch64
+                            sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile.aarch64
+                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                                sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile.aarch64
+                            fi
+                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} .
+                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 -f Dockerfile.aarch64 .
+                            cd ../mysql-router
+                            sed -i "s/ENV ROUTE_VERSION.*/ENV ROUTE_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
+                            sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
+                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                                sed -i "s/percona-release setup pdps-.*/percona-release enable ps-8x-innovation testing/g" Dockerfile
+                            else
+                                sed -i "s/percona-release setup pdps-8.0/percona-release enable ps-80 testing/g" Dockerfile
+                            fi
+                            sudo docker build -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE} .
+                            sudo docker images
+                        '''
+                        withCredentials([
+                        usernamePassword(credentialsId: 'hub.docker.com',
+                        passwordVariable: 'PASS',
+                        usernameVariable: 'USER'
+                        )]) {
+                        sh '''
+                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
+                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                            MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                            PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
+                            sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}
+                            sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
+                            sudo docker push perconalab/percona-server:${PS_RELEASE}
+                            sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 perconalab/percona-server:${PS_RELEASE}-aarch64
+                            sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64
+                            sudo docker push perconalab/percona-server:${PS_RELEASE}-aarch64
+                            sudo docker tag perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE} perconalab/percona-mysql-router:${PS_MAJOR_RELEASE}
+                            sudo docker push perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}
+                            sudo docker push perconalab/percona-mysql-router:${PS_MAJOR_RELEASE}
+                       '''
+                       }
+                       sh '''
+                           PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                           sudo docker manifest create perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi \
+                               perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} \
+                               perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64
+                           sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} --os linux --arch amd64
+                           sudo docker manifest inspect perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi
+                       '''
+                       withCredentials([
+                       usernamePassword(credentialsId: 'hub.docker.com',
+                       passwordVariable: 'PASS',
+                       usernameVariable: 'USER'
+                       )]) {
+                       sh '''
+                           PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                           echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
+                           PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                           sudo docker manifest push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi
+                       '''
+                       }
+                    }
+                }
+            }
        }
     }
     post {
         success {
-            slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+            script {
+                if (env.FIPSMODE == 'YES') {
+                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: PRO build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+                } else {
+                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+                }
+            }
             slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: Triggering Builds for Package Testing for ${BRANCH} - [${BUILD_URL}]")
             unstash 'properties'
             script {
                 currentBuild.description = "Built on ${BRANCH}; path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
                 REVISION = sh(returnStdout: true, script: "grep REVISION test/percona-server-8.0.properties | awk -F '=' '{ print\$2 }'").trim()
                 PS_RELEASE = sh(returnStdout: true, script: "echo ${BRANCH} | sed 's/release-//g'").trim()
+                PS8_RELEASE_VERSION = sh(returnStdout: true, script: """ echo ${BRANCH} | sed -nE '/release-(8\\.[0-9]{1})\\..*/s//\\1/p' """).trim()
 
-                withCredentials([string(credentialsId: 'PXC_GITHUB_API_TOKEN', variable: 'TOKEN')]) {
-                sh """
-                    
-                    set -x
-                    git clone https://jenkins-pxc-cd:$TOKEN@github.com/Percona-QA/package-testing.git
-                    cd package-testing
-                    git config user.name "jenkins-pxc-cd"
-                    git config user.email "it+jenkins-pxc-cd@percona.com"
-                    OLD_REV=\$(cat VERSIONS | grep PS80_REV | cut -d '=' -f2- )
-                    OLD_VER=\$(cat VERSIONS | grep PS80_VER | cut -d '=' -f2- )
-                    sed -i s/PS80_REV=\$OLD_REV/PS80_REV='"'${REVISION}'"'/g VERSIONS
-                    sed -i s/PS80_VER=\$OLD_VER/PS80_VER='"'${PS_RELEASE}'"'/g VERSIONS
-                    git diff
-                    git add -A
-                    git commit -m "Autocommit: add ${REVISION} and ${PS_RELEASE} for ps80 package testing VERSIONS file."
-                    git push 
+                if("${PS8_RELEASE_VERSION}"){
+                    echo "Executing MINITESTS as VALID VALUES FOR PS8_RELEASE_VERSION:${PS8_RELEASE_VERSION}"
+                    echo "Checking for the Github Repo VERSIONS file changes..."
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+                    sh """
+                        set -x
+                        git clone https://jenkins-pxc-cd:$TOKEN@github.com/Percona-QA/package-testing.git
+                        cd package-testing
+                        git config user.name "jenkins-pxc-cd"
+                        git config user.email "it+jenkins-pxc-cd@percona.com"
+                        echo "${PS8_RELEASE_VERSION} is the VALUE!!@!"
+                        export RELEASE_VER_VAL="${PS8_RELEASE_VERSION}"
+                        if [[ "\$RELEASE_VER_VAL" =~ ^8.[0-9]{1}\$ ]]; then
+                            echo "\$RELEASE_VER_VAL is a valid version"
+                            OLD_REV=\$(cat VERSIONS | grep PS_INN_LTS_REV | cut -d '=' -f2- )
+                            OLD_VER=\$(cat VERSIONS | grep PS_INN_LTS_VER | cut -d '=' -f2- )
+                            sed -i s/PS_INN_LTS_REV=\$OLD_REV/PS_INN_LTS_REV='"'${REVISION}'"'/g VERSIONS
+                            sed -i s/PS_INN_LTS_VER=\$OLD_VER/PS_INN_LTS_VER='"'${PS_RELEASE}'"'/g VERSIONS
 
-                """
-                }
-                echo "Start Minitests for PS"
-                
-                package_tests_ps80(minitestNodes)
-
-                if("${mini_test_error}" == "True"){
-                    echo "NOT TRIGGERING PACKAGE TESTS AND INTEGRATION TESTS DUE TO MINITEST FAILURE !!"
-                }else{
-                    echo "Trigger Package Testing Job for PS"
-
-                    build job: 'package-testing-ps80', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: 'ps80'),string(name: 'install_repo', value: "testing"),string(name: 'node_to_test', value: "all"),string(name: 'action_to_test', value: "all"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
-                    
-                    echo "Trigger PMM_PS Github Actions Workflow"
-                    
-                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                        sh """
-                            curl -i -v -X POST \
-                                -H "Accept: application/vnd.github.v3+json" \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/Percona-Lab/qa-integration/actions/workflows/PMM_PS.yaml/dispatches" \
-                                -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
-                        """
+                        else
+                            echo "INVALID PS8_RELEASE_VERSION VALUE: ${PS8_RELEASE_VERSION}"
+                        fi
+                        git diff
+                        if [[ -z \$(git diff) ]]; then
+                            echo "No changes"
+                        else
+                            echo "There are changes"
+                            git add -A
+                        git commit -m "Autocommit: add ${REVISION} and ${PS_RELEASE} for ${PS8_RELEASE_VERSION} package testing VERSIONS file."
+                            git push
+                        fi
+                    """
                     }
+                    echo "Start Minitests for PS"                
+                    package_tests_ps80(minitestNodes)
+                    if("${mini_test_error}" == "True"){
+                        error "NOT TRIGGERING PACKAGE TESTS AND INTEGRATION TESTS DUE TO MINITEST FAILURE !!"
+                    }else{
+                        echo "TRIGGERING THE PACKAGE TESTING JOB!!!"
+                        build job: 'package-testing-ps-innovation-lts', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: "${product_to_test}"),string(name: 'install_repo', value: "testing"),string(name: 'node_to_test', value: "all"),string(name: 'action_to_test', value: "all"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
+                                                                                                                                            
+                        echo "Trigger PMM_PS Github Actions Workflow"
+                        
+                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                            sh """
+                                curl -i -v -X POST \
+                                    -H "Accept: application/vnd.github.v3+json" \
+                                    -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                    "https://api.github.com/repos/Percona-Lab/qa-integration/actions/workflows/PMM_PS.yaml/dispatches" \
+                                    -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
+                            """
+                        }
+
+                    }
+                }
+                else{
+                    error "Skipping MINITESTS and Other Triggers as invalid RELEASE VERSION FOR THIS JOB"
+                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: Skipping MINITESTS and Other Triggers as invalid RELEASE VERSION FOR THIS JOB ${BRANCH} - [${BUILD_URL}]")
                 }
             }
             deleteDir()

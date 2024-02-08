@@ -22,6 +22,7 @@ void createCluster(String CLUSTER_SUFFIX){
                 NETWORK_TYPE="OpenShiftSDN"
             fi
             mkdir -p openshift/${CLUSTER_SUFFIX}
+            timestamp="\$(date +%s)"
 cat <<-EOF > ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
 \$POLICY
 apiVersion: v1
@@ -33,7 +34,7 @@ compute:
   platform:
     aws:
       type: m5.2xlarge
-  replicas: 3
+  replicas: 1
 controlPlane:
   architecture: amd64
   hyperthreading: Enabled
@@ -60,6 +61,7 @@ platform:
       delete-cluster-after-hours: 8
       team: cloud
       product: psmdb-operator
+      creation-time: \$timestamp
 
 publish: External
 EOF
@@ -70,6 +72,10 @@ EOF
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
                 export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
+                
+                machineset=`oc get machineset  -n openshift-machine-api | awk 'NR==2 {print \$1; exit}'`
+                oc get machineset \$machineset -o yaml -n openshift-machine-api | yq eval '.spec.template.spec.providerSpec.value.spotMarketOptions = {}' | oc apply -f -
+                oc scale machineset --replicas=3  \$machineset -n openshift-machine-api
 
             """
         }
@@ -327,7 +333,7 @@ pipeline {
 
                 script {
                     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                    CLUSTER_NAME = sh(script: "echo jenkins-par-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+                    CLUSTER_NAME = sh(script: "echo jenkins-ver-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
                     PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
 
                 }
@@ -335,7 +341,7 @@ pipeline {
 
                 sh """
                     wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
-                    unzip terraform_0.11.14_linux_amd64.zip
+                    unzip -o terraform_0.11.14_linux_amd64.zip
                     sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
                 """
                 sh '''
@@ -372,6 +378,7 @@ pipeline {
                         else
                             cd ./source/
                             sg docker -c "
+                                docker buildx create --use
                                 docker login -u '${USER}' -p '${PASS}'
                                 export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                                 ./e2e-tests/build

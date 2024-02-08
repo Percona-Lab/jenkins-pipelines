@@ -169,14 +169,7 @@ void clusterRunner(String cluster) {
 
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
-    if ("$IS_GKE_ALPHA" == "YES") {
-        runGKEclusterAlpha(CLUSTER_SUFFIX)
-    } else {
-        runGKEcluster(CLUSTER_SUFFIX)
-    }
-}
 
-void runGKEcluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
@@ -204,26 +197,6 @@ void runGKEcluster(String CLUSTER_SUFFIX) {
                 sleep 1
             done
             if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
-        """
-   }
-}
-
-void runGKEclusterAlpha(String CLUSTER_SUFFIX) {
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            source $HOME/google-cloud-sdk/path.bash.inc
-            ret_num=0
-            while [ \${ret_num} -lt 15 ]; do
-                ret_val=0
-                gcloud auth activate-service-account alpha-svc-acct@"${GCP_PROJECT}".iam.gserviceaccount.com --key-file=$CLIENT_SECRET_FILE && \
-                gcloud config set project $GCP_PROJECT && \
-                gcloud alpha container clusters create --release-channel rapid $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version $PLATFORM_VER --zone $region --project $GCP_PROJECT --preemptible --disk-size 30 --machine-type n1-standard-4 --num-nodes=4 --min-nodes=4 --max-nodes=6 --network=jenkins-ps-vpc --subnetwork=jenkins-ps-${CLUSTER_SUFFIX} --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
-                kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account) || ret_val=\$?
-                if [ \${ret_val} -eq 0 ]; then break; fi
-                ret_num=\$((ret_num + 1))
-            done
-            if [ \${ret_num} -eq 15 ]; then exit 1; fi
         """
    }
 }
@@ -306,15 +279,7 @@ void makeReport() {
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    if ("$IS_GKE_ALPHA" == "YES") {
-        ACCOUNT='alpha-svc-acct'
-        CRED_ID='gcloud-alpha-key-file'
-    } else {
-        ACCOUNT='jenkins'
-        CRED_ID='gcloud-key-file'
-    }
-
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: CRED_ID, variable: 'CLIENT_SECRET_FILE')]) {
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
@@ -362,10 +327,6 @@ pipeline {
             defaultValue: 'latest',
             description: 'GKE version',
             name: 'PLATFORM_VER')
-        choice(
-            choices: 'NO\nYES',
-            description: 'GKE alpha/stable',
-            name: 'IS_GKE_ALPHA')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mysql-operator:main',
@@ -410,9 +371,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
-    }
-    triggers {
-        cron('0 8 * * 0')
+        copyArtifactPermission('ps-operator-latest-scheduler');
     }
     stages {
         stage('Prepare node') {

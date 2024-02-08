@@ -6,6 +6,7 @@ void createCluster(String CLUSTER_SUFFIX){
     clusters.add("${CLUSTER_SUFFIX}")
 
     sh """
+        timestamp="\$(date +%s)"
 cat <<-EOF > cluster-${CLUSTER_SUFFIX}.yaml
 # An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
 ---
@@ -18,6 +19,8 @@ metadata:
     version: "$PLATFORM_VER"
     tags:
         'delete-cluster-after-hours': '10'
+        'creation-time': '\$timestamp'
+        'team': 'cloud'
 iam:
   withOIDC: true
 
@@ -56,6 +59,7 @@ EOF
             export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
             export PATH=/home/ec2-user/.local/bin:$PATH
             eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+            kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
         """
     }
     // this is needed for always post action because pipeline runs earch parallel step on another instance

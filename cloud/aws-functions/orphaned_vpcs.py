@@ -1,38 +1,50 @@
-# Remove eks clusters and orphaned resources.
+# Remove unused vpcs and connected resources.
 import logging
 import datetime
 import boto3
-import sys
 from time import sleep
 from botocore.exceptions import ClientError
 from boto3.exceptions import Boto3Error
+from utils import get_regions_list
+
+def is_vpc_to_terminate(vpc):
+    tags = vpc.tags
+    print(f"tags: {tags}")
+    if tags == None:
+        return False
+    tags_dict = {item['Key']: item['Value'] for item in tags}
+
+    if 'team' not in tags_dict.keys() or ('team' in tags_dict.keys() and tags_dict['team'] != 'cloud'):
+        return False
+    if 'delete-cluster-after-hours' not in tags_dict.keys():
+        return True
+
+    instance_lifetime = float(tags_dict['delete-cluster-after-hours'])
+    current_time = datetime.datetime.now().timestamp()
+    
+    try:
+        creation_time = int(tags_dict['creation-time'])
+    except KeyError as e:
+        return False
+
+    if (current_time - creation_time) / 3600 > instance_lifetime:
+        return True
+    return False
 
 
-def get_clusters_to_terminate(aws_region):
-    clusters_for_deletion = []
-    eks_client = boto3.client('eks', region_name=aws_region)
-    clusters = eks_client.list_clusters()['clusters']
-    if not clusters:
-        logging.info(f"There are no clusters in cloud")
-        sys.exit("There are no clusters in cloud")
+def get_vpcs_to_terminate(aws_region):
+    vpcs_for_deletion = []
+    ec2 = boto3.resource('ec2', region_name=aws_region)
+    vpcs = list(ec2.vpcs.all())
+    if not vpcs:
+        logging.info(f"There are no vpcs in cloud")
+    for vpc in vpcs:
+        if is_vpc_to_terminate(vpc):
+            vpcs_for_deletion.append(vpc.id)
 
-    for cluster in clusters:
-        cluster = eks_client.describe_cluster(name=cluster)
-        if 'delete-cluster-after-hours' not in cluster['cluster']['tags'].keys():
-            clusters_for_deletion.append(cluster)
-        else:
-            cluster_lifetime = float(cluster['cluster']['tags']['delete-cluster-after-hours'])
-            current_time = datetime.datetime.now().timestamp()
-            creation_time = datetime.datetime.strptime(str(cluster['cluster']['createdAt']),
-                                                       "%Y-%m-%d %H:%M:%S.%f%z").timestamp()
-            if (current_time - creation_time) / 3600 > cluster_lifetime:
-                clusters_for_deletion.append(cluster)
-
-    if not clusters_for_deletion:
-        logging.info(f"There are no clusters for deletion")
-        sys.exit("There are no clusters for deletion")
-    return clusters_for_deletion
-
+    if not vpcs_for_deletion:
+        logging.info(f"There are no vpcs for deletion")
+    return vpcs_for_deletion
 
 def delete_vpc_ep(aws_region, vpc_id):
     ec2_client = boto3.client('ec2', region_name=aws_region)
@@ -45,37 +57,6 @@ def delete_vpc_ep(aws_region, vpc_id):
             ec2_client.delete_vpc_endpoints(VpcEndpointIds=[ep['VpcEndpointId']])
         except Boto3Error as e:
             logging.error(f"Deleting VPC endpoint with id {ep} failed with error: {e}")
-
-
-def delete_nodegroup(aws_region, cluster_name):
-    autoscaling_client = boto3.client('autoscaling', region_name=aws_region)
-    ec2 = boto3.resource('ec2')
-
-    autoscaling_group_name = ""
-    for instance in ec2.instances.all():
-        tags = instance.tags
-        tags_dict = {item['Key']: item['Value'] for item in tags}
-        state = instance.state['Name']
-        if tags_dict['alpha.eksctl.io/cluster-name'] and tags_dict[
-            'alpha.eksctl.io/cluster-name'] == cluster_name and state == 'running':
-            autoscaling_group_name = tags_dict['aws:autoscaling:groupName']
-            break
-        else:
-            continue
-
-    try:
-        autoscaling_client.delete_auto_scaling_group(AutoScalingGroupName=autoscaling_group_name, ForceDelete=True)
-    except Boto3Error as e:
-        logging.error(f"Deleting autoscaling group {autoscaling_group_name} failed with error: {e}")
-
-    sleep(200)
-
-
-def delete_cluster(aws_region, cluster_name):
-    eks_client = boto3.client('eks', region_name=aws_region)
-    eks_client.delete_cluster(name=cluster_name)
-    wait_for_cluster_delete(eks_client, cluster_name)
-
 
 def delete_load_balancers(aws_region, vpc_id):
     elb_client = boto3.client('elb', region_name=aws_region)
@@ -118,6 +99,9 @@ def delete_igw(ec2_resource, vpc_id):
             except Boto3Error as e:
                 logging.info(f"Detaching or deleting igw failed with error: {e}")
                 continue
+            except ClientError as e:
+                logging.info(f"Failed detach igw, will try again. The error was: {e}.")
+                continue
 
 
 def delete_subnets(ec2_resource, vpc_id):
@@ -129,6 +113,8 @@ def delete_subnets(ec2_resource, vpc_id):
             for attempt in range(0, 10):
                 logging.info(f"Removing subnet with id: {sub.id}. Attempt {attempt}/10")
                 try:
+                    for interface in sub.network_interfaces.all():
+                        interface.delete()
                     sub.delete()
                 except ClientError as e:
                     logging.info(f"Failed to delete subnet, will try again. The error was: {e}. Sleeping 10 seconds")
@@ -151,6 +137,8 @@ def delete_route_tables(ec2_resource, vpc_id):
                 table.delete()
         except Boto3Error as e:
             logging.error(f"Delete of route table failed with error: {e}")
+        except ClientError as e:
+            logging.info(f"Failed detach route_table will try again. The error was: {e}.")
 
 
 def delete_security_groups(security_groups):
@@ -175,46 +163,6 @@ def delete_security_groups(security_groups):
     except Boto3Error as e:
         logging.error(f"Deleting of security group failed with error: {e}")
 
-
-def delete_cloudformation_stacks(cluster_name):
-    cf_client = boto3.client('cloudformation')
-    response = cf_client.list_stacks(
-        StackStatusFilter=[
-            'CREATE_COMPLETE',
-        ]
-    )
-    cloudformation_stacks = [stack['StackName'] for stack in response['StackSummaries']]
-    if cloudformation_stacks:
-        try:
-            for stack in cloudformation_stacks:
-                if stack.startswith(f"eksctl-{cluster_name}"):
-                    logging.info(f"Removing cloudformation stack: {stack}")
-                    cf_client.delete_stack(StackName=stack)
-        except Boto3Error as e:
-            logging.error(f"Delete of stack failed with error: {e}")
-
-
-
-def wait_for_cluster_delete(eks_client, cluster_name):
-    timeout = 300  # 5 min
-    attempt = 0
-    sleep_time = 10
-    attempts = timeout // sleep_time
-
-    while attempt < attempts:
-        try:
-            status = eks_client.describe_cluster(name=cluster_name)['cluster']['status']
-        except eks_client.exceptions.ResourceNotFoundException:
-            logging.info(f"Cluster {cluster_name} was successfully deleted.")
-            break
-        logging.info(f"Cluster {cluster_name} status is {status}. "
-                     f"Attempt {attempt}/{attempts}. Sleeping {sleep_time} seconds.")
-        sleep(sleep_time)
-        attempt += 1
-    else:
-        logging.error(f"Cluster {cluster_name} was not deleted in {timeout} seconds.")
-
-
 def wait_for_nat_gateway_delete(ec2, nat_gateway_id):
     timeout = 300  # 5 min
     attempt = 0
@@ -238,12 +186,6 @@ def wait_for_nat_gateway_delete(ec2, nat_gateway_id):
 
     else:
         logging.error(f"NAT gateway with id {nat_gateway_id} was not deleted in {timeout} seconds.")
-
-
-def terminate_cluster(cluster_name, aws_region):
-    delete_nodegroup(aws_region, cluster_name)
-    delete_cluster(aws_region, cluster_name)
-
 
 def terminate_vpc(vpc_id, aws_region):
     ec2_resource = boto3.resource('ec2', region_name=aws_region)
@@ -289,18 +231,12 @@ def terminate_vpc(vpc_id, aws_region):
 
 
 def lambda_handler(event, context):
-    aws_region = 'eu-west-3'
+    aws_regions = get_regions_list()
 
-    logging.info(f"Searching for resources to remove in {aws_region}.")
-    clusters = get_clusters_to_terminate(aws_region)
-    for cluster in clusters:
-        cluster_name = cluster['cluster']['name']
-        logging.info(f"Terminating {cluster_name}")
-        terminate_cluster(cluster_name=cluster_name, aws_region=aws_region)
+    for aws_region in aws_regions:
+        logging.info(f"Searching for resources to remove in {aws_region}.")
+        vpcs = get_vpcs_to_terminate(aws_region)
 
-        logging.info(f"Deleting all resources and VPC.")
-        vpc_id = cluster['cluster']['resourcesVpcConfig']['vpcId']
-        terminate_vpc(vpc_id, aws_region)
-        logging.info(f"Deleting cloudformation stacks.")
-        delete_cloudformation_stacks(cluster_name)
-
+        for vpc in vpcs:
+            logging.info(f"Deleting all resources and VPC.")
+            terminate_vpc(vpc, aws_region)
