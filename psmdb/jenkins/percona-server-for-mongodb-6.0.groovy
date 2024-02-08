@@ -125,6 +125,8 @@ pipeline {
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("ubuntu:bionic", "--build_src_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:buster", "--build_src_deb=1")
                             }
                         }
 
