@@ -23,7 +23,7 @@ pipeline {
         )
         string(
             defaultValue: '16.2-multi',
-            description: 'TAG of the docker to test. For example, 16, 16.1, 16.1-muulti.',
+            description: 'TAG of the docker to test. For example, 16, 16.1, 16.1-multi.',
             name: 'DOCKER_TAG'
         )
         string(
