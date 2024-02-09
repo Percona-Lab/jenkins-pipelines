@@ -321,7 +321,6 @@ pipeline {
         }
         stage('Push to public repository') {
             steps {
-                unstash 'pxc-80.properties'
                 script {
                     PXC_VERSION_MINOR = sh(returnStdout: true, script: ''' curl -s -O $(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git$||')/${GIT_BRANCH}/MYSQL_VERSION; cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print $2}' ''').trim()
                     if ("${PXC_VERSION_MINOR}" == "0") {
