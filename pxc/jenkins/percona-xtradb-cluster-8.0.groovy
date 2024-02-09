@@ -358,7 +358,7 @@ pipeline {
                 unstash 'pxc-80.properties'
                 sh '''
                     PXC_RELEASE=$(echo ${GIT_BRANCH} | sed 's/release-//g')
-                    PXC_MAJOR_RELEASE=$(echo ${GIT_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 3)}')
+                    PXC_MAJOR_RELEASE=$(echo ${GIT_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
                     sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                     sudo apt-get install -y docker.io
                     sudo systemctl status docker
@@ -374,8 +374,8 @@ pipeline {
                     if [ ${PXC_MAJOR_RELEASE} != "80" ]; then
                         sed -i "s/pxc-80/pxc-8x-innovation/g" Dockerfile
                     fi
-                    sudo docker build --no-cache -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} --progress plain .
-                    sudo docker build --no-cache --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:$${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug --progress plain .
+                    sudo docker build --no-cache -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} .
+                    sudo docker build --no-cache --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:$${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug .
 
                     cd ../percona-xtradb-cluster-8.0-backup
                     sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
@@ -387,7 +387,7 @@ pipeline {
                         sed -i "s/ps-80/ps-8x-innovation/g" Dockerfile
                         sed -i "s/pxc-80/pxc-8x-innovation/g" Dockerfile
                     fi
-                    sudo docker build --no-cache -t perconalab/percona-xtradb-cluster-operator:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}-pxc8.0-backup --progress plain .
+                    sudo docker build --no-cache -t perconalab/percona-xtradb-cluster-operator:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}-pxc8.0-backup .
 
                     sudo docker images
                  '''
