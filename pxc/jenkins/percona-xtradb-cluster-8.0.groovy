@@ -386,6 +386,7 @@ pipeline {
                         sed -i "s/tools/pxb-8x-innovation/g" Dockerfile
                         sed -i "s/ps-80/ps-8x-innovation/g" Dockerfile
                         sed -i "s/pxc-80/pxc-8x-innovation/g" Dockerfile
+                        sed -i "s/percona-xtrabackup-80/percona-xtrabackup-${PXC_MAJOR_RELEASE}/g" Dockerfile
                     fi
                     sudo docker build --no-cache -t perconalab/percona-xtradb-cluster-operator:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}-pxc8.${MYSQL_VERSION_MINOR}-backup .
 
