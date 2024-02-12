@@ -57,7 +57,9 @@ pipeline {
                 """
                 script {
                     def PSMDB_VER = sh(returnStdout: true, script: "cat VERSION").trim()
-                    moleculeParallelTest(pdmdbOperatingSystems("${PSMDB_VER}"), moleculeDir)
+                    def os = pdmdbOperatingSystems("${PSMDB_VER}")
+                    os.removeAll { it.contains('-arm') }
+                    moleculeParallelTest(os, moleculeDir)
                 }
             }
         }
@@ -67,7 +69,9 @@ pipeline {
             junit testResults: "**/*-report.xml", keepLongStdio: true
             script {
                 def PSMDB_VER = sh(returnStdout: true, script: "cat VERSION").trim()
-                moleculeParallelPostDestroy(pdmdbOperatingSystems("${PSMDB_VER}"), moleculeDir)
+                def os = pdmdbOperatingSystems("${PSMDB_VER}")
+                os.removeAll { it.contains('-arm') }
+                moleculeParallelPostDestroy(os, moleculeDir)
             }
         }
     }
