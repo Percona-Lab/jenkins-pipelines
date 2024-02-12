@@ -23,7 +23,16 @@ product_action_playbooks = [
         upstream: 'pxb_81_upstream.yml',
         tarball: 'pxb_81_tarball.yml',
         kmip: 'pxb_81_kmip.yml'
+    ],
+    pxb_innovation_lts: [
+        install: 'pxb_innovation_lts.yml',
+        upgrade: 'pxb_upgrade_innovation_lts.yml',
+        upstream: 'pxb_upstream_innovation_lts.yml',
+        tarball: 'pxb_tarball_innovation_lts.yml',
+        kmip: 'pxb_kmip_innovation.yml',
+        kms: 'pxb_kms_innovation.yml'
     ]
+
 ]
 
 setup_centos_package_tests = { ->
@@ -111,7 +120,7 @@ void runPlaybook(String action_to_test) {
     def git_repo = params.git_repo
 
     sh """
-        git clone --depth 1 "${git_repo}"
+        git clone --depth 1 -b master "${git_repo}"
     """
 
     setup_package_tests()
@@ -120,6 +129,7 @@ void runPlaybook(String action_to_test) {
         export install_repo="\${install_repo}"
 
         ansible-playbook \
+         -vvv \
         --connection=local \
         --inventory 127.0.0.1, \
         --limit 127.0.0.1 \
@@ -133,8 +143,8 @@ pipeline {
 
     parameters {
         choice(
-            choices: ['pxb81', 'pxb80', 'pxb24'],
-            description: 'Choose the product version to test: PXB8.1, PXB8.0 OR PXB2.4',
+            choices: ['pxb81', 'pxb80', 'pxb24', 'pxb_innovation_lts'],
+            description: 'Choose the product version to test: PXB8.1, PXB8.0, PXB2.4 OR pxb_innovation_lts',
             name: 'product_to_test'
         )
         choice(
@@ -207,7 +217,13 @@ pipeline {
                     }
 
                     steps {
-                        runPlaybook("upstream")
+                        script{
+                            if (params.node_to_test == 'min-focal-x64') {
+                                echo 'Focal is not supported for upstream'
+                            } else {
+                                runPlaybook("upstream")
+                            }
+                        }
                     }
                 }
 
@@ -228,6 +244,16 @@ pipeline {
 
                     steps {
                         runPlaybook("kmip")
+                    }
+                }
+
+                stage('kms') {
+                    agent {
+                        label params.node_to_test
+                    }
+
+                    steps {
+                        runPlaybook("kms")
                     }
                 }
             }
