@@ -155,16 +155,6 @@ pipeline {
                 }
             }
         }
-        stage('Sign packages') {
-            steps {
-                signRPM()
-            }
-        }
-        stage('Push to public repository') {
-            steps {
-                sync2ProdPMM("pmm3-components/yum/${DESTINATION}", 'no', '9')
-            }
-        }
         stage('Trigger a devcontainer build') {
             when {
                 // a guard to avoid unnecessary builds

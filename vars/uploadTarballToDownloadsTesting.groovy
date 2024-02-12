@@ -16,8 +16,7 @@ def call(String PRODUCT_NAME, String PRODUCT_VERSION) {
 
                 # Get PXC version from a file
                 if [ "x${PRODUCT_NAME}" == "xpxc" ]; then
-                    isitcustom=\$(echo \${cutProductVersion} | grep CUSTOM)
-                    if [ "x\${isitcustom}" == "x" ]; then
+                    if [[ "${PRODUCT_VERSION}" != *CUSTOM* ]]; then
                         curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${PRODUCT_VERSION}/MYSQL_VERSION
                         MYSQL_VERSION_MAJOR=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_MAJOR | awk -F= '{print \$2}')
                         MYSQL_VERSION_MINOR=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print \$2}')
