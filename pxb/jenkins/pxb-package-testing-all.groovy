@@ -22,7 +22,7 @@ pipeline {
 
     parameters {
         choice(
-            choices: ['pxb81', 'pxb80', 'pxb24'],
+            choices: ['pxb81', 'pxb80', 'pxb24','pxb_innovation_lts'],
             description: 'Choose the product version to test: PXB8.1, PXB8.0 OR PXB2.4',
             name: 'product_to_test'
         )
@@ -47,12 +47,7 @@ pipeline {
     stages {
         stage('Run parallel') {
             parallel {
-                stage('Debian Buster') {
-                    steps {
-                        runNodeBuild('min-buster-x64')
-                    }
-                }
-
+                
                 stage('Debian Bullseye') {
                     steps {
                         runNodeBuild('min-bullseye-x64')
@@ -62,12 +57,6 @@ pipeline {
                 stage('Debian Bookworm') {
                     steps {
                         runNodeBuild('min-bookworm-x64')
-                    }
-                }
-
-                stage('Ubuntu Bionic') {
-                    steps {
-                        runNodeBuild('min-bionic-x64')
                     }
                 }
 
