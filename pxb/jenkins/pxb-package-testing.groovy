@@ -29,7 +29,8 @@ product_action_playbooks = [
         upgrade: 'pxb_upgrade_innovation_lts.yml',
         upstream: 'pxb_upstream_innovation_lts.yml',
         tarball: 'pxb_tarball_innovation_lts.yml',
-        kmip: 'pxb_kmip_innovation.yml'
+        kmip: 'pxb_kmip_innovation.yml',
+        kms: 'pxb_kms_innovation.yml'
     ]
 
 ]
@@ -119,7 +120,7 @@ void runPlaybook(String action_to_test) {
     def git_repo = params.git_repo
 
     sh """
-        git clone --depth 1 -b pxb-innovation-lts-package-tests "${git_repo}"
+        git clone --depth 1 -b master "${git_repo}"
     """
 
     setup_package_tests()
@@ -143,7 +144,7 @@ pipeline {
     parameters {
         choice(
             choices: ['pxb81', 'pxb80', 'pxb24', 'pxb_innovation_lts'],
-            description: 'Choose the product version to test: PXB8.1, PXB8.0, PXB2.4 OR pxb-innovation-lts',
+            description: 'Choose the product version to test: PXB8.1, PXB8.0, PXB2.4 OR pxb_innovation_lts',
             name: 'product_to_test'
         )
         choice(
@@ -243,6 +244,16 @@ pipeline {
 
                     steps {
                         runPlaybook("kmip")
+                    }
+                }
+
+                stage('kms') {
+                    agent {
+                        label params.node_to_test
+                    }
+
+                    steps {
+                        runPlaybook("kms")
                     }
                 }
             }
