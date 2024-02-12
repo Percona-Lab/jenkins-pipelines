@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-12849-dont-upload-pmm-v3-rpm-packages', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -58,7 +58,7 @@ pipeline {
                         archiveArtifacts 'uploadPath'
                         stash includes: 'uploadPath', name: 'uploadPath'
                         archiveArtifacts 'shortCommit'
-                        slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        // slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                     }
                 }
                 stage('Build client source') {
@@ -135,8 +135,6 @@ pipeline {
                         stage('Build client binary rpm EL7') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
-                                // sh "${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:8"
-                                // sh "${PATH_TO_SCRIPTS}/build-client-rpm almalinux:9.0"
                             }
                         }
                         stage('Build client binary rpm EL8') {
@@ -214,12 +212,15 @@ pipeline {
                 label 'master'
             }
             steps {
+                unstash 'uploadPath'
+                script {
+                  env.UPLOAD_PATH = sh(returnStdout: true, script: "cat uploadPath").trim()
+                }
                 // sync packages
                 sync2ProdPMMClient(DESTINATION, 'yes')
-                sync2ProdPMMClientRepo(DESTINATION, 'yes')
+                sync2ProdPMMClientRepo(DESTINATION, env.UPLOAD_PATH, 'pmm2-client')
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     script {
-                        unstash 'uploadPath'
                         sh '''
                             PATH_TO_BUILD=$(cat uploadPath)
                             ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com "

@@ -1,19 +1,16 @@
-def call(String DESTINATION, String SYNC_PMM_CLIENT) {
+def call(String DESTINATION, String UPLOAD_PATH, String PMM_CLIENT_SUBPATH = 'pmm2-client') {
     node('master') {
-        unstash 'uploadPath'
-        def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
-
         withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
             withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                 sh """
-                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
+                    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                         set -o errexit
                         set -o xtrace
 
-                        pushd ${path_to_build}/binary
+                        pushd ${UPLOAD_PATH}/binary
 
                             for rhel in \$(ls -1 redhat); do
-                                export dest_path=/srv/repo-copy/pmm2-client/yum/${DESTINATION}/\${rhel}
+                                export dest_path=/srv/repo-copy/${PMM_CLIENT_SUBPATH}/yum/${DESTINATION}/\${rhel}
 
                                 # RPMS
                                 mkdir -p \${dest_path}/RPMS
@@ -45,12 +42,12 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                                 for deb in `find debian/\${dist} -name '*.deb'`; do
                                  pkg_fname=\$(basename \${deb} | awk -F'_' '{print \$2}' )
                                  EC=0
-                                 /usr/local/reprepro5/bin/reprepro -Vb /srv/repo-copy/pmm2-client/apt -C ${DESTINATION} list \${dist} | sed -re "s|[0-9]:||" | grep \${pkg_fname} > /dev/null || EC=\$?
+                                 /usr/local/reprepro5/bin/reprepro -Vb /srv/repo-copy/${PMM_CLIENT_SUBPATH}/apt -C ${DESTINATION} list \${dist} | sed -re "s|[0-9]:||" | grep \${pkg_fname} > /dev/null || EC=\$?
                                  REPOPUSH_ARGS=""
                                  if [ \${EC} -eq 0 ]; then
                                      REPOPUSH_ARGS=" --remove-package "
                                  fi
-                                 env PATH=/usr/local/reprepro5/bin:${PATH} repopush \${REPOPUSH_ARGS} --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/pmm2-client/apt
+                                 env PATH=/usr/local/reprepro5/bin:${PATH} repopush \${REPOPUSH_ARGS} --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${PMM_CLIENT_SUBPATH}/apt
                                 done
                             done
 
@@ -60,11 +57,11 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT) {
                         date +%s > /srv/repo-copy/version
 
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
-                            /srv/repo-copy/pmm2-client/yum/${DESTINATION}/ \
-                            10.30.9.32:/www/repo.percona.com/htdocs/pmm2-client/yum/${DESTINATION}/
+                            /srv/repo-copy/${PMM_CLIENT_SUBPATH}/yum/${DESTINATION}/ \
+                            10.30.9.32:/www/repo.percona.com/htdocs/${PMM_CLIENT_SUBPATH}/yum/${DESTINATION}/
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
-                            /srv/repo-copy/pmm2-client/apt/ \
-                            10.30.9.32:/www/repo.percona.com/htdocs/pmm2-client/apt/
+                            /srv/repo-copy/${PMM_CLIENT_SUBPATH}/apt/ \
+                            10.30.9.32:/www/repo.percona.com/htdocs/${PMM_CLIENT_SUBPATH}/apt/
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/version \
                             10.30.9.32:/www/repo.percona.com/htdocs/
