@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@PMM-12849-dont-upload-pmm-v3-rpm-packages', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-12905-push-client3-artifacts-to-own-repo', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
