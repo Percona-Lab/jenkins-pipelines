@@ -15,7 +15,6 @@ def sendSlackNotification(repo,version)
  }
 }
 
-
 pipeline {
   agent {
       label 'min-ol-8-x64'
@@ -23,7 +22,7 @@ pipeline {
   parameters {
         string(
             defaultValue: '16.2-multi',
-            description: 'TAG of the docker to test. For example, 16, 16.1, 16.1-muulti.',
+            description: 'TAG of the docker to test. For example, 16, 16.1, 16.1-multi.',
             name: 'DOCKER_TAG'
         )
         string(
