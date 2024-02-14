@@ -59,7 +59,8 @@ pipeline {
             name: 'product_to_test',
             choices: [
                 'pxc80',
-                'pxc57'
+                'pxc57',
+                'pxc-innovation-lts'
             ],
             description: 'PXC product_to_test to test'
         )

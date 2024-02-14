@@ -24,6 +24,7 @@
             choices:
                 - 'pxc80'
                 - 'pxc57'
+                - 'pxc-innovation-lts'
             description: "PXC version to test"
         - choice:
             name: test_repo

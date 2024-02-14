@@ -65,9 +65,9 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     """
                 }
             }else if(param_test_type == "upgrade"){
-                def install_repo="main"
+                def install_repo="experimental"
                 def check_version="${version_check}"
-                def upgrade_repo="${test_repo}"
+                def upgrade_repo="testing"
 
                 if(action != "create" && action != "destroy"){
                     def UP_PXC1_IP = sh(
@@ -109,7 +109,8 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
             if(action == "create" || action == "destroy"){
                 sh"""
                     . virtenv/bin/activate
-                    
+                    #export MOLECULE_DEBUG=1
+                    #export DESTROY_ENV=no
                     
                     mkdir -p ${WORKSPACE}/install
                     mkdir -p ${WORKSPACE}/upgrade
@@ -130,6 +131,9 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
 
                 sh"""
                     . virtenv/bin/activate
+                    #export MOLECULE_DEBUG=1
+                    #export DESTROY_ENV=no
+
                     cd package-testing/molecule/pxc
 
                     echo "param_test_type is ${param_test_type}"
@@ -329,7 +333,8 @@ pipeline {
             name: 'product_to_test',
             choices: [
                 'pxc80',
-                'pxc57'
+                'pxc57',
+                'pxc-innovation-lts'
             ],
             description: 'PXC product_to_test to test'
         )
