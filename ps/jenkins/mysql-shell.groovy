@@ -77,12 +77,14 @@ pipeline {
         stage('Create MYSQL-SHELL source tarball') {
             steps {
                 // slackNotify("", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
-                cleanUpWS()
-                PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                if ("${PS_MAJOR_RELEASE}" == "80") {
-                    buildStage("debian:buster", "--get_sources=1")
-                } else {
-                    buildStage("ubuntu:focal", "--get_sources=1")
+                script {
+                    cleanUpWS()
+                    PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
+                    if ("${PS_MAJOR_RELEASE}" == "80") {
+                        buildStage("debian:buster", "--get_sources=1")
+                    } else {
+                        buildStage("ubuntu:focal", "--get_sources=1")
+                    }
                 }
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/mysql-shell.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
