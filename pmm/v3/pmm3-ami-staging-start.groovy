@@ -190,20 +190,7 @@ pipeline {
                             set -o errexit
                             set -o xtrace
 
-                            [ ! -d "/home/centos" ] && echo "Home directory for centos user does not exist"
-
-                            if grep -q Oracle /etc/os-release; then
-                                sudo dnf remove -y podman buildah
-                                sudo dnf -y install 'dnf-command(config-manager)'
-                                sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
-                                sudo dnf install -y git docker-ce docker-ce-cli containerd.io docker-compose-plugin
-                            else
-                                echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
-                                sudo yum makecache
-                                sudo yum -y install git docker
-                            fi
-
-                            sudo systemctl start docker
+                            sudo dnf -y install podman-docker
 
                             curl -L -s https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 | sudo tee /usr/bin/docker-compose > /dev/null
                             sudo chmod +x /usr/bin/docker-compose
@@ -219,40 +206,6 @@ pipeline {
                 }
                 archiveArtifacts 'PUBLIC_IP'
                 archiveArtifacts 'INSTANCE_ID'
-            }
-        }
-        stage('Enable Testing Repo') {
-            when {
-                expression { env.ENABLE_TESTING_REPO == "yes" }
-            }
-            steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh '''
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
-                            sudo yum update -y percona-release
-                            sudo sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm-server.repo
-                            sudo percona-release enable percona testing
-                            sudo yum clean all
-                        '
-                    '''
-                }
-            }
-        }
-        stage('Enable Experimental Repo') {
-            when {
-                expression { env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
-            }
-            steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh '''
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
-                            sudo yum update -y percona-release
-                            sudo sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm-server.repo
-                            sudo percona-release enable percona experimental
-                            sudo yum clean all
-                        '
-                    '''
-                }
             }
         }
         stage('Setup DBs for Remote Verification') {
