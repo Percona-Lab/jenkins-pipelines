@@ -58,7 +58,6 @@ pipeline {
                         archiveArtifacts 'uploadPath'
                         stash includes: 'uploadPath', name: 'uploadPath'
                         archiveArtifacts 'shortCommit'
-                        // slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                     }
                 }
                 stage('Build client source') {
