@@ -109,7 +109,7 @@ pipeline {
                                 --region $AWS_DEFAULT_REGION \
                                 --output text \
                                 --query 'Subnets[].SubnetId' \
-                                --filter 'Name=tag-value,Values=pmm-ami-staging-start'
+                                --filter 'Name=tag-value,Values=pmm2-ami-staging-start'
                         )
 
                         IMAGE_NAME=$(
