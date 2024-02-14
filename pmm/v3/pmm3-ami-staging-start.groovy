@@ -23,14 +23,6 @@ pipeline {
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
         choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo, for RC testing',
-            name: 'ENABLE_TESTING_REPO')
-        choice(
-            choices: ['yes', 'no'],
-            description: 'Enable Experimental Repo, for 3-dev-latest',
-            name: 'ENABLE_EXPERIMENTAL_REPO')
-        choice(
             choices: ['false', 'true'],
             description: 'Enable to setup Docker-compose for remote instances',
             name: 'AMI_UPGRADE_TESTING_INSTANCE')
