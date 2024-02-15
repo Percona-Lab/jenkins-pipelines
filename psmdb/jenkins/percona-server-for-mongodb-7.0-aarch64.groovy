@@ -241,6 +241,7 @@ pipeline {
     }
     post {
          success {
+             script {
                 if (env.FIPSMODE == 'YES') {
                     slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: PRO build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
                 } else {
@@ -251,7 +252,8 @@ pipeline {
                 } else {
                     currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
                 }
-                deleteDir()
+             }
+             deleteDir()
         }
         failure {
             slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
