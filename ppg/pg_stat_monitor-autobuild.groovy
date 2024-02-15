@@ -114,7 +114,7 @@ pipeline {
         choice(
             name: 'PG_RELEASE',
             description: 'PPG major version to test',
-            choices: ['11', '12', '13', '14', '15']
+            choices: ['11', '12', '13', '14', '15', '16']
         )
         choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
@@ -210,17 +210,33 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 } //stage
-                stage('Centos 8') {
+                stage('OL 8') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
-                        echo "====> Build pg_stat_monitor rpm on Centos 8 PG${PG_RELEASE}"
+                        echo "====> Build pg_stat_monitor rpm on OL 8 PG${PG_RELEASE}"
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:8", "--build_rpm=1")
+                        buildStage("oraclelinux:8", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                } //stage
+                stage('OL 9') {
+                    agent {
+                        label 'min-ol-9-x64'
+                    }
+                    steps {
+                        echo "====> Build pg_stat_monitor rpm on OL 9 PG${PG_RELEASE}"
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
@@ -230,22 +246,6 @@ pipeline {
         } //stage
         stage('Build pg_stat_monitor DEBs') {
             parallel {
-                stage('Ubuntu 18.04') {
-                    agent {
-                        label 'min-bionic-x64'
-                    }
-                    steps {
-                        echo "====> Build pg_stat_monitor deb on Ubuntu 18.04 PG${PG_RELEASE}"
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:bionic", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                } //stage
                 stage('Ubuntu 20.04') {
                     agent {
                         label 'min-focal-x64'
@@ -256,7 +256,23 @@ pipeline {
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
+                        buildStage("ubuntu:focal", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                } //stage
+                stage('Ubuntu 22.04') {
+                    agent {
+                        label 'min-jammy-x64'
+                    }
+                    steps {
+                        echo "====> Build pg_stat_monitor deb on Ubuntu 22.04 PG${PG_RELEASE}"
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
@@ -294,14 +310,30 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 } //stage
+                stage('Debian 12') {
+                    agent {
+                        label 'min-bookworm-x64'
+                    }
+                    steps {
+                        echo "====> Build pg_stat_monitor deb on Debian 12 PG${PG_RELEASE}"
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bookworm", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                } //stage
             } //parallel
         } //stage
         stage('Build docker container') {
             agent {
-                label 'min-bionic-x64'
+                label 'min-focal-x64'
             }
             steps {
-                echo "====> Build docker container on Ubuntu 18.04 PG${PG_RELEASE}"
+                echo "====> Build docker container on Ubuntu 20.04 PG${PG_RELEASE}"
                 cleanUpWS()
                 installCli("deb")
                 unstash 'properties'
