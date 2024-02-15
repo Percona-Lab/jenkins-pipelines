@@ -57,6 +57,10 @@ pipeline {
             description: 'PSMDB repo name',
             name: 'PSMDB_REPO')
         choice(
+            choices: 'no\nyes',
+            description: 'Enable fipsmode',
+            name: 'FIPSMODE')
+        choice(
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
@@ -102,7 +106,13 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:8", "--build_src_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("oraclelinux:8", "--build_src_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("oraclelinux:8", "--build_src_rpm=1")
+                            }
+                        }
 
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
@@ -115,7 +125,13 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_src_deb=1")
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("ubuntu:focal", "--build_src_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:focal", "--build_src_deb=1")
+                            }
+                        }
 
                         pushArtifactFolder("source_deb/", AWS_STASH_PATH)
                         uploadRPMfromAWS("source_deb/", AWS_STASH_PATH)
@@ -132,7 +148,13 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:8", "--build_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("oraclelinux:8", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("oraclelinux:8", "--build_rpm=1")
+                            }
+                        }
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
@@ -145,23 +167,16 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:9", "--build_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("oraclelinux:9", "--build_rpm=1")
+                            }
+                        }
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Ubuntu 22.04') {
-                    agent {
-                        label 'docker-64gb-aarch64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:jammy", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu 20.04') {
@@ -171,7 +186,32 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_deb=1")
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("ubuntu:focal", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:focal", "--build_deb=1")
+                            }
+                        }
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu 22.04') {
+                    agent {
+                        label 'docker-64gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:jammy", "--build_deb=1")
+                            }
+                        }
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
@@ -189,17 +229,29 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
+                script {
+                    if (env.FIPSMODE == 'yes') {
+                        sync2PrivateProdAutoBuild(PSMDB_REPO+"-pro", COMPONENT)
+                    } else {
+                        sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
+                    }
+                }
             }
         }
     }
     post {
-        success {
-            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
-            script {
-                currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
-            }
-            deleteDir()
+         success {
+                if (env.FIPSMODE == 'YES') {
+                    slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: PRO build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
+                } else {
+                    slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
+                }
+                if (env.FIPSMODE == 'YES') {
+                    currentBuild.description = "!!! PRO Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
+                } else {
+                    currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
+                }
+                deleteDir()
         }
         failure {
             slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
