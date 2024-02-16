@@ -613,13 +613,12 @@ parameters {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--build_tarball=1 --with_zenfs=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
                                 buildStage("none", "--build_tarball=1 --with_zenfs=1")
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9 debug tarball') {
@@ -713,13 +712,12 @@ parameters {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--build_tarball=1 --with_zenfs=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
                                 buildStage("none", "--build_tarball=1 --with_zenfs=1")
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy(22.04) debug tarball') {
@@ -812,7 +810,7 @@ parameters {
             steps {
                 script {
                     if (env.FIPSMODE == 'YES') {
-                        echo "The step is skipped ..."
+                        echo "The step is skipped"
                     } else {
                         echo "====> Build docker container"
                         cleanUpWS()
