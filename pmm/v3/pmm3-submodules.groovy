@@ -45,8 +45,6 @@ pipeline {
             description: 'Change Request Number for pmm-submodules repository PR',
             name: 'BRANCH_NAME')
     }
-
-    }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
     }
@@ -236,7 +234,7 @@ pipeline {
                 archiveArtifacts 'results/docker/TAG'
             }
         }
-         stage('Trigger workflows in GH') {
+        stage('Trigger workflows in GH') {
             steps {
                 script {
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
