@@ -496,7 +496,7 @@ Resources:
                   amazon-linux-extras install java-openjdk11 -y
                   yum -y update --security
                   amazon-linux-extras install -y nginx1.12
-                  yum -y install jenkins-2.414.2 certbot git yum-cron aws-cli xfsprogs
+                  yum -y install jenkins-2.426.3 certbot git yum-cron aws-cli xfsprogs
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -556,7 +556,8 @@ Resources:
 
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
-                  chown -R jenkins:jenkins /mnt/$JENKINS_HOST
+                  install -o jenkins -g jenkins -d /var/log/jenkins
+                  chown -R jenkins:jenkins /mnt/$JENKINS_HOST /var/log/jenkins
 
                   wget -O /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy \
                     https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
@@ -701,7 +702,7 @@ Resources:
               }
 
               setup_ssh_keys() {
-                KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovetsi surabhi.bhat talha.rizwan"
+                KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovetsi surabhi.bhat talha.rizwan muhammad.aqeel"
 
                 for KEY in $KEYS_LIST; do
                     RETRY="3"

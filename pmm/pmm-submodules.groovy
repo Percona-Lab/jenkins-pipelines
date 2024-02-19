@@ -1,0 +1,56 @@
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+]) _
+
+pipeline {
+    agent {
+        label 'cli'
+    }
+    parameters {
+        choice(
+            // default is choices.get(0) - el9
+            choices: ['el9', 'el7'],
+            description: 'Select the OS to build for',
+            name: 'BUILD_OS')
+    }
+    environment {
+        PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+    }
+    stages {
+
+        stage('Trigger PMM2 Submodules pipeline') {
+            when {
+                        expression {
+                            env.PMM_VERSION =~ '^2.'
+                        }
+                 }
+            steps {
+                build job: 'pmm2-submodules', parameters: [
+                    string(name: 'PMM_BRANCH', value: "${CHANGE_BRANCH}"),
+                    string(name: 'CHANGE_URL', value: "${CHANGE_URL}"),
+                    string(name: 'CHANGE_ID', value: "${CHANGE_ID}"),
+                    string(name: 'BRANCH_NAME', value: "${BRANCH_NAME}"),
+                    string(name: 'BUILD_OS', value: params.BUILD_OS),
+                ]
+            }
+        }
+
+
+        stage('Trigger PMM3 Submodules pipeline') {
+            when {
+                        expression {
+                            env.PMM_VERSION =~ '^3.'
+                        }
+                 }
+            steps {
+                build job: 'pmm3-submodules', parameters: [
+                    string(name: 'PMM_BRANCH', value: "${CHANGE_BRANCH}"),
+                    string(name: 'CHANGE_URL', value: "${CHANGE_URL}"),
+                    string(name: 'CHANGE_ID', value: "${CHANGE_ID}"),
+                    string(name: 'BRANCH_NAME', value: "${BRANCH_NAME}"),
+                ]
+            }
+        }
+    }
+}

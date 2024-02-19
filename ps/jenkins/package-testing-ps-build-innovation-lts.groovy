@@ -128,7 +128,6 @@ void runPlaybook(String action_to_test) {
         export check_warning="\${check_warnings}"
         export install_mysql_shell="\${install_mysql_shell}"
         ansible-playbook \
-        -vvv \
         --connection=local \
         --inventory 127.0.0.1, \
         --limit 127.0.0.1 \

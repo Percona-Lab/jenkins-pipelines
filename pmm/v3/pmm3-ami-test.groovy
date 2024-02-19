@@ -1,5 +1,5 @@
 void runAMIStagingStart(AMI_ID, SSH_KEY) {
-    amiStagingJob = build job: 'pmm-ami-staging-start', parameters: [
+    amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
         string(name: 'AMI_ID', value: AMI_ID),
         string(name: 'SSH_KEY', value: SSH_KEY)
     ]
@@ -10,7 +10,7 @@ void runAMIStagingStart(AMI_ID, SSH_KEY) {
 }
 
 void runAMIStaginStop(INSTANCE_ID) {
-    amiStagingStopJob = build job: 'pmm-ami-staging-stop', parameters: [
+    amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
         string(name: 'AMI_ID', value: INSTANCE_ID),
     ]
 }

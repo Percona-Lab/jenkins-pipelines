@@ -27,29 +27,38 @@ pipeline {
         label 'agent-amd64'
     }
     parameters {
-        choice(
-            choices: ['el9', 'next'],
-            description: 'The base OS of the image',
-            name: 'BASE_OS'
-        )
+        string(
+            defaultValue: 'v3',
+            description: 'Tag/Branch for pmm-submodules repository',
+            name: 'PMM_BRANCH')
+        string(
+            defaultValue: '',
+            description: 'URL for pmm-submodules repository PR',
+            name: 'CHANGE_URL')
+        string(
+            defaultValue: '',
+            description: 'ID for pmm-submodules repository PR',
+            name: 'CHANGE_ID')
+        string(
+            // Starts with 'PR-', e.g., PR-2345
+            defaultValue: '',
+            description: 'Change Request Number for pmm-submodules repository PR',
+            name: 'BRANCH_NAME')
     }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
-        PMM_VER =  """${sh(returnStdout: true, script: "cat VERSION").trim()}"""
     }
     stages {
         stage('Prepare') {
-            when {
-                beforeAgent true
-                expression { env.PMM_VER =~ '^3.' }
-            }
             steps {
+                git poll: false,
+                    branch: PMM_BRANCH,
+                    url: 'http://github.com/Percona-Lab/pmm-submodules'
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                 sh '''
                     set -o errexit
-                    sudo rm -rf results tmp || :
-                    git reset --hard
-                    git clean -fdx
+                    git submodule update --init --jobs 10
+                    git submodule status
 
                     if [ -s ci.yml ]; then
                         python3 ci.py
@@ -63,9 +72,6 @@ pipeline {
                         echo $pmm_ui_tests_branch > pmmUITestBranch
                         echo $pmm_ui_tests_commit > pmmUITestsCommitSha
                     else
-                        # This build method requires feature branches to be manually set in .gitmodules
-                        git submodule update --init --jobs 10
-                        git submodule status
                         # Define variables
                         pmm_commit=$(git submodule status | grep 'sources/pmm/src' | awk -F ' ' '{print $1}')
                         echo $pmm_commit > apiCommitSha
@@ -101,10 +107,6 @@ pipeline {
             }
         }
         stage('Build client source') {
-            when {
-                beforeAgent true
-                expression { env.PMM_VER =~ '^3.' }
-            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
@@ -118,11 +120,10 @@ pipeline {
             }
         }
         stage('Build client binary') {
-            when {
-                beforeAgent true
-                expression { env.PMM_VER =~ '^3.' }
-            }
             steps {
+                script {
+                    env.GIT_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
+                }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         set -o errexit
@@ -143,10 +144,6 @@ pipeline {
             }
         }
         stage('Build client source rpm') {
-            when {
-                beforeAgent true
-                expression { env.PMM_VER =~ '^3.' }
-            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
@@ -159,10 +156,6 @@ pipeline {
             }
         }
         stage('Build client binary rpm') {
-            when {
-                beforeAgent true
-                expression { env.PMM_VER =~ '^3.' }
-            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
@@ -179,10 +172,6 @@ pipeline {
             }
         }
         stage('Build client docker') {
-            when {
-                beforeAgent true
-                expression { env.PMM_VER =~ '^3.' }
-            }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
@@ -202,10 +191,6 @@ pipeline {
             }
         }
         stage('Build server packages') {
-            when {
-                beforeAgent true
-                expression { env.PMM_VER =~ '^3.' }
-            }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
@@ -225,10 +210,6 @@ pipeline {
             }
         }
         stage('Build server docker') {
-            when {
-                beforeAgent true
-                expression { env.PMM_VER =~ '^3.'}
-            }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
@@ -254,10 +235,6 @@ pipeline {
             }
         }
         stage('Trigger workflows in GH') {
-            when {
-                beforeAgent true
-                expression { env.PMM_VER =~ '^3.' }
-            }
             steps {
                 script {
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
@@ -286,7 +263,7 @@ pipeline {
                         '''
 
                         payload = [
-                          ref: "${CHANGE_BRANCH}",
+                          ref: "${PMM_BRANCH}",
                           inputs: [
                             server_image: "${IMAGE}", client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}"
                           ]
@@ -303,7 +280,7 @@ pipeline {
                         '''
 
                         payload = [
-                          ref: "${CHANGE_BRANCH}",
+                          ref: "${PMM_BRANCH}",
                           inputs: [
                             client_tar_url: "${CLIENT_URL}", sha: "${FB_COMMIT_HASH}"
                           ]
@@ -321,7 +298,7 @@ pipeline {
 
                         def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
                         payload = [
-                          ref: "${CHANGE_BRANCH}",
+                          ref: "${PMM_BRANCH}",
                           inputs: [
                             server_image: "${IMAGE}", client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
                             pmm_qa_branch: "${PMM_QA_GIT_BRANCH}", client_version: "${CLIENT_URL}"
@@ -340,7 +317,7 @@ pipeline {
 
                         def PMM_UI_TESTS_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmUITestBranch").trim()
                         payload = [
-                          ref: "${CHANGE_BRANCH}",
+                          ref: "${PMM_BRANCH}",
                           inputs: [
                             server_image: "${IMAGE}", client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
                             pmm_qa_branch: "${PMM_QA_GIT_BRANCH}", pmm_ui_branch: "${PMM_UI_TESTS_GIT_BRANCH}",
@@ -359,7 +336,7 @@ pipeline {
                         '''
 
                         payload = [
-                          ref: "${CHANGE_BRANCH}",
+                          ref: "${PMM_BRANCH}",
                           inputs: [
                             server_image: "${IMAGE}", client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
                           ]
@@ -379,9 +356,6 @@ pipeline {
             }
         }
         stage('Test API') {
-            when {
-                expression { env.PMM_VER =~ '^3.' }
-            }
             steps {
                 script {
                     unstash 'IMAGE'
@@ -413,7 +387,7 @@ pipeline {
     post {
         success {
             script {
-                if (env.CHANGE_URL && env.PMM_VER =~ '^3.') {
+                if (params.CHANGE_URL) {
                     unstash 'IMAGE'
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
