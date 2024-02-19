@@ -12,8 +12,8 @@ pipeline {
     }
     parameters {
         choice(name: 'PPG_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
-        string(name: 'PPG_VERSION', defaultValue: '16.1', description: 'PPG version')
-        choice(name: 'TARGET_REPO', choices: ['PerconaLab','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
+        string(name: 'PPG_VERSION', defaultValue: '14.11', description: 'PPG version')
+        choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
         choice(name: 'LATEST', choices: ['no','yes'], description: 'Tag image as latest')
     }
     options {
@@ -30,47 +30,48 @@ pipeline {
         stage ('Build image') {
             steps {
                 sh """
-                    MAJ_VER=16
+                    MAJ_VER=14
                     echo \$MAJ_VER
                     git clone https://github.com/EvgeniyPatlan/percona-docker
-                    cd percona-docker/percona-distribution-postgresql-16
+                    cd percona-docker/percona-distribution-postgresql-14
                     docker build . -t percona-distribution-postgresql -f Dockerfile.aarch64
                     """
             }
         }
-        stage ('Push images to perconalab') {
+        stage ('Push images to percona') {
             when {
-                environment name: 'TARGET_REPO', value: 'PerconaLab'
+                environment name: 'TARGET_REPO', value: 'DockerHub'
+                //environment name: 'TARGET_REPO', value: 'PerconaLab'
             }
             steps {
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                withCredentials([usernamePassword(credentialsId: 'hub1.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                      sh """
                          docker login -u '${USER}' -p '${PASS}'
-                         MAJ_VER=16
-                         docker tag percona-distribution-postgresql perconalab/percona-distribution-postgresql:16.1-arm64
-                         docker tag percona-distribution-postgresql perconalab/percona-distribution-postgresql:16-arm64
-                         docker push perconalab/percona-distribution-postgresql:16.1-arm64
-                         docker push perconalab/percona-distribution-postgresql:16-arm64
+                         MAJ_VER=14
+                         docker tag percona-distribution-postgresql perconalab/percona-distribution-postgresql:14.11-arm64
+                         docker tag percona-distribution-postgresql perconalab/percona-distribution-postgresql:14-arm64
+                         docker push perconalab/percona-distribution-postgresql:14.11-arm64
+                         docker push perconalab/percona-distribution-postgresql:14-arm64
 
-                         docker manifest create perconalab/percona-distribution-postgresql:16.1-multi \
-                            perconalab/percona-distribution-postgresql:16.1 \
-                            perconalab/percona-distribution-postgresql:16.1-arm64
-                         docker manifest annotate perconalab/percona-distribution-postgresql:16.1-multi \
-                            perconalab/percona-distribution-postgresql:16.1-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-distribution-postgresql:16.1-multi \
-                            perconalab/percona-distribution-postgresql:16.1 --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-distribution-postgresql:16.1-multi
-                         docker manifest push perconalab/percona-distribution-postgresql:16.1-multi
+                         docker manifest create --amend perconalab/percona-distribution-postgresql:14.11-multi \
+                            perconalab/percona-distribution-postgresql:14.11 \
+                            perconalab/percona-distribution-postgresql:14.11-arm64
+                         docker manifest annotate perconalab/percona-distribution-postgresql:14.11-multi \
+                            perconalab/percona-distribution-postgresql:14.11-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-distribution-postgresql:14.11-multi \
+                            perconalab/percona-distribution-postgresql:14.11 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-distribution-postgresql:14.11-multi
+                         docker manifest push perconalab/percona-distribution-postgresql:14.11-multi
 
-                         docker manifest create perconalab/percona-distribution-postgresql:16-multi \
-                            perconalab/percona-distribution-postgresql:16 \
-                            perconalab/percona-distribution-postgresql:16-arm64
-                         docker manifest annotate perconalab/percona-distribution-postgresql:16-multi \
-                            perconalab/percona-distribution-postgresql:16-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-distribution-postgresql:16-multi \
-                            perconalab/percona-distribution-postgresql:16 --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-distribution-postgresql:16-multi
-                         docker manifest push perconalab/percona-distribution-postgresql:16-multi
+                         docker manifest create --amend perconalab/percona-distribution-postgresql:14-multi \
+                            perconalab/percona-distribution-postgresql:14 \
+                            perconalab/percona-distribution-postgresql:14-arm64
+                         docker manifest annotate perconalab/percona-distribution-postgresql:14-multi \
+                            perconalab/percona-distribution-postgresql:14-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-distribution-postgresql:14-multi \
+                            perconalab/percona-distribution-postgresql:14 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-distribution-postgresql:14-multi
+                         docker manifest push perconalab/percona-distribution-postgresql:14-multi
 
                      """
                 }
