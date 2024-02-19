@@ -18,9 +18,9 @@ pipeline {
         disableConcurrentBuilds()
         parallelsAlwaysFailFast()
     }
-    triggers {
-        upstream upstreamProjects: 'pmm3-server-autobuild', threshold: hudson.model.Result.SUCCESS
-    }
+    // triggers {
+    //     upstream upstreamProjects: 'pmm3-server-autobuild', threshold: hudson.model.Result.SUCCESS
+    // }
 
     stages {
         stage('Prepare') {
@@ -42,10 +42,10 @@ pipeline {
                         doctl compute firewall add-droplets $FIREWALL_ID --droplet-ids $DROPLET_ID
                     '''
                 }                
-                slackSend botUser: true,
-                          channel: '#pmm-ci',
-                          color: '#0000FF',
-                          message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                // slackSend botUser: true,
+                //           channel: '#pmm-ci',
+                //           color: '#0000FF',
+                //           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 checkout([$class: 'GitSCM', 
                           branches: [[name: "*/${PMM_BRANCH}"]],
                           extensions: [[$class: 'CloneOption',
@@ -61,25 +61,7 @@ pipeline {
             }
         }
 
-        stage('Build Release Candidate Image') {
-            when {
-                expression { params.RELEASE_CANDIDATE == "yes" }
-            }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    dir('build') {
-                        sh '''
-                            make pmm-ovf-rc
-                        '''
-                    }
-                }
-                sh 'ls */*/PMM3-Server-EL9*.ova | cut -d "/" -f 2 > IMAGE'
-            }
-        }
-        stage('Build Dev-Latest Image') {
-            when {
-                expression { params.RELEASE_CANDIDATE == "no" }
-            }
+        stage('Build PMM Image') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     dir('build') {
@@ -91,7 +73,6 @@ pipeline {
                 sh 'ls */*/PMM3-Server-EL9*.ova | cut -d "/" -f 2 > IMAGE'
             }
         }
-
         stage('Upload Release Candidate Image') {
             when {
                 expression { params.RELEASE_CANDIDATE == "yes" }
@@ -119,35 +100,35 @@ pipeline {
                 }
             }
         }
-        stage('Upload Dev-Latest Image') {
-            when {
-                expression { params.RELEASE_CANDIDATE == "no" }
-            }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        FILE=$(ls */*/PMM3-Server-EL9*.ova)
-                        NAME=$(basename ${FILE})
-                        aws s3 cp \
-                          --only-show-errors \
-                          --acl public-read \
-                          ${FILE} \
-                          s3://percona-vm/${NAME}
+        // stage('Upload Dev-Latest Image') {
+        //     when {
+        //         expression { params.RELEASE_CANDIDATE == "no" }
+        //     }
+        //     steps {
+        //         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        //             sh '''
+        //                 FILE=$(ls */*/PMM3-Server-EL9*.ova)
+        //                 NAME=$(basename ${FILE})
+        //                 aws s3 cp \
+        //                   --only-show-errors \
+        //                   --acl public-read \
+        //                   ${FILE} \
+        //                   s3://percona-vm/${NAME}
 
-                        # This will redirect to the image above
-                        echo /${NAME} > PMM3-Server-3-dev-latest.ova
-                        aws s3 cp \
-                          --only-show-errors \
-                          --website-redirect /${NAME} \
-                          PMM3-Server-3-dev-latest.ova \
-                          s3://percona-vm/PMM3-Server-3-dev-latest.ova
-                    '''
-                }
-                script {
-                    env.PMM3_SERVER_OVA_S3 = "http://percona-vm.s3-website-us-east-1.amazonaws.com/PMM3-Server-3-dev-latest.ova"
-                }
-            }
-        }
+        //                 # This will redirect to the image above
+        //                 echo /${NAME} > PMM3-Server-3-dev-latest.ova
+        //                 aws s3 cp \
+        //                   --only-show-errors \
+        //                   --website-redirect /${NAME} \
+        //                   PMM3-Server-3-dev-latest.ova \
+        //                   s3://percona-vm/PMM3-Server-3-dev-latest.ova
+        //             '''
+        //         }
+        //         script {
+        //             env.PMM3_SERVER_OVA_S3 = "http://percona-vm.s3-website-us-east-1.amazonaws.com/PMM3-Server-3-dev-latest.ova"
+        //         }
+        //     }
+        // }
     }
 
     post {
@@ -155,15 +136,15 @@ pipeline {
             script {
                 if (params.RELEASE_CANDIDATE == "yes") {
                     currentBuild.description = "RC Build, Image: " + env.PMM3_SERVER_OVA_S3
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} RC build finished, Image: " + env.PMM3_SERVER_OVA_S3
+                    // slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} RC build finished, Image: " + env.PMM3_SERVER_OVA_S3
                 } else {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, Image: " + env.PMM3_SERVER_OVA_S3
+                    // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, Image: " + env.PMM3_SERVER_OVA_S3
                 }
             }
         }
         failure {
             echo "Pipeline failed"
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
+            // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
         }
         cleanup {
             deleteDir()
