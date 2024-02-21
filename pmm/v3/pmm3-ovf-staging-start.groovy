@@ -140,8 +140,8 @@ pipeline {
                     """
                     sh """
                         # This fails sometimes, so we want to isolate this step
-                        sleep 600
-                        curl -s --user admin:admin https://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}'
+                        sleep 60
+                        curl -k --user admin:admin https://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}'
                     """
                 }
             }
