@@ -13,8 +13,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            sed -i "s/RPM_RELEASE=*/RPM_RELEASE=${RPM_RELEASE}/g" proxysql_builder.sh
-            sed -i "s/DEB_RELEASE=*/DEB_RELEASE=${DEB_RELEASE}/g" proxysql_builder.sh
+            sed -i "s/^RPM_RELEASE=.*/RPM_RELEASE=${RPM_RELEASE}/g" proxysql_builder.sh
+            sed -i "s/^DEB_RELEASE=.*/DEB_RELEASE=${DEB_RELEASE}/g" proxysql_builder.sh
             bash -x ./proxysql_builder.sh --builddir=\${build_dir}/test --install_deps=1
             bash -x ./proxysql_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --proxysql_repo=${PROXYSQL_REPO} --pat_repo=${PAT_REPO} --pat_tag=${PAT_TAG} --proxysql_branch=${PROXYSQL_BRANCH} --proxysql_ver=${VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
