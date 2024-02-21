@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@fix-pdps", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
 
 
@@ -38,7 +38,7 @@ pipeline {
             name: 'PS_REVISION'
         )
         string(
-            defaultValue: '2.5.1',
+            defaultValue: '2.5.5',
             description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
         )
@@ -53,7 +53,7 @@ pipeline {
             name: 'PT_VERSION'
         )
         string(
-            defaultValue: '3.2.6-9',
+            defaultValue: '3.2.6-11',
             description: 'Percona Orchestrator version for test',
             name: 'ORCHESTRATOR_VERSION'
         )

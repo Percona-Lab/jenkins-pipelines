@@ -83,10 +83,12 @@
          values:
           - centos:7
           - centos:8
-          - ubuntu:bionic
+          - oraclelinux:9  
+          - ubuntu:jammy
           - ubuntu:focal
-          - debian:stretch
+          - debian:bullseye
           - debian:buster
+          - debian:bookworm  
     builders:
     - trigger-builds:
       - project: qa-proxysql2-pipeline

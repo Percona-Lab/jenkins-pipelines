@@ -32,7 +32,7 @@ pipeline {
             description: 'PXC version to test proxysql-admin suite',
             name: 'PXC_VERSION')
        choice(
-            choices: 'centos:7\ncentos:8\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster',
+            choices: 'centos:7\ncentos:8\noraclelinux:9\nubuntu:jammy\nubuntu:focal\ndebian:bullseye\ndebian:buster\ndebian:bookworm',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -68,7 +68,7 @@ pipeline {
                     script {
                         currentBuild.displayName = "#${BUILD_NUMBER}-${params.BRANCH}-${params.DOCKER_OS}-${params.CMAKE_BUILD_TYPE}-${params.PXC_VERSION}"
                     }
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'fix-proxy', url: 'https://github.com/kaushikpuneet07/jenkins-pipelines'
                     echo 'Checkout ProxySQL sources'
                     sh '''
                         # sudo is needed for better node recovery after compilation failure
