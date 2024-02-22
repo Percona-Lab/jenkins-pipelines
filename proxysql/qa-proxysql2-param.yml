@@ -83,11 +83,10 @@
          values:
           - centos:7
           - centos:8
-          - oraclelinux:9  
           - ubuntu:jammy
           - ubuntu:focal
-          - debian:bullseye
           - debian:buster
+          - debian:bullseye
           - debian:bookworm  
     builders:
     - trigger-builds:
