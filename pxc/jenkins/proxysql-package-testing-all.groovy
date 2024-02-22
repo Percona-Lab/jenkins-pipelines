@@ -88,12 +88,6 @@ pipeline {
                     }
                 }
 
-                stage('Ubuntu Bionic') {
-                    steps {
-                        runNodeBuild('min-bionic-x64')
-                    }
-                }
-
                 stage('Ubuntu Focal') {
                     steps {
                         script{
