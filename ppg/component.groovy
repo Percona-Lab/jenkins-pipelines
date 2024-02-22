@@ -31,7 +31,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'master',
+            defaultValue: 'main',
             description: 'Branch for tests',
             name: 'TEST_BRANCH'
          )
@@ -58,7 +58,6 @@ pipeline {
                       'pg_repack',
                       'patroni',
                       'pgbackrest',
-                      'pg_stat_monitor',
                       'pgpool',
                       'postgis',
                       'pgaudit13_set_user',
@@ -72,7 +71,7 @@ pipeline {
             choices: ['ppg-11', 'ppg-12', 'ppg-13', 'ppg-14', 'ppg-15', 'ppg-16']
         )
         string(
-            defaultValue: 'no',
+            defaultValue: 'yes',
             description: 'Destroy VM after tests',
             name: 'DESTROY_ENV'
         )
