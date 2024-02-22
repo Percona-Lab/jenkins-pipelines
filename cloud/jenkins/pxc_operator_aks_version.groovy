@@ -410,7 +410,6 @@ EOF
             script {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
-                    slackSend channel: '@${OWNER_SLACK}', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
                 }
 
                 clusters.each { shutdownCluster(it) }
