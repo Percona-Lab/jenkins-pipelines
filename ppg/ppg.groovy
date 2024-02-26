@@ -38,7 +38,7 @@ pipeline {
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
         string(
-            defaultValue: 'no',
+            defaultValue: 'yes',
             description: 'Destroy VM after tests',
             name: 'DESTROY_ENV')
         booleanParam(
