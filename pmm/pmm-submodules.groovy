@@ -52,7 +52,12 @@ pipeline {
     }
     post {
         cleanup {
-            deleteDir()
+            script {
+                // Read more why: https://stackoverflow.com/questions/57602575/required-context-class-hudson-filepath-is-missing-perhaps-you-forgot-to-surround
+                if (getContext(hudson.FilePath)) {
+                  deleteDir()
+                }
+            }
         }
     }    
 }
