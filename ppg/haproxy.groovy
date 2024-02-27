@@ -7,7 +7,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/haproxy/haproxy-builder.sh -O builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/haproxy-builder.sh -O builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
@@ -37,7 +37,7 @@ pipeline {
             description: 'URL for haproxy repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'ver_1.4.4',
+            defaultValue: 'v2.6.14',
             description: 'Tag/Branch for haproxy repository',
             name: 'PG_BRANCH')
         string(
