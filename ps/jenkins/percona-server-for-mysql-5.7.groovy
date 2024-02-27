@@ -368,7 +368,7 @@ parameters {
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Ubuntu Bionic debug tarball') {
+                stage('Ubuntu Bionic tarball') {
                     agent {
                         label 'min-bionic-x64'
                     }
