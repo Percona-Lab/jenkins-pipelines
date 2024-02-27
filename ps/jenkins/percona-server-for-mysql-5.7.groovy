@@ -548,7 +548,7 @@ parameters {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                #sync2ProdAutoBuild('ps-57', COMPONENT)
+                //sync2ProdAutoBuild('ps-57', COMPONENT)
                 sync2PrivateProdAutoBuild("ps-57-eol", COMPONENT)
             }
         }
