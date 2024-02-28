@@ -35,7 +35,7 @@ pipeline {
                 axes {
                     axis {
                         name 'TEST'
-                        values 'logical', 'physical', 'incremental', 'external'
+                        values 'logical', 'physical', 'incremental', 'external', 'load'
                     }
                 }
                 stages {
