@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@PMM-12905-push-client3-artifacts-to-own-repo', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -13,7 +13,7 @@ pipeline {
         )
         choice(
             choices: ['experimental', 'testing', 'laboratory'],
-            description: 'Publish packages to repositories: testing (for RC), experimental: (for 3-dev-latest), laboratory: (for FBs)',
+            description: 'Publish packages to repositories: testing for RC, experimental for 3-dev-latest, laboratory for FBs',
             name: 'DESTINATION'
         )
     }
@@ -216,15 +216,14 @@ pipeline {
                 script {
                   env.UPLOAD_PATH = sh(returnStdout: true, script: "cat uploadPath").trim()
                 }
-                // sync packages
+                // Upload packages to the repo defined in `DESTINATION`
                 sync2ProdPMMClient(DESTINATION, 'yes')
                 sync2ProdPMMClientRepo(DESTINATION, env.UPLOAD_PATH, 'pmm3-client')
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     script {
                         sh '''
-                            PATH_TO_BUILD=$(cat uploadPath)
                             ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
-                                scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${PATH_TO_BUILD}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
+                                scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${UPLOAD_PATH}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
                             "
                         '''
                     }  
@@ -242,7 +241,7 @@ pipeline {
                     slackSend botUser: true,
                               channel: '#pmm-qa',
                               color: '#00FF00',
-                              message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished\nClient Tarball: ${env.TARBALL_URL}"
+                              message: "[${JOB_NAME}]: ${BUILD_URL} RC Client build finished\nClient Tarball: ${env.TARBALL_URL}"
                 }
             }
         }
