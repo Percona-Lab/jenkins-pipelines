@@ -9,7 +9,7 @@ pipeline {
     }
     parameters {
         choice(
-            // default is choices.get(0) - el9
+            // default is el9
             choices: ['el9', 'el7'],
             description: 'Select the OS to build for',
             name: 'BUILD_OS')
@@ -18,13 +18,12 @@ pipeline {
         PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
     }
     stages {
-
         stage('Trigger PMM2 Submodules pipeline') {
             when {
-                        expression {
-                            env.PMM_VERSION =~ '^2.'
-                        }
-                 }
+                expression {
+                    env.PMM_VERSION =~ '^2.'
+                }
+            }
             steps {
                 build job: 'pmm2-submodules', parameters: [
                     string(name: 'PMM_BRANCH', value: "${CHANGE_BRANCH}"),
@@ -35,14 +34,12 @@ pipeline {
                 ]
             }
         }
-
-
         stage('Trigger PMM3 Submodules pipeline') {
             when {
-                        expression {
-                            env.PMM_VERSION =~ '^3.'
-                        }
-                 }
+                expression {
+                    env.PMM_VERSION =~ '^3.'
+                }
+            }
             steps {
                 build job: 'pmm3-submodules', parameters: [
                     string(name: 'PMM_BRANCH', value: "${CHANGE_BRANCH}"),
@@ -53,4 +50,14 @@ pipeline {
             }
         }
     }
+    post {
+        cleanup {
+            script {
+                // Read more why: https://stackoverflow.com/questions/57602575/required-context-class-hudson-filepath-is-missing-perhaps-you-forgot-to-surround
+                if (getContext(hudson.FilePath)) {
+                  deleteDir()
+                }
+            }
+        }
+    }    
 }
