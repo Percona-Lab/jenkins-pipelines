@@ -93,13 +93,14 @@ pipeline {
             }
         }
 
-        stage('Build PSMDB operator docker image') {
+        stage('Build and push PSMDB operator docker image') {
             steps {
                 retry(3) {
                     timeout(time: 30, unit: 'MINUTES') {
                         unstash "sourceFILES"
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                             sh '''
+                                docker buildx create --use
                                 cd ./source/
                                 sg docker -c "
                                     docker login -u '${USER}' -p '${PASS}'
@@ -113,22 +114,6 @@ pipeline {
             }
         }
 
-        stage('Push docker image to dockerhub') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
-                    sh '''
-                        sg docker -c "
-                            mkdir -p /home/ec2-user/.docker/trust/private
-                            cp "${docker_key}" ~/.docker/trust/private/
-
-                            docker login -u '${USER}' -p '${PASS}'
-                            docker push perconalab/percona-server-mongodb-operator:main
-                            docker logout
-                        "
-                    '''
-                }
-            }
-        }
 
         stage('Build PSMDB docker images') {
             steps {
@@ -141,30 +126,25 @@ pipeline {
                 """
                 echo 'Build PSMDB docker images'
                 retry(3) {
-                    build('mongod4.2')
-                }
-                retry(3) {
-                    build('mongod4.4')
-                }
-                retry(3) {
                     build('mongod5.0')
                 }
                 retry(3) {
                     build('mongod6.0')
+                }
+                retry(3) {
+                    build('mongod7.0')
                 }
             }
         }
 
         stage('Push PSMDB images to Docker registry') {
             steps {
-                pushImageToDocker('mongod4.2')
-                pushImageToDocker('mongod4.2-debug')
-                pushImageToDocker('mongod4.4')
-                pushImageToDocker('mongod4.4-debug')
                 pushImageToDocker('mongod5.0')
                 pushImageToDocker('mongod5.0-debug')
                 pushImageToDocker('mongod6.0')
                 pushImageToDocker('mongod6.0-debug')
+                pushImageToDocker('mongod7.0')
+                pushImageToDocker('mongod7.0-debug')
             }
         }
        stage('Trivy Checks') {
@@ -176,26 +156,6 @@ pipeline {
                     post {
                         always {
                             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-psmdb.xml"
-                        }
-                    }
-                }
-                stage('mongod4.2'){
-                    steps {
-                        checkImageForDocker('main-mongod4.2')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod4.2-psmdb.xml"
-                        }
-                    }
-                }
-                stage('mongod4.4'){
-                    steps {
-                        checkImageForDocker('main-mongod4.4')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod4.4-psmdb.xml"
                         }
                     }
                 }
@@ -219,23 +179,13 @@ pipeline {
                         }
                     }
                 }
-                stage('mongod4.2-debug'){
+                stage('mongod7.0'){
                     steps {
-                        checkImageForDocker('main-mongod4.2-debug')
+                        checkImageForDocker('main-mongod7.0')
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod4.2-debug-psmdb.xml"
-                        }
-                    }
-                }
-                stage('mongod4.4-debug'){
-                    steps {
-                        checkImageForDocker('main-mongod4.4-debug')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod4.4-debug-psmdb.xml"
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod7.0-psmdb.xml"
                         }
                     }
                 }
@@ -256,6 +206,16 @@ pipeline {
                     post {
                         always {
                             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-debug-mongod6.0-debug.xml"
+                        }
+                    }
+                }
+                stage('mongod7.0-debug'){
+                    steps {
+                        checkImageForDocker('main-mongod7.0-debug')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-debug-mongod7.0-debug.xml"
                         }
                     }
                 }

@@ -59,6 +59,7 @@ EOF
             export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
             export PATH=/home/ec2-user/.local/bin:$PATH
             eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+            kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
         """
     }
 }
@@ -379,6 +380,7 @@ pipeline {
                         else
                             cd ./source/
                             sg docker -c "
+                                docker buildx create --use
                                 docker login -u '${USER}' -p '${PASS}'
                                 export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                                 ./e2e-tests/build

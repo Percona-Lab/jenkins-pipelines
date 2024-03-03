@@ -17,7 +17,7 @@ def call() {
                 fi
 
                 for deb in \$(find . -name '*.deb'); do
-                    dist=`echo \${deb} | sed -re 's/.*\\.([^.]+)_amd64.deb/\\1/'`
+                    dist=`echo \${deb} | sed -re 's/.*\\.([^.]+)_(amd64|arm64).deb/\\1/'`
                     path_to_dist=\${path_to_build}/binary/debian/\${dist}/x86_64
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                         mkdir -p \${path_to_dist}

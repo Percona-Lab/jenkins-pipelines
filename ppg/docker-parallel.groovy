@@ -3,18 +3,17 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotification(repo,version)
+def sendSlackNotification(repo,version,tag)
 {
  if ( currentBuild.result == "SUCCESS" ) {
-  buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nRepo: ${repo}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
+  buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nRepo: ${repo}\nDocker-tag: ${tag}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
   slackSend color : "good", message: "${buildSummary}", channel: '#postgresql-test'
  }
  else {
-  buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nRepo: ${repo}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
+  buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nRepo: ${repo}\nDocker-tag: ${tag}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
   slackSend color : "danger", message: "${buildSummary}", channel: '#postgresql-test'
  }
 }
-
 
 pipeline {
   agent {
@@ -22,9 +21,14 @@ pipeline {
   }
   parameters {
         string(
+            defaultValue: '16.2-multi',
+            description: 'TAG of the docker to test. For example, 16, 16.1, 16.1-multi.',
+            name: 'DOCKER_TAG'
+        )
+        string(
             defaultValue: '16.0',
-            description: 'Docker PG version for test. For example, 15.4.',
-            name: 'VERSION'
+            description: 'Docker PG version to test, including both major and minor version. For example, 15.4.',
+            name: 'SERVER_VERSION'
         )
         string(
             defaultValue: 'main',
@@ -56,7 +60,7 @@ pipeline {
         stage('Set build name'){
           steps {
                     script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SERVER_VERSION}"
                     }
                 }
             }
@@ -76,7 +80,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(['ol-9', 'debian-12', 'ubuntu-jammy'], env.MOLECULE_DIR)
+                    moleculeParallelTest(['ol-9', 'debian-12', 'ubuntu-jammy', 'ol-9-arm64', 'debian-12-arm64', 'ubuntu-jammy-arm64'], env.MOLECULE_DIR)
                 }
             }
          }
@@ -85,9 +89,9 @@ pipeline {
         always {
           script {
               if (env.DESTROY_ENV == "yes") {
-                    moleculeParallelPostDestroy(['ol-9', 'debian-12', 'ubuntu-jammy'], env.MOLECULE_DIR)
+                    moleculeParallelPostDestroy(['ol-9', 'debian-12', 'ubuntu-jammy', 'ol-9-arm64', 'debian-12-arm64', 'ubuntu-jammy-arm64'], env.MOLECULE_DIR)
               }
-              sendSlackNotification(env.REPOSITORY, env.VERSION)
+              sendSlackNotification(env.REPOSITORY, env.SERVER_VERSION, env.DOCKER_TAG)
          }
       }
    }

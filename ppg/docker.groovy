@@ -15,13 +15,21 @@ pipeline {
             choices: [
                 'debian-12',
                 'ol-9',
-                'ubuntu-jammy'
+                'ubuntu-jammy',
+                'debian-12-arm64',
+                'ol-9-arm64',
+                'ubuntu-jammy-arm64'
             ]
         )
         string(
+            defaultValue: '16.2-multi',
+            description: 'TAG of the docker to test. For example, 16, 16.1, 16.1-multi.',
+            name: 'DOCKER_TAG'
+        )
+        string(
             defaultValue: '16.0',
-            description: 'Docker PG version for test. For example, 15.4.',
-            name: 'VERSION'
+            description: 'Docker PG version to test, including both major and minor version. For example, 15.4.',
+            name: 'SERVER_VERSION'
         )
         string(
             defaultValue: 'main',
@@ -53,7 +61,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-docker-${env.VERSION}-${env.PLATFORM}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-docker-${env.SERVER_VERSION}-${env.PLATFORM}"
                 }
             }
         }

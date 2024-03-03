@@ -4,11 +4,11 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 List all_nodes = [
-    'ubuntu-bionic',
     'ubuntu-focal',
     'ubuntu-jammy',
     'debian-10',
     'debian-11',
+    'debian-12',
     'centos-7',
     'oracle-8',
     'oracle-9'
@@ -61,11 +61,11 @@ pipeline {
             name: 'TEST_DIST',
             choices: [
                 'all',
-                'ubuntu-bionic',
                 'ubuntu-focal',
                 'ubuntu-jammy',
                 'debian-10',
                 'debian-11',
+                'debian-12',
                 'centos-7',
                 'oracle-8',
                 'oracle-9'
@@ -95,18 +95,6 @@ pipeline {
 
         stage("Run parallel") {
             parallel {
-                stage("Ubuntu Bionic") {
-                    when {
-                        expression {
-                            TEST_DISTS.contains("ubuntu-bionic")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("ubuntu-bionic")
-                    }
-                }
-
                 stage("Ubuntu Focal") {
                     when {
                         expression {
@@ -155,6 +143,18 @@ pipeline {
                     }
                 }
 
+                stage("Debian Bookworm") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("debian-12")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("debian-12")
+                    }
+                }
+
                 stage("Centos 7") {
                     when {
                         expression {
@@ -188,18 +188,6 @@ pipeline {
 
                     steps {
                         runNodeBuild("oracle-9")
-                    }
-                }
-
-                stage("Amazon Linux") {
-                    when {
-                        expression {
-                            TEST_DISTS.contains("min-amazon-2-x64")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("min-amazon-2-x64")
                     }
                 }
             }

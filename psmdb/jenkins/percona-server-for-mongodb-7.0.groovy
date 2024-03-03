@@ -283,21 +283,15 @@ pipeline {
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 echo "The step is skipped ..."
-                                /*
-                                buildStage("centos:7", "--build_tarball=1 --enable_fipsmode=1")
-                                */
                             } else {
                                 buildStage("centos:7", "--build_tarball=1")
-                            }
-                            if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
-                            } else {
                                 pushArtifactFolder("tarball/", AWS_STASH_PATH)
                                 uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                             }
                         }
                     }
                 }
+/*
                 stage('Centos 7 debug binary tarball(glibc2.17)') {
                     agent {
                         label 'docker-64gb'
@@ -310,11 +304,26 @@ pipeline {
                                 echo "The step is skipped ..."
                             } else {
                                 buildStage("centos:7", "--debug=1")
-                            }
-                            if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
-                            } else {
                                 pushArtifactFolder("debug/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+*/
+                stage('Oracle Linux 9 binary tarball(glibc2.34)') {
+                    agent {
+                        label 'docker-64gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("oraclelinux:9", "--build_tarball=1 --enable_fipsmode=1")
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                            } else {
+                                echo "The step is skipped ..."
                             }
                         }
                     }
@@ -328,22 +337,16 @@ pipeline {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
-                                /*
                                 buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
-                                */
                             } else {
                                 buildStage("ubuntu:jammy", "--build_tarball=1")
                             }
-                            if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
-                            } else {
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                            }
+                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                         }
                     }
                 }
+/*
                 stage('Ubuntu Jammy(22.04) debug binary tarball(glibc2.35)') {
                     agent {
                         label 'docker-64gb'
@@ -353,19 +356,31 @@ pipeline {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
-                                /*
                                 buildStage("ubuntu:jammy", "--debug=1 --enable_fipsmode=1")
-                                */
                             } else {
                                 buildStage("ubuntu:jammy", "--debug=1")
                             }
-                            if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
-                            } else {
-                                pushArtifactFolder("debug/", AWS_STASH_PATH)
-                            }
+                            pushArtifactFolder("debug/", AWS_STASH_PATH)
                        }
+                    }
+                }
+*/
+                stage('Debian Bookworm(12) binary tarball(glibc2.36)') {
+                    agent {
+                        label 'docker-64gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("debian:bookworm", "--build_tarball=1 --enable_fipsmode=1")
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                            } else {
+                                echo "The step is skipped ..."
+                            }
+                        }
                     }
                 }
             }
@@ -393,7 +408,13 @@ pipeline {
             steps {
                 script {
                     if (env.FIPSMODE == 'yes') {
-                        echo "The step is skipped ..."
+                        try {
+                            uploadTarballToDownloadsTesting("psmdb-gated", "${PSMDB_VERSION}")
+                        }
+                        catch (err) {
+                            echo "Caught: ${err}"
+                            currentBuild.result = 'UNSTABLE'
+                        }
                     } else {
                         try {
                             uploadTarballToDownloadsTesting("psmdb", "${PSMDB_VERSION}")
