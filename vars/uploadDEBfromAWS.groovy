@@ -21,10 +21,10 @@ def call(String FOLDER_NAME, String AWS_STASH_PATH) {
                         ${USER}@repo.ci.percona.com:\${path_to_build}/source/debian/
                 fi
 
-                for deb in \$(find . -name '*.deb'); do
-                    dist=`echo \${deb} | sed -re 's/.*\\.([^.]+)_(amd64|arm64|all).deb/\\1/'`
-                    package=`echo \${deb} | sed -re 's/\\.\\/deb\\/(.*)_(.*)\\.([^.]+)_(amd64|arm64|all).deb/\\1/'`
-                    version=`echo \${deb} | sed -re 's/\\.\\/deb\\/(.*)_(.*)\\.([^.]+)_(amd64|arm64|all).deb/\\2/'`
+                for deb in \$(find . -name '*.deb' -o -name '*.ddeb'); do
+                    dist=`echo \${deb} | sed -re 's/.*\\.([^.]+)_(amd64|arm64|all).(ddeb|deb)/\\1/'`
+                    package=`echo \${deb} | sed -re 's/\\.\\/deb\\/(.*)_(.*)\\.([^.]+)_(amd64|arm64|all).(ddeb|deb)/\\1/'`
+                    version=`echo \${deb} | sed -re 's/\\.\\/deb\\/(.*)_(.*)\\.([^.]+)_(amd64|arm64|all).(ddeb|deb)/\\2/'`
                     path_to_dist=\${path_to_build}/binary/debian/\${dist}/x86_64
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                         mkdir -p \${path_to_dist}
