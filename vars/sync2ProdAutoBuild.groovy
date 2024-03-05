@@ -49,11 +49,11 @@ def call(String REPO_NAME, String DESTINATION) {
                                 gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} \${rpm_dest_path}/SRPMS/repodata/repomd.xml 
                             done
 
-                            if [ "x${DESTINATION}" == "xrelease" ]; then
+                            if [ "x$DESTINATION" = "xrelease" ]; then
                                 DESTINATION=main
                             fi
                             for dist in `ls -1 debian`; do
-                                for deb in $(find debian/\${dist} -name '*.deb' -o -name '*.ddeb'); do
+                                for deb in `find debian/\${dist} -name '*.deb' -o -name '*.ddeb'`; do
                                  pkg_fname=\$(basename \${deb})
                                  pkg_extension="\${pkg_fname##*.}"
                                  EC=0
@@ -67,7 +67,7 @@ def call(String REPO_NAME, String DESTINATION) {
                             done
                         popd
 
-                        if [ "x${DESTINATION}" == "xmain" ]; then
+                        if [ "x$DESTINATION" = "xmain" ]; then
                             DESTINATION=release
                         fi
 
