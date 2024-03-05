@@ -32,14 +32,14 @@ void prepareCluster(String TEST_TYPE) {
     sh """
         cp $PBM_AWS_S3_YML ./e2e-tests/docker/conf/aws.yaml
         cp $PBM_GCS_S3_YML ./e2e-tests/docker/conf/gcs.yaml
-#       cp $PBM_AZURE_YML ./e2e-tests/docker/conf/azure.yaml
+        cp $PBM_AZURE_YML ./e2e-tests/docker/conf/azure.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/aws.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/gcs.yaml
-#       sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/azure.yaml
+        sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/azure.yaml
 
         chmod 664 ./e2e-tests/docker/conf/aws.yaml
         chmod 664 ./e2e-tests/docker/conf/gcs.yaml
-#       chmod 664 ./e2e-tests/docker/conf/azure.yaml
+        chmod 664 ./e2e-tests/docker/conf/azure.yaml
 
 
         openssl rand -base64 756 > ./e2e-tests/docker/keyFile
@@ -61,7 +61,7 @@ pipeline {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
-        string(name: 'PBM_BRANCH', defaultValue: 'main', description: 'PBM branch')
+        string(name: 'PBM_BRANCH', defaultValue: 'dev', description: 'PBM branch')
     }
     triggers {
         cron('0 3 * * 1')
