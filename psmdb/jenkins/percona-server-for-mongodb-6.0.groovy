@@ -335,7 +335,7 @@ pipeline {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("centos:8", "--build_tarball=1 --enable_fipsmode=1")
+                                buildStage("oraclelinux:8", "--build_tarball=1 --enable_fipsmode=1")
                                 pushArtifactFolder("tarball/", AWS_STASH_PATH)
                                 uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                             } else {
