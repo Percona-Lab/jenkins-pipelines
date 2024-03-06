@@ -546,11 +546,6 @@ parameters {
                     cleanUpWS()
                     installCli("deb")
                     unstash 'uploadPath'
-                    unstash 'properties'
-                    sh '''
-                    pwd
-                    ls -la
-                    '''
                     withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
                         withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
