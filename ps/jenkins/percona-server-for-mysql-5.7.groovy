@@ -149,6 +149,7 @@ parameters {
         } // stage
         stage('Build PS RPMs/DEBs/Binary tarballs') {
             parallel {
+/*
                 stage('Centos 7') {
                     agent {
                         label 'min-centos-7-x64'
@@ -163,6 +164,7 @@ parameters {
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
                 }
+*/
                 stage('Centos 8') {
                     agent {
                         label 'min-centos-8-x64'
@@ -177,6 +179,7 @@ parameters {
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
                 }
+/*
                 stage('Oracle Linux 9') {
                     agent {
                         label 'min-ol-9-x64'
@@ -261,6 +264,7 @@ parameters {
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
+*/
                 stage('Debian Bookworm(12)') {
                     agent {
                         label 'min-bookworm-x64'
@@ -288,6 +292,7 @@ parameters {
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
+/*
                 stage('Centos 7 debug tarball') {
                     agent {
                         label 'min-centos-7-x64'
@@ -509,6 +514,7 @@ parameters {
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
+*/
             }
         }
         stage('Upload packages and tarballs from S3') {
@@ -539,7 +545,12 @@ parameters {
                 script {
                     cleanUpWS()
                     installCli("deb")
+                    unstash 'uploadPath'
                     unstash 'properties'
+                    sh '''
+                    pwd
+                    ls -la
+                    '''
                     withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
                         withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
