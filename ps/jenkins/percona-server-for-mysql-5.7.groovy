@@ -531,6 +531,49 @@ parameters {
                 signDEB()
             }
         }
+        stage('Build docker container') {
+            agent {
+                label 'min-buster-x64'
+            }
+            steps {
+                script {
+                    cleanUpWS()
+                    installCli("deb")
+                    unstash 'properties'
+                    withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
+                        withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                        sh """
+                            export path_to_build=`cat uploadPath`
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/8/x86_64/*.rpm /tmp \
+                        """
+                        }
+                    }
+                    sh '''
+                        PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                        sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+                        sudo apt-get install -y docker.io
+                        sudo systemctl status docker
+                        sudo apt-get install -y qemu binfmt-support qemu-user-static
+                        sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+                        git clone https://github.com/adivinho/percona-docker
+                        cd percona-docker/percona-server-5.7
+                        mv /tmp/*.rpm .
+                        git checkout PKG-14-Rework-5.7-tarballs
+                        sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
+                        sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile
+                        sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} --progress plain -f Dockerfile-pro .
+                        sudo docker images
+                        sudo docker save perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} > percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker
+                    '''
+                    withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
+                        withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                        sh """
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker ${USER}@repo.ci.percona.com:/srv/repo-copy/private/qa-test/ps-gated-${PS_RELEASE}\
+                        """
+                        }
+                    }
+               }
+        }
         stage('Push to public repository') {
             steps {
                 // sync packages
@@ -551,7 +594,6 @@ parameters {
                 }
             }
         }
-
     }
     post {
         success {
