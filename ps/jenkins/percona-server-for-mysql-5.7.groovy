@@ -573,6 +573,7 @@ parameters {
                         }
                     }
                }
+            }
         }
         stage('Push to public repository') {
             steps {
