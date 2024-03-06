@@ -546,13 +546,12 @@ parameters {
                     cleanUpWS()
                     installCli("deb")
                     unstash 'uploadPath'
-                    withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
-                        withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
+                    withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
-                            export path_to_build=`cat uploadPath`
-                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/8/x86_64/*.rpm /tmp \
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/8/x86_64/*.rpm /tmp 
+                            ls -la /tmp
                         """
-                        }
                     }
                     sh '''
                         PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
@@ -571,12 +570,12 @@ parameters {
                         sudo docker images
                         sudo docker save perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} > percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker
                     '''
-                    withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
-                        withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
-                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker ${USER}@repo.ci.percona.com:/srv/repo-copy/private/qa-test/ps-gated-${PS_RELEASE}\
+                            ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                                mkdir -p /srv/repo-copy/private/qa-test/ps-gated-${PS_RELEASE}
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker ${USER}@repo.ci.percona.com:/srv/repo-copy/private/qa-test/ps-gated-${PS_RELEASE}
                         """
-                        }
                     }
                }
             }
