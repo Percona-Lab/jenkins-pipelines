@@ -37,8 +37,8 @@
         - choice:
             name: EOL
             choices:
-                - "Yes"
-                - "No"
+                - "yes"
+                - "no"
             description: "EOL version or Normal"    
         - choice:
             name: node_to_test

@@ -158,7 +158,7 @@ pipeline {
         )
         choice(
             name: "EOL",
-            choices: ["Yes", "No"],
+            choices: ["yes", "no"],
             description: "EOL version or Normal"
         )
     }
