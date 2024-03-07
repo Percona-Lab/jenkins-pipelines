@@ -7,7 +7,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/haproxy-builder.sh -O builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/postgres-common/ppg-common_builder.sh -O builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
@@ -15,7 +15,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./builder.sh --builddir=\${build_dir}/test --branch=${PG_BRANCH} --build_branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./builder.sh --builddir=\${build_dir}/test --branch=${PG_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -33,16 +33,16 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'https://github.com/percona/haproxy-packaging.git',
-            description: 'URL for haproxy repository',
+            defaultValue: 'https://github.com/percona/postgres-packaging.git',
+            description: 'URL for postgresql-common repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'v2.6.14',
-            description: 'Tag/Branch for haproxy repository',
+            defaultValue: 'debian/256',
+            description: 'Tag/Branch for postgresql-common repository',
             name: 'PG_BRANCH')
         string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for haproxy packaging repository',
+            defaultValue: '16.0',
+            description: 'Tag/Branch for postgresql-common packaging repository',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '1',
@@ -67,17 +67,17 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
     }
     stages {
-        stage('Create haproxy source tarball') {
+        stage('Create postgresql-common source tarball') {
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 buildStage("centos:7", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/haproxy.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-postgresql.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/haproxy.properties
+                   cat test/percona-postgresql.properties
                    cat uploadPath
                 '''
                 script {
@@ -88,9 +88,9 @@ pipeline {
                 uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
-        stage('Build haproxy generic source packages') {
+        stage('Build postgresql-common generic source packages') {
             parallel {
-                stage('Build haproxy generic source rpm') {
+                stage('Build postgresql-common generic source rpm') {
                     agent {
                         label 'docker'
                     }
@@ -103,7 +103,7 @@ pipeline {
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Build haproxy generic source deb') {
+                stage('Build postgresql-common generic source deb') {
                     agent {
                         label 'docker'
                     }
@@ -118,7 +118,7 @@ pipeline {
                 }
             }  //parallel
         } // stage
-        stage('Build haproxy RPMs/DEBs/Binary tarballs') {
+        stage('Build postgresql-common RPMs/DEBs/Binary tarballs') {
             parallel {
                 stage('Centos 7') {
                     agent {

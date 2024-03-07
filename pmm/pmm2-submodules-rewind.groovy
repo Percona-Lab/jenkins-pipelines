@@ -16,15 +16,12 @@ pipeline {
             steps {
                 deleteDir()
 
-                git branch: 'PMM-2.0', credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
-                
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
                         # Configure git to push using ssh
                         export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
-                        git reset --hard
-                        git clean -xdff
+                        git clone --single-branch --branch "PMM-2.0" git@github.com:Percona-Lab/pmm-submodules .
                         git submodule update --remote --init --recommend-shallow --jobs 10
                         git submodule status
                         git status --untracked-files=all --ignore-submodules=none

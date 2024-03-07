@@ -346,21 +346,13 @@ pipeline {
 
                         def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                         def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
-                        // trigger workflow in GH to run testsuite tests
-                        sh """
-                            curl -v -X POST \
-                                -H "Accept: application/vnd.github.v3+json" \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/\$(echo ${CHANGE_URL} | cut -d '/' -f 4-5)/actions/workflows/pmm2-testsuite.yml/dispatches" \
-                                -d '{"ref":"${PMM_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}", "pmm_qa_branch": "${PMM_QA_GIT_BRANCH}", "client_version": "${CLIENT_URL}"}}'
-                        """
-                        // trigger workflow in GH to run ui tests
                         def PMM_UI_TESTS_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmUITestBranch").trim()
+                        // trigger FB tests workflow
                         sh """
                             curl -v -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/\$(echo ${CHANGE_URL} | cut -d '/' -f 4-5)/actions/workflows/pmm2-ui-tests-fb.yml/dispatches" \
+                                "https://api.github.com/repos/\$(echo ${CHANGE_URL} | cut -d '/' -f 4-5)/actions/workflows/pmm-qa-fb-checks.yml/dispatches" \
                                 -d '{"ref":"${PMM_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}", "pmm_qa_branch": "${PMM_QA_GIT_BRANCH}", "pmm_ui_branch": "${PMM_UI_TESTS_GIT_BRANCH}", "client_version": "${CLIENT_URL}"}}'
                         """
                     }
