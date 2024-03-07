@@ -555,6 +555,8 @@ parameters {
                     }
                     sh '''
                         PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                        PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
+                        PS_MAJOR_MINOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 6)}' | sed "s/-//g")
                         sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                         sudo apt-get install -y docker.io
                         sudo systemctl status docker
@@ -566,15 +568,18 @@ parameters {
                         git checkout PKG-14-Rework-5.7-tarballs
                         sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
                         sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile
-                        sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} --progress plain -f Dockerfile-pro .
+                        sudo docker build -t percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} --progress plain -f Dockerfile-pro .
+                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_RELEASE}
+                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_MAJOR_RELEASE}
+                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
                         sudo docker images
-                        sudo docker save perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} > percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker
+                        sudo docker save -o percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_RELEASE} percona/percona-server:${PS_MAJOR_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
                     '''
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                                 mkdir -p /srv/repo-copy/private/qa-test/ps-gated-${PS_RELEASE}
-                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker ${USER}@repo.ci.percona.com:/srv/repo-copy/private/qa-test/ps-gated-${PS_RELEASE}
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar ${USER}@repo.ci.percona.com:/srv/repo-copy/private/qa-test/ps-gated-${PS_RELEASE}
                         """
                     }
                }
