@@ -117,6 +117,8 @@ void runPlaybook(String action_to_test) {
         export install_repo="\${install_repo}"
         export client_to_test="ps57"
         export EOL="\${EOL}"
+        withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {  export PASSWORD="${PASSWORD}"
+        export USERNAME="${USERNAME}"
         ansible-playbook \
         --connection=local \
         --inventory 127.0.0.1, \
