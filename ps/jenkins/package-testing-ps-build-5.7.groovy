@@ -116,6 +116,7 @@ void runPlaybook(String action_to_test) {
     sh """
         export install_repo="\${install_repo}"
         export client_to_test="ps57"
+        export EOL="\${EOL}"
         ansible-playbook \
         --connection=local \
         --inventory 127.0.0.1, \
