@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@ps-eol', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 setup_rhel_package_tests = { ->
@@ -110,7 +110,7 @@ void runPlaybook(String action_to_test) {
     setup_package_tests()
 
     sh '''
-        git clone --depth 1 https://github.com/Percona-QA/package-testing
+        git clone --depth 1 -b ps-eol https://github.com/kaushikpuneet07/package-testing
     '''
 
     sh """
@@ -154,6 +154,11 @@ pipeline {
             name: "action_to_test",
             choices: ["all"] + all_actions,
             description: "Action to test on the product"
+        )
+        choice(
+            name: "EOL",
+            choices: ["Yes", "No"],
+            description: "EOL version or Normal"
         )
     }
 
