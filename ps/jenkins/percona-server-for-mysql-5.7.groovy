@@ -578,12 +578,20 @@ parameters {
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
                             pwd
-                            ls -la
-                            echo "scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball/"
-                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
-                            ls -la
+                            ls -la /tmp
                         """
                     }
+                    withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                        sh """
+                            pwd
+                            ls -la
+                            echo "scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball/"
+                            #scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
+                        """
+                    }
+                    sh '''
+                        date
+                    '''
                }
             }
         }
