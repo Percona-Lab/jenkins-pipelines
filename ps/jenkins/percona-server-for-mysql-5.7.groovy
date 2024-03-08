@@ -580,7 +580,7 @@ parameters {
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
                             cd percona-docker/percona-server-5.7
-                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                            PS_RELEASE=$(echo "${BRANCH}" | sed 's/release-//g')
                             scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
                         """
                     }
