@@ -574,17 +574,15 @@ parameters {
                         sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
                         sudo docker images
                         sudo docker save -o percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_RELEASE} percona/percona-server:${PS_MAJOR_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
-                        pwd
+                        sudo chown admin:admin percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar
                         ls -la
                     '''
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                        sh ''' 
-                            ls -la
+                        sh """
                             cd percona-docker/percona-server-5.7
-                            ls -la
                             PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                             scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
-                        '''
+                        """
                     }
                }
             }
