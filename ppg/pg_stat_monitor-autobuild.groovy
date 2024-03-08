@@ -80,6 +80,10 @@ pipeline {
             description: 'PPG major version to test',
             choices: ['11', '12', '13', '14', '15', '16']
         )
+        string(
+            defaultValue: 'ppg-16.0',
+            description: 'PPG repo name',
+            name: 'PPG_REPO')
         choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
             description: 'Repo component to push packages to',
@@ -340,7 +344,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild("ppg-${PG_RELEASE}", COMPONENT)
+                sync2ProdAutoBuild(PPG_REPO, COMPONENT)
             }
         }
     } //stages
