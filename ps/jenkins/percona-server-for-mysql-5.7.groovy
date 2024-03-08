@@ -576,12 +576,12 @@ parameters {
                         sudo docker save -o percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_RELEASE} percona/percona-server:${PS_MAJOR_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
                     '''
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                        sh """
+                        sh ''' 
                             ls -la
                             PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                            #scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball/
                             scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar ${USER}@repo.ci.percona.com:/tmp
-                        """
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
+                        '''
                     }
                }
             }
