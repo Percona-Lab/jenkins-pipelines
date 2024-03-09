@@ -1,7 +1,7 @@
 /* groovylint-disable DuplicateStringLiteral, GStringExpressionWithinString, LineLength */
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PKG-14-Rework-5.7-tarballs', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/adivinho/jenkins-pipelines.git'
 ]) _
 
 void installCli(String PLATFORM) {
@@ -149,7 +149,6 @@ parameters {
         } // stage
         stage('Build PS RPMs/DEBs/Binary tarballs') {
             parallel {
-/*
                 stage('Centos 7') {
                     agent {
                         label 'min-centos-7-x64'
@@ -164,7 +163,6 @@ parameters {
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
                 }
-*/
                 stage('Centos 8') {
                     agent {
                         label 'min-centos-8-x64'
@@ -179,7 +177,6 @@ parameters {
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
                 }
-/*
                 stage('Oracle Linux 9') {
                     agent {
                         label 'min-ol-9-x64'
@@ -264,7 +261,6 @@ parameters {
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
-*/
                 stage('Debian Bookworm(12)') {
                     agent {
                         label 'min-bookworm-x64'
@@ -292,7 +288,6 @@ parameters {
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
-/*
                 stage('Centos 7 debug tarball') {
                     agent {
                         label 'min-centos-7-x64'
@@ -514,7 +509,6 @@ parameters {
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
-*/
             }
         }
         stage('Upload packages and tarballs from S3') {
