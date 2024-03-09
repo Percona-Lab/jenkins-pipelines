@@ -33,7 +33,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 sudo yum makecache
             fi
 
-            if [[ "$CLIENT_VERSION" =~ dev-latest|3-dev-latest ]]; then
+            if [[ "$CLIENT_VERSION" = dev-latest ]]; then
                 sudo percona-release enable-only original experimental
                 sudo yum -y install pmm2-client
             elif [[ "$CLIENT_VERSION" = pmm2-rc ]]; then
@@ -56,7 +56,9 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 fi
                 sleep 10
             else
-                if [[ "$CLIENT_VERSION" = http* ]]; then
+                if [[ "$CLIENT_VERSION" = 3-dev-latest ]]; then
+                    aws s3 cp --only-show-errors s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz pmm-client.tar.gz
+                elif [[ "$CLIENT_VERSION" = http* ]]; then
                     curl -o pmm-client.tar.gz "${CLIENT_VERSION}"
                 else
                     curl -o pmm-client.tar.gz "https://www.percona.com/downloads/pmm2/${CLIENT_VERSION}/binary/tarball/pmm2-client-${CLIENT_VERSION}.tar.gz"
