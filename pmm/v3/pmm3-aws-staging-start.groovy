@@ -243,7 +243,7 @@ pipeline {
                         sudo yum repolist
 
                         sudo amazon-linux-extras enable epel
-                        sudo amazon-linux-extras enable php7.4
+                        sudo amazon-linux-extras enable php8.2
                         sudo yum --enablerepo epel install php -y
 
                         sudo yum install sysbench mysql-client -y
@@ -352,9 +352,7 @@ pipeline {
                                 set -o errexit
                                 set -o xtrace
 
-                                docker exec --user root pmm-server yum update -y percona-release
                                 docker exec --user root pmm-server percona-release enable percona testing
-                                docker exec --user root pmm-server yum clean all
                             '''
                         }
                     }
@@ -372,9 +370,7 @@ pipeline {
                             sh '''
                                 set -o errexit
                                 set -o xtrace
-                                docker exec --user root pmm-server yum update -y percona-release
                                 docker exec --user root pmm-server percona-release enable percona experimental
-                                docker exec --user root pmm-server yum clean all
                             '''
                         }
                     }
