@@ -94,6 +94,7 @@ pipeline {
                 }
                 script {
                     env.PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+                    env.GIT_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                 }
                 stash includes: 'apiBranch', name: 'apiBranch'
                 stash includes: 'apiURL', name: 'apiURL'
@@ -121,9 +122,6 @@ pipeline {
         }
         stage('Build client binary') {
             steps {
-                script {
-                    env.GIT_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
-                }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         set -o errexit
@@ -241,6 +239,7 @@ pipeline {
                         unstash 'IMAGE'
                         unstash 'pmmQABranch'
                         unstash 'pmmUITestBranch'
+                        unstash 'fbCommitSha'
                         def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                         def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
                         def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()

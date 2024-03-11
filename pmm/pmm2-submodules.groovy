@@ -105,6 +105,7 @@ pipeline {
                 }
                 script {
                     env.PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+                    env.GIT_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                 }
                 stash includes: 'apiBranch', name: 'apiBranch'
                 stash includes: 'apiURL', name: 'apiURL'
@@ -120,23 +121,20 @@ pipeline {
         stage('Build client source') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
 
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
                         ${PATH_TO_SCRIPTS}/build-client-source
-                    """
+                    '''
                 }
             }
         }
         stage('Build client binary') {
             steps {
-                script {
-                    env.GIT_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
-                }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
 
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
@@ -145,8 +143,8 @@ pipeline {
                         aws s3 cp \
                             --acl public-read \
                             results/tarball/pmm2-client-*.tar.gz \
-                            s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-\${BRANCH_NAME}-\${GIT_COMMIT:0:7}.tar.gz
-                    """
+                            s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz
+                    '''
                 }
                 script {
                     def clientPackageURL = sh script:'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL', returnStdout: true
@@ -227,12 +225,12 @@ pipeline {
                     """
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
                         export PUSH_DOCKER=1
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
                         ${PATH_TO_SCRIPTS}/build-client-docker
-                    """
+                    '''
                 }
                 stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
                 archiveArtifacts 'results/docker/CLIENT_TAG'
@@ -287,12 +285,12 @@ pipeline {
                     """
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+                        export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
                         ${PATH_TO_SCRIPTS}/build-server-docker
-                    """
+                    '''
                 }
                 stash includes: 'results/docker/TAG', name: 'IMAGE'
                 archiveArtifacts 'results/docker/TAG'
@@ -313,7 +311,7 @@ pipeline {
                         set -o errexit
 
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+                        export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
 
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                         export RPMBUILD_DIST="el9"
