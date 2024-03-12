@@ -371,7 +371,6 @@ pipeline {
                         string(name: 'DOCKER_VERSION', value: IMAGE),
                         string(name: 'GIT_URL', value: API_TESTS_URL),
                         string(name: 'GIT_BRANCH', value: API_TESTS_BRANCH),
-                        string(name: 'OWNER', value: "FB"),
                         string(name: 'GIT_COMMIT_HASH', value: GIT_COMMIT_HASH)
                     ]
                     env.API_TESTS_URL = apiTestJob.absoluteUrl
