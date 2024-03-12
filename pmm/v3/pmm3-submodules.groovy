@@ -54,6 +54,7 @@ pipeline {
                 git poll: false,
                     branch: PMM_BRANCH,
                     url: 'http://github.com/Percona-Lab/pmm-submodules'
+
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                 sh '''
                     set -o errexit
@@ -94,7 +95,7 @@ pipeline {
                 }
                 script {
                     env.PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
-                    env.GIT_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
+                    env.FB_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                 }
                 stash includes: 'apiBranch', name: 'apiBranch'
                 stash includes: 'apiURL', name: 'apiURL'
@@ -132,11 +133,11 @@ pipeline {
                         aws s3 cp \
                             --acl public-read \
                             results/tarball/pmm-client-*.tar.gz \
-                            s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz
+                            s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${FB_COMMIT:0:7}.tar.gz
                     '''
                 }
                 script {
-                    sh (script: 'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL')
+                    sh (script: 'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${FB_COMMIT:0:7}.tar.gz" | tee CLIENT_URL')
                     env.CLIENT_URL = sh (script: "cat CLIENT_URL", returnStdout: true).trim()
                 }
             }
@@ -180,7 +181,7 @@ pipeline {
                     sh '''
                         set -o errexit
                         export PUSH_DOCKER=1
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
+                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:${BRANCH_NAME}-${FB_COMMIT:0:7}
                         ${PATH_TO_SCRIPTS}/build-client-docker
                     '''
                 }
@@ -219,7 +220,7 @@ pipeline {
                         set -o errexit
 
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
+                        export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${FB_COMMIT:0:7}
 
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3
                         export RPMBUILD_DIST=el9
