@@ -3,18 +3,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runAPItests(String DOCKER_IMAGE_VERSION, GIT_URL, GIT_BRANCH, GIT_COMMIT_HASH, CLIENT_VERSION) {
-    apiTestJob = build job: 'pmm2-api-tests', propagate: false, parameters: [
-        string(name: 'DOCKER_VERSION', value: DOCKER_IMAGE_VERSION),
-        string(name: 'GIT_URL', value: GIT_URL),
-        string(name: 'GIT_BRANCH', value: GIT_BRANCH),
-        string(name: 'OWNER', value: "FB"),
-        string(name: 'GIT_COMMIT_HASH', value: GIT_COMMIT_HASH)
-    ]
-    env.API_TESTS_URL = apiTestJob.absoluteUrl
-    env.API_TESTS_RESULT = apiTestJob.result
-}
-
 void addComment(String COMMENT) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
         sh """
@@ -367,14 +355,22 @@ pipeline {
                             unstash 'apiBranch'
                             unstash 'apiCommitSha'
                             def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                            def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
-                            def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                             def API_TESTS_URL = sh(returnStdout: true, script: "cat apiURL").trim()
                             def API_TESTS_BRANCH = sh(returnStdout: true, script: "cat apiBranch").trim()
                             def GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat apiCommitSha").trim()
-                            runAPItests(IMAGE, API_TESTS_URL, API_TESTS_BRANCH, GIT_COMMIT_HASH, CLIENT_URL)
+
+                            apiTestJob = build job: 'pmm2-api-tests', propagate: false, parameters: [
+                                string(name: 'DOCKER_VERSION', value: IMAGE),
+                                string(name: 'GIT_URL', value: API_TESTS_URL),
+                                string(name: 'GIT_BRANCH', value: API_TESTS_BRANCH),
+                                string(name: 'OWNER', value: "FB"),
+                                string(name: 'GIT_COMMIT_HASH', value: GIT_COMMIT_HASH)
+                            ]
+                            env.API_TESTS_URL = apiTestJob.absoluteUrl
+                            env.API_TESTS_RESULT = apiTestJob.result
+
                             if (!env.API_TESTS_RESULT.equals("SUCCESS")) {
-                                sh "exit 1"
+                                error "API tests failed."
                             }
                         }
                     }
@@ -385,26 +381,31 @@ pipeline {
 
     }
     post {
+        success {
+            script {
+                if (params.CHANGE_URL) {
+                    unstash 'IMAGE'
+                    def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
+                }
+            }
+        }
+        failure {
+            script {
+                if (env.API_TESTS_RESULT != "SUCCESS" && env.API_TESTS_URL) {
+                    addComment("API tests have failed, Please check: API: ${API_TESTS_URL}")
+                }
+                if (env.BATS_TESTS_RESULT != "SUCCESS" && env.BATS_TESTS_URL) {
+                    addComment("pmm2-client testsuite has failed, Please check: BATS: ${BATS_TESTS_URL}")
+                }
+                if (env.UI_TESTS_RESULT != "SUCCESS" && env.UI_TESTS_URL) {
+                    addComment("UI tests have failed, Please check: UI: ${UI_TESTS_URL}")
+                }
+            }
+        }
         always {
             script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    if (params.CHANGE_URL) {
-                        unstash 'IMAGE'
-                        def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                        slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
-                    }
-                } else {
-                    if(env.API_TESTS_RESULT != "SUCCESS" && env.API_TESTS_URL) {
-                        addComment("API tests have failed, Please check: API: ${API_TESTS_URL}")
-                    }
-                    if(env.BATS_TESTS_RESULT != "SUCCESS" && env.BATS_TESTS_URL) {
-                        addComment("pmm2-client testsuite has failed, Please check: BATS: ${BATS_TESTS_URL}")
-                    }
-                    if(env.UI_TESTS_RESULT != "SUCCESS" && env.UI_TESTS_URL) {
-                        addComment("UI tests have failed, Please check: UI: ${UI_TESTS_URL}")
-                    }
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} build job link: ${BUILD_URL}"
-                }
+                slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
             }
         }
     }
