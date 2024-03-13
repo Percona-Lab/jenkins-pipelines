@@ -37,6 +37,9 @@ def call(String PRODUCT_NAME, String PRODUCT_VERSION) {
 
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                         cp ${path_to_build}/binary/tarball/* /srv/repo-copy/private/qa-test/${PRODUCT_NAME}-\${cutProductVersion}
+
+                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                        rsync -avt --delete --delete-excluded --delete-after --progress --exclude=*.sh --exclude=*.bak /srv/repo-copy/private/qa-test/* 10.30.9.32:/www/repo.percona.com/htdocs/private/qa-test/
                 fi
 
                 curl https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory

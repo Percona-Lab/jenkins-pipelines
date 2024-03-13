@@ -105,6 +105,7 @@ pipeline {
                 }
                 script {
                     env.PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+                    env.GIT_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                 }
                 stash includes: 'apiBranch', name: 'apiBranch'
                 stash includes: 'apiURL', name: 'apiURL'
@@ -120,23 +121,20 @@ pipeline {
         stage('Build client source') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
 
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
                         ${PATH_TO_SCRIPTS}/build-client-source
-                    """
+                    '''
                 }
             }
         }
         stage('Build client binary') {
             steps {
-                script {
-                    env.GIT_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
-                }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
 
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
@@ -145,8 +143,8 @@ pipeline {
                         aws s3 cp \
                             --acl public-read \
                             results/tarball/pmm2-client-*.tar.gz \
-                            s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-\${BRANCH_NAME}-\${GIT_COMMIT:0:7}.tar.gz
-                    """
+                            s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz
+                    '''
                 }
                 script {
                     def clientPackageURL = sh script:'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL', returnStdout: true
@@ -227,12 +225,12 @@ pipeline {
                     """
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
                         export PUSH_DOCKER=1
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
                         ${PATH_TO_SCRIPTS}/build-client-docker
-                    """
+                    '''
                 }
                 stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
                 archiveArtifacts 'results/docker/CLIENT_TAG'
@@ -287,12 +285,12 @@ pipeline {
                     """
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+                        export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
                         ${PATH_TO_SCRIPTS}/build-server-docker
-                    """
+                    '''
                 }
                 stash includes: 'results/docker/TAG', name: 'IMAGE'
                 archiveArtifacts 'results/docker/TAG'
@@ -313,7 +311,7 @@ pipeline {
                         set -o errexit
 
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+                        export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
 
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                         export RPMBUILD_DIST="el9"
@@ -346,22 +344,14 @@ pipeline {
 
                         def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                         def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
-                        // trigger workflow in GH to run testsuite tests
-                        sh """
-                            curl -v -X POST \
-                                -H "Accept: application/vnd.github.v3+json" \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/\$(echo ${CHANGE_URL} | cut -d '/' -f 4-5)/actions/workflows/pmm2-testsuite.yml/dispatches" \
-                                -d '{"ref":"${PMM_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}", "pmm_qa_branch": "${PMM_QA_GIT_BRANCH}", "client_version": "${CLIENT_URL}"}}'
-                        """
-                        // trigger workflow in GH to run ui tests
                         def PMM_UI_TESTS_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmUITestBranch").trim()
+                        // trigger FB tests workflow
                         sh """
                             curl -v -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/\$(echo ${CHANGE_URL} | cut -d '/' -f 4-5)/actions/workflows/pmm2-ui-tests-fb.yml/dispatches" \
-                                -d '{"ref":"${PMM_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}", "pmm_qa_branch": "${PMM_QA_GIT_BRANCH}", "pmm_ui_branch": "${PMM_UI_TESTS_GIT_BRANCH}", "client_version": "${CLIENT_URL}"}}'
+                                "https://api.github.com/repos/\$(echo ${CHANGE_URL} | cut -d '/' -f 4-5)/actions/workflows/pmm-qa-fb-checks.yml/dispatches" \
+                                -d '{"ref":"${PMM_BRANCH}","inputs":{"pmm_server_image":"${IMAGE}","pmm_client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}", "pmm_qa_branch": "${PMM_QA_GIT_BRANCH}", "pmm_ui_tests_branch": "${PMM_UI_TESTS_GIT_BRANCH}", "pmm_client_version": "${CLIENT_URL}"}}'
                         """
                     }
                 }
