@@ -238,9 +238,9 @@ pipeline {
                         sudo yum --enablerepo epel install php -y
 
                         sudo yum install sysbench mysql-client -y
-                        sudo mkdir -p /srv/pmm-qa || :
-                        pushd /srv/pmm-qa
-                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                        sudo mkdir -p /srv/qa-integration || :
+                        pushd /srv/qa-integration
+                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
                             sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
                             sudo wget https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
                             sudo chmod 755 get_download_link.sh
@@ -415,22 +415,9 @@ pipeline {
                                 export PMM_SERVER_IP=${IP}
                             fi
 
-                            bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
-                                --ms-version  ${MS_VERSION} \
-                                --mo-version  ${MO_VERSION} \
-                                --ps-version  ${PS_VERSION} \
-                                --modb-version ${MODB_VERSION} \
-                                --md-version  ${MD_VERSION} \
-                                --pgsql-version ${PGSQL_VERSION} \
-                                --pxc-version ${PXC_VERSION} \
-                                --pdpgsql-version ${PDPGSQL_VERSION} \
-                                --download \
-                                ${CLIENTS} \
-                                --pmm2 \
-                                --dbdeployer \
-                                --run-load-pmm2 \
-                                --query-source=${QUERY_SOURCE} \
-                                --pmm2-server-ip=$PMM_SERVER_IP
+			    sudo python /srv/pmm-qa/pmm_qa/pmm-framework.py \
+                            --pmm-server-ip=$PMM_SERVER_IP \
+                            ${CLIENTS}
                         fi
                     '''
                 }
