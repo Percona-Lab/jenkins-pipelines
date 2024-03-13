@@ -415,7 +415,7 @@ pipeline {
                                 export PMM_SERVER_IP=${IP}
                             fi
 
-			    sudo python /srv/pmm-qa/pmm_qa/pmm-framework.py \
+			    sudo -E python /srv/qa-integration/pmm_qa/pmm-framework.py \
                             --pmm-server-ip=$PMM_SERVER_IP \
                             ${CLIENTS}
                         fi
