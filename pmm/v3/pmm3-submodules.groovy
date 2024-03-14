@@ -377,7 +377,7 @@ pipeline {
                     env.API_TESTS_RESULT = apiTestJob.result
 
                     if (!env.API_TESTS_RESULT.equals("SUCCESS")) {
-                        sh "exit 1"
+                        error "API tests failed."
                     }
                 }
             }
