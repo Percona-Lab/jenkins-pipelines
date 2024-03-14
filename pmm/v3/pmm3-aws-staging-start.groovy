@@ -116,7 +116,7 @@ pipeline {
             name: 'VERSION_SERVICE_IMAGE'
         )
         text(
-            defaultValue: '-e PMM_DEBUG=1 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ -e PERCONA_PORTAL_URL=https://portal-dev.percona.com  -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443',
+            defaultValue: '-e PMM_DEBUG=1 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com',
             description: '''
             Passing environment variables to PMM Server Docker container is supported for PMM v2 and up.
             Example: -e PERCONA_TEST_CHECKS_INTERVAL=30s -e PERCONA_TEST_TELEMETRY_DISABLE_START_DELAY=1 -e PMM_DEBUG=1
@@ -302,7 +302,7 @@ pipeline {
                                         --hostname pmm-server \
                                         --network pmm-qa \
                                         --restart always \
-                                        -e DISABLE_TELEMETRY=1 \
+                                        -e ENABLE_TELEMETRY=0 \
                                         $ENV_VARIABLE \
                                         ${DOCKER_VERSION}
 
